@@ -31,9 +31,8 @@ const PLAYER_SESSION_INIT_RETRY_MS = 100;
 const PLAYER_SESSION_INIT_ELECTION_MS = 100;
 
 // ── State ─────────────────────────────────────────────────
-// navStack / mode(list|entry) / viewEntryId / commandOutput are mirrors of
-// the server's shared nav state — every connected player sees the same
-// position. Only selIndex (the keyboard highlight) stays local per client.
+// Navigation and semantic selection/page/preview are authoritative mirrors.
+// Only the connected active controller may request presentation changes.
 let hasLive       = false;
 let terminalID    = '';
 let terminalBroadcastID = '';
@@ -49,6 +48,7 @@ let commandOutput = null;
 let currentCommandNodeId = null;
 let commandExecution = null;
 let terminalNavigation = null;
+let controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
 
 // Typewriter reveal: only replay when the shown content actually changed.
 let lastRenderedFolderKey  = null;
@@ -88,6 +88,9 @@ let sessionReady = false;
 let playerState = null;
 let pendingSelection = null;
 let pendingSharedAction = null;
+let pendingPresentationAction = null;
+let desiredPresentationAction = null;
+let presentationDrainScheduled = false;
 let appliedSharedRevision = 0;
 let transientPlayerNotice = '';
 
@@ -362,6 +365,7 @@ async function connectPlayer() {
   reconnectTimer = null;
 
   sessionReady = false;
+  clearControllerPresentationDispatch();
   terminalLiveBaselinePending = true;
   connOverlay.classList.remove('hidden');
   connText.textContent = 'УСТАНОВКА СВЯЗИ...';
@@ -404,6 +408,7 @@ async function drainSubscription(iterator, controller, generation) {
 
 function scheduleReconnect() {
   sessionReady = false;
+  clearControllerPresentationDispatch();
   terminalLiveBaselinePending = true;
   signalRecognitionChange();
   connOverlay.classList.remove('hidden');
@@ -467,8 +472,26 @@ function applyGeneratedTerminal(presentation, revision) {
     nav: generatedNavigation(live.navigation),
     hack: generatedHack(live.hacking),
     commandExecution: generatedCommandExecution(live.commandExecution),
-  terminalNavigation: generatedTerminalNavigation(live.terminalNavigation),
+    terminalNavigation: generatedTerminalNavigation(live.terminalNavigation),
+    presentation: generatedControllerPresentation(live.controllerPresentation),
   });
+}
+
+function generatedControllerPresentation(presentation) {
+  if (!presentation) return { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+  const result = {
+    kind: presentation.presentation.case || 'none',
+    contextKey: presentation.contextKey || '',
+    targetId: '', patternId: '', pageIndex: 0,
+  };
+  if (presentation.presentation.case === 'menu') result.targetId = presentation.presentation.value.targetId || '';
+  if (presentation.presentation.case === 'page') result.pageIndex = Number(presentation.presentation.value.pageIndex || 0);
+  if (presentation.presentation.case === 'hacking') {
+    const target = presentation.presentation.value.target;
+    if (target.case === 'targetId') result.targetId = target.value || '';
+    if (target.case === 'patternId') result.patternId = target.value || '';
+  }
+  return result;
 }
 
 function generatedTerminalNavigation(navigation) {
@@ -588,6 +611,27 @@ async function applyMutationResult(operation) {
   }
 }
 
+async function applyPresentationMutationResult(requestId, operation) {
+  if (!sessionReady) return;
+  try {
+    const result = await operation();
+    if (result) applyActionResult({
+      requestId: result.requestId,
+      accepted: result.accepted,
+      reason: actionReasonName(result.reason),
+      revision: Number(result.revision),
+    });
+  } catch (error) {
+    console.warn('Player presentation mutation failed', error);
+    if (pendingPresentationAction?.requestId === requestId) {
+      pendingPresentationAction = null;
+      showPlayerNotice('ДЕЙСТВИЕ ОТКЛОНЕНО');
+      renderPlayerContext();
+      scheduleDesiredPresentationDispatch();
+    }
+  }
+}
+
 function selectCharacterRPC(requestId, broadcastId, characterId) {
   return applyMutationResult(() => playerRPC.selectCharacter({
     recognitionHandle: readBrowserToken(), requestId, broadcastId, characterId,
@@ -619,6 +663,25 @@ function activatePatternRPC(requestId, broadcastId, terminalId, patternId) {
   }));
 }
 
+function setPresentationRPC(requestId, broadcastId, terminalId, presentation) {
+  let variant = { case: 'none', value: {} };
+  if (presentation.kind === 'menu') {
+    variant = { case: 'menu', value: { targetId: presentation.targetId } };
+  } else if (presentation.kind === 'page') {
+    variant = { case: 'page', value: { pageIndex: presentation.pageIndex } };
+  } else if (presentation.kind === 'hacking') {
+    const target = presentation.patternId
+      ? { case: 'patternId', value: presentation.patternId }
+      : { case: 'targetId', value: presentation.targetId };
+    variant = { case: 'hacking', value: { target } };
+  }
+  return playerRPC.setPresentation({
+    recognitionHandle: readBrowserToken(), requestId, broadcastId, terminalId,
+    contextKey: presentation.contextKey,
+    presentation: { contextKey: presentation.contextKey, presentation: variant },
+  });
+}
+
 function actionReasonName(reason) {
   return ({
     [ActionReason.ACCEPTED]: 'accepted',
@@ -641,10 +704,10 @@ function applyNavFromServer(nav) {
   viewEntryId   = nav.viewEntryId || null;
   currentCommandNodeId = nav.commandNodeId || null;
   commandOutput = nav.commandNodeId ? ((findNodeById(tree, nav.commandNodeId) || {}).text ?? null) : null;
-  selIndex      = 0;
   if (mode !== MODE.HACK) {
     mode = nav.mode === 'entry' ? MODE.ENTRY : MODE.LIST;
   }
+  applyPresentationSelection();
 }
 
 function acceptSharedSnapshot(message) {
@@ -656,6 +719,7 @@ function acceptSharedSnapshot(message) {
   appliedSharedRevision = revision;
   screen.dataset.runtimeRevision = String(revision);
   completeAcceptedSharedAction();
+  completeAcceptedPresentationAction();
   return true;
 }
 
@@ -689,6 +753,14 @@ function completeAcceptedSharedAction() {
   showPlayerNotice('');
 }
 
+function completeAcceptedPresentationAction() {
+  if (!pendingPresentationAction || pendingPresentationAction.acceptedRevision == null) return;
+  if (appliedSharedRevision < pendingPresentationAction.acceptedRevision) return;
+  pendingPresentationAction = null;
+  showPlayerNotice('');
+  scheduleDesiredPresentationDispatch();
+}
+
 function clearBroadcastMirrors() {
   hasLive = false;
   terminalID = '';
@@ -705,6 +777,7 @@ function clearBroadcastMirrors() {
   currentCommandNodeId = null;
   commandExecution = null;
   terminalNavigation = null;
+  controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
   lastRenderedFolderKey = null;
   lastRenderedEntryId = null;
   lastRenderedCommandKey = null;
@@ -779,6 +852,7 @@ function applyRecognitionSnapshot(recognitionHandle, state) {
     terminalLiveBaselinePending = true;
     pendingSelection = null;
     pendingSharedAction = null;
+    clearControllerPresentationDispatch();
     showPlayerNotice('');
     applyPlayerState(state, { authoritativeWelcome: true });
     if (!hasCurrentTerminalMirror()) appliedSharedRevision = 0;
@@ -803,7 +877,13 @@ function applyLiveTerminal(msg) {
     hackLevel     = msg.hackLevel || 0;
     hack          = msg.hack || null;
     commandExecution = msg.commandExecution || null;
-  terminalNavigation = msg.terminalNavigation || null;
+    terminalNavigation = msg.terminalNavigation || null;
+    const previousPresentation = controllerPresentation;
+    controllerPresentation = msg.presentation || { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+    if (desiredPresentationAction &&
+        desiredPresentationAction.contextKey !== controllerPresentation.contextKey) {
+      desiredPresentationAction = null;
+    }
     serverNum     = 1 + Math.floor(Math.random() * 9);
     if (!isContinuousTerminalUpdate) {
       hackTyped     = '';
@@ -822,7 +902,6 @@ function applyLiveTerminal(msg) {
     viewEntryId   = nav.viewEntryId || null;
     currentCommandNodeId = nav.commandNodeId || null;
     commandOutput = nav.commandNodeId ? ((findNodeById(tree, nav.commandNodeId) || {}).text ?? null) : null;
-    selIndex      = 0;
     if (terminalIdentityChanged) {
       lastRenderedFolderKey  = null;
       lastRenderedEntryId    = null;
@@ -835,12 +914,34 @@ function applyLiveTerminal(msg) {
       ? MODE.HACK
       : (nav.mode === 'entry' ? MODE.ENTRY : MODE.LIST);
 
+    applyPresentationSelection();
+    playControllerPresentationCue(previousPresentation, controllerPresentation, terminalLiveBaselinePending);
+
     if (isContinuousTerminalUpdate) playHackOutcomeTransition(previousHack, hack);
     if (isContinuousTerminalUpdate) scheduleHackSolvedNavigation();
     terminalLiveBaselinePending = false;
 
     setAmbientActive(true);
     render();
+}
+
+function applyPresentationSelection() {
+  if (controllerPresentation.kind !== 'menu') return;
+  const kids = currentFolderNode()?.children || [];
+  const index = kids.findIndex(node => node.id === controllerPresentation.targetId);
+  selIndex = index >= 0 ? index : 0;
+}
+
+function playControllerPresentationCue(previous, next, baseline) {
+  if (baseline || !next || JSON.stringify(previous) === JSON.stringify(next)) return;
+  if (next.kind === 'menu') {
+    playMenuFocus();
+  } else if (next.kind === 'hacking') {
+    if (next.patternId || !/^\d+:\d+$/.test(next.targetId)) playMultiple();
+    else playSingle();
+  } else if (next.kind === 'page') {
+    playEnter();
+  }
 }
 
 function applyNavigationProjection(nav, revision, projectedTerminalID) {
@@ -875,6 +976,7 @@ function applyNoLiveTerminal(revision) {
     hack = null;
     commandExecution = null;
   terminalNavigation = null;
+  controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
     clearTimeout(hackSolvedTimer);
     hackSolvedTimer = null;
     setAmbientActive(false);
@@ -936,16 +1038,25 @@ function applyPlayerState(nextState, { authoritativeWelcome = false } = {}) {
 
   const broadcastChanged = previousState !== null &&
     previousState.broadcastId !== nextPlayerState.broadcastId;
+  const activeTerminalChanged = previousState !== null &&
+    previousState.activeTerminalId !== nextPlayerState.activeTerminalId;
   const outsideBroadcast = nextPlayerState.broadcastId === null ||
     nextPlayerState.phase === 'no-broadcast';
   if (broadcastChanged || outsideBroadcast) {
     pendingSelection = null;
     pendingSharedAction = null;
+    clearControllerPresentationDispatch();
     clearBroadcastMirrors();
     showPlayerNotice('');
   } else if (pendingSelection && nextPlayerState.phase !== 'selecting') {
     pendingSelection = null;
     showPlayerNotice('');
+  }
+
+  if (activeTerminalChanged) clearControllerPresentationDispatch();
+
+  if (nextPlayerState.role !== 'active' || nextPlayerState.phase !== 'controlling') {
+    clearControllerPresentationDispatch();
   }
 
   if (authoritativeWelcome || !hasCurrentTerminalMirror()) {
@@ -974,6 +1085,19 @@ function applyPlayerState(nextState, { authoritativeWelcome = false } = {}) {
 }
 
 function applyActionResult(result) {
+  if (pendingPresentationAction && result.requestId === pendingPresentationAction.requestId) {
+    if (!result.accepted) {
+      pendingPresentationAction = null;
+      showPlayerNotice(`ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`);
+      scheduleDesiredPresentationDispatch();
+    } else {
+      pendingPresentationAction.acceptedRevision = Number(result.revision) || 0;
+      completeAcceptedPresentationAction();
+    }
+    renderPlayerContext();
+    return;
+  }
+
   if (pendingSharedAction && result.requestId === pendingSharedAction.requestId) {
     if (!result.accepted) {
       pendingSharedAction = null;
@@ -1036,6 +1160,16 @@ function canControlSharedTerminal() {
   return canControlSharedTerminalAction('');
 }
 
+function canControlTerminalPresentation() {
+  return sessionReady && playerState !== null && hasCurrentTerminalMirror() &&
+    terminalNavigation?.pending == null &&
+    playerState.role === 'active' &&
+    playerState.phase === 'controlling' &&
+    playerState.broadcastId !== null &&
+    playerState.activeTerminalId !== null &&
+    playerState.activeTerminalId === terminalID;
+}
+
 function beginSharedMutation(procedure, invoke) {
   if (!canControlSharedTerminal()) return false;
 
@@ -1055,6 +1189,80 @@ function beginSharedMutationForAction(procedure, invoke, action) {
   showPlayerNotice('');
   renderPlayerContext();
   void invoke(requestId, playerState.broadcastId, playerState.activeTerminalId);
+  return true;
+}
+
+function beginControllerPresentation(next) {
+  if (!canControlTerminalPresentation() || !controllerPresentation.contextKey) return false;
+  const presentation = {
+    kind: next.kind || 'none',
+    contextKey: controllerPresentation.contextKey,
+    targetId: next.targetId || '',
+    patternId: next.patternId || '',
+    pageIndex: Number(next.pageIndex || 0),
+  };
+
+  if (pendingPresentationAction) {
+    if (sameControllerPresentation(presentation, pendingPresentationAction.presentation)) {
+      desiredPresentationAction = null;
+      return true;
+    }
+    if (sameControllerPresentation(presentation, desiredPresentationAction)) return false;
+    desiredPresentationAction = presentation;
+    return true;
+  }
+
+  desiredPresentationAction = null;
+  return dispatchControllerPresentation(presentation);
+}
+
+function sameControllerPresentation(left, right) {
+  return !!left && !!right && left.kind === right.kind &&
+    left.contextKey === right.contextKey &&
+    left.targetId === right.targetId &&
+    left.patternId === right.patternId &&
+    left.pageIndex === right.pageIndex;
+}
+
+function clearControllerPresentationDispatch() {
+  pendingPresentationAction = null;
+  desiredPresentationAction = null;
+  presentationDrainScheduled = false;
+}
+
+function scheduleDesiredPresentationDispatch() {
+  if (presentationDrainScheduled || !desiredPresentationAction) return;
+  presentationDrainScheduled = true;
+  queueMicrotask(() => {
+    presentationDrainScheduled = false;
+    if (pendingPresentationAction || !desiredPresentationAction) return;
+    const presentation = desiredPresentationAction;
+    desiredPresentationAction = null;
+    if (!canControlTerminalPresentation() ||
+        presentation.contextKey !== controllerPresentation.contextKey ||
+        sameControllerPresentation(presentation, controllerPresentation)) {
+      return;
+    }
+    dispatchControllerPresentation(presentation);
+  });
+}
+
+function dispatchControllerPresentation(presentation) {
+  if (!canControlTerminalPresentation() || !controllerPresentation.contextKey ||
+      presentation.contextKey !== controllerPresentation.contextKey ||
+      sameControllerPresentation(presentation, controllerPresentation)) {
+    return false;
+  }
+  const requestId = createRequestID();
+  pendingPresentationAction = { requestId, acceptedRevision: null, presentation };
+  showPlayerNotice('');
+  renderPlayerContext();
+  void applyPresentationMutationResult(requestId, () => setPresentationRPC(
+    requestId,
+    playerState.broadcastId,
+    playerState.activeTerminalId,
+    presentation,
+  ));
   return true;
 }
 
@@ -1148,9 +1356,10 @@ function renderPlayerContext() {
   const commandRequestPending = commandExecution?.phase === 'pending';
   const terminalNavigationPending = terminalNavigation?.pending != null;
   const commandRequestRejected = commandExecution?.phase === 'rejected';
+  const blockingSharedInputPending = pendingSharedAction !== null || commandRequestPending || terminalNavigationPending;
   roleBadge.dataset.role = hasState ? playerState.role : '';
   screen.classList.toggle('observer-read-only', observerReadOnly);
-  screen.classList.toggle('shared-input-pending', pendingSharedAction !== null || commandRequestPending || terminalNavigationPending);
+  screen.classList.toggle('shared-input-pending', blockingSharedInputPending);
   screen.classList.toggle('shared-command-rejected', commandRequestRejected);
   screen.setAttribute('aria-readonly', String(observerReadOnly));
   renderPlayerNotice();
@@ -1250,12 +1459,10 @@ let lastMenuHoverIdx = null;
 termList.addEventListener('mouseover', (e) => {
   const row = e.target.closest('.term-row');
   if (!row || row.dataset.idx == null) return;
+  if (!canControlTerminalPresentation()) return;
   if (row.dataset.idx === lastMenuHoverIdx) return;
   lastMenuHoverIdx = row.dataset.idx;
-  playMenuFocus();
-  selIndex = Number(row.dataset.idx);
-  termList.querySelectorAll('.term-row.sel').forEach(el => el.classList.remove('sel'));
-  row.classList.add('sel');
+  beginControllerPresentation({ kind: 'menu', targetId: row.dataset.nodeId });
 });
 termList.addEventListener('mouseleave', () => { lastMenuHoverIdx = null; });
 
@@ -1289,7 +1496,9 @@ function scheduleHackHoverClear(key) {
   cancelHackHoverClear();
   hackHoverClearTimer = setTimeout(() => {
     hackHoverClearTimer = null;
-    if (hackHoverKey === key) setHackHover(null, true);
+    if (hackHoverKey === key && canControlTerminalPresentation()) {
+      beginControllerPresentation({ kind: 'none' });
+    }
   }, 0);
 }
 
@@ -1324,21 +1533,15 @@ function setHackPatternHover(pattern) {
 }
 
 function previewHackCell(cell) {
-  if (!cell) return;
+  if (!cell || !canControlTerminalPresentation()) return;
   cancelHackHoverClear();
   const pattern = patternAtCell(cell);
   if (pattern) {
-    if (pattern.used) setHackPatternHover(null);
-    else if (pattern.id !== hackHoverKey) {
-      setHackPatternHover(pattern);
-      playMultiple();
-    }
+    if (!pattern.used) beginControllerPresentation({ kind: 'hacking', patternId: pattern.id });
     return;
   }
   const key = cell.dataset.target;
-  if (key === hackHoverKey) return;
-  setHackHover(key);
-  if (cell.classList.contains('word')) playMultiple(); else playSingle();
+  beginControllerPresentation({ kind: 'hacking', targetId: key });
 }
 
 hackColumns.addEventListener('mouseover', (e) => {
@@ -1429,6 +1632,13 @@ document.addEventListener('keyup', releaseConsumedRevealKey, { capture: true });
 document.addEventListener('keydown', (e) => {
   if (!hasLive) return;
 
+  if (!canControlTerminalPresentation()) {
+    if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', 'Enter', 'Escape', 'Backspace'].includes(e.key) || e.key.length === 1) {
+      e.preventDefault();
+    }
+    return;
+  }
+
   if (mode === MODE.HACK) {
     if (!hack || hack.solved || hack.failed) return;
     if (e.key === 'Enter') {
@@ -1502,16 +1712,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown') {
     if (kids.length) {
       const next = Math.min(kids.length - 1, selIndex + 1);
-      if (next !== selIndex) { selIndex = next; playMultiple(); }
+      if (next !== selIndex) beginControllerPresentation({ kind: 'menu', targetId: kids[next].id });
     }
-    render();
     e.preventDefault();
   } else if (e.key === 'ArrowUp') {
     if (kids.length) {
       const next = Math.max(0, selIndex - 1);
-      if (next !== selIndex) { selIndex = next; playMultiple(); }
+      if (next !== selIndex) beginControllerPresentation({ kind: 'menu', targetId: kids[next].id });
     }
-    render();
     e.preventDefault();
   } else if (e.key === 'Enter') {
     if (kids[selIndex]) activateRow(kids[selIndex]);
@@ -1720,7 +1928,10 @@ function recalculatePagination(resetPage, animate) {
   if (pagedView.kind === null || !pagedView.container) return;
   const previousIndex = resetPage ? 0 : pagedView.index;
   pagedView.pages = paginateText(pagedView.container, pagedView.text);
-  pagedView.index = Math.min(previousIndex, pagedView.pages.length - 1);
+  const authoritativeIndex = controllerPresentation.kind === 'page'
+    ? controllerPresentation.pageIndex
+    : previousIndex;
+  pagedView.index = Math.min(authoritativeIndex, pagedView.pages.length - 1);
   renderPagedView(animate && pagedView.index === 0);
 }
 
@@ -1737,6 +1948,9 @@ function activatePagination(kind, key, text, container, animate) {
   if (identityChanged || contentChanged) {
     recalculatePagination(identityChanged, animate);
   } else {
+    if (controllerPresentation.kind === 'page') {
+      pagedView.index = Math.min(controllerPresentation.pageIndex, pagedView.pages.length - 1);
+    }
     renderPagedView(false);
   }
 }
@@ -1759,20 +1973,10 @@ function deactivatePagination() {
 }
 
 function changePage(delta) {
-  if (pagedView.kind === null || !delta) return;
-  const activeControl = document.activeElement;
+  if (pagedView.kind === null || !delta || !canControlTerminalPresentation()) return;
   const nextIndex = Math.max(0, Math.min(pagedView.pages.length - 1, pagedView.index + delta));
   if (nextIndex === pagedView.index) return;
-
-  pagedView.index = nextIndex;
-  playEnter();
-  renderPagedView(false);
-
-  if (activeControl === pagePrev && pagePrev.hidden) {
-    (pageNext.hidden ? backBtn : pageNext).focus();
-  } else if (activeControl === pageNext && pageNext.hidden) {
-    (pagePrev.hidden ? backBtn : pagePrev).focus();
-  }
+  beginControllerPresentation({ kind: 'page', pageIndex: nextIndex });
 }
 
 function scheduleRepagination() {
@@ -2177,9 +2381,9 @@ function renderNormalScreen() {
       const row = document.createElement('div');
       row.className = 'term-row' + (i === selIndex ? ' sel' : '');
       row.dataset.idx = String(i);
+      row.dataset.nodeId = node.id;
       row.textContent = '> ' + node.name;
       row.addEventListener('click', () => {
-        selIndex = i;
         activateRow(node);
       });
       return row;
@@ -2387,16 +2591,20 @@ function renderHackColumns(animate, hackKey) {
 
   if (!hackBoardFit) fitCompleteHackBoard();
 
-  if (hackHoverKey === null) return;
-  const hoveredPattern = (hack.patterns || []).find(pattern =>
-    pattern.id === hackHoverKey && !pattern.used
-  );
-  if (hoveredPattern) {
-    setHackPatternHover(hoveredPattern);
+  if (controllerPresentation.kind !== 'hacking') {
+    setHackHover(null, true);
     return;
   }
-  const hoveredCells = hackColumns.querySelectorAll(`[data-target="${cssEscape(hackHoverKey)}"]`);
-  setHackHover(hoveredCells.length ? hackHoverKey : null, true);
+  if (controllerPresentation.patternId) {
+    const pattern = (hack.patterns || []).find(candidate =>
+      candidate.id === controllerPresentation.patternId && !candidate.used
+    );
+    setHackPatternHover(pattern || null);
+    return;
+  }
+  const target = controllerPresentation.targetId;
+  const hoveredCells = hackColumns.querySelectorAll(`[data-target="${cssEscape(target)}"]`);
+  setHackHover(hoveredCells.length ? target : null, true);
 }
 
 function renderHackLog() {

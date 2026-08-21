@@ -88,6 +88,7 @@ func supportedRPCRequestPath(requestPath, servicePath string) bool {
 		playerv1connect.PlayerServiceNavigateProcedure:        {},
 		playerv1connect.PlayerServiceGuessProcedure:           {},
 		playerv1connect.PlayerServiceActivatePatternProcedure: {},
+		playerv1connect.PlayerServiceSetPresentationProcedure: {},
 		playerv1connect.PlayerServiceSoundManifestProcedure:   {},
 	}[requestPath]
 	return supported

@@ -11,6 +11,12 @@ test.beforeEach(async ({ request }) => {
 async function installPlayerDiagnostics(target, storedToken = null, { audioFailure = false } = {}) {
   await target.addInitScript(({ tokenKey, token, failAudio }) => {
     window.__webSocketConstructions = 0;
+    window.__playerWarnings = [];
+    const originalWarn = console.warn.bind(console);
+    console.warn = (...values) => {
+      window.__playerWarnings.push(values.map(value => String(value)).join(' '));
+      originalWarn(...values);
+    };
     window.WebSocket = class ForbiddenLegacyPlayerTransport {
       constructor() {
         window.__webSocketConstructions += 1;
@@ -160,6 +166,8 @@ test('active navigation applies the authoritative compound update while awaiting
   await page.locator('.term-row', { hasText: 'DOCS' }).click();
   await expect.poll(() => navigateObserved).toBe(true);
   await expect(page.locator('#screen')).toHaveClass(/shared-input-pending/);
+  await expect(page.locator('.term-row').first()).toHaveCSS('cursor', 'not-allowed');
+  await expect(page.locator('.term-row:not(.sel)').first()).toHaveCSS('opacity', '0.72');
   releaseNavigate();
 
   await expect(page.locator('.term-row', { hasText: 'REPORT' })).toBeVisible();
@@ -288,6 +296,8 @@ test('observer projection is visibly read-only and emits no typed mutation', asy
   await selectFirstAvailable(observer);
   await expect(observer.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
   await expect(observer.locator('#screen')).toHaveAttribute('aria-readonly', 'true');
+  await expect(observer.locator('.term-row').first()).toHaveCSS('cursor', 'not-allowed');
+  await expect(observer.locator('.term-row:not(.sel)').first()).toHaveCSS('opacity', '0.72');
 
   const before = observerRequests.length;
   await observer.locator('.term-row', { hasText: 'DOCS' }).click();
@@ -297,6 +307,476 @@ test('observer projection is visibly read-only and emits no typed mutation', asy
 
   await observerContext.close();
   await controllerContext.close();
+});
+
+test('controller selection is authoritative while observer pointer and keyboard input stay inert', async ({ browser }) => {
+  const controllerContext = await browser.newContext();
+  const observerContext = await browser.newContext();
+  await installPlayerDiagnostics(controllerContext);
+  await installPlayerDiagnostics(observerContext);
+  const controller = await controllerContext.newPage();
+  const observer = await observerContext.newPage();
+  const controllerRequests = typedPlayerRequests(controller);
+  const observerRequests = typedPlayerRequests(observer);
+
+  await Promise.all([controller.goto('/'), observer.goto('/')]);
+  await Promise.all([
+    expect(controller.locator('#connOverlay')).toBeHidden(),
+    expect(observer.locator('#connOverlay')).toBeHidden(),
+  ]);
+  await selectFirstAvailable(controller);
+  await selectFirstAvailable(observer);
+  await expect(controller.locator('#roleBadge')).toContainText('АКТИВНЫЙ');
+  await expect(observer.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+
+  await controller.locator('.term-row', { hasText: 'STATUS' }).hover();
+  await expect.poll(() => controllerRequests.map(request => request.procedure)).toContain('SetPresentation');
+  expect(await controller.evaluate(() => window.__playerWarnings)).toEqual([]);
+  await expect(controller.locator('#playerNotice')).toHaveText('');
+  await expect(controller.locator('.term-row.sel')).toContainText('STATUS');
+  await expect(observer.locator('.term-row.sel')).toContainText('STATUS');
+
+  const requestCount = observerRequests.length;
+  await observer.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll('.term-row'));
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      rows[attempt % rows.length].dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: attempt % 2 === 0 ? 'ArrowUp' : 'ArrowDown',
+        bubbles: true,
+        cancelable: true,
+      }));
+    }
+  });
+  await expect(observer.locator('.term-row.sel')).toContainText('STATUS');
+  expect(observerRequests).toHaveLength(requestCount);
+
+  await observerContext.close();
+  await controllerContext.close();
+});
+
+test('presentation-only latency keeps the active controller visually actionable and accepts newer movement', async ({ page, request }) => {
+  const requests = typedPlayerRequests(page);
+  await openPlayer(page);
+  await selectFirstAvailable(page);
+  await expect(page.locator('#roleBadge')).toContainText('АКТИВНЫЙ');
+  expect((await request.post('/__fixture/local/crt/content')).status()).toBe(204);
+
+  const rows = page.locator('.term-row');
+  await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(3);
+  const rowCount = await rows.count();
+  const initialSelection = (await page.locator('.term-row.sel').innerText()).trim();
+  const initialIndex = await rows.evaluateAll(items => items.findIndex(item => item.classList.contains('sel')));
+  const firstTargetIndex = (initialIndex + 1) % rowCount;
+  const firstTarget = rows.nth(firstTargetIndex);
+  const latestTarget = rows.nth((initialIndex + 2) % rowCount);
+  const latestText = (await latestTarget.innerText()).trim();
+
+  await page.evaluate(() => {
+    const screen = document.querySelector('#screen');
+    window.__bug009BlockingTransitions = 0;
+    window.__bug009ClassObserver = new MutationObserver(() => {
+      if (screen.classList.contains('shared-input-pending')) {
+        window.__bug009BlockingTransitions += 1;
+      }
+    });
+    window.__bug009ClassObserver.observe(screen, { attributes: true, attributeFilter: ['class'] });
+  });
+
+  let releasePresentation;
+  const presentationGate = new Promise(resolve => { releasePresentation = resolve; });
+  let presentationRequests = 0;
+  await page.route(`**${PLAYER_SERVICE}SetPresentation`, async route => {
+    presentationRequests += 1;
+    await presentationGate;
+    await route.continue();
+  });
+
+  try {
+    await firstTarget.hover();
+    await expect.poll(() => presentationRequests).toBe(1);
+    await page.evaluate(targetIndex => {
+      const target = document.querySelectorAll('.term-row')[targetIndex];
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        document.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'ArrowDown',
+          bubbles: true,
+          cancelable: true,
+        }));
+      }
+    }, firstTargetIndex);
+    await expect.poll(() => presentationRequests).toBe(1);
+    expect(await page.evaluate(() => window.__bug009BlockingTransitions)).toBe(0);
+    await latestTarget.hover();
+    await page.waitForTimeout(100);
+    expect(presentationRequests).toBe(1);
+    await expect(page.locator('.term-row.sel')).toHaveText(initialSelection);
+    await expect(page.locator('#screen')).not.toHaveClass(/shared-input-pending/);
+    await expect(latestTarget).toHaveCSS('cursor', 'pointer');
+    await expect(latestTarget).toHaveCSS('opacity', '1');
+    await expect(latestTarget).toHaveCSS('filter', 'none');
+  } finally {
+    await page.evaluate(() => window.__bug009ClassObserver?.disconnect());
+    releasePresentation();
+  }
+
+  await expect(page.locator('.term-row.sel')).toHaveText(latestText);
+  await expect.poll(() => presentationRequests).toBe(2);
+  expect(requests.filter(request => request.procedure === 'SetPresentation')).toHaveLength(2);
+});
+
+test('controller reassignment atomically transfers presentation and gameplay authority without resetting the shared view', async ({ browser, request }) => {
+  const firstContext = await browser.newContext();
+  const secondContext = await browser.newContext();
+  await installPlayerDiagnostics(firstContext);
+  await installPlayerDiagnostics(secondContext);
+  const first = await firstContext.newPage();
+  const second = await secondContext.newPage();
+  const firstRequests = typedPlayerRequests(first);
+  const secondRequests = typedPlayerRequests(second);
+
+  await Promise.all([first.goto('/'), second.goto('/')]);
+  await Promise.all([
+    expect(first.locator('#connOverlay')).toBeHidden(),
+    expect(second.locator('#connOverlay')).toBeHidden(),
+  ]);
+  const firstCharacter = await selectFirstAvailable(first);
+  const secondCharacter = await selectFirstAvailable(second);
+
+  await first.locator('.term-row', { hasText: 'STATUS' }).hover();
+  await Promise.all([
+    expect(first.locator('.term-row.sel')).toContainText('STATUS'),
+    expect(second.locator('.term-row.sel')).toContainText('STATUS'),
+  ]);
+
+  const reassignment = await request.post('/__fixture/reassign-controller');
+  expect(reassignment.status()).toBe(200);
+  await Promise.all([
+    expect(first.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ'),
+    expect(second.locator('#roleBadge')).toContainText('АКТИВНЫЙ'),
+  ]);
+  await expect(first.locator('#screen')).toHaveAttribute('aria-readonly', 'true');
+  await expect(second.locator('#screen')).toHaveAttribute('aria-readonly', 'false');
+  await expect(first.locator('#playerCharacterName')).toHaveText(firstCharacter);
+  await expect(second.locator('#playerCharacterName')).toHaveText(secondCharacter);
+
+  const formerControllerRequestCount = firstRequests.length;
+  await first.locator('.term-row', { hasText: 'DOCS' }).hover();
+  await first.keyboard.press('ArrowDown');
+  await expect(first.locator('.term-row.sel')).toContainText('STATUS');
+  expect(firstRequests).toHaveLength(formerControllerRequestCount);
+
+  await second.locator('.term-row', { hasText: 'DOCS' }).hover();
+  await expect.poll(() => secondRequests.map(item => item.procedure)).toContain('SetPresentation');
+  await Promise.all([
+    expect(first.locator('.term-row.sel')).toContainText('DOCS'),
+    expect(second.locator('.term-row.sel')).toContainText('DOCS'),
+  ]);
+
+  await first.reload();
+  await expect(first.locator('#connOverlay')).toBeHidden();
+  await expect(first.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+  await expect(first.locator('.term-row.sel')).toContainText('DOCS');
+
+  await second.locator('.term-row', { hasText: 'DOCS' }).click();
+  await Promise.all([
+    expect(first.locator('.term-row', { hasText: 'REPORT' })).toBeVisible(),
+    expect(second.locator('.term-row', { hasText: 'REPORT' })).toBeVisible(),
+  ]);
+
+  await secondContext.close();
+  await firstContext.close();
+});
+
+test('controller reassignment discards a queued presentation before it can be sent', async ({ browser, request }) => {
+  const controllerContext = await browser.newContext();
+  const observerContext = await browser.newContext();
+  await installPlayerDiagnostics(controllerContext);
+  await installPlayerDiagnostics(observerContext);
+  const controller = await controllerContext.newPage();
+  const observer = await observerContext.newPage();
+  await Promise.all([controller.goto('/'), observer.goto('/')]);
+  await Promise.all([
+    expect(controller.locator('#connOverlay')).toBeHidden(),
+    expect(observer.locator('#connOverlay')).toBeHidden(),
+  ]);
+  await selectFirstAvailable(controller);
+  await selectFirstAvailable(observer);
+  const initialSelection = (await controller.locator('.term-row.sel').textContent()).trim();
+
+  let releasePresentation;
+  const presentationGate = new Promise(resolve => { releasePresentation = resolve; });
+  let presentationRequests = 0;
+  await controller.route(`**${PLAYER_SERVICE}SetPresentation`, async route => {
+    presentationRequests += 1;
+    await presentationGate;
+    await route.continue();
+  });
+
+  try {
+    await controller.locator('.term-row', { hasText: 'STATUS' }).hover();
+    await expect.poll(() => presentationRequests).toBe(1);
+    await controller.locator('.term-row', { hasText: 'DOCS' }).hover();
+    await controller.waitForTimeout(100);
+    expect(presentationRequests).toBe(1);
+
+    const reassignment = await request.post('/__fixture/reassign-controller');
+    expect(reassignment.status()).toBe(200);
+    await Promise.all([
+      expect(controller.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ'),
+      expect(observer.locator('#roleBadge')).toContainText('АКТИВНЫЙ'),
+    ]);
+  } finally {
+    releasePresentation();
+  }
+
+  await controller.waitForTimeout(150);
+  expect(presentationRequests).toBe(1);
+  await Promise.all([
+    expect(controller.locator('.term-row.sel')).toHaveText(initialSelection),
+    expect(observer.locator('.term-row.sel')).toHaveText(initialSelection),
+  ]);
+
+  await observer.locator('.term-row', { hasText: 'DOCS' }).hover();
+  await Promise.all([
+    expect(controller.locator('.term-row.sel')).toContainText('DOCS'),
+    expect(observer.locator('.term-row.sel')).toContainText('DOCS'),
+  ]);
+  await observerContext.close();
+  await controllerContext.close();
+});
+
+test('navigation context replacement discards queued presentation intent', async ({ page }) => {
+  await openPlayer(page);
+  await selectFirstAvailable(page);
+
+  let releasePresentation;
+  const presentationGate = new Promise(resolve => { releasePresentation = resolve; });
+  let presentationRequests = 0;
+  await page.route(`**${PLAYER_SERVICE}SetPresentation`, async route => {
+    presentationRequests += 1;
+    await presentationGate;
+    await route.continue();
+  });
+
+  try {
+    await page.locator('.term-row', { hasText: 'STATUS' }).hover();
+    await expect.poll(() => presentationRequests).toBe(1);
+    await page.evaluate(() => {
+      const docs = Array.from(document.querySelectorAll('.term-row'))
+        .find(row => row.textContent.includes('DOCS'));
+      docs?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      docs?.click();
+    });
+    await expect(page.locator('.term-row', { hasText: 'REPORT' })).toBeVisible();
+  } finally {
+    releasePresentation();
+  }
+
+  await page.waitForTimeout(150);
+  expect(presentationRequests).toBe(1);
+  await expect(page.locator('.term-row', { hasText: 'REPORT' })).toBeVisible();
+});
+
+test('latest presentation drains after an in-flight transport failure', async ({ page, request }) => {
+  await openPlayer(page);
+  await selectFirstAvailable(page);
+  await page.mouse.move(0, 0);
+  expect((await request.post('/__fixture/local/crt/content')).status()).toBe(204);
+
+  let releaseFailure;
+  const failureGate = new Promise(resolve => { releaseFailure = resolve; });
+  let presentationRequests = 0;
+  await page.route(`**${PLAYER_SERVICE}SetPresentation`, async route => {
+    presentationRequests += 1;
+    if (presentationRequests === 1) {
+      await failureGate;
+      await route.fulfill({ status: 503, contentType: 'text/plain', body: 'simulated presentation failure' });
+      return;
+    }
+    await route.continue();
+  });
+
+  const rows = page.locator('.term-row');
+  await expect(rows).toHaveCount(25);
+  const rowCount = await rows.count();
+  const initialIndex = await rows.evaluateAll(items => items.findIndex(item => item.classList.contains('sel')));
+  const firstTargetIndex = (initialIndex + 1) % rowCount;
+  const latestTargetIndex = (initialIndex + 2) % rowCount;
+  const latestText = (await rows.nth(latestTargetIndex).innerText()).trim();
+  await page.evaluate(targetIndex => {
+    document.querySelectorAll('.term-row')[targetIndex]
+      ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  }, firstTargetIndex);
+  await expect.poll(() => presentationRequests).toBe(1);
+  await page.evaluate(targetIndex => {
+    document.querySelectorAll('.term-row')[targetIndex]
+      ?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+  }, latestTargetIndex);
+  releaseFailure();
+
+  await expect.poll(() => presentationRequests).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('.term-row.sel')).toHaveText(latestText);
+  await expect(page.locator('#screen')).not.toHaveClass(/shared-input-pending/);
+});
+
+test('controller paging and hacking preview are authoritative while observer controls remain locally inert', async ({ browser, request }) => {
+  const controllerContext = await browser.newContext();
+  const observerContext = await browser.newContext();
+  await installPlayerDiagnostics(controllerContext);
+  await installPlayerDiagnostics(observerContext);
+  const controller = await controllerContext.newPage();
+  const observer = await observerContext.newPage();
+  const observerRequests = typedPlayerRequests(observer);
+
+  await Promise.all([controller.goto('/'), observer.goto('/')]);
+  await Promise.all([
+    expect(controller.locator('#connOverlay')).toBeHidden(),
+    expect(observer.locator('#connOverlay')).toBeHidden(),
+  ]);
+  await selectFirstAvailable(controller);
+  await selectFirstAvailable(observer);
+
+  expect((await request.post('/__fixture/local/crt/content')).status()).toBe(204);
+  await controller.locator('.term-row', { hasText: 'LONG RECORD' }).click();
+  await Promise.all([
+    expect(controller.locator('#pageNext')).toBeVisible(),
+    expect(observer.locator('#pageNext')).toBeVisible(),
+  ]);
+  const firstPage = await controller.locator('#pageIndicator').textContent();
+  await controller.locator('#pageNext').click();
+  await expect(controller.locator('#pageIndicator')).not.toHaveText(firstPage);
+  const authoritativePage = await controller.locator('#pageIndicator').textContent();
+  await expect(observer.locator('#pageIndicator')).toHaveText(authoritativePage);
+
+  const observerPageRequests = observerRequests.length;
+  await observer.locator('#pageNext').click({ force: true });
+  await observer.keyboard.press('PageUp');
+  await expect(observer.locator('#pageIndicator')).toHaveText(authoritativePage);
+  expect(observerRequests).toHaveLength(observerPageRequests);
+
+  expect((await request.post('/__fixture/local/crt/hacking')).status()).toBe(204);
+  await Promise.all([
+    expect(controller.locator('#hackBoard')).toBeVisible(),
+    expect(observer.locator('#hackBoard')).toBeVisible(),
+  ]);
+  await controller.locator('.hcell.word').first().hover();
+  await expect(controller.locator('#hackInputPreview')).not.toHaveText('');
+  const authoritativePreview = await controller.locator('#hackInputPreview').textContent();
+  await expect(observer.locator('#hackInputPreview')).toHaveText(authoritativePreview);
+
+  const observerHackRequests = observerRequests.length;
+  await observer.locator('.hcell.word').last().hover();
+  await observer.keyboard.press('ArrowRight');
+  await expect(observer.locator('#hackInputPreview')).toHaveText(authoritativePreview);
+  expect(observerRequests).toHaveLength(observerHackRequests);
+
+  await observerContext.close();
+  await controllerContext.close();
+});
+
+test('rapid hacking hover keeps one presentation in flight and follows with only the latest target', async ({ browser, page, request }) => {
+  await page.addInitScript(() => {
+    window.__bug010CueURLs = [];
+    window.__falloutTerminalSoundObserver = url => window.__bug010CueURLs.push(String(url));
+    class ObservableAudioContext {
+      state = 'running';
+      destination = {};
+      async resume() { this.state = 'running'; }
+      async decodeAudioData() { return {}; }
+      createBufferSource() {
+        return { buffer: null, connect() {}, start() {} };
+      }
+      createGain() {
+        return { gain: { value: 0 }, connect() {} };
+      }
+    }
+    Object.defineProperty(window, 'AudioContext', { configurable: true, value: ObservableAudioContext });
+    Object.defineProperty(window, 'webkitAudioContext', { configurable: true, value: ObservableAudioContext });
+  });
+
+  await openPlayer(page);
+  await selectFirstAvailable(page);
+  const observerContext = await browser.newContext();
+  await installPlayerDiagnostics(observerContext);
+  const observer = await observerContext.newPage();
+  await observer.goto('/');
+  await expect(observer.locator('#connOverlay')).toBeHidden();
+  await selectFirstAvailable(observer);
+  await expect(observer.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+  expect((await request.post('/__fixture/local/crt/hacking')).status()).toBe(204);
+  await Promise.all([
+    expect(page.locator('#hackBoard')).toBeVisible(),
+    expect(observer.locator('#hackBoard')).toBeVisible(),
+  ]);
+  await expect.poll(() => page.locator('.hcell.filler').count()).toBeGreaterThan(100);
+  await expect.poll(() => page.locator('.hcell.word').count()).toBeGreaterThan(1);
+
+  await page.evaluate(() => {
+    const preview = document.querySelector('#hackInputPreview');
+    window.__bug010CueURLs = [];
+    window.__bug010PreviewTransitions = [];
+    window.__bug010PreviewObserver = new MutationObserver(() => {
+      window.__bug010PreviewTransitions.push(preview.textContent || '');
+    });
+    window.__bug010PreviewObserver.observe(preview, { childList: true, characterData: true, subtree: true });
+  });
+
+  let releasePresentation;
+  const presentationGate = new Promise(resolve => { releasePresentation = resolve; });
+  let presentationRequests = 0;
+  let blockedRequests = 0;
+  let maximumBlockedRequests = 0;
+  await page.route(`**${PLAYER_SERVICE}SetPresentation`, async route => {
+    presentationRequests += 1;
+    blockedRequests += 1;
+    maximumBlockedRequests = Math.max(maximumBlockedRequests, blockedRequests);
+    await presentationGate;
+    try {
+      await route.continue();
+    } finally {
+      blockedRequests -= 1;
+    }
+  });
+
+  const firstTarget = page.locator('.hcell.filler').first();
+  let finalTargetID = '';
+  try {
+    await firstTarget.hover();
+    await expect.poll(() => presentationRequests).toBe(1);
+    finalTargetID = await page.evaluate(() => {
+      const targets = Array.from(document.querySelectorAll('.hcell.filler')).slice(1, 101);
+      for (const target of targets) {
+        target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      }
+      const words = document.querySelectorAll('.hcell.word');
+      const finalTarget = words[words.length - 1];
+      finalTarget?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      return finalTarget?.dataset.target || '';
+    });
+    await page.waitForTimeout(100);
+    expect(presentationRequests).toBe(1);
+    expect(maximumBlockedRequests).toBe(1);
+  } finally {
+    releasePresentation();
+  }
+
+  await expect.poll(() => page.locator('.hcell.hi').first().getAttribute('data-target')).toBe(finalTargetID);
+  await expect.poll(() => observer.locator('.hcell.hi').first().getAttribute('data-target')).toBe(finalTargetID);
+  await expect(page.locator('#hackInputPreview')).not.toHaveText('');
+  await expect(observer.locator('#hackInputPreview')).toHaveText(await page.locator('#hackInputPreview').textContent());
+  await expect.poll(() => presentationRequests).toBeLessThanOrEqual(2);
+  const diagnostics = await page.evaluate(() => {
+    window.__bug010PreviewObserver?.disconnect();
+    return {
+      previews: window.__bug010PreviewTransitions,
+      cues: window.__bug010CueURLs.filter(url => /\/sounds\/(?:single|multiple)\//.test(url)),
+    };
+  });
+  expect(new Set(diagnostics.previews.filter(Boolean)).size).toBeLessThanOrEqual(2);
+  expect(diagnostics.cues.length).toBeLessThanOrEqual(2);
+  await observerContext.close();
 });
 
 test('optional audio failures never block typed selection or navigation', async ({ page }) => {

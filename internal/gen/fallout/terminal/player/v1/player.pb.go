@@ -969,6 +969,90 @@ func (x *ActionResult) GetRevision() uint64 {
 	return 0
 }
 
+type SetPresentationRequest struct {
+	state             protoimpl.MessageState          `protogen:"open.v1"`
+	RecognitionHandle string                          `protobuf:"bytes,1,opt,name=recognition_handle,json=recognitionHandle,proto3" json:"recognition_handle,omitempty"`
+	RequestId         string                          `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	BroadcastId       string                          `protobuf:"bytes,3,opt,name=broadcast_id,json=broadcastId,proto3" json:"broadcast_id,omitempty"`
+	TerminalId        string                          `protobuf:"bytes,4,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	ContextKey        string                          `protobuf:"bytes,5,opt,name=context_key,json=contextKey,proto3" json:"context_key,omitempty"`
+	Presentation      *ControllerTerminalPresentation `protobuf:"bytes,6,opt,name=presentation,proto3" json:"presentation,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SetPresentationRequest) Reset() {
+	*x = SetPresentationRequest{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPresentationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPresentationRequest) ProtoMessage() {}
+
+func (x *SetPresentationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPresentationRequest.ProtoReflect.Descriptor instead.
+func (*SetPresentationRequest) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SetPresentationRequest) GetRecognitionHandle() string {
+	if x != nil {
+		return x.RecognitionHandle
+	}
+	return ""
+}
+
+func (x *SetPresentationRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *SetPresentationRequest) GetBroadcastId() string {
+	if x != nil {
+		return x.BroadcastId
+	}
+	return ""
+}
+
+func (x *SetPresentationRequest) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+func (x *SetPresentationRequest) GetContextKey() string {
+	if x != nil {
+		return x.ContextKey
+	}
+	return ""
+}
+
+func (x *SetPresentationRequest) GetPresentation() *ControllerTerminalPresentation {
+	if x != nil {
+		return x.Presentation
+	}
+	return nil
+}
+
 var File_fallout_terminal_player_v1_player_proto protoreflect.FileDescriptor
 
 const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
@@ -1027,7 +1111,17 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12\x1a\n" +
 	"\baccepted\x18\x02 \x01(\bR\baccepted\x12@\n" +
 	"\x06reason\x18\x03 \x01(\x0e2(.fallout.terminal.player.v1.ActionReasonR\x06reason\x12\x1a\n" +
-	"\brevision\x18\x04 \x01(\x04R\brevision*w\n" +
+	"\brevision\x18\x04 \x01(\x04R\brevision\"\xab\x02\n" +
+	"\x16SetPresentationRequest\x12-\n" +
+	"\x12recognition_handle\x18\x01 \x01(\tR\x11recognitionHandle\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12!\n" +
+	"\fbroadcast_id\x18\x03 \x01(\tR\vbroadcastId\x12\x1f\n" +
+	"\vterminal_id\x18\x04 \x01(\tR\n" +
+	"terminalId\x12\x1f\n" +
+	"\vcontext_key\x18\x05 \x01(\tR\n" +
+	"contextKey\x12^\n" +
+	"\fpresentation\x18\x06 \x01(\v2:.fallout.terminal.player.v1.ControllerTerminalPresentationR\fpresentation*w\n" +
 	"\n" +
 	"PlayerRole\x12\x1b\n" +
 	"\x17PLAYER_ROLE_UNSPECIFIED\x10\x00\x12\x1a\n" +
@@ -1060,13 +1154,14 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"*i\n" +
 	"\x10PlayerNoticeKind\x12\"\n" +
 	"\x1ePLAYER_NOTICE_KIND_UNSPECIFIED\x10\x00\x121\n" +
-	"-PLAYER_NOTICE_KIND_COMMAND_PERSISTENCE_FAILED\x10\x012\x95\x05\n" +
+	"-PLAYER_NOTICE_KIND_COMMAND_PERSISTENCE_FAILED\x10\x012\x86\x06\n" +
 	"\rPlayerService\x12l\n" +
 	"\tSubscribe\x12,.fallout.terminal.player.v1.SubscribeRequest\x1a/.fallout.terminal.player.v1.SubscriptionMessage0\x01\x12o\n" +
 	"\x0fSelectCharacter\x122.fallout.terminal.player.v1.SelectCharacterRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12a\n" +
 	"\bNavigate\x12+.fallout.terminal.player.v1.NavigateRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12[\n" +
 	"\x05Guess\x12(.fallout.terminal.player.v1.GuessRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12o\n" +
-	"\x0fActivatePattern\x122.fallout.terminal.player.v1.ActivatePatternRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12t\n" +
+	"\x0fActivatePattern\x122.fallout.terminal.player.v1.ActivatePatternRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12o\n" +
+	"\x0fSetPresentation\x122.fallout.terminal.player.v1.SetPresentationRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12t\n" +
 	"\rSoundManifest\x120.fallout.terminal.player.v1.SoundManifestRequest\x1a1.fallout.terminal.player.v1.SoundManifestResponseBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
@@ -1082,31 +1177,33 @@ func file_fallout_terminal_player_v1_player_proto_rawDescGZIP() []byte {
 }
 
 var file_fallout_terminal_player_v1_player_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_fallout_terminal_player_v1_player_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_fallout_terminal_player_v1_player_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_fallout_terminal_player_v1_player_proto_goTypes = []any{
-	(PlayerRole)(0),                // 0: fallout.terminal.player.v1.PlayerRole
-	(PlayerPhase)(0),               // 1: fallout.terminal.player.v1.PlayerPhase
-	(RosterAvailability)(0),        // 2: fallout.terminal.player.v1.RosterAvailability
-	(ActionReason)(0),              // 3: fallout.terminal.player.v1.ActionReason
-	(PlayerNoticeKind)(0),          // 4: fallout.terminal.player.v1.PlayerNoticeKind
-	(*RosterEntry)(nil),            // 5: fallout.terminal.player.v1.RosterEntry
-	(*AssignedCharacter)(nil),      // 6: fallout.terminal.player.v1.AssignedCharacter
-	(*PlayerNotice)(nil),           // 7: fallout.terminal.player.v1.PlayerNotice
-	(*PlayerState)(nil),            // 8: fallout.terminal.player.v1.PlayerState
-	(*SubscribeRequest)(nil),       // 9: fallout.terminal.player.v1.SubscribeRequest
-	(*PersonalizedSnapshot)(nil),   // 10: fallout.terminal.player.v1.PersonalizedSnapshot
-	(*CompoundUpdate)(nil),         // 11: fallout.terminal.player.v1.CompoundUpdate
-	(*SubscriptionMessage)(nil),    // 12: fallout.terminal.player.v1.SubscriptionMessage
-	(*SelectCharacterRequest)(nil), // 13: fallout.terminal.player.v1.SelectCharacterRequest
-	(*ActionResult)(nil),           // 14: fallout.terminal.player.v1.ActionResult
-	(*TerminalPresentation)(nil),   // 15: fallout.terminal.player.v1.TerminalPresentation
-	(*NavigationState)(nil),        // 16: fallout.terminal.player.v1.NavigationState
-	(*PublicHackState)(nil),        // 17: fallout.terminal.player.v1.PublicHackState
-	(*NavigateRequest)(nil),        // 18: fallout.terminal.player.v1.NavigateRequest
-	(*GuessRequest)(nil),           // 19: fallout.terminal.player.v1.GuessRequest
-	(*ActivatePatternRequest)(nil), // 20: fallout.terminal.player.v1.ActivatePatternRequest
-	(*SoundManifestRequest)(nil),   // 21: fallout.terminal.player.v1.SoundManifestRequest
-	(*SoundManifestResponse)(nil),  // 22: fallout.terminal.player.v1.SoundManifestResponse
+	(PlayerRole)(0),                        // 0: fallout.terminal.player.v1.PlayerRole
+	(PlayerPhase)(0),                       // 1: fallout.terminal.player.v1.PlayerPhase
+	(RosterAvailability)(0),                // 2: fallout.terminal.player.v1.RosterAvailability
+	(ActionReason)(0),                      // 3: fallout.terminal.player.v1.ActionReason
+	(PlayerNoticeKind)(0),                  // 4: fallout.terminal.player.v1.PlayerNoticeKind
+	(*RosterEntry)(nil),                    // 5: fallout.terminal.player.v1.RosterEntry
+	(*AssignedCharacter)(nil),              // 6: fallout.terminal.player.v1.AssignedCharacter
+	(*PlayerNotice)(nil),                   // 7: fallout.terminal.player.v1.PlayerNotice
+	(*PlayerState)(nil),                    // 8: fallout.terminal.player.v1.PlayerState
+	(*SubscribeRequest)(nil),               // 9: fallout.terminal.player.v1.SubscribeRequest
+	(*PersonalizedSnapshot)(nil),           // 10: fallout.terminal.player.v1.PersonalizedSnapshot
+	(*CompoundUpdate)(nil),                 // 11: fallout.terminal.player.v1.CompoundUpdate
+	(*SubscriptionMessage)(nil),            // 12: fallout.terminal.player.v1.SubscriptionMessage
+	(*SelectCharacterRequest)(nil),         // 13: fallout.terminal.player.v1.SelectCharacterRequest
+	(*ActionResult)(nil),                   // 14: fallout.terminal.player.v1.ActionResult
+	(*SetPresentationRequest)(nil),         // 15: fallout.terminal.player.v1.SetPresentationRequest
+	(*TerminalPresentation)(nil),           // 16: fallout.terminal.player.v1.TerminalPresentation
+	(*NavigationState)(nil),                // 17: fallout.terminal.player.v1.NavigationState
+	(*PublicHackState)(nil),                // 18: fallout.terminal.player.v1.PublicHackState
+	(*ControllerTerminalPresentation)(nil), // 19: fallout.terminal.player.v1.ControllerTerminalPresentation
+	(*NavigateRequest)(nil),                // 20: fallout.terminal.player.v1.NavigateRequest
+	(*GuessRequest)(nil),                   // 21: fallout.terminal.player.v1.GuessRequest
+	(*ActivatePatternRequest)(nil),         // 22: fallout.terminal.player.v1.ActivatePatternRequest
+	(*SoundManifestRequest)(nil),           // 23: fallout.terminal.player.v1.SoundManifestRequest
+	(*SoundManifestResponse)(nil),          // 24: fallout.terminal.player.v1.SoundManifestResponse
 }
 var file_fallout_terminal_player_v1_player_proto_depIdxs = []int32{
 	2,  // 0: fallout.terminal.player.v1.RosterEntry.availability:type_name -> fallout.terminal.player.v1.RosterAvailability
@@ -1117,31 +1214,34 @@ var file_fallout_terminal_player_v1_player_proto_depIdxs = []int32{
 	5,  // 5: fallout.terminal.player.v1.PlayerState.roster:type_name -> fallout.terminal.player.v1.RosterEntry
 	7,  // 6: fallout.terminal.player.v1.PlayerState.notice:type_name -> fallout.terminal.player.v1.PlayerNotice
 	8,  // 7: fallout.terminal.player.v1.PersonalizedSnapshot.player_state:type_name -> fallout.terminal.player.v1.PlayerState
-	15, // 8: fallout.terminal.player.v1.PersonalizedSnapshot.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
+	16, // 8: fallout.terminal.player.v1.PersonalizedSnapshot.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
 	8,  // 9: fallout.terminal.player.v1.CompoundUpdate.player_state:type_name -> fallout.terminal.player.v1.PlayerState
-	15, // 10: fallout.terminal.player.v1.CompoundUpdate.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
-	16, // 11: fallout.terminal.player.v1.CompoundUpdate.navigation:type_name -> fallout.terminal.player.v1.NavigationState
-	17, // 12: fallout.terminal.player.v1.CompoundUpdate.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
+	16, // 10: fallout.terminal.player.v1.CompoundUpdate.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
+	17, // 11: fallout.terminal.player.v1.CompoundUpdate.navigation:type_name -> fallout.terminal.player.v1.NavigationState
+	18, // 12: fallout.terminal.player.v1.CompoundUpdate.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
 	10, // 13: fallout.terminal.player.v1.SubscriptionMessage.snapshot:type_name -> fallout.terminal.player.v1.PersonalizedSnapshot
 	11, // 14: fallout.terminal.player.v1.SubscriptionMessage.update:type_name -> fallout.terminal.player.v1.CompoundUpdate
 	3,  // 15: fallout.terminal.player.v1.ActionResult.reason:type_name -> fallout.terminal.player.v1.ActionReason
-	9,  // 16: fallout.terminal.player.v1.PlayerService.Subscribe:input_type -> fallout.terminal.player.v1.SubscribeRequest
-	13, // 17: fallout.terminal.player.v1.PlayerService.SelectCharacter:input_type -> fallout.terminal.player.v1.SelectCharacterRequest
-	18, // 18: fallout.terminal.player.v1.PlayerService.Navigate:input_type -> fallout.terminal.player.v1.NavigateRequest
-	19, // 19: fallout.terminal.player.v1.PlayerService.Guess:input_type -> fallout.terminal.player.v1.GuessRequest
-	20, // 20: fallout.terminal.player.v1.PlayerService.ActivatePattern:input_type -> fallout.terminal.player.v1.ActivatePatternRequest
-	21, // 21: fallout.terminal.player.v1.PlayerService.SoundManifest:input_type -> fallout.terminal.player.v1.SoundManifestRequest
-	12, // 22: fallout.terminal.player.v1.PlayerService.Subscribe:output_type -> fallout.terminal.player.v1.SubscriptionMessage
-	14, // 23: fallout.terminal.player.v1.PlayerService.SelectCharacter:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 24: fallout.terminal.player.v1.PlayerService.Navigate:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 25: fallout.terminal.player.v1.PlayerService.Guess:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 26: fallout.terminal.player.v1.PlayerService.ActivatePattern:output_type -> fallout.terminal.player.v1.ActionResult
-	22, // 27: fallout.terminal.player.v1.PlayerService.SoundManifest:output_type -> fallout.terminal.player.v1.SoundManifestResponse
-	22, // [22:28] is the sub-list for method output_type
-	16, // [16:22] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	19, // 16: fallout.terminal.player.v1.SetPresentationRequest.presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
+	9,  // 17: fallout.terminal.player.v1.PlayerService.Subscribe:input_type -> fallout.terminal.player.v1.SubscribeRequest
+	13, // 18: fallout.terminal.player.v1.PlayerService.SelectCharacter:input_type -> fallout.terminal.player.v1.SelectCharacterRequest
+	20, // 19: fallout.terminal.player.v1.PlayerService.Navigate:input_type -> fallout.terminal.player.v1.NavigateRequest
+	21, // 20: fallout.terminal.player.v1.PlayerService.Guess:input_type -> fallout.terminal.player.v1.GuessRequest
+	22, // 21: fallout.terminal.player.v1.PlayerService.ActivatePattern:input_type -> fallout.terminal.player.v1.ActivatePatternRequest
+	15, // 22: fallout.terminal.player.v1.PlayerService.SetPresentation:input_type -> fallout.terminal.player.v1.SetPresentationRequest
+	23, // 23: fallout.terminal.player.v1.PlayerService.SoundManifest:input_type -> fallout.terminal.player.v1.SoundManifestRequest
+	12, // 24: fallout.terminal.player.v1.PlayerService.Subscribe:output_type -> fallout.terminal.player.v1.SubscriptionMessage
+	14, // 25: fallout.terminal.player.v1.PlayerService.SelectCharacter:output_type -> fallout.terminal.player.v1.ActionResult
+	14, // 26: fallout.terminal.player.v1.PlayerService.Navigate:output_type -> fallout.terminal.player.v1.ActionResult
+	14, // 27: fallout.terminal.player.v1.PlayerService.Guess:output_type -> fallout.terminal.player.v1.ActionResult
+	14, // 28: fallout.terminal.player.v1.PlayerService.ActivatePattern:output_type -> fallout.terminal.player.v1.ActionResult
+	14, // 29: fallout.terminal.player.v1.PlayerService.SetPresentation:output_type -> fallout.terminal.player.v1.ActionResult
+	24, // 30: fallout.terminal.player.v1.PlayerService.SoundManifest:output_type -> fallout.terminal.player.v1.SoundManifestResponse
+	24, // [24:31] is the sub-list for method output_type
+	17, // [17:24] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_player_v1_player_proto_init() }
@@ -1165,7 +1265,7 @@ func file_fallout_terminal_player_v1_player_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_player_v1_player_proto_rawDesc), len(file_fallout_terminal_player_v1_player_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

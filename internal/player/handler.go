@@ -218,6 +218,19 @@ func (service *ConnectService) ActivatePattern(_ context.Context, request *conne
 	return service.dispatchRuntimeMutation(mutation), nil
 }
 
+// SetPresentation validates one semantic controller-owned view mutation and
+// invokes the same ordered coordinator boundary as navigation and hacking.
+func (service *ConnectService) SetPresentation(_ context.Context, request *connect.Request[playerv1.SetPresentationRequest]) (*connect.Response[playerv1.ActionResult], error) {
+	if service == nil || request == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation request is required"))
+	}
+	mutation, err := PresentationFromProto(request.Msg)
+	if err != nil {
+		return nil, publicConnectError(err)
+	}
+	return service.dispatchRuntimeMutation(mutation), nil
+}
+
 // SoundManifest returns only allowlisted files from the embedded player asset
 // filesystem. The typed category is validated before the filesystem is read.
 func (service *ConnectService) SoundManifest(ctx context.Context, request *connect.Request[playerv1.SoundManifestRequest]) (*connect.Response[playerv1.SoundManifestResponse], error) {

@@ -158,6 +158,19 @@ func TestTypedSharedActionHandlersRejectUnassignedSessionWithoutMutation(t *test
 				}))
 			},
 		},
+		{
+			name: "set presentation",
+			call: func() (*connect.Response[playerv1.ActionResult], error) {
+				return service.SetPresentation(t.Context(), connect.NewRequest(&playerv1.SetPresentationRequest{
+					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "presentation-1",
+					BroadcastId: "broadcast-1", TerminalId: "terminal-1", ContextKey: "menu:root",
+					Presentation: &playerv1.ControllerTerminalPresentation{
+						ContextKey:   "menu:root",
+						Presentation: &playerv1.ControllerTerminalPresentation_Menu{Menu: &playerv1.MenuSelection{TargetId: "docs"}},
+					},
+				}))
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -368,7 +381,8 @@ func TestPublicDescriptorAndProceduresExcludeEveryPrivateDesktopCapability(t *te
 	publicSurface := strings.ToLower(strings.Join(symbols, "\n") + playerv1connect.PlayerServiceName +
 		playerv1connect.PlayerServiceSubscribeProcedure + playerv1connect.PlayerServiceSelectCharacterProcedure +
 		playerv1connect.PlayerServiceNavigateProcedure + playerv1connect.PlayerServiceGuessProcedure +
-		playerv1connect.PlayerServiceActivatePatternProcedure + playerv1connect.PlayerServiceSoundManifestProcedure)
+		playerv1connect.PlayerServiceActivatePatternProcedure + playerv1connect.PlayerServiceSetPresentationProcedure +
+		playerv1connect.PlayerServiceSoundManifestProcedure)
 	for _, forbidden := range []string{
 		"desktop", "dialog", "openurl", "forcehacksuccess", "resetfailedhack", "runtimestatus",
 		"serverinformation", "credential", "secretword", "logicalsessionstate", "coordinationstate",

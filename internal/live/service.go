@@ -3,10 +3,13 @@ package live
 
 import (
 	cryptorand "crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"maps"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -139,6 +142,7 @@ func (service *Service) createRuntimeLocked(target domain.TerminalTarget) (*doma
 	if target.HackLevel > 0 {
 		state.Hack = hack.GenerateBoard(service.generationIDs.Next(), target.HackLevel, service.random, service.words)
 	}
+	revalidateControllerPresentation(state)
 	return state, publicTerminalRuntime(state)
 }
 
@@ -170,6 +174,7 @@ func (service *Service) UpdateRuntime(state *domain.TerminalRuntime, target doma
 		state.HackLevel = target.HackLevel
 	}
 	state.Nav = nav.Revalidate(state.Nav, state.Tree)
+	revalidateControllerPresentation(state)
 	return publicTerminalRuntime(state)
 }
 
@@ -178,8 +183,9 @@ func (service *Service) ProjectRuntime(state *domain.TerminalRuntime) *domain.Pu
 	if service == nil || state == nil {
 		return nil
 	}
-	service.mu.RLock()
-	defer service.mu.RUnlock()
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	revalidateControllerPresentation(state)
 	return publicTerminalRuntime(state)
 }
 
@@ -212,6 +218,7 @@ func (service *Service) ReactivateRuntime(state *domain.TerminalRuntime, target 
 	}
 	state.Nav = nav.Revalidate(state.Nav, state.Tree)
 	state.Lifecycle = domain.TerminalLifecycleActive
+	revalidateControllerPresentation(state)
 	return publicTerminalRuntime(state)
 }
 
@@ -309,6 +316,7 @@ func (service *Service) ForceRuntimeHackSuccess(state *domain.TerminalRuntime) (
 	}
 
 	hack.ForceSuccess(state.Hack)
+	revalidateControllerPresentation(state)
 	return publicTerminalRuntime(state), true
 }
 
@@ -326,6 +334,7 @@ func (service *Service) applyRuntimeLocked(state *domain.TerminalRuntime, comman
 			}
 			state.CommandExecution = nil
 			state.Nav = nav.ApplyAction(state.Nav, state.Tree, command.Action, command.NodeID)
+			revalidateControllerPresentation(state)
 			return publicTerminalRuntime(state), true
 		}
 	}
@@ -349,9 +358,15 @@ func (service *Service) applyRuntimeLocked(state *domain.TerminalRuntime, comman
 		if !activeRuntimePuzzle(state) || !hack.ApplyPattern(state.Hack, command.PatternID, service.random) {
 			return nil, false
 		}
+	case domain.RuntimeCommandPresentation:
+		if !validControllerPresentation(state, command.Presentation) || state.Presentation == command.Presentation {
+			return nil, false
+		}
+		state.Presentation = command.Presentation
 	default:
 		return nil, false
 	}
+	revalidateControllerPresentation(state)
 	return publicTerminalRuntime(state), true
 }
 
@@ -375,6 +390,7 @@ func publicTerminalRuntime(state *domain.TerminalRuntime) *domain.PublicLiveStat
 		Tree: effectiveTree(state.Tree, state.CommandStates), HackLevel: state.HackLevel, IntroText: state.IntroText,
 		Nav: cloneNav(state.Nav), Hack: hack.PublicState(state.Hack),
 		CommandExecution: cloneCommandExecution(state.CommandExecution),
+		Presentation:     state.Presentation,
 	}
 }
 
@@ -384,6 +400,156 @@ func activePuzzle(state *domain.LiveState) bool {
 
 func activeRuntimePuzzle(state *domain.TerminalRuntime) bool {
 	return state != nil && state.Hack != nil && !state.Hack.Solved && !state.Hack.Failed
+}
+
+func revalidateControllerPresentation(state *domain.TerminalRuntime) {
+	if state == nil {
+		return
+	}
+	contextKey, kind := controllerPresentationContext(state)
+	current := state.Presentation
+	if current.ContextKey == contextKey && validControllerPresentation(state, current) {
+		return
+	}
+
+	switch kind {
+	case domain.ControllerTerminalPresentationHacking:
+		state.Presentation = domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationNone, ContextKey: contextKey,
+		}
+	case domain.ControllerTerminalPresentationPage:
+		state.Presentation = domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationPage, ContextKey: contextKey,
+		}
+	case domain.ControllerTerminalPresentationMenu:
+		folder := currentPresentationFolder(state)
+		if folder != nil && len(folder.Children) != 0 {
+			state.Presentation = domain.ControllerTerminalPresentation{
+				Kind: domain.ControllerTerminalPresentationMenu, ContextKey: contextKey, TargetID: folder.Children[0].ID,
+			}
+			return
+		}
+		state.Presentation = domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationNone, ContextKey: contextKey,
+		}
+	default:
+		state.Presentation = domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationNone, ContextKey: contextKey,
+		}
+	}
+}
+
+func validControllerPresentation(state *domain.TerminalRuntime, presentation domain.ControllerTerminalPresentation) bool {
+	if state == nil {
+		return false
+	}
+	contextKey, contextKind := controllerPresentationContext(state)
+	if presentation.ContextKey == "" || presentation.ContextKey != contextKey {
+		return false
+	}
+	switch presentation.Kind {
+	case domain.ControllerTerminalPresentationNone:
+		return presentation.TargetID == "" && presentation.PatternID == "" && presentation.PageIndex == 0
+	case domain.ControllerTerminalPresentationMenu:
+		if contextKind != domain.ControllerTerminalPresentationMenu || presentation.TargetID == "" || presentation.PatternID != "" || presentation.PageIndex != 0 {
+			return false
+		}
+		folder := currentPresentationFolder(state)
+		if folder == nil {
+			return false
+		}
+		for index := range folder.Children {
+			if folder.Children[index].ID == presentation.TargetID {
+				return true
+			}
+		}
+		return false
+	case domain.ControllerTerminalPresentationPage:
+		return contextKind == domain.ControllerTerminalPresentationPage && presentation.TargetID == "" && presentation.PatternID == "" && presentation.PageIndex <= domain.MaxPresentationPageIndex
+	case domain.ControllerTerminalPresentationHacking:
+		if contextKind != domain.ControllerTerminalPresentationHacking || presentation.PageIndex != 0 {
+			return false
+		}
+		if presentation.TargetID != "" && presentation.PatternID == "" {
+			return validHackPreviewTarget(state.Hack, presentation.TargetID)
+		}
+		if presentation.PatternID != "" && presentation.TargetID == "" {
+			for _, pattern := range hack.PublicState(state.Hack).Patterns {
+				if pattern.ID == presentation.PatternID && !pattern.Used {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func controllerPresentationContext(state *domain.TerminalRuntime) (string, domain.ControllerTerminalPresentationKind) {
+	if activeRuntimePuzzle(state) {
+		digest := sha256.Sum256([]byte(state.Hack.GenerationID))
+		return fmt.Sprintf("hack:%x", digest[:8]), domain.ControllerTerminalPresentationHacking
+	}
+	if state.Nav.ViewEntryID != nil {
+		return "entry:" + *state.Nav.ViewEntryID, domain.ControllerTerminalPresentationPage
+	}
+	if state.Nav.CommandNodeID != nil {
+		return "command:" + *state.Nav.CommandNodeID, domain.ControllerTerminalPresentationPage
+	}
+	return "menu:" + strings.Join(state.Nav.Path, "/"), domain.ControllerTerminalPresentationMenu
+}
+
+func currentPresentationFolder(state *domain.TerminalRuntime) *domain.ContentNode {
+	if state == nil || len(state.Nav.Path) == 0 {
+		return nil
+	}
+	return findPresentationNode(&state.Tree, state.Nav.Path[len(state.Nav.Path)-1])
+}
+
+func findPresentationNode(node *domain.ContentNode, nodeID string) *domain.ContentNode {
+	if node == nil {
+		return nil
+	}
+	if node.ID == nodeID {
+		return node
+	}
+	for index := range node.Children {
+		if found := findPresentationNode(&node.Children[index], nodeID); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func validHackPreviewTarget(state *domain.HackState, targetID string) bool {
+	if !activeHackState(state) {
+		return false
+	}
+	if _, ok := state.WordsByID[targetID]; ok {
+		return true
+	}
+	parts := strings.Split(targetID, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	columnIndex, columnErr := strconv.Atoi(parts[0])
+	characterIndex, characterErr := strconv.Atoi(parts[1])
+	if columnErr != nil || characterErr != nil || columnIndex < 0 || characterIndex < 0 || columnIndex >= len(state.Columns) {
+		return false
+	}
+	column := state.Columns[columnIndex]
+	if characterIndex >= len(column.Text) {
+		return false
+	}
+	for _, word := range column.Words {
+		if characterIndex >= word.Start && characterIndex < word.Start+word.Length {
+			return false
+		}
+	}
+	return true
+}
+
+func activeHackState(state *domain.HackState) bool {
+	return state != nil && !state.Solved && !state.Failed
 }
 
 func publicLiveState(state *domain.LiveState) *domain.PublicLiveState {

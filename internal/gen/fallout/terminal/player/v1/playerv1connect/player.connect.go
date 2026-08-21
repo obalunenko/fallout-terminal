@@ -45,6 +45,9 @@ const (
 	// PlayerServiceActivatePatternProcedure is the fully-qualified name of the PlayerService's
 	// ActivatePattern RPC.
 	PlayerServiceActivatePatternProcedure = "/fallout.terminal.player.v1.PlayerService/ActivatePattern"
+	// PlayerServiceSetPresentationProcedure is the fully-qualified name of the PlayerService's
+	// SetPresentation RPC.
+	PlayerServiceSetPresentationProcedure = "/fallout.terminal.player.v1.PlayerService/SetPresentation"
 	// PlayerServiceSoundManifestProcedure is the fully-qualified name of the PlayerService's
 	// SoundManifest RPC.
 	PlayerServiceSoundManifestProcedure = "/fallout.terminal.player.v1.PlayerService/SoundManifest"
@@ -57,6 +60,7 @@ type PlayerServiceClient interface {
 	Navigate(context.Context, *connect.Request[v1.NavigateRequest]) (*connect.Response[v1.ActionResult], error)
 	Guess(context.Context, *connect.Request[v1.GuessRequest]) (*connect.Response[v1.ActionResult], error)
 	ActivatePattern(context.Context, *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error)
+	SetPresentation(context.Context, *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error)
 	SoundManifest(context.Context, *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error)
 }
 
@@ -101,6 +105,12 @@ func NewPlayerServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(playerServiceMethods.ByName("ActivatePattern")),
 			connect.WithClientOptions(opts...),
 		),
+		setPresentation: connect.NewClient[v1.SetPresentationRequest, v1.ActionResult](
+			httpClient,
+			baseURL+PlayerServiceSetPresentationProcedure,
+			connect.WithSchema(playerServiceMethods.ByName("SetPresentation")),
+			connect.WithClientOptions(opts...),
+		),
 		soundManifest: connect.NewClient[v1.SoundManifestRequest, v1.SoundManifestResponse](
 			httpClient,
 			baseURL+PlayerServiceSoundManifestProcedure,
@@ -117,6 +127,7 @@ type playerServiceClient struct {
 	navigate        *connect.Client[v1.NavigateRequest, v1.ActionResult]
 	guess           *connect.Client[v1.GuessRequest, v1.ActionResult]
 	activatePattern *connect.Client[v1.ActivatePatternRequest, v1.ActionResult]
+	setPresentation *connect.Client[v1.SetPresentationRequest, v1.ActionResult]
 	soundManifest   *connect.Client[v1.SoundManifestRequest, v1.SoundManifestResponse]
 }
 
@@ -145,6 +156,11 @@ func (c *playerServiceClient) ActivatePattern(ctx context.Context, req *connect.
 	return c.activatePattern.CallUnary(ctx, req)
 }
 
+// SetPresentation calls fallout.terminal.player.v1.PlayerService.SetPresentation.
+func (c *playerServiceClient) SetPresentation(ctx context.Context, req *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error) {
+	return c.setPresentation.CallUnary(ctx, req)
+}
+
 // SoundManifest calls fallout.terminal.player.v1.PlayerService.SoundManifest.
 func (c *playerServiceClient) SoundManifest(ctx context.Context, req *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error) {
 	return c.soundManifest.CallUnary(ctx, req)
@@ -158,6 +174,7 @@ type PlayerServiceHandler interface {
 	Navigate(context.Context, *connect.Request[v1.NavigateRequest]) (*connect.Response[v1.ActionResult], error)
 	Guess(context.Context, *connect.Request[v1.GuessRequest]) (*connect.Response[v1.ActionResult], error)
 	ActivatePattern(context.Context, *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error)
+	SetPresentation(context.Context, *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error)
 	SoundManifest(context.Context, *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error)
 }
 
@@ -198,6 +215,12 @@ func NewPlayerServiceHandler(svc PlayerServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(playerServiceMethods.ByName("ActivatePattern")),
 		connect.WithHandlerOptions(opts...),
 	)
+	playerServiceSetPresentationHandler := connect.NewUnaryHandler(
+		PlayerServiceSetPresentationProcedure,
+		svc.SetPresentation,
+		connect.WithSchema(playerServiceMethods.ByName("SetPresentation")),
+		connect.WithHandlerOptions(opts...),
+	)
 	playerServiceSoundManifestHandler := connect.NewUnaryHandler(
 		PlayerServiceSoundManifestProcedure,
 		svc.SoundManifest,
@@ -216,6 +239,8 @@ func NewPlayerServiceHandler(svc PlayerServiceHandler, opts ...connect.HandlerOp
 			playerServiceGuessHandler.ServeHTTP(w, r)
 		case PlayerServiceActivatePatternProcedure:
 			playerServiceActivatePatternHandler.ServeHTTP(w, r)
+		case PlayerServiceSetPresentationProcedure:
+			playerServiceSetPresentationHandler.ServeHTTP(w, r)
 		case PlayerServiceSoundManifestProcedure:
 			playerServiceSoundManifestHandler.ServeHTTP(w, r)
 		default:
@@ -245,6 +270,10 @@ func (UnimplementedPlayerServiceHandler) Guess(context.Context, *connect.Request
 
 func (UnimplementedPlayerServiceHandler) ActivatePattern(context.Context, *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.ActivatePattern is not implemented"))
+}
+
+func (UnimplementedPlayerServiceHandler) SetPresentation(context.Context, *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.SetPresentation is not implemented"))
 }
 
 func (UnimplementedPlayerServiceHandler) SoundManifest(context.Context, *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error) {

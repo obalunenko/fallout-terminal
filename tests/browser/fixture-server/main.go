@@ -1410,6 +1410,30 @@ func run(ctx context.Context) error {
 		}
 		response.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /__fixture/reassign-controller", func(response http.ResponseWriter, _ *http.Request) {
+		state := service.Snapshot()
+		var target domain.LogicalSessionID
+		for _, session := range state.Sessions {
+			if session.Connected && session.Character != nil && session.Role == domain.PlayerRoleObserver {
+				target = session.ID
+				break
+			}
+		}
+		if target == "" {
+			http.Error(response, "connected assigned observer does not exist", http.StatusConflict)
+			return
+		}
+		updated, err := service.SetActiveController(target)
+		if err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]any{
+			"controllerSessionId": target,
+			"revision":            updated.Revision,
+		})
+	})
 	mux.HandleFunc("POST /__fixture/update", func(response http.ResponseWriter, _ *http.Request) {
 		updated := fixtureTerminal()
 		updated.Tree.Children = append(updated.Tree.Children, domain.ContentNode{

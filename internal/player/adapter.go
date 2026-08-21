@@ -192,6 +192,82 @@ func ActivatePatternFromProto(request *playerv1.ActivatePatternRequest) (Runtime
 	}, nil
 }
 
+// PresentationFromProto validates and detaches one exclusive semantic view
+// mutation. The repeated context key is an explicit stale-context precondition
+// and must agree with the complete projected presentation value.
+func PresentationFromProto(request *playerv1.SetPresentationRequest) (RuntimeMutation, error) {
+	if request == nil || request.GetPresentation() == nil {
+		return RuntimeMutation{}, fmt.Errorf("presentation request is required")
+	}
+	if err := ValidateMessageSize(request); err != nil {
+		return RuntimeMutation{}, err
+	}
+	if err := validateTerminalMutation(request.GetRecognitionHandle(), request.GetRequestId(), request.GetBroadcastId(), request.GetTerminalId()); err != nil {
+		return RuntimeMutation{}, err
+	}
+	if err := domain.ValidatePublicField(domain.PublicFieldActionTarget, request.GetContextKey()); err != nil {
+		return RuntimeMutation{}, err
+	}
+	generated := request.GetPresentation()
+	if generated.GetContextKey() != request.GetContextKey() {
+		return RuntimeMutation{}, fmt.Errorf("presentation context precondition does not match")
+	}
+	presentation := domain.ControllerTerminalPresentation{ContextKey: request.GetContextKey()}
+	switch value := generated.Presentation.(type) {
+	case *playerv1.ControllerTerminalPresentation_None:
+		if value.None == nil {
+			return RuntimeMutation{}, fmt.Errorf("none presentation is required")
+		}
+		presentation.Kind = domain.ControllerTerminalPresentationNone
+	case *playerv1.ControllerTerminalPresentation_Menu:
+		if value.Menu == nil || domain.ValidatePublicField(domain.PublicFieldActionTarget, value.Menu.GetTargetId()) != nil {
+			return RuntimeMutation{}, fmt.Errorf("menu presentation target is invalid")
+		}
+		presentation.Kind = domain.ControllerTerminalPresentationMenu
+		presentation.TargetID = value.Menu.GetTargetId()
+	case *playerv1.ControllerTerminalPresentation_Page:
+		if value.Page == nil || value.Page.GetPageIndex() > domain.MaxPresentationPageIndex {
+			return RuntimeMutation{}, fmt.Errorf("page presentation is invalid")
+		}
+		presentation.Kind = domain.ControllerTerminalPresentationPage
+		presentation.PageIndex = value.Page.GetPageIndex()
+	case *playerv1.ControllerTerminalPresentation_Hacking:
+		if value.Hacking == nil {
+			return RuntimeMutation{}, fmt.Errorf("hacking presentation target is required")
+		}
+		presentation.Kind = domain.ControllerTerminalPresentationHacking
+		switch target := value.Hacking.Target.(type) {
+		case *playerv1.HackingPreview_TargetId:
+			if domain.ValidatePublicField(domain.PublicFieldActionTarget, target.TargetId) != nil {
+				return RuntimeMutation{}, fmt.Errorf("hacking preview target is invalid")
+			}
+			presentation.TargetID = target.TargetId
+		case *playerv1.HackingPreview_PatternId:
+			if domain.ValidatePublicField(domain.PublicFieldActionTarget, target.PatternId) != nil {
+				return RuntimeMutation{}, fmt.Errorf("hacking preview pattern is invalid")
+			}
+			presentation.PatternID = target.PatternId
+		default:
+			return RuntimeMutation{}, fmt.Errorf("hacking preview target is required")
+		}
+	default:
+		return RuntimeMutation{}, fmt.Errorf("presentation variant is required")
+	}
+
+	fingerprint, err := deterministicRequestFingerprint(playerv1connect.PlayerServiceSetPresentationProcedure, request)
+	if err != nil {
+		return RuntimeMutation{}, err
+	}
+	return RuntimeMutation{
+		RecognitionHandle: domain.RecognitionHandle(request.GetRecognitionHandle()),
+		Command: domain.RuntimeCommand{
+			RequestID: domain.RequestID(request.GetRequestId()), BroadcastID: domain.BroadcastID(request.GetBroadcastId()),
+			TerminalID: request.GetTerminalId(), Kind: domain.RuntimeCommandPresentation,
+			Presentation: presentation, PayloadFingerprint: fingerprint,
+		},
+	}, nil
+}
+
 // deterministicRequestFingerprint binds replay identity to the generated
 // procedure and the exact structurally valid protobuf payload, including
 // retained unknown fields, without retaining request bytes in canonical state.
@@ -323,16 +399,38 @@ func LiveToProto(state *domain.PublicLiveState) *playerv1.LiveTerminal {
 		return nil
 	}
 	return &playerv1.LiveTerminal{
-		TerminalId:         state.TerminalID,
-		TerminalName:       state.TerminalName,
-		Tree:               ContentNodeToProto(state.Tree),
-		HackLevel:          int32(state.HackLevel),
-		IntroText:          state.IntroText,
-		Navigation:         NavigationToProto(&state.Nav),
-		Hacking:            HackToProto(state.Hack),
-		CommandExecution:   commandExecutionToProto(state.CommandExecution),
-		TerminalNavigation: terminalNavigationToProto(state.TerminalNavigation),
+		TerminalId:             state.TerminalID,
+		TerminalName:           state.TerminalName,
+		Tree:                   ContentNodeToProto(state.Tree),
+		HackLevel:              int32(state.HackLevel),
+		IntroText:              state.IntroText,
+		Navigation:             NavigationToProto(&state.Nav),
+		Hacking:                HackToProto(state.Hack),
+		CommandExecution:       commandExecutionToProto(state.CommandExecution),
+		TerminalNavigation:     terminalNavigationToProto(state.TerminalNavigation),
+		ControllerPresentation: controllerPresentationToProto(state.Presentation),
 	}
+}
+
+func controllerPresentationToProto(presentation domain.ControllerTerminalPresentation) *playerv1.ControllerTerminalPresentation {
+	result := &playerv1.ControllerTerminalPresentation{ContextKey: presentation.ContextKey}
+	switch presentation.Kind {
+	case domain.ControllerTerminalPresentationMenu:
+		result.Presentation = &playerv1.ControllerTerminalPresentation_Menu{Menu: &playerv1.MenuSelection{TargetId: presentation.TargetID}}
+	case domain.ControllerTerminalPresentationPage:
+		result.Presentation = &playerv1.ControllerTerminalPresentation_Page{Page: &playerv1.InformationPagePosition{PageIndex: presentation.PageIndex}}
+	case domain.ControllerTerminalPresentationHacking:
+		hacking := &playerv1.HackingPreview{}
+		if presentation.PatternID != "" {
+			hacking.Target = &playerv1.HackingPreview_PatternId{PatternId: presentation.PatternID}
+		} else {
+			hacking.Target = &playerv1.HackingPreview_TargetId{TargetId: presentation.TargetID}
+		}
+		result.Presentation = &playerv1.ControllerTerminalPresentation_Hacking{Hacking: hacking}
+	default:
+		result.Presentation = &playerv1.ControllerTerminalPresentation_None{None: &playerv1.NoControllerTerminalPresentation{}}
+	}
+	return result
 }
 
 func terminalNavigationToProto(presentation *domain.TerminalNavigationPresentation) *playerv1.TerminalNavigationPresentation {

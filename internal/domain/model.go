@@ -228,6 +228,7 @@ type PublicLiveState struct {
 	Hack               *PublicHackState                `json:"hack"`
 	CommandExecution   *CommandExecutionPresentation   `json:"commandExecution,omitempty"`
 	TerminalNavigation *TerminalNavigationPresentation `json:"terminalNavigation,omitempty"`
+	Presentation       ControllerTerminalPresentation  `json:"controllerPresentation"`
 }
 
 // LogicalSessionID identifies one browser profile for the lifetime of a server process.
@@ -274,7 +275,31 @@ const (
 	RuntimeCommandNavigate        RuntimeCommandKind = "navigate"
 	RuntimeCommandGuess           RuntimeCommandKind = "guess"
 	RuntimeCommandActivatePattern RuntimeCommandKind = "activate-pattern"
+	RuntimeCommandPresentation    RuntimeCommandKind = "presentation"
 )
+
+// ControllerTerminalPresentationKind identifies the stable semantic portion
+// of the terminal view shared by the controller and every observer. Pointer
+// coordinates, DOM focus, viewport geometry, and audio eligibility remain
+// deliberately outside this process-local value.
+type ControllerTerminalPresentationKind string
+
+const (
+	ControllerTerminalPresentationNone    ControllerTerminalPresentationKind = "none"
+	ControllerTerminalPresentationMenu    ControllerTerminalPresentationKind = "menu"
+	ControllerTerminalPresentationPage    ControllerTerminalPresentationKind = "page"
+	ControllerTerminalPresentationHacking ControllerTerminalPresentationKind = "hacking"
+)
+
+// ControllerTerminalPresentation is the complete semantic selection for one
+// active terminal context. Exactly the fields admitted by Kind may be set.
+type ControllerTerminalPresentation struct {
+	Kind       ControllerTerminalPresentationKind `json:"kind"`
+	ContextKey string                             `json:"contextKey"`
+	TargetID   string                             `json:"targetId,omitempty"`
+	PatternID  string                             `json:"patternId,omitempty"`
+	PageIndex  uint32                             `json:"pageIndex,omitempty"`
+}
 
 // PlayerRole is a logical session's current broadcast-wide authority.
 type PlayerRole string
@@ -475,6 +500,7 @@ type RuntimeCommand struct {
 	NodeID             string
 	TargetID           string
 	PatternID          string
+	Presentation       ControllerTerminalPresentation
 	PayloadFingerprint string
 }
 
@@ -569,6 +595,7 @@ type TerminalRuntime struct {
 	IntroText        string
 	Nav              NavState
 	Hack             *HackState
+	Presentation     ControllerTerminalPresentation
 	Lifecycle        TerminalLifecycle
 }
 

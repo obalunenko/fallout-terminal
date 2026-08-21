@@ -27,6 +27,37 @@ const (
 	edgeTestPassword = "synthetic-player-input"
 )
 
+func TestFirstPublicSnapshotRestoresControllerPresentation(t *testing.T) {
+	domainSnapshot := &domain.PersonalizedSnapshot{
+		RecognitionHandle: "recognition-reconnect", Revision: 42,
+		PlayerState: &domain.PlayerState{
+			SessionID: "session-observer", FallbackName: "PLAYER 2",
+			Role: domain.PlayerRoleObserver, Phase: domain.PlayerPhaseObserving,
+			BroadcastID: "broadcast-1", ActiveTerminalID: "terminal-1",
+		},
+		Terminal: domain.TerminalPresentation{Live: &domain.PublicLiveState{
+			TerminalID: "terminal-1", TerminalName: "Overseer",
+			Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT"},
+			Nav:  domain.NavState{Path: []string{"root"}, Mode: "list"},
+			Presentation: domain.ControllerTerminalPresentation{
+				Kind: domain.ControllerTerminalPresentationMenu, ContextKey: "menu:root", TargetID: "status",
+			},
+		}},
+	}
+	generated, err := SnapshotToProto(domainSnapshot)
+	require.NoError(t, err)
+	got := generated.GetTerminalPresentation().GetLiveTerminal().GetControllerPresentation()
+	require.Equal(t, "menu:root", got.GetContextKey())
+	require.Equal(t, "status", got.GetMenu().GetTargetId())
+
+	stream := NewSubscription(t.Context(), "physical-reconnect", "session-observer", &playerv1.SubscriptionMessage{
+		Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: generated},
+	}, 2)
+	t.Cleanup(stream.Close)
+	cloned := stream.Snapshot().GetSnapshot().GetTerminalPresentation().GetLiveTerminal().GetControllerPresentation()
+	require.Equal(t, "status", cloned.GetMenu().GetTargetId())
+}
+
 type publicIngressTransport struct {
 	base     http.RoundTripper
 	target   *url.URL

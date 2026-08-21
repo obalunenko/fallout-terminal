@@ -466,12 +466,18 @@ html, body {
   text-shadow: none;
 }
 
-/* ── Shared-action authority / pending presentation ─────
-   These states alter only controls that can mutate the shared terminal.
-   Paging, hover selection, focus, and hacking preview remain local and keep
-   their ordinary highlight behavior. */
-#screen.observer-read-only :is(.term-row, .back-btn, .hcell),
-#screen.shared-input-pending :is(.term-row, .back-btn, .hcell) {
+/* ── Shared-action and controller-presentation authority ─
+   Observer pointer/focus/keyboard input is visually inert. Selection, paging,
+   and hacking preview classes are applied only from authoritative projection.
+   shared-input-pending is reserved for genuinely unavailable gameplay,
+   navigation, or command input; presentation correlation remains actionable. */
+#screen.observer-read-only .player-identity {
+  border-color: rgba(127, 192, 255, .48);
+  background: rgba(36, 70, 92, .14);
+}
+
+#screen.observer-read-only :is(.term-row, .back-btn, .page-btn, .hcell),
+#screen.shared-input-pending :is(.term-row, .back-btn, .page-btn, .hcell) {
   cursor: not-allowed;
   opacity: .72;
 }

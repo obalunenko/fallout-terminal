@@ -117,11 +117,21 @@ message ActionResult {
   uint64 revision = 4;
 }
 
+message SetPresentationRequest {
+  string recognition_handle = 1;
+  string request_id = 2;
+  string broadcast_id = 3;
+  string terminal_id = 4;
+  string context_key = 5;
+  ControllerTerminalPresentation presentation = 6;
+}
+
 service PlayerService {
   rpc Subscribe(SubscribeRequest) returns (stream SubscriptionMessage);
   rpc SelectCharacter(SelectCharacterRequest) returns (ActionResult);
   rpc Navigate(NavigateRequest) returns (ActionResult);
   rpc Guess(GuessRequest) returns (ActionResult);
   rpc ActivatePattern(ActivatePatternRequest) returns (ActionResult);
+  rpc SetPresentation(SetPresentationRequest) returns (ActionResult);
   rpc SoundManifest(SoundManifestRequest) returns (SoundManifestResponse);
 }

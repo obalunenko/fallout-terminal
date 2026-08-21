@@ -33,6 +33,9 @@ const (
 	MaxCharacterIDBytes = 256
 	// MaxActionTargetBytes bounds node, guess, and opaque pattern targets.
 	MaxActionTargetBytes = 256
+	// MaxPresentationPageIndex bounds controller-owned page ordinals before a
+	// responsive client clamps them to its rendered page count.
+	MaxPresentationPageIndex = 10000
 	// MaxSoundCategoryBytes bounds typed sound adapter input before lookup.
 	MaxSoundCategoryBytes = 32
 	maxNameBytes          = 256

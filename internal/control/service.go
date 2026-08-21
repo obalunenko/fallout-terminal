@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1919,7 +1920,9 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			Fingerprint: fingerprint,
 			Result:      outcome,
 		})
-		session.Notice = nil
+		if command.Kind != domain.RuntimeCommandPresentation {
+			session.Notice = nil
+		}
 		return transition{
 			accepted: true,
 			effects: []Effect{
@@ -2508,6 +2511,29 @@ func validRuntimeCommand(command domain.RuntimeCommand) bool {
 		return strings.TrimSpace(command.TargetID) != "" && command.Action == "" && command.NodeID == "" && command.PatternID == ""
 	case domain.RuntimeCommandActivatePattern:
 		return strings.TrimSpace(command.PatternID) != "" && command.Action == "" && command.NodeID == "" && command.TargetID == ""
+	case domain.RuntimeCommandPresentation:
+		if command.Action != "" || command.NodeID != "" || command.TargetID != "" || command.PatternID != "" ||
+			domain.ValidatePublicField(domain.PublicFieldActionTarget, command.Presentation.ContextKey) != nil {
+			return false
+		}
+		switch command.Presentation.Kind {
+		case domain.ControllerTerminalPresentationNone:
+			return command.Presentation.TargetID == "" && command.Presentation.PatternID == "" && command.Presentation.PageIndex == 0
+		case domain.ControllerTerminalPresentationMenu:
+			return domain.ValidatePublicField(domain.PublicFieldActionTarget, command.Presentation.TargetID) == nil &&
+				command.Presentation.PatternID == "" && command.Presentation.PageIndex == 0
+		case domain.ControllerTerminalPresentationPage:
+			return command.Presentation.TargetID == "" && command.Presentation.PatternID == "" &&
+				command.Presentation.PageIndex <= domain.MaxPresentationPageIndex
+		case domain.ControllerTerminalPresentationHacking:
+			targetValid := command.Presentation.TargetID != "" && command.Presentation.PatternID == "" &&
+				domain.ValidatePublicField(domain.PublicFieldActionTarget, command.Presentation.TargetID) == nil
+			patternValid := command.Presentation.PatternID != "" && command.Presentation.TargetID == "" &&
+				domain.ValidatePublicField(domain.PublicFieldActionTarget, command.Presentation.PatternID) == nil
+			return command.Presentation.PageIndex == 0 && (targetValid || patternValid)
+		default:
+			return false
+		}
 	default:
 		return false
 	}
@@ -2525,6 +2551,11 @@ func playerActionFingerprint(command domain.RuntimeCommand) string {
 		command.NodeID,
 		command.TargetID,
 		command.PatternID,
+		string(command.Presentation.Kind),
+		command.Presentation.ContextKey,
+		command.Presentation.TargetID,
+		command.Presentation.PatternID,
+		strconv.FormatUint(uint64(command.Presentation.PageIndex), 10),
 	)
 }
 

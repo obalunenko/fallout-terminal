@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -22,6 +23,120 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestControllerPresentationCommandCarriesSemanticContext(t *testing.T) {
+	commandType := reflect.TypeOf(domain.RuntimeCommand{})
+	field, ok := commandType.FieldByName("Presentation")
+	require.True(t, ok, "RuntimeCommand must expose Presentation")
+	require.NotEqual(t, reflect.Invalid, field.Type.Kind())
+	_, ok = field.Type.FieldByName("ContextKey")
+	require.True(t, ok, "presentation command must carry the semantic context precondition")
+
+	runtimeType := reflect.TypeOf(domain.TerminalRuntime{})
+	_, ok = runtimeType.FieldByName("Presentation")
+	require.True(t, ok, "coordinator-owned runtime must retain presentation across reassignment")
+}
+
+func TestControllerPresentationAuthorizationReassignmentAndProjection(t *testing.T) {
+	engine := live.New(nil, nil)
+	fixture := newUS2Fixture(t, engine)
+	projection, _, ok := fixture.service.CurrentLiveForSession(fixture.controllerSession)
+	require.True(t, ok)
+	require.NotEmpty(t, projection.Presentation.ContextKey)
+
+	first := domain.RuntimeCommand{
+		RequestID: "presentation-controller", BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+		Kind: domain.RuntimeCommandPresentation,
+		Presentation: domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationHacking, ContextKey: projection.Presentation.ContextKey,
+			TargetID: "candidate-wrong",
+		},
+	}
+	result := fixture.service.DispatchPlayerAction(fixture.controllerConnection, first)
+	require.True(t, result.Accepted)
+	require.Equal(t, "candidate-wrong", canonicalTerminal(t, fixture.service, fixture.terminalID).Presentation.TargetID)
+
+	beforeObserver := fixture.service.Revision()
+	observer := first
+	observer.RequestID = "presentation-observer"
+	observer.Presentation.TargetID = "candidate-secret"
+	result = fixture.service.DispatchPlayerAction(fixture.observerConnection, observer)
+	require.False(t, result.Accepted)
+	require.Equal(t, domain.ActionReasonNotController, result.Reason)
+	require.Equal(t, beforeObserver, fixture.service.Revision())
+	require.Equal(t, "candidate-wrong", canonicalTerminal(t, fixture.service, fixture.terminalID).Presentation.TargetID)
+
+	_, err := fixture.service.SetActiveController(fixture.observerSession)
+	require.NoError(t, err)
+	require.Equal(t, "candidate-wrong", canonicalTerminal(t, fixture.service, fixture.terminalID).Presentation.TargetID,
+		"reassignment must preserve the shared presentation")
+
+	former := first
+	former.RequestID = "presentation-former-controller"
+	former.Presentation.TargetID = "candidate-secret"
+	result = fixture.service.DispatchPlayerAction(fixture.controllerConnection, former)
+	require.False(t, result.Accepted)
+	require.Equal(t, domain.ActionReasonNotController, result.Reason)
+
+	newController := observer
+	newController.RequestID = "presentation-new-controller"
+	result = fixture.service.DispatchPlayerAction(fixture.observerConnection, newController)
+	require.True(t, result.Accepted)
+	require.Equal(t, "candidate-secret", canonicalTerminal(t, fixture.service, fixture.terminalID).Presentation.TargetID)
+}
+
+func TestControllerPresentationAndReassignmentShareCommitOrderAcross100Interleavings(t *testing.T) {
+	for trial := 0; trial < 100; trial++ {
+		t.Run(fmt.Sprintf("trial-%03d", trial), func(t *testing.T) {
+			fixture := newUS2Fixture(t, live.New(nil, nil))
+			projection, _, ok := fixture.service.CurrentLiveForSession(fixture.controllerSession)
+			require.True(t, ok)
+			before := projection.Presentation
+			require.NotEmpty(t, before.ContextKey)
+
+			command := domain.RuntimeCommand{
+				RequestID:   domain.RequestID(fmt.Sprintf("presentation-reassign-race-%03d", trial)),
+				BroadcastID: fixture.broadcastID,
+				TerminalID:  fixture.terminalID,
+				Kind:        domain.RuntimeCommandPresentation,
+				Presentation: domain.ControllerTerminalPresentation{
+					Kind:       domain.ControllerTerminalPresentationHacking,
+					ContextKey: before.ContextKey,
+					TargetID:   "candidate-wrong",
+				},
+			}
+
+			start := make(chan struct{})
+			actionDone := make(chan domain.ActionResult, 1)
+			reassignmentDone := make(chan error, 1)
+			go func() {
+				<-start
+				actionDone <- fixture.service.DispatchPlayerAction(fixture.controllerConnection, command)
+			}()
+			go func() {
+				<-start
+				_, err := fixture.service.SetActiveController(fixture.observerSession)
+				reassignmentDone <- err
+			}()
+			close(start)
+
+			result := <-actionDone
+			require.NoError(t, <-reassignmentDone)
+			final := fixture.service.Snapshot()
+			assertExactlyOneController(t, final, fixture.observerSession)
+			presentation := canonicalTerminal(t, fixture.service, fixture.terminalID).Presentation
+			if result.Accepted {
+				require.Equal(t, domain.ActionReasonAccepted, result.Reason)
+				require.Equal(t, domain.ControllerTerminalPresentationHacking, presentation.Kind)
+				require.Equal(t, before.ContextKey, presentation.ContextKey)
+				require.Equal(t, "candidate-wrong", presentation.TargetID)
+			} else {
+				require.Equal(t, domain.ActionReasonNotController, result.Reason)
+				require.Equal(t, before, presentation)
+			}
+		})
+	}
+}
 
 // These tests intentionally exercise the package-private transaction seam.
 // Story commands build on this seam, while commit remains the single place
@@ -3868,11 +3983,15 @@ func commandExecutionSession(completed bool) domain.Session {
 	return domain.Session{Version: 1, Name: "Command execution fixture", Terminals: []domain.Terminal{terminal}}
 }
 
-func newUS2Fixture(t *testing.T, runtime *recordingTerminalRuntime) us2Fixture {
+func newUS2Fixture(t *testing.T, runtime RuntimeActions) us2Fixture {
 	t.Helper()
 	effects := testutil.NewFakeOrderedEffectSink[Effect]()
-	service := New(Config{IDs: &counterIDSource{}, Enqueue: effects.Enqueue, Runtime: runtime})
-	_, err := addCharacter(service, "Mara")
+	config := Config{IDs: &counterIDSource{}, Enqueue: effects.Enqueue, Runtime: runtime}
+	if terminals, ok := runtime.(TerminalRuntimeLifecycle); ok {
+		config.Terminals = terminals
+	}
+	service := New(config)
+	state, err := addCharacter(service, "Mara")
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -3880,7 +3999,7 @@ func newUS2Fixture(t *testing.T, runtime *recordingTerminalRuntime) us2Fixture {
 	if err != nil {
 		require.NoError(t, err)
 	}
-	state, err := service.StartBroadcast()
+	state, err = service.StartBroadcast()
 	if err != nil {
 		require.NoError(t, err)
 	}
