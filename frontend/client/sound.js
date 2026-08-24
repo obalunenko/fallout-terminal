@@ -37,6 +37,9 @@ const soundCategories = Object.freeze({
   charscroll: SoundCategory.CHARSCROLL,
 });
 const supportedSoundExtension = /\.(?:mp3|wav|ogg|m4a|webm)$/i;
+const safeSoundAssetURL = /^\/sounds\/[a-z-]+\/[^/]+$/;
+const maxSoundDiagnosticEvents = 256;
+let soundDiagnosticEvents = 0;
 
 // shouldPlayAuthoritativeCue deduplicates one-shot effects by newly applied
 // authoritative revision. Snapshots/reconnect baselines and rejected/replayed
@@ -66,15 +69,46 @@ function reportPlayback(url) {
   }
 }
 
+function reportSoundDiagnostic(stage, { folder = '', url = '' } = {}) {
+  if (typeof window.__falloutTerminalSoundDiagnosticObserver !== 'function') return;
+  if (soundDiagnosticEvents >= maxSoundDiagnosticEvents) return;
+  soundDiagnosticEvents += 1;
+  try {
+    window.__falloutTerminalSoundDiagnosticObserver({
+      stage,
+      folder: Object.prototype.hasOwnProperty.call(soundCategories, folder) ? folder : '',
+      url: safeSoundAssetURL.test(url) ? url : '',
+    });
+  } catch {
+    // Test/diagnostic observation is optional and cannot affect playback.
+  }
+}
+
 function getCtx() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) return null;
+  if (!AudioContextClass) {
+    reportSoundDiagnostic('context-unavailable');
+    return null;
+  }
   try {
     if (!audioCtx) audioCtx = new AudioContextClass();
   } catch {
+    reportSoundDiagnostic('context-construction-failed');
     return null;
   }
   return audioCtx;
+}
+
+async function decodeRaw(context, url, raw) {
+  reportSoundDiagnostic('decode-start', { url });
+  try {
+    const buffer = await context.decodeAudioData(raw.slice(0));
+    reportSoundDiagnostic('decode-ready', { url });
+    return buffer;
+  } catch (error) {
+    reportSoundDiagnostic('decode-failed', { url });
+    throw error;
+  }
 }
 
 function enableWebAudio() {
@@ -85,13 +119,20 @@ function enableWebAudio() {
 
   const attempt = (async () => {
     try {
-      if (context.state === 'suspended') await context.resume();
-      if (context.state !== 'running') return false;
+      if (context.state === 'suspended') {
+        reportSoundDiagnostic('resume-start');
+        await context.resume();
+        reportSoundDiagnostic('resume-ready');
+      }
+      if (context.state !== 'running') {
+        reportSoundDiagnostic('context-not-running');
+        return false;
+      }
 
       await Promise.all(oneShotFolders.map(loadFolder));
       await Promise.all(Array.from(rawBufs.entries()).map(async ([url, raw]) => {
         if (decodedBufs.has(url)) return;
-        const buffer = await context.decodeAudioData(raw.slice(0));
+        const buffer = await decodeRaw(context, url, raw);
         decodedBufs.set(url, buffer);
       }));
       if (context.state === 'running') {
@@ -99,6 +140,7 @@ function enableWebAudio() {
         return true;
       }
     } catch {
+      reportSoundDiagnostic('audio-enable-failed');
       // A document without an eligible Web Audio context remains silent.
     }
     return false;
@@ -114,10 +156,18 @@ async function prefetch(url) {
   if (rawBufs.has(url) || decodedBufs.has(url)) return;
   if (rawLoads.has(url)) return rawLoads.get(url);
   const loading = (async () => {
+    reportSoundDiagnostic('fetch-start', { url });
     try {
       const res = await fetch(url);
-      if (res.ok) rawBufs.set(url, await res.arrayBuffer());
-    } catch { /* sound file missing — silently skip */ }
+      if (!res.ok) {
+        reportSoundDiagnostic('fetch-failed', { url });
+        return;
+      }
+      rawBufs.set(url, await res.arrayBuffer());
+      reportSoundDiagnostic('fetch-ready', { url });
+    } catch {
+      reportSoundDiagnostic('fetch-failed', { url });
+    }
   })();
   rawLoads.set(url, loading);
   try {
@@ -130,6 +180,7 @@ async function prefetch(url) {
 async function playBuf(url, volume) {
   try {
     if (!webAudioReady || !await webAudioReady || !webAudioEligible) {
+      reportSoundDiagnostic('playback-ineligible', { url });
       return;
     }
     let buffer = decodedBufs.get(url);
@@ -139,7 +190,7 @@ async function playBuf(url, volume) {
       if (!raw) return;
       const c = getCtx();
       if (!c) return;
-      buffer = await c.decodeAudioData(raw.slice(0));
+      buffer = await decodeRaw(c, url, raw);
       decodedBufs.set(url, buffer);
     }
     const c = getCtx();
@@ -150,9 +201,16 @@ async function playBuf(url, volume) {
     gain.gain.value = volume;
     src.connect(gain);
     gain.connect(c.destination);
-    src.start();
+    try {
+      src.start();
+    } catch {
+      reportSoundDiagnostic('source-start-failed', { url });
+      return;
+    }
+    reportSoundDiagnostic('source-started', { url });
     reportPlayback(url);
   } catch {
+    reportSoundDiagnostic('playback-failed', { url });
     // Audio is optional: decode, autoplay, and device failures are non-fatal.
   }
 }
@@ -161,6 +219,7 @@ async function loadFolder(name) {
   if (Object.prototype.hasOwnProperty.call(folderFiles, name)) return folderFiles[name];
   if (folderLoads.has(name)) return folderLoads.get(name);
   const loading = (async () => {
+    reportSoundDiagnostic('manifest-start', { folder: name });
     try {
       const category = soundCategories[name];
       if (category === undefined) return [];
@@ -173,8 +232,10 @@ async function loadFolder(name) {
       }).map(asset => `/${prefix}${encodeURIComponent(asset.slice(prefix.length))}`);
       folderFiles[name] = supported;
       await Promise.all(supported.map(prefetch));
+      reportSoundDiagnostic('manifest-ready', { folder: name });
       return supported;
     } catch {
+      reportSoundDiagnostic('manifest-failed', { folder: name });
       return [];
     }
   })();
@@ -187,15 +248,23 @@ async function loadFolder(name) {
 }
 
 async function playFromFolder(name, volume) {
+  reportSoundDiagnostic('dispatch', { folder: name });
   const files = folderFiles[name] || await loadFolder(name);
-  if (!files || !files.length) return;
+  if (!files || !files.length) {
+    reportSoundDiagnostic('asset-unavailable', { folder: name });
+    return;
+  }
   const url = files[Math.floor(Math.random() * files.length)];
   await playBuf(url, volume);
 }
 
 async function playFirst(name, volume) {
+  reportSoundDiagnostic('dispatch', { folder: name });
   const files = folderFiles[name] || await loadFolder(name);
-  if (!files || !files.length) return;
+  if (!files || !files.length) {
+    reportSoundDiagnostic('asset-unavailable', { folder: name });
+    return;
+  }
   await playBuf(files[0], volume);
 }
 

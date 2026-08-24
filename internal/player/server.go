@@ -115,8 +115,12 @@ func (server *Server) Start(ctx context.Context) (domain.ServerInfo, error) {
 
 	rpcPath, rpcHandler := NewConnectHandler(server.config.Connect)
 	application := NewApplicationHandler(server.config.Assets, rpcPath, rpcHandler)
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
 	server.httpServer = &http.Server{
-		Handler: application,
+		Handler:   application,
+		Protocols: protocols,
 		BaseContext: func(net.Listener) context.Context {
 			return serverContext
 		},

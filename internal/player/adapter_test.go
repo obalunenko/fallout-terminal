@@ -46,6 +46,98 @@ func TestGeneratedMutationFingerprintsAreDeterministicProcedureQualifiedAndUnkno
 	require.False(t, strings.Contains(guess.Command.PayloadFingerprint, "Guess"))
 }
 
+func TestGeneratedControllerPresentationContractIsTypedAndProjected(t *testing.T) {
+	service := playerv1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService")
+	require.NotNil(t, service)
+	method := service.Methods().ByName("SetPresentation")
+	require.NotNil(t, method, "PlayerService must expose the typed presentation mutation")
+	request := method.Input()
+	for _, fieldName := range []protoreflect.Name{
+		"recognition_handle", "request_id", "broadcast_id", "terminal_id", "context_key", "presentation",
+	} {
+		require.NotNilf(t, request.Fields().ByName(fieldName), "SetPresentationRequest.%s is required", fieldName)
+	}
+
+	live := playerv1.File_fallout_terminal_player_v1_terminal_proto.Messages().ByName("LiveTerminal")
+	require.NotNil(t, live)
+	require.NotNil(t, live.Fields().ByName("controller_presentation"),
+		"complete snapshots and updates must carry controller presentation")
+}
+
+func TestPresentationAdapterValidatesContextAndDetachesExclusiveVariant(t *testing.T) {
+	request := &playerv1.SetPresentationRequest{
+		RecognitionHandle: "recognition-1", RequestId: "presentation-1",
+		BroadcastId: "broadcast-1", TerminalId: "terminal-1", ContextKey: "menu:root",
+		Presentation: &playerv1.ControllerTerminalPresentation{
+			ContextKey:   "menu:root",
+			Presentation: &playerv1.ControllerTerminalPresentation_Menu{Menu: &playerv1.MenuSelection{TargetId: "docs"}},
+		},
+	}
+	mutation, err := PresentationFromProto(request)
+	require.NoError(t, err)
+	require.Equal(t, domain.RuntimeCommandPresentation, mutation.Command.Kind)
+	require.Equal(t, domain.ControllerTerminalPresentation{
+		Kind: domain.ControllerTerminalPresentationMenu, ContextKey: "menu:root", TargetID: "docs",
+	}, mutation.Command.Presentation)
+	require.Len(t, mutation.Command.PayloadFingerprint, 64)
+
+	request.Presentation.ContextKey = "menu:stale"
+	_, err = PresentationFromProto(request)
+	require.Error(t, err)
+}
+
+func TestPresentationUplinkContractAndAdapters(t *testing.T) {
+	service := playerv1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService")
+	require.NotNil(t, service)
+	method := service.Methods().ByName("PresentationUplink")
+	require.NotNil(t, method)
+	require.True(t, method.IsStreamingClient())
+	require.False(t, method.IsStreamingServer())
+
+	binding, err := PresentationUplinkOpenFromProto(&playerv1.PresentationUplinkOpen{
+		ClientInstanceId: "tab-1", UplinkGeneration: 2, RecognitionHandle: "recognition-1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "tab-1", binding.ClientInstanceID)
+	require.Equal(t, uint64(2), binding.Generation)
+	require.Equal(t, domain.RecognitionHandle("recognition-1"), binding.RecognitionHandle)
+
+	intent := &playerv1.PresentationIntent{
+		RecognitionHandle: "recognition-1", RequestId: "presentation-stream-1",
+		BroadcastId: "broadcast-1", TerminalId: "terminal-1", ContextKey: "menu:root",
+		Presentation: &playerv1.ControllerTerminalPresentation{
+			ContextKey:   "menu:root",
+			Presentation: &playerv1.ControllerTerminalPresentation_Menu{Menu: &playerv1.MenuSelection{TargetId: "docs"}},
+		},
+	}
+	mutation, err := PresentationIntentFromProto(intent)
+	require.NoError(t, err)
+	require.Equal(t, domain.RuntimeCommandPresentation, mutation.Command.Kind)
+	require.Equal(t, domain.RequestID("presentation-stream-1"), mutation.Command.RequestID)
+	require.Len(t, mutation.Command.PayloadFingerprint, 64)
+
+	intent.Presentation.ContextKey = "menu:stale"
+	_, err = PresentationIntentFromProto(intent)
+	require.Error(t, err)
+	_, err = PresentationUplinkOpenFromProto(&playerv1.PresentationUplinkOpen{})
+	require.Error(t, err)
+}
+
+func TestLiveToProtoCarriesCompleteControllerPresentation(t *testing.T) {
+	state := &domain.PublicLiveState{
+		TerminalID: "terminal-1", TerminalName: "Overseer",
+		Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT"},
+		Nav:  domain.NavState{Path: []string{"root"}, Mode: "list"},
+		Presentation: domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationHacking, ContextKey: "hack:opaque", PatternID: "pattern-1",
+		},
+	}
+	generated := LiveToProto(state).GetControllerPresentation()
+	require.NotNil(t, generated)
+	require.Equal(t, "hack:opaque", generated.GetContextKey())
+	require.Equal(t, "pattern-1", generated.GetHacking().GetPatternId())
+}
+
 func TestLiveToProtoMapsPendingAndRejectedCommandExecutionPresentation(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -1,12 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 5.1.0 -> 5.1.1
+- Version change: 5.1.1 -> 5.2.0
 - Modified principles:
-  - Project Identity (supported Go baseline advanced to 1.27)
+  - Principle III (optional browser presentation client-streaming with portable unary fallback)
 - Added principles: None
 - Added sections: None
 - Removed sections: None
-- Expanded guidance: None
+- Expanded guidance:
+  - Controller-local transient presentation remains non-canonical and must reconcile with
+    authoritative server updates
+  - Development workflow now recognizes constitution-authorized optional browser client streams
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -125,14 +128,36 @@ All network RPC communication MUST use ConnectRPC with code generated from the g
 Go and ECMAScript. Handwritten JSON wire envelopes, handwritten RPC routers, and duplicated network
 transport DTOs are prohibited.
 
-Browser-originated mutations MUST use unary RPCs. Authoritative live updates MUST use
-server-streaming RPCs. Client-streaming and bidirectional-streaming browser request bodies MUST NOT
-be required because browser clients cannot provide them portably.
+Browser-originated canonical mutations MUST retain unary RPCs as the portable default.
+Authoritative live updates MUST use server-streaming RPCs. An optional client-streaming browser
+transport MAY carry high-frequency, ephemeral presentation intents only when all of the following
+conditions hold:
+
+- The selected deployment proves end-to-end HTTP/2 request-stream support before enabling the
+  optimization.
+- The RPC and every message remain protobuf-defined and generated.
+- A functionally equivalent unary fallback remains available for unsupported browsers, direct LAN
+  access, failed capability probes, and interrupted or failed streams.
+- Go retains ownership of authoritative state, revisions, validation, authorization, rejection,
+  and ordered publication through the server subscription stream.
+- Client-stream input is bounded, rate-limited, latest-wins, cancellable, and invalidated when the
+  controller, broadcast, terminal, presentation context, or stream generation changes.
+- Client-streaming remains an optimization and MUST NOT be required for basic player operation.
+
+Bidirectional-streaming browser request bodies MUST NOT be used until the accepted browser
+transport can consume responses while its request body remains open and the deployment proves that
+support end to end.
 
 Player navigation, character selection, controller actions, and hacking actions are requests, not
 local state changes. Go services MUST validate requests, mutate canonical process state, and publish
 detached public projections over server streams. Browser clients MUST converge on authoritative
 state and MUST NOT create divergent optimistic-only transitions.
+
+A controller-local transient pointer presentation MAY render before an authoritative round trip
+only when it is explicitly non-canonical, visual-only, incapable of granting authority or mutating
+shared gameplay, and keyed so older authoritative revisions cannot overwrite a newer local intent.
+Shared presentation, observer rendering, and preview audio MUST remain tied to applicable
+authoritative updates, and reconciliation MUST NOT replay superseded visual or audio effects.
 
 Contract changes MUST specify RPC direction, message type, validation and rejection behavior,
 authorization, ordering or revision semantics, stream reconnection behavior, and compatibility
@@ -251,9 +276,10 @@ accepted.
   and consume named events through `@wailsio/runtime`. Every structured bridge payload MUST
   originate from a protobuf schema and pass through an explicit adapter; a generic dispatch surface
   is prohibited.
-- `frontend/client/` MAY use browser APIs, generated ECMAScript Connect clients, server-streaming responses,
-  and static HTTP assets. It MUST NOT depend on Wails, filesystem APIs, private services, or
-  handwritten RPC envelopes.
+- `frontend/client/` MAY use browser APIs, generated ECMAScript Connect clients, server-streaming
+  responses, constitution-authorized optional client-streaming presentation intents, and static
+  HTTP assets. It MUST NOT depend on Wails, filesystem APIs, private services, or handwritten RPC
+  envelopes.
 - Repository Go build orchestration, package manifests, plist files, framework-generated binding
   metadata, other third-party tool configuration, and non-serializable injected dependencies MUST
   remain native to their owning tools or language and MUST NOT acquire parallel protobuf
@@ -490,8 +516,10 @@ cutover cleanup, and owned-resource shutdown.
 5. Regenerate pinned Go and ECMAScript code deterministically through the isolated
    `tools/<tool>` modules; never edit generated files or install a global Go tool.
 6. Implement the smallest coherent vertical slice. Keep generated types at boundaries, domain logic
-   transport-independent, mutations unary, live updates server-streamed, and private capabilities
-   outside the public player service.
+   transport-independent, canonical browser mutations unary by default, live updates
+   server-streamed, and private capabilities outside the public player service. A browser
+   client-stream MAY carry only the optional high-frequency presentation intents permitted by
+   Principle III and MUST preserve its unary fallback.
 7. Run the automated and interactive verification defined in the plan. Go tests MUST follow the
    governed assertion, table-driven, `t.Context()`, and protobuf-comparison conventions. Run all
    applicable Buf, generation-drift, breaking-change, streaming, privilege-separation, and
@@ -532,4 +560,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Make-owned build graphs, and permanent dual
 protocols without an explicit compatibility requirement.
 
-**Version**: 5.1.1 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-21
+**Version**: 5.2.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-24

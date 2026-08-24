@@ -2,6 +2,8 @@
 
 **Bugfix**: 2026-08-12 — BUG-001 Updated from bugfix patch
 
+**Bugfix**: 2026-08-20 — BUG-008 Updated from bugfix patch
+
 All entities in this document are process-local unless explicitly identified as a durable authored model. ~~None is added to version-1 session JSON.~~ BUG-001 adds only an optional relative `playerConfig` reference to session JSON and stores the reusable authored roster in a separate player-config JSON file.
 
 ## ProcessRuntime
@@ -120,10 +122,26 @@ Validation invariants:
 | `HackLevel` | integer | Level that created the retained puzzle. For a preserved unfinished puzzle it remains part of the exact checkpoint; a newer authored level applies only after discard/fresh generation. |
 | `IntroText` | string | Latest validated authored text. |
 | `Nav` | `NavState` | Existing canonical shared navigation. |
+| `Presentation` | `ControllerTerminalPresentation` | Current semantic menu selection, information-page ordinal, hacking-preview target, or empty state; process-local, revisioned, and preserved across controller reassignment. |
 | `Hack` | optional private `HackState` | Complete canonical puzzle including secrets, candidates, generation identity, used patterns, attempts, board, log, and outcome. |
 | `Lifecycle` | `active` or `suspended` | Exactly one runtime may be active; suspended runtimes reject all player actions. |
 
 Preserve changes the current runtime from active to suspended without copying through a public representation. Reactivation reapplies the latest authored name, tree, and intro text; existing navigation is revalidated against the new tree and the private puzzle, including its generation level, is retained exactly. The latest authored hack level is used only when no preserved puzzle exists and a fresh runtime is generated. Discard removes the runtime so a later activation creates fresh navigation/puzzle state under existing rules.
+
+## ControllerTerminalPresentation — BUG-008
+
+`ControllerTerminalPresentation` is one semantic variant owned by the active `TerminalRuntime`:
+
+| Field | Type | Rules |
+|---|---|---|
+| `Kind` | `none`, `menu-selection`, `information-page`, or `hacking-preview` | Exactly one valid variant; `none` is the deterministic fallback when no target is applicable. |
+| `ContextKey` | opaque runtime-derived string | Identifies the current navigation/content/puzzle context so delayed requests cannot select against another screen or hacking generation. |
+| `TargetID` | optional stable node, hacking target, or pattern identity | Required only for target-bearing variants and validated against the current public actionable set; never a DOM selector or pointer coordinate. |
+| `PageIndex` | optional nonnegative integer | Required only for information-page presentation and clamped or reset when pagination is recalculated. |
+
+Only the connected, assigned current controller may submit a presentation mutation for the current broadcast, terminal, and context. An accepted mutation advances the coordinator revision and publishes the detached complete presentation to every assigned session before its correlated result. Observer, former-controller, disconnected, stale-context, duplicate-conflict, and invalid-target requests change no runtime field or revision.
+
+Controller reassignment changes only authority and preserves `Presentation`; the former controller immediately consumes it as an observer and the new controller continues from it. Navigation, content, terminal, puzzle-generation, outcome, or pagination changes revalidate it and select `none` or another deterministic valid value when the prior variant is no longer applicable. Complete live snapshots include it for new tabs, late joins, and reconnects. It is never persisted.
 
 ## TerminalSwitchDecision
 
@@ -138,14 +156,14 @@ Allowed decisions are `preserve`, `discard`, and `cancel`. While pending, the so
 
 ## RuntimeCommand and ActionResult
 
-Player-originated shared commands contain:
+Player-originated shared commands, including BUG-008 semantic presentation mutations, contain:
 
 | Field | Type | Rules |
 |---|---|---|
 | `RequestID` | opaque client-generated string | Required, nonblank, and unique per logical session/broadcast; an exact duplicate returns the cached result, while reuse for a different payload is rejected. |
 | `BroadcastID` | opaque string | Required for selection and terminal actions; must equal the current broadcast. |
 | `TerminalID` | terminal ID | Required for navigation and hacking actions; must equal the active terminal. |
-| action fields | type-specific values | Existing navigation action/node, guess target, or opaque pattern identity. |
+| action fields | type-specific values | Existing navigation action/node, guess target, opaque pattern identity, or semantic presentation context and variant. |
 
 `ActionResult` contains `RequestID`, `Accepted`, stable `Reason`, and the coordinator `Revision` observed after processing. An accepted result is delivered after the corresponding detached state effects have been enqueued. A rejected result changes no canonical gameplay state and uses the current revision. The client clears accepted pending input after applying the required projection at or beyond that revision, and clears rejected pending input immediately on the correlated result.
 
@@ -242,6 +260,21 @@ resolve sending connection → logical session
 
 Any failed precondition exits without navigation, puzzle, attempts, randomness, logs, outcomes, or terminal mutation.
 
+### Controller Presentation Action — BUG-008
+
+```text
+resolve generated request → logical session
+  → deduplicate requestId
+  → require current broadcast + assignment + controller + connected presence
+  → require request terminal == active terminal
+  → require context key and semantic target/page valid for current runtime
+  → replace ControllerTerminalPresentation under the coordinator transaction
+  → enqueue complete presentation projection for every assigned session
+  → cache and enqueue ActionResult
+```
+
+Observer DOM events never enter this transition and never modify their local terminal presentation. Crafted observer requests fail the same controller check without revision advance.
+
 ### Terminal Switch
 
 ```text
@@ -282,4 +315,4 @@ server process restart
 
 ## Persistence Boundary
 
-The existing version-1 session JSON remains limited to campaign name, authored terminals with ID, name, hack level, intro text, and content tree, plus the optional relative `playerConfig` reference added by BUG-001. ~~It gains no roster field or player-config association.~~ The roster itself is stored only in the separate player-config JSON. Neither durable file gains a browser token, logical session, fallback name, connection, presence, claim, assignment, role, controller, broadcast ID, active terminal, revision, request result, pending switch, suspended terminal, navigation, puzzle, attempts, board, patterns, log, or outcome field.
+The existing version-1 session JSON remains limited to campaign name, authored terminals with ID, name, hack level, intro text, and content tree, plus the optional relative `playerConfig` reference added by BUG-001. ~~It gains no roster field or player-config association.~~ The roster itself is stored only in the separate player-config JSON. Neither durable file gains a browser token, logical session, fallback name, connection, presence, claim, assignment, role, controller, broadcast ID, active terminal, revision, request result, pending switch, suspended terminal, navigation, controller-owned presentation, puzzle, attempts, board, patterns, log, or outcome field.

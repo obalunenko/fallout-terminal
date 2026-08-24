@@ -129,16 +129,9 @@ def update_context(
 
     ctx = read_ctx(target)
 
-    reopened_implement = False
-    if ctx.get("status") == "completed" and step == "implement":
-        all_tasks, done_tasks = parse_task_markers(feature_dir / "tasks.md")
-        reopened_implement = bool(set(all_tasks) - set(done_tasks))
-
     # Never drag a more-advanced (e.g. shipped) spec backward. Leave it fully
-    # intact unless a bugfix patch has explicitly reopened checkboxes in this
-    # spec's own tasks.md. Pending task markers are the only sanctioned reopen
-    # signal, so ordinary late writes to a shipped spec remain blocked.
-    if ctx and _is_more_advanced(ctx, step) and not reopened_implement:
+    # intact — this is the bug the schema reconciliation exists to prevent.
+    if ctx and _is_more_advanced(ctx, step):
         print(
             f"[companion] {target} already at currentStep={ctx.get('currentStep')} / "
             f"status={ctx.get('status')}; not regressing to {step}/{status}.",
@@ -163,16 +156,7 @@ def update_context(
         # A step is started once. Skip a redundant start if this (step, substep)
         # already has a start anywhere in the log — this collapses the GUI startStep +
         # the body start + the late after_specify hook-start into one entry.
-        if reopened_implement:
-            log.append({
-                "step": step,
-                "substep": substep,
-                "kind": "start",
-                "by": by,
-                "at": now,
-                "reopened": True,
-            })
-        elif not _has_step_start(log, step, substep):
+        if not _has_step_start(log, step, substep):
             log.append({
                 "step": step,
                 "substep": substep,

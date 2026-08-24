@@ -9,6 +9,8 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -628,8 +630,114 @@ type fixtureEdge struct {
 	publicGeneration atomic.Uint64
 	service          *control.Service
 	connect          *player.ConnectService
+	hub              *player.SubscriptionHub
 	ingress          tunnel.PublicIngress
 	publicURL        string
+}
+
+type fixturePresentationGateState struct {
+	release     chan struct{}
+	blocked     chan struct{}
+	canceled    bool
+	releaseOnce sync.Once
+	blockedOnce sync.Once
+}
+
+// fixturePresentationGate makes the public-stream cancellation journey
+// deterministic: it pauses exactly one connection-bound presentation before
+// canonical dispatch, then lets the fixture rotate the uplink and reject that
+// obsolete work so the browser must transfer its newest target to unary.
+type fixturePresentationGate struct {
+	*control.Service
+	context context.Context
+	mu      sync.Mutex
+	state   *fixturePresentationGateState
+}
+
+func (gate *fixturePresentationGate) arm() {
+	gate.cancel()
+	gate.mu.Lock()
+	gate.state = &fixturePresentationGateState{
+		release: make(chan struct{}),
+		blocked: make(chan struct{}),
+	}
+	gate.mu.Unlock()
+}
+
+func (gate *fixturePresentationGate) cancel() {
+	gate.mu.Lock()
+	defer gate.mu.Unlock()
+	if gate.state == nil {
+		return
+	}
+	gate.state.canceled = true
+	gate.state.releaseOnce.Do(func() { close(gate.state.release) })
+}
+
+func (gate *fixturePresentationGate) cancelAfter(delay time.Duration) {
+	gate.mu.Lock()
+	if gate.state == nil {
+		gate.mu.Unlock()
+		return
+	}
+	state := gate.state
+	state.canceled = true
+	gate.mu.Unlock()
+	time.AfterFunc(delay, func() {
+		state.releaseOnce.Do(func() { close(state.release) })
+	})
+}
+
+func (gate *fixturePresentationGate) isBlocked() bool {
+	gate.mu.Lock()
+	defer gate.mu.Unlock()
+	if gate.state == nil {
+		return false
+	}
+	select {
+	case <-gate.state.blocked:
+		return true
+	default:
+		return false
+	}
+}
+
+func (gate *fixturePresentationGate) reset() {
+	gate.cancel()
+	gate.mu.Lock()
+	gate.state = nil
+	gate.mu.Unlock()
+}
+
+func (gate *fixturePresentationGate) DispatchPlayerAction(connectionID domain.ConnectionID, command domain.RuntimeCommand) domain.ActionResult {
+	gate.mu.Lock()
+	state := gate.state
+	gate.mu.Unlock()
+	if command.Kind != domain.RuntimeCommandPresentation || state == nil {
+		return gate.Service.DispatchPlayerAction(connectionID, command)
+	}
+
+	state.blockedOnce.Do(func() { close(state.blocked) })
+	contextClosed := false
+	select {
+	case <-state.release:
+	case <-gate.context.Done():
+		contextClosed = true
+	}
+	gate.mu.Lock()
+	canceled := state.canceled || contextClosed
+	if gate.state == state {
+		gate.state = nil
+	}
+	gate.mu.Unlock()
+	if canceled {
+		return domain.ActionResult{
+			RequestID: command.RequestID,
+			Reason:    domain.ActionReasonControllerDisconnected,
+			Revision:  gate.Service.Snapshot().Revision,
+		}
+	}
+	return gate.Service.DispatchPlayerAction(connectionID, command)
 }
 
 type fixtureEdgeStatus struct {
@@ -648,7 +756,11 @@ func (edge *fixtureEdge) reset() error {
 	if edge.ingress == nil || edge.ingress.URL() == nil {
 		return errors.New("fixture ingress is unavailable")
 	}
-	if err := edge.ingress.Activate(edge.ingress.URL().Host, fixtureEdgeUsername, []byte(fixtureEdgePassword)); err != nil {
+	host := edge.ingress.URL().Host
+	if publicURL, err := url.Parse(edge.publicURL); err == nil && publicURL.Host != "" {
+		host = publicURL.Host
+	}
+	if err := edge.ingress.Activate(host, fixtureEdgeUsername, []byte(fixtureEdgePassword)); err != nil {
 		return err
 	}
 	edge.active.Store(true)
@@ -843,13 +955,19 @@ func run(ctx context.Context) error {
 			}
 		},
 	})
-	connectPlayer, err = player.NewConnectService(player.ConnectServiceConfig{Coordinator: service, Assets: playerAssets})
+	presentationGate := &fixturePresentationGate{Service: service, context: ctx}
+	presentationHub := player.NewSubscriptionHub()
+	connectPlayer, err = player.NewConnectService(player.ConnectServiceConfig{
+		Coordinator: presentationGate,
+		Hub:         presentationHub,
+		Assets:      playerAssets,
+	})
 	if err != nil {
 		return fmt.Errorf("construct fixture Connect service: %w", err)
 	}
 	rpcPath, rpcHandler := player.NewConnectHandler(connectPlayer)
 	applicationHandler := player.NewApplicationHandler(playerAssets, rpcPath, rpcHandler)
-	edge := &fixtureEdge{service: service, connect: connectPlayer}
+	edge := &fixtureEdge{service: service, connect: connectPlayer, hub: presentationHub}
 
 	for _, name := range []string{"Mara", "Boone", "Arcade", "Cass", "Veronica", "Raul", "Lily"} {
 		if _, err := service.AddCharacter(domain.CharacterCreatePayload{
@@ -1392,6 +1510,7 @@ func run(ctx context.Context) error {
 	})
 	mux.HandleFunc("POST /__fixture/reset", func(response http.ResponseWriter, _ *http.Request) {
 		fixtureHackRandom.reset()
+		presentationGate.reset()
 		if err := edge.reset(); err != nil {
 			http.Error(response, err.Error(), http.StatusInternalServerError)
 			return
@@ -1409,6 +1528,30 @@ func run(ctx context.Context) error {
 			return
 		}
 		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/reassign-controller", func(response http.ResponseWriter, _ *http.Request) {
+		state := service.Snapshot()
+		var target domain.LogicalSessionID
+		for _, session := range state.Sessions {
+			if session.Connected && session.Character != nil && session.Role == domain.PlayerRoleObserver {
+				target = session.ID
+				break
+			}
+		}
+		if target == "" {
+			http.Error(response, "connected assigned observer does not exist", http.StatusConflict)
+			return
+		}
+		updated, err := service.SetActiveController(target)
+		if err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]any{
+			"controllerSessionId": target,
+			"revision":            updated.Revision,
+		})
 	})
 	mux.HandleFunc("POST /__fixture/update", func(response http.ResponseWriter, _ *http.Request) {
 		updated := fixtureTerminal()
@@ -1524,6 +1667,22 @@ func run(ctx context.Context) error {
 		edge.connect.CloseSubscriptions()
 		response.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /__fixture/edge/presentation-gate/arm", func(response http.ResponseWriter, _ *http.Request) {
+		presentationGate.arm()
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/edge/presentation-gate/blocked", func(response http.ResponseWriter, _ *http.Request) {
+		if !presentationGate.isBlocked() {
+			response.WriteHeader(http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/edge/presentation-gate/cancel-uplinks", func(response http.ResponseWriter, _ *http.Request) {
+		edge.hub.CloseUplinks(errors.New("fixture presentation uplinks rotated"))
+		presentationGate.cancelAfter(2 * time.Second)
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /__fixture/edge/disable", func(response http.ResponseWriter, _ *http.Request) {
 		edge.ingress.Deny()
 		edge.active.Store(false)
@@ -1553,13 +1712,35 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("start fixture public ingress: %w", err)
 	}
 	edge.ingress = ingress
-	edge.publicURL = ingress.URL().String()
+	publicTLS := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if !edge.active.Load() {
+			http.NotFound(response, request)
+			return
+		}
+		username, password, ok := request.BasicAuth()
+		if !ok || username != fixtureEdgeUsername || password != fixtureEdgePassword {
+			response.Header().Set("WWW-Authenticate", `Basic realm="Fallout Terminal Players"`)
+			http.Error(response, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		forwarded := request.Clone(request.Context())
+		forwarded.Header.Del("Authorization")
+		forwarded.Header.Del("Proxy-Authorization")
+		mux.ServeHTTP(response, forwarded)
+	}))
+	publicTLS.EnableHTTP2 = true
+	publicTLS.StartTLS()
+	edge.publicURL = publicTLS.URL
 	if err := edge.reset(); err != nil {
+		publicTLS.Close()
 		_ = ingress.Close(ctx)
 		_ = listener.Close()
 		return fmt.Errorf("activate fixture public ingress: %w", err)
 	}
-	httpServer := &http.Server{Handler: mux}
+	fixtureProtocols := new(http.Protocols)
+	fixtureProtocols.SetHTTP1(true)
+	fixtureProtocols.SetUnencryptedHTTP2(true)
+	httpServer := &http.Server{Handler: mux, Protocols: fixtureProtocols}
 	serveErrors := make(chan error, 1)
 	go func() {
 		serveErrors <- httpServer.Serve(listener)
@@ -1581,6 +1762,7 @@ func run(ctx context.Context) error {
 		stopShutdownDeadline()
 	}()
 	ingress.Deny()
+	publicTLS.Close()
 	return errors.Join(ingress.Close(shutdownContext), httpServer.Shutdown(shutdownContext))
 }
 

@@ -187,10 +187,12 @@ test('controller and two observers converge on completed result and title within
     const firstPage = await journey.players[0].page.locator('#pageIndicator').textContent();
     await journey.players[0].page.keyboard.press('PageDown');
     await expect(journey.players[0].page.locator('#pageIndicator')).not.toHaveText(firstPage);
+    const authoritativePage = await journey.players[0].page.locator('#pageIndicator').textContent();
     await Promise.all(journey.players.slice(1).map(async player => {
       await player.page.keyboard.press('Enter');
       await player.page.keyboard.press('Backspace');
-      await expectFullScreenCommandSurface(player.page, 'Доступ в сектор разрешён.');
+      await expect(player.page.locator('#termEntry')).toBeVisible();
+      await expect(player.page.locator('#pageIndicator')).toHaveText(authoritativePage);
       await expect(player.page.locator('#backBtn')).toBeHidden();
     }));
 

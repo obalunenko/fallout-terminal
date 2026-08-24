@@ -3,6 +3,7 @@ package live
 import (
 	"encoding/json"
 	"maps"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,63 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestControllerPresentationIsRuntimeOwnedAndProjected(t *testing.T) {
+	runtimeType := reflect.TypeOf(domain.TerminalRuntime{})
+	runtimeField, ok := runtimeType.FieldByName("Presentation")
+	require.True(t, ok, "TerminalRuntime must own controller presentation")
+	require.Equal(t, "ControllerTerminalPresentation", runtimeField.Type.Name())
+
+	publicType := reflect.TypeOf(domain.PublicLiveState{})
+	publicField, ok := publicType.FieldByName("Presentation")
+	require.True(t, ok, "PublicLiveState must project controller presentation")
+	require.Equal(t, runtimeField.Type, publicField.Type)
+}
+
+func TestControllerPresentationRevalidatesAfterNavigationAndContentChanges(t *testing.T) {
+	service := New(nil, nil)
+	target := domain.TerminalTarget{
+		TerminalID: "terminal-1", TerminalName: "Overseer",
+		Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{
+			{ID: "docs", Type: domain.NodeFolder, Name: "DOCS", Children: []domain.ContentNode{
+				{ID: "report", Type: domain.NodeEntry, Name: "REPORT", Description: "SYSTEM NOMINAL"},
+			}},
+			{ID: "status", Type: domain.NodeEntry, Name: "STATUS", Description: "ALL SYSTEMS OPERATIONAL"},
+		}},
+	}
+	runtime, projection := service.CreateRuntime(target)
+	require.NotNil(t, runtime)
+	require.Equal(t, domain.ControllerTerminalPresentationMenu, projection.Presentation.Kind)
+	require.Equal(t, "docs", projection.Presentation.TargetID)
+
+	projection, ok := service.Apply(runtime, domain.RuntimeCommand{
+		Kind: domain.RuntimeCommandPresentation,
+		Presentation: domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationMenu, ContextKey: projection.Presentation.ContextKey, TargetID: "status",
+		},
+	})
+	require.True(t, ok)
+	require.Equal(t, "status", projection.Presentation.TargetID)
+
+	projection, ok = service.Apply(runtime, domain.RuntimeCommand{Kind: domain.RuntimeCommandNavigate, Action: "entry", NodeID: "status"})
+	require.True(t, ok)
+	require.Equal(t, domain.ControllerTerminalPresentationPage, projection.Presentation.Kind)
+	require.Equal(t, uint32(0), projection.Presentation.PageIndex)
+
+	projection, ok = service.Apply(runtime, domain.RuntimeCommand{
+		Kind: domain.RuntimeCommandPresentation,
+		Presentation: domain.ControllerTerminalPresentation{
+			Kind: domain.ControllerTerminalPresentationPage, ContextKey: projection.Presentation.ContextKey, PageIndex: 3,
+		},
+	})
+	require.True(t, ok)
+	require.Equal(t, uint32(3), projection.Presentation.PageIndex)
+
+	target.Tree.Children = target.Tree.Children[:1]
+	projection = service.UpdateRuntime(runtime, target)
+	require.Equal(t, domain.ControllerTerminalPresentationMenu, projection.Presentation.Kind)
+	require.Equal(t, "docs", projection.Presentation.TargetID)
+}
 
 func TestSetSnapshotIsDetachedAndSecretFree(t *testing.T) {
 	service := New(&constantRandom{}, fixedWords{})

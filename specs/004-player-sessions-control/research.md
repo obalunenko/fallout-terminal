@@ -7,6 +7,8 @@
 
 **Bugfix**: 2026-08-12 — BUG-001 Updated from bugfix patch
 
+**Bugfix**: 2026-08-20 — BUG-008 Updated from bugfix patch
+
 ## Decision 1: Use one outer coordinator for every authoritative runtime transition
 
 **Decision**: Add `internal/control.Service` as the single serialized owner of logical sessions, presence, roster, broadcast lifetime, assignments, controller identity, active-terminal selection, suspended terminal runtimes, player authorization, and ordered revision issuance. It delegates terminal mechanics to `internal/live` while committing detached publication effects through a non-reentrant callback before the coordinator mutex is released.
@@ -117,3 +119,17 @@
 - Store an absolute player-config path in session JSON: rejected because it breaks when the session directory is moved or shared to another machine.
 - Persist logical sessions, claims, controller state, or browser tokens beside the roster: rejected because those values retain their existing process/broadcast lifetimes and would create stale ownership and privacy risks.
 - Add a database or background file watcher: rejected as unnecessary for the explicit open/save workflow; concurrent multi-process editing remains outside this bugfix.
+
+## Decision 10: Make semantic terminal presentation controller-owned
+
+**Decision**: Under BUG-008, store the active terminal's semantic menu selection, information-page ordinal, or hacking-preview target in its process-local runtime and change it only through a typed generated ConnectRPC mutation authorized for the current connected controller. Publish the complete semantic presentation in the live-terminal snapshot and applicable compound updates so observers, new tabs, late joiners, and reconnects render the controller's current view. Raw pointer coordinates, DOM focus, viewport geometry, reveal progress, audio eligibility, and playback state remain per-document and non-canonical.
+
+**Rationale**: Gating outbound navigation/hacking requests does not make an observer a read-only broadcast when its local pointer or keyboard can still move the highlighted row or preview. Stable semantic targets can be validated against the current content/navigation/puzzle, ordered with reassignment, recovered by snapshot, and rendered across different viewport geometries without exposing browser implementation details.
+
+**Alternatives considered**:
+
+- Leave selection local and only disable activation: rejected because observers can still diverge visually from the controller and therefore are not watching the same terminal presentation.
+- Disable observer input but keep the controller's selection local: rejected because observers would freeze on a default or stale highlight instead of following controller movement and reconnect snapshots could not restore the current view.
+- Stream raw pointer coordinates or DOM focus: rejected because those values are layout-dependent, noisy, and not stable across responsive clients; only the semantic terminal target/page belongs in shared state.
+- Transfer presentation state between browser sessions during reassignment: rejected because the state belongs to the active terminal runtime. Reassignment changes authority atomically while leaving that runtime state unchanged.
+- Reintroduce handwritten WebSocket messages: rejected because the active public boundary is generated protobuf/ConnectRPC and feature 005 removed the legacy route and client.

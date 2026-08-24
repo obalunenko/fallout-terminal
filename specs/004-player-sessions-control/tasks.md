@@ -21,6 +21,12 @@
 
 **Bugfix**: 2026-08-12 — BUG-007 Updated from bugfix patch
 
+**Bugfix**: 2026-08-20 — BUG-008 Updated from bugfix patch
+
+**Bugfix**: 2026-08-21 — BUG-009 Updated from bugfix patch
+
+**Bugfix**: 2026-08-21 — BUG-010 Updated from bugfix patch
+
 **Tests**: Required by the specification and constitution. Each user-story phase writes its focused tests before implementation; the final phase owns the complete Success Criteria suite run.
 
 **Task format**: `T### [P?] [US#] Description · exact/file/path`
@@ -119,13 +125,17 @@ This phase establishes the transport-independent types, strict wire shapes, send
 
 ## Phase 4: User Story 2 — Control One Shared Terminal (Priority: P1)
 
-**Goal**: Only the connected assigned controller can mutate the canonical terminal; observers mirror state with local-only feedback, and every request ends via a correlated authoritative result.
+**Goal**: Only the connected assigned controller can mutate the canonical terminal and its semantic presentation; ~~observers mirror state with local-only terminal feedback~~ under BUG-008 observers mirror the controller-owned selection, page, and preview while their own terminal pointer/keyboard/focus input is inert, and every request ends via a correlated authoritative result.
 
-**Independent Test**: Connect one controller and two observers, exercise every navigation/hacking action from each, and verify only controller requests mutate state while all clients converge and every pending request resolves.
+**Independent Test**: Connect one controller and two observers, exercise every navigation/hacking/presentation action from each, and verify only controller requests mutate state, observer pointer/keyboard/focus input changes neither its local terminal view nor canonical state, all clients converge on the controller's presentation, and every pending request resolves.
 
 **BUG-006 deferral**: T029, T030, T034, and T037 were reopened for traceability and were re-completed through T150 after T148 reproduced the outcome-audio failure and T149 corrected the confirmed boundary; the original Phase 4 wave placement is historical and does not override the Phase 19 DAG.
 
 **BUG-007 deferral**: T029, T030, and T037 were reopened again for traceability and were re-completed through T154 after T152 reproduced the complete sound-family failure and T153 corrected the confirmed production boundary; T034 remained completed BUG-006 work and received focused regression review in T153–T154.
+
+**BUG-008 deferral**: T029, T030, T032, and T034 are reopened because the prior observer contract intentionally retained local selection/highlight behavior. Their correction and re-completion are governed by the Phase 22 DAG; prior BUG-003/BUG-006/BUG-007 completion remains historical evidence for gameplay and audio behavior only.
+
+**BUG-009 deferral**: T029, T030, and T032 are reopened because their BUG-008 browser/asset/CSS coverage accepted presentation-only pending as a grey, locked shared-input state. Their correction and re-completion are governed by the Phase 23 DAG; T034 remains complete but requires focused review so gameplay/navigation pending stays blocking while `pendingPresentationAction` becomes visually non-blocking.
 
 ### Tests
 
@@ -133,8 +143,8 @@ This phase establishes the transport-independent types, strict wire shapes, send
 
 - [x] **T027** [P] [US2] Cover controller/unassigned/observer/unknown/stale-terminal authorization, exact no-mutation and zero-RNG rejection, duplicate request fingerprints, request/reassignment ordering, and unchanged gameplay rules · `internal/control/service_test.go`
 - [x] **T028** [P] [US2] ⚠️ Reopened (reopened — BUG-003): Cover 4–7 client convergence, initiating-socket action results, shared revision order, crafted observer rejection, duplicate one-use requests, slow-client isolation, and production-shaped active-controller hacking dispatch · `internal/player/server_test.go`
-- [x] **T029** [P] [US2] ⚠️ Reopened (reopened — BUG-003; reopened — BUG-006; reopened — BUG-007): Cover visibly read-only observers, local hover/focus/paging/preview, zero outbound observer actions, active-controller password/filler/pattern selection, controller pending state, accepted/rejected result completion without optimistic mutation, and the complete exact-once `single`/`multiple`/`enter` plus authoritative bad/good/lockout audio matrix · `tests/browser/player-sessions-control.spec.mjs`
-- [x] **T030** [P] [US2] ⚠️ Reopened (reopened — BUG-003; reopened — BUG-006; reopened — BUG-007): Assert every pointer/keyboard/back/guess/pattern send path is role/pending gated, active hacking targets are not disabled by observer/pending presentation, `ForceHackSuccess` and `HACK_ADMIN` remain absent from player assets/protocol, and all established hacking-screen sound manifests/assets plus native-decode verification remain packaged · `internal/platform/assets_test.go`
+- [x] **T029** [P] [US2] ⚠️ Reopened (reopened — BUG-003; reopened — BUG-006; reopened — BUG-007; reopened — BUG-008; reopened — BUG-009): Cover visibly read-only observers, ~~local hover/focus/paging/preview~~ zero observer-local terminal-selection changes plus authoritative controller selection/page/preview mirroring, zero outbound observer actions, active-controller password/filler/pattern selection, controller pending state, accepted/rejected result completion without optimistic mutation, presentation-only pending with zero grey/locked controller flicker under delayed `SetPresentation`, and the complete exact-once `single`/`multiple`/`enter` plus authoritative bad/good/lockout audio matrix · `tests/browser/player-sessions-control.spec.mjs`
+- [x] **T030** [P] [US2] ⚠️ Reopened (reopened — BUG-003; reopened — BUG-006; reopened — BUG-007; reopened — BUG-008; reopened — BUG-009): Assert every pointer/keyboard/focus/paging/back/guess/pattern path is role/pending gated before local terminal-presentation mutation, active controller targets remain actionable and normally styled while only presentation correlation is pending, observer controls and genuinely pending gameplay controls remain visibly inert, `pendingPresentationAction` cannot activate blocking shared-input styling, `ForceHackSuccess` and `HACK_ADMIN` remain absent from player assets/protocol, and all established hacking-screen sound manifests/assets plus native-decode verification remain packaged · `internal/platform/assets_test.go`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
@@ -143,14 +153,14 @@ This phase establishes the transport-independent types, strict wire shapes, send
 **Wave 2 — independent prerequisites (different files):**
 
 - [x] **T031** [P] [US2] Refactor terminal/navigation/hacking operations behind a coordinator-callable runtime boundary while retaining all current password, likeness, attempt, pattern, log, and forced-success semantics · `internal/live/service.go`
-- [x] **T032** [P] [US2] Add observer/read-only and shared-input-pending classes without suppressing harmless local feedback · `client/client.css`
+- [x] **T032** [P] [US2] ⚠️ Reopened (reopened — BUG-008; reopened — BUG-009): Add observer/read-only and genuinely blocking shared-input-pending classes ~~without suppressing harmless local feedback~~ that preserve non-terminal document effects while making observer terminal selection, paging, and preview visibly inert, rendering only authoritative controller-owned highlights, and keeping presentation-only pending controls at normal cursor, opacity, and saturation · `frontend/client/client.css`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
 **Wave 3 — independent canonical/client behavior (different files):**
 
 - [x] **T033** [P] [US2] Implement request fingerprinting, assignment/controller/connected/terminal authorization, ordered live mutation, revisioned effects, and accepted/rejected cached action results · `internal/control/service.go`
-- [x] **T034** [P] [US2] ⚠️ Reopened (reopened — BUG-003; reopened — BUG-006): Add request IDs and broadcast/terminal preconditions, gate all shared send paths by role/pending without blocking the current active controller's rendered hacking targets, apply revisioned snapshots, clear pending only from authoritative results, and derive idempotent bad/good/lockout audio only from newly applied authoritative hacking transitions · `client/client.js`
+- [x] **T034** [P] [US2] ⚠️ Reopened (reopened — BUG-003; reopened — BUG-006; reopened — BUG-008): Add request IDs and broadcast/terminal/context preconditions, gate gameplay and presentation paths by role/pending before local terminal mutation, keep the current controller's rendered targets actionable, apply revisioned snapshots including controller-owned presentation without a default-selection flash, clear pending only from authoritative results, and derive selection/preview and bad/good/lockout audio only from applicable newly applied authoritative transitions · `frontend/client/client.js`
 
 **⟶ Wait for Wave 3 to finish, then:**
 
@@ -254,6 +264,8 @@ This phase establishes the transport-independent types, strict wire shapes, send
 
 **Independent Test**: Reassign between two connected assigned sessions during navigation and hacking and verify ordered authority, all-tab role updates, and exact puzzle continuity.
 
+**BUG-008 deferral**: T061 and T066 are reopened because their prior role-swap scope gated outbound shared sends while deliberately retaining each browser's local feedback. Phase 22 adds atomic semantic-presentation authority transfer and exact observer following.
+
 ### Tests
 
 **Wave 1 — independent (different files; write failing tests first):**
@@ -261,7 +273,7 @@ This phase establishes the transport-independent types, strict wire shapes, send
 - [x] **T058** [P] [US5] Cover eligible/ineligible reassignment, 100 interleaved action-versus-reassignment trials, former-controller rejection, one controller invariant, and exact assignment/terminal/puzzle preservation · `internal/control/service_test.go`
 - [x] **T059** [P] [US5] Cover validated `SetActiveController`, connected-assigned eligibility, refusal snapshots, and ordered master event emission · `app_test.go`
 - [x] **T060** [P] [US5] Cover all-tab active/observer fanout and before/after reassignment action ordering over concurrent real sockets · `internal/player/server_test.go`
-- [x] **T061** [P] [US5] Cover live role swap, former-controller read-only transition, new-controller send eligibility, and unchanged displayed character/terminal/puzzle state · `tests/browser/player-sessions-control.spec.mjs`
+- [x] **T061** [P] [US5] ⚠️ Reopened (reopened — BUG-008): Cover live role swap, immediate former-controller terminal-input lock and authoritative following, immediate new-controller pointer/keyboard eligibility from the unchanged shared selection/page/preview, and unchanged displayed character/terminal/navigation/puzzle state · `tests/browser/player-sessions-control.spec.mjs`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
@@ -278,7 +290,7 @@ This phase establishes the transport-independent types, strict wire shapes, send
 - [x] **T063** [P] [US5] Add the validated `SetActiveController` Wails method and updated detached coordination status · `app.go`
 - [x] **T064** [P] [US5] Add `setActiveController` to the narrow desktop facade · `frontend/src/desktop-api.js`
 - [x] **T065** [P] [US5] Fan one reassignment revision to every connection of the former and new controller sessions before later action results · `internal/player/server.go`
-- [x] **T066** [P] [US5] Apply authoritative active/observer changes across tabs and immediately gate shared sends without changing local feedback or character identity · `client/client.js`
+- [x] **T066** [P] [US5] ⚠️ Reopened (reopened — BUG-008): Apply authoritative active/observer changes across tabs, immediately transfer gameplay and presentation authority, discard any former-controller local selection divergence, preserve the shared selection/page/preview and character identity, and render subsequent controller-owned presentation revisions · `frontend/client/client.js`
 
 **⟶ Wait for Wave 3 to finish, then:**
 
@@ -621,9 +633,15 @@ Finalize operational documentation, enforce security/presentation contracts acro
 | FR-116–FR-121 | T139–T144 |
 | FR-122–FR-125 | T029–T037, T132–T155 |
 | FR-126–FR-129 | T029–T037, T132–T155 |
+| FR-130–FR-138 | T029–T030, T032, T034, T061, T066, T158–T166 |
+| FR-139–FR-140 | T029–T030, T032, T164–T170 |
+| FR-141–FR-143 | T160, T164–T165, T168–T174 |
 | SC-001–SC-022 | T010–T115, T145–T147 |
 | SC-023–SC-027 | T116–T129, T134 |
 | SC-028–SC-033 | T130–T155 |
+| SC-034–SC-036 | T158–T166 |
+| SC-037 | T167–T170 |
+| SC-038 | T171–T174 |
 
 ### Phase dependencies
 
@@ -649,6 +667,9 @@ Finalize operational documentation, enforce security/presentation contracts acro
 20. **Phase 19: BUG-006** depends on the completed US2/BUG-003 authoritative hacking path and Phase 18 convergence. T148 must reproduce and localize the missing outcome playback first; T149 then repairs only the confirmed client/audio boundary; T150 completes the reopened T029/T030/T034/T037/T132 regressions; T151 completes reopened T133 and full verification only after T148–T150 pass.
 21. **Phase 20: BUG-007** depends on the BUG-006 outcome mapping and the complete US2 interaction path. T152 must reproduce every required hacking-screen family with the native browser audio stack and localize the first failing production boundary; T153 then repairs only that confirmed boundary; T154 completes reopened T029/T030/T037/T132/T148–T150 plus T034 regression review; T155 completes reopened T133/T151 and full packaged verification only after T152–T154 pass.
 22. **Phase 21: Convergence** depends on Phase 20 completion. T156 runs after T155 to remove the remaining production coordinator bypass while preserving the authoritative activation, clear, update, and private forced-success boundaries. T157 runs only after T156 and is the final constitution-mandated validation gate.
+23. **Phase 22: BUG-008** depends on the generated ConnectRPC cutover, the completed US2 authority path, US5 reassignment, assigned-session reconnect convergence, and Phase 21. T158–T160 establish independent failing coordinator, contract, and browser coverage; T161 defines the additive generated model/contract; T162 implements canonical presentation ownership after T161; T163 and T164 integrate transport and browser behavior after T162; T165 completes all reopened task scopes and focused regressions; T166 runs only after T158–T165 pass.
+24. **Phase 23: BUG-009** depends on BUG-008's generated authoritative presentation and latest-wins browser correlation. T167 first reproduces the delayed-`SetPresentation` visual lock; T168 separates presentation correlation from blocking styling; T169 completes all reopened scopes and regression review after T168; T170 runs only after T167–T169 pass.
+25. **Phase 24: BUG-010** depends on BUG-009's non-blocking authoritative presentation path. T171 first reproduces hacking-hover request buildup and stale replay; T172 implements one-in-flight/one-latest bounded dispatch; T173 completes reopened T164/T165/T168/T169 and focused T160 review after T172; T174 completes reopened T170 and full verification only after T171–T173 pass.
 
 ### Wave restatement
 
@@ -674,6 +695,9 @@ Finalize operational documentation, enforce security/presentation contracts acro
 - **BUG-006**: observable Web Audio failing journey → confirmed client/audio-boundary correction → reopened interaction/asset/idempotence regressions → full suites, packaged native wrong/unlock/lockout journey, and SC-032 evidence.
 - **BUG-007**: native production-audio family matrix with ambient/charscroll controls → confirmed event/manifest/decode/context/routing/output correction → reopened interaction/outcome regressions → full suites, directly monitored packaged playback, and SC-033 evidence.
 - **Phase 21 Convergence**: BUG-007 completion → remove the legacy `SetLiveTerminal` and `ClearLiveTerminal` production bindings → migrate focused tests to authoritative activation/clear commands → verify the legacy bindings are unavailable → run and record the final full validation suite.
+- **BUG-008**: independent failing coordinator/contract/browser coverage → additive semantic-presentation model and generated ConnectRPC contract → coordinator ownership/revalidation → parallel transport and browser integration → reopened role/presentation regressions → full suites, reassignment/reconnect matrix, native smoke, and SC-034–SC-036 evidence.
+- **BUG-009**: delayed-`SetPresentation` browser/style reproduction → client-only pending-state/style separation → reopened browser/asset/CSS/BUG-008 integration regressions → full suites, output-visible packaged latency journey, and SC-037 evidence.
+- **BUG-010**: delayed first `SetPresentation` plus rapid hacking-grid sweep → one-in-flight/one-latest client coalescing → reopened presentation/audio/rapid-supersession regressions and role/context invalidation review → full suites, output-visible packaged rapid-hover journey, and SC-038 evidence.
 
 Tasks tagged `[P]` are parallel only inside their declared wave. Same-file work in later phases remains sequential even when conceptually independent, preserving one writer and the story checkpoint order.
 
@@ -861,3 +885,144 @@ Tasks tagged `[P]` are parallel only inside their declared wave. Same-file work 
 
 - [x] T156 CRITICAL Eliminate the production terminal-state coordinator bypass by removing `SetLiveTerminal` and `ClearLiveTerminal` from the Wails-bound App and desktop facade (or moving compatibility helpers behind an unbound test-only seam), migrate remaining focused tests to `RequestTerminalActivation` and `RequestTerminalClear`, and assert that the legacy binding names are unavailable while `UpdateLiveTerminal` and exact private `ForceHackSuccess` remain per Constitution II, Constitution III, plan: Implementation Strategy 2/10, T083–T084 (contradicts) · `app.go`, `app_test.go`, `frontend/src/desktop-api.js`, `internal/platform/assets_test.go`
 - [x] T157 Run `gofmt -l .`, `go vet ./...`, `go test ./...`, `go test -race ./...`, `npm --prefix frontend run build`, and `npm --prefix tests/browser test`; run the affected `wails dev` boundary smoke and a clean `wails build`; record all post-T156 results and unavailable release-only checks in `specs/004-player-sessions-control/validation.md`
+
+---
+
+## Phase 22: BUG-008 — Make Observer Presentation Fully Read-Only (User Stories 2 and 5)
+
+**Goal**: Only the current connected controller can change semantic terminal selection, information-page position, or hacking preview; every observer mirrors that authoritative presentation in real time and its own terminal pointer, focus, and keyboard input is inert. Reassignment transfers both gameplay and presentation authority without resetting the shared view.
+
+**Independent Test**: Start the production-composed generated ConnectRPC player with one controller and two observers. Move menu selection by pointer and keyboard, change information pages, and preview hacking targets as the controller; verify every observer converges in revision order. Repeat those inputs in observer documents and verify zero local terminal-selection change, zero outbound mutation, and zero canonical revision. Reassign control in both orderings with a racing presentation action, then open a new tab and reconnect the former controller; verify immediate lock/unlock, unchanged presentation, and first-snapshot convergence.
+
+**Task disposition**: T029, T030, T032, T034, T061, and T066 are reopened because their completed behavior either explicitly preserved observer-local terminal feedback or proved only outbound shared-action gating. T027, T033, T058, T060, T062, T065, and T145 remain complete but require focused regression review for authorization, ordering, role fanout, and reconnect invariants. Historical WebSocket tasks T028, T035, and T038 remain completed records; BUG-008 modifies only the active generated ConnectRPC boundary through new tasks below.
+
+### Reproduction and failing coverage
+
+**Wave 1 — independent tests first (different files):**
+
+- [x] **T158** [P] [US2] Add failing live/coordinator tests for semantic `none`/menu/page/hacking-preview presentation, current-context validation, exact observer/former-controller/disconnected/stale/invalid no-mutation behavior, deterministic revalidation after navigation/content/puzzle changes, ordered fanout, replay handling, and at least 100 presentation-action-versus-reassignment interleavings · `internal/live/service_test.go`, `internal/control/service_test.go`
+- [x] **T159** [P] [US2] Add failing protobuf descriptor, adapter, Connect handler, stream, and limit tests for one typed controller-presentation mutation; require recognition/request/broadcast/terminal/context preconditions, exclusive semantic variants, complete snapshot/update projection, strict rejection, generated Go/ECMAScript parity, late/new-tab/reconnect delivery, and zero legacy WebSocket dependency · `internal/player/adapter_test.go`, `internal/player/handler_test.go`, `internal/player/public_stream_test.go`, `internal/platform/assets_test.go`
+- [x] **T160** [P] [US5] Add a failing production-composed browser matrix proving controller pointer/keyboard menu selection, paging, and hacking preview converge to two observers; 100 observer pointer/focus/key/control attempts cause zero local terminal-view change and zero RPC; reassignment immediately locks the former controller and unlocks the new controller from unchanged presentation; new-tab/reconnect snapshots show no divergent default-selection flash · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/connectrpc-player.spec.mjs`, `tests/browser/fixture-server/main.go`
+
+**⟶ Wait for Wave 1 to finish, then:**
+
+### Generated model and contract
+
+**Wave 2 — additive protobuf-first presentation model:**
+
+- [x] **T161** [US2] Add detached `ControllerTerminalPresentation` runtime/public models and the additive generated protobuf/ConnectRPC mutation plus live/snapshot/update projection for semantic menu target, page ordinal, and hacking target/pattern; reserve no existing field, enforce bounded context/target values, regenerate Go and ECMAScript outputs, update the active public-player contract, and keep every value process-local · `internal/domain/model.go`, `proto/fallout/terminal/player/v1/player.proto`, `proto/fallout/terminal/player/v1/terminal.proto`, `internal/gen/fallout/terminal/player/v1/`, `frontend/client/gen/fallout/terminal/player/v1/`, `specs/005-connectrpc-protobuf-migration/contracts/public-player.md`
+
+**⟶ Wait for T161 to finish, then:**
+
+### Canonical ownership and revalidation
+
+**Wave 3 — coordinator-owned presentation transition:**
+
+- [x] **T162** [US2] Store semantic presentation in the active terminal runtime; authorize it only for the current connected controller under the coordinator order; validate context/target/page, deduplicate requests, publish one complete revisioned projection, preserve it across reassignment, include it in reconnect snapshots, and revalidate/reset it after navigation, content, terminal, pagination, hacking-generation, target, or outcome changes without affecting gameplay randomness or durable data · `internal/domain/model.go`, `internal/live/service.go`, `internal/control/service.go`
+
+**⟶ Wait for T162 to finish, then:**
+
+### Transport and browser integration
+
+**Wave 4 — independent boundary and player-client work:**
+
+- [x] **T163** [P] [US2] Implement strict generated request adaptation, Connect handler dispatch, bounded replay fingerprinting, correlated results, and revisioned stream fanout for controller presentation; reject observer/former-controller/stale/invalid requests without revision and preserve slow-stream isolation and complete snapshot recovery · `internal/player/adapter.go`, `internal/player/handler.go`, `internal/player/limits.go`, `internal/player/server.go`, `internal/player/stream.go`
+- [x] **T164** [P] [US2] ⚠️ Reopened (reopened — BUG-009; reopened — BUG-010): Replace local `selIndex`, paging, and hacking-preview ownership with authoritative semantic presentation application; send pointer/keyboard presentation requests only while active/controlling, keep presentation request correlation/latest-wins handling visually non-blocking for the controller, bound high-frequency dispatch to one in-flight request plus one replaceable latest desired target, make observer handlers inert before DOM highlight/audio changes, transfer authority on role revisions without reset or stale queued intent, render snapshots before default selection, and derive applicable menu/preview cues only from accepted authoritative changes while preserving local audio eligibility and responsive layout · `frontend/client/client.js`, `frontend/client/client.css`
+
+**⟶ Wait for Wave 4 to finish, then:**
+
+### Regression and validation
+
+**Wave 5 — complete reopened task scopes:**
+
+- [x] **T165** [US5] ⚠️ Reopened (reopened — BUG-009; reopened — BUG-010): Complete reopened T029, T030, T032, T034, T061, and T066 and review T027/T033/T058/T060/T062/T065/T145; prove exact observer local inertness, current-controller actionability without a presentation-latency locked-state flash, role-swap ordering, semantic convergence, reconnect recovery, stale-target and stale-queued-intent rejection, rapid hacking-hover backpressure, exact preview audio without superseded-target replay, no optimistic transition, and no player access to private game-master operations · `internal/control/service_test.go`, `internal/player/adapter_test.go`, `internal/player/handler_test.go`, `internal/player/public_stream_test.go`, `internal/platform/assets_test.go`, `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/connectrpc-player.spec.mjs`
+
+**⟶ Wait for T165 to finish, then:**
+
+**Wave 6 — complete BUG-008 verification:**
+
+- [x] **T166** [US2] ⚠️ Reopened (reopened — BUG-009): Run protobuf generation/drift/breaking checks, formatting, vet, full and race Go suites, frontend build, complete browser suite, an output-capable native controller/observer/reassignment/reconnect journey including visible presentation-latency stability, and a clean Wails build; append BUG-008/BUG-009 plus SC-034–SC-037 evidence and confirm the earlier local-highlight clauses are superseded without weakening gameplay pending, observer read-only styling, audio, responsive layout, ConnectRPC, persistence, or private-operation gates · `specs/004-player-sessions-control/validation.md`
+
+**Checkpoint**: BUG-008 is complete only when observers cannot change any terminal selection/page/preview locally, every accepted controller presentation movement reaches all assigned views through the generated authoritative path, reassignment transfers authority without resetting the shared view, reconnect starts from the current presentation, and all reopened and full verification gates pass.
+
+---
+
+## Phase 23: BUG-009 — Keep Controller Presentation Visually Responsive (User Story 2)
+
+**Goal**: An active controller retains normal actionable terminal styling while authoritative `SetPresentation` correlation is pending; observers and genuinely blocked gameplay/navigation/command paths keep their established locked styling, and semantic selection remains authoritative and non-optimistic.
+
+**Independent Test**: Delay generated `SetPresentation` responses in a production-composed controller/observer browser pair. Perform at least 100 pointer and keyboard menu movements while inspecting screen classes and computed cursor/opacity/filter values; verify zero controller grey/desaturated/locked flash, continued latest-wins movement eligibility, authoritative-only semantic selection, observer convergence/read-only styling, and unchanged blocking behavior for a separately delayed gameplay/navigation request.
+
+**Task disposition**: T029, T030, T032, T164, T165, and T166 are reopened because their completed browser, asset, CSS, client-integration, regression, and visual-validation scopes accepted `pendingPresentationAction` as a blocking `.shared-input-pending` state. T034 remains complete but requires focused regression review so its authoritative completion rules and genuinely blocking gameplay/navigation pending behavior remain unchanged. No protobuf, coordinator, runtime, persistence, or private-operation task is reopened.
+
+### Reproduction and failing coverage
+
+**Wave 1 — reproduce the first failing client boundary:**
+
+- [x] **T167** [US2] Add a failing production-composed Playwright and asset-contract regression that delays `SetPresentation`, exercises pointer and keyboard menu movement, and proves the active controller currently gains `.shared-input-pending`, `cursor: not-allowed`, reduced opacity, and desaturation even though a newer presentation movement remains eligible; pair it with observer and delayed navigation controls that retain their intended locked state · `tests/browser/player-sessions-control.spec.mjs`, `internal/platform/assets_test.go`
+
+**⟶ Wait for T167 to finish, then:**
+
+### Client correction
+
+**Wave 2 — separate correlation from blocking presentation:**
+
+- [x] **T168** [US2] ⚠️ Reopened (reopened — BUG-010): Keep `pendingPresentationAction` as the single in-flight correlation, add one replaceable latest desired presentation, drain it only after authoritative completion or rejection when still eligible, suppress duplicate and superseded unsent targets, preserve stale-result suppression and authoritative-only highlight application, and exclude presentation-only pending from `.shared-input-pending` and its locked cursor/opacity/saturation rules; retain observer read-only and genuinely pending gameplay/navigation/command styling unchanged · `frontend/client/client.js`, `frontend/client/client.css`
+
+**⟶ Wait for T168 to finish, then:**
+
+### Regression and validation
+
+**Wave 3 — complete reopened scopes and focused review:**
+
+- [x] **T169** [US2] ⚠️ Reopened (reopened — BUG-010): Complete reopened T029, T030, T032, T164, T165, and T168 plus focused T034 review; run repeated delayed presentation movements, a 100-target hacking-grid sweep, bounded request concurrency/count, final-target-only queued dispatch, authoritative convergence, observer inertness/read-only appearance, role/context invalidation, reconnect, preview audio without intermediate replay, and delayed gameplay/navigation pending cases with no optimistic semantic mutation or private-player capability drift · `frontend/client/client.js`, `frontend/client/client.css`, `internal/platform/assets_test.go`, `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/connectrpc-player.spec.mjs`
+
+**⟶ Wait for T169 to finish, then:**
+
+**Wave 4 — complete BUG-009 verification:**
+
+- [x] **T170** [US2] ⚠️ Reopened (reopened — BUG-010): Complete reopened T166 by running formatting, vet, full and race Go suites, frontend build, complete browser suite, protocol/binding drift gates, clean Wails package, and an output-visible packaged controller/observer journey with delayed/repeated presentation movement, a rapid hacking-target sweep, preview-audio observation, and a delayed gameplay control; append BUG-009/BUG-010 and SC-037/SC-038 evidence without weakening BUG-008 ordering/convergence, observer read-only styling, gameplay pending, audio, responsive layout, persistence, or private-operation gates · `specs/004-player-sessions-control/validation.md`
+
+**Checkpoint**: BUG-009 is complete only when presentation-only latency never makes an active controller look locked or unavailable, newer controller movements remain eligible, semantic selection still changes only from authoritative revisions, and observer plus genuinely pending gameplay states remain visibly and behaviorally locked as specified.
+
+---
+
+## Phase 24: BUG-010 — Coalesce Rapid Hacking Presentation (User Story 2)
+
+**Goal**: Rapid active-controller movement across hacking targets remains authoritative and shared without dispatching one concurrent `SetPresentation` request per transient target or replaying a stale highlight, reveal/selection animation, or preview cue after the pointer has moved on.
+
+**Independent Test**: In a production-composed active-and-observer browser pair, hold the first generated `SetPresentation` request and sweep at least 100 distinct filler, password, and unused-pattern targets. Verify exactly one request is in flight, only the final desired target is sent after release, skipped targets produce no revision/highlight/reveal restart/audio, both views converge on the final target, and reassignment, context replacement, rejection, disconnect, and teardown discard stale queued intent.
+
+**Task disposition**: T164, T165, T168, T169, and T170 are reopened because their completed latest-wins, browser-integration, audio, rapid-supersession, and output-visible validation scopes accepted immediate dispatch of every distinct transient hover target. T160 remains complete but requires focused review against the bounded-dispatch browser matrix. No protobuf, coordinator, runtime, persistence, CSS-only, or private-operation task is reopened.
+
+### Reproduction and failing coverage
+
+**Wave 1 — reproduce the first failing client boundary:**
+
+- [x] **T171** [US2] Add a failing production-composed Playwright regression that delays the first `SetPresentation`, rapidly traverses at least 100 filler/password/pattern targets, and records concurrent request count, payload order, authoritative projections, selected-target/reveal restarts, and `single`/`multiple` cues; prove the current client sends multiple requests and replays intermediate targets after the pointer reaches its final target · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/connectrpc-player.spec.mjs`
+
+**⟶ Wait for T171 to fail for the reported reason, then:**
+
+### Client backpressure correction
+
+**Wave 2 — bounded latest-target dispatch:**
+
+- [x] **T172** [US2] Implement one-in-flight/one-latest presentation dispatch: keep the dispatched request correlated until result plus required projection completion, replace only one queued desired semantic target during latency, skip authoritative/in-flight/queued duplicates, drain at most the newest still-applicable target after completion or rejection, and clear/revalidate queued intent on role, broadcast, terminal, context, navigation, puzzle, disconnect, or teardown changes without changing the generated RPC, coordinator ordering, authoritative-only rendering, BUG-009 styling, or observer inertness · `frontend/client/client.js`
+
+**⟶ Wait for T172 and the focused T171 regression to pass, then:**
+
+### Regression and reopened scopes
+
+**Wave 3 — complete reopened tasks and focused review:**
+
+- [x] **T173** [US2] Complete reopened T164, T165, T168, and T169 plus focused T160 review; prove bounded rapid hover for filler/password/pattern/none transitions, final-target active-and-observer convergence, exact preview audio, no stale selected-target/reveal replay, rejection recovery, reassignment/context/disconnect invalidation, reconnect snapshots, keyboard/menu/page presentation, delayed gameplay blocking, and zero optimistic or private-capability drift · `frontend/client/client.js`, `internal/platform/assets_test.go`, `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/connectrpc-player.spec.mjs`
+
+**⟶ Wait for T171–T173 to pass, then:**
+
+### Complete BUG-010 verification
+
+**Wave 4 — full validation and evidence:**
+
+- [x] **T174** [US2] Complete reopened T170 by running formatting, vet, full and race Go suites, frontend build, complete browser suite, protocol/binding drift gates, clean Wails package, and an output-visible packaged controller/observer rapid hacking-hover journey; append BUG-010 and SC-038 evidence including one-in-flight/one-final-follow-up counts and zero stale highlight/reveal/audio replay without weakening BUG-008/BUG-009, gameplay pending, observer styling, audio, responsive layout, persistence, or private-operation gates · `specs/004-player-sessions-control/validation.md`
+
+**Checkpoint**: BUG-010 is complete only when rapid hacking hover keeps at most one presentation request in flight and one replaceable latest target, superseded unsent targets create no revision/render/reveal/audio effect, the final still-applicable target converges authoritatively on active and observer views, stale queued intent cannot survive authority/context changes, and all reopened and full verification gates pass.

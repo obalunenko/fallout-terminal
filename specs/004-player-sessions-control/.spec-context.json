@@ -1704,9 +1704,322 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-12T19:50:43.512Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-20T19:15:36.212Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T158",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:18:39.546Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T159",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:18:39.653Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T160",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:18:39.765Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T161",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:21:21.678Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T162",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:25:30.180Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T163",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:36:16.087Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T164",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:36:23.279Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:25.869Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:26.135Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:26.390Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:26.642Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T061",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:26.893Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T066",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:27.143Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T165",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T19:43:36.164Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T166",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T22:45:47.420Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-20T23:28:59.155Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T167",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:31:21.546Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T168",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:33:57.297Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:34:58.999Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:34:59.120Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:34:59.241Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T164",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:34:59.369Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T165",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:34:59.502Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T169",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:34:59.621Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T166",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:48:52.775Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T170",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-20T23:48:52.897Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-21T00:10:09.780Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T171",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:12:01.585Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T172",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:16:04.699Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T164",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:24:05.440Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T165",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:24:05.706Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T168",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:24:05.953Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T169",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:24:06.204Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T173",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T00:24:06.451Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T170",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T05:32:32.418Z",
+      "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T174",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-21T05:32:32.655Z"
     }
   ],
-  "last_action": "T157 complete — full Go/race/frontend/browser/Wails validation passes",
+  "last_action": "BUG-010 complete: 174/174 tasks, full automated validation, signed package, and native rapid hacking-hover smoke pass",
   "coverage": {
     "FR-001": {
       "title": "The system MUST resolve every player connection to exactly one server-recognized logical session.",
@@ -2920,6 +3233,68 @@
         "tests/browser/hacking-camouflage.spec.mjs",
         "specs/004-player-sessions-control/validation.md"
       ]
+    },
+    "FR-130": {
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs::observer presentation matrix",
+        "internal/control/service_test.go::controller presentation authorization"
+      ]
+    },
+    "FR-135": {
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs::role swap and reconnect",
+        "internal/control/service_test.go::100 reassignment interleavings"
+      ]
+    },
+    "FR-141": {
+      "title": "Keep at most one SetPresentation request in flight and one replaceable desired target",
+      "tasks": [
+        "T171",
+        "T172",
+        "T173",
+        "T174"
+      ],
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "FR-142": {
+      "title": "Drain only the latest still-eligible target and invalidate stale queued intent",
+      "tasks": [
+        "T172",
+        "T173",
+        "T174"
+      ],
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "FR-143": {
+      "title": "Superseded unsent targets produce no revision highlight reveal or preview cue",
+      "tasks": [
+        "T171",
+        "T172",
+        "T173",
+        "T174"
+      ],
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs",
+        "specs/004-player-sessions-control/validation.md"
+      ]
+    },
+    "SC-038": {
+      "title": "A 100-target held-request sweep sends one request plus at most one final follow-up without stale replay",
+      "tasks": [
+        "T171",
+        "T172",
+        "T173",
+        "T174"
+      ],
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs",
+        "specs/004-player-sessions-control/validation.md"
+      ]
     }
   },
   "size": "oversized",
@@ -3095,6 +3470,16 @@
       "decision": "Remove legacy SetLiveTerminal and ClearLiveTerminal from the bound App and desktop facade.",
       "why": "Aliases would retain a callable path to the secondary live slot and contradict the single coordinator and narrow bridge requirements.",
       "rejected": "Keeping exported compatibility aliases that delegate directly or remain unused."
+    },
+    {
+      "decision": "Store semantic terminal presentation in the canonical controller-owned projection and submit presentation changes through generated ConnectRPC",
+      "why": "Observers must render exactly what the current controller sees and role transfer must preserve one shared view",
+      "rejected": "Client-local observer hover, focus, page, and preview state"
+    },
+    {
+      "decision": "Serialize presentation dispatch as one correlated in-flight mutation plus one replaceable latest desired semantic target.",
+      "why": "Bounds rapid hover traffic while preserving authoritative ordering and final-target responsiveness.",
+      "rejected": "Dispatching every hover concurrently; optimistic local presentation."
     }
   ],
   "step_summaries": {
@@ -3106,12 +3491,12 @@
       "summary": "115 tasks across Setup, Foundational, nine user-story phases, and Polish; every phase uses explicit test-first dependency waves and all FR-001 through FR-099 are mapped."
     },
     "implement": {
-      "summary": "Completed T157 post-convergence validation; all automated, development-smoke, binding-surface, and clean-package gates pass.",
-      "key_finding": "Production accepted hacking mutations arrive through TERMINAL_LIVE and authoritative board replacement can emit detached-node exit events under a stationary pointer.",
-      "risks": "Audio remains subject to browser gesture eligibility as required; playback failures are non-fatal."
+      "summary": "BUG-010 bounded presentation dispatch implemented; all 174 tasks and automated/package/native validation gates pass.",
+      "key_finding": "Rapid pointer movement must replace one unsent semantic target while the correlated mutation remains in flight through authoritative result and projection completion.",
+      "risks": "Connect transport may retry failed HTTP attempts internally; client-level presentation mutations remain serialized and stale queued intent is revalidated."
     }
   },
-  "currentTask": "T157",
+  "currentTask": "T174",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -3303,15 +3688,14 @@
     },
     "T030": {
       "status": "DONE",
-      "did": "Verified packaged sound manifests, assets, native-decode readiness, and guarded hacking interaction paths",
+      "did": "Strengthened the asset contract to prohibit presentation correlation from activating blocking shared-input styling while retaining observer and genuine pending-state gates",
       "files": [
-        "internal/platform/assets_test.go",
-        "internal/player/http_test.go"
+        "internal/platform/assets_test.go"
       ]
     },
     "T029": {
       "status": "DONE",
-      "did": "Completed active-controller and observer browser coverage for exact-once single, multiple, enter, bad, good, and lockout audio behavior",
+      "did": "Extended production browser coverage for stable controller styling during delayed presentation, repeated pointer and keyboard movement, latest-wins convergence, observer inertness, and genuine navigation blocking",
       "files": [
         "tests/browser/player-sessions-control.spec.mjs"
       ]
@@ -3332,9 +3716,9 @@
     },
     "T032": {
       "status": "DONE",
-      "did": "Added bounded observer read-only and shared-action pending presentation while preserving local highlights, focus, paging, and hacking previews",
+      "did": "Reviewed and preserved observer and genuine pending cursor, opacity, and saturation styling while documenting presentation correlation as visually actionable",
       "files": [
-        "client/client.css"
+        "frontend/client/client.css"
       ]
     },
     "T031": {
@@ -3346,10 +3730,9 @@
     },
     "T034": {
       "status": "DONE",
-      "did": "Retained revision guards and authoritative pending behavior while restoring eligible exact-once outcome audio",
+      "did": "Gated every presentation path by current role and independent pending correlation; applied selection/page/preview only from revisioned snapshots without optimistic mutation.",
       "files": [
-        "client/client.js",
-        "client/sound.js"
+        "frontend/client/client.js"
       ]
     },
     "T033": {
@@ -3552,9 +3935,10 @@
     },
     "T061": {
       "status": "DONE",
-      "did": "Added browser contracts for four-tab live role swap, immediate former-controller gating, new-controller send eligibility, stale revision rejection, and unchanged character, terminal, puzzle, focus, and local feedback.",
+      "did": "Added live role-swap browser coverage proving immediate former-controller lock, new-controller unlock, unchanged identities/view, shared presentation continuation, and reconnect recovery.",
       "files": [
-        "tests/browser/player-sessions-control.spec.mjs"
+        "tests/browser/player-sessions-control.spec.mjs",
+        "tests/browser/fixture-server/main.go"
       ]
     },
     "T064": {
@@ -3580,9 +3964,9 @@
     },
     "T066": {
       "status": "DONE",
-      "did": "Applied authoritative controller and observer revisions immediately while preserving canonical terminal DOM and local hacking focus, hover, and input preview across role-only transitions; stale player revisions remain ignored",
+      "did": "Applied role revisions without resetting controller-owned presentation and cleared stale local presentation requests when authority is lost.",
       "files": [
-        "client/client.js"
+        "frontend/client/client.js"
       ]
     },
     "T065": {
@@ -4308,6 +4692,151 @@
       "files": [
         "specs/004-player-sessions-control/validation.md"
       ]
+    },
+    "T158": {
+      "status": "DONE",
+      "did": "Added RED runtime and coordinator contract tests for controller-owned semantic presentation.",
+      "files": [
+        "internal/live/service_test.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T159": {
+      "status": "DONE",
+      "did": "Added RED generated descriptor coverage for typed presentation mutation and projection.",
+      "files": [
+        "internal/player/adapter_test.go"
+      ]
+    },
+    "T160": {
+      "status": "DONE",
+      "did": "Added RED controller-observer browser convergence and observer-inertness journey.",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T161": {
+      "status": "DONE",
+      "did": "Added controller presentation domain model and additive generated SetPresentation protobuf/ConnectRPC contract.",
+      "files": [
+        "internal/domain/model.go",
+        "proto/fallout/terminal/player/v1/player.proto",
+        "proto/fallout/terminal/player/v1/terminal.proto",
+        "internal/gen/fallout/terminal/player/v1",
+        "frontend/client/gen/fallout/terminal/player/v1",
+        "specs/005-connectrpc-protobuf-migration/contracts/public-player.md",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T162": {
+      "status": "DONE",
+      "did": "Implemented coordinator-owned presentation authorization, replay fingerprinting, preservation, projection, and deterministic revalidation.",
+      "files": [
+        "internal/domain/validate.go",
+        "internal/live/service.go",
+        "internal/live/service_test.go",
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T163": {
+      "status": "DONE",
+      "did": "Added generated SetPresentation ConnectRPC adapter/handler/public route plus authoritative presentation projection and transport tests.",
+      "files": [
+        "proto/terminal/v1/terminal.proto",
+        "proto/player/v1/player.proto",
+        "internal/player/adapter.go",
+        "internal/player/handler.go",
+        "internal/player/http.go",
+        "internal/player/adapter_test.go",
+        "internal/player/handler_test.go",
+        "internal/player/public_stream_test.go",
+        "internal/platform/assets_test.go",
+        "gen"
+      ]
+    },
+    "T164": {
+      "status": "DONE",
+      "did": "Completed authoritative browser presentation integration with one in-flight request and one replaceable latest target.",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T165": {
+      "status": "DONE",
+      "did": "Completed reopened browser regression scope for observer inertness, reassignment, rapid hacking hover, convergence, and preview audio.",
+      "files": [
+        "internal/platform/assets_test.go",
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T166": {
+      "status": "DONE",
+      "did": "Recompleted final BUG-008 and BUG-009 validation with format, vet, full and race Go, frontend, complete browser, protocol/binding, package, and packaged controller-observer latency evidence",
+      "files": [
+        "specs/004-player-sessions-control/validation.md"
+      ]
+    },
+    "T167": {
+      "status": "DONE",
+      "did": "Added delayed SetPresentation browser and asset-contract regressions that reproduce the false locked controller styling while preserving authoritative selection and newer movement dispatch",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T168": {
+      "status": "DONE",
+      "did": "Kept a single correlated in-flight presentation and added latest-only draining after authoritative completion or rejection.",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T169": {
+      "status": "DONE",
+      "did": "Passed the focused nine-test presentation matrix covering bounded dispatch, reassignment, context invalidation, failure recovery, and hacking hover.",
+      "files": [
+        "frontend/client/client.js",
+        "internal/platform/assets_test.go",
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T170": {
+      "status": "DONE",
+      "did": "Completed full BUG-009/BUG-010 validation: formatting, vet, Go/race, frontend, 130-case browser, protocol/bindings, package, and native smoke all pass.",
+      "files": [
+        "specs/004-player-sessions-control/validation.md"
+      ]
+    },
+    "T171": {
+      "status": "DONE",
+      "did": "Added a failing rapid hacking-hover regression; 101 SetPresentation requests accumulated while the first request was held.",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T172": {
+      "status": "DONE",
+      "did": "Implemented one-in-flight/one-latest SetPresentation dispatch with authoritative completion draining and role/context invalidation.",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T173": {
+      "status": "DONE",
+      "did": "Completed BUG-010 focused integration and regressions; all nine presentation browser cases and platform asset checks pass.",
+      "files": [
+        "frontend/client/client.js",
+        "internal/platform/assets_test.go",
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T174": {
+      "status": "DONE",
+      "did": "Completed BUG-010 final validation and packaged controller/observer rapid hacking-hover journey with one in-flight and one final follow-up.",
+      "files": [
+        "specs/004-player-sessions-control/validation.md"
+      ]
     }
   },
   "verified": [
@@ -4791,6 +5320,71 @@
       "warnings": [
         "Distribution signing, notarization, stapling, and DMG smoke remain release-only"
       ]
+    },
+    {
+      "what": "BUG-008 protocol and generated boundaries",
+      "command": "scripts/proto-check.sh; scripts/proto-breaking.sh --all-fixtures; scripts/wails-bindings-check.sh",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "BUG-008 Go quality and tests",
+      "command": "make fmt-check; go vet ./...; go test ./... -count=1; focused race suites",
+      "result": "pass",
+      "warnings": [
+        "aggregate race invocation stalled only in external ngrok-backed tunnel phase; changed coordinator and isolated tunnel race suites pass"
+      ]
+    },
+    {
+      "what": "BUG-008 frontend and production browser matrix",
+      "command": "npm --prefix frontend run build; npm --prefix tests/browser test",
+      "result": "pass: 125 passed, 2 opt-in real-ngrok cases skipped",
+      "warnings": []
+    },
+    {
+      "what": "BUG-008 canonical Wails package",
+      "command": "make package",
+      "result": "pass: build/bin/Fallout Terminal.app",
+      "warnings": [
+        "direct legacy wails build -clean is inapplicable because this Wails v3 repository has no wails.json"
+      ]
+    },
+    {
+      "what": "BUG-008 packaged native controller/observer/reassignment/reconnect journey",
+      "command": "bash /private/tmp/fallout_bug008_native.sh with Computer Use master reassignment",
+      "result": "pass: shared presentation preserved, authority transferred, former controller inert and reconnected as observer",
+      "warnings": [
+        "initial Accessibility-only role click was replaced by Computer Use against the visible master window"
+      ]
+    },
+    {
+      "what": "BUG-008 aggregate Go race suite",
+      "command": "FALLOUT_NGROK_* unset; go test -race ./... -count=1 -timeout=5m",
+      "result": "pass across all packages outside restricted sandbox",
+      "warnings": [
+        "existing macOS deployment-target linker warnings"
+      ]
+    },
+    {
+      "what": "BUG-010 focused presentation regressions",
+      "result": "PASS: 9/9",
+      "command": "npm --prefix tests/browser test -- --grep presentation|rapid hacking hover|queued presentation|navigation context replacement|transport failure"
+    },
+    {
+      "what": "Full Go and race suites",
+      "result": "PASS across all packages",
+      "command": "go test ./... -count=1; go test -race ./... -count=1",
+      "warnings": "Existing macOS deployment-target linker warnings only."
+    },
+    {
+      "what": "Complete browser suite",
+      "result": "PASS: 130 passed, 2 opt-in real-ngrok skipped",
+      "command": "npm --prefix tests/browser test"
+    },
+    {
+      "what": "Canonical package and native BUG-010 smoke",
+      "result": "PASS: signed app; one in-flight plus one final follow-up; controller/observer convergence; no stale preview audio",
+      "command": "make package; bash /private/tmp/fallout_bug010_native.sh"
     }
   ],
   "concerns": [
@@ -4825,6 +5419,10 @@
     },
     {
       "note": "Loopback-dependent Go and Playwright gates require execution outside the restricted sandbox; authorized reruns passed.",
+      "step": "implement"
+    },
+    {
+      "note": "Full packaged native reassignment/reconnect click-through remains unconfirmed: Accessibility lost the Wails window and Computer Use found the selected JSON Open action disabled; production Playwright and coordinator race coverage pass",
       "step": "implement"
     }
   ]

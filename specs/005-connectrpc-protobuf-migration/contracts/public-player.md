@@ -13,6 +13,7 @@ Service: `fallout.terminal.player.v1.PlayerService`
 | `Navigate` | unary | `/fallout.terminal.player.v1.PlayerService/Navigate` | Connected active-controller navigation action. |
 | `Guess` | unary | `/fallout.terminal.player.v1.PlayerService/Guess` | Connected active-controller password-word or filler target. |
 | `ActivatePattern` | unary | `/fallout.terminal.player.v1.PlayerService/ActivatePattern` | Connected active-controller current unused generation-bound special pattern. |
+| `SetPresentation` | unary | `/fallout.terminal.player.v1.PlayerService/SetPresentation` | Connected active-controller semantic menu, page, or hacking-preview presentation. |
 | `SoundManifest` | unary | `/fallout.terminal.player.v1.PlayerService/SoundManifest` | Allowlisted same-origin sound discovery. |
 
 No public health, reflection, diagnostics, capability discovery, client count, runtime status, server information, tunnel status, or generic command procedure is registered. Unsupported public service/procedure paths return Connect `unimplemented` rather than falling through to static content.
@@ -31,6 +32,8 @@ No public health, reflection, diagnostics, capability discovery, client count, r
 - `update`: `CompoundUpdate`, legal only after the snapshot and with a strictly greater revision.
 
 `PersonalizedSnapshot` contains required `recognition_handle`, `revision`, `player_state`, and `terminal_presentation`. `TerminalPresentation` uses `oneof presentation` with `live_terminal` and `no_live_terminal`; exactly one is set.
+
+`LiveTerminal.controller_presentation` is the complete process-local semantic view owned by the current controller. It carries a bounded `context_key` and exactly one of `none`, menu target, information-page index, or hacking target/pattern. Raw pointer coordinates, DOM focus, viewport geometry, reveal progress, and per-document audio state are not public protocol data.
 
 `CompoundUpdate` contains `revision` and zero or more complete `player_state`, `terminal_presentation`, `navigation`, and `hacking` message fields. Message presence is authoritative: absent means unchanged, never clear and never partial patch. An explicit clear uses `terminal_presentation.no_live_terminal`.
 
@@ -76,6 +79,9 @@ Each mutation request directly contains its typed fields; there is no generic mu
 | `NavigateRequest` | recognition handle, request ID, broadcast ID, terminal ID, exactly one action variant |
 | `GuessRequest` | recognition handle, request ID, broadcast ID, terminal ID, exactly one target variant |
 | `ActivatePatternRequest` | recognition handle, request ID, broadcast ID, terminal ID, exact `patternId` property |
+| `SetPresentationRequest` | recognition handle, request ID, broadcast ID, terminal ID, current context key, exactly one complete semantic presentation variant |
+
+`SetPresentationRequest` repeats the semantic context key as a stale-context precondition. Only the currently connected assigned controller may commit it; observer, stale-context, invalid-target, and replay-conflict requests are rejected without advancing the canonical revision.
 
 Every mutation returns `ActionResult` with request ID, acceptance, `ActionReason`, and authoritative revision. The stable external reason mapping is exactly:
 
@@ -105,6 +111,7 @@ Structural rejection occurs before the application adapter and canonical service
 | Encoded HTTP request body | `8 KiB` (`8192` bytes) |
 | Recognition handle, request ID, broadcast ID, generation ID | 128 UTF-8 bytes |
 | Terminal ID, character ID, node/navigation target, guess target, `patternId` | 256 UTF-8 bytes |
+| Presentation context key and semantic target | 256 UTF-8 bytes |
 | Sound category adapter input | 32 bytes and one allowed enum value |
 
 Unknown protobuf fields count toward the 4 KiB message limit. Compressed messages that expand past it return `resource_exhausted` before canonical invocation.
@@ -139,4 +146,3 @@ Every subscription begins with a complete snapshot. The reconnect delay remains 
 ## Superseded protocol identifiers
 
 Final generated descriptors, handlers, client code, fixtures, and active operational documentation contain no procedures or message types named `SESSION_HELLO`, `CHARACTER_SELECT`, `NAV_ACTION`, `HACK_GUESS`, `HACK_PATTERN`, `SESSION_WELCOME`, `PLAYER_STATE`, `ACTION_RESULT`, `TERMINAL_LIVE`, `TERMINAL_UPDATE`, `TERMINAL_CLEAR`, `NAV_STATE`, or `HACK_STATE`. The removed `HACK_ADMIN` request does not return in any public contract or asset. Historical completed feature records may retain the strings only when clearly marked superseded and non-authoritative.
-

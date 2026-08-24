@@ -161,27 +161,12 @@ def _fold_task_finish(
     task_id); stamps the history entry with the supplied `at` so a materialized
     line keeps its own real finish time, not the fold time. `markers` is the caller's
     single tasks.md parse, threaded through so the file isn't re-read per task."""
-    all_tasks, done_tasks = markers
-    reopened = task_id in (set(all_tasks) - set(done_tasks)) and _has_complete(log, "implement", task_id)
     ctx["currentStep"] = "implement"
     ctx["currentTask"] = task_id
     # At 100% tasks land at `implemented`, not `implementing` — re-asserting `implementing` was the race that left a done spec unmarkable.
-    if reopened and ctx.get("status") == "completed":
-        ctx["status"] = "implementing"
-    elif ctx.get("status") not in ("implemented", "completed", "archived"):
+    if ctx.get("status") not in ("implemented", "completed", "archived"):
         ctx["status"] = "implemented" if _tasks_at_100(markers) else "implementing"
-    if reopened:
-        log.append({
-            "step": "implement",
-            "substep": None,
-            "task": task_id,
-            "kind": "complete",
-            "by": by,
-            "at": at,
-            "reopened": True,
-        })
-    else:
-        append_complete(log, "implement", task=task_id, by=by, at=at)
+    append_complete(log, "implement", task=task_id, by=by, at=at)
     _upsert_task_summary(ctx, task_id, did, files)
 
 
@@ -264,14 +249,7 @@ def append_task_log(
     A genuinely shipped spec (completed/archived) is left untouched, so a stray
     late append can't orphan a post-completion line into the events log.
     """
-    ctx = read_ctx(feature_dir / ".spec-context.json")
-    all_tasks, done_tasks = parse_task_markers(feature_dir / "tasks.md")
-    pending_tasks = set(all_tasks) - set(done_tasks)
-    shipped_without_reopen = (
-        ctx.get("status") in CROSS_STEP_TERMINAL
-        and not (ctx.get("status") == "completed" and task_id in pending_tasks)
-    )
-    if shipped_without_reopen:
+    if read_ctx(feature_dir / ".spec-context.json").get("status") in CROSS_STEP_TERMINAL:
         print(
             f"[companion] {feature_dir} already shipped; not appending task {task_id}.",
             file=sys.stderr,
@@ -309,25 +287,13 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     if not log_path.is_file():
         return None
     target = feature_dir / ".spec-context.json"
+    opened = _open_ctx_or_none(feature_dir)
+    if opened is None:
+        return None
+    ctx, log, _branch = opened
     tasks_md = feature_dir / "tasks.md"
     markers = parse_task_markers(tasks_md)
-    pending_tasks = set(markers[0]) - set(markers[1])
-    ctx = read_ctx(target)
-    if ctx.get("status") in CROSS_STEP_TERMINAL:
-        if ctx.get("status") != "completed" or not pending_tasks:
-            return None
-        branch = _git_branch(_repo_root_for(feature_dir)) or "main"
-        log = canonical_log(ctx)
-        fill_required(ctx, feature_dir, branch)
-        ctx["status"] = "implementing"
-        ctx["currentStep"] = "implement"
-    else:
-        opened = _open_ctx_or_none(feature_dir)
-        if opened is None:
-            return None
-        ctx, log, _branch = opened
     folded = 0
-    event_tasks: set[str] = set()
     for raw in log_path.read_text(encoding="utf-8").splitlines():
         raw = raw.strip()
         if not raw:
@@ -339,7 +305,6 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
         tid = e.get("task")
         if not tid:
             continue
-        event_tasks.add(tid)
         _fold_task_finish(
             ctx, log, feature_dir, tid, e.get("by", by),
             e.get("did"), e.get("files"), e.get("at") or _now_iso(),
@@ -349,7 +314,7 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     # The script owns the checkboxes: flip tasks.md `[ ]` → `[x]` for every
     # journaled task (single writer, so parallel subagents that only append are
     # race-free). Must run BEFORE the step-close check, which reads tasks.md.
-    _mark_tasks_done(tasks_md, event_tasks)
+    _mark_tasks_done(tasks_md, _journaled_tasks(log))
     _maybe_close_implement(ctx, log, feature_dir, by, markers=parse_task_markers(tasks_md))
     commit_log(ctx, log)
     atomic_write(target, ctx)

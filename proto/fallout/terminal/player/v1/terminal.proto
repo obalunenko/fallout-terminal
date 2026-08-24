@@ -41,6 +41,33 @@ message TerminalNavigationPresentation {
   optional PendingTerminalNavigationPresentation pending = 3;
 }
 
+message NoControllerTerminalPresentation {}
+
+message MenuSelection {
+  string target_id = 1;
+}
+
+message InformationPagePosition {
+  uint32 page_index = 1;
+}
+
+message HackingPreview {
+  oneof target {
+    string target_id = 1;
+    string pattern_id = 2;
+  }
+}
+
+message ControllerTerminalPresentation {
+  string context_key = 1;
+  oneof presentation {
+    NoControllerTerminalPresentation none = 2;
+    MenuSelection menu = 3;
+    InformationPagePosition page = 4;
+    HackingPreview hacking = 5;
+  }
+}
+
 message ContentFolder {
   repeated ContentNode children = 1;
 }
@@ -73,6 +100,7 @@ message LiveTerminal {
   PublicHackState hacking = 7;
   optional CommandExecutionPresentation command_execution = 8;
   optional TerminalNavigationPresentation terminal_navigation = 9;
+  ControllerTerminalPresentation controller_presentation = 10;
 }
 
 message NoLiveTerminal {}

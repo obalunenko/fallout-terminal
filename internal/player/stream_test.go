@@ -229,6 +229,89 @@ func TestRepresentativeThreeHourStreamReconnectSoak(t *testing.T) {
 	require.Equal(t, 0, hub.Count())
 }
 
+func TestTargetedMailboxIsNonLossyAndIndependentFromCanonicalQueue(t *testing.T) {
+	stream := NewSubscription(t.Context(), "physical-targeted", "logical-1", subscriptionSnapshot(1), 1, "tab-1")
+	first := targetedResult("tab-1", 1, "request-1")
+	second := targetedResult("tab-1", 1, "request-2")
+	require.True(t, stream.PublishTargeted(t.Context(), first))
+
+	published := make(chan bool, 1)
+	go func() { published <- stream.PublishTargeted(t.Context(), second) }()
+	require.Never(t, func() bool { return len(published) != 0 }, 20*time.Millisecond, time.Millisecond)
+	require.True(t, stream.Offer(subscriptionUpdate(2)), "targeted pressure must not consume canonical capacity")
+	require.Equal(t, uint64(2), (<-stream.Updates()).GetUpdate().GetRevision())
+	require.Equal(t, "request-1", (<-stream.Targeted()).GetPresentationUplinkResult().GetAction().GetRequestId())
+	require.True(t, <-published)
+	require.Equal(t, "request-2", (<-stream.Targeted()).GetPresentationUplinkResult().GetAction().GetRequestId())
+
+	stream.Close()
+	require.False(t, stream.PublishTargeted(t.Context(), targetedResult("tab-1", 1, "request-3")))
+}
+
+func TestCloseUplinksRetainsAuthoritativeSubscriptions(t *testing.T) {
+	hub := NewSubscriptionHub()
+	snapshot := subscriptionSnapshot(1)
+	snapshot.GetSnapshot().RecognitionHandle = "recognition-logical-1"
+	stream := NewSubscription(t.Context(), "physical-1", "logical-1", snapshot, 1, "tab-1")
+	hub.Register(stream)
+	uplink, err := hub.BindUplink(t.Context(), PresentationUplinkBinding{
+		RecognitionHandle: domain.RecognitionHandle("recognition-logical-1"),
+		ClientInstanceID:  "tab-1",
+		Generation:        1,
+	})
+	require.NoError(t, err)
+
+	cause := errors.New("test uplink rotation")
+	hub.CloseUplinks(cause)
+	require.ErrorIs(t, context.Cause(uplink.Context), cause)
+	require.False(t, hub.Current(uplink))
+	require.Equal(t, 1, hub.Count())
+	select {
+	case <-stream.Done():
+		assert.FailNow(t, "uplink rotation closed the authoritative subscription")
+	default:
+	}
+}
+
+func TestLatestIntentMailboxReplacesOnlyUnprocessedValue(t *testing.T) {
+	mailbox := NewLatestIntentMailbox()
+	require.True(t, mailbox.Offer(&playerv1.PresentationIntent{RequestId: "request-1"}))
+	require.True(t, mailbox.Offer(&playerv1.PresentationIntent{RequestId: "request-2"}))
+	intent, ok := mailbox.Take(t.Context())
+	require.True(t, ok)
+	require.Equal(t, "request-2", intent.GetRequestId())
+	mailbox.Close(errors.New("test mailbox closed"))
+	_, ok = mailbox.Take(t.Context())
+	require.False(t, ok)
+}
+
+func TestLatestIntentMailboxGracefulFinishRetainsFinalPendingValue(t *testing.T) {
+	mailbox := NewLatestIntentMailbox()
+	result := make(chan *playerv1.PresentationIntent, 1)
+	go func() {
+		intent, ok := mailbox.Take(t.Context())
+		if ok {
+			result <- intent
+			return
+		}
+		result <- nil
+	}()
+	require.True(t, mailbox.Offer(&playerv1.PresentationIntent{RequestId: "final-request"}))
+	mailbox.Finish()
+	require.Equal(t, "final-request", (<-result).GetRequestId())
+	_, ok := mailbox.Take(t.Context())
+	require.False(t, ok)
+}
+
+func targetedResult(clientID string, generation uint64, requestID string) *playerv1.SubscriptionMessage {
+	return &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_PresentationUplinkResult{
+		PresentationUplinkResult: &playerv1.PresentationUplinkResult{
+			ClientInstanceId: clientID, UplinkGeneration: generation,
+			Payload: &playerv1.PresentationUplinkResult_Action{Action: &playerv1.ActionResult{RequestId: requestID}},
+		},
+	}}
+}
+
 func TestConnectServerShutdownIsBoundedWithBlockedAndCanceledPhysicalStreams(t *testing.T) {
 	coordinator := newConnectTestCoordinator(t)
 	hub := NewSubscriptionHub()

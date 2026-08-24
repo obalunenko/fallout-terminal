@@ -49,22 +49,35 @@ async function approveCRTCommand(page, request, { verifyInputLock = true } = {})
 }
 
 async function visibleHackPatternCell(page) {
-  let coordinates = null;
-  await expect.poll(async () => {
-    coordinates = await page.locator('#hackColumns .hcell.filler').evaluateAll(cells => {
-      for (const cell of cells) {
-        cell.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-        if (document.querySelectorAll('#hackColumns .hcell.hi').length > 1) {
-          return { row: cell.dataset.row, offset: cell.dataset.offset };
-        }
+  const seen = new Set();
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const candidates = await page.locator('#hackColumns .hcell.filler').evaluateAll(cells =>
+      cells
+        .filter(cell => '([{<'.includes(cell.textContent || ''))
+        .map(cell => ({ row: cell.dataset.row, offset: cell.dataset.offset })),
+    );
+    for (const coordinates of candidates) {
+      const key = `${coordinates.row}:${coordinates.offset}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const cell = page.locator(
+        `#hackColumns .hcell.filler[data-row="${coordinates.row}"][data-offset="${coordinates.offset}"]`,
+      );
+      await cell.hover();
+      try {
+        await expect.poll(
+          () => page.locator('#hackColumns .hcell.hi').count(),
+          { timeout: 250 },
+        ).toBeGreaterThan(1);
+        return cell;
+      } catch {
+        // The authoritative projection confirmed this opener is not a pattern.
       }
-      return null;
-    });
-    return coordinates;
-  }).not.toBeNull();
-  return page.locator(
-    `#hackColumns .hcell.filler[data-row="${coordinates.row}"][data-offset="${coordinates.offset}"]`,
-  );
+    }
+    await page.waitForTimeout(40);
+  }
+  throw new Error('authoritative hacking pattern highlight was not found');
 }
 
 async function observeHackRevealFonts(page) {
@@ -127,7 +140,7 @@ async function expectScreenContained(page) {
 async function expectStateContained(page, selector) {
   const state = page.locator(selector);
   await expect(state).toBeVisible();
-  const result = await state.evaluate(element => {
+  await expect.poll(() => state.evaluate(element => {
     const screen = document.querySelector('#screen').getBoundingClientRect();
     const bounds = element.getBoundingClientRect();
     return {
@@ -136,8 +149,7 @@ async function expectStateContained(page, selector) {
       insideViewport: bounds.top >= -1 && bounds.left >= -1 &&
         bounds.right <= window.innerWidth + 1 && bounds.bottom <= window.innerHeight + 1,
     };
-  });
-  expect(result).toEqual({ insideScreen: true, insideViewport: true });
+  })).toEqual({ insideScreen: true, insideViewport: true });
   await expectScreenContained(page);
   return state;
 }
@@ -476,7 +488,9 @@ test.describe('CRT motion and reveal lifecycle', () => {
     await expect(page.locator('.term-row', { hasText: 'LONG RECORD' })).toBeVisible();
     await page.locator('.term-row', { hasText: 'LONG RECORD' }).click();
     await expect(page.locator('#pageNext')).toBeVisible();
+    const firstPage = await page.locator('#pageIndicator').textContent();
     await page.locator('#pageNext').click();
+    await expect(page.locator('#pageIndicator')).not.toHaveText(firstPage);
     expect(await page.locator('#entryBody > div').count()).toBeGreaterThan(2);
     await page.setViewportSize({ width: 720, height: 640 });
     await page.waitForTimeout(80);

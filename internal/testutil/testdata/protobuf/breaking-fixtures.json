@@ -3,15 +3,15 @@
     "id": "field-number",
     "kind": "field-number",
     "file": "fallout/terminal/player/v1/player.proto",
-    "before": "string request_id = 2;",
-    "after": "string request_id = 200;"
+    "before": "message SelectCharacterRequest {\n  string recognition_handle = 1;\n  string request_id = 2;",
+    "after": "message SelectCharacterRequest {\n  string recognition_handle = 1;\n  string request_id = 200;"
   },
   {
     "id": "field-type",
     "kind": "field-type",
     "file": "fallout/terminal/player/v1/player.proto",
-    "before": "string request_id = 2;",
-    "after": "bytes request_id = 2;"
+    "before": "message SelectCharacterRequest {\n  string recognition_handle = 1;\n  string request_id = 2;",
+    "after": "message SelectCharacterRequest {\n  string recognition_handle = 1;\n  bytes request_id = 2;"
   },
   {
     "id": "enum-value",

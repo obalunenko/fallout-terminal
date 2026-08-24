@@ -77,9 +77,20 @@ test('protected forwarding authenticates static, unary, and streaming capabiliti
 
   const context = await browser.newContext({
     httpCredentials: { username: 'players', password: 'password-long-enough' },
+    ignoreHTTPSErrors: true,
   });
   const page = await context.newPage();
   const subscribeResponses = [];
+  const presentationUplinkRequests = [];
+  const unaryPresentationRequests = [];
+  page.on('request', request => {
+    if (request.url().endsWith('/fallout.terminal.player.v1.PlayerService/PresentationUplink')) {
+      presentationUplinkRequests.push(request.url());
+    }
+    if (request.url().endsWith('/fallout.terminal.player.v1.PlayerService/SetPresentation')) {
+      unaryPresentationRequests.push(request.url());
+    }
+  });
   page.on('response', response => {
     if (response.url().endsWith('/fallout.terminal.player.v1.PlayerService/Subscribe')) {
       subscribeResponses.push(response.status());
@@ -92,6 +103,13 @@ test('protected forwarding authenticates static, unary, and streaming capabiliti
   await expect(page.locator('#termList')).toBeVisible();
   await expect.poll(() => subscribeResponses.length).toBe(1);
   expect(subscribeResponses).toEqual([200]);
+  await expect.poll(() => presentationUplinkRequests.length).toBe(1);
+  const presentationTarget = page.locator('.term-row').nth(1);
+  await presentationTarget.hover();
+  await expect(presentationTarget).toHaveClass(/sel/);
+  await page.waitForTimeout(100);
+  expect(unaryPresentationRequests).toHaveLength(0);
+  expect(presentationUplinkRequests[0]).toContain('PlayerService/PresentationUplink');
   await context.close();
 });
 
@@ -111,6 +129,7 @@ test('protected endpoint keeps five clients converged through navigation, hackin
 
   const context = await browser.newContext({
     httpCredentials: { username: 'players', password: 'password-long-enough' },
+    ignoreHTTPSErrors: true,
   });
   const pages = await Promise.all(Array.from({ length: 5 }, () => context.newPage()));
   const subscribeCounts = new Map(pages.map(page => [page, 0]));
@@ -425,7 +444,7 @@ test('conflicting generated selections clear pending immediately and never alter
 
 test('retained request identity reused with a different typed payload is rejected without canonical navigation', async ({ page }) => {
   await page.addInitScript(() => {
-    const requestIds = ['session-owner', 'selection-request', 'navigation-request'];
+    const requestIds = ['session-owner', 'client-instance', 'selection-request', 'navigation-request'];
     Object.defineProperty(window.crypto, 'randomUUID', {
       configurable: true,
       value: () => requestIds.shift() || 'navigation-request',
