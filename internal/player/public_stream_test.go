@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -224,9 +227,27 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	require.NoError(t, err)
 	rpcPath, rpcHandler := NewConnectHandler(service)
 	application := NewApplicationHandler(playerAssets(), rpcPath, rpcHandler)
-	server := httptest.NewServer(application)
-	t.Cleanup(server.Close)
-	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), server.URL)
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+	var upstreamProtocol atomic.Int64
+	httpServer := &http.Server{
+		Handler: http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			upstreamProtocol.Store(int64(request.ProtoMajor))
+			application.ServeHTTP(response, request)
+		}),
+		Protocols: protocols,
+	}
+	go func() { _ = httpServer.Serve(listener) }()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+		defer cancel()
+		require.NoError(t, httpServer.Shutdown(ctx))
+	})
+	playerURL := "http://" + listener.Addr().String()
+	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), playerURL)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, ingress.Close(t.Context())) }()
 	require.NoError(t, ingress.Activate("public.example", edgeTestUsername, []byte(edgeTestPassword)))
@@ -244,7 +265,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 			if credentials.username != "" {
 				request.SetBasicAuth(credentials.username, credentials.password)
 			}
-			response, requestErr := server.Client().Do(request)
+			response, requestErr := http.DefaultClient.Do(request)
 			require.NoError(t, requestErr)
 			_ = response.Body.Close()
 			assert.Equal(t, http.StatusUnauthorized, response.StatusCode, path)
@@ -253,7 +274,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	}
 
 	authenticatedClient := &http.Client{Transport: publicIngressTransport{
-		base: server.Client().Transport, target: ingress.URL(), host: "public.example",
+		base: http.DefaultTransport, target: ingress.URL(), host: "public.example",
 		username: edgeTestUsername, password: edgeTestPassword,
 	}}
 	staticRequest, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://public.example/", nil)
@@ -273,13 +294,29 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 
 	streamContext, cancelStream := context.WithCancelCause(t.Context())
 	defer cancelStream(errors.New("test public stream completed"))
-	stream, err := client.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{}))
+	clientInstanceID := "public-tab-1"
+	stream, err := client.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientInstanceID}))
 	require.NoError(t, err)
 	require.True(t, stream.Receive(), "stream error: %v", stream.Err())
 	snapshot := stream.Msg().GetSnapshot()
 	require.NotNil(t, snapshot)
 	clonedSnapshot := proto.Clone(snapshot).(*playerv1.PersonalizedSnapshot)
 	require.Empty(t, cmp.Diff(snapshot, clonedSnapshot, protocmp.Transform()))
+
+	uplink := client.PresentationUplink(t.Context())
+	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{Payload: &playerv1.PresentationUplinkRequest_Open{
+		Open: &playerv1.PresentationUplinkOpen{
+			ClientInstanceId: clientInstanceID, UplinkGeneration: 1,
+			RecognitionHandle: snapshot.GetRecognitionHandle(),
+		},
+	}}))
+	require.True(t, stream.Receive(), "uplink ready stream error: %v", stream.Err())
+	ready := stream.Msg().GetPresentationUplinkResult()
+	require.NotNil(t, ready)
+	require.Equal(t, clientInstanceID, ready.GetClientInstanceId())
+	require.NotNil(t, ready.GetReady())
+	_, err = uplink.CloseAndReceive()
+	require.NoError(t, err)
 
 	selected, err := client.SelectCharacter(t.Context(), connect.NewRequest(&playerv1.SelectCharacterRequest{
 		RecognitionHandle: snapshot.GetRecognitionHandle(), RequestId: "edge-request-1",
@@ -305,6 +342,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	require.NotNil(t, onAir)
 	assert.Equal(t, onAirRevision, onAir.GetRevision())
 	assert.Equal(t, "terminal-1", onAir.GetTerminalPresentation().GetLiveTerminal().GetTerminalId())
+	assert.Equal(t, int64(2), upstreamProtocol.Load(), "ingress-to-player requests must use h2c")
 }
 
 func TestAuthenticatedForwardingStillAppliesOriginAndBodyLimitsInsidePlayer(t *testing.T) {

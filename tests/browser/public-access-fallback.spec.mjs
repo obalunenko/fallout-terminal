@@ -24,6 +24,80 @@ test.beforeEach(async ({ request }) => {
   expect(response.status()).toBe(204);
 });
 
+test('direct HTTP and an HTTPS browser without request streams stay on bounded unary presentation', async ({ browser, request }) => {
+  const direct = await browser.newPage();
+  const directProcedures = [];
+  direct.on('request', observed => {
+    if (observed.url().includes(PLAYER_SERVICE)) directProcedures.push(observed.url());
+  });
+  await direct.goto('/');
+  await expect(direct.locator('#connOverlay')).toBeHidden();
+  await direct.locator('#characterOptions button:not([disabled])').first().click();
+  await expect(direct.locator('#termList')).toBeVisible();
+  await direct.locator('.term-row:not(.sel)').first().hover();
+  await expect.poll(() => directProcedures.filter(url => url.endsWith('/SetPresentation')).length).toBe(1);
+  expect(directProcedures.some(url => url.endsWith('/PresentationUplink'))).toBe(false);
+  await direct.close();
+
+  expect((await request.post('/__fixture/reset')).status()).toBe(204);
+
+  const edgeStatus = await request.get('/__fixture/edge/status');
+  const protectedOrigin = (await edgeStatus.json()).publicUrl;
+  const unsupportedContext = await browser.newContext({
+    httpCredentials: { username: 'players', password: 'password-long-enough' },
+    ignoreHTTPSErrors: true,
+  });
+  await unsupportedContext.addInitScript(() => {
+    Object.defineProperty(window, 'Request', {
+      configurable: true,
+      value: class UnsupportedStreamingRequest {
+        constructor() { throw new TypeError('synthetic request-stream support missing'); }
+      },
+    });
+  });
+  const unsupported = await unsupportedContext.newPage();
+  const unsupportedProcedures = [];
+  unsupported.on('request', observed => {
+    if (observed.url().includes(PLAYER_SERVICE)) unsupportedProcedures.push(observed.url());
+  });
+  await unsupported.goto(protectedOrigin + '/');
+  await expect(unsupported.locator('#connOverlay')).toBeHidden();
+  await unsupported.locator('#characterOptions button:not([disabled])').first().click();
+  await expect(unsupported.locator('#termList')).toBeVisible();
+  await unsupported.locator('.term-row:not(.sel)').first().hover();
+  await expect.poll(() => unsupportedProcedures.filter(url => url.endsWith('/SetPresentation')).length).toBe(1);
+  expect(unsupportedProcedures.some(url => url.endsWith('/PresentationUplink'))).toBe(false);
+  await unsupportedContext.close();
+});
+
+test('failed HTTPS stream probe falls back without blocking control', async ({ browser, request }) => {
+  const edgeStatus = await request.get('/__fixture/edge/status');
+  const protectedOrigin = (await edgeStatus.json()).publicUrl;
+  const context = await browser.newContext({
+    httpCredentials: { username: 'players', password: 'password-long-enough' },
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  let uplinkAttempts = 0;
+  let unaryPresentations = 0;
+  await page.route(`**${PLAYER_SERVICE}PresentationUplink`, async route => {
+    uplinkAttempts += 1;
+    await route.abort('failed');
+  });
+  page.on('request', observed => {
+    if (observed.url().endsWith(`${PLAYER_SERVICE}SetPresentation`)) unaryPresentations += 1;
+  });
+  await page.goto(protectedOrigin + '/');
+  await expect(page.locator('#connOverlay')).toBeHidden();
+  await expect.poll(() => uplinkAttempts).toBeGreaterThanOrEqual(1);
+  await page.locator('#characterOptions button:not([disabled])').first().click();
+  await expect(page.locator('#termList')).toBeVisible();
+  await page.locator('.term-row').nth(1).hover();
+  await expect.poll(() => unaryPresentations).toBe(1);
+  await expect(page.locator('.term-row').nth(1)).toHaveClass(/sel/);
+  await context.close();
+});
+
 test('all public failures leave local gameplay live and a later public generation recovers without restart', async ({ browser, request }) => {
   const playerContext = await browser.newContext();
   await installLocalDiagnostics(playerContext);

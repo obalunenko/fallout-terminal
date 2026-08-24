@@ -7,6 +7,11 @@ default_app_path="${repository_root}/build/dev/Fallout Terminal.app"
 default_fixture="${repository_root}/internal/testutil/testdata/session-v1-state-changing.json"
 default_player_config="${repository_root}/sessions/demo-players.json"
 player_probe="${repository_root}/scripts/state-changing-reset-native-player-smoke.mjs"
+smoke_mode='reset'
+if [[ "${1:-}" == '--presentation' ]]; then
+  smoke_mode='presentation'
+  shift
+fi
 app_path="${1:-${default_app_path}}"
 fixture_path="${2:-${default_fixture}}"
 player_config_fixture="${3:-${default_player_config}}"
@@ -489,6 +494,29 @@ if ! drive_native_setup "${session_path}" "${player_config_path}"; then
   process_is_alive || fail 'native application exited while Accessibility automation prepared the window'
   not_run 'Accessibility automation could not prepare the native window; grant Accessibility access to the invoking terminal and rerun'
   exit 2
+fi
+
+if [[ "${smoke_mode}" == presentation ]]; then
+  presentation_ready="${smoke_root}/presentation-ready.json"
+  presentation_trigger="${smoke_root}/presentation-trigger"
+  presentation_result="${smoke_root}/presentation-result.json"
+  presentation_log="${smoke_root}/presentation-player.log"
+  start_player_probe presentation "${presentation_ready}" "${presentation_trigger}" "${presentation_result}" "${presentation_log}"
+  finish_player_probe "${presentation_result}" "${presentation_log}"
+  python3 -c '
+import json, sys
+result = json.load(open(sys.argv[1], encoding="utf-8"))
+assert result["feedbackElapsedMilliseconds"] <= 100, result
+assert result["convergenceElapsedMilliseconds"] <= 1000, result
+assert result["controller"] == result["observer"] == "Тревога отключена", result
+assert result["observerInputSuppressed"] is True, result
+print("presentation feedback {}ms; controller/observer convergence {}ms".format(
+    result["feedbackElapsedMilliseconds"], result["convergenceElapsedMilliseconds"]))
+' "${presentation_result}"
+  close_app
+  smoke_succeeded=1
+  pass 'packaged controller presentation converged to the observer within 1s and observer input stayed inert'
+  exit 0
 fi
 
 reset_ready="${smoke_root}/reset-ready.json"

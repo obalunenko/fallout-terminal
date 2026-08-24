@@ -1,0 +1,1126 @@
+{
+  "workflow": "companion",
+  "specName": "http2 presentation streaming",
+  "branch": "feature/019-http2-presentation-streaming",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T15:26:25.489Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T15:29:47.714Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T16:09:47.188Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T16:16:11.587Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T16:19:08.358Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T16:19:41.899Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T16:58:01.152Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:03:00.607Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T17:04:04.618Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T17:04:23.904Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:04:50.621Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:05:12.427Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:07:11.308Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:11:12.525Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:11:12.788Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:11:13.042Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:11:13.298Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:11:13.555Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:12:07.535Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:12:07.812Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:15:29.500Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:17:12.981Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:17:13.255Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:18:12.865Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:19:14.796Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:24:57.597Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:24:57.884Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:27:10.439Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:27:10.715Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:28:08.166Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:28:08.446Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:28:46.496Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:28:46.763Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:41:06.334Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:41:06.604Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:41:06.868Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:43:45.671Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:43:45.956Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:44:29.737Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:47:05.147Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:47:05.433Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:47:05.693Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T17:47:48.785Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T18:09:54.002Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T18:10:39.468Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T18:17:00.296Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T18:33:11.624Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T19:11:31.845Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T19:11:31.986Z"
+    }
+  ],
+  "last_action": "living specs evaluated — skipped (not configured)",
+  "coverage": {
+    "FR-001": {
+      "title": "The active controller receives eligible target feedback by the next animation frame without waiting for the network.",
+      "tasks": [
+        "T015",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-002": {
+      "title": "Controller-local transient presentation remains visual-only and non-authoritative.",
+      "tasks": [
+        "T015",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-003": {
+      "title": "Local transient presentation is keyed so older revisions cannot overwrite newer pointer intent.",
+      "tasks": [
+        "T015",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-004": {
+      "title": "Shared presentation, observer rendering, and preview audio remain authoritative.",
+      "tasks": [
+        "T015",
+        "T016",
+        "T017",
+        "T031"
+      ]
+    },
+    "FR-005": {
+      "title": "The client retains only the newest distinct unsent semantic presentation target and suppresses duplicates.",
+      "tasks": [
+        "T015",
+        "T021",
+        "T026",
+        "T027",
+        "T031",
+        "T032"
+      ]
+    },
+    "FR-006": {
+      "title": "Delayed updates do not replay superseded effects and all views converge on the final target.",
+      "tasks": [
+        "T015",
+        "T016",
+        "T017",
+        "T037"
+      ]
+    },
+    "FR-007": {
+      "title": "The system exposes an optional generated protobuf client-streaming presentation operation without browser bidi.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T012",
+        "T026"
+      ]
+    },
+    "FR-008": {
+      "title": "Subscribe remains authoritative and carries tab-targeted presentation results or rejections.",
+      "tasks": [
+        "T001",
+        "T005",
+        "T006",
+        "T011",
+        "T012",
+        "T014",
+        "T027",
+        "T028"
+      ]
+    },
+    "FR-009": {
+      "title": "Each tab uses an ephemeral client identity and explicit uplink generation.",
+      "tasks": [
+        "T001",
+        "T005",
+        "T006",
+        "T011",
+        "T012",
+        "T021",
+        "T027"
+      ]
+    },
+    "FR-010": {
+      "title": "Every presentation intent identifies its request, player, broadcast, terminal, context, and semantic target.",
+      "tasks": [
+        "T001",
+        "T004",
+        "T009"
+      ]
+    },
+    "FR-011": {
+      "title": "The server revalidates authority and context for every stream intent.",
+      "tasks": [
+        "T004",
+        "T006",
+        "T009",
+        "T012",
+        "T014"
+      ]
+    },
+    "FR-012": {
+      "title": "Each uplink maintains a capacity-one latest-value mailbox.",
+      "tasks": [
+        "T005",
+        "T010",
+        "T011",
+        "T014",
+        "T021",
+        "T026"
+      ]
+    },
+    "FR-013": {
+      "title": "Accepted presentation mutations preserve coordinator and revision ordering.",
+      "tasks": [
+        "T005",
+        "T006",
+        "T011",
+        "T012",
+        "T014",
+        "T028"
+      ]
+    },
+    "FR-014": {
+      "title": "Targeted results cannot disturb or broadcast canonical revision delivery.",
+      "tasks": [
+        "T005",
+        "T011",
+        "T012",
+        "T014",
+        "T021",
+        "T028"
+      ]
+    },
+    "FR-015": {
+      "title": "The authenticated public request stream reaches both local hops over HTTP/2.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T022",
+        "T023",
+        "T024",
+        "T028",
+        "T029",
+        "T038"
+      ]
+    },
+    "FR-016": {
+      "title": "Player server and ingress retain HTTP/1.1 compatibility.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T023",
+        "T024",
+        "T028",
+        "T029",
+        "T033"
+      ]
+    },
+    "FR-017": {
+      "title": "Streaming is enabled only after capability detection and a successful end-to-end probe.",
+      "tasks": [
+        "T006",
+        "T012",
+        "T021",
+        "T026",
+        "T027",
+        "T029"
+      ]
+    },
+    "FR-018": {
+      "title": "Unsupported or failed streaming paths fall back automatically to unary presentation.",
+      "tasks": [
+        "T030",
+        "T031",
+        "T032",
+        "T033",
+        "T037"
+      ]
+    },
+    "FR-019": {
+      "title": "SetPresentation remains available and preserves BUG-010 bounded unary behavior.",
+      "tasks": [
+        "T030",
+        "T031",
+        "T032",
+        "T033",
+        "T037"
+      ]
+    },
+    "FR-020": {
+      "title": "Whole-request buffering is bypassed only for PresentationUplink.",
+      "tasks": [
+        "T007",
+        "T013",
+        "T028",
+        "T029"
+      ]
+    },
+    "FR-021": {
+      "title": "The stream retains host, origin, authentication, size, decompression, and schema protections.",
+      "tasks": [
+        "T004",
+        "T006",
+        "T007",
+        "T008",
+        "T009",
+        "T010",
+        "T012",
+        "T013",
+        "T019",
+        "T029",
+        "T035"
+      ]
+    },
+    "FR-022": {
+      "title": "The system enforces stream rate, lifetime, concurrency, cancellation, and shutdown limits.",
+      "tasks": [
+        "T005",
+        "T006",
+        "T008",
+        "T010",
+        "T011",
+        "T012",
+        "T014",
+        "T018",
+        "T022",
+        "T036"
+      ]
+    },
+    "FR-023": {
+      "title": "Invalid or slow streams cannot mutate state or disrupt healthy clients.",
+      "tasks": [
+        "T005",
+        "T006",
+        "T008",
+        "T010",
+        "T011",
+        "T012",
+        "T014",
+        "T019",
+        "T021",
+        "T029",
+        "T036"
+      ]
+    },
+    "FR-024": {
+      "title": "Authority, context, generation, reconnect, and shutdown changes invalidate obsolete streaming state.",
+      "tasks": [
+        "T005",
+        "T006",
+        "T011",
+        "T012",
+        "T014",
+        "T015",
+        "T016",
+        "T030",
+        "T031",
+        "T032",
+        "T036"
+      ]
+    },
+    "FR-025": {
+      "title": "Other gameplay mutations remain unary and behaviorally unchanged.",
+      "tasks": [
+        "T031",
+        "T032",
+        "T033",
+        "T037"
+      ]
+    },
+    "FR-026": {
+      "title": "Session and player-configuration formats remain unchanged.",
+      "tasks": [
+        "T035"
+      ]
+    },
+    "FR-027": {
+      "title": "Public presentation contracts remain free of private capabilities and secrets.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T004",
+        "T035"
+      ]
+    },
+    "FR-028": {
+      "title": "Public access failure does not prevent local or LAN access.",
+      "tasks": [
+        "T019",
+        "T024",
+        "T030",
+        "T032",
+        "T033",
+        "T037"
+      ]
+    },
+    "FR-029": {
+      "title": "The ngrok tunnel requests HTTP/2 with the required upstream option.",
+      "tasks": [
+        "T020",
+        "T022",
+        "T025",
+        "T029",
+        "T038"
+      ]
+    },
+    "FR-030": {
+      "title": "The browser stream uses Fetch ReadableStream and generated protobuf contracts without handwritten network DTOs or routing.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T021",
+        "T026",
+        "T027",
+        "T035"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 24,
+    "projectedTasks": 30,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "context": [
+    "source: docs/speckit-019-http2-presentation-streaming-input.md",
+    "baseline: BUG-010 one-in-flight/one-latest unary presentation",
+    "areas: player transport, tunnel ingress, protobuf contract, browser presentation",
+    "constraint: optional stream with generated messages and portable unary fallback",
+    "constraint: canonical state, observer rendering, revisions, and preview audio remain authoritative"
+  ],
+  "intent": "Reduce controller-visible presentation latency with safe local feedback and an optional bounded HTTP/2 uplink while preserving authoritative convergence and unary fallback.",
+  "expectations": [
+    "Do not remove unary SetPresentation.",
+    "Do not convert other gameplay mutations to streams.",
+    "Do not add browser bidi, WebSocket, or WebTransport.",
+    "Do not change persistent session or player-configuration formats.",
+    "Do not replace Subscribe as the authoritative downlink."
+  ],
+  "approach": "Add an optional generated PresentationUplink bound to the current physical Subscribe, with capacity-one latest intent processing and targeted downlink results. Enable native Go 1.27 h2c through ngrok and ingress, while a generated-descriptor Fetch transport uses local visual transients and falls back to BUG-010 unary dispatch.",
+  "decisions": [
+    {
+      "decision": "Use Go 1.27 net/http Protocols for HTTP/1.1 plus h2c on both servers",
+      "why": "The standard library directly supports unencrypted HTTP/2 and preserves one listener",
+      "rejected": "Deprecated x/net/http2/h2c wrapper or a second listener"
+    },
+    {
+      "decision": "Use a generated-descriptor Fetch ReadableStream wrapper only for PresentationUplink",
+      "why": "Connect-Web rejects browser request streaming but exports official framing helpers and the exact versions are pinned",
+      "rejected": "Handwritten envelopes/router or replacing the ordinary Connect transport"
+    },
+    {
+      "decision": "Prove the open request through a targeted ready result on Subscribe",
+      "why": "The independent downlink proves an uplink frame crossed every intermediary before request EOF",
+      "rejected": "JavaScript capability checks, unary health checks, or reading an open upload response"
+    },
+    {
+      "decision": "Keep canonical and targeted subscription delivery in separate bounded queues",
+      "why": "Targeted statuses and results cannot consume, reorder, evict, or overflow-close canonical revisions",
+      "rejected": "One shared queue or blocking targeted delivery"
+    },
+    {
+      "decision": "Retain BUG-010 unary dispatch as automatic fallback",
+      "why": "Browser and deployment request streaming is non-portable and local/LAN HTTP must remain functional",
+      "rejected": "Removing unary or sending one target through both transports"
+    },
+    {
+      "decision": "Supersede the earlier targeted-result mailbox decision: keep it capacity-one and non-lossy; only the originating uplink processor waits for result capacity or cancellation, without blocking canonical delivery or holding coordinator locks.",
+      "why": "Processed targeted rejections/results must reach the active tab while canonical revision delivery remains isolated.",
+      "rejected": "Replacing or silently dropping processed results; blocking the canonical queue or coordinator."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned generated client-stream presentation with local transient feedback, bounded tab routing, native h2c, and unary fallback.",
+      "key_finding": "Connect-Web 2.1.2 intentionally rejects request streams, so the safe browser path is a narrow generated-descriptor wrapper over official Connect framing helpers.",
+      "risks": "Cross-tab binding, canonical/result queue isolation, intermediary buffering, and stale visual/audio reconciliation require race and browser stress coverage."
+    },
+    "tasks": {
+      "summary": "38 dependency-ordered tasks across Setup, Foundational, three prioritized user-story phases, and Polish; each implementation wave is preceded by focused RED tests and followed by explicit joins.",
+      "key_finding": "Client and server latest-only mailboxes plus non-lossy starvation-free targeted delivery require distinct bounded queues and single-owner processors.",
+      "risks": "Browser request-stream support, cross-tab generation binding, HTTP/2 hop proof, targeted backpressure, and stale visual/audio reconciliation require race and Playwright stress coverage."
+    }
+  },
+  "currentTask": "T038",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added the additive generated PresentationUplink schema and tab-targeted Subscribe contract.",
+      "files": [
+        "proto/fallout/terminal/player/v1/player.proto"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Regenerated pinned Go and ECMAScript contracts and synchronized the schema revision.",
+      "files": [
+        "internal/gen/fallout/terminal/player/v1/player.pb.go",
+        "internal/gen/fallout/terminal/player/v1/playerv1connect/player.connect.go",
+        "frontend/client/gen/fallout/terminal/player/v1/player_pb.js",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Validated additive protobuf compatibility, descriptor separation, generation drift, and generated builds; updated exhaustive descriptor and breaking fixtures.",
+      "files": [
+        "internal/platform/assets_test.go",
+        "internal/testutil/testdata/protobuf/breaking-fixtures.json",
+        "scripts/proto-check.sh",
+        "scripts/proto-breaking.sh"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added RED generated uplink descriptor and structural adapter validation tests.",
+      "files": [
+        "internal/player/adapter_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added RED latest-intent and non-lossy targeted-mailbox isolation tests.",
+      "files": [
+        "internal/player/stream_test.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Added a RED generated client-stream open/ready binding test.",
+      "files": [
+        "internal/player/handler_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added a RED exact-procedure open-body buffering exemption test.",
+      "files": [
+        "internal/player/http_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added RED fixed-limit and deterministic injected-clock rate tests.",
+      "files": [
+        "internal/player/limits_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Added validated uplink binding and stream-intent adapters that reuse canonical presentation validation.",
+      "files": [
+        "internal/player/adapter.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added fixed uplink resource limits and a deterministic dependency-free token bucket.",
+      "files": [
+        "internal/player/limits.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Implemented tab-indexed subscriptions, latest intent mailboxes, non-lossy targeted queues, generation leases, and bounded uplink cancellation.",
+      "files": [
+        "internal/player/stream.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Implemented generated PresentationUplink binding, ready/result downlink, latest-intent processing, physical coordinator dispatch, and cancellation.",
+      "files": [
+        "internal/player/handler.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added the exact stream procedure and bypassed whole-body buffering only for PresentationUplink.",
+      "files": [
+        "internal/player/http.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added generated public-path open/ready integration plus mailbox and multi-route regression coverage.",
+      "files": [
+        "internal/player/public_stream_test.go",
+        "internal/player/stream_test.go",
+        "internal/player/handler_test.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Strengthened the 100-target Playwright sweep with a next-animation-frame local target assertion while retaining observer and stale-effect checks.",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Implemented next-frame visual-only controller presentation with sequence-aware canonical reconciliation, authoritative cue suppression, and lifecycle invalidation",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Verified the complete controller and observer Playwright journey: 17 tests pass with next-frame local feedback and final authoritative convergence",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added production-listener coverage for HTTP/1.1 compatibility and unencrypted HTTP/2 client request streaming with ready-before-EOF",
+      "files": [
+        "internal/player/server_test.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Enabled HTTP/1.1 and unencrypted HTTP/2 on the owned player listener without changing lifecycle or LAN addressing",
+      "files": [
+        "internal/player/server.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added ingress coverage for HTTP/1.1 admission, independent public h2c negotiation, h2c-only upstream forwarding, auth stripping, and streamed cancellation",
+      "files": [
+        "internal/tunnel/public_ingress_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Enabled HTTP/1.1 plus h2c at ingress and installed an owned h2c-only reverse-proxy transport with idle connection cleanup",
+      "files": [
+        "internal/tunnel/public_ingress.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Added an SDK-boundary assertion that captures the exact loopback upstream address, http2 protocol option, and unchanged endpoint option count",
+      "files": [
+        "internal/tunnel/ngrok_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Configured the ngrok SDK forward call with the exact HTTP/2 upstream option while preserving reserved-domain endpoint options and error redaction",
+      "files": [
+        "internal/tunnel/ngrok.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Extended the browser fixture with authenticated TLS/HTTP2 and verified generated PresentationUplink use, ready-gated streaming, no unary duplicate, reconnect, and existing public journeys",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/connectrpc-player.spec.mjs",
+        "tests/browser/playwright.config.mjs"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Implemented a generated-descriptor-only Fetch transport using official Buf/Connect serializers, envelopes, headers, URLs, response parsing, duplex streaming, and a capacity-one mailbox",
+      "files": [
+        "frontend/client/presentation-uplink.js"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Added ephemeral per-page client identity, Subscribe binding, monotonic uplink generations, matching ready/action routing, probe gating, and shared latest presentation dispatch",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Extended and executed the credential-gated real ngrok journey for generated Subscribe plus PresentationUplink open/ready/action, canonical update, and independent HTTP/2 player-hop evidence",
+      "files": [
+        "internal/tunnel/ngrok_integration_test.go"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Added production-handler integration across authenticated ingress and h2c player transport with generated unary, Subscribe, PresentationUplink ready, canonical updates, and protocol observation",
+      "files": [
+        "internal/player/public_stream_test.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Verified focused player and tunnel suites plus authenticated browser stream journey, including real-ngrok uplink evidence when configured",
+      "files": [
+        "internal/player",
+        "internal/tunnel",
+        "tests/browser/connectrpc-player.spec.mjs"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Added public fallback journeys for direct HTTP, missing request-stream capability, failed authenticated HTTPS probe, local gameplay continuity, reconnect, and recovery",
+      "files": [
+        "tests/browser/public-access-fallback.spec.mjs"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Covered newest-only failure draining, context and role invalidation, no duplicate presentation, unchanged navigation/gameplay, and observer convergence in controller regressions",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Integrated probe failure and interruption fallback ownership, newest pending intent transfer, abort cleanup, fresh-generation retry, and strict HTTPS/capability eligibility",
+      "files": [
+        "frontend/client/client.js",
+        "frontend/client/presentation-uplink.js"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Verified combined fallback, controller, HTTP/auth, gameplay, player, and tunnel gates with automatic unary convergence",
+      "files": [
+        "tests/browser/public-access-fallback.spec.mjs",
+        "tests/browser/player-sessions-control.spec.mjs",
+        "internal/player",
+        "internal/tunnel"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Reconciled plan, research, contract, and quickstart with the actual body-timeout enforcement, Buf normalization, retry fallback, focused hop evidence, and runnable real-ngrok command",
+      "files": [
+        "specs/019-http2-presentation-streaming/plan.md",
+        "specs/019-http2-presentation-streaming/research.md",
+        "specs/019-http2-presentation-streaming/contracts/presentation-uplink.md",
+        "specs/019-http2-presentation-streaming/quickstart.md"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Validated deterministic schema generation, compatibility fixtures, generated builds, descriptor privacy, secret confinement, and persistence round trips",
+      "files": [
+        "proto",
+        "internal/gen",
+        "frontend/client/gen",
+        "internal/session",
+        "internal/playerconfig"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Passed formatting, vet, pinned lint, complete Go tests, and complete race tests after fixing graceful mailbox finish and exact stream body lifetime cancellation",
+      "files": [
+        "internal/player",
+        "internal/tunnel",
+        "internal/platform",
+        "internal/control"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Ran the complete Playwright regression suite successfully (135 passed, 2 credential-gated real-ngrok browser cases skipped); visually verified deterministic CRT rasterization drift and refreshed the 11 parameterized Darwin baselines.",
+      "files": [
+        "tests/browser/crt-rendering.spec.mjs-snapshots/*.png",
+        "tests/browser/playwright.config.mjs",
+        "tests/browser/*.spec.mjs"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Built and packaged the arm64 application; added and passed a reproducible packaged controller/observer presentation smoke (44ms local feedback, 1ms convergence, observer input inert, clean shutdown); bounded real-ngrok evidence collection and passed authenticated Subscribe plus PresentationUplink over HTTP/2 (snapshot 153ms, update 321ms).",
+      "files": [
+        "scripts/state-changing-reset-native-smoke.sh",
+        "scripts/state-changing-reset-native-player-smoke.mjs",
+        "internal/tunnel/ngrok_integration_test.go",
+        "specs/019-http2-presentation-streaming/quickstart.md",
+        "build/bin/Fallout Terminal.app"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Focused controller/observer journey",
+      "command": "npm test --prefix tests/browser -- player-sessions-control.spec.mjs",
+      "result": "17 passed",
+      "warnings": [
+        "Node reported that NO_COLOR is ignored because FORCE_COLOR is set"
+      ]
+    },
+    {
+      "what": "US2 focused HTTP/2 streaming validation",
+      "command": "go test ./internal/player ./internal/tunnel && npm test --prefix tests/browser -- connectrpc-player.spec.mjs",
+      "result": "Go packages pass; browser 11 passed and 2 credential-gated cases skipped; real ngrok Go uplink test separately passed",
+      "warnings": [
+        "Node NO_COLOR/FORCE_COLOR warning",
+        "Fixture shutdown may log benign TLS EOF handshakes"
+      ]
+    },
+    {
+      "what": "US3 fallback and recovery",
+      "command": "npm test --prefix tests/browser -- public-access-fallback.spec.mjs player-sessions-control.spec.mjs && go test ./internal/player ./internal/tunnel",
+      "result": "20 browser tests passed; both Go packages passed",
+      "warnings": [
+        "Node NO_COLOR/FORCE_COLOR warning"
+      ]
+    },
+    {
+      "what": "Schema, security, and persistence gate",
+      "command": "make proto-check; make proto-breaking; scripts/secret-leak-check.sh; go test ./internal/session ./internal/playerconfig",
+      "result": "all passed",
+      "warnings": []
+    },
+    {
+      "what": "Full Go quality and concurrency gate",
+      "command": "make fmt-check; go vet ./...; make lint; go test ./...; go test -race ./...",
+      "result": "all passed; golangci-lint reported 0 issues",
+      "warnings": [
+        "macOS linker emitted deployment-target mismatch warnings for Wails/CGo objects"
+      ]
+    }
+  ]
+}

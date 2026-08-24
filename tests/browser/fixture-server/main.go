@@ -9,6 +9,8 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -648,7 +650,11 @@ func (edge *fixtureEdge) reset() error {
 	if edge.ingress == nil || edge.ingress.URL() == nil {
 		return errors.New("fixture ingress is unavailable")
 	}
-	if err := edge.ingress.Activate(edge.ingress.URL().Host, fixtureEdgeUsername, []byte(fixtureEdgePassword)); err != nil {
+	host := edge.ingress.URL().Host
+	if publicURL, err := url.Parse(edge.publicURL); err == nil && publicURL.Host != "" {
+		host = publicURL.Host
+	}
+	if err := edge.ingress.Activate(host, fixtureEdgeUsername, []byte(fixtureEdgePassword)); err != nil {
 		return err
 	}
 	edge.active.Store(true)
@@ -1577,13 +1583,35 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("start fixture public ingress: %w", err)
 	}
 	edge.ingress = ingress
-	edge.publicURL = ingress.URL().String()
+	publicTLS := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if !edge.active.Load() {
+			http.NotFound(response, request)
+			return
+		}
+		username, password, ok := request.BasicAuth()
+		if !ok || username != fixtureEdgeUsername || password != fixtureEdgePassword {
+			response.Header().Set("WWW-Authenticate", `Basic realm="Fallout Terminal Players"`)
+			http.Error(response, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		forwarded := request.Clone(request.Context())
+		forwarded.Header.Del("Authorization")
+		forwarded.Header.Del("Proxy-Authorization")
+		mux.ServeHTTP(response, forwarded)
+	}))
+	publicTLS.EnableHTTP2 = true
+	publicTLS.StartTLS()
+	edge.publicURL = publicTLS.URL
 	if err := edge.reset(); err != nil {
+		publicTLS.Close()
 		_ = ingress.Close(ctx)
 		_ = listener.Close()
 		return fmt.Errorf("activate fixture public ingress: %w", err)
 	}
-	httpServer := &http.Server{Handler: mux}
+	fixtureProtocols := new(http.Protocols)
+	fixtureProtocols.SetHTTP1(true)
+	fixtureProtocols.SetUnencryptedHTTP2(true)
+	httpServer := &http.Server{Handler: mux, Protocols: fixtureProtocols}
 	serveErrors := make(chan error, 1)
 	go func() {
 		serveErrors <- httpServer.Serve(listener)
@@ -1605,6 +1633,7 @@ func run(ctx context.Context) error {
 		stopShutdownDeadline()
 	}()
 	ingress.Deny()
+	publicTLS.Close()
 	return errors.Join(ingress.Close(shutdownContext), httpServer.Shutdown(shutdownContext))
 }
 

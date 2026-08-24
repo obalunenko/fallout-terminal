@@ -566,6 +566,7 @@ func (x *PlayerState) GetNotice() *PlayerNotice {
 type SubscribeRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	RecognitionHandle *string                `protobuf:"bytes,1,opt,name=recognition_handle,json=recognitionHandle,proto3,oneof" json:"recognition_handle,omitempty"`
+	ClientInstanceId  *string                `protobuf:"bytes,2,opt,name=client_instance_id,json=clientInstanceId,proto3,oneof" json:"client_instance_id,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -607,6 +608,409 @@ func (x *SubscribeRequest) GetRecognitionHandle() string {
 	return ""
 }
 
+func (x *SubscribeRequest) GetClientInstanceId() string {
+	if x != nil && x.ClientInstanceId != nil {
+		return *x.ClientInstanceId
+	}
+	return ""
+}
+
+type PresentationUplinkOpen struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ClientInstanceId  string                 `protobuf:"bytes,1,opt,name=client_instance_id,json=clientInstanceId,proto3" json:"client_instance_id,omitempty"`
+	UplinkGeneration  uint64                 `protobuf:"varint,2,opt,name=uplink_generation,json=uplinkGeneration,proto3" json:"uplink_generation,omitempty"`
+	RecognitionHandle string                 `protobuf:"bytes,3,opt,name=recognition_handle,json=recognitionHandle,proto3" json:"recognition_handle,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PresentationUplinkOpen) Reset() {
+	*x = PresentationUplinkOpen{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationUplinkOpen) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationUplinkOpen) ProtoMessage() {}
+
+func (x *PresentationUplinkOpen) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationUplinkOpen.ProtoReflect.Descriptor instead.
+func (*PresentationUplinkOpen) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *PresentationUplinkOpen) GetClientInstanceId() string {
+	if x != nil {
+		return x.ClientInstanceId
+	}
+	return ""
+}
+
+func (x *PresentationUplinkOpen) GetUplinkGeneration() uint64 {
+	if x != nil {
+		return x.UplinkGeneration
+	}
+	return 0
+}
+
+func (x *PresentationUplinkOpen) GetRecognitionHandle() string {
+	if x != nil {
+		return x.RecognitionHandle
+	}
+	return ""
+}
+
+type PresentationIntent struct {
+	state             protoimpl.MessageState          `protogen:"open.v1"`
+	RecognitionHandle string                          `protobuf:"bytes,1,opt,name=recognition_handle,json=recognitionHandle,proto3" json:"recognition_handle,omitempty"`
+	RequestId         string                          `protobuf:"bytes,2,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	BroadcastId       string                          `protobuf:"bytes,3,opt,name=broadcast_id,json=broadcastId,proto3" json:"broadcast_id,omitempty"`
+	TerminalId        string                          `protobuf:"bytes,4,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	ContextKey        string                          `protobuf:"bytes,5,opt,name=context_key,json=contextKey,proto3" json:"context_key,omitempty"`
+	Presentation      *ControllerTerminalPresentation `protobuf:"bytes,6,opt,name=presentation,proto3" json:"presentation,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PresentationIntent) Reset() {
+	*x = PresentationIntent{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationIntent) ProtoMessage() {}
+
+func (x *PresentationIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationIntent.ProtoReflect.Descriptor instead.
+func (*PresentationIntent) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *PresentationIntent) GetRecognitionHandle() string {
+	if x != nil {
+		return x.RecognitionHandle
+	}
+	return ""
+}
+
+func (x *PresentationIntent) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *PresentationIntent) GetBroadcastId() string {
+	if x != nil {
+		return x.BroadcastId
+	}
+	return ""
+}
+
+func (x *PresentationIntent) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+func (x *PresentationIntent) GetContextKey() string {
+	if x != nil {
+		return x.ContextKey
+	}
+	return ""
+}
+
+func (x *PresentationIntent) GetPresentation() *ControllerTerminalPresentation {
+	if x != nil {
+		return x.Presentation
+	}
+	return nil
+}
+
+type PresentationUplinkRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*PresentationUplinkRequest_Open
+	//	*PresentationUplinkRequest_Intent
+	Payload       isPresentationUplinkRequest_Payload `protobuf_oneof:"payload"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresentationUplinkRequest) Reset() {
+	*x = PresentationUplinkRequest{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationUplinkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationUplinkRequest) ProtoMessage() {}
+
+func (x *PresentationUplinkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationUplinkRequest.ProtoReflect.Descriptor instead.
+func (*PresentationUplinkRequest) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PresentationUplinkRequest) GetPayload() isPresentationUplinkRequest_Payload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *PresentationUplinkRequest) GetOpen() *PresentationUplinkOpen {
+	if x != nil {
+		if x, ok := x.Payload.(*PresentationUplinkRequest_Open); ok {
+			return x.Open
+		}
+	}
+	return nil
+}
+
+func (x *PresentationUplinkRequest) GetIntent() *PresentationIntent {
+	if x != nil {
+		if x, ok := x.Payload.(*PresentationUplinkRequest_Intent); ok {
+			return x.Intent
+		}
+	}
+	return nil
+}
+
+type isPresentationUplinkRequest_Payload interface {
+	isPresentationUplinkRequest_Payload()
+}
+
+type PresentationUplinkRequest_Open struct {
+	Open *PresentationUplinkOpen `protobuf:"bytes,1,opt,name=open,proto3,oneof"`
+}
+
+type PresentationUplinkRequest_Intent struct {
+	Intent *PresentationIntent `protobuf:"bytes,2,opt,name=intent,proto3,oneof"`
+}
+
+func (*PresentationUplinkRequest_Open) isPresentationUplinkRequest_Payload() {}
+
+func (*PresentationUplinkRequest_Intent) isPresentationUplinkRequest_Payload() {}
+
+type PresentationUplinkReady struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresentationUplinkReady) Reset() {
+	*x = PresentationUplinkReady{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationUplinkReady) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationUplinkReady) ProtoMessage() {}
+
+func (x *PresentationUplinkReady) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationUplinkReady.ProtoReflect.Descriptor instead.
+func (*PresentationUplinkReady) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{8}
+}
+
+type PresentationUplinkResult struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	ClientInstanceId string                 `protobuf:"bytes,1,opt,name=client_instance_id,json=clientInstanceId,proto3" json:"client_instance_id,omitempty"`
+	UplinkGeneration uint64                 `protobuf:"varint,2,opt,name=uplink_generation,json=uplinkGeneration,proto3" json:"uplink_generation,omitempty"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*PresentationUplinkResult_Ready
+	//	*PresentationUplinkResult_Action
+	Payload       isPresentationUplinkResult_Payload `protobuf_oneof:"payload"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresentationUplinkResult) Reset() {
+	*x = PresentationUplinkResult{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationUplinkResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationUplinkResult) ProtoMessage() {}
+
+func (x *PresentationUplinkResult) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationUplinkResult.ProtoReflect.Descriptor instead.
+func (*PresentationUplinkResult) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PresentationUplinkResult) GetClientInstanceId() string {
+	if x != nil {
+		return x.ClientInstanceId
+	}
+	return ""
+}
+
+func (x *PresentationUplinkResult) GetUplinkGeneration() uint64 {
+	if x != nil {
+		return x.UplinkGeneration
+	}
+	return 0
+}
+
+func (x *PresentationUplinkResult) GetPayload() isPresentationUplinkResult_Payload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *PresentationUplinkResult) GetReady() *PresentationUplinkReady {
+	if x != nil {
+		if x, ok := x.Payload.(*PresentationUplinkResult_Ready); ok {
+			return x.Ready
+		}
+	}
+	return nil
+}
+
+func (x *PresentationUplinkResult) GetAction() *ActionResult {
+	if x != nil {
+		if x, ok := x.Payload.(*PresentationUplinkResult_Action); ok {
+			return x.Action
+		}
+	}
+	return nil
+}
+
+type isPresentationUplinkResult_Payload interface {
+	isPresentationUplinkResult_Payload()
+}
+
+type PresentationUplinkResult_Ready struct {
+	Ready *PresentationUplinkReady `protobuf:"bytes,3,opt,name=ready,proto3,oneof"`
+}
+
+type PresentationUplinkResult_Action struct {
+	Action *ActionResult `protobuf:"bytes,4,opt,name=action,proto3,oneof"`
+}
+
+func (*PresentationUplinkResult_Ready) isPresentationUplinkResult_Payload() {}
+
+func (*PresentationUplinkResult_Action) isPresentationUplinkResult_Payload() {}
+
+type PresentationUplinkResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresentationUplinkResponse) Reset() {
+	*x = PresentationUplinkResponse{}
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationUplinkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationUplinkResponse) ProtoMessage() {}
+
+func (x *PresentationUplinkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationUplinkResponse.ProtoReflect.Descriptor instead.
+func (*PresentationUplinkResponse) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{10}
+}
+
 type PersonalizedSnapshot struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	RecognitionHandle    string                 `protobuf:"bytes,1,opt,name=recognition_handle,json=recognitionHandle,proto3" json:"recognition_handle,omitempty"`
@@ -619,7 +1023,7 @@ type PersonalizedSnapshot struct {
 
 func (x *PersonalizedSnapshot) Reset() {
 	*x = PersonalizedSnapshot{}
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[5]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -631,7 +1035,7 @@ func (x *PersonalizedSnapshot) String() string {
 func (*PersonalizedSnapshot) ProtoMessage() {}
 
 func (x *PersonalizedSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[5]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -644,7 +1048,7 @@ func (x *PersonalizedSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PersonalizedSnapshot.ProtoReflect.Descriptor instead.
 func (*PersonalizedSnapshot) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{5}
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *PersonalizedSnapshot) GetRecognitionHandle() string {
@@ -688,7 +1092,7 @@ type CompoundUpdate struct {
 
 func (x *CompoundUpdate) Reset() {
 	*x = CompoundUpdate{}
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[6]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -700,7 +1104,7 @@ func (x *CompoundUpdate) String() string {
 func (*CompoundUpdate) ProtoMessage() {}
 
 func (x *CompoundUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[6]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -713,7 +1117,7 @@ func (x *CompoundUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompoundUpdate.ProtoReflect.Descriptor instead.
 func (*CompoundUpdate) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{6}
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CompoundUpdate) GetRevision() uint64 {
@@ -757,6 +1161,7 @@ type SubscriptionMessage struct {
 	//
 	//	*SubscriptionMessage_Snapshot
 	//	*SubscriptionMessage_Update
+	//	*SubscriptionMessage_PresentationUplinkResult
 	Payload       isSubscriptionMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -764,7 +1169,7 @@ type SubscriptionMessage struct {
 
 func (x *SubscriptionMessage) Reset() {
 	*x = SubscriptionMessage{}
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[7]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -776,7 +1181,7 @@ func (x *SubscriptionMessage) String() string {
 func (*SubscriptionMessage) ProtoMessage() {}
 
 func (x *SubscriptionMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[7]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -789,7 +1194,7 @@ func (x *SubscriptionMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscriptionMessage.ProtoReflect.Descriptor instead.
 func (*SubscriptionMessage) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{7}
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SubscriptionMessage) GetPayload() isSubscriptionMessage_Payload {
@@ -817,6 +1222,15 @@ func (x *SubscriptionMessage) GetUpdate() *CompoundUpdate {
 	return nil
 }
 
+func (x *SubscriptionMessage) GetPresentationUplinkResult() *PresentationUplinkResult {
+	if x != nil {
+		if x, ok := x.Payload.(*SubscriptionMessage_PresentationUplinkResult); ok {
+			return x.PresentationUplinkResult
+		}
+	}
+	return nil
+}
+
 type isSubscriptionMessage_Payload interface {
 	isSubscriptionMessage_Payload()
 }
@@ -829,9 +1243,15 @@ type SubscriptionMessage_Update struct {
 	Update *CompoundUpdate `protobuf:"bytes,2,opt,name=update,proto3,oneof"`
 }
 
+type SubscriptionMessage_PresentationUplinkResult struct {
+	PresentationUplinkResult *PresentationUplinkResult `protobuf:"bytes,3,opt,name=presentation_uplink_result,json=presentationUplinkResult,proto3,oneof"`
+}
+
 func (*SubscriptionMessage_Snapshot) isSubscriptionMessage_Payload() {}
 
 func (*SubscriptionMessage_Update) isSubscriptionMessage_Payload() {}
+
+func (*SubscriptionMessage_PresentationUplinkResult) isSubscriptionMessage_Payload() {}
 
 type SelectCharacterRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
@@ -845,7 +1265,7 @@ type SelectCharacterRequest struct {
 
 func (x *SelectCharacterRequest) Reset() {
 	*x = SelectCharacterRequest{}
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[8]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -857,7 +1277,7 @@ func (x *SelectCharacterRequest) String() string {
 func (*SelectCharacterRequest) ProtoMessage() {}
 
 func (x *SelectCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[8]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -870,7 +1290,7 @@ func (x *SelectCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SelectCharacterRequest.ProtoReflect.Descriptor instead.
 func (*SelectCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{8}
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SelectCharacterRequest) GetRecognitionHandle() string {
@@ -913,7 +1333,7 @@ type ActionResult struct {
 
 func (x *ActionResult) Reset() {
 	*x = ActionResult{}
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[9]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -925,7 +1345,7 @@ func (x *ActionResult) String() string {
 func (*ActionResult) ProtoMessage() {}
 
 func (x *ActionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[9]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -938,7 +1358,7 @@ func (x *ActionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionResult.ProtoReflect.Descriptor instead.
 func (*ActionResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{9}
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ActionResult) GetRequestId() string {
@@ -983,7 +1403,7 @@ type SetPresentationRequest struct {
 
 func (x *SetPresentationRequest) Reset() {
 	*x = SetPresentationRequest{}
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[10]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -995,7 +1415,7 @@ func (x *SetPresentationRequest) String() string {
 func (*SetPresentationRequest) ProtoMessage() {}
 
 func (x *SetPresentationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[10]
+	mi := &file_fallout_terminal_player_v1_player_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1008,7 +1428,7 @@ func (x *SetPresentationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetPresentationRequest.ProtoReflect.Descriptor instead.
 func (*SetPresentationRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{10}
+	return file_fallout_terminal_player_v1_player_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SetPresentationRequest) GetRecognitionHandle() string {
@@ -1079,10 +1499,38 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"\x06notice\x18\t \x01(\v2(.fallout.terminal.player.v1.PlayerNoticeH\x02R\x06notice\x88\x01\x01B\x0f\n" +
 	"\r_broadcast_idB\x15\n" +
 	"\x13_active_terminal_idB\t\n" +
-	"\a_notice\"]\n" +
+	"\a_notice\"\xa7\x01\n" +
 	"\x10SubscribeRequest\x122\n" +
-	"\x12recognition_handle\x18\x01 \x01(\tH\x00R\x11recognitionHandle\x88\x01\x01B\x15\n" +
-	"\x13_recognition_handle\"\x94\x02\n" +
+	"\x12recognition_handle\x18\x01 \x01(\tH\x00R\x11recognitionHandle\x88\x01\x01\x121\n" +
+	"\x12client_instance_id\x18\x02 \x01(\tH\x01R\x10clientInstanceId\x88\x01\x01B\x15\n" +
+	"\x13_recognition_handleB\x15\n" +
+	"\x13_client_instance_id\"\xa2\x01\n" +
+	"\x16PresentationUplinkOpen\x12,\n" +
+	"\x12client_instance_id\x18\x01 \x01(\tR\x10clientInstanceId\x12+\n" +
+	"\x11uplink_generation\x18\x02 \x01(\x04R\x10uplinkGeneration\x12-\n" +
+	"\x12recognition_handle\x18\x03 \x01(\tR\x11recognitionHandle\"\xa7\x02\n" +
+	"\x12PresentationIntent\x12-\n" +
+	"\x12recognition_handle\x18\x01 \x01(\tR\x11recognitionHandle\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x02 \x01(\tR\trequestId\x12!\n" +
+	"\fbroadcast_id\x18\x03 \x01(\tR\vbroadcastId\x12\x1f\n" +
+	"\vterminal_id\x18\x04 \x01(\tR\n" +
+	"terminalId\x12\x1f\n" +
+	"\vcontext_key\x18\x05 \x01(\tR\n" +
+	"contextKey\x12^\n" +
+	"\fpresentation\x18\x06 \x01(\v2:.fallout.terminal.player.v1.ControllerTerminalPresentationR\fpresentation\"\xba\x01\n" +
+	"\x19PresentationUplinkRequest\x12H\n" +
+	"\x04open\x18\x01 \x01(\v22.fallout.terminal.player.v1.PresentationUplinkOpenH\x00R\x04open\x12H\n" +
+	"\x06intent\x18\x02 \x01(\v2..fallout.terminal.player.v1.PresentationIntentH\x00R\x06intentB\t\n" +
+	"\apayload\"\x19\n" +
+	"\x17PresentationUplinkReady\"\x91\x02\n" +
+	"\x18PresentationUplinkResult\x12,\n" +
+	"\x12client_instance_id\x18\x01 \x01(\tR\x10clientInstanceId\x12+\n" +
+	"\x11uplink_generation\x18\x02 \x01(\x04R\x10uplinkGeneration\x12K\n" +
+	"\x05ready\x18\x03 \x01(\v23.fallout.terminal.player.v1.PresentationUplinkReadyH\x00R\x05ready\x12B\n" +
+	"\x06action\x18\x04 \x01(\v2(.fallout.terminal.player.v1.ActionResultH\x00R\x06actionB\t\n" +
+	"\apayload\"\x1c\n" +
+	"\x1aPresentationUplinkResponse\"\x94\x02\n" +
 	"\x14PersonalizedSnapshot\x12-\n" +
 	"\x12recognition_handle\x18\x01 \x01(\tR\x11recognitionHandle\x12\x1a\n" +
 	"\brevision\x18\x02 \x01(\x04R\brevision\x12J\n" +
@@ -1095,10 +1543,11 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"\n" +
 	"navigation\x18\x04 \x01(\v2+.fallout.terminal.player.v1.NavigationStateR\n" +
 	"navigation\x12E\n" +
-	"\ahacking\x18\x05 \x01(\v2+.fallout.terminal.player.v1.PublicHackStateR\ahacking\"\xb6\x01\n" +
+	"\ahacking\x18\x05 \x01(\v2+.fallout.terminal.player.v1.PublicHackStateR\ahacking\"\xac\x02\n" +
 	"\x13SubscriptionMessage\x12N\n" +
 	"\bsnapshot\x18\x01 \x01(\v20.fallout.terminal.player.v1.PersonalizedSnapshotH\x00R\bsnapshot\x12D\n" +
-	"\x06update\x18\x02 \x01(\v2*.fallout.terminal.player.v1.CompoundUpdateH\x00R\x06updateB\t\n" +
+	"\x06update\x18\x02 \x01(\v2*.fallout.terminal.player.v1.CompoundUpdateH\x00R\x06update\x12t\n" +
+	"\x1apresentation_uplink_result\x18\x03 \x01(\v24.fallout.terminal.player.v1.PresentationUplinkResultH\x00R\x18presentationUplinkResultB\t\n" +
 	"\apayload\"\xac\x01\n" +
 	"\x16SelectCharacterRequest\x12-\n" +
 	"\x12recognition_handle\x18\x01 \x01(\tR\x11recognitionHandle\x12\x1d\n" +
@@ -1154,14 +1603,15 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"*i\n" +
 	"\x10PlayerNoticeKind\x12\"\n" +
 	"\x1ePLAYER_NOTICE_KIND_UNSPECIFIED\x10\x00\x121\n" +
-	"-PLAYER_NOTICE_KIND_COMMAND_PERSISTENCE_FAILED\x10\x012\x86\x06\n" +
+	"-PLAYER_NOTICE_KIND_COMMAND_PERSISTENCE_FAILED\x10\x012\x8e\a\n" +
 	"\rPlayerService\x12l\n" +
 	"\tSubscribe\x12,.fallout.terminal.player.v1.SubscribeRequest\x1a/.fallout.terminal.player.v1.SubscriptionMessage0\x01\x12o\n" +
 	"\x0fSelectCharacter\x122.fallout.terminal.player.v1.SelectCharacterRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12a\n" +
 	"\bNavigate\x12+.fallout.terminal.player.v1.NavigateRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12[\n" +
 	"\x05Guess\x12(.fallout.terminal.player.v1.GuessRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12o\n" +
 	"\x0fActivatePattern\x122.fallout.terminal.player.v1.ActivatePatternRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12o\n" +
-	"\x0fSetPresentation\x122.fallout.terminal.player.v1.SetPresentationRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12t\n" +
+	"\x0fSetPresentation\x122.fallout.terminal.player.v1.SetPresentationRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12\x85\x01\n" +
+	"\x12PresentationUplink\x125.fallout.terminal.player.v1.PresentationUplinkRequest\x1a6.fallout.terminal.player.v1.PresentationUplinkResponse(\x01\x12t\n" +
 	"\rSoundManifest\x120.fallout.terminal.player.v1.SoundManifestRequest\x1a1.fallout.terminal.player.v1.SoundManifestResponseBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
@@ -1177,7 +1627,7 @@ func file_fallout_terminal_player_v1_player_proto_rawDescGZIP() []byte {
 }
 
 var file_fallout_terminal_player_v1_player_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_fallout_terminal_player_v1_player_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_fallout_terminal_player_v1_player_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_fallout_terminal_player_v1_player_proto_goTypes = []any{
 	(PlayerRole)(0),                        // 0: fallout.terminal.player.v1.PlayerRole
 	(PlayerPhase)(0),                       // 1: fallout.terminal.player.v1.PlayerPhase
@@ -1189,21 +1639,27 @@ var file_fallout_terminal_player_v1_player_proto_goTypes = []any{
 	(*PlayerNotice)(nil),                   // 7: fallout.terminal.player.v1.PlayerNotice
 	(*PlayerState)(nil),                    // 8: fallout.terminal.player.v1.PlayerState
 	(*SubscribeRequest)(nil),               // 9: fallout.terminal.player.v1.SubscribeRequest
-	(*PersonalizedSnapshot)(nil),           // 10: fallout.terminal.player.v1.PersonalizedSnapshot
-	(*CompoundUpdate)(nil),                 // 11: fallout.terminal.player.v1.CompoundUpdate
-	(*SubscriptionMessage)(nil),            // 12: fallout.terminal.player.v1.SubscriptionMessage
-	(*SelectCharacterRequest)(nil),         // 13: fallout.terminal.player.v1.SelectCharacterRequest
-	(*ActionResult)(nil),                   // 14: fallout.terminal.player.v1.ActionResult
-	(*SetPresentationRequest)(nil),         // 15: fallout.terminal.player.v1.SetPresentationRequest
-	(*TerminalPresentation)(nil),           // 16: fallout.terminal.player.v1.TerminalPresentation
-	(*NavigationState)(nil),                // 17: fallout.terminal.player.v1.NavigationState
-	(*PublicHackState)(nil),                // 18: fallout.terminal.player.v1.PublicHackState
-	(*ControllerTerminalPresentation)(nil), // 19: fallout.terminal.player.v1.ControllerTerminalPresentation
-	(*NavigateRequest)(nil),                // 20: fallout.terminal.player.v1.NavigateRequest
-	(*GuessRequest)(nil),                   // 21: fallout.terminal.player.v1.GuessRequest
-	(*ActivatePatternRequest)(nil),         // 22: fallout.terminal.player.v1.ActivatePatternRequest
-	(*SoundManifestRequest)(nil),           // 23: fallout.terminal.player.v1.SoundManifestRequest
-	(*SoundManifestResponse)(nil),          // 24: fallout.terminal.player.v1.SoundManifestResponse
+	(*PresentationUplinkOpen)(nil),         // 10: fallout.terminal.player.v1.PresentationUplinkOpen
+	(*PresentationIntent)(nil),             // 11: fallout.terminal.player.v1.PresentationIntent
+	(*PresentationUplinkRequest)(nil),      // 12: fallout.terminal.player.v1.PresentationUplinkRequest
+	(*PresentationUplinkReady)(nil),        // 13: fallout.terminal.player.v1.PresentationUplinkReady
+	(*PresentationUplinkResult)(nil),       // 14: fallout.terminal.player.v1.PresentationUplinkResult
+	(*PresentationUplinkResponse)(nil),     // 15: fallout.terminal.player.v1.PresentationUplinkResponse
+	(*PersonalizedSnapshot)(nil),           // 16: fallout.terminal.player.v1.PersonalizedSnapshot
+	(*CompoundUpdate)(nil),                 // 17: fallout.terminal.player.v1.CompoundUpdate
+	(*SubscriptionMessage)(nil),            // 18: fallout.terminal.player.v1.SubscriptionMessage
+	(*SelectCharacterRequest)(nil),         // 19: fallout.terminal.player.v1.SelectCharacterRequest
+	(*ActionResult)(nil),                   // 20: fallout.terminal.player.v1.ActionResult
+	(*SetPresentationRequest)(nil),         // 21: fallout.terminal.player.v1.SetPresentationRequest
+	(*ControllerTerminalPresentation)(nil), // 22: fallout.terminal.player.v1.ControllerTerminalPresentation
+	(*TerminalPresentation)(nil),           // 23: fallout.terminal.player.v1.TerminalPresentation
+	(*NavigationState)(nil),                // 24: fallout.terminal.player.v1.NavigationState
+	(*PublicHackState)(nil),                // 25: fallout.terminal.player.v1.PublicHackState
+	(*NavigateRequest)(nil),                // 26: fallout.terminal.player.v1.NavigateRequest
+	(*GuessRequest)(nil),                   // 27: fallout.terminal.player.v1.GuessRequest
+	(*ActivatePatternRequest)(nil),         // 28: fallout.terminal.player.v1.ActivatePatternRequest
+	(*SoundManifestRequest)(nil),           // 29: fallout.terminal.player.v1.SoundManifestRequest
+	(*SoundManifestResponse)(nil),          // 30: fallout.terminal.player.v1.SoundManifestResponse
 }
 var file_fallout_terminal_player_v1_player_proto_depIdxs = []int32{
 	2,  // 0: fallout.terminal.player.v1.RosterEntry.availability:type_name -> fallout.terminal.player.v1.RosterAvailability
@@ -1213,35 +1669,43 @@ var file_fallout_terminal_player_v1_player_proto_depIdxs = []int32{
 	1,  // 4: fallout.terminal.player.v1.PlayerState.phase:type_name -> fallout.terminal.player.v1.PlayerPhase
 	5,  // 5: fallout.terminal.player.v1.PlayerState.roster:type_name -> fallout.terminal.player.v1.RosterEntry
 	7,  // 6: fallout.terminal.player.v1.PlayerState.notice:type_name -> fallout.terminal.player.v1.PlayerNotice
-	8,  // 7: fallout.terminal.player.v1.PersonalizedSnapshot.player_state:type_name -> fallout.terminal.player.v1.PlayerState
-	16, // 8: fallout.terminal.player.v1.PersonalizedSnapshot.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
-	8,  // 9: fallout.terminal.player.v1.CompoundUpdate.player_state:type_name -> fallout.terminal.player.v1.PlayerState
-	16, // 10: fallout.terminal.player.v1.CompoundUpdate.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
-	17, // 11: fallout.terminal.player.v1.CompoundUpdate.navigation:type_name -> fallout.terminal.player.v1.NavigationState
-	18, // 12: fallout.terminal.player.v1.CompoundUpdate.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
-	10, // 13: fallout.terminal.player.v1.SubscriptionMessage.snapshot:type_name -> fallout.terminal.player.v1.PersonalizedSnapshot
-	11, // 14: fallout.terminal.player.v1.SubscriptionMessage.update:type_name -> fallout.terminal.player.v1.CompoundUpdate
-	3,  // 15: fallout.terminal.player.v1.ActionResult.reason:type_name -> fallout.terminal.player.v1.ActionReason
-	19, // 16: fallout.terminal.player.v1.SetPresentationRequest.presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
-	9,  // 17: fallout.terminal.player.v1.PlayerService.Subscribe:input_type -> fallout.terminal.player.v1.SubscribeRequest
-	13, // 18: fallout.terminal.player.v1.PlayerService.SelectCharacter:input_type -> fallout.terminal.player.v1.SelectCharacterRequest
-	20, // 19: fallout.terminal.player.v1.PlayerService.Navigate:input_type -> fallout.terminal.player.v1.NavigateRequest
-	21, // 20: fallout.terminal.player.v1.PlayerService.Guess:input_type -> fallout.terminal.player.v1.GuessRequest
-	22, // 21: fallout.terminal.player.v1.PlayerService.ActivatePattern:input_type -> fallout.terminal.player.v1.ActivatePatternRequest
-	15, // 22: fallout.terminal.player.v1.PlayerService.SetPresentation:input_type -> fallout.terminal.player.v1.SetPresentationRequest
-	23, // 23: fallout.terminal.player.v1.PlayerService.SoundManifest:input_type -> fallout.terminal.player.v1.SoundManifestRequest
-	12, // 24: fallout.terminal.player.v1.PlayerService.Subscribe:output_type -> fallout.terminal.player.v1.SubscriptionMessage
-	14, // 25: fallout.terminal.player.v1.PlayerService.SelectCharacter:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 26: fallout.terminal.player.v1.PlayerService.Navigate:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 27: fallout.terminal.player.v1.PlayerService.Guess:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 28: fallout.terminal.player.v1.PlayerService.ActivatePattern:output_type -> fallout.terminal.player.v1.ActionResult
-	14, // 29: fallout.terminal.player.v1.PlayerService.SetPresentation:output_type -> fallout.terminal.player.v1.ActionResult
-	24, // 30: fallout.terminal.player.v1.PlayerService.SoundManifest:output_type -> fallout.terminal.player.v1.SoundManifestResponse
-	24, // [24:31] is the sub-list for method output_type
-	17, // [17:24] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	22, // 7: fallout.terminal.player.v1.PresentationIntent.presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
+	10, // 8: fallout.terminal.player.v1.PresentationUplinkRequest.open:type_name -> fallout.terminal.player.v1.PresentationUplinkOpen
+	11, // 9: fallout.terminal.player.v1.PresentationUplinkRequest.intent:type_name -> fallout.terminal.player.v1.PresentationIntent
+	13, // 10: fallout.terminal.player.v1.PresentationUplinkResult.ready:type_name -> fallout.terminal.player.v1.PresentationUplinkReady
+	20, // 11: fallout.terminal.player.v1.PresentationUplinkResult.action:type_name -> fallout.terminal.player.v1.ActionResult
+	8,  // 12: fallout.terminal.player.v1.PersonalizedSnapshot.player_state:type_name -> fallout.terminal.player.v1.PlayerState
+	23, // 13: fallout.terminal.player.v1.PersonalizedSnapshot.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
+	8,  // 14: fallout.terminal.player.v1.CompoundUpdate.player_state:type_name -> fallout.terminal.player.v1.PlayerState
+	23, // 15: fallout.terminal.player.v1.CompoundUpdate.terminal_presentation:type_name -> fallout.terminal.player.v1.TerminalPresentation
+	24, // 16: fallout.terminal.player.v1.CompoundUpdate.navigation:type_name -> fallout.terminal.player.v1.NavigationState
+	25, // 17: fallout.terminal.player.v1.CompoundUpdate.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
+	16, // 18: fallout.terminal.player.v1.SubscriptionMessage.snapshot:type_name -> fallout.terminal.player.v1.PersonalizedSnapshot
+	17, // 19: fallout.terminal.player.v1.SubscriptionMessage.update:type_name -> fallout.terminal.player.v1.CompoundUpdate
+	14, // 20: fallout.terminal.player.v1.SubscriptionMessage.presentation_uplink_result:type_name -> fallout.terminal.player.v1.PresentationUplinkResult
+	3,  // 21: fallout.terminal.player.v1.ActionResult.reason:type_name -> fallout.terminal.player.v1.ActionReason
+	22, // 22: fallout.terminal.player.v1.SetPresentationRequest.presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
+	9,  // 23: fallout.terminal.player.v1.PlayerService.Subscribe:input_type -> fallout.terminal.player.v1.SubscribeRequest
+	19, // 24: fallout.terminal.player.v1.PlayerService.SelectCharacter:input_type -> fallout.terminal.player.v1.SelectCharacterRequest
+	26, // 25: fallout.terminal.player.v1.PlayerService.Navigate:input_type -> fallout.terminal.player.v1.NavigateRequest
+	27, // 26: fallout.terminal.player.v1.PlayerService.Guess:input_type -> fallout.terminal.player.v1.GuessRequest
+	28, // 27: fallout.terminal.player.v1.PlayerService.ActivatePattern:input_type -> fallout.terminal.player.v1.ActivatePatternRequest
+	21, // 28: fallout.terminal.player.v1.PlayerService.SetPresentation:input_type -> fallout.terminal.player.v1.SetPresentationRequest
+	12, // 29: fallout.terminal.player.v1.PlayerService.PresentationUplink:input_type -> fallout.terminal.player.v1.PresentationUplinkRequest
+	29, // 30: fallout.terminal.player.v1.PlayerService.SoundManifest:input_type -> fallout.terminal.player.v1.SoundManifestRequest
+	18, // 31: fallout.terminal.player.v1.PlayerService.Subscribe:output_type -> fallout.terminal.player.v1.SubscriptionMessage
+	20, // 32: fallout.terminal.player.v1.PlayerService.SelectCharacter:output_type -> fallout.terminal.player.v1.ActionResult
+	20, // 33: fallout.terminal.player.v1.PlayerService.Navigate:output_type -> fallout.terminal.player.v1.ActionResult
+	20, // 34: fallout.terminal.player.v1.PlayerService.Guess:output_type -> fallout.terminal.player.v1.ActionResult
+	20, // 35: fallout.terminal.player.v1.PlayerService.ActivatePattern:output_type -> fallout.terminal.player.v1.ActionResult
+	20, // 36: fallout.terminal.player.v1.PlayerService.SetPresentation:output_type -> fallout.terminal.player.v1.ActionResult
+	15, // 37: fallout.terminal.player.v1.PlayerService.PresentationUplink:output_type -> fallout.terminal.player.v1.PresentationUplinkResponse
+	30, // 38: fallout.terminal.player.v1.PlayerService.SoundManifest:output_type -> fallout.terminal.player.v1.SoundManifestResponse
+	31, // [31:39] is the sub-list for method output_type
+	23, // [23:31] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_player_v1_player_proto_init() }
@@ -1256,8 +1720,17 @@ func file_fallout_terminal_player_v1_player_proto_init() {
 	file_fallout_terminal_player_v1_player_proto_msgTypes[3].OneofWrappers = []any{}
 	file_fallout_terminal_player_v1_player_proto_msgTypes[4].OneofWrappers = []any{}
 	file_fallout_terminal_player_v1_player_proto_msgTypes[7].OneofWrappers = []any{
+		(*PresentationUplinkRequest_Open)(nil),
+		(*PresentationUplinkRequest_Intent)(nil),
+	}
+	file_fallout_terminal_player_v1_player_proto_msgTypes[9].OneofWrappers = []any{
+		(*PresentationUplinkResult_Ready)(nil),
+		(*PresentationUplinkResult_Action)(nil),
+	}
+	file_fallout_terminal_player_v1_player_proto_msgTypes[13].OneofWrappers = []any{
 		(*SubscriptionMessage_Snapshot)(nil),
 		(*SubscriptionMessage_Update)(nil),
+		(*SubscriptionMessage_PresentationUplinkResult)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1265,7 +1738,7 @@ func file_fallout_terminal_player_v1_player_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_player_v1_player_proto_rawDesc), len(file_fallout_terminal_player_v1_player_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   11,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

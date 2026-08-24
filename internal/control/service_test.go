@@ -3991,7 +3991,7 @@ func newUS2Fixture(t *testing.T, runtime RuntimeActions) us2Fixture {
 		config.Terminals = terminals
 	}
 	service := New(config)
-	state, err := addCharacter(service, "Mara")
+	_, err := addCharacter(service, "Mara")
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -3999,7 +3999,7 @@ func newUS2Fixture(t *testing.T, runtime RuntimeActions) us2Fixture {
 	if err != nil {
 		require.NoError(t, err)
 	}
-	state, err = service.StartBroadcast()
+	state, err := service.StartBroadcast()
 	if err != nil {
 		require.NoError(t, err)
 	}

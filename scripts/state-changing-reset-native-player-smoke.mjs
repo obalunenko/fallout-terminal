@@ -137,8 +137,24 @@ async function runResetObservation(browser) {
   const controller = players[0].page;
   await waitFor('completed command before reset', () => textVisible(controller, '.term-row', 'Гермодвери открыты'));
   await rowWithText(controller, 'Гермодвери открыты').click();
-  await Promise.all(players.map(player => waitFor('completed result before reset', () =>
-    textVisible(player.page, '#entryBody', 'Гермодвери были открыты'))));
+  try {
+    await Promise.all(players.map(player => waitFor('completed result before reset', () =>
+      textVisible(player.page, '#entryBody', 'Гермодвери были открыты'))));
+  } catch (error) {
+    for (const [index, player] of players.entries()) {
+      const diagnostics = await player.page.evaluate(() => ({
+        role: document.querySelector('#roleBadge')?.textContent,
+        notice: document.querySelector('#playerNotice')?.textContent,
+        rows: document.querySelector('#termList')?.textContent,
+        termListHidden: document.querySelector('#termList')?.hidden,
+        termEntryHidden: document.querySelector('#termEntry')?.hidden,
+        entryBody: document.querySelector('#entryBody')?.textContent,
+        runtimeRevision: document.querySelector('#screen')?.dataset.runtimeRevision,
+      }));
+      console.error(`completed result player ${index} diagnostics: ${JSON.stringify(diagnostics)}`);
+    }
+    throw error;
+  }
 
   const beforeRevisions = await Promise.all(players.map(player => runtimeRevision(player.page)));
   if (beforeRevisions[0] !== beforeRevisions[1]) fail(`players started on different revisions: ${beforeRevisions.join(',')}`);
@@ -190,14 +206,52 @@ async function runReopenObservation(browser) {
   await Promise.all(players.map(player => player.context.close()));
 }
 
-if (!['reset', 'reopen'].includes(mode) || !baseURL || !readyPath || !triggerPath || !resultPath) {
-  fail('usage: state-changing-reset-native-player-smoke.mjs <reset|reopen> <base-url> <ready> <trigger> <result>');
+async function runPresentationObservation(browser) {
+  const players = await openJourney(browser);
+  const [controller, observer] = players.map(player => player.page);
+  const targetText = 'Тревога отключена';
+  const blockedText = 'Гермодвери открыты';
+
+  const feedbackStartedAt = Date.now();
+  await rowWithText(controller, targetText).hover();
+  await waitFor('next-frame controller presentation feedback', async () =>
+    (await controller.locator('.term-row.sel').textContent())?.includes(targetText), 100);
+  const feedbackElapsedMilliseconds = Date.now() - feedbackStartedAt;
+
+  const convergenceStartedAt = Date.now();
+  await waitFor('observer presentation convergence', async () =>
+    (await observer.locator('.term-row.sel').textContent())?.includes(targetText), convergenceMilliseconds);
+  const convergenceElapsedMilliseconds = Date.now() - convergenceStartedAt;
+
+  await rowWithText(observer, blockedText).hover();
+  await observer.keyboard.press('ArrowUp');
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const selected = await Promise.all(players.map(player => player.page.locator('.term-row.sel').textContent()));
+  if (selected.some(value => !value?.includes(targetText))) {
+    fail(`observer input changed packaged presentation: ${JSON.stringify(selected)}`);
+  }
+
+  await fs.writeFile(readyPath, JSON.stringify({ presentationReady: true }));
+  await fs.writeFile(resultPath, JSON.stringify({
+    mode,
+    feedbackElapsedMilliseconds,
+    convergenceElapsedMilliseconds,
+    controller: targetText,
+    observer: targetText,
+    observerInputSuppressed: true,
+  }));
+  await Promise.all(players.map(player => player.context.close()));
+}
+
+if (!['reset', 'reopen', 'presentation'].includes(mode) || !baseURL || !readyPath || !triggerPath || !resultPath) {
+  fail('usage: state-changing-reset-native-player-smoke.mjs <reset|reopen|presentation> <base-url> <ready> <trigger> <result>');
 }
 
 const browser = await chromium.launch({ headless: true });
 try {
   if (mode === 'reset') await runResetObservation(browser);
-  else await runReopenObservation(browser);
+  else if (mode === 'reopen') await runReopenObservation(browser);
+  else await runPresentationObservation(browser);
 } finally {
   await browser.close();
 }

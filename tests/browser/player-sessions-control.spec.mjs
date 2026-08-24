@@ -326,7 +326,7 @@ test('controller selection is authoritative while observer pointer and keyboard 
   ]);
   await selectFirstAvailable(controller);
   await selectFirstAvailable(observer);
-  await expect(controller.locator('#roleBadge')).toContainText('АКТИВНЫЙ');
+  await expect(controller.locator('#roleBadge')).toHaveAttribute('data-role', 'active');
   await expect(observer.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
 
   await controller.locator('.term-row', { hasText: 'STATUS' }).hover();
@@ -359,13 +359,12 @@ test('presentation-only latency keeps the active controller visually actionable 
   const requests = typedPlayerRequests(page);
   await openPlayer(page);
   await selectFirstAvailable(page);
-  await expect(page.locator('#roleBadge')).toContainText('АКТИВНЫЙ');
+  await expect(page.locator('#roleBadge')).toHaveAttribute('data-role', 'active');
   expect((await request.post('/__fixture/local/crt/content')).status()).toBe(204);
 
   const rows = page.locator('.term-row');
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(3);
   const rowCount = await rows.count();
-  const initialSelection = (await page.locator('.term-row.sel').innerText()).trim();
   const initialIndex = await rows.evaluateAll(items => items.findIndex(item => item.classList.contains('sel')));
   const firstTargetIndex = (initialIndex + 1) % rowCount;
   const firstTarget = rows.nth(firstTargetIndex);
@@ -409,9 +408,9 @@ test('presentation-only latency keeps the active controller visually actionable 
     await expect.poll(() => presentationRequests).toBe(1);
     expect(await page.evaluate(() => window.__bug009BlockingTransitions)).toBe(0);
     await latestTarget.hover();
-    await page.waitForTimeout(100);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
     expect(presentationRequests).toBe(1);
-    await expect(page.locator('.term-row.sel')).toHaveText(initialSelection);
+    await expect(page.locator('.term-row.sel')).toHaveText(latestText);
     await expect(page.locator('#screen')).not.toHaveClass(/shared-input-pending/);
     await expect(latestTarget).toHaveCSS('cursor', 'pointer');
     await expect(latestTarget).toHaveCSS('opacity', '1');
@@ -454,7 +453,7 @@ test('controller reassignment atomically transfers presentation and gameplay aut
   expect(reassignment.status()).toBe(200);
   await Promise.all([
     expect(first.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ'),
-    expect(second.locator('#roleBadge')).toContainText('АКТИВНЫЙ'),
+    expect(second.locator('#roleBadge')).toHaveAttribute('data-role', 'active'),
   ]);
   await expect(first.locator('#screen')).toHaveAttribute('aria-readonly', 'true');
   await expect(second.locator('#screen')).toHaveAttribute('aria-readonly', 'false');
@@ -525,7 +524,7 @@ test('controller reassignment discards a queued presentation before it can be se
     expect(reassignment.status()).toBe(200);
     await Promise.all([
       expect(controller.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ'),
-      expect(observer.locator('#roleBadge')).toContainText('АКТИВНЫЙ'),
+      expect(observer.locator('#roleBadge')).toHaveAttribute('data-role', 'active'),
     ]);
   } finally {
     releasePresentation();
@@ -755,6 +754,12 @@ test('rapid hacking hover keeps one presentation in flight and follows with only
       finalTarget?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
       return finalTarget?.dataset.target || '';
     });
+    const nextFrameTargetID = await page.evaluate(() => new Promise(resolve => {
+      requestAnimationFrame(() => {
+        resolve(document.querySelector('.hcell.hi')?.dataset.target || '');
+      });
+    }));
+    expect(nextFrameTargetID).toBe(finalTargetID);
     await page.waitForTimeout(100);
     expect(presentationRequests).toBe(1);
     expect(maximumBlockedRequests).toBe(1);
@@ -774,7 +779,10 @@ test('rapid hacking hover keeps one presentation in flight and follows with only
       cues: window.__bug010CueURLs.filter(url => /\/sounds\/(?:single|multiple)\//.test(url)),
     };
   });
-  expect(new Set(diagnostics.previews.filter(Boolean)).size).toBeLessThanOrEqual(2);
+  expect(
+    new Set(diagnostics.previews.filter(Boolean)).size,
+    JSON.stringify(diagnostics),
+  ).toBeLessThanOrEqual(2);
   expect(diagnostics.cues.length).toBeLessThanOrEqual(2);
   await observerContext.close();
 });

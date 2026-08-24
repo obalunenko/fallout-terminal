@@ -25,6 +25,7 @@ type ConnectCoordinator interface {
 	DetachConnection(domain.ConnectionID)
 	SelectCharacterForRecognition(domain.RecognitionHandle, domain.RequestID, domain.BroadcastID, domain.CharacterID) domain.ActionResult
 	DispatchPlayerActionForRecognition(domain.RecognitionHandle, domain.RuntimeCommand) domain.ActionResult
+	DispatchPlayerAction(domain.ConnectionID, domain.RuntimeCommand) domain.ActionResult
 }
 
 // ConnectServiceConfig supplies only transport-independent application
@@ -93,6 +94,10 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 	if err != nil {
 		return publicConnectError(err)
 	}
+	clientInstanceID, err := SubscribeClientInstance(request.Msg)
+	if err != nil {
+		return publicConnectError(err)
+	}
 	connectionID := domain.ConnectionID(fmt.Sprintf("connect-%d", service.sequence.Add(1)))
 	var physical *Subscription
 	var conversionErr error
@@ -103,7 +108,7 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 			return
 		}
 		first := &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: generatedSnapshot}}
-		physical = NewSubscription(ctx, connectionID, attached.PlayerState.SessionID, first, service.queueSize)
+		physical = NewSubscription(ctx, connectionID, attached.PlayerState.SessionID, first, service.queueSize, clientInstanceID)
 		service.hub.Register(physical)
 	})
 	if err != nil {
@@ -125,6 +130,21 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 	}
 	for {
 		select {
+		case update := <-physical.Updates():
+			if err := stream.Send(update); err != nil {
+				return mapStreamError(err)
+			}
+			select {
+			case targeted := <-physical.Targeted():
+				if err := stream.Send(targeted); err != nil {
+					return mapStreamError(err)
+				}
+			default:
+			}
+			continue
+		default:
+		}
+		select {
 		case <-ctx.Done():
 			return connect.NewError(connect.CodeCanceled, errors.New("player subscription canceled"))
 		case <-physical.Done():
@@ -133,6 +153,111 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 			if err := stream.Send(update); err != nil {
 				return mapStreamError(err)
 			}
+		case targeted := <-physical.Targeted():
+			if err := stream.Send(targeted); err != nil {
+				return mapStreamError(err)
+			}
+		}
+	}
+}
+
+// PresentationUplink receives generated presentation intents while Subscribe
+// remains the only downlink. The first frame binds one tab generation to its
+// current physical subscription; every intent is revalidated before canonical
+// connection-aware dispatch.
+func (service *ConnectService) PresentationUplink(ctx context.Context, stream *connect.ClientStream[playerv1.PresentationUplinkRequest]) (*connect.Response[playerv1.PresentationUplinkResponse], error) {
+	if service == nil || ctx == nil || stream == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink is required"))
+	}
+	if !stream.Receive() {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink open frame is required"))
+	}
+	first := stream.Msg()
+	if first == nil || first.GetOpen() == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink must begin with an open frame"))
+	}
+	binding, err := PresentationUplinkOpenFromProto(first.GetOpen())
+	if err != nil {
+		return nil, publicConnectError(err)
+	}
+	uplink, err := service.hub.BindUplink(ctx, binding)
+	if err != nil {
+		code := connect.CodeFailedPrecondition
+		if errors.Is(err, errPresentationUplinkLimit) {
+			code = connect.CodeResourceExhausted
+		}
+		return nil, connect.NewError(code, errors.New("presentation uplink cannot bind to the current subscription"))
+	}
+	defer service.hub.ReleaseUplink(uplink, errors.New("presentation uplink completed"))
+
+	ready := &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_PresentationUplinkResult{
+		PresentationUplinkResult: &playerv1.PresentationUplinkResult{
+			ClientInstanceId: binding.ClientInstanceID, UplinkGeneration: binding.Generation,
+			Payload: &playerv1.PresentationUplinkResult_Ready{Ready: &playerv1.PresentationUplinkReady{}},
+		},
+	}}
+	if !uplink.Subscription.PublishTargeted(ctx, ready) {
+		return nil, connect.NewError(connect.CodeUnavailable, errors.New("presentation uplink ready delivery failed"))
+	}
+
+	processorDone := make(chan error, 1)
+	go func() { processorDone <- service.processPresentationUplink(uplink) }()
+	for stream.Receive() {
+		frame := stream.Msg()
+		if frame == nil || frame.GetIntent() == nil || frame.GetOpen() != nil {
+			uplink.Close(errors.New("presentation uplink frame is invalid"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink intent frame is invalid"))
+		}
+		intent := frame.GetIntent()
+		if _, err := PresentationIntentFromProto(intent); err != nil {
+			uplink.Close(err)
+			return nil, publicConnectError(err)
+		}
+		if domain.RecognitionHandle(intent.GetRecognitionHandle()) != binding.RecognitionHandle || !service.hub.Current(uplink) {
+			uplink.Close(errPresentationUplinkGeneration)
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("presentation uplink generation is stale"))
+		}
+		if !uplink.Limiter.Allow() {
+			uplink.Close(errPresentationUplinkLimit)
+			return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("presentation uplink rate limit exceeded"))
+		}
+		if !uplink.Mailbox.Offer(intent) {
+			return nil, connect.NewError(connect.CodeCanceled, errors.New("presentation uplink closed"))
+		}
+	}
+	if err := stream.Err(); err != nil {
+		uplink.Close(err)
+		return nil, mapStreamError(err)
+	}
+	uplink.Mailbox.Finish()
+	if err := <-processorDone; err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&playerv1.PresentationUplinkResponse{}), nil
+}
+
+func (service *ConnectService) processPresentationUplink(uplink *PresentationUplink) error {
+	for {
+		intent, ok := uplink.Mailbox.Take(uplink.Context)
+		if !ok {
+			return nil
+		}
+		if !service.hub.Current(uplink) {
+			return connect.NewError(connect.CodeFailedPrecondition, errors.New("presentation uplink generation is stale"))
+		}
+		mutation, err := PresentationIntentFromProto(intent)
+		if err != nil {
+			return publicConnectError(err)
+		}
+		result := service.coordinator.DispatchPlayerAction(uplink.ConnectionID, mutation.Command)
+		message := &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_PresentationUplinkResult{
+			PresentationUplinkResult: &playerv1.PresentationUplinkResult{
+				ClientInstanceId: uplink.Binding.ClientInstanceID, UplinkGeneration: uplink.Binding.Generation,
+				Payload: &playerv1.PresentationUplinkResult_Action{Action: ActionResultToProto(result)},
+			},
+		}}
+		if !uplink.Subscription.PublishTargeted(uplink.Context, message) {
+			return connect.NewError(connect.CodeCanceled, errors.New("presentation uplink result delivery canceled"))
 		}
 	}
 }

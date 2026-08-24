@@ -79,7 +79,43 @@ message PlayerState {
 
 message SubscribeRequest {
   optional string recognition_handle = 1;
+  optional string client_instance_id = 2;
 }
+
+message PresentationUplinkOpen {
+  string client_instance_id = 1;
+  uint64 uplink_generation = 2;
+  string recognition_handle = 3;
+}
+
+message PresentationIntent {
+  string recognition_handle = 1;
+  string request_id = 2;
+  string broadcast_id = 3;
+  string terminal_id = 4;
+  string context_key = 5;
+  ControllerTerminalPresentation presentation = 6;
+}
+
+message PresentationUplinkRequest {
+  oneof payload {
+    PresentationUplinkOpen open = 1;
+    PresentationIntent intent = 2;
+  }
+}
+
+message PresentationUplinkReady {}
+
+message PresentationUplinkResult {
+  string client_instance_id = 1;
+  uint64 uplink_generation = 2;
+  oneof payload {
+    PresentationUplinkReady ready = 3;
+    ActionResult action = 4;
+  }
+}
+
+message PresentationUplinkResponse {}
 
 message PersonalizedSnapshot {
   string recognition_handle = 1;
@@ -100,6 +136,7 @@ message SubscriptionMessage {
   oneof payload {
     PersonalizedSnapshot snapshot = 1;
     CompoundUpdate update = 2;
+    PresentationUplinkResult presentation_uplink_result = 3;
   }
 }
 
@@ -133,5 +170,6 @@ service PlayerService {
   rpc Guess(GuessRequest) returns (ActionResult);
   rpc ActivatePattern(ActivatePatternRequest) returns (ActionResult);
   rpc SetPresentation(SetPresentationRequest) returns (ActionResult);
+  rpc PresentationUplink(stream PresentationUplinkRequest) returns (PresentationUplinkResponse);
   rpc SoundManifest(SoundManifestRequest) returns (SoundManifestResponse);
 }

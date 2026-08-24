@@ -2,6 +2,7 @@ package player
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1/playerv1connect"
@@ -53,13 +56,26 @@ func NewApplicationHandler(assets fs.FS, rpcPath string, rpcHandler http.Handler
 				http.Error(response, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			}
-			if request.ContentLength > MaxEncodedBodyBytes {
-				writeConnectBoundaryError(errorWriter, response, request, connect.CodeResourceExhausted, "public player request exceeds the encoded-body limit")
-				return
-			}
-			if err := bufferBoundedRequestBody(request); err != nil {
-				writeConnectBoundaryError(errorWriter, response, request, connect.CodeResourceExhausted, "public player request exceeds the encoded-body limit")
-				return
+			if request.URL.Path != playerv1connect.PlayerServicePresentationUplinkProcedure {
+				if request.ContentLength > MaxEncodedBodyBytes {
+					writeConnectBoundaryError(errorWriter, response, request, connect.CodeResourceExhausted, "public player request exceeds the encoded-body limit")
+					return
+				}
+				if err := bufferBoundedRequestBody(request); err != nil {
+					writeConnectBoundaryError(errorWriter, response, request, connect.CodeResourceExhausted, "public player request exceeds the encoded-body limit")
+					return
+				}
+			} else {
+				streamContext, cancelStream := context.WithCancelCause(request.Context())
+				timedBody := newPresentationUplinkBody(
+					request.Body,
+					cancelStream,
+					PresentationUplinkIdleLifetime,
+					PresentationUplinkMaximumLifetime,
+				)
+				defer timedBody.Stop()
+				request = request.Clone(streamContext)
+				request.Body = timedBody
 			}
 			if rpcHandler == nil {
 				writeConnectBoundaryError(errorWriter, response, request, connect.CodeUnimplemented, "public player procedure is not implemented")
@@ -78,18 +94,93 @@ func NewApplicationHandler(assets fs.FS, rpcPath string, rpcHandler http.Handler
 	})
 }
 
+var (
+	errPresentationUplinkIdleTimeout = errors.New("presentation uplink idle timeout")
+	errPresentationUplinkMaxLifetime = errors.New("presentation uplink maximum lifetime reached")
+)
+
+type presentationUplinkBody struct {
+	body       io.ReadCloser
+	cancel     context.CancelCauseFunc
+	idle       time.Duration
+	idleTimer  *time.Timer
+	maxTimer   *time.Timer
+	mu         sync.Mutex
+	terminated bool
+}
+
+func newPresentationUplinkBody(
+	body io.ReadCloser,
+	cancel context.CancelCauseFunc,
+	idle time.Duration,
+	maximum time.Duration,
+) *presentationUplinkBody {
+	if body == nil {
+		body = http.NoBody
+	}
+	stream := &presentationUplinkBody{body: body, cancel: cancel, idle: idle}
+	stream.idleTimer = time.AfterFunc(idle, func() { stream.terminate(errPresentationUplinkIdleTimeout) })
+	stream.maxTimer = time.AfterFunc(maximum, func() { stream.terminate(errPresentationUplinkMaxLifetime) })
+	return stream
+}
+
+func (stream *presentationUplinkBody) Read(target []byte) (int, error) {
+	n, err := stream.body.Read(target)
+	if n > 0 {
+		stream.mu.Lock()
+		if !stream.terminated {
+			stream.idleTimer.Reset(stream.idle)
+		}
+		stream.mu.Unlock()
+	}
+	return n, err
+}
+
+func (stream *presentationUplinkBody) Close() error {
+	stream.Stop()
+	return stream.body.Close()
+}
+
+func (stream *presentationUplinkBody) Stop() {
+	if stream == nil {
+		return
+	}
+	stream.mu.Lock()
+	if !stream.terminated {
+		stream.terminated = true
+		stream.idleTimer.Stop()
+		stream.maxTimer.Stop()
+	}
+	stream.mu.Unlock()
+}
+
+func (stream *presentationUplinkBody) terminate(cause error) {
+	stream.mu.Lock()
+	if stream.terminated {
+		stream.mu.Unlock()
+		return
+	}
+	stream.terminated = true
+	stream.idleTimer.Stop()
+	stream.maxTimer.Stop()
+	stream.cancel(cause)
+	stream.mu.Unlock()
+	_ = stream.body.Close()
+}
+
 func supportedRPCRequestPath(requestPath, servicePath string) bool {
 	if servicePath == "" {
 		return false
 	}
 	_, supported := map[string]struct{}{
-		playerv1connect.PlayerServiceSubscribeProcedure:       {},
-		playerv1connect.PlayerServiceSelectCharacterProcedure: {},
-		playerv1connect.PlayerServiceNavigateProcedure:        {},
-		playerv1connect.PlayerServiceGuessProcedure:           {},
-		playerv1connect.PlayerServiceActivatePatternProcedure: {},
-		playerv1connect.PlayerServiceSetPresentationProcedure: {},
-		playerv1connect.PlayerServiceSoundManifestProcedure:   {},
+		playerv1connect.PlayerServiceSubscribeProcedure:          {},
+		playerv1connect.PlayerServiceSelectCharacterProcedure:    {},
+		playerv1connect.PlayerServiceNavigateProcedure:           {},
+		playerv1connect.PlayerServiceGuessProcedure:              {},
+		playerv1connect.PlayerServiceActivatePatternProcedure:    {},
+		playerv1connect.PlayerServiceSetPresentationProcedure:    {},
+		playerv1connect.PlayerServicePresentationUplinkProcedure: {},
+		playerv1connect.PlayerServiceSoundManifestProcedure:      {},
 	}[requestPath]
 	return supported
 }

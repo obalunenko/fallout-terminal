@@ -26,6 +26,63 @@ type RuntimeMutation struct {
 	Command           domain.RuntimeCommand
 }
 
+// PresentationUplinkBinding is validated process-local routing metadata from
+// the generated opening frame. It identifies a tab and generation but grants
+// no mutation authority.
+type PresentationUplinkBinding struct {
+	ClientInstanceID  string
+	Generation        uint64
+	RecognitionHandle domain.RecognitionHandle
+}
+
+// PresentationUplinkOpenFromProto validates and detaches one opening frame.
+func PresentationUplinkOpenFromProto(open *playerv1.PresentationUplinkOpen) (PresentationUplinkBinding, error) {
+	if open == nil {
+		return PresentationUplinkBinding{}, fmt.Errorf("presentation uplink open frame is required")
+	}
+	if err := ValidateMessageSize(open); err != nil {
+		return PresentationUplinkBinding{}, err
+	}
+	if err := domain.ValidatePublicField(domain.PublicFieldGenerationID, open.GetClientInstanceId()); err != nil {
+		return PresentationUplinkBinding{}, err
+	}
+	if err := domain.ValidatePublicField(domain.PublicFieldRecognitionHandle, open.GetRecognitionHandle()); err != nil {
+		return PresentationUplinkBinding{}, err
+	}
+	if open.GetUplinkGeneration() == 0 {
+		return PresentationUplinkBinding{}, fmt.Errorf("presentation uplink generation is required")
+	}
+	return PresentationUplinkBinding{
+		ClientInstanceID: open.GetClientInstanceId(), Generation: open.GetUplinkGeneration(),
+		RecognitionHandle: domain.RecognitionHandle(open.GetRecognitionHandle()),
+	}, nil
+}
+
+// PresentationIntentFromProto validates one generated stream intent through
+// the same canonical presentation adapter used by SetPresentation.
+func PresentationIntentFromProto(intent *playerv1.PresentationIntent) (RuntimeMutation, error) {
+	if intent == nil {
+		return RuntimeMutation{}, fmt.Errorf("presentation intent is required")
+	}
+	if err := ValidateMessageSize(intent); err != nil {
+		return RuntimeMutation{}, err
+	}
+	mutation, err := PresentationFromProto(&playerv1.SetPresentationRequest{
+		RecognitionHandle: intent.GetRecognitionHandle(), RequestId: intent.GetRequestId(),
+		BroadcastId: intent.GetBroadcastId(), TerminalId: intent.GetTerminalId(),
+		ContextKey: intent.GetContextKey(), Presentation: intent.GetPresentation(),
+	})
+	if err != nil {
+		return RuntimeMutation{}, err
+	}
+	fingerprint, err := deterministicRequestFingerprint(playerv1connect.PlayerServicePresentationUplinkProcedure, intent)
+	if err != nil {
+		return RuntimeMutation{}, err
+	}
+	mutation.Command.PayloadFingerprint = fingerprint
+	return mutation, nil
+}
+
 // SubscribeRecognition distinguishes absent scalar presence from an invalid
 // present value. Unknown but well-formed handles are resolved by the
 // coordinator and may receive a replacement session.
@@ -44,6 +101,17 @@ func SubscribeRecognition(request *playerv1.SubscribeRequest) (*domain.Recogniti
 	}
 	handle := domain.RecognitionHandle(request.GetRecognitionHandle())
 	return &handle, nil
+}
+
+// SubscribeClientInstance validates the optional ephemeral tab routing ID.
+func SubscribeClientInstance(request *playerv1.SubscribeRequest) (string, error) {
+	if request == nil || request.ClientInstanceId == nil {
+		return "", nil
+	}
+	if err := domain.ValidatePublicField(domain.PublicFieldGenerationID, request.GetClientInstanceId()); err != nil {
+		return "", err
+	}
+	return request.GetClientInstanceId(), nil
 }
 
 // SelectionFromProto validates and detaches one SelectCharacter request.

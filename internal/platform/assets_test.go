@@ -52,7 +52,7 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 	require.False(t, service == nil,
 		"public descriptor is missing PlayerService")
 
-	wantMethods := []string{"Subscribe", "SelectCharacter", "Navigate", "Guess", "ActivatePattern", "SetPresentation", "SoundManifest"}
+	wantMethods := []string{"Subscribe", "SelectCharacter", "Navigate", "Guess", "ActivatePattern", "SetPresentation", "PresentationUplink", "SoundManifest"}
 	require.Falsef(t, service.Methods().Len() != len(wantMethods),
 		"PlayerService methods = %d, want %d", service.Methods().Len(), len(wantMethods))
 
@@ -64,11 +64,14 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 				"PlayerService method %d = %q, want %q", index, got, want)
 		}
 
-		if want == "Subscribe" {
+		switch want {
+		case "Subscribe":
 			assert.Falsef(t, method.IsStreamingClient() || !method.IsStreamingServer(),
 				"Subscribe must be server-streaming only")
-
-		} else {
+		case "PresentationUplink":
+			assert.Falsef(t, !method.IsStreamingClient() || method.IsStreamingServer(),
+				"PresentationUplink must be client-streaming only")
+		default:
 			assert.Falsef(t, method.IsStreamingClient() || method.IsStreamingServer(),
 				"%s must be unary", want)
 		}
@@ -108,6 +111,7 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 		"fallout.terminal.player.v1.PlayerState.broadcast_id":                          true,
 		"fallout.terminal.player.v1.PlayerState.active_terminal_id":                    true,
 		"fallout.terminal.player.v1.SubscribeRequest.recognition_handle":               true,
+		"fallout.terminal.player.v1.SubscribeRequest.client_instance_id":               true,
 		"fallout.terminal.player.v1.NavigationState.view_entry_id":                     true,
 		"fallout.terminal.player.v1.NavigationState.command_node_id":                   true,
 		"fallout.terminal.persistence.v1.Session.player_config":                        true,
@@ -257,7 +261,7 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "4fd0b3ef31bd7ada1101ae36bfbd749acd36c53c4bc2da185d33dec4d4c669a9",
-		"proto/schema-revision.txt":                       "7483e9f0cc5e28aa92a4420444da904f7104fea51e2864ea4d5532b2a37edb68",
+		"proto/schema-revision.txt":                       "859638424d9bd4383c4a9af90658abd5de3245a2a2ca353050fe04016d18e97b",
 		"proto/compatibility-baseline.binpb":              "50b88cc9e08a189012925e1a97094d1e097b223e591aca8acb856ba0daf099f3",
 	}
 	for relative, want := range wantDigests {
@@ -528,7 +532,7 @@ func TestPlayerHackingOutcomeAudioUsesEligibleAuthoritativeTransitions(t *testin
 	require.False(t, beginActionStart < 0,
 		"player script is missing the shared-action presentation boundary")
 
-	beginActionEnd := strings.Index(playerScript[beginActionStart:], "function selectCharacter(characterID) {")
+	beginActionEnd := strings.Index(playerScript[beginActionStart:], "function beginSharedMutationForAction(")
 	require.False(t, beginActionEnd < 0,
 		"player script is missing the shared-action presentation boundary")
 
@@ -1116,7 +1120,7 @@ func TestPlayerHackingPatternInteractionContract(t *testing.T) {
 		"const relatedPattern = patternAtCell(related)",
 		"offset >= pattern.start && offset <= pattern.end",
 		"`[data-row=\"${pattern.row}\"][data-offset]`",
-		"candidate.id === controllerPresentation.patternId && !candidate.used",
+		"candidate.id === presentation.patternId && !candidate.used",
 		"setHackPatternHover(pattern || null)",
 		"beginPattern(pattern.id)",
 		"beginGuess(cell.dataset.target)",

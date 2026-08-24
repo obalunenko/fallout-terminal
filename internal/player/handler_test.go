@@ -21,6 +21,41 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+func TestPresentationUplinkOpenPublishesReadyToMatchingSubscription(t *testing.T) {
+	coordinator := newConnectTestCoordinator(t)
+	service, err := NewConnectService(ConnectServiceConfig{Coordinator: coordinator, QueueSize: 2})
+	require.NoError(t, err)
+	server := httptest.NewServer(func() http.Handler {
+		_, handler := NewConnectHandler(service)
+		return handler
+	}())
+	t.Cleanup(server.Close)
+
+	client := playerv1connect.NewPlayerServiceClient(server.Client(), server.URL)
+	clientID := "tab-ready"
+	subscriptionContext, cancelSubscription := context.WithCancelCause(t.Context())
+	t.Cleanup(func() { cancelSubscription(errors.New("test subscription closed")) })
+	subscription, err := client.Subscribe(subscriptionContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientID}))
+	require.NoError(t, err)
+	require.True(t, subscription.Receive(), "snapshot: %v", subscription.Err())
+	handle := subscription.Msg().GetSnapshot().GetRecognitionHandle()
+
+	uplinkContext, cancelUplink := context.WithCancelCause(t.Context())
+	t.Cleanup(func() { cancelUplink(errors.New("test uplink closed")) })
+	uplink := client.PresentationUplink(uplinkContext)
+	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{Payload: &playerv1.PresentationUplinkRequest_Open{
+		Open: &playerv1.PresentationUplinkOpen{ClientInstanceId: clientID, UplinkGeneration: 1, RecognitionHandle: handle},
+	}}))
+	require.True(t, subscription.Receive(), "ready: %v", subscription.Err())
+	ready := subscription.Msg().GetPresentationUplinkResult()
+	require.NotNil(t, ready)
+	require.Equal(t, clientID, ready.GetClientInstanceId())
+	require.Equal(t, uint64(1), ready.GetUplinkGeneration())
+	require.NotNil(t, ready.GetReady())
+	_, err = uplink.CloseAndReceive()
+	require.NoError(t, err)
+}
+
 func TestConnectSubscribeBeginsWithCompleteSnapshotAndSelectsCharacter(t *testing.T) {
 	var service *ConnectService
 	coordinator := newConnectTestCoordinator(t, func(effect control.Effect) {
