@@ -2,17 +2,22 @@
 
 **Prepared**: 2026-08-21
 
-**Prospective feature**: `015-http2-presentation-streaming`
+**Updated**: 2026-08-24
 
-**Status**: Investigation complete; no feature branch or specification created
+**Prospective feature**: `019-http2-presentation-streaming`
+
+**Status**: Investigation updated; no feature branch or specification created
 
 ## Investigation Outcome
 
-End-to-end HTTP/2 is feasible in this project, including through ngrok. A true
-single-request browser-to-Go ConnectRPC bidirectional stream is not currently a
-viable portable design:
+End-to-end HTTP/2 remains feasible in this project, including through ngrok. A
+true single-request browser-to-Go ConnectRPC bidirectional stream is not a
+portable design for the accepted browser client:
 
-- Connect-Go supports client and bidirectional streams over HTTP/2.
+- Connect-Go supports client-, server-, and bidirectional-streaming RPCs. Bidi
+  requires end-to-end HTTP/2; the planned browser request stream also requires
+  HTTPS over HTTP/2 or HTTP/3 because browser Fetch rejects streaming request
+  bodies on HTTP/1.x.
 - The installed Connect-Web 2.1.2 transport supports unary and server-streaming
   browser calls, but rejects request-streaming methods.
 - Browser Fetch request streams are half-duplex: JavaScript cannot consume the
@@ -31,7 +36,15 @@ This provides effective two-way streaming while respecting browser Fetch
 constraints. Unsupported browsers and direct LAN access retain the unary
 `SetPresentation` RPC.
 
-Streaming alone will not remove pointer latency. The feature must also:
+BUG-010 already prevents stale request buildup with the existing unary
+`SetPresentation` path: the browser retains one in-flight request and one
+replaceable latest desired semantic target. Superseded unsent targets therefore
+produce no canonical revision, render, reveal restart, or preview cue. The
+remaining opportunity is controller-visible round-trip latency, not the stale
+replay defect itself.
+
+Streaming alone will not remove that remaining pointer latency. The prospective
+feature must also:
 
 - Render a controller-local transient hover by the next animation frame.
 - Coalesce pending network intents using latest-value semantics.
@@ -43,19 +56,33 @@ Streaming alone will not remove pointer latency. The feature must also:
 
 - Enable HTTP/1.1 plus h2c on the player `http.Server` in
   `internal/player/server.go`.
-- Enable h2c on the incoming and outgoing sides of the authenticated reverse
-  proxy in `internal/tunnel/public_ingress.go`.
-- Pass `ngrok.WithUpstreamProtocol("http2")` in `internal/tunnel/ngrok.go`.
+- Enable HTTP/1.1 plus h2c on the incoming `http.Server` and configure the
+  reverse proxy's outgoing transport for h2c in
+  `internal/tunnel/public_ingress.go`.
+- Construct the ngrok upstream as
+  `ngrok.WithUpstream(request.UpstreamURL, ngrok.WithUpstreamProtocol("http2"))`
+  in `internal/tunnel/ngrok.go`; `WithUpstreamProtocol` is an upstream option,
+  not an endpoint option.
 - Add a client-streaming RPC alongside `SetPresentation` in
   `proto/fallout/terminal/player/v1/player.proto`.
+- Extend `SubscribeRequest` with the per-tab client instance identity and
+  extend `SubscriptionMessage` with a targeted `ActionResult`-equivalent
+  presentation result/rejection variant. The current downlink contains only
+  snapshots and compound updates.
+- Extend `internal/player/handler.go` and `internal/player/stream.go` so the hub
+  can bind an uplink generation to one physical tab subscription and offer a
+  result to that subscription without broadcasting it to every tab in the
+  logical player session or allowing an ephemeral result to disturb canonical
+  revision delivery.
 - Exempt only the streaming procedure from whole-request buffering in
   `internal/player/http.go`; otherwise the Connect handler cannot consume
   messages until the request closes.
 - Implement a browser Connect request-stream transport using Fetch
   `ReadableStream`, generated protobuf messages, and the generated service
   descriptor. Do not create handwritten network DTOs or an RPC router.
-- Add an ephemeral per-tab `client_instance_id` so uplink results can be routed
-  through the correct existing `Subscribe` stream.
+- Add an ephemeral per-tab `client_instance_id` plus an explicit uplink
+  generation so results can be routed through the correct current `Subscribe`
+  stream and an older stream from the same tab can be rejected.
 - Keep unary fallback because browser support is not portable and direct LAN
   browser HTTP cannot rely on h2c request streaming.
 
@@ -98,11 +125,12 @@ input to `$speckit-companion-specify`.
 ```text
 Feature: HTTP/2 presentation-intent streaming
 
-Eliminate visible lag and stale selected-symbol animation when the active
-player rapidly moves across hacking targets. Introduce an optional HTTP/2
-client-streaming ConnectRPC uplink for high-frequency controller presentation
-intents while retaining the existing Subscribe server stream as the
-authoritative downlink.
+Reduce the remaining controller-visible round-trip latency when the active
+player rapidly moves across hacking targets. Preserve BUG-010's bounded
+latest-target dispatch and no-stale-replay guarantees while introducing an
+optional HTTP/2 client-streaming ConnectRPC uplink for high-frequency controller
+presentation intents. Retain the existing Subscribe server stream as the
+authoritative downlink and `SetPresentation` as the portable fallback.
 
 P1 — Responsive controller presentation
 
@@ -124,19 +152,22 @@ proving HTTP/2 between the browser and ngrok edge.
 
 P3 — Portable fallback and recovery
 
-Streaming must be capability-detected. Unsupported browsers, direct LAN HTTP,
-stream negotiation failure, or stream interruption must fall back automatically
-to the existing unary SetPresentation behavior without affecting navigation,
-guessing, pattern activation, subscription recovery, or public authentication.
-The first version must not remove SetPresentation.
+Streaming must be capability-detected and verified with an end-to-end probe;
+detecting `ReadableStream` or `Request.duplex` in JavaScript alone is
+insufficient. Unsupported browsers, direct LAN HTTP, failed probes, stream
+negotiation failure, or stream interruption must fall back automatically to the
+existing unary SetPresentation behavior without affecting navigation, guessing,
+pattern activation, subscription recovery, or public authentication. The first
+version must not remove SetPresentation.
 
 Functional requirements:
 
 - Add a protobuf client-streaming PresentationUplink RPC. Do not add a browser
   bidi RPC.
 - Keep Subscribe as the authoritative server-streaming downlink.
-- Use a per-tab ephemeral client_instance_id to associate the uplink with the
-  correct subscription and reject superseded stream generations.
+- Use a per-tab ephemeral `client_instance_id` and explicit uplink generation to
+  associate the uplink with the correct subscription and reject superseded
+  generations from the same tab.
 - Every intent must include request identity, recognition handle, broadcast,
   terminal, context key, and semantic presentation target.
 - Validate controller authority and current broadcast, terminal, and context
@@ -146,7 +177,8 @@ Functional requirements:
 - Preserve coordinator ordering for mutations that are actually accepted.
 - Deliver authoritative updates and targeted rejection/results through
   Subscribe because browser Fetch cannot read the client-stream response while
-  the request remains open.
+  the request remains open. Targeted ephemeral results must not consume,
+  reorder, or evict canonical revision delivery for the tab.
 - Bypass whole-body buffering only for the streaming procedure. Retain host,
   same-origin, Basic Auth, protobuf per-message size, decompression, and schema
   validation protections.
@@ -154,15 +186,18 @@ Functional requirements:
   cancellation, shutdown cleanup, and role/context invalidation.
 - A malformed, oversized, stale, unauthorized, or slow stream must not mutate
   canonical state or disrupt other clients.
-- Local transient hover must never grant authority, alter canonical state, or
-  trigger duplicate shared audio.
+- Key local transient hover by context and local intent sequence so an older
+  authoritative revision cannot overwrite a newer pointer target. The transient
+  layer must never grant authority or alter canonical state; it is visual-only,
+  while preview audio remains tied to an applicable authoritative update.
 - Persistent session and player-configuration formats are unchanged.
 - Other gameplay mutation RPCs remain unary.
 
 Success criteria:
 
-- A latency-backed hacking-grid sweep no longer trails the pointer through stale
-  selected-symbol animations or preview cues.
+- A latency-backed hacking-grid sweep preserves BUG-010's bounded dispatch and
+  no-stale-highlight/reveal/audio guarantees while the controller-local
+  transient presentation tracks the pointer.
 - Local controller feedback appears by the next animation frame.
 - After movement stops, controller and observers converge on the final eligible
   target without rendering superseded intermediate effects.
@@ -186,11 +221,14 @@ Out of scope:
 
 ## Recommended Workflow
 
-The current `fix/004-player-sessions-control` worktree contains uncommitted
-BUG-010 changes. Finish or checkpoint that work before starting the new feature.
+BUG-010 is patched in commit `805183b` on `fix/004-player-sessions-control`; its
+focused rapid-hover regression passes and the worktree was clean when this
+input was updated. Start the prospective feature from the intended integration
+base rather than continuing to treat BUG-010 as unfinished work.
 
 1. `$speckit-constitution` with the amendment above.
 2. `$speckit-feature-numbering-before-specify http2-presentation-streaming`
+   (current result: `specs/019-http2-presentation-streaming`)
 3. `$speckit-companion-specify` with the feature input above.
 4. `$speckit-companion-plan`
 5. `$speckit-companion-tasks`
@@ -204,8 +242,13 @@ BUG-010 changes. Finish or checkpoint that work before starting the new feature.
 - Do not remove unary fallback in the initial feature.
 - Keep gameplay mutations such as navigation and guessing unary.
 - Treat the local hover layer as transient rendering, never canonical state.
+- Treat BUG-010's one-in-flight/one-latest unary behavior as the compatibility
+  baseline and fallback, not as unfinished work to replace.
 - Coalesce on both sides of the latency boundary so a faster transport does not
   merely deliver more stale hover targets.
+- Require an end-to-end request-stream probe through the selected deployment
+  path before enabling the uplink; JavaScript API-surface detection alone does
+  not prove that an intermediary avoids buffering.
 - Rotate long-lived upload streams or otherwise bound their resource lifetime.
 - Apply protobuf message-size limits per stream message. A fixed whole-body
   limit cannot be applied to an indefinitely open request body.
@@ -217,6 +260,7 @@ BUG-010 changes. Finish or checkpoint that work before starting the new feature.
 - [Connect-Go streaming](https://connectrpc.com/docs/go/streaming/)
 - [Connect-Web v2.1.2 transport source](https://github.com/connectrpc/connect-es/blob/v2.1.2/packages/connect-web/src/connect-transport.ts)
 - [Chrome: streaming requests with Fetch](https://developer.chrome.com/docs/capabilities/web-apis/fetch-streaming-requests)
+- [MDN `RequestInit.duplex`](https://developer.mozilla.org/en-US/docs/Web/API/RequestInit#duplex)
 - [Go `net/http.Protocols`](https://pkg.go.dev/net/http#Protocols)
 - [ngrok end-to-end HTTP/2 support](https://ngrok.com/blog/http2-support)
 - [ngrok Go SDK `WithUpstreamProtocol`](https://pkg.go.dev/golang.ngrok.com/ngrok/v2#WithUpstreamProtocol)
