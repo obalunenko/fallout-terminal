@@ -34,6 +34,17 @@ const PLAYER_SESSION_INIT_CONTENDER_PREFIX = 'fallout-terminal.player-session-in
 const PLAYER_SESSION_INIT_LEASE_MS = 5000;
 const PLAYER_SESSION_INIT_RETRY_MS = 100;
 const PLAYER_SESSION_INIT_ELECTION_MS = 100;
+const PRESENTATION_RESULT_TIMEOUT_MS = 1500;
+
+function reportPresentationDiagnostic(stage, details = {}) {
+  try {
+    if (typeof window.__falloutTerminalPresentationObserver === 'function') {
+      window.__falloutTerminalPresentationObserver({ stage, ...details });
+    }
+  } catch {
+    // Test/diagnostic observation is optional and cannot affect control.
+  }
+}
 
 // ── State ─────────────────────────────────────────────────
 // Navigation and semantic selection/page/preview are authoritative mirrors.
@@ -514,13 +525,21 @@ function applyPresentationUplinkResult(result) {
 
 function failPresentationUplink(generation) {
   const uplink = activePresentationUplink;
-  if (!uplink || uplink.generation !== generation) return;
+  if (!uplink || uplink.generation !== generation) {
+    reportPresentationDiagnostic('uplink-failure-ignored', { generation: Number(generation || 0) });
+    return;
+  }
   const pending = pendingPresentationAction?.transport === 'stream'
     ? pendingPresentationAction.presentation
     : null;
+  reportPresentationDiagnostic('uplink-failed', {
+    generation,
+    pending: pending !== null,
+    desired: desiredPresentationAction !== null,
+  });
   invalidatePresentationUplink();
   if (pending) {
-    pendingPresentationAction = null;
+    clearPendingPresentationAction();
     desiredPresentationAction = desiredPresentationAction || pending;
     scheduleDesiredPresentationDispatch();
   }
@@ -742,7 +761,7 @@ async function applyPresentationMutationResult(requestId, operation) {
     console.warn('Player presentation mutation failed', error);
     if (pendingPresentationAction?.requestId === requestId) {
       const failedPresentation = pendingPresentationAction.presentation;
-      pendingPresentationAction = null;
+      clearPendingPresentationAction();
       if (!desiredPresentationAction &&
           sameControllerPresentation(localControllerPresentation, failedPresentation)) {
         clearLocalControllerPresentation();
@@ -902,7 +921,7 @@ function completeAcceptedSharedAction() {
 function completeAcceptedPresentationAction() {
   if (!pendingPresentationAction || pendingPresentationAction.acceptedRevision == null) return;
   if (appliedSharedRevision < pendingPresentationAction.acceptedRevision) return;
-  pendingPresentationAction = null;
+  clearPendingPresentationAction();
   showPlayerNotice('');
   scheduleDesiredPresentationDispatch();
 }
@@ -1026,6 +1045,11 @@ function applyLiveTerminal(msg) {
     terminalNavigation = msg.terminalNavigation || null;
     const previousPresentation = controllerPresentation;
     controllerPresentation = msg.presentation || { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+    if (pendingPresentationAction?.transport === 'stream' &&
+        sameControllerPresentation(pendingPresentationAction.presentation, controllerPresentation)) {
+      clearTimeout(pendingPresentationAction.resultTimer);
+      pendingPresentationAction.resultTimer = null;
+    }
     if (localControllerPresentation &&
         (localControllerPresentation.contextKey !== controllerPresentation.contextKey ||
          sameControllerPresentation(localControllerPresentation, controllerPresentation))) {
@@ -1246,7 +1270,7 @@ function applyActionResult(result) {
   if (pendingPresentationAction && result.requestId === pendingPresentationAction.requestId) {
     if (!result.accepted) {
       const rejectedPresentation = pendingPresentationAction.presentation;
-      pendingPresentationAction = null;
+      clearPendingPresentationAction();
       if (!desiredPresentationAction &&
           sameControllerPresentation(localControllerPresentation, rejectedPresentation)) {
         clearLocalControllerPresentation();
@@ -1392,10 +1416,16 @@ function sameControllerPresentation(left, right) {
 }
 
 function clearControllerPresentationDispatch() {
-  pendingPresentationAction = null;
+  clearPendingPresentationAction();
   desiredPresentationAction = null;
   presentationDrainScheduled = false;
   clearLocalControllerPresentation();
+}
+
+function clearPendingPresentationAction() {
+  const pending = pendingPresentationAction;
+  if (pending?.resultTimer != null) clearTimeout(pending.resultTimer);
+  pendingPresentationAction = null;
 }
 
 function effectiveControllerPresentation() {
@@ -1459,11 +1489,22 @@ function dispatchControllerPresentation(presentation) {
     playerState.activeTerminalId,
     presentation,
   );
+  const streamedGeneration = streamed ? activePresentationUplink.generation : 0;
+  reportPresentationDiagnostic('presentation-dispatched', {
+    transport: streamed ? 'stream' : 'unary',
+    generation: streamedGeneration,
+  });
   pendingPresentationAction = {
     requestId,
     acceptedRevision: null,
     presentation,
     transport: streamed ? 'stream' : 'unary',
+    resultTimer: streamed
+      ? setTimeout(() => {
+        reportPresentationDiagnostic('presentation-result-timeout', { generation: streamedGeneration });
+        failPresentationUplink(streamedGeneration);
+      }, PRESENTATION_RESULT_TIMEOUT_MS)
+      : null,
   };
   showPlayerNotice('');
   renderPlayerContext();

@@ -10,6 +10,9 @@
 presentation-intent uplink, preserve authoritative shared state and BUG-010 bounded latest-target
 behavior, and retain the existing unary path as the portable fallback.
 
+**Bugfix**: 2026-08-25 — BUG-001 adds final authoritative movement-cue delivery across public
+stream cancellation, unary fallback, and recovery.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Immediate controller presentation (Priority: P1)
@@ -40,6 +43,10 @@ pointer position by the next frame while observers change only on accepted autho
 5. **Given** controller authority, the active terminal, or the presentation context changes,
    **When** a transient target is still visible, **Then** it is invalidated without mutating shared
    gameplay state.
+6. **Given** eligible menu or hacking movement stops after one or more transient targets were
+   superseded, **When** the final target is accepted authoritatively, **Then** the controller
+   dispatches exactly one matching preview cue for that final target and zero cues for the
+   superseded targets.
 
 ---
 
@@ -106,6 +113,9 @@ gameplay actions, subscription recovery, authentication, and final controller/ob
 5. **Given** public access is authenticated, **When** streaming probes, streams, static requests,
    unary fallback, and subscriptions traverse the ingress, **Then** the same admission policy
    protects each request and credentials are not forwarded into the player service.
+6. **Given** an uplink is interrupted or rotated after transient menu or hacking input, **When** the
+   newest eligible target is accepted through unary fallback or a fresh stream generation, **Then**
+   its one authoritative cue is preserved and later accepted movements continue to produce cues.
 
 ### Edge Cases
 
@@ -121,6 +131,8 @@ gameplay actions, subscription recovery, authentication, and final controller/ob
 - A slow subscription cannot accept a targeted result without risking canonical revision delivery.
 - The end-to-end probe succeeds initially but a later intermediary or connection downgrades or
   buffers the request stream.
+- The public uplink is canceled after a transient target is rendered but before its canonical
+  acceptance; the surviving final cue must remain eligible without replaying superseded cues.
 - Public access is unavailable while direct LAN HTTP remains usable.
 - The application shuts down while streams, probes, or queued intents are active.
 
@@ -191,6 +203,11 @@ gameplay actions, subscription recovery, authentication, and final controller/ob
 - **FR-030**: The browser request-stream transport MUST use Fetch `ReadableStream`, generated
   protobuf messages, and the generated service descriptor. It MUST NOT introduce handwritten
   network DTOs or a handwritten RPC router.
+- **FR-031**: When browser audio is eligible and the required asset is available, each distinct
+  final applicable authoritative menu or hacking transition MUST dispatch exactly one matching
+  controller preview cue after movement stops, including after uplink interruption or rotation,
+  unary fallback, and fresh-generation recovery; transient and superseded targets MUST dispatch
+  zero cues.
 
 ### Impacted Application Surfaces
 
@@ -309,6 +326,11 @@ concrete behavioral gates above.
   contract generation, schema compatibility, frontend production build, complete browser tests,
   and arm64 packaging all pass; credential-dependent real-public verification is reported as pass
   or `NOT RUN` rather than replaced by a fake.
+- **SC-011**: With browser audio eligibility and assets controlled by the test, a deterministic
+  public-path journey that cancels or rotates the uplink records exactly one matching cue for the
+  final accepted menu target and exactly one for the final accepted hacking target, zero cues for
+  superseded targets, and a matching cue for the next accepted movement after fallback or
+  fresh-generation recovery.
 
 ## Assumptions
 

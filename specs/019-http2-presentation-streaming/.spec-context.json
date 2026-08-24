@@ -387,7 +387,7 @@
       "at": "2026-08-24T19:11:31.986Z"
     }
   ],
-  "last_action": "living specs evaluated — skipped (not configured)",
+  "last_action": "BUG-001 implementation validated — 137 browser tests passed, packaged smoke and real-ngrok integration passed; task fold refused terminal context",
   "coverage": {
     "FR-001": {
       "title": "The active controller receives eligible target feedback by the next animation frame without waiting for the network.",
@@ -712,6 +712,12 @@
         "T027",
         "T035"
       ]
+    },
+    "FR-031": {
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs::public stream rotation preserves one final authoritative menu and hacking cue",
+        "tests/browser/public-access-fallback.spec.mjs::stream cancellation preserves the surviving cue and later fresh-generation cues"
+      ]
     }
   },
   "size": "oversized",
@@ -767,6 +773,11 @@
       "decision": "Supersede the earlier targeted-result mailbox decision: keep it capacity-one and non-lossy; only the originating uplink processor waits for result capacity or cancellation, without blocking canonical delivery or holding coordinator locks.",
       "why": "Processed targeted rejections/results must reach the active tab while canonical revision delivery remains isolated.",
       "rejected": "Replacing or silently dropping processed results; blocking the canonical queue or coordinator."
+    },
+    {
+      "decision": "Bound each streamed presentation result wait to 1.5 seconds before invalidating the generation and transferring the newest eligible target to unary",
+      "why": "Fetch half-duplex can keep an upload pending after the server rotates its uplink, so server closure alone is not a timely browser failure signal",
+      "rejected": "Rely indefinitely on Fetch rejection or make transient/superseded targets audible"
     }
   ],
   "step_summaries": {
@@ -779,6 +790,9 @@
       "summary": "38 dependency-ordered tasks across Setup, Foundational, three prioritized user-story phases, and Polish; each implementation wave is preceded by focused RED tests and followed by explicit joins.",
       "key_finding": "Client and server latest-only mailboxes plus non-lossy starvation-free targeted delivery require distinct bounded queues and single-owner processors.",
       "risks": "Browser request-stream support, cross-tab generation binding, HTTP/2 hop proof, targeted backpressure, and stale visual/audio reconciliation require race and Playwright stress coverage."
+    },
+    "implement": {
+      "summary": "Recovered exactly-once authoritative movement cues across silent uplink rotation, unary fallback, and fresh-generation recovery."
     }
   },
   "currentTask": "T038",
@@ -1121,6 +1135,46 @@
       "warnings": [
         "macOS linker emitted deployment-target mismatch warnings for Wails/CGo objects"
       ]
+    },
+    {
+      "what": "focused cue and fallback browser journeys",
+      "command": "npm test --prefix tests/browser -- player-sessions-control.spec.mjs public-access-fallback.spec.mjs",
+      "result": "22 passed",
+      "warnings": [
+        "local TLS fixture emitted expected self-signed handshake diagnostics"
+      ]
+    },
+    {
+      "what": "complete browser suite",
+      "command": "npm test --prefix tests/browser",
+      "result": "137 passed, 2 credential-dependent browser journeys skipped",
+      "warnings": [
+        "real-provider browser journeys require separately supplied packaged endpoint variables"
+      ]
+    },
+    {
+      "what": "Go concurrency and compatibility",
+      "command": "go test -race ./internal/player ./tests/browser/fixture-server && go test ./internal/player ./internal/tunnel",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "arm64 package and native controller-observer smoke",
+      "command": "go run ./cmd/build build && go run ./cmd/build package && scripts/state-changing-reset-native-smoke.sh --presentation build/bin/Fallout Terminal.app",
+      "result": "passed; feedback 46ms, convergence 1ms",
+      "warnings": []
+    },
+    {
+      "what": "real ngrok generated-stream integration",
+      "command": "FALLOUT_NGROK_INTEGRATION=1 go test ./internal/tunnel -run TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe -count=1 -v",
+      "result": "passed",
+      "warnings": []
+    }
+  ],
+  "concerns": [
+    {
+      "note": "The feature context was already status=completed before BUG-001 reopened tasks; the sanctioned writer refused new task finishes, so reopened task checkboxes could not be materialized without violating lifecycle ownership.",
+      "step": "implement"
     }
   ]
 }

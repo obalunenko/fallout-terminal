@@ -4,6 +4,8 @@
 
 **Input**: Feature specification from `specs/019-http2-presentation-streaming/spec.md`
 
+**Bugfix**: 2026-08-25 — BUG-001 updated from bugfix patch.
+
 ## Summary
 
 Give the active controller next-frame visual response while keeping canonical presentation, observer
@@ -180,6 +182,13 @@ No changes. The browser player remains independent of Wails and private desktop 
 - The controller keeps a visual-only transient target keyed by context and local sequence. Rendering
   may use it immediately; observers, canonical mirrors, revisions, and preview audio continue to use
   applicable authoritative updates only.
+- Final-cue eligibility is keyed to the distinct applicable authoritative menu or hacking
+  transition. Suppressing a transient, stale, or superseded target cannot consume the surviving
+  final cue; the matching canonical transition dispatches it once. Cancellation, unary fallback,
+  and a fresh uplink generation preserve that eligibility only while the target and presentation
+  context remain current. Test diagnostics distinguish cue dispatch from manifest, fetch, decode,
+  `AudioContext` resume, and source-start failure without exposing secrets or adding noisy
+  first-party console output.
 
 ### Platform, Tunnel, and Packaging
 
@@ -238,7 +247,9 @@ probe bound to `Subscribe`, separate canonical/result queues, and unchanged unar
 4. Add a capacity-one browser outbound mailbox, next-frame visual transient presentation,
    authoritative reconciliation, stale effect suppression, lifecycle invalidation, and automatic
    BUG-010 unary fallback after unsupported capability, failed probe, interruption, or rotation. On
-   stream failure, transfer only the newest still-eligible mailbox or local target to unary dispatch.
+   stream failure, transfer only the newest still-eligible mailbox or local target to unary dispatch
+   while preserving exactly-once final authoritative cue eligibility through fallback and a later
+   successfully probed generation.
 
 ### Phase 4: Integration and Packaging
 
@@ -262,8 +273,8 @@ probe bound to `Subscribe`, separate canonical/result queues, and unchanged unar
 | Player adapters/handler/hub | `go test ./internal/player` | N/A | Per-intent validation, capacity-one input replacement, non-lossy targeted delivery, exact routing, canonical queue isolation, cancellation, and shutdown pass |
 | HTTP protocol path | Focused player and tunnel tests with HTTP/1 and h2c clients | Inspect opt-in real hop evidence | HTTP/1 remains usable; both local stream hops report HTTP/2 |
 | Concurrent runtime | `make test-race` | Rapid reconnect/reassign/close exercise | A full targeted mailbox blocks only its uplink processor; cancellation unblocks it with no race, leak, deadlock, stale generation, or cross-tab result |
-| Browser player | `npm run build:client --prefix frontend` and `npm test --prefix tests/browser` | Delayed controller, stalled request-body consumer, plus two observer windows | Next-frame local visual, bounded latest-only transport, authoritative audio, final convergence, and unary fallback |
-| Public access/security | Tunnel tests, `scripts/secret-leak-check.sh`, real ngrok opt-in | Correct/wrong Basic Auth and interrupted public stream | Auth remains fail-closed, credentials stripped, local/LAN unaffected, stream falls back safely |
+| Browser player | `npm run build:client --prefix frontend` and `npm test --prefix tests/browser` | Delayed controller, stalled request-body consumer, plus two observer windows | Next-frame local visual, bounded latest-only transport, exactly one final authoritative menu/hacking cue with zero superseded cues, final convergence, and unary fallback |
+| Public access/security | Tunnel tests, `scripts/secret-leak-check.sh`, real ngrok opt-in | Correct/wrong Basic Auth and interrupted public stream | Auth remains fail-closed, credentials stripped, local/LAN unaffected, stream falls back safely, and later accepted movement cues recover |
 | Full quality | `make check` | N/A | Formatting, vet, lint, Go/race, schema, generation, bindings all pass |
 | Build/package | `go run ./cmd/build build` and `go run ./cmd/build package` | Launch packaged arm64 app and exercise controller/observer | Self-contained app serves generated client and preserves shutdown/fallback |
 | Conditional real provider | `FALLOUT_NGROK_INTEGRATION=1 go test ./internal/tunnel -run TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe -count=1` plus configured Playwright journey | Public HTTPS page | PASS with generated uplink and player-hop HTTP/2 evidence, or honestly `NOT RUN`; focused ingress tests independently prove the ingress hop |
@@ -277,5 +288,8 @@ probe bound to `Subscribe`, separate canonical/result queues, and unchanged unar
   or evict canonical capacity.
 - Browser request-body streaming is deployment-dependent and must fail back without changing
   navigation, guessing, pattern activation, auth, or subscription recovery.
+- Public request cancellation can occur after a transient visual target but before canonical cue
+  delivery, so reconciliation must preserve one eligible final cue across fallback or re-probe
+  without replaying any superseded cue.
 - Public HTTPS terminates outside the process, while both application-owned loopback hops must be
   demonstrably h2c and still serve HTTP/1.1 compatibility traffic.

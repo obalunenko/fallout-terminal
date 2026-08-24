@@ -2,6 +2,8 @@
 
 **Input**: Design documents from `specs/019-http2-presentation-streaming/`
 
+**Bugfix**: 2026-08-25 — BUG-001 updated from bugfix patch.
+
 **Prerequisites**: `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/`, and
 `quickstart.md`
 
@@ -88,7 +90,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 1:**
 
-- [x] **T015** [US1] Add RED Playwright coverage for next-frame local menu/page/hacking presentation, a 100-target sweep, same-target duplicate suppression, delayed older revisions, authoritative-only preview audio, context/role invalidation, and final controller-plus-two-observer convergence · `tests/browser/player-sessions-control.spec.mjs`
+- [ ] **T015** [US1] ⚠️ Reopened — Add RED Playwright coverage for next-frame local menu/page/hacking presentation, a 100-target sweep, same-target duplicate suppression, delayed older revisions, authoritative-only preview audio, exactly one final authoritative menu and hacking cue under eligible audio, context/role invalidation, and final controller-plus-two-observer convergence (reopened — BUG-001) · `tests/browser/player-sessions-control.spec.mjs`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
@@ -102,7 +104,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 3:**
 
-- [x] **T017** [US1] Run the focused controller/observer journey and verify next-frame feedback, zero superseded highlight/reveal/audio replay, duplicate suppression, and one-second final convergence · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs`
+- [ ] **T017** [US1] ⚠️ Reopened — Run the focused controller/observer journey and verify next-frame feedback, exactly one final authoritative menu and hacking cue, zero superseded highlight/reveal/audio replay, duplicate suppression, and one-second final convergence (reopened — BUG-001) · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs`
 
 **Checkpoint**: User Story 1 is independently functional and testable through the existing unary path before request streaming is enabled.
 
@@ -159,7 +161,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 **Wave 1 — independent (different files):**
 
 - [x] **T030** [P] [US3] Add RED public-access fallback journeys for direct LAN HTTP, missing request-stream APIs, failed/timeout/buffered probes, wrong credentials, interrupted or rotated uplinks, public unavailability, and later fresh-probe recovery · `tests/browser/public-access-fallback.spec.mjs`
-- [x] **T031** [P] [US3] Add RED controller regression journeys proving stream failure transfers only the newest eligible target to unary, never sends one target through both transports, clears stale local state on role/broadcast/terminal/context/reconnect changes, and leaves navigation, guessing, pattern activation, character selection, and observer convergence unchanged · `tests/browser/player-sessions-control.spec.mjs`
+- [ ] **T031** [P] [US3] ⚠️ Reopened — Add RED controller regression journeys proving stream failure transfers only the newest eligible target to unary, preserves exactly one final authoritative menu and hacking cue through interruption/rotation and later recovery, never sends one target through both transports, clears stale local state on role/broadcast/terminal/context/reconnect changes, and leaves navigation, guessing, pattern activation, character selection, and observer convergence unchanged (reopened — BUG-001) · `tests/browser/player-sessions-control.spec.mjs`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
@@ -173,7 +175,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 3:**
 
-- [x] **T033** [US3] Run focused fallback, controller, HTTP/1.1, auth, and existing gameplay journeys and verify automatic convergence with no duplicate mutation or loss of local/LAN service · `npm test --prefix tests/browser -- public-access-fallback.spec.mjs player-sessions-control.spec.mjs`, `go test ./internal/player ./internal/tunnel`
+- [ ] **T033** [US3] ⚠️ Reopened — Run focused fallback, controller, HTTP/1.1, auth, and existing gameplay journeys and verify automatic convergence, exactly-once final movement cues and later cue recovery, with no duplicate mutation or loss of local/LAN service (reopened — BUG-001) · `npm test --prefix tests/browser -- public-access-fallback.spec.mjs player-sessions-control.spec.mjs`, `go test ./internal/player ./internal/tunnel`
 
 **Checkpoint**: All three user stories are independently functional; streaming remains an optional optimization and cannot block basic player control.
 
@@ -201,13 +203,38 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 4:**
 
-- [x] **T037** Validate the player production build and complete Playwright suite, including ≥100-target next-frame/latest-only behavior, two-observer convergence, all fallback paths, HTTP auth, reconnect, and unchanged gameplay · `npm run build:client --prefix frontend`, `npm test --prefix tests/browser`
+- [ ] **T037** ⚠️ Reopened — Validate the player production build and complete Playwright suite, including ≥100-target next-frame/latest-only behavior, exactly one final authoritative menu and hacking cue with zero superseded cues, cue recovery after interruption, two-observer convergence, all fallback paths, HTTP auth, reconnect, and unchanged gameplay (reopened — BUG-001) · `npm run build:client --prefix frontend`, `npm test --prefix tests/browser`
 
 **⟶ Wait for Wave 4 to finish, then:**
 
 **Wave 5:**
 
 - [x] **T038** Build and package the arm64 application, run the documented controller/observer packaged smoke, and execute the credential-gated real-ngrok journey when prerequisites exist; record unavailable external evidence as `NOT RUN` · `go run ./cmd/build build`, `go run ./cmd/build package`, `internal/tunnel/ngrok_integration_test.go`, `specs/019-http2-presentation-streaming/quickstart.md`
+
+## Phase 7: BUG-001 — Authoritative Movement Cue Recovery
+
+**Purpose**: Reproduce and fix missing final menu/hacking cues across public-stream cancellation,
+fallback, and recovery without making transient or superseded targets audible.
+
+**Wave 1 — independent (different browser test files):**
+
+- [ ] **T039** [P] [US1] Add a deterministic RED public-HTTPS/ngrok-faithful journey that records cue dispatch, forces `PresentationUplink` cancellation or rotation, stops menu and hacking movement, and asserts exactly one matching final authoritative cue for each category with zero superseded cues · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/fixture-server/main.go`
+- [ ] **T040** [P] [US3] Add a RED recovery journey proving that the surviving final target and later accepted menu/hacking movements dispatch exactly one cue after unary fallback and after a fresh uplink generation becomes ready · `tests/browser/public-access-fallback.spec.mjs`
+
+**Reopened task join**: T015 and T031 must be RED with the BUG-001 lower-bound assertions before
+Wave 2 begins.
+
+**⟶ Wait for Wave 1 and the reopened task join to finish, then:**
+
+**Wave 2:**
+
+- [ ] **T041** [US1] [US3] Reproduce the failing stage and fix the identified cue-reconciliation or audio-retry path so final applicable authoritative transitions remain exactly-once across cancellation, fallback, and recovery; add bounded test diagnostics that distinguish dispatch from manifest, fetch, decode, `AudioContext` resume, and source-start failure without exposing secrets or adding noisy first-party console output · `frontend/client/client.js`, `frontend/client/sound.js`
+
+**⟶ Wait for Wave 2 to finish, then:**
+
+**Wave 3:**
+
+- [ ] **T042** [US1] [US3] Complete reopened T017, T033, and T037; run the focused and full browser suites, production build, packaged controller/observer smoke, and credential-gated real-ngrok journey, recording external prerequisites as `NOT RUN` and confirming exactly one final menu/hacking cue, zero superseded cues, and later cue recovery · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs public-access-fallback.spec.mjs`, `npm test --prefix tests/browser`, `npm run build:client --prefix frontend`, `go run ./cmd/build build`, `go run ./cmd/build package`, `internal/tunnel/ngrok_integration_test.go`
 
 ## Dependencies & Execution Order
 
@@ -217,7 +244,8 @@ packaging. Tests are written to fail before their corresponding implementation.
 - Phase 4 Wave 1 adds independent player, ingress, ngrok, browser, and real-provider tests; Wave 2 implements each subsystem independently; Wave 3 joins browser and server integration; Wave 4 runs the focused public-stream proof.
 - Phase 5 Wave 1 adds independent public-path and gameplay fallback tests; Wave 2 integrates fallback ownership in the shared browser state; Wave 3 verifies recovery and compatibility.
 - Phase 6 updates design evidence first, then runs schema/security/persistence, Go/race, browser, and build/package/real-provider validation in order.
-- Overall order is Setup → Foundational → US1 → US2 → US3 → Polish. A later story must keep every earlier checkpoint green.
+- Phase 7 runs T015, T031, T039, and T040 as the RED join; T041 applies the proven fix; T017, T033, T037, and T042 then provide focused, full, packaged, and conditional real-provider verification.
+- Overall order is Setup → Foundational → US1 → US2 → US3 → Polish → BUG-001. The bugfix phase must keep every earlier checkpoint green.
 
 ## Parallel Opportunities
 
@@ -226,4 +254,6 @@ packaging. Tests are written to fail before their corresponding implementation.
 - Phase 4 Wave 1 tests and Wave 2 subsystem implementations are independent by player, ingress, ngrok, and browser file boundaries.
 - Phase 4 Wave 3 browser integration and generated-client Go integration touch different files after all protocol producers are complete.
 - Phase 5 fallback tests may be authored independently, but the shared `frontend/client/client.js` implementation remains single-owner and follows both.
+- BUG-001 T039 and T040 may proceed in parallel because they use different browser journey files;
+  T041 is a single-owner browser runtime change after both RED proofs, and T042 is sequential.
 - Validation waves are intentionally sequential so generation, race, browser, package, and external-service evidence cannot interfere or mask drift.

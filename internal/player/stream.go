@@ -339,6 +339,26 @@ func (hub *SubscriptionHub) CloseAll() {
 	}
 }
 
+// CloseUplinks cancels every presentation optimization stream while retaining
+// the physical subscriptions that carry canonical state. It is safe to call
+// repeatedly, allowing a lifecycle boundary to rotate uplinks without forcing
+// an authoritative downlink reconnect.
+func (hub *SubscriptionHub) CloseUplinks(cause error) {
+	if hub == nil {
+		return
+	}
+	hub.mu.Lock()
+	uplinks := make([]*PresentationUplink, 0, len(hub.uplinks))
+	for _, uplink := range hub.uplinks {
+		uplinks = append(uplinks, uplink)
+	}
+	hub.uplinks = make(map[string]*PresentationUplink)
+	hub.mu.Unlock()
+	for _, uplink := range uplinks {
+		uplink.Close(cause)
+	}
+}
+
 func (hub *SubscriptionHub) removeLocked(stream *Subscription) {
 	delete(hub.byID, stream.ID())
 	if stream.ClientInstanceID() != "" && hub.byClient[stream.ClientInstanceID()] == stream {

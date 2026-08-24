@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test';
+import {
+  installMovementCueDiagnostics,
+  movementCueDiagnostics,
+  resetMovementCueDiagnostics,
+} from './helpers/movement-cue-diagnostics.mjs';
 
 const TOKEN_KEY = 'fallout-terminal.player-token';
 const PLAYER_SERVICE = '/fallout.terminal.player.v1.PlayerService/';
@@ -676,24 +681,7 @@ test('controller paging and hacking preview are authoritative while observer con
 });
 
 test('rapid hacking hover keeps one presentation in flight and follows with only the latest target', async ({ browser, page, request }) => {
-  await page.addInitScript(() => {
-    window.__bug010CueURLs = [];
-    window.__falloutTerminalSoundObserver = url => window.__bug010CueURLs.push(String(url));
-    class ObservableAudioContext {
-      state = 'running';
-      destination = {};
-      async resume() { this.state = 'running'; }
-      async decodeAudioData() { return {}; }
-      createBufferSource() {
-        return { buffer: null, connect() {}, start() {} };
-      }
-      createGain() {
-        return { gain: { value: 0 }, connect() {} };
-      }
-    }
-    Object.defineProperty(window, 'AudioContext', { configurable: true, value: ObservableAudioContext });
-    Object.defineProperty(window, 'webkitAudioContext', { configurable: true, value: ObservableAudioContext });
-  });
+  await installMovementCueDiagnostics(page);
 
   await openPlayer(page);
   await selectFirstAvailable(page);
@@ -714,7 +702,7 @@ test('rapid hacking hover keeps one presentation in flight and follows with only
 
   await page.evaluate(() => {
     const preview = document.querySelector('#hackInputPreview');
-    window.__bug010CueURLs = [];
+    window.__movementCueURLs = [];
     window.__bug010PreviewTransitions = [];
     window.__bug010PreviewObserver = new MutationObserver(() => {
       window.__bug010PreviewTransitions.push(preview.textContent || '');
@@ -776,15 +764,90 @@ test('rapid hacking hover keeps one presentation in flight and follows with only
     window.__bug010PreviewObserver?.disconnect();
     return {
       previews: window.__bug010PreviewTransitions,
-      cues: window.__bug010CueURLs.filter(url => /\/sounds\/(?:single|multiple)\//.test(url)),
+      cues: window.__movementCueURLs.filter(url => /\/sounds\/(?:single|multiple)\//.test(url)),
     };
   });
   expect(
     new Set(diagnostics.previews.filter(Boolean)).size,
     JSON.stringify(diagnostics),
   ).toBeLessThanOrEqual(2);
-  expect(diagnostics.cues.length).toBeLessThanOrEqual(2);
+  expect(diagnostics.cues, JSON.stringify(diagnostics)).toHaveLength(1);
+  expect(diagnostics.cues[0]).toContain('/sounds/multiple/');
   await observerContext.close();
+});
+
+test('public stream rotation preserves one final authoritative menu and hacking cue', async ({ browser, request }) => {
+  const edgeStatus = await request.get('/__fixture/edge/status');
+  const protectedOrigin = (await edgeStatus.json()).publicUrl;
+  const context = await browser.newContext({
+    httpCredentials: { username: 'players', password: 'password-long-enough' },
+    ignoreHTTPSErrors: true,
+  });
+  await installPlayerDiagnostics(context);
+  await installMovementCueDiagnostics(context);
+  const [controller, observerOne, observerTwo] = await Promise.all([
+    context.newPage(), context.newPage(), context.newPage(),
+  ]);
+  let controllerUplinks = 0;
+  controller.on('request', observed => {
+    if (observed.url().endsWith(`${PLAYER_SERVICE}PresentationUplink`)) controllerUplinks += 1;
+  });
+
+  await Promise.all([controller, observerOne, observerTwo].map(page => page.goto(protectedOrigin + '/')));
+  await Promise.all([controller, observerOne, observerTwo].map(page => expect(page.locator('#connOverlay')).toBeHidden()));
+  await selectFirstAvailable(controller);
+  await Promise.all([controller, observerOne, observerTwo].map(page => expect(page.locator('#termList')).toBeVisible()));
+  expect((await request.post('/__fixture/local/crt/content')).status()).toBe(204);
+  await Promise.all([controller, observerOne, observerTwo].map(page => expect(page.locator('.term-row')).toHaveCount(25)));
+  await expect.poll(() => controllerUplinks).toBeGreaterThanOrEqual(1);
+  await controller.waitForTimeout(250);
+
+  await resetMovementCueDiagnostics(controller);
+  expect((await request.post('/__fixture/edge/presentation-gate/arm')).status()).toBe(204);
+  const unselectedMenuRows = controller.locator('.term-row:not(.sel)');
+  await expect.poll(() => unselectedMenuRows.count()).toBeGreaterThanOrEqual(2);
+  const supersededMenu = unselectedMenuRows.nth(0);
+  const finalMenu = unselectedMenuRows.nth(1);
+  await supersededMenu.hover();
+  await expect.poll(async () => (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(204);
+  const finalMenuText = (await finalMenu.textContent()).trim();
+  await finalMenu.hover();
+  expect((await request.post('/__fixture/edge/presentation-gate/cancel-uplinks')).status()).toBe(204);
+
+  await Promise.all([controller, observerOne, observerTwo].map(page =>
+    expect(page.locator('.term-row.sel')).toHaveText(finalMenuText)));
+  await expect.poll(async () => (await movementCueDiagnostics(controller)).urls
+    .filter(url => url.includes('/sounds/menu-focus/')).length).toBe(1);
+  let diagnostics = await movementCueDiagnostics(controller);
+  expect(diagnostics.urls.filter(url => url.includes('/sounds/menu-focus/')), JSON.stringify(diagnostics)).toHaveLength(1);
+  expect(diagnostics.stages.filter(event => event.stage === 'dispatch' && event.folder === 'menu-focus')).toHaveLength(1);
+  expect(diagnostics.stages.filter(event => event.stage === 'source-started' && event.url.includes('/sounds/menu-focus/'))).toHaveLength(1);
+
+  expect((await request.post('/__fixture/edge/hacking')).status()).toBe(204);
+  await Promise.all([controller, observerOne, observerTwo].map(page => expect(page.locator('#hackBoard')).toBeVisible()));
+  await expect.poll(() => controllerUplinks, { timeout: 5_000 }).toBeGreaterThanOrEqual(2);
+  await controller.waitForTimeout(250);
+  await resetMovementCueDiagnostics(controller);
+  expect((await request.post('/__fixture/edge/presentation-gate/arm')).status()).toBe(204);
+  await controller.locator('.hcell.filler').first().hover();
+  await expect.poll(async () => (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(204);
+  const finalHackTarget = controller.locator('.hcell.word').last();
+  const finalHackID = await finalHackTarget.getAttribute('data-target');
+  await finalHackTarget.hover();
+  expect((await request.post('/__fixture/edge/presentation-gate/cancel-uplinks')).status()).toBe(204);
+
+  await Promise.all([controller, observerOne, observerTwo].map(page =>
+    expect.poll(() => page.locator('.hcell.hi').first().getAttribute('data-target')).toBe(finalHackID)));
+  await expect.poll(async () => (await movementCueDiagnostics(controller)).urls
+    .filter(url => /\/sounds\/(?:single|multiple)\//.test(url)).length).toBe(1);
+  diagnostics = await movementCueDiagnostics(controller);
+  const hackingCues = diagnostics.urls.filter(url => /\/sounds\/(?:single|multiple)\//.test(url));
+  expect(hackingCues, JSON.stringify(diagnostics)).toHaveLength(1);
+  expect(hackingCues[0]).toContain('/sounds/multiple/');
+  expect(diagnostics.stages.filter(event => event.stage === 'dispatch' && event.folder === 'multiple')).toHaveLength(1);
+  expect(diagnostics.stages.filter(event => event.stage === 'source-started' && event.url.includes('/sounds/multiple/'))).toHaveLength(1);
+
+  await context.close();
 });
 
 test('optional audio failures never block typed selection or navigation', async ({ page }) => {

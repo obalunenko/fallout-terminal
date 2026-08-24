@@ -248,6 +248,31 @@ func TestTargetedMailboxIsNonLossyAndIndependentFromCanonicalQueue(t *testing.T)
 	require.False(t, stream.PublishTargeted(t.Context(), targetedResult("tab-1", 1, "request-3")))
 }
 
+func TestCloseUplinksRetainsAuthoritativeSubscriptions(t *testing.T) {
+	hub := NewSubscriptionHub()
+	snapshot := subscriptionSnapshot(1)
+	snapshot.GetSnapshot().RecognitionHandle = "recognition-logical-1"
+	stream := NewSubscription(t.Context(), "physical-1", "logical-1", snapshot, 1, "tab-1")
+	hub.Register(stream)
+	uplink, err := hub.BindUplink(t.Context(), PresentationUplinkBinding{
+		RecognitionHandle: domain.RecognitionHandle("recognition-logical-1"),
+		ClientInstanceID:  "tab-1",
+		Generation:        1,
+	})
+	require.NoError(t, err)
+
+	cause := errors.New("test uplink rotation")
+	hub.CloseUplinks(cause)
+	require.ErrorIs(t, context.Cause(uplink.Context), cause)
+	require.False(t, hub.Current(uplink))
+	require.Equal(t, 1, hub.Count())
+	select {
+	case <-stream.Done():
+		assert.FailNow(t, "uplink rotation closed the authoritative subscription")
+	default:
+	}
+}
+
 func TestLatestIntentMailboxReplacesOnlyUnprocessedValue(t *testing.T) {
 	mailbox := NewLatestIntentMailbox()
 	require.True(t, mailbox.Offer(&playerv1.PresentationIntent{RequestId: "request-1"}))
