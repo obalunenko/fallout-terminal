@@ -283,7 +283,8 @@ test('transition authoring is mutually exclusive, validates locally, and survive
 test('deleting a referenced terminal is blocked before local mutation', async ({ page }) => {
   await openOverseer(page);
 	const security = page.locator('.term-row', { hasText: 'Терминал охраны' });
-  await security.getByRole('button', { name: 'УДАЛИТЬ' }).click();
+  await security.locator('[data-action-menu-trigger="terminal"]').click();
+  await security.getByRole('menuitem', { name: 'УДАЛИТЬ ТЕРМИНАЛ' }).click();
 	await expect(page.locator('#coordinationError')).toContainText(/ссыла|переход/i);
 	await expect(page.locator('.term-row', { hasText: 'Терминал охраны' })).toHaveCount(1);
 });

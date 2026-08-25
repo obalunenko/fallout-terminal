@@ -1,5 +1,7 @@
 # Tasks: Terminal Grouping
 
+**Bugfix**: 2026-08-25 — BUG-001 Updated from bugfix patch; T017 and T035 reopened and UX correction tasks T071–T074 added.
+
 ## Phase 1: Setup
 
 No setup-only changes are required. The feature uses the repository's existing pinned protobuf, Wails binding, Go, frontend, and Playwright tooling.
@@ -56,7 +58,7 @@ No setup-only changes are required. The feature uses the repository's existing p
 **⟶ Wait for Wave 2 to finish, then Wave 3 — independent presentation structure:**
 
 - [x] **T016** [P] [US1] Replace the flat terminal-list container with accessible high-level group markup and terminal members · `frontend/overseer/src/index.html`
-- [x] **T017** [P] [US1] Style group hierarchy, ordered members, singleton states, selection, and responsive layout · `frontend/overseer/src/overseer.css`
+- [x] **T017** [P] [US1] ⚠️ Reopened — replace the fixed-width crowded hierarchy with the wider responsive BUG-001 layout, readable wrapping names, member counts, and collapsible group styling (reopened — BUG-001) · `frontend/overseer/src/overseer.css`
 
 **⟶ Wait for Wave 3 to finish, then:**
 
@@ -118,7 +120,7 @@ No setup-only changes are required. The feature uses the repository's existing p
 **⟶ Wait for T033 to finish, then Wave 9 — independent UI surfaces:**
 
 - [x] **T034** [P] [US2] Add accessible group CRUD/move controls and the destructive impact confirmation dialog · `frontend/overseer/src/index.html`
-- [x] **T035** [P] [US2] Style group editing, validation, destructive impact, busy, stale, and focus states · `frontend/overseer/src/overseer.css`
+- [x] **T035** [P] [US2] ⚠️ Reopened — style target-specific overflow menus, clear focus states, and visually separated destructive actions without inline control crowding (reopened — BUG-001) · `frontend/overseer/src/overseer.css`
 - [x] **T036** [P] [US2] Add the revisioned group command and canonical result normalization to the private desktop API facade · `frontend/overseer/src/desktop-api.js`
 
 **⟶ Wait for Wave 9 to finish, then:**
@@ -266,3 +268,23 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 - [ ] T069 Add an exact three-group, ten-terminal save/reopen acceptance matrix that preserves every group identity, name, group order, member order, and exact-one membership in `internal/session/service_test.go` per SC-001 (partial)
 - [ ] T070 Aggregate deterministic sanitized identities for every authored command invalidated by one cross-group replacement, including multiple commands with the same endpoints, and assert the complete feedback through domain, coordinator/application, and browser coverage per US5/AC3 (partial)
+
+## Phase 13: BUG-001 — Terminal List UX Correction
+
+**Visual reference**: `bugs/assets/BUG-001-terminal-list-ux-mockup.png`
+
+**Wave 1 — failing UX coverage:**
+
+- [x] **T071** [US1] [US2] Add browser journeys for 1280×720 and 1600×900 layout integrity, readable Russian names, group disclosure, target-specific menu labels, destructive-action separation, selection preservation, and pointer/keyboard reachability per FR-048–FR-051 and SC-015–SC-016 · `tests/browser/terminal-grouping.spec.mjs`
+
+**⟶ Wait for T071 to finish, then complete reopened T017 and T035 and:**
+
+- [x] **T072** [US1] [US2] Render member counts, persistent in-memory disclosure state, and one accessible target-specific action menu for every group and terminal while reusing existing mutation handlers · `frontend/overseer/src/index.html`, `frontend/overseer/src/overseer.js`
+
+**⟶ Wait for T017, T035, and T072 to finish, then:**
+
+- [x] **T073** [US1] [US2] Add Escape/outside-click menu closure, deterministic focus restoration, and regression coverage for selection and dialog transitions initiated from contextual menus · `frontend/overseer/src/overseer.js`, `tests/browser/terminal-grouping.spec.mjs`
+
+**⟶ Wait for T073 to finish, then:**
+
+- [x] **T074** [US1] [US2] Run the Overseer build and terminal-grouping browser suite, verify the supported viewport matrix against the BUG-001 mockup, and record all BUG-001 requirements as satisfied · `frontend/overseer/`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-001.md`

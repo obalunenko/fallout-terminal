@@ -121,6 +121,26 @@ function terminalRow(page, terminalID) {
   return page.locator(`.terminal-group-members > .term-row[data-terminal-id="${terminalID}"]`);
 }
 
+function groupActionTrigger(page, groupID) {
+  return groupRow(page, groupID).locator('[data-action-menu-trigger="terminal-group"]');
+}
+
+function terminalActionTrigger(page, terminalID) {
+  return terminalRow(page, terminalID).locator('[data-action-menu-trigger="terminal"]');
+}
+
+async function chooseGroupAction(page, groupID, action) {
+  const group = groupRow(page, groupID);
+  await groupActionTrigger(page, groupID).click();
+  await group.locator(`.terminal-group-header > .terminal-action-menu [data-action="${action}"]`).click();
+}
+
+async function chooseTerminalAction(page, terminalID, action) {
+  const terminal = terminalRow(page, terminalID);
+  await terminalActionTrigger(page, terminalID).click();
+  await terminal.locator(`:scope > .terminal-action-menu [data-action="${action}"]`).click();
+}
+
 function groupDraftDialog(page) {
   return page.locator('#terminalGroupDraftDialog');
 }
@@ -183,6 +203,85 @@ test('renders groups as the only high-level terminal representation with exact-o
   expect(renderedTerminalIDs).toHaveLength(session.terminals.length);
   expect(new Set(renderedTerminalIDs).size).toBe(session.terminals.length);
   expect(new Set(renderedTerminalIDs)).toEqual(new Set(session.terminals.map(terminal => terminal.id)));
+});
+
+test('keeps the group hierarchy readable and contextual actions reachable at supported desktop viewports', async ({ page, request }) => {
+  await resetFixture(request, 'ordered');
+
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 1600, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await openOverseer(page);
+
+    await expect(page.locator('.term-panel > .panel-hdr').first()).toHaveText('ГРУППЫ И ТЕРМИНАЛЫ');
+    await expect(groupRow(page, 'north-route').locator('.terminal-group-member-count')).toHaveText('2 ТЕРМИНАЛА');
+    await expect(groupRow(page, 'north-route').locator('.terminal-group-name')).toHaveText('Северный маршрут');
+    await expect(terminalRow(page, 'gamma').locator('.term-row-name')).toHaveText('Терминал Гамма');
+
+    const layout = await page.locator('.term-panel').evaluate(panel => ({
+      panelWidth: panel.getBoundingClientRect().width,
+      panelOverflow: panel.scrollWidth > panel.clientWidth,
+      clippedLabels: [...panel.querySelectorAll('.terminal-group-name, .term-row-name')]
+        .filter(label => label.scrollWidth > label.clientWidth || label.scrollHeight > label.clientHeight)
+        .map(label => label.textContent.trim()),
+      overflowingRows: [...panel.querySelectorAll('.terminal-group-header, .term-row')]
+        .filter(row => row.scrollWidth > row.clientWidth).length,
+    }));
+    expect(layout.panelWidth).toBeGreaterThanOrEqual(300);
+    expect(layout.panelOverflow).toBe(false);
+    expect(layout.clippedLabels).toEqual([]);
+    expect(layout.overflowingRows).toBe(0);
+
+    await expect(groupRow(page, 'north-route').locator('[data-action="rename-terminal-group"]')).toBeHidden();
+    await groupActionTrigger(page, 'north-route').click();
+    const groupMenu = groupRow(page, 'north-route')
+      .locator('.terminal-group-header > .terminal-action-menu > .terminal-action-menu-panel');
+    await expect(groupMenu).toBeVisible();
+    await expect(groupMenu.getByRole('menuitem', { name: 'ПЕРЕИМЕНОВАТЬ ГРУППУ' })).toBeVisible();
+    await expect(groupMenu.getByRole('menuitem', { name: 'ПЕРЕМЕСТИТЬ ГРУППУ ВНИЗ' })).toBeVisible();
+    await expect(groupMenu.getByRole('menuitem', { name: 'РАСФОРМИРОВАТЬ ГРУППУ' }))
+      .toHaveClass(/terminal-action-menu-destructive/);
+    await page.keyboard.press('Escape');
+    await expect(groupMenu).toBeHidden();
+    await expect(groupActionTrigger(page, 'north-route')).toBeFocused();
+
+    await terminalActionTrigger(page, 'gamma').click();
+    const terminalMenu = terminalRow(page, 'gamma')
+      .locator(':scope > .terminal-action-menu > .terminal-action-menu-panel');
+    await expect(terminalMenu).toBeVisible();
+    await expect(terminalMenu.getByRole('menuitem', { name: 'ПЕРЕИМЕНОВАТЬ ТЕРМИНАЛ' })).toBeVisible();
+    await expect(terminalMenu.getByRole('menuitem', { name: 'ПЕРЕМЕСТИТЬ В ДРУГУЮ ГРУППУ' })).toBeVisible();
+    await expect(terminalMenu.getByRole('menuitem', { name: 'УДАЛИТЬ ТЕРМИНАЛ' }))
+      .toHaveClass(/terminal-action-menu-destructive/);
+    await page.locator('.tree-hdr').click();
+    await expect(terminalMenu).toBeHidden();
+    await terminalActionTrigger(page, 'gamma').click();
+    await page.keyboard.press('Escape');
+    await expect(terminalMenu).toBeHidden();
+    await expect(terminalActionTrigger(page, 'gamma')).toBeFocused();
+
+    await chooseGroupAction(page, 'north-route', 'rename-terminal-group');
+    await expect(groupDraftDialog(page)).toBeVisible();
+    await groupDraftDialog(page).locator('[data-action="cancel-terminal-group-draft"]').click();
+    await expect(groupDraftDialog(page)).toBeHidden();
+    await expect(groupActionTrigger(page, 'north-route')).toBeFocused();
+
+    const northToggle = groupRow(page, 'north-route').locator('[data-action="toggle-terminal-group"]');
+    await expect(northToggle).toHaveAttribute('aria-expanded', 'true');
+    await northToggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(northToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(terminalRow(page, 'gamma')).toBeHidden();
+
+    await terminalRow(page, 'delta').click();
+    await expect(northToggle).toHaveAttribute('aria-expanded', 'false');
+    await northToggle.focus();
+    await page.keyboard.press('Space');
+    await expect(northToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(terminalRow(page, 'gamma')).toBeVisible();
+    await expect(terminalRow(page, 'delta')).toHaveClass(/editing/);
+
+    await page.goto('about:blank');
+  }
 });
 
 test('renders every standalone terminal through an ordinary singleton group', async ({ page, request }) => {
@@ -269,7 +368,7 @@ test('creates a group only after reviewing complete impact and renames it withou
   expect(createdID).toBeTruthy();
   await expect(created.locator('.term-row')).toHaveCount(2);
 
-  await created.locator('[data-action="rename-terminal-group"]').click();
+  await chooseGroupAction(page, createdID, 'rename-terminal-group');
   await expect(draft).toBeVisible();
   await draft.locator('[name="groupName"]').fill('Северный путь');
   await draft.locator('[data-action="save-terminal-group-rename"]').click();
@@ -285,7 +384,7 @@ test('move and reorder previews are cancellable or closable with zero mutation',
   const initial = await fixtureSession(request);
   await openOverseer(page);
 
-  await terminalRow(page, 'delta').locator('[data-action="move-terminal"]').click();
+  await chooseTerminalAction(page, 'delta', 'move-terminal');
   const draft = groupDraftDialog(page);
   await expect(draft).toBeVisible();
   await draft.locator('[name="destinationGroupId"]').selectOption('north-route');
@@ -301,7 +400,7 @@ test('move and reorder previews are cancellable or closable with zero mutation',
   expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
   await expect.poll(() => mutationCallCount(page)).toBe(0);
 
-  await terminalRow(page, 'alpha').locator('[data-action="move-terminal-up"]').click();
+  await chooseTerminalAction(page, 'alpha', 'move-terminal-up');
   await expect(impact).toBeVisible();
   await expect(impact).toContainText('ИЗМЕНЕНИЕ ПОРЯДКА');
   await expect(impact.locator('[data-impact="order-before"]')).toContainText(/Гамма[\s\S]*Альфа/);
@@ -317,7 +416,7 @@ test('splits one terminal into a collision-safe singleton only after confirmatio
   const initial = await fixtureSession(request);
   await openOverseer(page);
 
-  await terminalRow(page, 'gamma').locator('[data-action="move-terminal"]').click();
+  await chooseTerminalAction(page, 'gamma', 'move-terminal');
   const draft = groupDraftDialog(page);
   await draft.locator('[name="destinationGroupId"]').selectOption({ label: 'НОВАЯ ОДИНОЧНАЯ ГРУППА' });
   await reviewGroupDraft(page);
@@ -348,7 +447,7 @@ test('moves, reorders, and dissolves groups atomically without losing terminal c
   const initialTerminals = structuredClone(initial.terminals);
   await openOverseer(page);
 
-  await terminalRow(page, 'delta').locator('[data-action="move-terminal"]').click();
+  await chooseTerminalAction(page, 'delta', 'move-terminal');
   await groupDraftDialog(page).locator('[name="destinationGroupId"]').selectOption('north-route');
   await reviewGroupDraft(page);
   await confirmGroupImpact(page);
@@ -356,13 +455,13 @@ test('moves, reorders, and dissolves groups atomically without losing terminal c
   expect((await renderedGroups(page)).find(group => group.id === 'north-route')?.terminalIds)
     .toEqual(['gamma', 'alpha', 'delta']);
 
-  await terminalRow(page, 'delta').locator('[data-action="move-terminal-up"]').click();
+  await chooseTerminalAction(page, 'delta', 'move-terminal-up');
   await confirmGroupImpact(page);
   await expect.poll(() => mutationCallCount(page)).toBe(2);
   expect((await renderedGroups(page)).find(group => group.id === 'north-route')?.terminalIds)
     .toEqual(['gamma', 'delta', 'alpha']);
 
-  await groupRow(page, 'north-route').locator('[data-action="dissolve-terminal-group"]').click();
+  await chooseGroupAction(page, 'north-route', 'dissolve-terminal-group');
   const impact = groupImpactDialog(page);
   await expect(impact).toBeVisible();
   await expect(impact).toContainText('РАСФОРМИРОВАНИЕ ГРУППЫ');
@@ -400,7 +499,7 @@ test('rejects a stale proposal, refreshes canonical state, and applies a reviewe
   const initial = await fixtureSession(request);
   await openOverseer(page);
 
-  await terminalRow(page, 'delta').locator('[data-action="move-terminal"]').click();
+  await chooseTerminalAction(page, 'delta', 'move-terminal');
   await groupDraftDialog(page).locator('[name="destinationGroupId"]').selectOption('north-route');
   await reviewGroupDraft(page);
 
@@ -413,7 +512,7 @@ test('rejects a stale proposal, refreshes canonical state, and applies a reviewe
   await expect(page.locator('#terminalGroupError')).toContainText(/изменилось|устарел/i);
   expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
 
-  await terminalRow(page, 'delta').locator('[data-action="move-terminal"]').click();
+  await chooseTerminalAction(page, 'delta', 'move-terminal');
   await groupDraftDialog(page).locator('[name="destinationGroupId"]').selectOption('north-route');
   await reviewGroupDraft(page);
   const confirm = groupImpactDialog(page).locator('[data-action="confirm-terminal-group-change"]');
@@ -432,7 +531,7 @@ test('rejects dissolving a singleton group without leaving its terminal ungroupe
   const initial = await fixtureSession(request);
   await openOverseer(page);
 
-  await groupRow(page, 'medical-singleton').locator('[data-action="dissolve-terminal-group"]').click();
+  await chooseGroupAction(page, 'medical-singleton', 'dissolve-terminal-group');
   await expect(page.locator('#terminalGroupError')).toContainText(/одиночн|единственн|singleton/i);
   expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
   const saved = await fixtureSession(request);

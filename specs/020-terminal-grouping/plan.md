@@ -4,6 +4,8 @@
 
 Add durable, ordered terminal groups as the only high-level representation of terminals and give the Overseer create, rename, dissolve, reorder, merge/split, and terminal-move controls. Legacy and newly created terminals normalize into singleton groups, while destructive group edits use a structured impact dialog and one private compare-and-replace guarded by both session and coordination revisions. The session catalog enforces same-group navigation, and the coordinator seeds the backward route from members preceding the first active terminal so a middle-start broadcast can traverse the whole group with the existing approval lifecycle.
 
+**Bugfix**: 2026-08-25 — BUG-001 Updated from bugfix patch using `bugs/assets/BUG-001-terminal-list-ux-mockup.png` as the visual implementation reference.
+
 ## Project Structure
 
 ```text
@@ -92,6 +94,7 @@ The complete entities, validation rules, and state transitions are defined in [d
 5. Expose the private mutation through the root application contract and regenerated Wails bindings; after durability, advance/publish canonical session and coordination revisions and return both projections on success or stale rejection.
 6. Replace the flat terminal list with high-level group presentation and add create/rename/dissolve/move/reorder controls. Build structured destructive impact, cancel with zero calls, disable duplicate submission, and refresh from canonical results; keep rename-only edits confirmation-free.
 7. Restrict transition destination options to the edited terminal's group, update the demo and documentation, then complete unit, contract, browser, race, generation, build, and packaged acceptance gates.
+8. Refine the terminal organization panel to match the BUG-001 mockup: use a wider responsive sidebar, independently collapsible group cards, readable wrapping names and member counts, and one target-specific contextual menu per group or terminal. Reuse the existing mutation handlers and confirmation dialogs, preserve selection and disclosure state across unrelated renders, and keep destructive menu entries visually separated.
 
 ## Verification Strategy
 
@@ -101,6 +104,6 @@ The complete entities, validation rules, and state transitions are defined in [d
 | Protobuf and adapters | Descriptor assertions for `Session.terminal_groups = 5`; protobuf-aware round trips for empty, populated, and legacy sessions; clean pinned regeneration and Buf compatibility gates. |
 | Session service | Generic saves preserve memberships of existing terminals while atomically handling terminal create/delete; expected-revision group replacement is atomic, preserves command states/extras, rejects cross-group links, and returns detached canonical snapshots. |
 | Coordinator | Both revision mismatches, pending/route mutation guards, fresh starts at first/middle/last members, seeded reverse prefix, C→B→A→B→C→D, exact-one approval, stale group/link/order rejection, manual activation cleanup, and reconnect behavior. |
-| Private boundary and Overseer UI | Generated two-revision request/result routing; create/rename/dissolve/reorder/move; impact contents; cancel/close zero call; double-submit guard; stale canonical refresh; normalized duplicate-name feedback; and no player access. |
-| Browser acceptance | Overseer plus controller and two observers; destructive accept/cancel/stale/retry journeys; dissolution into singletons; singleton-delete rejection; reconnect during pending; middle start; cross-group attempts; legacy normalization; and direct activation regression. |
+| Private boundary and Overseer UI | Generated two-revision request/result routing; create/rename/dissolve/reorder/move; impact contents; cancel/close zero call; double-submit guard; stale canonical refresh; normalized duplicate-name feedback; no player access; independently collapsible group cards; readable names/member counts; and target-specific contextual menus with separated destructive actions. |
+| Browser acceptance | Overseer plus controller and two observers; destructive accept/cancel/stale/retry journeys; dissolution into singletons; singleton-delete rejection; reconnect during pending; middle start; cross-group attempts; legacy normalization; direct activation regression; and BUG-001 layout, disclosure, focus, and menu reachability at 1280×720 and 1600×900. |
 | Repository gates | `gofmt -l .`, `go vet ./...`, `go test ./...`, `go test -race ./...`, frontend clean builds, browser tests, proto format/lint/generation/breaking checks, Wails binding drift check, owned build, and package smoke when the local macOS environment is available. |

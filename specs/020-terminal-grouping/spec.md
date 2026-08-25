@@ -8,6 +8,8 @@
 
 **Input**: Represent every terminal through a high-level terminal group so player-initiated forward and backward terminal transitions stay within one group while retaining Overseer approval, including when a broadcast starts from a terminal in the middle of the group. A standalone terminal is represented by a group containing only that terminal.
 
+**Bugfix**: 2026-08-25 — BUG-001 Added measurable terminal-list hierarchy, readable-name, collapsible-group, and contextual-action requirements based on the accepted UX mockup.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Organize Every Terminal Through a Group (Priority: P1)
@@ -30,6 +32,8 @@ As the Overseer, I see groups as the highest-level terminal organization and can
 8. **Given** a proposed rename would duplicate another group name, **When** the Overseer applies it, **Then** the change is rejected with a clear explanation and the previous names remain unchanged.
 9. **Given** a group contains terminals A, B, C, and D, **When** the Overseer arranges them in that order and saves the session, **Then** the same A, B, C, D order is shown after reopening it.
 10. **Given** the Overseer creates a new standalone terminal, **When** creation completes, **Then** a singleton group for that terminal is created atomically and there is no intermediate ungrouped state.
+11. **Given** terminal groups are shown at a supported desktop viewport, **When** the Overseer scans the terminal organization panel, **Then** each group name, member count, terminal order, full terminal name, selected state, and per-item action trigger remain visually distinct without overlapping or competing rows of inline controls.
+12. **Given** a group is expanded, **When** the Overseer collapses and re-expands it by pointer or keyboard, **Then** its terminal members hide and return in the same canonical order without changing selection, membership, or persisted session data.
 
 ---
 
@@ -53,6 +57,7 @@ As the Overseer, I can create, rename, dissolve, and reorganize groups, includin
 8. **Given** a destructive group change has already been confirmed successfully, **When** the same confirmation is submitted again, **Then** it produces no duplicate move, group, or order change.
 9. **Given** a proposed group change would invalidate an authored transition, pending decision, or active route, **When** the Overseer confirms it, **Then** the operation is rejected without partial changes and the affected items are identified.
 10. **Given** a singleton group is selected for deletion without moving or deleting its terminal, **When** the Overseer attempts the operation, **Then** it is unavailable or rejected because the terminal must remain represented by a group.
+11. **Given** the Overseer opens the action trigger for a group or terminal, **When** its contextual menu appears, **Then** the menu identifies the target, exposes every applicable management action with unabbreviated accessible labels, separates destructive actions visually, and keeps actions for other items closed.
 
 ---
 
@@ -193,6 +198,10 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 - **FR-045**: A rename-only change MUST preserve the group's stable identity, membership order, authored links, pending decisions, and active route.
 - **FR-046**: Dissolving a multi-terminal group MUST preserve its terminals by representing each remaining member through a singleton group unless the same confirmed operation moves that member to another group.
 - **FR-047**: Dissolving a singleton group without moving or deleting its terminal in the same operation MUST be unavailable or rejected.
+- **FR-048**: At supported desktop viewports, the terminal organization panel MUST give group and terminal names priority over controls, preserve a visually distinct group-to-member hierarchy, and expose the complete name through wrapping or an equivalent non-ambiguous presentation without overlapping adjacent content.
+- **FR-049**: Every group MUST expose its expanded or collapsed state, full display name, terminal count, and one target-specific contextual action trigger, while every visible terminal member MUST expose its explicit order, full display name, selected or live state when applicable, and one target-specific contextual action trigger.
+- **FR-050**: Group and terminal rename, move, reorder, dissolve, and delete actions MUST be available from the applicable target-specific contextual menu rather than as a permanently visible row of individual buttons; destructive actions MUST remain visually differentiated and retain all existing confirmation requirements.
+- **FR-051**: Collapsing or expanding a group MUST be operable by pointer and keyboard, MUST NOT mutate canonical group data or terminal selection, and MUST retain the current in-memory disclosure state across unrelated re-renders while that group continues to exist.
 
 ## Key Entities
 
@@ -223,6 +232,8 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 - **SC-012**: In 100% of tested destructive create, dissolve, merge, split, move, and reorder journeys, an impact confirmation appears and zero group or navigation changes occur before acceptance.
 - **SC-013**: Cancelling, closing, or dismissing any tested destructive group-change confirmation produces zero durable group changes and zero active-navigation changes.
 - **SC-014**: Across stale, retried, and double-submitted destructive confirmations, each accepted proposal changes state at most once and every rejected proposal leaves 100% of the current state intact.
+- **SC-015**: At 1280×720 and 1600×900 browser viewports, groups containing realistic Russian names render with zero overlapping controls, every group and terminal name is available without ellipsis-only identification, and every applicable action is reachable from exactly one target-specific menu.
+- **SC-016**: In pointer and keyboard browser journeys, 100% of tested group disclosure and group/terminal action-menu operations expose the correct target and action labels, preserve selection during disclosure changes, and keep destructive actions visually separate before the existing confirmation flow.
 
 ## Assumptions
 

@@ -10,6 +10,7 @@ const state = {
   editTerminalId: null,
   selectedNodeId: null,
   expanded:       new Set(['root']),
+  collapsedTerminalGroupIds: new Set(),
   liveHack:       null,   // last known hack-state of the live terminal, or null
   coordination:   null,   // authoritative roster/session/broadcast projection
 };
@@ -172,6 +173,7 @@ let pendingPlayerDelete = null;
 let terminalGroupDraft = null;
 let pendingTerminalGroupImpact = null;
 let terminalGroupSubmitting = false;
+let terminalGroupDialogOpener = null;
 
 const commandStateActions = document.createElement('div');
 commandStateActions.className = 'settings-row command-state-terminal-actions';
@@ -607,6 +609,7 @@ async function loadSession(session, filePath) {
   state.editTerminalId  = (session.terminals[0] && session.terminals[0].id) || null;
   state.selectedNodeId  = null;
   state.expanded         = new Set(['root']);
+  state.collapsedTerminalGroupIds = new Set();
   state.liveHack         = null;
 
   sessionFileLabel.textContent = filePath;
@@ -1661,59 +1664,153 @@ function renderTermList() {
   }
 
   ensureSessionTerminalGroups();
+  const currentGroupIDs = new Set(state.session.terminalGroups.map(group => group.id));
+  for (const groupID of state.collapsedTerminalGroupIds) {
+    if (!currentGroupIDs.has(groupID)) state.collapsedTerminalGroupIds.delete(groupID);
+  }
   const terminalsByID = new Map(state.session.terminals.map(term => [term.id, term]));
   state.session.terminalGroups.forEach((group, groupIndex) => {
+    const collapsed = state.collapsedTerminalGroupIds.has(group.id);
     const groupEl = document.createElement('section');
     groupEl.className = 'terminal-group' + (group.terminalIds.length === 1 ? ' is-singleton' : '');
     groupEl.dataset.groupId = group.id;
     groupEl.dataset.singleton = String(group.terminalIds.length === 1);
+    groupEl.dataset.collapsed = String(collapsed);
     groupEl.setAttribute('role', 'listitem');
 
     const header = document.createElement('header');
     header.className = 'terminal-group-header';
-    const heading = document.createElement('h3');
-    heading.className = 'terminal-group-name';
-    heading.textContent = group.name;
-    header.appendChild(heading);
-    const groupActions = document.createElement('div');
-    groupActions.className = 'terminal-group-actions';
-    groupActions.setAttribute('role', 'group');
-    groupActions.setAttribute('aria-label', `Управление группой ${group.name}`);
-    groupActions.append(
-      terminalGroupActionButton('ПЕРЕИМ.', 'rename-terminal-group', () => showTerminalGroupRename(group.id)),
-      terminalGroupActionButton('↑', 'move-terminal-group-up', () => prepareTerminalGroupOrder(group.id, -1), groupIndex === 0),
-      terminalGroupActionButton('↓', 'move-terminal-group-down', () => prepareTerminalGroupOrder(group.id, 1), groupIndex === state.session.terminalGroups.length - 1),
-      terminalGroupActionButton('РАСФОРМ.', 'dissolve-terminal-group', () => prepareTerminalGroupDissolution(group.id), false, true),
-    );
-    header.appendChild(groupActions);
-    groupEl.appendChild(header);
 
     const members = document.createElement('div');
     members.className = 'terminal-group-members';
+    members.id = `terminal-group-members-${groupIndex}`;
+    members.hidden = collapsed;
     members.setAttribute('role', 'list');
     members.setAttribute('aria-label', `Терминалы группы ${group.name}`);
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'terminal-group-toggle';
+    toggle.dataset.action = 'toggle-terminal-group';
+    toggle.setAttribute('aria-controls', members.id);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', `${collapsed ? 'Развернуть' : 'Свернуть'} группу ${group.name}`);
+
+    const caret = document.createElement('span');
+    caret.className = 'terminal-group-caret';
+    caret.setAttribute('aria-hidden', 'true');
+    caret.textContent = collapsed ? '▸' : '▾';
+    const heading = document.createElement('span');
+    heading.className = 'terminal-group-name';
+    heading.textContent = group.name;
+    toggle.append(caret, heading);
+    toggle.addEventListener('click', () => {
+      const nextCollapsed = !state.collapsedTerminalGroupIds.has(group.id);
+      if (nextCollapsed) state.collapsedTerminalGroupIds.add(group.id);
+      else state.collapsedTerminalGroupIds.delete(group.id);
+      members.hidden = nextCollapsed;
+      groupEl.dataset.collapsed = String(nextCollapsed);
+      caret.textContent = nextCollapsed ? '▸' : '▾';
+      toggle.setAttribute('aria-expanded', String(!nextCollapsed));
+      toggle.setAttribute('aria-label', `${nextCollapsed ? 'Развернуть' : 'Свернуть'} группу ${group.name}`);
+    });
+
+    const memberCount = document.createElement('span');
+    memberCount.className = 'terminal-group-member-count';
+    memberCount.textContent = terminalCountLabel(group.terminalIds.length);
+
+    const groupActions = terminalActionMenu({
+      scope: 'terminal-group',
+      ownerID: group.id,
+      ownerName: group.name,
+      items: [
+        { label: 'ПЕРЕИМЕНОВАТЬ ГРУППУ', action: 'rename-terminal-group', handler: () => showTerminalGroupRename(group.id) },
+        { label: 'ПЕРЕМЕСТИТЬ ГРУППУ ВВЕРХ', action: 'move-terminal-group-up', handler: () => prepareTerminalGroupOrder(group.id, -1), disabled: groupIndex === 0 },
+        { label: 'ПЕРЕМЕСТИТЬ ГРУППУ ВНИЗ', action: 'move-terminal-group-down', handler: () => prepareTerminalGroupOrder(group.id, 1), disabled: groupIndex === state.session.terminalGroups.length - 1 },
+        { label: 'РАСФОРМИРОВАТЬ ГРУППУ', action: 'dissolve-terminal-group', handler: () => prepareTerminalGroupDissolution(group.id), destructive: true },
+      ],
+    });
+    header.append(toggle, memberCount, groupActions);
+    groupEl.append(header, members);
+
     group.terminalIds.forEach((terminalID, memberIndex) => {
       const term = terminalsByID.get(terminalID);
       if (term) members.appendChild(buildTerminalRow(term, group, memberIndex));
     });
-    groupEl.appendChild(members);
     termList.appendChild(groupEl);
   });
 }
 
-function terminalGroupActionButton(label, action, handler, disabled = false, destructive = false) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'btn btn-mini' + (destructive ? ' btn-danger' : '');
-  button.textContent = label;
-  button.dataset.action = action;
-  button.disabled = disabled;
-  button.addEventListener('click', event => {
-    event.stopPropagation();
-    handler();
-  });
-  return button;
+function terminalCountLabel(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${count} ТЕРМИНАЛ`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} ТЕРМИНАЛА`;
+  return `${count} ТЕРМИНАЛОВ`;
 }
+
+function terminalActionMenu({ scope, ownerID, ownerName, items }) {
+  const menu = document.createElement('details');
+  menu.className = 'terminal-action-menu';
+  menu.addEventListener('click', event => event.stopPropagation());
+  menu.addEventListener('toggle', () => {
+    if (!menu.open) return;
+    for (const other of termList.querySelectorAll('.terminal-action-menu[open]')) {
+      if (other !== menu) other.open = false;
+    }
+  });
+
+  const trigger = document.createElement('summary');
+  trigger.className = 'terminal-action-menu-trigger';
+  trigger.dataset.actionMenuTrigger = scope;
+  trigger.dataset.actionMenuOwnerId = ownerID;
+  trigger.setAttribute('aria-label', `Действия: ${ownerName}`);
+  trigger.textContent = '•••';
+
+  const panel = document.createElement('div');
+  panel.className = 'terminal-action-menu-panel';
+  panel.setAttribute('role', 'menu');
+  panel.setAttribute('aria-label', `Действия: ${ownerName}`);
+  for (const item of items) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-mini terminal-action-menu-item'
+      + (item.destructive ? ' btn-danger terminal-action-menu-destructive' : '');
+    button.textContent = item.label;
+    button.dataset.action = item.action;
+    button.disabled = Boolean(item.disabled);
+    button.setAttribute('role', 'menuitem');
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      terminalGroupDialogOpener = { scope, ownerID };
+      menu.open = false;
+      item.handler();
+      if (!terminalGroupDraftDialog.open && !terminalGroupImpactDialog.open) {
+        terminalGroupDialogOpener = null;
+        if (document.activeElement === button) trigger.focus();
+      }
+    });
+    panel.appendChild(button);
+  }
+  menu.append(trigger, panel);
+  return menu;
+}
+
+function closeTerminalActionMenus({ restoreFocus = false } = {}) {
+  const openMenu = termList.querySelector('.terminal-action-menu[open]');
+  if (!openMenu) return false;
+  const trigger = openMenu.querySelector('.terminal-action-menu-trigger');
+  openMenu.open = false;
+  if (restoreFocus) trigger?.focus();
+  return true;
+}
+
+document.addEventListener('click', event => {
+  if (!event.target.closest('.terminal-action-menu')) closeTerminalActionMenus();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && closeTerminalActionMenus({ restoreFocus: true })) event.preventDefault();
+});
 
 function ensureSessionTerminalGroups() {
   if (!state.session) return;
@@ -1743,6 +1840,9 @@ function setTerminalGroupError(message = '') {
 }
 
 function showTerminalGroupDialog(dialog, focusTarget) {
+  if (!terminalGroupDialogOpener) {
+    terminalGroupDialogOpener = { element: document.activeElement };
+  }
   dialog.hidden = false;
   if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
   else dialog.setAttribute('open', '');
@@ -1755,15 +1855,30 @@ function hideTerminalGroupDialog(dialog) {
   dialog.hidden = true;
 }
 
-function closeTerminalGroupDraft() {
+function restoreTerminalGroupDialogFocus() {
+  const opener = terminalGroupDialogOpener;
+  terminalGroupDialogOpener = null;
+  if (!opener) return;
+  if (opener.element?.isConnected) {
+    opener.element.focus();
+    return;
+  }
+  const trigger = [...termList.querySelectorAll(`[data-action-menu-trigger="${opener.scope}"]`)]
+    .find(candidate => candidate.dataset.actionMenuOwnerId === opener.ownerID);
+  trigger?.focus();
+}
+
+function closeTerminalGroupDraft({ restoreFocus = true } = {}) {
   terminalGroupDraft = null;
   terminalGroupDraftForm.reset();
   hideTerminalGroupDialog(terminalGroupDraftDialog);
+  if (restoreFocus) restoreTerminalGroupDialogFocus();
 }
 
-function closeTerminalGroupImpact() {
+function closeTerminalGroupImpact({ restoreFocus = true } = {}) {
   pendingTerminalGroupImpact = null;
   hideTerminalGroupDialog(terminalGroupImpactDialog);
+  if (restoreFocus) restoreTerminalGroupDialogFocus();
 }
 
 function populateTerminalChoices(selectedIDs = []) {
@@ -2016,7 +2131,7 @@ function currentSessionRevision() {
 
 function showTerminalGroupImpact(impact) {
   setTerminalGroupError();
-  closeTerminalGroupDraft();
+  closeTerminalGroupDraft({ restoreFocus: false });
   pendingTerminalGroupImpact = {
     ...impact,
     expectedSessionRevision: currentSessionRevision(),
@@ -2089,10 +2204,10 @@ btnCreateTerminalGroup.addEventListener('click', showTerminalGroupCreate);
 terminalGroupDraftDialog.querySelector('[data-action="review-terminal-group-change"]').addEventListener('click', reviewTerminalGroupDraft);
 terminalGroupDraftDialog.querySelector('[data-action="save-terminal-group-rename"]').addEventListener('click', () => { void saveTerminalGroupRename(); });
 for (const action of ['close-terminal-group-draft', 'cancel-terminal-group-draft']) {
-  terminalGroupDraftDialog.querySelector(`[data-action="${action}"]`).addEventListener('click', closeTerminalGroupDraft);
+  terminalGroupDraftDialog.querySelector(`[data-action="${action}"]`).addEventListener('click', () => closeTerminalGroupDraft());
 }
 for (const action of ['close-terminal-group-change', 'cancel-terminal-group-change']) {
-  terminalGroupImpactDialog.querySelector(`[data-action="${action}"]`).addEventListener('click', closeTerminalGroupImpact);
+  terminalGroupImpactDialog.querySelector(`[data-action="${action}"]`).addEventListener('click', () => closeTerminalGroupImpact());
 }
 terminalGroupImpactDialog.querySelector('[data-action="confirm-terminal-group-change"]').addEventListener('click', async () => {
   const impact = pendingTerminalGroupImpact;
@@ -2104,83 +2219,79 @@ terminalGroupDraftDialog.addEventListener('cancel', event => { event.preventDefa
 terminalGroupImpactDialog.addEventListener('cancel', event => { event.preventDefault(); closeTerminalGroupImpact(); });
 
 function buildTerminalRow(term, group, memberIndex) {
-    const row = document.createElement('div');
-    row.className = 'term-row'
-      + (term.id === state.editTerminalId ? ' editing' : '')
-      + (term.id === state.liveTerminalId ? ' is-live' : '');
-    row.dataset.terminalId = term.id;
+  const row = document.createElement('div');
+  const selected = term.id === state.editTerminalId;
+  row.className = 'term-row'
+    + (selected ? ' editing' : '')
+    + (term.id === state.liveTerminalId ? ' is-live' : '');
+  row.dataset.terminalId = term.id;
+  row.tabIndex = 0;
+  row.setAttribute('role', 'listitem');
+  row.setAttribute('aria-current', String(selected));
 
-    const nameRow = document.createElement('div');
-    nameRow.className = 'term-row-name';
-    nameRow.textContent = term.name;
-    row.appendChild(nameRow);
+  const nameRow = document.createElement('div');
+  nameRow.className = 'term-row-name';
+  nameRow.textContent = term.name;
+  row.appendChild(nameRow);
 
-    const metaRow = document.createElement('div');
-    metaRow.className = 'term-row-meta';
-    metaRow.textContent = '● В ЭФИРЕ';
-    row.appendChild(metaRow);
+  const metaRow = document.createElement('div');
+  metaRow.className = 'term-row-meta';
+  metaRow.textContent = '● В ЭФИРЕ';
+  row.appendChild(metaRow);
 
-    const actions = document.createElement('div');
-    actions.style.display = 'flex';
-    actions.style.gap = '6px';
-    actions.style.marginTop = '2px';
+  const actions = terminalActionMenu({
+    scope: 'terminal',
+    ownerID: term.id,
+    ownerName: term.name,
+    items: [
+      { label: 'ПЕРЕИМЕНОВАТЬ ТЕРМИНАЛ', action: 'rename-terminal', handler: () => startRenameTerminal(term, nameRow) },
+      { label: 'ПЕРЕМЕСТИТЬ В ДРУГУЮ ГРУППУ', action: 'move-terminal', handler: () => showTerminalMoveDraft(term.id) },
+      { label: 'ПЕРЕМЕСТИТЬ ТЕРМИНАЛ ВВЕРХ', action: 'move-terminal-up', handler: () => prepareTerminalMemberOrder(group.id, term.id, -1), disabled: memberIndex === 0 },
+      { label: 'ПЕРЕМЕСТИТЬ ТЕРМИНАЛ ВНИЗ', action: 'move-terminal-down', handler: () => prepareTerminalMemberOrder(group.id, term.id, 1), disabled: memberIndex === group.terminalIds.length - 1 },
+      { label: 'УДАЛИТЬ ТЕРМИНАЛ', action: 'delete-terminal', handler: () => deleteTerminal(term), destructive: true },
+    ],
+  });
+  row.appendChild(actions);
 
-    const renameBtn = document.createElement('button');
-    renameBtn.className = 'btn btn-mini';
-    renameBtn.textContent = 'ПЕРЕИМ.';
-    renameBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      startRenameTerminal(term, nameRow);
-    });
-    actions.appendChild(renameBtn);
+  const selectTerminal = () => {
+    if (state.editTerminalId === term.id) return;
+    state.editTerminalId = term.id;
+    state.selectedNodeId = null;
+    state.expanded = new Set(['root']);
+    renderAll();
+  };
+  row.addEventListener('click', selectTerminal);
+  row.addEventListener('keydown', event => {
+    if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    selectTerminal();
+  });
+  return row;
+}
 
-    actions.append(
-      terminalGroupActionButton('ПЕРЕМЕСТИТЬ', 'move-terminal', () => showTerminalMoveDraft(term.id)),
-      terminalGroupActionButton('↑', 'move-terminal-up', () => prepareTerminalMemberOrder(group.id, term.id, -1), memberIndex === 0),
-      terminalGroupActionButton('↓', 'move-terminal-down', () => prepareTerminalMemberOrder(group.id, term.id, 1), memberIndex === group.terminalIds.length - 1),
-    );
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn btn-mini btn-danger';
-    delBtn.textContent = 'УДАЛИТЬ';
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (state.liveTerminalId === term.id || state.coordination?.pendingSwitch?.sourceTerminalId === term.id) {
-        setCoordinationStatus('АКТИВНЫЙ ИЛИ СОХРАНЁННЫЙ ТЕРМИНАЛ НЕЛЬЗЯ УДАЛИТЬ', true);
-        return;
-      }
-    const inbound = inboundTerminalTransitions(term.id);
-    if (inbound.length) {
+function deleteTerminal(term) {
+  if (state.liveTerminalId === term.id || state.coordination?.pendingSwitch?.sourceTerminalId === term.id) {
+    setCoordinationStatus('АКТИВНЫЙ ИЛИ СОХРАНЁННЫЙ ТЕРМИНАЛ НЕЛЬЗЯ УДАЛИТЬ', true);
+    return;
+  }
+  const inbound = inboundTerminalTransitions(term.id);
+  if (inbound.length) {
     setCoordinationStatus(`ТЕРМИНАЛ ИСПОЛЬЗУЕТСЯ КОМАНДАМИ ПЕРЕХОДА: ${inbound.join(', ')}`, true);
     return;
-    }
-      if (!window.confirm(`Удалить терминал "${term.name}" целиком?`)) return;
-      const idx = state.session.terminals.findIndex(t => t.id === term.id);
-      if (idx >= 0) state.session.terminals.splice(idx, 1);
-      state.session.terminalGroups = (state.session.terminalGroups ?? [])
-        .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => id !== term.id) }))
-        .filter(group => group.terminalIds.length > 0);
-      if (state.editTerminalId === term.id) {
-        state.editTerminalId = (state.session.terminals[0] && state.session.terminals[0].id) || null;
-        state.selectedNodeId = null;
-        state.expanded = new Set(['root']);
-      }
-      autosave();
-      renderAll();
-    });
-    actions.appendChild(delBtn);
-
-    row.appendChild(actions);
-
-    row.addEventListener('click', () => {
-      if (state.editTerminalId === term.id) return;
-      state.editTerminalId = term.id;
-      state.selectedNodeId = null;
-      state.expanded = new Set(['root']);
-      renderAll();
-    });
-
-    return row;
+  }
+  if (!window.confirm(`Удалить терминал "${term.name}" целиком?`)) return;
+  const idx = state.session.terminals.findIndex(candidate => candidate.id === term.id);
+  if (idx >= 0) state.session.terminals.splice(idx, 1);
+  state.session.terminalGroups = (state.session.terminalGroups ?? [])
+    .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => id !== term.id) }))
+    .filter(group => group.terminalIds.length > 0);
+  if (state.editTerminalId === term.id) {
+    state.editTerminalId = state.session.terminals[0]?.id || null;
+    state.selectedNodeId = null;
+    state.expanded = new Set(['root']);
+  }
+  void autosave();
+  renderAll();
 }
 
 function startRenameTerminal(term, nameRow) {
