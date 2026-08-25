@@ -112,6 +112,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		TrustedHack:        live,
 		RosterStore:        playerConfigs,
 		CommandStateStore:  &sessionCommandStateStore{service: sessions},
+		TerminalGroupStore: &sessionCommandStateStore{service: sessions},
 		TerminalCatalog:    sessions,
 		RequestResultLimit: int(runtimeConfig.Coordination.RequestResultLimit),
 	})
@@ -185,6 +186,35 @@ type sessionCommandStateStore struct {
 }
 
 var _ controlservice.CommandStateStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.TerminalGroupStore = (*sessionCommandStateStore)(nil)
+
+func (store *sessionCommandStateStore) ReplaceTerminalGroups(
+	ctx context.Context,
+	groups []domain.TerminalGroup,
+	expectedRevision uint64,
+) (controlservice.TerminalGroupMutation, error) {
+	if store == nil || store.service == nil {
+		return controlservice.TerminalGroupMutation{}, errors.New("session terminal-group store is unavailable")
+	}
+	result := store.service.ReplaceTerminalGroups(ctx, groups, expectedRevision)
+	if !result.OK {
+		message := result.Error
+		if message == "" {
+			message = "session terminal-group mutation failed"
+		}
+		mutation := controlservice.TerminalGroupMutation{Revision: result.Revision}
+		if result.Session != nil {
+			mutation.Session = *result.Session
+		}
+		return mutation, &controlservice.TerminalGroupStoreRejection{Message: message}
+	}
+	if result.Session == nil {
+		return controlservice.TerminalGroupMutation{}, errors.New("session terminal-group mutation returned no document")
+	}
+	return controlservice.TerminalGroupMutation{
+		Changed: result.Changed, Revision: result.Revision, Session: *result.Session,
+	}, nil
+}
 
 func (store *sessionCommandStateStore) ExecuteCommandState(ctx context.Context, terminalID, commandID string) (controlservice.CommandStateMutation, error) {
 	if store == nil || store.service == nil {

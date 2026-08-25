@@ -21,6 +21,7 @@ export {
     PublicHackPattern,
     PublicHackState,
     ServerInfo,
+    TerminalGroup,
     TerminalNavigationDecision,
     TerminalNavigationDirection,
     TerminalNavigationNoticeReason,

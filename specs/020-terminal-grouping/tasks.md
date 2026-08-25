@@ -55,12 +55,12 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **⟶ Wait for Wave 2 to finish, then Wave 3 — independent presentation structure:**
 
-- [ ] **T016** [P] [US1] Replace the flat terminal-list container with accessible high-level group markup and terminal members · `frontend/overseer/src/index.html`
-- [ ] **T017** [P] [US1] Style group hierarchy, ordered members, singleton states, selection, and responsive layout · `frontend/overseer/src/overseer.css`
+- [x] **T016** [P] [US1] Replace the flat terminal-list container with accessible high-level group markup and terminal members · `frontend/overseer/src/index.html`
+- [x] **T017** [P] [US1] Style group hierarchy, ordered members, singleton states, selection, and responsive layout · `frontend/overseer/src/overseer.css`
 
 **⟶ Wait for Wave 3 to finish, then:**
 
-- [ ] **T018** [US1] Render canonical groups as the top level and keep terminal create/import/delete local state aligned with atomic singleton rules · `frontend/overseer/src/overseer.js`
+- [x] **T018** [US1] Render canonical groups as the top level and keep terminal create/import/delete local state aligned with atomic singleton rules · `frontend/overseer/src/overseer.js`
 
 **Checkpoint**: US1 independently loads, displays, creates, deletes, saves, and reopens terminals with exact-one high-level group representation.
 
@@ -76,54 +76,54 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **Wave 1 — independent failing coverage:**
 
-- [ ] **T019** [P] [US2] Add expected-session-revision compare-and-replace, dissolution, move, no-op, persistence-failure, and duplicate-submit tests · `internal/session/service_test.go`
-- [ ] **T020** [P] [US2] Add expected-coordination-revision, pending-decision, active-route, seeded-order, stale, and atomic rejection tests · `internal/control/service_test.go`
-- [ ] **T021** [P] [US2] Add application orchestration tests for canonical result/event ordering and stale failure projections · `app_test.go`
-- [ ] **T022** [P] [US2] Add private protobuf descriptor/adapter tests and public descriptor leak assertions · `app_contract_test.go`
-- [ ] **T023** [P] [US2] Add desktop method routing tests for the trusted group replacement capability · `desktop_service_test.go`
-- [ ] **T024** [P] [US2] Add desktop API normalization tests for both revisions, canonical session, coordination state, and errors · `tests/browser/desktop-api.spec.mjs`
-- [ ] **T025** [P] [US2] Add browser journeys for create, rename, dissolve, move, reorder, impact contents, cancel/close, stale, retry, and singleton-delete rejection · `tests/browser/terminal-grouping.spec.mjs`
+- [x] **T019** [P] [US2] Add expected-session-revision compare-and-replace, dissolution, move, no-op, persistence-failure, and duplicate-submit tests · `internal/session/service_test.go`
+- [x] **T020** [P] [US2] Add expected-coordination-revision, pending-decision, active-route, seeded-order, stale, and atomic rejection tests · `internal/control/service_test.go`
+- [x] **T021** [P] [US2] Add application orchestration tests for canonical result/event ordering and stale failure projections · `app_test.go`
+- [x] **T022** [P] [US2] Add private protobuf descriptor/adapter tests and public descriptor leak assertions · `app_contract_test.go`
+- [x] **T023** [P] [US2] Add desktop method routing tests for the trusted group replacement capability · `desktop_service_test.go`
+- [x] **T024** [P] [US2] Add desktop API normalization tests for both revisions, canonical session, coordination state, and errors · `tests/browser/desktop-api.spec.mjs`
+- [x] **T025** [P] [US2] Add browser journeys for create, rename, dissolve, move, reorder, impact contents, cancel/close, stale, retry, and singleton-delete rejection · `tests/browser/terminal-grouping.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-- [ ] **T026** [US2] Implement complete candidate diffing, strict authored-link validation, content-preserving dissolution, singleton-delete rejection, and actionable affected-item errors · `internal/domain/validate.go`
+- [x] **T026** [US2] Implement complete candidate diffing, strict authored-link validation, content-preserving dissolution, singleton-delete rejection, and actionable affected-item errors · `internal/domain/validate.go`
 
 **⟶ Wait for T026 to finish, then Wave 3 — independent state owners:**
 
-- [ ] **T027** [P] [US2] Implement synchronous expected-session-revision group compare-and-replace with atomic durability and detached canonical results · `internal/session/service.go`
-- [ ] **T028** [P] [US2] Add the group-store seam and coordinator-locked expected-runtime-revision, pending, active-route, and seeded-order guard · `internal/control/service.go`
+- [x] **T027** [P] [US2] Implement synchronous expected-session-revision group compare-and-replace with atomic durability and detached canonical results · `internal/session/service.go`
+- [x] **T028** [P] [US2] Add the group-store seam and coordinator-locked expected-runtime-revision, pending, active-route, and seeded-order guard · `internal/control/service.go`
 
 **⟶ Wait for Wave 3 to finish, then:**
 
-- [ ] **T029** [US2] Compose the control-to-session group store adapter without reversing lock or package ownership · `main.go`
+- [x] **T029** [US2] Compose the control-to-session group store adapter without reversing lock or package ownership · `main.go`
 
 **⟶ Wait for T029 to finish, then:**
 
-- [ ] **T030** [US2] Route the trusted mutation through the application, advance both authoritative revisions after durability, and publish canonical results/events · `app.go`
+- [x] **T030** [US2] Route the trusted mutation through the application, advance both authoritative revisions after durability, and publish canonical results/events · `app.go`
 
 **⟶ Wait for T030 to finish, then:**
 
-- [ ] **T031** [US2] Map the revisioned request/result through generated private protobuf types · `app_contract.go`
+- [x] **T031** [US2] Map the revisioned request/result through generated private protobuf types · `app_contract.go`
 
 **⟶ Wait for T031 to finish, then:**
 
-- [ ] **T032** [US2] Expose only the narrow terminal-group replacement method on the registered desktop service · `desktop_service.go`
+- [x] **T032** [US2] Expose only the narrow terminal-group replacement method on the registered desktop service · `desktop_service.go`
 
 **⟶ Wait for T032 to finish, then:**
 
-- [ ] **T033** [US2] Regenerate Wails bindings for the new private desktop method without hand-editing generated output · `frontend/overseer/bindings/`
+- [x] **T033** [US2] Regenerate Wails bindings for the new private desktop method without hand-editing generated output · `frontend/overseer/bindings/`
 
 **⟶ Wait for T033 to finish, then Wave 9 — independent UI surfaces:**
 
-- [ ] **T034** [P] [US2] Add accessible group CRUD/move controls and the destructive impact confirmation dialog · `frontend/overseer/src/index.html`
-- [ ] **T035** [P] [US2] Style group editing, validation, destructive impact, busy, stale, and focus states · `frontend/overseer/src/overseer.css`
-- [ ] **T036** [P] [US2] Add the revisioned group command and canonical result normalization to the private desktop API facade · `frontend/overseer/src/desktop-api.js`
+- [x] **T034** [P] [US2] Add accessible group CRUD/move controls and the destructive impact confirmation dialog · `frontend/overseer/src/index.html`
+- [x] **T035** [P] [US2] Style group editing, validation, destructive impact, busy, stale, and focus states · `frontend/overseer/src/overseer.css`
+- [x] **T036** [P] [US2] Add the revisioned group command and canonical result normalization to the private desktop API facade · `frontend/overseer/src/desktop-api.js`
 
 **⟶ Wait for Wave 9 to finish, then:**
 
-- [ ] **T037** [US2] Implement create/rename/dissolve/move/reorder drafts, impact diffing, cancel-zero-call behavior, duplicate-submit guard, stale refresh, and canonical replacement · `frontend/overseer/src/overseer.js`
+- [x] **T037** [US2] Implement create/rename/dissolve/move/reorder drafts, impact diffing, cancel-zero-call behavior, duplicate-submit guard, stale refresh, and canonical replacement · `frontend/overseer/src/overseer.js`
 
 **Checkpoint**: US2 independently provides safe Overseer group management with explicit destructive confirmation and single atomic application.
 
@@ -139,20 +139,20 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **Wave 1 — independent failing coverage:**
 
-- [ ] **T038** [P] [US3] Add catalog tests for same-group, cross-group, self, missing, stale-link, and detached transition lookups · `internal/session/service_test.go`
-- [ ] **T039** [P] [US3] Add forward request/approve/reject/close, authority, pending, stale-membership, and exact-one-route-point tests · `internal/control/service_test.go`
-- [ ] **T040** [P] [US3] Add controller/observer browser journeys for same-group forward approval and cross-group zero-effect attempts · `tests/browser/terminal-navigation.spec.mjs`
+- [x] **T038** [P] [US3] Add catalog tests for same-group, cross-group, self, missing, stale-link, and detached transition lookups · `internal/session/service_test.go`
+- [x] **T039** [P] [US3] Add forward request/approve/reject/close, authority, pending, stale-membership, and exact-one-route-point tests · `internal/control/service_test.go`
+- [x] **T040** [P] [US3] Add controller/observer browser journeys for same-group forward approval and cross-group zero-effect attempts · `tests/browser/terminal-navigation.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-- [ ] **T041** [US3] Make transition lookup return only detached links whose endpoints currently share one canonical group · `internal/session/service.go`
+- [x] **T041** [US3] Make transition lookup return only detached links whose endpoints currently share one canonical group · `internal/session/service.go`
 
 **⟶ Wait for T041 to finish, then Wave 3 — independent consumers:**
 
-- [ ] **T042** [P] [US3] Enforce same-group forward eligibility and approval-time link/group revalidation without changing existing approval cardinality · `internal/control/service.go`
-- [ ] **T043** [P] [US3] Filter terminal-transition destination choices to other members of the edited terminal's current group · `frontend/overseer/src/overseer.js`
+- [x] **T042** [P] [US3] Enforce same-group forward eligibility and approval-time link/group revalidation without changing existing approval cardinality · `internal/control/service.go`
+- [x] **T043** [P] [US3] Filter terminal-transition destination choices to other members of the edited terminal's current group · `frontend/overseer/src/overseer.js`
 
 **Checkpoint**: US3 independently constrains forward navigation to one group while preserving Overseer approval and zero-effect rejection.
 
@@ -168,19 +168,19 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **Wave 1 — independent failing coverage:**
 
-- [ ] **T044** [P] [US4] Add runtime clone/provenance tests for authored and initial-prefix return points · `internal/domain/model_test.go`
-- [ ] **T045** [P] [US4] Add first/middle/last start, seeded LIFO, approve/reject/close, stale-order, cross-group return, and manual-activation cleanup tests · `internal/control/service_test.go`
-- [ ] **T046** [P] [US4] Add the complete C→B→A→B→C→D browser journey with reconnect and no skipped/duplicated activations · `tests/browser/terminal-grouping.spec.mjs`
+- [x] **T044** [P] [US4] Add runtime clone/provenance tests for authored and initial-prefix return points · `internal/domain/model_test.go`
+- [x] **T045** [P] [US4] Add first/middle/last start, seeded LIFO, approve/reject/close, stale-order, cross-group return, and manual-activation cleanup tests · `internal/control/service_test.go`
+- [x] **T046** [P] [US4] Add the complete C→B→A→B→C→D browser journey with reconnect and no skipped/duplicated activations · `tests/browser/terminal-grouping.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-- [ ] **T047** [US4] Add runtime-only return-point origin/group-position provenance and fresh-broadcast initialization state cloning · `internal/domain/model.go`
+- [x] **T047** [US4] Add runtime-only return-point origin/group-position provenance and fresh-broadcast initialization state cloning · `internal/domain/model.go`
 
 **⟶ Wait for T047 to finish, then:**
 
-- [ ] **T048** [US4] Seed preceding members once, enforce same-group LIFO returns, revalidate provenance/order at approval, and preserve later direct-activation cleanup · `internal/control/service.go`
+- [x] **T048** [US4] Seed preceding members once, enforce same-group LIFO returns, revalidate provenance/order at approval, and preserve later direct-activation cleanup · `internal/control/service.go`
 
 **Checkpoint**: US4 independently provides approved full-group backward/forward traversal from any starting member.
 
@@ -196,17 +196,17 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **Wave 1 — independent failing/regression coverage:**
 
-- [ ] **T049** [P] [US5] Add malformed partial-group, legacy cross-link, unknown-extra preservation, and compatibility validation cases · `internal/domain/validate_test.go`
-- [ ] **T050** [P] [US5] Add generic-save stale-group protection, legacy dormant-link, terminal lifecycle, rollback, and revision-coalescing regressions · `internal/session/service_test.go`
-- [ ] **T051** [P] [US5] Add legacy normalization, conflicting edit, reconnect, ordinary/state-changing command, and direct activation browser regressions · `tests/browser/terminal-grouping.spec.mjs`
+- [x] **T049** [P] [US5] Add malformed partial-group, legacy cross-link, unknown-extra preservation, and compatibility validation cases · `internal/domain/validate_test.go`
+- [x] **T050** [P] [US5] Add generic-save stale-group protection, legacy dormant-link, terminal lifecycle, rollback, and revision-coalescing regressions · `internal/session/service_test.go`
+- [x] **T051** [P] [US5] Add legacy normalization, conflicting edit, reconnect, ordinary/state-changing command, and direct activation browser regressions · `tests/browser/terminal-grouping.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2 — independent compatibility fixtures/docs:**
 
-- [ ] **T052** [P] [US5] Complete grouped, legacy, pending, route, reconnect, and ordinary-command fixture states · `tests/browser/fixture-server/main.go`
-- [ ] **T053** [P] [US5] Add an explicit ordered group for the demo's authored transition without changing unrelated content · `sessions/demo.json`
-- [ ] **T054** [P] [US5] Document group management, singleton compatibility, confirmation, middle-start navigation, and approval behavior · `README.md`
+- [x] **T052** [P] [US5] Complete grouped, legacy, pending, route, reconnect, and ordinary-command fixture states · `tests/browser/fixture-server/main.go`
+- [x] **T053** [P] [US5] Add an explicit ordered group for the demo's authored transition without changing unrelated content · `sessions/demo.json`
+- [x] **T054** [P] [US5] Document group management, singleton compatibility, confirmation, middle-start navigation, and approval behavior · `README.md`
 
 **Checkpoint**: US5 independently proves compatibility and active-play safety across legacy, regression, and reconnect journeys.
 
@@ -216,23 +216,23 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **Wave 1 — review and simplify the completed implementation:**
 
-- [ ] **T055** Apply code-simplification and Go-quality review findings without changing specified behavior · `internal/domain/`, `internal/session/`, `internal/control/`, `app.go`, `app_contract.go`, `desktop_service.go`, `frontend/overseer/src/`
+- [x] **T055** Apply code-simplification and Go-quality review findings without changing specified behavior · `internal/domain/`, `internal/session/`, `internal/control/`, `app.go`, `app_contract.go`, `desktop_service.go`, `frontend/overseer/src/`
 
 **⟶ Wait for T055 to finish, then:**
 
-- [ ] **T056** Run protobuf format/lint/generation/breaking checks and Wails binding drift checks, resolving only feature-owned drift · `proto/`, `internal/gen/`, `frontend/client/gen/`, `frontend/overseer/bindings/`
+- [x] **T056** Run protobuf format/lint/generation/breaking checks and Wails binding drift checks, resolving only feature-owned drift · `proto/`, `internal/gen/`, `frontend/client/gen/`, `frontend/overseer/bindings/`
 
 **⟶ Wait for T056 to finish, then:**
 
-- [ ] **T057** Run Go formatting, vet, unit tests, and race tests for domain, session, control, application, and private-boundary behavior · `./`
+- [x] **T057** Run Go formatting, vet, unit tests, and race tests for domain, session, control, application, and private-boundary behavior · `./`
 
 **⟶ Wait for T057 to finish, then:**
 
-- [ ] **T058** Run clean Overseer/client builds and all browser acceptance suites covering SC-001 through SC-014 · `frontend/`, `tests/browser/`
+- [x] **T058** Run clean Overseer/client builds and all browser acceptance suites covering SC-001 through SC-014 · `frontend/`, `tests/browser/`
 
 **⟶ Wait for T058 to finish, then:**
 
-- [ ] **T059** Run the owned application build and available package smoke, then audit every success criterion and report unavailable conditional checks honestly · `build/`, `specs/020-terminal-grouping/spec.md`
+- [x] **T059** Run the owned application build and available package smoke, then audit every success criterion and report unavailable conditional checks honestly · `build/`, `specs/020-terminal-grouping/spec.md`
 
 ## Dependencies & Execution Order
 
@@ -243,3 +243,26 @@ No setup-only changes are required. The feature uses the repository's existing p
 - US5 runs after the navigation slices so compatibility and reconnect regressions cover the complete behavior.
 - Polish runs only after all story checkpoints.
 - Within each phase, every numbered wave blocks the next join line; tasks marked `[P]` touch different files and have no incomplete dependency within their wave.
+
+## Phase 9: Convergence
+
+- [ ] T060 Reject newly authored or retargeted cross-group terminal transitions at the generic session-save boundary while preserving unchanged legacy dormant links, with focused session tests in `internal/session/service_test.go` per FR-018 (partial)
+- [ ] T061 Preserve sanitized session-revision and candidate-validation feedback through the terminal-group store/coordinator boundary and identify affected pending endpoints without exposing persistence details per FR-021 and FR-044 (partial)
+- [ ] T062 Track and validate the initialized active group position, seeded successor chain, and pending-return adjacency so terminal reorders that would invalidate backward navigation are rejected atomically per FR-034 (partial)
+- [ ] T063 Include every removed and collision-adjusted resultant singleton group plus exact terminal-to-group membership in the destructive dissolution impact dialog and its browser assertions per FR-040 (partial)
+- [ ] T064 Add browser acceptance journeys that reject an authored-link-conflicting group edit and prove cross-group direct Overseer activation clears the player-created return route per plan: Browser acceptance (missing)
+
+## Phase 10: Convergence
+
+- [ ] T065 Reject a group reorder that preserves stored seeded points but moves the current active terminal away from the remaining seeded return target after earlier prefix returns, with focused coordinator regression coverage in `internal/control/service_test.go` per FR-034 (partial)
+
+## Phase 11: Convergence
+
+- [ ] T066 Reject a group reorder that preserves the current authored return target but breaks the deeper adjacency between an authored route point and the remaining seeded prefix it will expose, with mixed-route atomic regression coverage in `internal/control/service_test.go` per FR-034 (partial)
+- [ ] T067 Add a confirmed split-to-singleton operation that separates one terminal from a multi-terminal group while retaining every other source member, generates a collision-safe valid singleton candidate, and covers the complete browser journey in `frontend/overseer/src/overseer.js` and `tests/browser/terminal-grouping.spec.mjs` per US1/AC3 (missing)
+- [ ] T068 Include stable authored-command identity in sanitized cross-group replacement rejection feedback and assert it through domain, coordinator/application, and browser coverage so multiple links with the same terminal endpoints remain distinguishable per US5/AC3 (partial)
+
+## Phase 12: Convergence
+
+- [ ] T069 Add an exact three-group, ten-terminal save/reopen acceptance matrix that preserves every group identity, name, group order, member order, and exact-one membership in `internal/session/service_test.go` per SC-001 (partial)
+- [ ] T070 Aggregate deterministic sanitized identities for every authored command invalidated by one cross-group replacement, including multiple commands with the same endpoints, and assert the complete feedback through domain, coordinator/application, and browser coverage per US5/AC3 (partial)

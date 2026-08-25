@@ -37,6 +37,10 @@ func (service *desktopService) SaveSession(session domain.Session) sessionservic
 	return service.core.SaveSession(session)
 }
 
+func (service *desktopService) ReplaceTerminalGroups(payload TerminalGroupReplacementPayload) TerminalGroupReplacementResult {
+	return service.core.ReplaceTerminalGroups(payload)
+}
+
 func (service *desktopService) LoadReferencedPlayerConfig() PlayerConfigCommandResult {
 	return service.core.LoadReferencedPlayerConfig()
 }

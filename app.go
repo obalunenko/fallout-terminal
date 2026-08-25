@@ -101,6 +101,10 @@ type coordinationControllerService interface {
 	SetActiveController(domain.LogicalSessionID) (*domain.MasterCoordinationState, error)
 }
 
+type coordinationTerminalGroupService interface {
+	ReplaceTerminalGroups(context.Context, domain.TerminalGroupCandidate) (*domain.MasterCoordinationState, *controlservice.TerminalGroupMutation, error)
+}
+
 // coordinationTerminalService is the trusted terminal-selection boundary. It
 // keeps terminal choice, runtime checkpoints, and publication ordered by the
 // same coordinator that owns assignments and controller authority.
@@ -247,6 +251,25 @@ type SessionStateResult struct {
 type SessionStateEvent struct {
 	Revision uint64          `json:"revision"`
 	Session  *domain.Session `json:"session"`
+}
+
+// TerminalGroupReplacementPayload is the private complete-set authoring
+// request. Both revisions are captured from the canonical state reviewed by
+// the Overseer.
+type TerminalGroupReplacementPayload struct {
+	TerminalGroups               []domain.TerminalGroup `json:"terminalGroups"`
+	ExpectedSessionRevision      uint64                 `json:"expectedSessionRevision"`
+	ExpectedCoordinationRevision uint64                 `json:"expectedCoordinationRevision"`
+}
+
+// TerminalGroupReplacementResult returns both authoritative owners on success
+// and on stale rejection so the frontend never keeps an optimistic draft.
+type TerminalGroupReplacementResult struct {
+	OK                bool                            `json:"ok"`
+	Error             string                          `json:"error,omitempty"`
+	SessionRevision   uint64                          `json:"sessionRevision"`
+	Session           *domain.Session                 `json:"session,omitempty"`
+	CoordinationState *domain.MasterCoordinationState `json:"coordinationState"`
 }
 
 // PublicAccessPreferences is the secret-free native desktop projection.
@@ -1214,6 +1237,77 @@ func (app *App) SaveSession(session domain.Session) (result sessionservice.SaveR
 	}
 	app.mu.Unlock()
 	return routeSaveSessionResult(commandResult)
+}
+
+// ReplaceTerminalGroups routes the one private complete-set mutation through
+// the coordinator, then publishes the durable session before the matching
+// coordination revision.
+func (app *App) ReplaceTerminalGroups(payload TerminalGroupReplacementPayload) TerminalGroupReplacementResult {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+	payload = routeTerminalGroupReplacementRequest(payload)
+
+	coordination, ok := app.deps.Coordination.(coordinationTerminalGroupService)
+	if !ok {
+		return routeTerminalGroupReplacementResult(app.terminalGroupReplacementFailure("coordination service is unavailable", nil))
+	}
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups:               domain.CloneTerminalGroups(payload.TerminalGroups),
+		ExpectedSessionRevision:      payload.ExpectedSessionRevision,
+		ExpectedCoordinationRevision: payload.ExpectedCoordinationRevision,
+	}
+	state, mutation, err := coordination.ReplaceTerminalGroups(app.contextSnapshot(), candidate)
+	if err != nil {
+		result := app.terminalGroupReplacementFailure(err.Error(), state)
+		if mutation != nil {
+			result.SessionRevision = mutation.Revision
+			if mutation.Session.Version != 0 {
+				result.Session = sessionPointerForApp(mutation.Session)
+			}
+		}
+		return routeTerminalGroupReplacementResult(result)
+	}
+	if mutation == nil {
+		return routeTerminalGroupReplacementResult(app.terminalGroupReplacementFailure("terminal groups were not replaced", state))
+	}
+	canonicalSession := domain.CloneSession(mutation.Session)
+	app.acceptSessionStateRevision(mutation.Revision)
+	if mutation.Changed {
+		app.publishSessionState(SessionStateEvent{Revision: mutation.Revision, Session: &canonicalSession})
+		app.publishCoordinationState(state)
+	}
+	return routeTerminalGroupReplacementResult(TerminalGroupReplacementResult{
+		OK:                true,
+		SessionRevision:   mutation.Revision,
+		Session:           sessionPointerForApp(canonicalSession),
+		CoordinationState: domain.CloneMasterCoordinationState(state),
+	})
+}
+
+func (app *App) terminalGroupReplacementFailure(message string, state *domain.MasterCoordinationState) TerminalGroupReplacementResult {
+	result := TerminalGroupReplacementResult{
+		Error:             message,
+		CoordinationState: domain.CloneMasterCoordinationState(state),
+	}
+	if result.CoordinationState == nil {
+		app.mu.RLock()
+		result.CoordinationState = domain.CloneMasterCoordinationState(app.coordinationState)
+		app.mu.RUnlock()
+	}
+	if sessions, ok := app.deps.Sessions.(sessionCommands); ok {
+		active := sessions.Snapshot()
+		app.captureSessionStatus(sessions)
+		result.SessionRevision = active.SavedRevision
+		if active.Session != nil {
+			result.Session = sessionPointerForApp(*active.Session)
+		}
+	}
+	return result
+}
+
+func sessionPointerForApp(session domain.Session) *domain.Session {
+	clone := domain.CloneSession(session)
+	return &clone
 }
 
 // LoadReferencedPlayerConfig reloads the active session's durable roster.

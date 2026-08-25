@@ -7,6 +7,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -86,10 +87,38 @@ type CommandStateStore interface {
 	ResetTerminalCommandStates(context.Context, string) (CommandStateMutation, error)
 }
 
+// TerminalGroupMutation is the detached durable document returned after one
+// complete group-set compare-and-replace.
+type TerminalGroupMutation struct {
+	Changed  bool
+	Revision uint64
+	Session  domain.Session
+}
+
+// TerminalGroupStoreRejection marks feedback already sanitized by the session
+// owner. The coordinator preserves this message and canonical document while
+// collapsing every untyped storage error at the trust boundary.
+type TerminalGroupStoreRejection struct {
+	Message string
+}
+
+func (rejection *TerminalGroupStoreRejection) Error() string {
+	return rejection.Message
+}
+
+// TerminalGroupStore is the one-way control-to-session durability seam.
+type TerminalGroupStore interface {
+	ReplaceTerminalGroups(context.Context, []domain.TerminalGroup, uint64) (TerminalGroupMutation, error)
+}
+
 // TerminalCatalog resolves only detached values from the latest validated session.
 type TerminalCatalog interface {
 	LookupTerminal(terminalID string) (domain.TerminalTarget, bool)
 	LookupTerminalTransition(sourceTerminalID, commandID string) (domain.TerminalTransitionTarget, bool)
+}
+
+type terminalGroupCatalog interface {
+	LookupTerminalGroup(terminalID string) (domain.TerminalGroupSnapshot, bool)
 }
 
 // Config supplies deterministic seams for identifiers and ordered effects.
@@ -103,6 +132,7 @@ type Config struct {
 	TrustedHack        TrustedHackRuntime
 	RosterStore        RosterStore
 	CommandStateStore  CommandStateStore
+	TerminalGroupStore TerminalGroupStore
 	TerminalCatalog    TerminalCatalog
 	RequestResultLimit int
 }
@@ -154,6 +184,7 @@ type Service struct {
 	trustedHack         TrustedHackRuntime
 	rosterStore         RosterStore
 	commandStateStore   CommandStateStore
+	terminalGroupStore  TerminalGroupStore
 	terminalCatalog     TerminalCatalog
 	requirePlayerConfig bool
 	requestResultLimit  int
@@ -206,6 +237,7 @@ func New(config Config) *Service {
 		trustedHack:         config.TrustedHack,
 		rosterStore:         config.RosterStore,
 		commandStateStore:   config.CommandStateStore,
+		terminalGroupStore:  config.TerminalGroupStore,
 		terminalCatalog:     config.TerminalCatalog,
 		requirePlayerConfig: config.RosterStore != nil,
 		requestResultLimit:  requestResultLimit,
@@ -354,6 +386,188 @@ func (service *Service) Snapshot() *domain.MasterCoordinationState {
 	service.mu.RLock()
 	defer service.mu.RUnlock()
 	return domain.CloneMasterCoordinationState(masterSnapshot(&service.runtime))
+}
+
+// ReplaceTerminalGroups serializes one trusted complete-set replacement with
+// player navigation, validates runtime routes against the proposal, and only
+// advances coordination after durable session replacement succeeds.
+func (service *Service) ReplaceTerminalGroups(
+	ctx context.Context,
+	candidate domain.TerminalGroupCandidate,
+) (*domain.MasterCoordinationState, *TerminalGroupMutation, error) {
+	if ctx == nil {
+		return service.Snapshot(), nil, fmt.Errorf("terminal group replacement context is required")
+	}
+	var state *domain.MasterCoordinationState
+	var mutation *TerminalGroupMutation
+	var replacementErr error
+	result := service.commit(func(runtime *domain.ProcessRuntime) transition {
+		state = masterSnapshot(runtime)
+		if err := ctx.Err(); err != nil {
+			replacementErr = fmt.Errorf("terminal group replacement was canceled")
+			return transition{}
+		}
+		if candidate.ExpectedCoordinationRevision != runtime.Revision {
+			replacementErr = fmt.Errorf(
+				"coordination revision is stale: expected %d, current %d",
+				candidate.ExpectedCoordinationRevision,
+				runtime.Revision,
+			)
+			return transition{}
+		}
+		if service.terminalGroupStore == nil {
+			replacementErr = fmt.Errorf("terminal group storage is unavailable")
+			return transition{}
+		}
+		if err := validateRuntimeTerminalGroups(runtime, candidate.TerminalGroups); err != nil {
+			replacementErr = err
+			return transition{}
+		}
+		durable, err := service.terminalGroupStore.ReplaceTerminalGroups(
+			ctx,
+			domain.CloneTerminalGroups(candidate.TerminalGroups),
+			candidate.ExpectedSessionRevision,
+		)
+		if err != nil {
+			var rejection *TerminalGroupStoreRejection
+			if errors.As(err, &rejection) {
+				mutation = &TerminalGroupMutation{
+					Changed:  durable.Changed,
+					Revision: durable.Revision,
+					Session:  domain.CloneSession(durable.Session),
+				}
+				replacementErr = rejection
+			} else {
+				replacementErr = fmt.Errorf("could not save terminal groups")
+			}
+			return transition{}
+		}
+		mutation = &TerminalGroupMutation{
+			Changed: durable.Changed, Revision: durable.Revision, Session: domain.CloneSession(durable.Session),
+		}
+		if !durable.Changed {
+			return transition{}
+		}
+		state = masterSnapshot(runtime)
+		return transition{accepted: true, effects: stateEffects(runtime)}
+	})
+	if state == nil {
+		state = service.Snapshot()
+	}
+	state.Revision = result.revision
+	return domain.CloneMasterCoordinationState(state), mutation, replacementErr
+}
+
+func validateRuntimeTerminalGroups(runtime *domain.ProcessRuntime, groups []domain.TerminalGroup) error {
+	type membership struct {
+		groupID  string
+		position int
+	}
+	byTerminal := make(map[string]membership)
+	byGroup := make(map[string][]string, len(groups))
+	for _, group := range groups {
+		byGroup[group.ID] = append([]string(nil), group.TerminalIDs...)
+		for position, terminalID := range group.TerminalIDs {
+			byTerminal[terminalID] = membership{groupID: group.ID, position: position}
+		}
+	}
+	broadcast := runtime.Broadcast
+	if broadcast != nil && broadcast.InitialTerminalEstablished && broadcast.InitialTerminalGroupID != "" {
+		initial, exists := byTerminal[broadcast.InitialTerminalID]
+		if !exists || initial.groupID != broadcast.InitialTerminalGroupID ||
+			initial.position != broadcast.InitialTerminalGroupPosition {
+			return fmt.Errorf(
+				"terminal group candidate invalidates initialized terminal %q position in group %q",
+				broadcast.InitialTerminalID,
+				broadcast.InitialTerminalGroupID,
+			)
+		}
+	}
+	pending := runtime.PendingTerminalNavigation
+	if pending != nil {
+		source, sourceOK := byTerminal[pending.SourceTerminalID]
+		target, targetOK := byTerminal[pending.TargetTerminalID]
+		if !sourceOK || !targetOK || source.groupID != target.groupID {
+			return fmt.Errorf(
+				"terminal group candidate invalidates pending %s navigation %q -> %q",
+				pending.Direction,
+				pending.SourceTerminalID,
+				pending.TargetTerminalID,
+			)
+		}
+		if pending.Direction == domain.TerminalNavigationReturn {
+			if broadcast == nil || len(broadcast.Route) == 0 ||
+				!sameTerminalReturnPoint(broadcast.Route[len(broadcast.Route)-1], pending.ReturnPoint) {
+				return fmt.Errorf(
+					"terminal group candidate invalidates pending return %q -> %q route point",
+					pending.SourceTerminalID,
+					pending.TargetTerminalID,
+				)
+			}
+			if pending.ReturnPoint.Origin == domain.TerminalReturnInitialPrefix &&
+				(source.position != target.position+1 ||
+					pending.ReturnPoint.GroupID != target.groupID ||
+					pending.ReturnPoint.GroupPosition != target.position) {
+				return fmt.Errorf(
+					"terminal group candidate invalidates pending return adjacency %q -> %q",
+					pending.SourceTerminalID,
+					pending.TargetTerminalID,
+				)
+			}
+		}
+	}
+	if broadcast == nil || broadcast.ActiveTerminalID == nil {
+		return nil
+	}
+	active, activeOK := byTerminal[*broadcast.ActiveTerminalID]
+	if !activeOK {
+		return fmt.Errorf("terminal group candidate omits the active terminal %q", *broadcast.ActiveTerminalID)
+	}
+	seededPosition := 0
+	seededChainEnded := false
+	for routeIndex, point := range broadcast.Route {
+		member, exists := byTerminal[point.TerminalID]
+		if !exists || member.groupID != active.groupID {
+			return fmt.Errorf("terminal group candidate invalidates the active return route at terminal %q", point.TerminalID)
+		}
+		if point.Origin != domain.TerminalReturnInitialPrefix {
+			seededChainEnded = true
+			continue
+		}
+		ordered := byGroup[point.GroupID]
+		if seededChainEnded || point.GroupPosition != seededPosition {
+			return fmt.Errorf("terminal group candidate invalidates seeded return successor chain at terminal %q", point.TerminalID)
+		}
+		if point.GroupID != member.groupID || point.GroupPosition < 0 || point.GroupPosition >= len(ordered) ||
+			ordered[point.GroupPosition] != point.TerminalID || member.position != point.GroupPosition {
+			return fmt.Errorf("terminal group candidate invalidates seeded return order at terminal %q", point.TerminalID)
+		}
+		if broadcast.InitialTerminalGroupID != "" &&
+			(point.GroupID != broadcast.InitialTerminalGroupID || point.GroupPosition >= broadcast.InitialTerminalGroupPosition) {
+			return fmt.Errorf("terminal group candidate invalidates seeded return successor chain at terminal %q", point.TerminalID)
+		}
+		successorID := *broadcast.ActiveTerminalID
+		if routeIndex+1 < len(broadcast.Route) {
+			successorID = broadcast.Route[routeIndex+1].TerminalID
+		}
+		successor := byTerminal[successorID]
+		if successor.groupID != member.groupID || successor.position != point.GroupPosition+1 {
+			if routeIndex == len(broadcast.Route)-1 {
+				return fmt.Errorf(
+					"terminal group candidate invalidates active seeded return adjacency %q -> %q",
+					successorID,
+					point.TerminalID,
+				)
+			}
+			return fmt.Errorf(
+				"terminal group candidate invalidates seeded return successor adjacency %q -> %q",
+				successorID,
+				point.TerminalID,
+			)
+		}
+		seededPosition++
+	}
+	return nil
 }
 
 // PlayerSnapshot returns a deeply detached personalized projection for a
@@ -846,6 +1060,7 @@ func (service *Service) RequestTerminalActivation(target domain.TerminalTarget) 
 		targetRuntime.Lifecycle = domain.TerminalLifecycleActive
 		activeTerminalID := target.TerminalID
 		broadcast.ActiveTerminalID = &activeTerminalID
+		service.establishInitialTerminalRoute(broadcast, target.TerminalID)
 		runtime.PendingSwitch = nil
 		state = masterSnapshot(runtime)
 		effects := stateEffects(runtime)
@@ -1127,13 +1342,15 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		}
 		if pending.Direction == domain.TerminalNavigationReturn {
 			if service.terminalCatalog == nil || len(broadcast.Route) == 0 ||
-				!sameTerminalReturnPoint(broadcast.Route[len(broadcast.Route)-1], pending.ReturnPoint) {
+				!sameTerminalReturnPoint(broadcast.Route[len(broadcast.Route)-1], pending.ReturnPoint) ||
+				!service.validTerminalReturnPoint(pending.SourceTerminalID, pending.ReturnPoint) {
 				state = masterSnapshot(runtime)
 				resolveErr = fmt.Errorf("terminal navigation route changed")
 				return transition{}
 			}
 			latest, ok := service.terminalCatalog.LookupTerminal(pending.TargetTerminalID)
-			if !ok || latest.TerminalID != pending.ReturnPoint.TerminalID {
+			if !ok || latest.TerminalID != pending.ReturnPoint.TerminalID ||
+				!service.sameTerminalGroup(pending.SourceTerminalID, pending.TargetTerminalID) {
 				targetID := pending.TargetTerminalID
 				runtime.PendingTerminalNavigation = nil
 				runtime.TerminalNavigationNotice = &domain.TerminalNavigationNotice{
@@ -1185,7 +1402,8 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 			return transition{}
 		}
 		latest, ok := service.terminalCatalog.LookupTerminalTransition(pending.SourceTerminalID, pending.CommandID)
-		if !ok || latest.Target.TerminalID != pending.TargetTerminalID || latest.Target.TerminalID == pending.SourceTerminalID {
+		if !ok || latest.Target.TerminalID != pending.TargetTerminalID || latest.Target.TerminalID == pending.SourceTerminalID ||
+			!service.sameTerminalGroup(pending.SourceTerminalID, pending.TargetTerminalID) {
 			targetID := pending.TargetTerminalID
 			runtime.PendingTerminalNavigation = nil
 			runtime.TerminalNavigationNotice = &domain.TerminalNavigationNotice{
@@ -1801,6 +2019,10 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 		}
 		if rootReturnRequested(terminal, command, runtime.Broadcast.Route) {
 			top := cloneTerminalReturnPoint(runtime.Broadcast.Route[len(runtime.Broadcast.Route)-1])
+			if !service.validTerminalReturnPoint(terminal.TerminalID, top) {
+				outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
+				return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+			}
 			runtime.PendingTerminalNavigation = &domain.PendingTerminalNavigation{
 				RequestID: service.nextID(), BroadcastID: runtime.Broadcast.ID, ControllerSessionID: sessionID,
 				Direction:        domain.TerminalNavigationReturn,
@@ -1833,7 +2055,8 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			if service.terminalCatalog != nil {
 				lookup, ok = service.terminalCatalog.LookupTerminalTransition(terminal.TerminalID, authored.ID)
 			}
-			if !ok || lookup.Target.TerminalID == terminal.TerminalID || lookup.Target.TerminalID != authored.TerminalTransition.TargetTerminalID {
+			if !ok || lookup.Target.TerminalID == terminal.TerminalID || lookup.Target.TerminalID != authored.TerminalTransition.TargetTerminalID ||
+				!service.sameTerminalGroup(terminal.TerminalID, lookup.Target.TerminalID) {
 				targetID := authored.TerminalTransition.TargetTerminalID
 				runtime.TerminalNavigationNotice = &domain.TerminalNavigationNotice{
 					Reason: domain.TerminalNavigationNoticeTargetMissing, SourceTerminalID: terminal.TerminalID,
@@ -1859,6 +2082,7 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 					TerminalID: terminal.TerminalID, TerminalName: terminal.TerminalName,
 					FolderID: folderID, AncestorFolderIDs: ancestors,
 					CommandID: authored.ID, CommandName: authored.Name,
+					Origin: domain.TerminalReturnAuthored,
 				},
 			}
 			runtime.TerminalNavigationNotice = nil
@@ -2304,7 +2528,8 @@ func cloneTerminalReturnPoint(point domain.TerminalReturnPoint) domain.TerminalR
 
 func sameTerminalReturnPoint(left, right domain.TerminalReturnPoint) bool {
 	if left.TerminalID != right.TerminalID || left.TerminalName != right.TerminalName || left.FolderID != right.FolderID ||
-		left.CommandID != right.CommandID || left.CommandName != right.CommandName || len(left.AncestorFolderIDs) != len(right.AncestorFolderIDs) {
+		left.CommandID != right.CommandID || left.CommandName != right.CommandName || left.Origin != right.Origin ||
+		left.GroupID != right.GroupID || left.GroupPosition != right.GroupPosition || len(left.AncestorFolderIDs) != len(right.AncestorFolderIDs) {
 		return false
 	}
 	for index := range left.AncestorFolderIDs {
@@ -2313,6 +2538,94 @@ func sameTerminalReturnPoint(left, right domain.TerminalReturnPoint) bool {
 		}
 	}
 	return true
+}
+
+func (service *Service) sameTerminalGroup(sourceTerminalID, targetTerminalID string) bool {
+	catalog, ok := service.terminalCatalog.(terminalGroupCatalog)
+	if !ok {
+		// Compatibility for focused pre-grouping fakes. Production session.Service
+		// implements terminalGroupCatalog and therefore always takes the strict path.
+		return true
+	}
+	source, sourceOK := catalog.LookupTerminalGroup(sourceTerminalID)
+	target, targetOK := catalog.LookupTerminalGroup(targetTerminalID)
+	return sourceOK && targetOK && source.ID != "" && source.ID == target.ID
+}
+
+func (service *Service) establishInitialTerminalRoute(broadcast *domain.LiveBroadcast, terminalID string) {
+	if broadcast == nil || broadcast.InitialTerminalEstablished {
+		return
+	}
+	broadcast.InitialTerminalEstablished = true
+	catalog, ok := service.terminalCatalog.(terminalGroupCatalog)
+	if !ok || service.terminalCatalog == nil {
+		return
+	}
+	group, ok := catalog.LookupTerminalGroup(terminalID)
+	if !ok || group.ID == "" {
+		return
+	}
+	position := -1
+	for index, memberID := range group.TerminalIDs {
+		if memberID == terminalID {
+			position = index
+			break
+		}
+	}
+	if position < 0 {
+		return
+	}
+	if position == 0 {
+		broadcast.InitialTerminalID = terminalID
+		broadcast.InitialTerminalGroupID = group.ID
+		broadcast.InitialTerminalGroupPosition = position
+		return
+	}
+	route := make([]domain.TerminalReturnPoint, 0, position)
+	for index, memberID := range group.TerminalIDs[:position] {
+		target, found := service.terminalCatalog.LookupTerminal(memberID)
+		if !found || target.TerminalID != memberID {
+			return
+		}
+		route = append(route, domain.TerminalReturnPoint{
+			TerminalID: target.TerminalID, TerminalName: target.TerminalName,
+			FolderID: "root", Origin: domain.TerminalReturnInitialPrefix,
+			GroupID: group.ID, GroupPosition: index,
+		})
+	}
+	broadcast.InitialTerminalID = terminalID
+	broadcast.InitialTerminalGroupID = group.ID
+	broadcast.InitialTerminalGroupPosition = position
+	broadcast.Route = route
+}
+
+func (service *Service) validTerminalReturnPoint(sourceTerminalID string, point domain.TerminalReturnPoint) bool {
+	if !service.sameTerminalGroup(sourceTerminalID, point.TerminalID) {
+		return false
+	}
+	if point.Origin != domain.TerminalReturnInitialPrefix {
+		return true
+	}
+	catalog, ok := service.terminalCatalog.(terminalGroupCatalog)
+	if !ok {
+		return false
+	}
+	sourceGroup, sourceOK := catalog.LookupTerminalGroup(sourceTerminalID)
+	targetGroup, targetOK := catalog.LookupTerminalGroup(point.TerminalID)
+	if !sourceOK || !targetOK || sourceGroup.ID == "" || sourceGroup.ID != targetGroup.ID ||
+		point.GroupID != targetGroup.ID {
+		return false
+	}
+	sourcePosition, targetPosition := -1, -1
+	for index, terminalID := range targetGroup.TerminalIDs {
+		if terminalID == sourceTerminalID {
+			sourcePosition = index
+		}
+		if terminalID == point.TerminalID {
+			targetPosition = index
+		}
+	}
+	return targetPosition == point.GroupPosition && sourcePosition == targetPosition+1
 }
 
 func sessionAssigned(broadcast *domain.LiveBroadcast, sessionID domain.LogicalSessionID) bool {

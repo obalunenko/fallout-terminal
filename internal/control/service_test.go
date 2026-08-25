@@ -3671,6 +3671,316 @@ func TestStaleForwardApprovalClearsOnlyPendingAndPublishesTypedNotice(t *testing
 	fixture.service.mu.RUnlock()
 }
 
+func TestSameGroupForwardRequestRequiresControllerAndCreatesOnePending(t *testing.T) {
+	t.Parallel()
+
+	fixture, catalog := newGroupAwareForwardFixture(t)
+	before := fixture.service.Snapshot()
+
+	observer := fixture.service.DispatchPlayerAction(
+		fixture.observerConnection,
+		groupAwareForwardCommand(fixture, "same-group-observer"),
+	)
+	assert.Equal(t, domain.ActionReasonNotController, observer.Reason)
+	assert.Nil(t, fixture.service.Snapshot().PendingTerminalNavigation)
+	assert.Equal(t, fixture.terminalID, *fixture.service.Snapshot().Broadcast.ActiveTerminalID)
+
+	catalog.groups = []domain.TerminalGroup{
+		{ID: "source", Name: "Source", TerminalIDs: []string{fixture.terminalID}},
+		{ID: "target", Name: "Target", TerminalIDs: []string{"terminal-b"}},
+	}
+	crossGroup := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		groupAwareForwardCommand(fixture, "cross-group-controller"),
+	)
+	assert.Equal(t, domain.ActionReasonInvalidAction, crossGroup.Reason)
+	assert.Nil(t, fixture.service.Snapshot().PendingTerminalNavigation)
+	assert.Equal(t, fixture.terminalID, *fixture.service.Snapshot().Broadcast.ActiveTerminalID)
+	fixture.service.mu.RLock()
+	assert.Empty(t, fixture.service.runtime.Broadcast.Route)
+	fixture.service.mu.RUnlock()
+
+	catalog.groups = []domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{fixture.terminalID, "terminal-b"}},
+	}
+	requested := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		groupAwareForwardCommand(fixture, "same-group-controller"),
+	)
+	require.True(t, requested.Accepted)
+	pending := fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pending)
+	assert.Equal(t, domain.TerminalNavigationForward, pending.Direction)
+	assert.Equal(t, fixture.terminalID, pending.SourceTerminalID)
+	assert.Equal(t, "terminal-b", pending.TargetTerminalID)
+	assert.Equal(t, fixture.terminalID, *fixture.service.Snapshot().Broadcast.ActiveTerminalID)
+	fixture.service.mu.RLock()
+	assert.Empty(t, fixture.service.runtime.Broadcast.Route)
+	fixture.service.mu.RUnlock()
+
+	competing := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		groupAwareForwardCommand(fixture, "same-group-competing"),
+	)
+	assert.Equal(t, domain.ActionReasonConflict, competing.Reason)
+	assert.Equal(t, pending.RequestID, fixture.service.Snapshot().PendingTerminalNavigation.RequestID)
+	assert.Greater(t, fixture.service.Revision(), before.Revision)
+}
+
+func TestSameGroupForwardRejectAndCloseLeaveActiveTerminalAndRouteUnchanged(t *testing.T) {
+	t.Parallel()
+
+	for _, resolution := range []string{"explicit reject", "dialog close maps to reject"} {
+		t.Run(resolution, func(t *testing.T) {
+			t.Parallel()
+
+			fixture, _ := newGroupAwareForwardFixture(t)
+			selected := fixture.service.DispatchPlayerAction(
+				fixture.controllerConnection,
+				groupAwareForwardCommand(fixture, "same-group-"+strings.ReplaceAll(resolution, " ", "-")),
+			)
+			require.True(t, selected.Accepted)
+			pending := fixture.service.Snapshot().PendingTerminalNavigation
+			require.NotNil(t, pending)
+
+			state, err := fixture.service.ResolveTerminalNavigation(
+				pending.RequestID,
+				domain.TerminalNavigationReject,
+			)
+			require.NoError(t, err)
+			assert.Nil(t, state.PendingTerminalNavigation)
+			assert.Equal(t, fixture.terminalID, *state.Broadcast.ActiveTerminalID)
+			fixture.service.mu.RLock()
+			assert.Empty(t, fixture.service.runtime.Broadcast.Route)
+			fixture.service.mu.RUnlock()
+		})
+	}
+}
+
+func TestSameGroupForwardApprovalAddsExactlyOneRoutePoint(t *testing.T) {
+	t.Parallel()
+
+	fixture, _ := newGroupAwareForwardFixture(t)
+	selected := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		groupAwareForwardCommand(fixture, "same-group-approve"),
+	)
+	require.True(t, selected.Accepted)
+	pending := fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pending)
+
+	approved, err := fixture.service.ResolveTerminalNavigation(
+		pending.RequestID,
+		domain.TerminalNavigationApprove,
+	)
+	require.NoError(t, err)
+	assert.Nil(t, approved.PendingTerminalNavigation)
+	assert.Equal(t, "terminal-b", *approved.Broadcast.ActiveTerminalID)
+	fixture.service.mu.RLock()
+	require.Len(t, fixture.service.runtime.Broadcast.Route, 1)
+	point := fixture.service.runtime.Broadcast.Route[0]
+	assert.Equal(t, fixture.terminalID, point.TerminalID)
+	assert.Equal(t, "linked-command", point.CommandID)
+	fixture.service.mu.RUnlock()
+
+	repeated, repeatedErr := fixture.service.ResolveTerminalNavigation(
+		pending.RequestID,
+		domain.TerminalNavigationApprove,
+	)
+	require.ErrorContains(t, repeatedErr, "stale")
+	assert.Equal(t, "terminal-b", *repeated.Broadcast.ActiveTerminalID)
+	fixture.service.mu.RLock()
+	assert.Len(t, fixture.service.runtime.Broadcast.Route, 1)
+	fixture.service.mu.RUnlock()
+}
+
+func TestSameGroupForwardApprovalRejectsStaleMembershipBeforeActivation(t *testing.T) {
+	t.Parallel()
+
+	fixture, catalog := newGroupAwareForwardFixture(t)
+	selected := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		groupAwareForwardCommand(fixture, "same-group-stale-membership"),
+	)
+	require.True(t, selected.Accepted)
+	pending := fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pending)
+
+	catalog.groups = []domain.TerminalGroup{
+		{ID: "source", Name: "Source", TerminalIDs: []string{fixture.terminalID}},
+		{ID: "target", Name: "Target", TerminalIDs: []string{"terminal-b"}},
+	}
+	state, err := fixture.service.ResolveTerminalNavigation(
+		pending.RequestID,
+		domain.TerminalNavigationApprove,
+	)
+	require.Error(t, err)
+	assert.Nil(t, state.PendingTerminalNavigation)
+	assert.Equal(t, fixture.terminalID, *state.Broadcast.ActiveTerminalID)
+	require.NotNil(t, state.TerminalNavigationNotice)
+	assert.Equal(t, domain.TerminalNavigationNoticeTargetChanged, state.TerminalNavigationNotice.Reason)
+	fixture.service.mu.RLock()
+	assert.Empty(t, fixture.service.runtime.Broadcast.Route)
+	assert.NotContains(t, fixture.service.runtime.Broadcast.TerminalRuntimes, "terminal-b")
+	fixture.service.mu.RUnlock()
+}
+
+func TestFreshBroadcastStartSeedsOrderedPrefixForFirstMiddleAndLastMembers(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		terminal  string
+		wantRoute []string
+	}{
+		{name: "first", terminal: "terminal-a", wantRoute: []string{}},
+		{name: "middle", terminal: "terminal-c", wantRoute: []string{"terminal-a", "terminal-b"}},
+		{name: "last", terminal: "terminal-d", wantRoute: []string{"terminal-a", "terminal-b", "terminal-c"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture, _ := newOrderedGroupStartFixture(t)
+			state, err := fixture.service.RequestTerminalActivation(terminalTarget(test.terminal, test.terminal))
+			require.NoError(t, err)
+			require.Equal(t, test.terminal, *state.Broadcast.ActiveTerminalID)
+
+			fixture.service.mu.RLock()
+			route := append([]domain.TerminalReturnPoint(nil), fixture.service.runtime.Broadcast.Route...)
+			initialTerminalID := fixture.service.runtime.Broadcast.InitialTerminalID
+			initialGroupID := fixture.service.runtime.Broadcast.InitialTerminalGroupID
+			initialGroupPosition := fixture.service.runtime.Broadcast.InitialTerminalGroupPosition
+			fixture.service.mu.RUnlock()
+			assert.Equal(t, test.terminal, initialTerminalID)
+			assert.Equal(t, "ordered-route", initialGroupID)
+			assert.Equal(t, slices.Index([]string{"terminal-a", "terminal-b", "terminal-c", "terminal-d"}, test.terminal), initialGroupPosition)
+			require.Len(t, route, len(test.wantRoute))
+			for index, terminalID := range test.wantRoute {
+				point := route[index]
+				assert.Equal(t, terminalID, point.TerminalID)
+				assert.Equal(t, domain.TerminalReturnInitialPrefix, point.Origin)
+				assert.Equal(t, "ordered-route", point.GroupID)
+				assert.Equal(t, index, point.GroupPosition)
+				assert.Equal(t, "root", point.FolderID)
+			}
+		})
+	}
+}
+
+func TestSeededReturnRejectAndClosePreserveLIFOThenApprovalsReachFirstMember(t *testing.T) {
+	t.Parallel()
+
+	for _, resolution := range []string{"explicit reject", "dialog close maps to reject"} {
+		t.Run(resolution, func(t *testing.T) {
+			t.Parallel()
+
+			fixture, _ := newOrderedGroupStartFixture(t)
+			_, err := fixture.service.RequestTerminalActivation(terminalTarget("terminal-c", "Terminal C"))
+			require.NoError(t, err)
+			pending := requestOrderedGroupReturn(t, fixture, "terminal-c", "seeded-"+strings.ReplaceAll(resolution, " ", "-"))
+			assert.Equal(t, "terminal-b", pending.TargetTerminalID)
+			assert.Equal(t, domain.TerminalReturnInitialPrefix, pending.ReturnPoint.Origin)
+
+			state, resolveErr := fixture.service.ResolveTerminalNavigation(
+				pending.RequestID,
+				domain.TerminalNavigationReject,
+			)
+			require.NoError(t, resolveErr)
+			assert.Nil(t, state.PendingTerminalNavigation)
+			assert.Equal(t, "terminal-c", *state.Broadcast.ActiveTerminalID)
+			assertOrderedRouteIDs(t, fixture.service, []string{"terminal-a", "terminal-b"})
+		})
+	}
+
+	fixture, _ := newOrderedGroupStartFixture(t)
+	_, err := fixture.service.RequestTerminalActivation(terminalTarget("terminal-c", "Terminal C"))
+	require.NoError(t, err)
+	for index, step := range []struct {
+		from      string
+		to        string
+		wantRoute []string
+	}{
+		{from: "terminal-c", to: "terminal-b", wantRoute: []string{"terminal-a"}},
+		{from: "terminal-b", to: "terminal-a", wantRoute: []string{}},
+	} {
+		pending := requestOrderedGroupReturn(t, fixture, step.from, fmt.Sprintf("seeded-approve-%d", index))
+		before := fixture.service.Snapshot()
+		assert.Equal(t, step.from, *before.Broadcast.ActiveTerminalID)
+		state, approveErr := fixture.service.ResolveTerminalNavigation(
+			pending.RequestID,
+			domain.TerminalNavigationApprove,
+		)
+		require.NoError(t, approveErr)
+		assert.Equal(t, step.to, *state.Broadcast.ActiveTerminalID)
+		assert.Nil(t, state.PendingTerminalNavigation)
+		assertOrderedRouteIDs(t, fixture.service, step.wantRoute)
+	}
+}
+
+func TestSeededReturnApprovalRejectsStaleGroupOrderWithoutNavigation(t *testing.T) {
+	t.Parallel()
+
+	fixture, catalog := newOrderedGroupStartFixture(t)
+	_, err := fixture.service.RequestTerminalActivation(terminalTarget("terminal-c", "Terminal C"))
+	require.NoError(t, err)
+	pending := requestOrderedGroupReturn(t, fixture, "terminal-c", "seeded-stale-order")
+	catalog.groups = []domain.TerminalGroup{
+		{ID: "ordered-route", Name: "Ordered route", TerminalIDs: []string{"terminal-b", "terminal-a", "terminal-c", "terminal-d"}},
+	}
+
+	state, resolveErr := fixture.service.ResolveTerminalNavigation(
+		pending.RequestID,
+		domain.TerminalNavigationApprove,
+	)
+	require.Error(t, resolveErr)
+	assert.Equal(t, "terminal-c", *state.Broadcast.ActiveTerminalID)
+	assertOrderedRouteIDs(t, fixture.service, []string{"terminal-a", "terminal-b"})
+	fixture.service.mu.RLock()
+	assert.NotContains(t, fixture.service.runtime.Broadcast.TerminalRuntimes, "terminal-b")
+	fixture.service.mu.RUnlock()
+}
+
+func TestSeededReturnRejectsCrossGroupTargetBeforePending(t *testing.T) {
+	t.Parallel()
+
+	fixture, catalog := newOrderedGroupStartFixture(t)
+	_, err := fixture.service.RequestTerminalActivation(terminalTarget("terminal-c", "Terminal C"))
+	require.NoError(t, err)
+	catalog.groups = []domain.TerminalGroup{
+		{ID: "prefix", Name: "Prefix", TerminalIDs: []string{"terminal-a", "terminal-b"}},
+		{ID: "active", Name: "Active", TerminalIDs: []string{"terminal-c", "terminal-d"}},
+	}
+
+	result := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		orderedGroupBackCommand(fixture, "terminal-c", "seeded-cross-group"),
+	)
+	assert.Equal(t, domain.ActionReasonInvalidAction, result.Reason)
+	assert.Nil(t, fixture.service.Snapshot().PendingTerminalNavigation)
+	assert.Equal(t, "terminal-c", *fixture.service.Snapshot().Broadcast.ActiveTerminalID)
+	assertOrderedRouteIDs(t, fixture.service, []string{"terminal-a", "terminal-b"})
+}
+
+func TestLaterManualActivationClearsSeededRouteWithoutReseeding(t *testing.T) {
+	t.Parallel()
+
+	fixture, _ := newOrderedGroupStartFixture(t)
+	_, err := fixture.service.RequestTerminalActivation(terminalTarget("terminal-c", "Terminal C"))
+	require.NoError(t, err)
+	assertOrderedRouteIDs(t, fixture.service, []string{"terminal-a", "terminal-b"})
+	requestOrderedGroupReturn(t, fixture, "terminal-c", "seeded-before-manual")
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		root.Broadcast.TerminalRuntimes["terminal-c"].Hack.Solved = true
+		return transition{accepted: true}
+	})
+
+	state, activationErr := fixture.service.RequestTerminalActivation(terminalTarget("terminal-d", "Terminal D"))
+	require.NoError(t, activationErr)
+	assert.Equal(t, "terminal-d", *state.Broadcast.ActiveTerminalID)
+	assert.Nil(t, state.PendingTerminalNavigation)
+	assertOrderedRouteIDs(t, fixture.service, []string{})
+}
+
 func TestManualAndBroadcastLifecycleClearTerminalNavigationState(t *testing.T) {
 	for _, boundary := range []string{"manual activation", "manual clear", "end broadcast", "shutdown"} {
 		t.Run(boundary, func(t *testing.T) {
@@ -3876,6 +4186,189 @@ func TestReturnApprovalRequiresUnchangedTopAndUnwindsCyclesOnePointAtATime(t *te
 	})
 	require.True(t, ordinary.Accepted)
 	require.Nil(t, fixture.service.Snapshot().PendingTerminalNavigation)
+}
+
+type groupAwareNavigationCatalog struct {
+	groups      []domain.TerminalGroup
+	transitions map[string]domain.TerminalTransitionTarget
+	terminals   map[string]domain.TerminalTarget
+}
+
+func (catalog *groupAwareNavigationCatalog) LookupTerminal(id string) (domain.TerminalTarget, bool) {
+	target, ok := catalog.terminals[id]
+	if !ok {
+		return domain.TerminalTarget{}, false
+	}
+	return *cloneTerminalTarget(&target), true
+}
+
+func (catalog *groupAwareNavigationCatalog) LookupTerminalGroup(
+	terminalID string,
+) (domain.TerminalGroupSnapshot, bool) {
+	var found *domain.TerminalGroup
+	for index := range catalog.groups {
+		group := &catalog.groups[index]
+		for _, memberID := range group.TerminalIDs {
+			if memberID != terminalID {
+				continue
+			}
+			if found != nil {
+				return domain.TerminalGroupSnapshot{}, false
+			}
+			found = group
+		}
+	}
+	if found == nil {
+		return domain.TerminalGroupSnapshot{}, false
+	}
+	return domain.TerminalGroupSnapshot{
+		ID: found.ID, Name: found.Name, TerminalIDs: append([]string(nil), found.TerminalIDs...),
+	}, true
+}
+
+func (catalog *groupAwareNavigationCatalog) LookupTerminalTransition(
+	sourceID string,
+	commandID string,
+) (domain.TerminalTransitionTarget, bool) {
+	transition, ok := catalog.transitions[sourceID+"/"+commandID]
+	if !ok || !sameExactTerminalGroup(catalog.groups, sourceID, transition.Target.TerminalID) {
+		return domain.TerminalTransitionTarget{}, false
+	}
+	transition.Target = *cloneTerminalTarget(&transition.Target)
+	return transition, true
+}
+
+func sameExactTerminalGroup(groups []domain.TerminalGroup, firstID, secondID string) bool {
+	groupFor := func(terminalID string) (string, bool) {
+		groupID := ""
+		memberships := 0
+		for _, group := range groups {
+			for _, memberID := range group.TerminalIDs {
+				if memberID != terminalID {
+					continue
+				}
+				groupID = group.ID
+				memberships++
+			}
+		}
+		return groupID, memberships == 1
+	}
+	firstGroup, firstOK := groupFor(firstID)
+	secondGroup, secondOK := groupFor(secondID)
+	return firstOK && secondOK && firstGroup == secondGroup
+}
+
+func newGroupAwareForwardFixture(t *testing.T) (us2Fixture, *groupAwareNavigationCatalog) {
+	t.Helper()
+
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminals = newRecordingDecisionTerminalLifecycle()
+	target := terminalTarget("terminal-b", "Terminal B")
+	catalog := &groupAwareNavigationCatalog{
+		groups: []domain.TerminalGroup{
+			{ID: "route", Name: "Route", TerminalIDs: []string{fixture.terminalID, target.TerminalID}},
+		},
+		transitions: map[string]domain.TerminalTransitionTarget{
+			fixture.terminalID + "/linked-command": {
+				SourceTerminalID: fixture.terminalID, SourceTerminalName: "Terminal 1",
+				CommandID: "linked-command", CommandName: "Open B", Target: target,
+			},
+		},
+		terminals: map[string]domain.TerminalTarget{target.TerminalID: target},
+	}
+	fixture.service.terminalCatalog = catalog
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		terminal := root.Broadcast.TerminalRuntimes[fixture.terminalID]
+		terminal.Tree.Children = append(terminal.Tree.Children, domain.ContentNode{
+			ID: "linked-command", Type: domain.NodeCommand, Name: "Open B",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: target.TerminalID},
+		})
+		return transition{accepted: true}
+	})
+	return fixture, catalog
+}
+
+func groupAwareForwardCommand(fixture us2Fixture, requestID string) domain.RuntimeCommand {
+	return domain.RuntimeCommand{
+		RequestID: domain.RequestID(requestID), BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+		Kind: domain.RuntimeCommandNavigate, Action: "command", NodeID: "linked-command",
+		PayloadFingerprint: requestID,
+	}
+}
+
+func newOrderedGroupStartFixture(t *testing.T) (us2Fixture, *groupAwareNavigationCatalog) {
+	t.Helper()
+
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminals = newRecordingDecisionTerminalLifecycle()
+	terminalIDs := []string{"terminal-a", "terminal-b", "terminal-c", "terminal-d"}
+	targets := make(map[string]domain.TerminalTarget, len(terminalIDs))
+	for _, terminalID := range terminalIDs {
+		targets[terminalID] = terminalTarget(terminalID, strings.ToUpper(strings.TrimPrefix(terminalID, "terminal-")))
+	}
+	catalog := &groupAwareNavigationCatalog{
+		groups: []domain.TerminalGroup{
+			{ID: "ordered-route", Name: "Ordered route", TerminalIDs: terminalIDs},
+		},
+		transitions: map[string]domain.TerminalTransitionTarget{},
+		terminals:   targets,
+	}
+	fixture.service.terminalCatalog = catalog
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		root.Broadcast.ActiveTerminalID = nil
+		root.Broadcast.TerminalRuntimes = make(map[string]*domain.TerminalRuntime)
+		root.Broadcast.Route = nil
+		root.PendingSwitch = nil
+		root.PendingCommandExecution = nil
+		root.PendingTerminalNavigation = nil
+		root.TerminalNavigationNotice = nil
+		return transition{accepted: true}
+	})
+	return fixture, catalog
+}
+
+func orderedGroupBackCommand(fixture us2Fixture, terminalID, requestID string) domain.RuntimeCommand {
+	return domain.RuntimeCommand{
+		RequestID: domain.RequestID(requestID), BroadcastID: fixture.broadcastID, TerminalID: terminalID,
+		Kind: domain.RuntimeCommandNavigate, Action: "back", PayloadFingerprint: requestID,
+	}
+}
+
+func requestOrderedGroupReturn(
+	t *testing.T,
+	fixture us2Fixture,
+	terminalID string,
+	requestID string,
+) domain.PendingTerminalNavigation {
+	t.Helper()
+	result := fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		orderedGroupBackCommand(fixture, terminalID, requestID),
+	)
+	require.True(t, result.Accepted)
+	fixture.service.mu.RLock()
+	runtimePending := fixture.service.runtime.PendingTerminalNavigation
+	var pending *domain.PendingTerminalNavigation
+	if runtimePending != nil {
+		value := *runtimePending
+		value.ReturnPoint = cloneTerminalReturnPoint(value.ReturnPoint)
+		pending = &value
+	}
+	fixture.service.mu.RUnlock()
+	require.NotNil(t, pending)
+	require.Equal(t, domain.TerminalNavigationReturn, pending.Direction)
+	return *pending
+}
+
+func assertOrderedRouteIDs(t *testing.T, service *Service, want []string) {
+	t.Helper()
+	service.mu.RLock()
+	got := make([]string, len(service.runtime.Broadcast.Route))
+	for index, point := range service.runtime.Broadcast.Route {
+		got[index] = point.TerminalID
+	}
+	service.mu.RUnlock()
+	assert.Equal(t, want, got)
 }
 
 type recordingTerminalCatalog struct {
@@ -4890,6 +5383,426 @@ func TestUpdateAndDeletePersistenceConflictsKeepAuthoritativeState(t *testing.T)
 			require.Equal(t, "digest-0", service.runtime.ActivePlayerConfig.ContentDigest)
 		})
 	}
+}
+
+func TestReplaceTerminalGroupsRequiresCurrentCoordinationRevisionAndRejectsReplay(t *testing.T) {
+	t.Parallel()
+
+	groups := []domain.TerminalGroup{
+		{ID: "route", Name: "Renamed route", TerminalIDs: []string{"terminal-1", "terminal-b"}},
+	}
+	store := &recordingTerminalGroupStore{mutation: TerminalGroupMutation{
+		Changed:  true,
+		Revision: 42,
+		Session: domain.Session{
+			Version: 1, Name: "Grouped session",
+			Terminals: []domain.Terminal{
+				{
+					ID: "terminal-1", Name: "Terminal 1",
+					Root: domain.ContentNode{
+						ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{},
+					},
+				},
+				{
+					ID: "terminal-b", Name: "Terminal B",
+					Root: domain.ContentNode{
+						ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{},
+					},
+				},
+			},
+			TerminalGroups: groups,
+		},
+	}}
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminalGroupStore = store
+	before := fixture.service.Snapshot()
+	beforeEffects := fixture.effects.Calls()
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups:               groups,
+		ExpectedSessionRevision:      41,
+		ExpectedCoordinationRevision: before.Revision,
+	}
+	staleCandidate := candidate
+	staleCandidate.ExpectedCoordinationRevision--
+	staleState, staleMutation, staleErr := fixture.service.ReplaceTerminalGroups(t.Context(), staleCandidate)
+	require.ErrorContains(t, staleErr, "coordination revision")
+	assert.Nil(t, staleMutation)
+	assert.Equal(t, before, staleState)
+	assert.Equal(t, before, fixture.service.Snapshot())
+	assert.Empty(t, store.calls)
+	assert.Equal(t, beforeEffects, fixture.effects.Calls())
+
+	operationContext := context.WithValue(t.Context(), terminalGroupContextKey{}, "group-mutation")
+	state, mutation, err := fixture.service.ReplaceTerminalGroups(operationContext, candidate)
+	require.NoError(t, err)
+	require.NotNil(t, mutation)
+	assert.Equal(t, uint64(42), mutation.Revision)
+	assert.Equal(t, before.Revision+1, state.Revision)
+	require.Len(t, store.calls, 1)
+	assert.Equal(t, uint64(41), store.calls[0].expectedRevision)
+	assert.Equal(t, groups, store.calls[0].groups)
+	assert.Equal(t, "group-mutation", store.calls[0].ctx.Value(terminalGroupContextKey{}))
+	assert.Greater(t, fixture.effects.Calls(), beforeEffects)
+
+	accepted := fixture.service.Snapshot()
+	acceptedEffects := fixture.effects.Calls()
+	replayed, repeatedMutation, repeatedErr := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+	require.ErrorContains(t, repeatedErr, "coordination revision")
+	assert.Nil(t, repeatedMutation)
+	assert.Equal(t, accepted, replayed)
+	assert.Equal(t, accepted, fixture.service.Snapshot())
+	assert.Len(t, store.calls, 1, "stale replay reached durable group storage")
+	assert.Equal(t, acceptedEffects, fixture.effects.Calls())
+}
+
+func TestReplaceTerminalGroupsRejectsCandidatesThatInvalidatePendingNavigation(t *testing.T) {
+	t.Parallel()
+
+	for _, direction := range []domain.TerminalNavigationDirection{
+		domain.TerminalNavigationForward,
+		domain.TerminalNavigationReturn,
+	} {
+		t.Run(string(direction), func(t *testing.T) {
+			t.Parallel()
+
+			store := &recordingTerminalGroupStore{}
+			fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+			fixture.service.terminalGroupStore = store
+			fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+				root.PendingTerminalNavigation = &domain.PendingTerminalNavigation{
+					RequestID: "pending-group-change", BroadcastID: root.Broadcast.ID,
+					Direction: direction, SourceTerminalID: fixture.terminalID,
+					TargetTerminalID: "terminal-b",
+					ReturnPoint:      domain.TerminalReturnPoint{TerminalID: "terminal-b"},
+				}
+				return transition{accepted: true}
+			})
+			before := fixture.service.Snapshot()
+			beforeEffects := fixture.effects.Calls()
+			candidate := domain.TerminalGroupCandidate{
+				TerminalGroups: []domain.TerminalGroup{
+					{ID: "source", Name: "Source", TerminalIDs: []string{fixture.terminalID}},
+					{ID: "target", Name: "Target", TerminalIDs: []string{"terminal-b"}},
+				},
+				ExpectedSessionRevision: 17, ExpectedCoordinationRevision: before.Revision,
+			}
+
+			state, mutation, err := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+			require.ErrorContains(t, err, "pending")
+			require.ErrorContains(t, err, string(direction))
+			require.ErrorContains(t, err, fixture.terminalID)
+			require.ErrorContains(t, err, "terminal-b")
+			assert.Nil(t, mutation)
+			assert.Equal(t, before, state)
+			assert.Equal(t, before, fixture.service.Snapshot())
+			assert.Empty(t, store.calls)
+			assert.Equal(t, beforeEffects, fixture.effects.Calls())
+		})
+	}
+}
+
+func TestReplaceTerminalGroupsPreservesSanitizedStoreRejectionAndCanonicalRevision(t *testing.T) {
+	t.Parallel()
+
+	canonical := domain.Session{
+		Version: 1,
+		Name:    "Canonical rejection",
+		Terminals: []domain.Terminal{
+			{ID: "terminal-1", Name: "Terminal 1", Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}}},
+			{ID: "terminal-b", Name: "Terminal B", Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}}},
+		},
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "left", Name: "Left", TerminalIDs: []string{"terminal-1"}},
+			{ID: "right", Name: "Right", TerminalIDs: []string{"terminal-b"}},
+		},
+	}
+	const feedback = `terminal group candidate invalidates authored transitions: ` +
+		`terminal transition command "open-b" in terminal "terminal-1" targets terminal "terminal-b" and crosses groups "left" and "right"; ` +
+		`terminal transition command "open-b-backup" in terminal "terminal-1" targets terminal "terminal-b" and crosses groups "left" and "right"`
+	store := &recordingTerminalGroupStore{
+		mutation: TerminalGroupMutation{Revision: 43, Session: canonical},
+		err:      &TerminalGroupStoreRejection{Message: feedback},
+	}
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminalGroupStore = store
+	before := fixture.service.Snapshot()
+	beforeEffects := fixture.effects.Calls()
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "route", Name: "Route", TerminalIDs: []string{fixture.terminalID}},
+		},
+		ExpectedSessionRevision: 42, ExpectedCoordinationRevision: before.Revision,
+	}
+
+	state, mutation, err := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+
+	require.EqualError(t, err, feedback)
+	require.ErrorContains(t, err, `command "open-b"`)
+	require.ErrorContains(t, err, `command "open-b-backup"`)
+	require.NotNil(t, mutation)
+	assert.False(t, mutation.Changed)
+	assert.Equal(t, uint64(43), mutation.Revision)
+	assert.Equal(t, canonical, mutation.Session)
+	assert.Equal(t, before, state)
+	assert.Equal(t, before, fixture.service.Snapshot())
+	require.Len(t, store.calls, 1)
+	assert.Equal(t, beforeEffects, fixture.effects.Calls())
+}
+
+func TestReplaceTerminalGroupsRejectsActiveRouteSplitAtomically(t *testing.T) {
+	t.Parallel()
+
+	store := &recordingTerminalGroupStore{}
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminalGroupStore = store
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		active := "terminal-c"
+		root.Broadcast.ActiveTerminalID = &active
+		root.Broadcast.Route = []domain.TerminalReturnPoint{
+			{TerminalID: "terminal-a", TerminalName: "A"},
+			{TerminalID: "terminal-b", TerminalName: "B"},
+		}
+		return transition{accepted: true}
+	})
+	before := fixture.service.Snapshot()
+	beforeEffects := fixture.effects.Calls()
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "route-prefix", Name: "Route prefix", TerminalIDs: []string{"terminal-a", "terminal-b"}},
+			{ID: "active", Name: "Active", TerminalIDs: []string{"terminal-c"}},
+		},
+		ExpectedSessionRevision: 23, ExpectedCoordinationRevision: before.Revision,
+	}
+
+	state, mutation, err := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+	require.ErrorContains(t, err, "route")
+	assert.Nil(t, mutation)
+	assert.Equal(t, before, state)
+	assert.Equal(t, before, fixture.service.Snapshot())
+	assert.Empty(t, store.calls)
+	assert.Equal(t, beforeEffects, fixture.effects.Calls())
+}
+
+func TestReplaceTerminalGroupsRejectsSeededPrefixReorder(t *testing.T) {
+	t.Parallel()
+
+	store := &recordingTerminalGroupStore{}
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminalGroupStore = store
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		active := "terminal-c"
+		root.Broadcast.ActiveTerminalID = &active
+		root.Broadcast.Route = []domain.TerminalReturnPoint{
+			{
+				TerminalID: "terminal-a", TerminalName: "A", Origin: domain.TerminalReturnInitialPrefix,
+				GroupID: "route", GroupPosition: 0,
+			},
+			{
+				TerminalID: "terminal-b", TerminalName: "B", Origin: domain.TerminalReturnInitialPrefix,
+				GroupID: "route", GroupPosition: 1,
+			},
+		}
+		return transition{accepted: true}
+	})
+	before := fixture.service.Snapshot()
+	beforeEffects := fixture.effects.Calls()
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "route", Name: "Route", TerminalIDs: []string{"terminal-b", "terminal-a", "terminal-c", "terminal-d"}},
+		},
+		ExpectedSessionRevision: 29, ExpectedCoordinationRevision: before.Revision,
+	}
+
+	state, mutation, err := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+	require.ErrorContains(t, err, "seeded")
+	assert.Nil(t, mutation)
+	assert.Equal(t, before, state)
+	assert.Equal(t, before, fixture.service.Snapshot())
+	assert.Empty(t, store.calls)
+	assert.Equal(t, beforeEffects, fixture.effects.Calls())
+}
+
+func TestReplaceTerminalGroupsProtectsInitializedSeedChainAndPendingReturnAdjacency(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		prepare   func(*testing.T, us2Fixture, *groupAwareNavigationCatalog)
+		candidate []string
+		wantError string
+	}{
+		{
+			name:      "initialized terminal position",
+			candidate: []string{"terminal-a", "terminal-b", "terminal-d", "terminal-c"},
+			wantError: "initialized terminal",
+		},
+		{
+			name: "seeded successor chain",
+			prepare: func(t *testing.T, fixture us2Fixture, _ *groupAwareNavigationCatalog) {
+				t.Helper()
+				fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+					root.Broadcast.Route = append([]domain.TerminalReturnPoint(nil), root.Broadcast.Route[1:]...)
+					return transition{accepted: true}
+				})
+			},
+			candidate: []string{"terminal-a", "terminal-b", "terminal-c", "terminal-d"},
+			wantError: "successor chain",
+		},
+		{
+			name: "pending seeded return adjacency",
+			prepare: func(t *testing.T, fixture us2Fixture, _ *groupAwareNavigationCatalog) {
+				t.Helper()
+				requestOrderedGroupReturn(t, fixture, "terminal-c", "pending-adjacency")
+			},
+			candidate: []string{"terminal-b", "terminal-a", "terminal-c", "terminal-d"},
+			wantError: "pending return adjacency",
+		},
+		{
+			name: "active seeded return adjacency after consuming prefix",
+			prepare: func(t *testing.T, fixture us2Fixture, _ *groupAwareNavigationCatalog) {
+				t.Helper()
+				pending := requestOrderedGroupReturn(t, fixture, "terminal-c", "consume-prefix")
+				_, err := fixture.service.ResolveTerminalNavigation(
+					pending.RequestID,
+					domain.TerminalNavigationApprove,
+				)
+				require.NoError(t, err)
+			},
+			candidate: []string{"terminal-a", "terminal-d", "terminal-c", "terminal-b"},
+			wantError: "active seeded return adjacency",
+		},
+		{
+			name: "mixed route preserves current return but breaks deeper seeded adjacency",
+			prepare: func(t *testing.T, fixture us2Fixture, catalog *groupAwareNavigationCatalog) {
+				t.Helper()
+				pending := requestOrderedGroupReturn(t, fixture, "terminal-c", "mixed-route-return")
+				_, err := fixture.service.ResolveTerminalNavigation(
+					pending.RequestID,
+					domain.TerminalNavigationApprove,
+				)
+				require.NoError(t, err)
+
+				catalog.transitions["terminal-b/forward-to-d"] = domain.TerminalTransitionTarget{
+					SourceTerminalID: "terminal-b", SourceTerminalName: "B",
+					CommandID: "forward-to-d", CommandName: "Open D", Target: catalog.terminals["terminal-d"],
+				}
+				fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+					root.Broadcast.TerminalRuntimes["terminal-b"].Tree.Children = append(
+						root.Broadcast.TerminalRuntimes["terminal-b"].Tree.Children,
+						domain.ContentNode{
+							ID: "forward-to-d", Type: domain.NodeCommand, Name: "Open D",
+							TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "terminal-d"},
+						},
+					)
+					return transition{accepted: true}
+				})
+				selected := fixture.service.DispatchPlayerAction(fixture.controllerConnection, domain.RuntimeCommand{
+					RequestID: "mixed-route-forward", BroadcastID: fixture.broadcastID, TerminalID: "terminal-b",
+					Kind: domain.RuntimeCommandNavigate, Action: "command", NodeID: "forward-to-d",
+					PayloadFingerprint: "mixed-route-forward",
+				})
+				require.True(t, selected.Accepted)
+				forward := fixture.service.Snapshot().PendingTerminalNavigation
+				require.NotNil(t, forward)
+				_, err = fixture.service.ResolveTerminalNavigation(
+					forward.RequestID,
+					domain.TerminalNavigationApprove,
+				)
+				require.NoError(t, err)
+				assertOrderedRouteIDs(t, fixture.service, []string{"terminal-a", "terminal-b"})
+			},
+			candidate: []string{"terminal-a", "terminal-d", "terminal-c", "terminal-b"},
+			wantError: "seeded return successor adjacency",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			fixture, catalog := newOrderedGroupStartFixture(t)
+			store := &recordingTerminalGroupStore{}
+			fixture.service.terminalGroupStore = store
+			_, err := fixture.service.RequestTerminalActivation(terminalTarget("terminal-c", "Terminal C"))
+			require.NoError(t, err)
+			if test.prepare != nil {
+				test.prepare(t, fixture, catalog)
+			}
+			before := fixture.service.Snapshot()
+			beforeEffects := fixture.effects.Calls()
+			candidate := domain.TerminalGroupCandidate{
+				TerminalGroups: []domain.TerminalGroup{{
+					ID: "ordered-route", Name: "Ordered route", TerminalIDs: test.candidate,
+				}},
+				ExpectedSessionRevision:      30,
+				ExpectedCoordinationRevision: before.Revision,
+			}
+
+			state, mutation, replaceErr := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+
+			require.ErrorContains(t, replaceErr, test.wantError)
+			assert.Nil(t, mutation)
+			assert.Equal(t, before, state)
+			assert.Equal(t, before, fixture.service.Snapshot())
+			assert.Empty(t, store.calls)
+			assert.Equal(t, beforeEffects, fixture.effects.Calls())
+		})
+	}
+}
+
+func TestReplaceTerminalGroupsPersistenceFailureHasNoRuntimeFragment(t *testing.T) {
+	t.Parallel()
+
+	store := &recordingTerminalGroupStore{err: errors.New("private campaign path: atomic replacement failed")}
+	fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+	fixture.service.terminalGroupStore = store
+	before := fixture.service.Snapshot()
+	beforeEffects := fixture.effects.Calls()
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "route", Name: "Renamed route", TerminalIDs: []string{fixture.terminalID}},
+		},
+		ExpectedSessionRevision: 31, ExpectedCoordinationRevision: before.Revision,
+	}
+
+	state, mutation, err := fixture.service.ReplaceTerminalGroups(t.Context(), candidate)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "private campaign path")
+	assert.Nil(t, mutation)
+	assert.Equal(t, before, state)
+	assert.Equal(t, before, fixture.service.Snapshot())
+	require.Len(t, store.calls, 1)
+	assert.Equal(t, beforeEffects, fixture.effects.Calls())
+}
+
+type terminalGroupStoreCall struct {
+	ctx              context.Context
+	groups           []domain.TerminalGroup
+	expectedRevision uint64
+}
+
+type terminalGroupContextKey struct{}
+
+type recordingTerminalGroupStore struct {
+	mutation TerminalGroupMutation
+	err      error
+	calls    []terminalGroupStoreCall
+}
+
+func (store *recordingTerminalGroupStore) ReplaceTerminalGroups(
+	ctx context.Context,
+	groups []domain.TerminalGroup,
+	expectedRevision uint64,
+) (TerminalGroupMutation, error) {
+	cloned := make([]domain.TerminalGroup, len(groups))
+	for index, group := range groups {
+		cloned[index] = group
+		cloned[index].TerminalIDs = append([]string(nil), group.TerminalIDs...)
+	}
+	store.calls = append(store.calls, terminalGroupStoreCall{
+		ctx: ctx, groups: cloned, expectedRevision: expectedRevision,
+	})
+	return store.mutation, store.err
 }
 
 func validCharacterCreatePayload(revision uint64) domain.CharacterCreatePayload {

@@ -640,6 +640,184 @@ func TestDesktopSessionFacadeSavesRealDemoCrossTerminalLinkAndReopensIt(t *testi
 	require.Equal(t, "t_demo2", reopened.Session.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID)
 }
 
+func TestTerminalGroupReplacementPublishesCanonicalSessionBeforeCoordinationAndReturnsDetachedState(t *testing.T) {
+	recorder := &callRecorder{}
+	canonicalSession := terminalGroupApplicationSession([]domain.TerminalGroup{
+		{ID: "operations", Name: "Operations", TerminalIDs: []string{"terminal-b", "terminal-a"}},
+	})
+	canonicalState := &domain.MasterCoordinationState{
+		Revision: 22,
+		Broadcast: &domain.MasterBroadcastState{
+			ID: "broadcast-group-replacement",
+		},
+	}
+	coordination := &recordingTerminalGroupCoordinationService{
+		recordingCoordinationService: recordingCoordinationService{
+			state: &domain.MasterCoordinationState{Revision: 21},
+		},
+		recorder:         recorder,
+		replacementState: canonicalState,
+		mutation: &controlservice.TerminalGroupMutation{
+			Changed: true, Revision: 12, Session: canonicalSession,
+		},
+	}
+	sessions := &loggingSessionCommands{active: sessionservice.ActiveSession{
+		Path: "/Campaigns/grouped.json", Session: &canonicalSession,
+		RequestedRevision: 12, SavedRevision: 12, SaveState: sessionservice.SaveStateSaved,
+	}}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Coordination: coordination, Events: events,
+	})
+	payload := TerminalGroupReplacementPayload{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "operations", Name: "Operations", TerminalIDs: []string{"terminal-b", "terminal-a"}},
+		},
+		ExpectedSessionRevision: 11, ExpectedCoordinationRevision: 21,
+	}
+
+	result := app.ReplaceTerminalGroups(payload)
+	require.True(t, result.OK, "ReplaceTerminalGroups() = %#v", result)
+	require.Empty(t, result.Error)
+	require.Equal(t, uint64(12), result.SessionRevision)
+	require.Equal(t, &canonicalSession, result.Session)
+	require.Equal(t, canonicalState, result.CoordinationState)
+	require.Len(t, coordination.calls, 1)
+	require.Equal(t, domain.TerminalGroupCandidate{
+		TerminalGroups:               payload.TerminalGroups,
+		ExpectedSessionRevision:      11,
+		ExpectedCoordinationRevision: 21,
+	}, coordination.calls[0].candidate)
+	require.Same(t, t.Context(), coordination.calls[0].ctx)
+	require.Equal(t, []string{
+		"coordinator:replace-terminal-groups",
+		"event:session-state",
+		"event:coordination-state",
+	}, recorder.Calls())
+
+	records := events.Records()
+	require.Len(t, records, 2)
+	require.Equal(t, sessionStateEvent, records[0].Name)
+	sessionEvent, ok := records[0].Payload.(SessionStateEvent)
+	require.True(t, ok, "session event = %#v", records[0].Payload)
+	require.Equal(t, uint64(12), sessionEvent.Revision)
+	require.Equal(t, &canonicalSession, sessionEvent.Session)
+	require.Equal(t, coordinationStateEvent, records[1].Name)
+	coordinationEvent, ok := records[1].Payload.(*domain.MasterCoordinationState)
+	require.True(t, ok, "coordination event = %#v", records[1].Payload)
+	require.Equal(t, canonicalState, coordinationEvent)
+
+	result.Session.TerminalGroups[0].TerminalIDs[0] = "mutated-result"
+	result.CoordinationState.Revision = 999
+	require.Equal(t, []string{"terminal-b", "terminal-a"}, sessionEvent.Session.TerminalGroups[0].TerminalIDs)
+	require.Equal(t, uint64(22), coordinationEvent.Revision)
+	status := app.GetRuntimeStatus()
+	require.Equal(t, uint64(12), status.RequestedRevision)
+	require.Equal(t, uint64(12), status.SavedRevision)
+	require.Equal(t, uint64(22), status.CoordinationState.Revision)
+	sessionEvent.Session.TerminalGroups[0].TerminalIDs[0] = "mutated-event"
+	coordinationEvent.Revision = 1000
+	require.Equal(t, []string{"terminal-b", "terminal-a"}, sessions.Snapshot().Session.TerminalGroups[0].TerminalIDs)
+	require.Equal(t, uint64(22), app.GetRuntimeStatus().CoordinationState.Revision)
+}
+
+func TestTerminalGroupReplacementStaleFailureReturnsLatestProjectionsWithoutPublishing(t *testing.T) {
+	recorder := &callRecorder{}
+	canonicalSession := terminalGroupApplicationSession([]domain.TerminalGroup{
+		{ID: "left", Name: "Left", TerminalIDs: []string{"terminal-a"}},
+		{ID: "right", Name: "Right", TerminalIDs: []string{"terminal-b"}},
+	})
+	canonicalState := &domain.MasterCoordinationState{Revision: 32}
+	coordination := &recordingTerminalGroupCoordinationService{
+		recordingCoordinationService: recordingCoordinationService{state: canonicalState},
+		recorder:                     recorder,
+		replacementState:             canonicalState,
+		err:                          errors.New("coordination revision changed; review the latest group state"),
+	}
+	sessions := &loggingSessionCommands{active: sessionservice.ActiveSession{
+		Path: "/Campaigns/latest-grouped.json", Session: &canonicalSession,
+		RequestedRevision: 17, SavedRevision: 17, SaveState: sessionservice.SaveStateSaved,
+	}}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Coordination: coordination, Events: events,
+	})
+
+	result := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "combined", Name: "Combined", TerminalIDs: []string{"terminal-a", "terminal-b"}},
+		},
+		ExpectedSessionRevision: 16, ExpectedCoordinationRevision: 31,
+	})
+	require.False(t, result.OK)
+	require.Contains(t, result.Error, "coordination revision")
+	require.Equal(t, uint64(17), result.SessionRevision)
+	require.Equal(t, &canonicalSession, result.Session)
+	require.Equal(t, canonicalState, result.CoordinationState)
+	require.Len(t, coordination.calls, 1)
+	require.Equal(t, []string{"coordinator:replace-terminal-groups"}, recorder.Calls())
+	require.Empty(t, events.Records(), "stale rejection must not publish canonical-change events")
+	status := app.GetRuntimeStatus()
+	require.Equal(t, uint64(17), status.RequestedRevision)
+	require.Equal(t, uint64(17), status.SavedRevision)
+	require.Equal(t, canonicalState, status.CoordinationState)
+
+	result.Session.TerminalGroups[0].TerminalIDs[0] = "mutated-failure"
+	result.CoordinationState.Revision = 999
+	require.Equal(t, []string{"terminal-a"}, sessions.Snapshot().Session.TerminalGroups[0].TerminalIDs)
+	require.Equal(t, uint64(32), app.GetRuntimeStatus().CoordinationState.Revision)
+}
+
+func TestTerminalGroupReplacementUsesCanonicalStoreRejectionProjection(t *testing.T) {
+	t.Parallel()
+
+	canonicalSession := terminalGroupApplicationSession([]domain.TerminalGroup{
+		{ID: "left", Name: "Left", TerminalIDs: []string{"terminal-a"}},
+		{ID: "right", Name: "Right", TerminalIDs: []string{"terminal-b"}},
+	})
+	canonicalState := &domain.MasterCoordinationState{Revision: 44}
+	coordination := &recordingTerminalGroupCoordinationService{
+		recordingCoordinationService: recordingCoordinationService{state: canonicalState},
+		replacementState:             canonicalState,
+		mutation: &controlservice.TerminalGroupMutation{
+			Revision: 19,
+			Session:  canonicalSession,
+		},
+		err: errors.New(`terminal group candidate invalidates authored transitions: ` +
+			`terminal transition command "open-b" in terminal "terminal-a" targets terminal "terminal-b" and crosses groups "left" and "right"; ` +
+			`terminal transition command "open-b-backup" in terminal "terminal-a" targets terminal "terminal-b" and crosses groups "left" and "right"`),
+	}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination})
+
+	result := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "combined", Name: "Combined", TerminalIDs: []string{"terminal-a", "terminal-b"}},
+		},
+		ExpectedSessionRevision: 18, ExpectedCoordinationRevision: 43,
+	})
+
+	require.False(t, result.OK)
+	require.Contains(t, result.Error, `command "open-b"`)
+	require.Contains(t, result.Error, `command "open-b-backup"`)
+	require.Contains(t, result.Error, "terminal-a")
+	require.Contains(t, result.Error, "terminal-b")
+	require.Equal(t, uint64(19), result.SessionRevision)
+	require.Equal(t, &canonicalSession, result.Session)
+	require.Equal(t, canonicalState, result.CoordinationState)
+}
+
+func terminalGroupApplicationSession(groups []domain.TerminalGroup) domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Terminal group application fixture",
+		Terminals: []domain.Terminal{
+			{ID: "terminal-a", Name: "A", Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}}},
+			{ID: "terminal-b", Name: "B", Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}}},
+		},
+		TerminalGroups: groups,
+	}
+}
+
 func TestTerminalActivationValidatesRealDemoLinkAgainstCompleteActiveSession(t *testing.T) {
 	t.Parallel()
 
@@ -2570,6 +2748,41 @@ type recordingCoordinationService struct {
 	addPayloads         []domain.CharacterCreatePayload
 	startCalls          int
 	navigationDecisions []recordedTerminalNavigationDecision
+}
+
+type recordedTerminalGroupReplacement struct {
+	ctx       context.Context
+	candidate domain.TerminalGroupCandidate
+}
+
+type recordingTerminalGroupCoordinationService struct {
+	recordingCoordinationService
+	recorder         *callRecorder
+	replacementState *domain.MasterCoordinationState
+	mutation         *controlservice.TerminalGroupMutation
+	err              error
+	calls            []recordedTerminalGroupReplacement
+}
+
+func (service *recordingTerminalGroupCoordinationService) ReplaceTerminalGroups(
+	ctx context.Context,
+	candidate domain.TerminalGroupCandidate,
+) (*domain.MasterCoordinationState, *controlservice.TerminalGroupMutation, error) {
+	clonedCandidate := candidate
+	clonedCandidate.TerminalGroups = make([]domain.TerminalGroup, len(candidate.TerminalGroups))
+	for index, group := range candidate.TerminalGroups {
+		clonedCandidate.TerminalGroups[index] = group
+		clonedCandidate.TerminalGroups[index].TerminalIDs = append([]string(nil), group.TerminalIDs...)
+	}
+	service.calls = append(service.calls, recordedTerminalGroupReplacement{ctx: ctx, candidate: clonedCandidate})
+	if service.recorder != nil {
+		service.recorder.Add("coordinator:replace-terminal-groups")
+	}
+	if service.err != nil {
+		return domain.CloneMasterCoordinationState(service.replacementState), service.mutation, service.err
+	}
+	service.state = domain.CloneMasterCoordinationState(service.replacementState)
+	return domain.CloneMasterCoordinationState(service.replacementState), service.mutation, nil
 }
 
 type recordedTerminalNavigationDecision struct {
