@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -9,6 +10,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestFakePublicIngressTracksStartsAndCleanup(t *testing.T) {
+	t.Parallel()
+
+	factory := NewFakePublicIngressFactory()
+	ingress, err := factory.Start(t.Context(), "http://127.0.0.1:3690")
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.Zero(t, factory.ActiveIngresses()) })
+	t.Cleanup(func() { require.NoError(t, ingress.Close(context.WithoutCancel(t.Context()))) })
+
+	assert.Equal(t, 1, factory.StartCalls())
+	assert.Equal(t, 1, factory.ActiveIngresses())
+	assert.Equal(t, "http://127.0.0.1:43690", ingress.URL().String())
+	require.NoError(t, ingress.Activate("public.example", "players", []byte("synthetic-player-input")))
+	ingress.Deny()
+	require.NoError(t, ingress.Close(t.Context()))
+	require.NoError(t, ingress.Close(t.Context()))
+	assert.Zero(t, factory.ActiveIngresses())
+}
 
 func TestFakeSecretStoreScopesCopiesAndClearsSecretBuffers(t *testing.T) {
 	t.Parallel()

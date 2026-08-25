@@ -206,8 +206,8 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 			Preferences: preferences8,
 			Status: tunnelservice.PublicAccessStatus{
 				State: tunnelservice.LifecycleFailed, Generation: 2, SettingsRevision: 8,
-				ErrorCategory: tunnelservice.ErrorProviderAuthentication,
-				ErrorMessage:  tunnelservice.ErrorProviderAuthentication.SafeMessage(),
+				ErrorCategory: tunnelservice.ErrorNetworkUnavailable,
+				ErrorMessage:  tunnelservice.ErrorNetworkUnavailable.SafeMessage(),
 			},
 		}
 		core := &recordingPublicAccessCore{
@@ -218,7 +218,10 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 					Status:      tunnelservice.PublicAccessStatus{State: tunnelservice.LifecycleDisabled, SettingsRevision: 8},
 				},
 			}},
-			start: tunnelservice.PublicAccessResult{Error: tunnelservice.ErrorProviderAuthentication.SafeMessage(), Snapshot: failed},
+			start: tunnelservice.PublicAccessResult{
+				Error: tunnelservice.ErrorNetworkUnavailable.SafeMessage(), DiagnosticCode: tunnelservice.DiagnosticPublicIngressListenFailed,
+				Snapshot: failed,
+			},
 			stop: tunnelservice.PublicAccessResult{OK: true, Snapshot: tunnelservice.PublicAccessSnapshot{
 				Preferences: preferences8,
 				Status:      tunnelservice.PublicAccessStatus{State: tunnelservice.LifecycleDisabled, Generation: 3, SettingsRevision: 8},
@@ -243,7 +246,8 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 		requireOperationRecord(t, records, "public-access.settings", "succeeded")
 		started := requireOperationRecord(t, records, "public-access.start", "failed")
 		require.Equal(t, "error", started.Fields["state"])
-		require.Equal(t, "provider_authentication", started.Fields["error_category"])
+		require.Equal(t, "network_unavailable", started.Fields["error_category"])
+		require.Equal(t, "public_ingress_listen_failed", started.Fields["diagnostic_code"])
 		requireOperationRecord(t, records, "public-access.stop", "succeeded")
 		eventRecord := requireEventLogRecord(t, records, clientCountEvent)
 		require.ErrorIs(t, eventRecord.Fields["error"].(error), eventErr)
@@ -3585,10 +3589,11 @@ func TestUnexpectedPublicEndpointFailureRetainsCleanupOwnershipBeforeRetryWithou
 	require.NoError(t, secrets.Replace(t.Context(), tunnelservice.ProviderAccountToken, []byte("synthetic-account-input")))
 	require.NoError(t, secrets.Replace(t.Context(), tunnelservice.PlayerBasicAuthPassword, []byte("synthetic-player-input")))
 	service := newFallbackMatrixTunnel(errors.New("synthetic first close failure"), nil)
+	ingresses := testutil.NewFakePublicIngressFactory()
 	var app *App
 	manager, err := tunnelservice.NewPublicAccessManager(tunnelservice.ManagerConfig{
 		Settings: settings, Secrets: secrets, Tunnel: service,
-		Ingress:     tunnelservice.NewPublicIngressFactory(),
+		Ingress:     ingresses,
 		UpstreamURL: "http://127.0.0.1:3690",
 		Publish: func(snapshot tunnelservice.PublicAccessSnapshot) {
 			if app != nil {
@@ -3602,6 +3607,8 @@ func TestUnexpectedPublicEndpointFailureRetainsCleanupOwnershipBeforeRetryWithou
 		Events: &recordingEventSink{recorder: recorder}, PublicAccess: manager,
 	})
 	require.NoError(t, app.Start(t.Context()))
+	t.Cleanup(func() { assert.Zero(t, ingresses.ActiveIngresses()) })
+	t.Cleanup(func() { require.NoError(t, app.Shutdown(context.WithoutCancel(t.Context()))) })
 	require.True(t, app.StartPublicAccess(PublicAccessCommandPayload{}).OK)
 	service.endpoints[0].Complete()
 	require.Eventually(t, func() bool {
@@ -3825,11 +3832,14 @@ func TestPublicAccessEnvironmentOverrideCompositionIsDevelopmentOnlyAndNeverAuto
 
 	developmentSettings, developmentSecrets := publicAccessStoresForProfile(settings, secrets, false, lookup)
 	service := testutil.NewFakeTunnelService(testutil.NewFakeTunnelEndpoint("https://override.example"))
+	ingresses := testutil.NewFakePublicIngressFactory()
 	manager, err := tunnelservice.NewPublicAccessManager(tunnelservice.ManagerConfig{
 		Settings: developmentSettings, Secrets: developmentSecrets, Tunnel: service,
-		Ingress: tunnelservice.NewPublicIngressFactory(), UpstreamURL: publicAccessCompositionRoute().UpstreamURL,
+		Ingress: ingresses, UpstreamURL: publicAccessCompositionRoute().UpstreamURL,
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.Zero(t, ingresses.ActiveIngresses()) })
+	t.Cleanup(func() { require.NoError(t, manager.Shutdown(context.WithoutCancel(t.Context()))) })
 	snapshot := manager.Initialize(t.Context())
 	assert.Equal(t, "override.example", snapshot.Preferences.ReservedDomain)
 	assert.Equal(t, "override-players", snapshot.Preferences.Username)
@@ -3876,7 +3886,6 @@ func TestPublicAccessEnvironmentOverrideCompositionIsDevelopmentOnlyAndNeverAuto
 	require.NoError(t, err)
 	assert.Equal(t, tunnelservice.SecretAbsent, underlyingProvider)
 	assert.Equal(t, tunnelservice.SecretPresent, underlyingPassword)
-	require.NoError(t, manager.Shutdown(t.Context()))
 
 	lookupCalls = 0
 	productionSettings, productionSecrets := publicAccessStoresForProfile(settings, secrets, true, lookup)

@@ -434,10 +434,10 @@ func TestEmbeddedNgrokEndpointCloseDoesNotTrustBlockingSDKComponentsToHonorConte
 
 	deadline, stopDeadline := context.WithTimeoutCause(t.Context(), 25*time.Millisecond, errors.New("test endpoint close timed out"))
 	ctx, cancel := context.WithCancelCause(deadline)
-	defer func() {
+	t.Cleanup(func() {
 		cancel(errors.New("test endpoint close completed"))
 		stopDeadline()
-	}()
+	})
 	finished := make(chan error, 1)
 	go func() { finished <- endpoint.Close(ctx) }()
 	var closeErr error

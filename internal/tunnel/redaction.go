@@ -11,8 +11,9 @@ import (
 const maximumPublicAccessDiagnosticBytes = 512
 
 type publicAccessCategorizedError struct {
-	category     ErrorCategory
-	providerCode string
+	category       ErrorCategory
+	providerCode   string
+	diagnosticCode PublicAccessDiagnosticCode
 }
 
 func (failure publicAccessCategorizedError) Error() string {
@@ -27,6 +28,10 @@ func (failure publicAccessCategorizedError) Code() string {
 	return failure.providerCode
 }
 
+func (failure publicAccessCategorizedError) DiagnosticCode() PublicAccessDiagnosticCode {
+	return failure.diagnosticCode
+}
+
 type publicAccessErrorCategory interface {
 	PublicAccessCategory() ErrorCategory
 }
@@ -35,12 +40,28 @@ type providerErrorCode interface {
 	Code() string
 }
 
+type publicAccessDiagnosticCode interface {
+	DiagnosticCode() PublicAccessDiagnosticCode
+}
+
 func newRedactedPublicAccessError(err error) error {
 	if err == nil {
 		return nil
 	}
 	category, _ := redactedPublicAccessFailure(err)
 	return publicAccessCategorizedError{category: category, providerCode: safeProviderErrorCode(err)}
+}
+
+func safePublicAccessDiagnosticCode(err error) PublicAccessDiagnosticCode {
+	var diagnostic publicAccessDiagnosticCode
+	if !errors.As(err, &diagnostic) {
+		return 0
+	}
+	code := diagnostic.DiagnosticCode()
+	if !code.Valid() {
+		return 0
+	}
+	return code
 }
 
 // redactedPublicAccessFailure returns only a stable category and its fixed

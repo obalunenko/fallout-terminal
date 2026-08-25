@@ -76,7 +76,7 @@ func (loopbackPublicIngressFactory) Start(ctx context.Context, rawUpstream strin
 	}
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return nil, errors.New(ErrorProviderFailure.SafeMessage())
+		return nil, publicIngressListenFailure(err)
 	}
 	address, ok := listener.Addr().(*net.TCPAddr)
 	if !ok || address.Port <= 0 {
@@ -111,6 +111,13 @@ func (loopbackPublicIngressFactory) Start(ctx context.Context, rawUpstream strin
 	}
 	go func() { _ = ingress.server.Serve(listener) }()
 	return ingress, nil
+}
+
+func publicIngressListenFailure(err error) error {
+	category, _ := redactedPublicAccessFailure(err)
+	return publicAccessCategorizedError{
+		category: category, diagnosticCode: DiagnosticPublicIngressListenFailed,
+	}
 }
 
 func (ingress *loopbackPublicIngress) URL() *url.URL {
