@@ -38,6 +38,12 @@ func SessionToProto(value domain.Session) (*persistencev1.Session, error) {
 		}
 		result.Terminals = append(result.Terminals, mapped)
 	}
+	result.TerminalGroups = make([]*persistencev1.TerminalGroup, 0, len(value.TerminalGroups))
+	for _, group := range value.TerminalGroups {
+		result.TerminalGroups = append(result.TerminalGroups, &persistencev1.TerminalGroup{
+			Id: group.ID, Name: group.Name, TerminalIds: append([]string(nil), group.TerminalIDs...),
+		})
+	}
 	return result, nil
 }
 
@@ -50,6 +56,9 @@ func SessionFromProto(value *persistencev1.Session, template domain.Session) (do
 	result := domain.Session{
 		Version: int(value.GetVersion()), Name: value.GetName(), PlayerConfig: value.GetPlayerConfig(), Extra: template.Extra,
 		Terminals: make([]domain.Terminal, 0, len(value.GetTerminals())),
+	}
+	if len(value.GetTerminalGroups()) != 0 {
+		result.TerminalGroups = make([]domain.TerminalGroup, 0, len(value.GetTerminalGroups()))
 	}
 	for index, terminal := range value.GetTerminals() {
 		var terminalTemplate domain.Terminal
@@ -73,6 +82,11 @@ func SessionFromProto(value *persistencev1.Session, template domain.Session) (do
 			}
 		}
 		result.Terminals = append(result.Terminals, mapped)
+	}
+	for _, group := range value.GetTerminalGroups() {
+		result.TerminalGroups = append(result.TerminalGroups, domain.TerminalGroup{
+			ID: group.GetId(), Name: group.GetName(), TerminalIDs: append([]string(nil), group.GetTerminalIds()...),
+		})
 	}
 	if err := domain.ValidateSession(result); err != nil {
 		return domain.Session{}, err

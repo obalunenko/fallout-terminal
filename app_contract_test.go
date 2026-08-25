@@ -11,6 +11,7 @@ import (
 
 	"github.com/obalunenko/Fallout-Terminal/internal/domain"
 	configv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1"
+	persistencev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
 	"github.com/stretchr/testify/require"
@@ -162,6 +163,8 @@ func TestPrivateDescriptorFieldsAndEnumsHaveExplicitAdapterCoverage(t *testing.T
 		{&privatev1.ResetCommandStateRequest{}, []string{"terminal_id", "command_id"}},
 		{&privatev1.ResetTerminalCommandStatesRequest{}, []string{"terminal_id"}},
 		{&privatev1.SessionStateResult{}, []string{"ok", "error", "revision", "session"}},
+		{&privatev1.ReplaceTerminalGroupsRequest{}, []string{"terminal_groups", "expected_session_revision", "expected_coordination_revision"}},
+		{&privatev1.ReplaceTerminalGroupsResult{}, []string{"ok", "error", "session_revision", "session", "coordination_state"}},
 		{&privatev1.ResetFailedHackRequest{}, []string{"terminal_id", "terminal_name", "tree", "hack_level", "intro_text"}},
 		{&privatev1.AddCharacterRequest{}, []string{"display_name", "intelligence", "hacker_perk_available", "expected_revision"}},
 		{&privatev1.RenameCharacterRequest{}, []string{"character_id", "display_name", "intelligence", "hacker_perk_available", "expected_revision"}},
@@ -214,6 +217,36 @@ func TestPrivateDescriptorFieldsAndEnumsHaveExplicitAdapterCoverage(t *testing.T
 		"TERMINAL_NAVIGATION_DECISION_APPROVE",
 		"TERMINAL_NAVIGATION_DECISION_REJECT",
 	}, descriptorEnumNames(navigationDecision))
+}
+
+func TestTerminalGroupMutationContractIsPrivateAndRoundTripsCompleteCandidate(t *testing.T) {
+	t.Parallel()
+
+	request := &privatev1.ReplaceTerminalGroupsRequest{
+		TerminalGroups: []*persistencev1.TerminalGroup{
+			{Id: "group-alpha", Name: "Alpha", TerminalIds: []string{"terminal-a", "terminal-b"}},
+			{Id: "group-charlie", Name: "Charlie", TerminalIds: []string{"terminal-c"}},
+		},
+		ExpectedSessionRevision:      17,
+		ExpectedCoordinationRevision: 29,
+	}
+	cloned := proto.Clone(request).(*privatev1.ReplaceTerminalGroupsRequest)
+	require.True(t, proto.Equal(request, cloned))
+	require.Equal(t, []string{"terminal-a", "terminal-b"}, cloned.GetTerminalGroups()[0].GetTerminalIds())
+	require.Equal(t, uint64(17), cloned.GetExpectedSessionRevision())
+	require.Equal(t, uint64(29), cloned.GetExpectedCoordinationRevision())
+
+	protoregistry.GlobalFiles.RangeFiles(func(file protoreflect.FileDescriptor) bool {
+		if !strings.HasPrefix(file.Path(), "fallout/terminal/player/v1/") {
+			return true
+		}
+		for index := range file.Messages().Len() {
+			name := strings.ToLower(string(file.Messages().Get(index).Name()))
+			require.NotContains(t, name, "terminalgroup")
+			require.NotContains(t, name, "replacegroup")
+		}
+		return true
+	})
 }
 
 func TestPrivatePlayerProfileDescriptorsPreserveFieldNumbersAndHackerPresence(t *testing.T) {
@@ -509,7 +542,7 @@ func TestPrivateStatusResultAndEventAdaptersRoundTripEveryNativeSemantic(t *test
 
 func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.T) {
 	requiredMethods := []string{
-		"GetRuntimeStatus", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
+		"GetRuntimeStatus", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
 		"RequestTerminalActivation", "UpdateLiveTerminal", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState", "ResetTerminalCommandStates",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
 		"StartBroadcast", "EndBroadcast", "OpenURL", "GetPublicAccess", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
@@ -519,7 +552,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 34)
+	require.Len(t, actualMethods, 35)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -563,7 +596,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 34)
+	require.Len(t, forwarded, 35)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}
@@ -586,6 +619,7 @@ func TestDetachedDesktopResultShapesPreserveCancellationErrorsAndStatusFields(t 
 		{"command execution", ResolveCommandExecutionResult{Error: "safe"}, []string{"ok", "error", "state"}},
 		{"terminal switch", TerminalSwitchCommandResult{Error: "safe"}, []string{"ok", "error", "state"}},
 		{"session state", SessionStateResult{Error: "safe", Revision: 7}, []string{"ok", "error", "revision"}},
+		{"terminal group replacement", TerminalGroupReplacementResult{Error: "safe", SessionRevision: 7}, []string{"ok", "error", "sessionRevision", "coordinationState"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -45,11 +45,13 @@
 
     <!-- LEFT: terminal list -->
     <aside class="term-panel">
-      <div class="panel-hdr">ТЕРМИНАЛЫ СЕССИИ</div>
-      <div class="term-list" id="termList"></div>
+      <div class="panel-hdr">ГРУППЫ И ТЕРМИНАЛЫ</div>
+      <div class="term-list" id="termList" role="list" aria-label="Группы терминалов"></div>
       <div class="term-list-actions" role="group" aria-label="Действия со списком терминалов">
         <button class="btn btn-secondary full-w" id="btnAddTerminal" type="button">+ СОЗДАТЬ ТЕРМИНАЛ</button>
+        <button class="btn btn-secondary full-w" id="btnCreateTerminalGroup" type="button" aria-haspopup="dialog" aria-controls="terminalGroupDraftDialog">+ СОЗДАТЬ ГРУППУ</button>
       </div>
+      <div class="terminal-group-error" id="terminalGroupError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
 
       <section class="coord-panel" id="coordinationPanel" aria-labelledby="coordinationHeading">
         <div class="panel-hdr coord-hdr" id="coordinationHeading">ИГРОКИ И ТРАНСЛЯЦИЯ</div>
@@ -221,6 +223,95 @@
 
   </div><!-- /main -->
 </div><!-- /layout -->
+
+<dialog class="terminal-group-dialog terminal-group-draft-dialog" id="terminalGroupDraftDialog" aria-modal="true" aria-labelledby="terminalGroupDraftDialogTitle" aria-describedby="terminalGroupDraftDialogDescription terminalGroupError" hidden>
+  <form class="terminal-group-dialog-panel" id="terminalGroupDraftForm" novalidate>
+    <header class="terminal-group-dialog-header">
+      <div>
+        <h2 class="terminal-group-dialog-title" id="terminalGroupDraftDialogTitle">ИЗМЕНЕНИЕ ГРУППЫ ТЕРМИНАЛОВ</h2>
+        <p class="terminal-group-dialog-description" id="terminalGroupDraftDialogDescription">Подготовьте полный состав или новое положение терминала. Разрушительное изменение будет показано отдельно до сохранения.</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-action="close-terminal-group-draft" aria-label="Закрыть изменение группы">ЗАКРЫТЬ</button>
+    </header>
+
+    <label class="field-label-inline" for="terminalGroupNameInput">НАЗВАНИЕ ГРУППЫ</label>
+    <input class="field-input" id="terminalGroupNameInput" name="groupName" type="text" maxlength="256" autocomplete="off" required aria-describedby="terminalGroupError">
+
+    <fieldset class="terminal-group-terminal-choices" id="terminalGroupTerminalChoices">
+      <legend>ТЕРМИНАЛЫ ГРУППЫ</legend>
+      <div class="terminal-group-terminal-choice-list" role="group" aria-label="Выбор терминалов"></div>
+      <template id="terminalGroupTerminalChoiceTemplate">
+        <label class="terminal-group-terminal-choice">
+          <input name="terminalIds" type="checkbox" value="">
+          <span class="terminal-group-terminal-choice-name"></span>
+        </label>
+      </template>
+    </fieldset>
+
+    <label class="field-label-inline" for="terminalGroupDestinationSelect">ГРУППА НАЗНАЧЕНИЯ</label>
+    <select class="field-input" id="terminalGroupDestinationSelect" name="destinationGroupId">
+      <option value="">ВЫБЕРИТЕ ГРУППУ</option>
+    </select>
+
+    <div class="terminal-group-draft-actions" role="group" aria-label="Подготовка изменения группы">
+      <button class="btn btn-secondary" type="button" data-action="cancel-terminal-group-draft">ОТМЕНА</button>
+      <button class="btn btn-primary" type="button" data-action="review-terminal-group-change">ПРОСМОТРЕТЬ ИЗМЕНЕНИЯ</button>
+      <button class="btn btn-primary" type="button" data-action="save-terminal-group-rename" hidden>СОХРАНИТЬ НАЗВАНИЕ</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="terminal-group-dialog terminal-group-impact-dialog" id="terminalGroupImpactDialog" aria-modal="true" aria-labelledby="terminalGroupImpactDialogTitle" aria-describedby="terminalGroupImpactDialogDescription terminalGroupImpactSummary terminalGroupError" hidden>
+  <div class="terminal-group-dialog-panel">
+    <header class="terminal-group-dialog-header">
+      <div>
+        <h2 class="terminal-group-dialog-title" id="terminalGroupImpactDialogTitle">ПОДТВЕРДИТЕ ИЗМЕНЕНИЕ ГРУПП</h2>
+        <p class="terminal-group-dialog-description" id="terminalGroupImpactDialogDescription">Проверьте затронутые группы, терминалы и порядок навигации. Изменение применится целиком только после подтверждения.</p>
+      </div>
+      <button class="btn btn-secondary" type="button" data-action="close-terminal-group-change" aria-label="Закрыть подтверждение изменения групп">ЗАКРЫТЬ</button>
+    </header>
+
+    <dl class="terminal-group-impact" id="terminalGroupImpactSummary">
+      <div class="terminal-group-impact-row">
+        <dt>ДЕЙСТВИЕ</dt>
+        <dd data-impact="kind"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ЗАТРОНУТЫЕ ГРУППЫ</dt>
+        <dd data-impact="groups"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ЗАТРОНУТЫЕ ТЕРМИНАЛЫ</dt>
+        <dd data-impact="terminals"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ИСХОДНАЯ ГРУППА</dt>
+        <dd data-impact="source-group"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ГРУППА НАЗНАЧЕНИЯ</dt>
+        <dd data-impact="destination-group"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ИТОГОВЫЙ СОСТАВ</dt>
+        <dd data-impact="membership"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ПОРЯДОК ДО</dt>
+        <dd data-impact="order-before"></dd>
+      </div>
+      <div class="terminal-group-impact-row">
+        <dt>ПОРЯДОК ПОСЛЕ</dt>
+        <dd data-impact="order-after"></dd>
+      </div>
+    </dl>
+
+    <div class="terminal-group-impact-actions" role="group" aria-label="Подтверждение разрушительного изменения групп">
+      <button class="btn btn-secondary" type="button" data-action="cancel-terminal-group-change">ОТМЕНА</button>
+      <button class="btn btn-danger" type="button" data-action="confirm-terminal-group-change">ПРИМЕНИТЬ ИЗМЕНЕНИЕ</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog class="logical-session-dialog" id="logicalSessionDialog" aria-modal="true" aria-labelledby="logicalSessionDialogTitle" aria-describedby="logicalSessionDialogStatus logicalSessionDialogError" hidden>
   <div class="logical-session-dialog-panel">

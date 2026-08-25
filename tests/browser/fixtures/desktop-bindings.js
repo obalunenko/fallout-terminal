@@ -160,6 +160,10 @@ function authoringFixtureActive() {
   return globalThis.location?.pathname === '/__fixture/state-changing-command-authoring';
 }
 
+function terminalGroupingFixtureActive() {
+  return globalThis.location?.pathname === '/__fixture/terminal-grouping/overseer';
+}
+
 const authoringFixtureBase = '/__fixture/state-changing-command-authoring';
 
 async function authoringFixtureCommand(path, payload) {
@@ -303,11 +307,13 @@ export const Events = {
     listeners.add(callback);
     state.listeners.set(name, listeners);
     let coordinationPoll = null;
-    if (stateChangingLifecycleBase() && name === 'coordination-state') {
-      let lastProjection = '';
-      const poll = async () => {
-        try {
-          const coordination = await stateChangingCoordinationState();
+    if ((stateChangingLifecycleBase() || terminalGroupingFixtureActive()) && name === 'coordination-state') {
+	  let lastProjection = '';
+	  const poll = async () => {
+		try {
+		  const coordination = terminalGroupingFixtureActive()
+			? (await fetch('/__fixture/terminal-grouping/status').then(response => response.json())).coordinationState
+			: await stateChangingCoordinationState();
           const projection = JSON.stringify(coordination);
           if (projection === lastProjection) return;
           lastProjection = projection;
@@ -339,6 +345,12 @@ export const Clipboard = {
 
 export function GetRuntimeStatus() {
   state.calls.push({ method: 'GetRuntimeStatus', args: [] });
+  if (terminalGroupingFixtureActive()) {
+    return fetch('/__fixture/terminal-grouping/status').then(async response => ({
+      ...state.status,
+      ...(response.ok ? await response.json() : {}),
+    }));
+  }
   if (playerManagementFixtureActive()) {
     return playerManagementFixtureCommand('state').then(coordinationState => ({
       ...state.status,
@@ -493,15 +505,45 @@ export async function OpenSession(...args) {
 export const OpenURL = (...args) => record('OpenURL', args);
 export const ReleaseCharacter = (...args) => record('ReleaseCharacter', args);
 export const RenameLogicalSession = (...args) => record('RenameLogicalSession', args);
+export function ReplaceTerminalGroups(payload) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method: 'ReplaceTerminalGroups', args: [retained] });
+  if (terminalGroupingFixtureActive()) {
+    return fetch('/__fixture/terminal-grouping/replace-groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(retained),
+    }).then(async response => response.ok
+      ? response.json()
+      : ({ ok: false, error: 'terminal grouping replacement fixture is unavailable' }));
+  }
+  return Promise.resolve({
+    ok: true,
+    error: '',
+    sessionRevision: Number(retained.expectedSessionRevision ?? 0) + 1,
+    session: {
+      version: 1,
+      name: 'Terminal groups',
+      terminals: [],
+      terminalGroups: structuredClone(retained.terminalGroups ?? []),
+    },
+    coordinationState: {
+      revision: Number(retained.expectedCoordinationRevision ?? 0) + 1,
+    },
+  });
+}
 export const RequestTerminalActivation = (...args) => terminalAction('RequestTerminalActivation', args);
 export const RequestTerminalClear = (...args) => terminalAction('RequestTerminalClear', args);
 export const ResetFailedHack = (...args) => record('ResetFailedHack', args);
 export async function ResolveCommandExecution(payload) {
   const fixtureBase = stateChangingLifecycleBase();
-  if (!fixtureBase) return record('ResolveCommandExecution', [payload]);
+  if (!fixtureBase && !terminalGroupingFixtureActive()) return record('ResolveCommandExecution', [payload]);
   const retained = structuredClone(payload ?? {});
   state.calls.push({ method: 'ResolveCommandExecution', args: [retained] });
-  const response = await fetch(`${fixtureBase}/resolve`, {
+  const endpoint = terminalGroupingFixtureActive()
+    ? '/__fixture/terminal-grouping/resolve-command'
+    : `${fixtureBase}/resolve`;
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(retained),
@@ -512,8 +554,11 @@ export async function ResolveCommandExecution(payload) {
 export async function ResolveTerminalNavigation(payload) {
 	const retained = structuredClone(payload ?? {});
 	state.calls.push({ method: 'ResolveTerminalNavigation', args: [retained] });
-	if (!terminalNavigationFixtureActive()) return { ok: true };
-	const response = await fetch('/__fixture/terminal-navigation/resolve', {
+	if (!terminalNavigationFixtureActive() && !terminalGroupingFixtureActive()) return { ok: true };
+	const endpoint = terminalGroupingFixtureActive()
+		? '/__fixture/terminal-grouping/resolve-navigation'
+		: '/__fixture/terminal-navigation/resolve';
+	const response = await fetch(endpoint, {
 		method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(retained),
 	});
 	return response.json();
@@ -542,7 +587,9 @@ export async function SaveSession(session) {
 		const response = await fetch('/__fixture/terminal-navigation/save', {
 			method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(retained),
 		});
-		const result = response.ok ? await response.json() : { ok: false, error: 'terminal navigation save failed' };
+		const result = response.ok
+			? await response.json()
+			: { ok: false, error: (await response.text()).trim() || 'terminal navigation save failed' };
 		return { ok: result.ok === true, error: result.error || '', savedRevision: result.revision };
 	}
 	if (!authoringFixtureActive()) return record('SaveSession', [session]);

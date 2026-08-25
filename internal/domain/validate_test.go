@@ -303,6 +303,272 @@ func TestValidateSessionResolvesTerminalTransitionsInTwoPasses(t *testing.T) {
 	}
 }
 
+func TestValidateSessionAcceptsCanonicalTerminalGroupsInDeterministicOrder(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		groups []TerminalGroup
+	}{
+		{
+			name: "singleton groups preserve group order",
+			groups: []TerminalGroup{
+				{ID: "group-c", Name: "Charlie", TerminalIDs: []string{"c"}},
+				{ID: "group-a", Name: "Alpha", TerminalIDs: []string{"a"}},
+				{ID: "group-b", Name: "Bravo", TerminalIDs: []string{"b"}},
+			},
+		},
+		{
+			name: "multi-terminal group preserves member order",
+			groups: []TerminalGroup{
+				{ID: "group-route", Name: "Route", TerminalIDs: []string{"c", "a", "b"}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			session := validTerminalGroupValidationSession()
+			session.TerminalGroups = test.groups
+			want := CloneSession(session)
+
+			require.NoError(t, ValidateSession(session))
+			assert.Equal(t, want.TerminalGroups, session.TerminalGroups, "validation must not reorder groups or members")
+		})
+	}
+}
+
+func TestValidateSessionRejectsInvalidTerminalGroups(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		groups []TerminalGroup
+	}{
+		{
+			name: "empty group",
+			groups: []TerminalGroup{
+				{ID: "group-empty", Name: "Empty", TerminalIDs: []string{}},
+				{ID: "group-rest", Name: "Rest", TerminalIDs: []string{"a", "b", "c"}},
+			},
+		},
+		{
+			name: "duplicate normalized name",
+			groups: []TerminalGroup{
+				{ID: "group-a", Name: "  Main Route  ", TerminalIDs: []string{"a"}},
+				{ID: "group-b", Name: "mAiN rOuTe", TerminalIDs: []string{"b", "c"}},
+			},
+		},
+		{
+			name: "duplicate member in one group",
+			groups: []TerminalGroup{
+				{ID: "group-route", Name: "Route", TerminalIDs: []string{"a", "a", "b", "c"}},
+			},
+		},
+		{
+			name: "terminal assigned to multiple groups",
+			groups: []TerminalGroup{
+				{ID: "group-one", Name: "One", TerminalIDs: []string{"a", "b"}},
+				{ID: "group-two", Name: "Two", TerminalIDs: []string{"b", "c"}},
+			},
+		},
+		{
+			name: "terminal missing from all groups",
+			groups: []TerminalGroup{
+				{ID: "group-route", Name: "Route", TerminalIDs: []string{"a", "b"}},
+			},
+		},
+		{
+			name: "group references missing terminal",
+			groups: []TerminalGroup{
+				{ID: "group-route", Name: "Route", TerminalIDs: []string{"a", "b", "c", "missing"}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			session := validTerminalGroupValidationSession()
+			session.TerminalGroups = test.groups
+
+			require.Error(t, ValidateSession(session))
+		})
+	}
+}
+
+func TestLegacyCrossTerminalLinkRemainsCompatibleAfterSingletonNormalization(t *testing.T) {
+	t.Parallel()
+
+	legacy := legacyTerminalGroupCompatibilitySession()
+	require.Empty(t, legacy.TerminalGroups)
+	require.NoError(t, ValidateSession(legacy), "legacy absence is a compatible document shape")
+
+	normalized := NormalizeTerminalGroups(legacy)
+	require.Len(t, normalized.TerminalGroups, 2)
+	assert.Equal(t, []string{"a"}, normalized.TerminalGroups[0].TerminalIDs)
+	assert.Equal(t, []string{"b"}, normalized.TerminalGroups[1].TerminalIDs)
+	assert.NotEqual(t, normalized.TerminalGroups[0].ID, normalized.TerminalGroups[1].ID)
+	require.NoError(t, ValidateSession(normalized), "legacy cross-singleton links remain authored and dormant")
+	transition := normalized.Terminals[0].Root.Children[0].TerminalTransition
+	require.NotNil(t, transition)
+	assert.Equal(t, "b", transition.TargetTerminalID)
+
+	_, err := ValidateTerminalGroupReplacement(normalized, normalized.TerminalGroups)
+	require.ErrorContains(t, err, "crosses groups")
+	require.ErrorContains(t, err, `command "go"`)
+	coupled := []TerminalGroup{
+		{ID: "coupled", Name: "Coupled", TerminalIDs: []string{"a", "b"}},
+	}
+	diff, err := ValidateTerminalGroupReplacement(normalized, coupled)
+	require.NoError(t, err)
+	assert.True(t, diff.Changed)
+	assert.True(t, diff.MembershipOrOrderChanged)
+}
+
+func TestTerminalGroupReplacementIdentifiesEveryCrossGroupCommandDeterministically(t *testing.T) {
+	t.Parallel()
+
+	session := legacyTerminalGroupCompatibilitySession()
+	session.Terminals[0].Root.Children = append(session.Terminals[0].Root.Children, ContentNode{
+		ID: "go-backup", Type: NodeCommand, Name: "GO BACKUP",
+		TerminalTransition: &TerminalTransitionConfig{TargetTerminalID: "b"},
+	})
+	session.TerminalGroups = []TerminalGroup{
+		{ID: "coupled", Name: "Coupled", TerminalIDs: []string{"a", "b"}},
+	}
+	candidate := []TerminalGroup{
+		{ID: "left", Name: "Left", TerminalIDs: []string{"a"}},
+		{ID: "right", Name: "Right", TerminalIDs: []string{"b"}},
+	}
+
+	_, err := ValidateTerminalGroupReplacement(session, candidate)
+
+	require.EqualError(t, err,
+		`terminal group candidate invalidates authored transitions: `+
+			`terminal transition command "go" in terminal "a" targets terminal "b" and crosses groups "left" and "right"; `+
+			`terminal transition command "go-backup" in terminal "a" targets terminal "b" and crosses groups "left" and "right"`,
+	)
+}
+
+func TestNormalizeTerminalGroupsDoesNotRepairMalformedExplicitGroups(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		groups []TerminalGroup
+	}{
+		{
+			name: "partial membership",
+			groups: []TerminalGroup{
+				{ID: "partial", Name: "Partial", TerminalIDs: []string{"a"}},
+			},
+		},
+		{
+			name: "empty explicit group",
+			groups: []TerminalGroup{
+				{ID: "empty", Name: "Empty", TerminalIDs: []string{}},
+				{ID: "rest", Name: "Rest", TerminalIDs: []string{"a", "b"}},
+			},
+		},
+		{
+			name: "unknown explicit member",
+			groups: []TerminalGroup{
+				{ID: "explicit", Name: "Explicit", TerminalIDs: []string{"a", "b", "missing"}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			session := legacyTerminalGroupCompatibilitySession()
+			session.TerminalGroups = test.groups
+			normalized := NormalizeTerminalGroups(session)
+			assert.Equal(t, test.groups, normalized.TerminalGroups,
+				"non-empty explicit groups must not be silently repaired as legacy")
+			require.Error(t, ValidateSession(normalized))
+		})
+	}
+}
+
+func TestCompatibleSingletonNormalizationPreservesUnknownExtras(t *testing.T) {
+	t.Parallel()
+
+	legacy := legacyTerminalGroupCompatibilitySession()
+	legacy.Extra = map[string]json.RawMessage{
+		"futureSession": json.RawMessage(`{"keep":true}`),
+	}
+	legacy.Terminals[0].Extra = map[string]json.RawMessage{
+		"futureTerminal": json.RawMessage(`17`),
+	}
+	legacy.Terminals[0].Root.Children[0].Extra = map[string]json.RawMessage{
+		"futureCommand": json.RawMessage(`{"mode":"compatibility"}`),
+	}
+
+	normalized := NormalizeTerminalGroups(legacy)
+	require.NoError(t, ValidateSession(normalized))
+	assert.Equal(t, legacy.Extra, normalized.Extra)
+	assert.Equal(t, legacy.Terminals[0].Extra, normalized.Terminals[0].Extra)
+	assert.Equal(t, legacy.Terminals[0].Root.Children[0].Extra, normalized.Terminals[0].Root.Children[0].Extra)
+
+	encoded, err := EncodeSession(normalized)
+	require.NoError(t, err)
+	for _, field := range []string{"futureSession", "futureTerminal", "futureCommand", "terminalGroups"} {
+		assert.Contains(t, string(encoded), `"`+field+`"`)
+	}
+	roundTrip, err := DecodeSession(encoded)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(normalized.Extra["futureSession"]), string(roundTrip.Extra["futureSession"]))
+	assert.JSONEq(t, string(normalized.Terminals[0].Extra["futureTerminal"]),
+		string(roundTrip.Terminals[0].Extra["futureTerminal"]))
+	assert.JSONEq(t, string(normalized.Terminals[0].Root.Children[0].Extra["futureCommand"]),
+		string(roundTrip.Terminals[0].Root.Children[0].Extra["futureCommand"]))
+}
+
+func validTerminalGroupValidationSession() Session {
+	root := ContentNode{ID: "root", Type: NodeFolder, Name: "ROOT", Children: []ContentNode{}}
+	return Session{
+		Version: 1,
+		Name:    "Grouped campaign",
+		Terminals: []Terminal{
+			{ID: "a", Name: "Alpha", Root: root},
+			{ID: "b", Name: "Bravo", Root: root},
+			{ID: "c", Name: "Charlie", Root: root},
+		},
+		TerminalGroups: []TerminalGroup{
+			{ID: "group-route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+		},
+	}
+}
+
+func legacyTerminalGroupCompatibilitySession() Session {
+	return Session{
+		Version: 1,
+		Name:    "Legacy linked campaign",
+		Terminals: []Terminal{
+			{
+				ID: "a", Name: "Alpha",
+				Root: ContentNode{
+					ID: "root", Type: NodeFolder, Name: "ROOT",
+					Children: []ContentNode{{
+						ID: "go", Type: NodeCommand, Name: "GO",
+						TerminalTransition: &TerminalTransitionConfig{TargetTerminalID: "b"},
+					}},
+				},
+			},
+			{
+				ID: "b", Name: "Beta",
+				Root: ContentNode{ID: "root", Type: NodeFolder, Name: "ROOT", Children: []ContentNode{}},
+			},
+		},
+	}
+}
+
 func validStateChangingSessionForTest() Session {
 	return Session{
 		Version: 1,

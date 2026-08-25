@@ -27,6 +27,41 @@ test('generated desktop service calls remain explicit and normalized behind the 
   expect(calls).not.toContain('Call');
 });
 
+test('terminal-group replacement forwards both revisions and returns detached canonical authorities', async ({ page }) => {
+  const request = {
+    terminalGroups: [
+      { id: 'group-alpha', name: 'Alpha', terminalIds: ['terminal-a', 'terminal-b'] },
+      { id: 'group-charlie', name: 'Charlie', terminalIds: ['terminal-c'] },
+    ],
+    expectedSessionRevision: 17,
+    expectedCoordinationRevision: 29,
+  };
+
+  const observed = await page.evaluate(async candidate => {
+    const result = await desktopAPI.replaceTerminalGroups(candidate);
+    candidate.terminalGroups[0].terminalIds.reverse();
+    result.session.terminalGroups[0].terminalIds.reverse();
+    return {
+      result,
+      call: __desktopFixture.calls
+        .filter(entry => entry.method === 'ReplaceTerminalGroups').at(-1),
+    };
+  }, request);
+
+  expect(observed.call).toEqual({ method: 'ReplaceTerminalGroups', args: [request] });
+  expect(observed.result).toEqual(expect.objectContaining({
+    ok: true,
+    error: '',
+    sessionRevision: 18,
+    coordinationState: expect.objectContaining({ revision: 30 }),
+  }));
+  expect(observed.result.session.terminalGroups).toEqual([
+    { id: 'group-alpha', name: 'Alpha', terminalIds: ['terminal-b', 'terminal-a'] },
+    { id: 'group-charlie', name: 'Charlie', terminalIds: ['terminal-c'] },
+  ]);
+  expect(observed.call.args[0].terminalGroups[0].terminalIds).toEqual(['terminal-a', 'terminal-b']);
+});
+
 test('addCharacter forwards one complete profile with explicit false and expected revision', async ({ page }) => {
   const request = {
     name: 'Mara',

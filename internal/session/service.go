@@ -56,6 +56,7 @@ type Store interface {
 type TerminalCatalog interface {
 	LookupTerminal(terminalID string) (domain.TerminalTarget, bool)
 	LookupTerminalTransition(sourceTerminalID, commandID string) (domain.TerminalTransitionTarget, bool)
+	LookupTerminalGroup(terminalID string) (domain.TerminalGroupSnapshot, bool)
 }
 
 // SessionResult is returned by create, open, and demo-copy commands.
@@ -80,6 +81,17 @@ type SaveResult struct {
 // Changed distinguishes a committed document replacement from an idempotent
 // no-op; Revision is the newest durable document revision on success.
 type CommandStateResult struct {
+	OK       bool            `json:"ok"`
+	Changed  bool            `json:"changed"`
+	Error    string          `json:"error,omitempty"`
+	Revision uint64          `json:"revision"`
+	Session  *domain.Session `json:"session,omitempty"`
+}
+
+// TerminalGroupMutationResult reports one synchronous complete-set group
+// replacement. Session is authoritative and detached on both success and
+// rejection so callers can discard stale drafts safely.
+type TerminalGroupMutationResult struct {
 	OK       bool            `json:"ok"`
 	Changed  bool            `json:"changed"`
 	Error    string          `json:"error,omitempty"`
@@ -163,6 +175,16 @@ func (service *Service) LookupTerminal(terminalID string) (domain.TerminalTarget
 	return terminalTarget(*terminal), true
 }
 
+// LookupTerminalGroup returns the latest detached ordered group containing terminalID.
+func (service *Service) LookupTerminalGroup(terminalID string) (domain.TerminalGroupSnapshot, bool) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if service.active.Session == nil {
+		return domain.TerminalGroupSnapshot{}, false
+	}
+	return domain.TerminalGroupFor(*service.active.Session, terminalID)
+}
+
 // LookupTerminalTransition resolves a command link and target from one locked
 // current-session snapshot, so source and destination cannot come from different revisions.
 func (service *Service) LookupTerminalTransition(sourceTerminalID, commandID string) (domain.TerminalTransitionTarget, bool) {
@@ -178,6 +200,11 @@ func (service *Service) LookupTerminalTransition(sourceTerminalID, commandID str
 	}
 	target := terminalByID(service.active.Session, command.TerminalTransition.TargetTerminalID)
 	if target == nil || target.ID == source.ID {
+		return domain.TerminalTransitionTarget{}, false
+	}
+	sourceGroup, sourceGrouped := domain.TerminalGroupFor(*service.active.Session, source.ID)
+	targetGroup, targetGrouped := domain.TerminalGroupFor(*service.active.Session, target.ID)
+	if !sourceGrouped || !targetGrouped || sourceGroup.ID != targetGroup.ID {
 		return domain.TerminalTransitionTarget{}, false
 	}
 	return domain.TerminalTransitionTarget{
@@ -382,7 +409,7 @@ func (service *Service) Save(ctx context.Context, session domain.Session, revisi
 	}
 	authored := cloneSession(session)
 	clearCommandStates(&authored)
-	if err := verifySessionContract(authored); err != nil {
+	if err := verifyAuthoredSession(authored); err != nil {
 		return saveFailure(revision, 0, "session is invalid and was not saved")
 	}
 
@@ -407,7 +434,7 @@ func (service *Service) Save(ctx context.Context, session domain.Session, revisi
 		return saveFailure(revision, saved, "the bundled demo cannot be saved in place")
 	}
 
-	accepted, err := mergeCanonicalCommandStates(authored, *service.active.Session)
+	accepted, err := mergeCanonicalSessionState(authored, *service.active.Session)
 	if err != nil {
 		saved := service.active.SavedRevision
 		service.mu.Unlock()
@@ -593,6 +620,78 @@ func (service *Service) mutateCommandStates(ctx context.Context, mutate func(*do
 	}
 }
 
+// ReplaceTerminalGroups synchronously compares and replaces the complete
+// canonical group set. It is the narrow trusted persistence capability used
+// by the coordinator while holding its own transition lock.
+func (service *Service) ReplaceTerminalGroups(
+	ctx context.Context,
+	groups []domain.TerminalGroup,
+	expectedRevision uint64,
+) TerminalGroupMutationResult {
+	if err := contextError(ctx); err != nil {
+		return terminalGroupMutationFailure(0, nil, "terminal group replacement was canceled")
+	}
+	service.commandMu.Lock()
+	defer service.commandMu.Unlock()
+	service.documentMu.Lock()
+	defer service.documentMu.Unlock()
+
+	service.mu.Lock()
+	if service.closed {
+		service.mu.Unlock()
+		return terminalGroupMutationFailure(0, nil, "session service is shut down")
+	}
+	if service.active.Path == "" || service.active.Session == nil {
+		revision := service.active.SavedRevision
+		service.mu.Unlock()
+		return terminalGroupMutationFailure(revision, nil, "there is no active session path")
+	}
+	canonical := cloneSession(*service.active.Session)
+	revision := service.active.SavedRevision
+	path := service.active.Path
+	if expectedRevision != revision {
+		service.mu.Unlock()
+		return terminalGroupMutationFailure(revision, &canonical, "session revision changed; review the latest terminal groups")
+	}
+	if samePath(path, service.locations.BundledDemo) {
+		service.mu.Unlock()
+		return terminalGroupMutationFailure(revision, &canonical, "the bundled demo cannot be changed in place")
+	}
+	service.mu.Unlock()
+
+	diff, err := domain.ValidateTerminalGroupReplacement(canonical, groups)
+	if err != nil {
+		return terminalGroupMutationFailure(revision, &canonical, err.Error())
+	}
+	if !diff.Changed {
+		return TerminalGroupMutationResult{OK: true, Revision: revision, Session: sessionPointer(canonical)}
+	}
+	candidate := cloneSession(canonical)
+	candidate.TerminalGroups = domain.CloneTerminalGroups(groups)
+	data, err := encodeAcceptedSession(candidate)
+	if err != nil {
+		return terminalGroupMutationFailure(revision, &canonical, "terminal group candidate is invalid")
+	}
+	if service.store == nil || service.store.WriteAtomic(path, data) != nil {
+		return terminalGroupMutationFailure(revision, &canonical, "could not save terminal groups")
+	}
+
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if service.closed || service.active.Path != path || service.active.SavedRevision != revision {
+		return terminalGroupMutationFailure(service.active.SavedRevision, service.active.Session, "active session changed while saving terminal groups")
+	}
+	nextRevision := revision + 1
+	service.active.Session = sessionPointer(candidate)
+	service.active.RequestedRevision = nextRevision
+	service.active.SavedRevision = nextRevision
+	service.active.SaveState = SaveStateSaved
+	service.durable[service.epoch] = nextRevision
+	return TerminalGroupMutationResult{
+		OK: true, Changed: true, Revision: nextRevision, Session: sessionPointer(candidate),
+	}
+}
+
 // AssociatePlayerConfig atomically saves a normalized relative reference and
 // updates the active session only after the durable replacement succeeds.
 func (service *Service) AssociatePlayerConfig(ctx context.Context, playerConfigPath string) SessionResult {
@@ -774,7 +873,7 @@ func (service *Service) finishPayload(payload savePayload, writeErr error) {
 }
 
 func (service *Service) activate(path string, session domain.Session) SessionResult {
-	copy := cloneSession(session)
+	copy := domain.NormalizeTerminalGroups(session)
 	service.mu.Lock()
 	if service.closed {
 		service.mu.Unlock()
@@ -836,7 +935,7 @@ func (service *Service) signalWorkerLocked() {
 }
 
 func starterSession(name string) domain.Session {
-	return domain.Session{
+	return domain.NormalizeTerminalGroups(domain.Session{
 		Version: 1,
 		Name:    name,
 		Terminals: []domain.Terminal{{
@@ -851,7 +950,7 @@ func starterSession(name string) domain.Session {
 				Children: []domain.ContentNode{},
 			},
 		}},
-	}
+	})
 }
 
 func sessionNameFromPath(path string) string {
@@ -889,6 +988,14 @@ func commandStateFailure(revision uint64, message string) CommandStateResult {
 	return CommandStateResult{Error: message, Revision: revision}
 }
 
+func terminalGroupMutationFailure(revision uint64, session *domain.Session, message string) TerminalGroupMutationResult {
+	result := TerminalGroupMutationResult{Error: message, Revision: revision}
+	if session != nil {
+		result.Session = sessionPointer(*session)
+	}
+	return result
+}
+
 func sessionPointer(session domain.Session) *domain.Session {
 	copy := cloneSession(session)
 	return &copy
@@ -905,6 +1012,7 @@ func cloneActive(active ActiveSession) ActiveSession {
 func cloneSession(session domain.Session) domain.Session {
 	copy := session
 	copy.Extra = cloneExtra(session.Extra)
+	copy.TerminalGroups = domain.CloneTerminalGroups(session.TerminalGroups)
 	copy.Terminals = make([]domain.Terminal, len(session.Terminals))
 	for index, terminal := range session.Terminals {
 		copy.Terminals[index] = terminal
@@ -958,8 +1066,11 @@ func clearCommandStates(session *domain.Session) {
 	}
 }
 
-func mergeCanonicalCommandStates(authored, canonical domain.Session) (domain.Session, error) {
-	merged := cloneSession(authored)
+func mergeCanonicalSessionState(authored, canonical domain.Session) (domain.Session, error) {
+	merged := mergeCanonicalTerminalGroups(authored, canonical)
+	if err := validateAuthoredTransitionChanges(merged, canonical); err != nil {
+		return domain.Session{}, err
+	}
 	canonicalByTerminal := make(map[string]domain.Terminal, len(canonical.Terminals))
 	for _, terminal := range canonical.Terminals {
 		canonicalByTerminal[terminal.ID] = terminal
@@ -989,6 +1100,90 @@ func mergeCanonicalCommandStates(authored, canonical domain.Session) (domain.Ses
 		return domain.Session{}, err
 	}
 	return merged, nil
+}
+
+type terminalTransitionKey struct {
+	terminalID string
+	commandID  string
+}
+
+func validateAuthoredTransitionChanges(candidate, canonical domain.Session) error {
+	canonicalTargets := terminalTransitionTargets(canonical)
+	groupByTerminal := make(map[string]string, len(candidate.Terminals))
+	for _, group := range candidate.TerminalGroups {
+		for _, terminalID := range group.TerminalIDs {
+			groupByTerminal[terminalID] = group.ID
+		}
+	}
+
+	for key, targetID := range terminalTransitionTargets(candidate) {
+		if groupByTerminal[key.terminalID] == groupByTerminal[targetID] {
+			continue
+		}
+		if canonicalTargets[key] == targetID {
+			continue
+		}
+		return fmt.Errorf(
+			"terminal %q transition %q to %q crosses terminal groups",
+			key.terminalID, key.commandID, targetID,
+		)
+	}
+	return nil
+}
+
+func terminalTransitionTargets(session domain.Session) map[terminalTransitionKey]string {
+	targets := make(map[terminalTransitionKey]string)
+	for _, terminal := range session.Terminals {
+		walkTerminalTransitions(terminal.ID, terminal.Root, targets)
+	}
+	return targets
+}
+
+func walkTerminalTransitions(
+	terminalID string,
+	node domain.ContentNode,
+	targets map[terminalTransitionKey]string,
+) {
+	if node.Type == domain.NodeCommand && node.TerminalTransition != nil {
+		targets[terminalTransitionKey{terminalID: terminalID, commandID: node.ID}] =
+			node.TerminalTransition.TargetTerminalID
+	}
+	for _, child := range node.Children {
+		walkTerminalTransitions(terminalID, child, targets)
+	}
+}
+
+func verifyAuthoredSession(authored domain.Session) error {
+	candidate := cloneSession(authored)
+	candidate.TerminalGroups = nil
+	candidate = domain.NormalizeTerminalGroups(candidate)
+	return verifySessionContract(candidate)
+}
+
+func mergeCanonicalTerminalGroups(authored, canonical domain.Session) domain.Session {
+	merged := cloneSession(authored)
+	authoredTerminalIDs := make(map[string]struct{}, len(merged.Terminals))
+	for _, terminal := range merged.Terminals {
+		authoredTerminalIDs[terminal.ID] = struct{}{}
+	}
+
+	merged.TerminalGroups = make([]domain.TerminalGroup, 0, len(canonical.TerminalGroups))
+	for _, canonicalGroup := range canonical.TerminalGroups {
+		group := domain.TerminalGroup{
+			ID:          canonicalGroup.ID,
+			Name:        canonicalGroup.Name,
+			TerminalIDs: make([]string, 0, len(canonicalGroup.TerminalIDs)),
+		}
+		for _, terminalID := range canonicalGroup.TerminalIDs {
+			if _, exists := authoredTerminalIDs[terminalID]; exists {
+				group.TerminalIDs = append(group.TerminalIDs, terminalID)
+			}
+		}
+		if len(group.TerminalIDs) != 0 {
+			merged.TerminalGroups = append(merged.TerminalGroups, group)
+		}
+	}
+	return domain.EnsureTerminalGroups(merged)
 }
 
 func encodeAcceptedSession(candidate domain.Session) ([]byte, error) {

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -104,6 +105,684 @@ func TestCreateUsesDocumentsSuggestionAndActivatesChosenPathAfterWrite(t *testin
 	require.NotNil(t, snapshot.Session)
 	assert.Equal(t, "My Wasteland", snapshot.Session.Name)
 	assertNoApplicationSupportWrites(t, fileSystem)
+}
+
+func TestCreateAddsSingletonGroupForStarterTerminal(t *testing.T) {
+	t.Parallel()
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := "/Volumes/Campaigns/grouped-new-session.json"
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{SaveResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+
+	created := service.Create(t.Context())
+	require.True(t, created.OK, "Create() = %#v", created)
+	require.NotNil(t, created.Session)
+	assertCanonicalTerminalGroups(t, *created.Session)
+	require.Len(t, created.Session.TerminalGroups, 1)
+	assert.Equal(t, []string{created.Session.Terminals[0].ID}, created.Session.TerminalGroups[0].TerminalIDs)
+
+	written, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	assert.Equal(t, created.Session.TerminalGroups, written.TerminalGroups)
+}
+
+func TestOpenNormalizesLegacyTerminalsIntoStableSingletonGroupsWithoutWriting(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/legacy-singletons.json"
+	raw := []byte(`{
+  "version": 1,
+  "name": "Legacy terminals",
+  "terminals": [
+    {
+      "id": "legacy-a",
+      "name": "Terminal",
+      "hackLevel": 0,
+      "introText": "",
+      "root": {"id":"root","type":"folder","name":"ROOT","children":[]}
+    },
+    {
+      "id": "legacy-b",
+      "name": "Terminal",
+      "hackLevel": 0,
+      "introText": "",
+      "root": {"id":"root","type":"folder","name":"ROOT","children":[]}
+    }
+  ]
+}`)
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, raw)
+
+	open := func(t *testing.T) domain.Session {
+		t.Helper()
+		service := NewService(
+			NewStorage(fileSystem),
+			&testutil.FakeDialog{OpenResult: target},
+			testLocations,
+		)
+		opened := service.Open(t.Context())
+		require.True(t, opened.OK, "Open() = %#v", opened)
+		require.NotNil(t, opened.Session)
+		require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
+
+		return *opened.Session
+	}
+
+	first := open(t)
+	assertCanonicalTerminalGroups(t, first)
+	require.Len(t, first.TerminalGroups, 2)
+	for index, terminal := range first.Terminals {
+		assert.Equal(t, []string{terminal.ID}, first.TerminalGroups[index].TerminalIDs)
+		assert.Contains(t, strings.ToLower(first.TerminalGroups[index].Name), strings.ToLower(terminal.Name))
+	}
+	assert.NotEqual(t, first.TerminalGroups[0].Name, first.TerminalGroups[1].Name,
+		"duplicate terminal names require collision-safe group names")
+
+	second := open(t)
+	assert.Equal(t, first.TerminalGroups, second.TerminalGroups,
+		"equivalent legacy opens must produce stable singleton identities")
+	assert.Equal(t, raw, fileSystemFileData(t, fileSystem, target),
+		"opening a legacy document must not persist normalization")
+	assert.Empty(t, fileSystem.WriteCalls(), "opening a legacy document wrote normalized groups")
+}
+
+func TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/ordered-groups.json"
+	canonical := domain.Session{
+		Version: 1,
+		Name:    "Ordered groups",
+		Terminals: []domain.Terminal{
+			terminalForGroupTest("a", "Alpha"),
+			terminalForGroupTest("b", "Beta"),
+			terminalForGroupTest("c", "Gamma"),
+			terminalForGroupTest("d", "Delta"),
+			terminalForGroupTest("e", "Epsilon"),
+			terminalForGroupTest("f", "Zeta"),
+			terminalForGroupTest("g", "Eta"),
+			terminalForGroupTest("h", "Theta"),
+			terminalForGroupTest("i", "Iota"),
+			terminalForGroupTest("j", "Kappa"),
+		},
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "secondary", Name: "Secondary", TerminalIDs: []string{"c", "a", "f"}},
+			{ID: "primary", Name: "Primary", TerminalIDs: []string{"b", "j", "d", "e"}},
+			{ID: "archive", Name: "Archive", TerminalIDs: []string{"i", "h", "g"}},
+		},
+	}
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, canonical))
+
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	edited := domain.CloneSession(*opened.Session)
+	edited.Name = "Ordered groups after save"
+	saved := service.Save(t.Context(), edited, 1)
+	require.True(t, saved.OK, "Save() = %#v", saved)
+	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
+
+	restarted := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = restarted.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restarted.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	require.Len(t, reopened.Session.TerminalGroups, 3)
+	require.Len(t, reopened.Session.Terminals, 10)
+	assert.Equal(t, canonical.TerminalGroups, reopened.Session.TerminalGroups)
+	assert.Equal(t, canonical.Terminals, reopened.Session.Terminals)
+	assertCanonicalTerminalGroups(t, *reopened.Session)
+}
+
+func TestGenericSaveNormalizesTerminalLifecycleAndPreservesCanonicalMembership(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/terminal-lifecycle-groups.json"
+	canonical := domain.Session{
+		Version: 1,
+		Name:    "Terminal lifecycle",
+		Terminals: []domain.Terminal{
+			terminalForGroupTest("a", "Alpha"),
+			terminalForGroupTest("b", "Beta"),
+			terminalForGroupTest("deleted", "Deleted"),
+		},
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b"}},
+			{ID: "deleted-singleton", Name: "Deleted", TerminalIDs: []string{"deleted"}},
+		},
+	}
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, canonical))
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+
+	candidate := domain.CloneSession(*opened.Session)
+	candidate.Terminals = append([]domain.Terminal(nil), candidate.Terminals[:2]...)
+	candidate.Terminals = append(candidate.Terminals,
+		terminalForGroupTest("created", "Created terminal"),
+		terminalForGroupTest("imported", "Imported terminal"),
+	)
+	candidate.TerminalGroups = []domain.TerminalGroup{
+		{ID: "stale-membership-a", Name: "Stale A", TerminalIDs: []string{"b", "created"}},
+		{ID: "stale-membership-b", Name: "Stale B", TerminalIDs: []string{"a", "imported"}},
+	}
+
+	saved := service.Save(t.Context(), candidate, 1)
+	require.True(t, saved.OK, "Save() = %#v", saved)
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assertCanonicalTerminalGroups(t, *active.Session)
+
+	route := terminalGroupByMember(t, active.Session.TerminalGroups, "a")
+	assert.Equal(t, domain.TerminalGroup{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b"}}, route,
+		"generic save replaced canonical membership or member order")
+	newTerminalNames := map[string]string{
+		"created":  "Created terminal",
+		"imported": "Imported terminal",
+	}
+	for terminalID, terminalName := range newTerminalNames {
+		group := terminalGroupByMember(t, active.Session.TerminalGroups, terminalID)
+		assert.Equal(t, []string{terminalID}, group.TerminalIDs)
+		assert.Contains(t, strings.ToLower(group.Name), strings.ToLower(terminalName))
+		assert.NotContains(t, []string{"stale-membership-a", "stale-membership-b"}, group.ID)
+	}
+	for _, group := range active.Session.TerminalGroups {
+		assert.NotContains(t, group.TerminalIDs, "deleted")
+		assert.NotEqual(t, "deleted-singleton", group.ID)
+	}
+
+	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	assert.Equal(t, active.Session.TerminalGroups, persisted.TerminalGroups)
+}
+
+func TestStaleGenericSavePreservesLatestGroupsAcrossContractAndReopen(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/stale-groups-round-trip.json"
+	initial := terminalGroupMutationTestSession([]domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+	})
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	stale := domain.CloneSession(*opened.Session)
+	latestGroups := []domain.TerminalGroup{
+		{ID: "outer", Name: "Outer", TerminalIDs: []string{"a", "c"}},
+		{ID: "inner", Name: "Inner", TerminalIDs: []string{"b"}},
+	}
+	replaced := service.ReplaceTerminalGroups(t.Context(), latestGroups, 0)
+	require.True(t, replaced.OK, "ReplaceTerminalGroups() = %#v", replaced)
+	assert.Equal(t, uint64(1), replaced.Revision)
+
+	stale.Name = "Authored after regrouping"
+	stale.Terminals[0].IntroText = "Unrelated authored edit"
+	saved := service.Save(t.Context(), stale, 2)
+	require.True(t, saved.OK, "Save(stale groups) = %#v", saved)
+	assert.Equal(t, uint64(2), saved.SavedRevision)
+	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
+
+	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	assert.Equal(t, "Authored after regrouping", persisted.Name)
+	assert.Equal(t, "Unrelated authored edit", persisted.Terminals[0].IntroText)
+	assert.Equal(t, latestGroups, persisted.TerminalGroups,
+		"a stale generic save must not restore its obsolete group set")
+	semantic, err := SessionToProto(persisted)
+	require.NoError(t, err)
+	contractRoundTrip, err := SessionFromProto(semantic, persisted)
+	require.NoError(t, err)
+	assert.Equal(t, persisted, contractRoundTrip)
+
+	restarted := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = restarted.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restarted.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, persisted, *reopened.Session)
+}
+
+func TestLegacyDormantLinkSurvivesTerminalCreateAndDelete(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/legacy-dormant-link-lifecycle.json"
+	legacy := linkedSessionForTest()
+	legacy.TerminalGroups = nil
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, legacy))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	assertCanonicalTerminalGroups(t, *opened.Session)
+	_, eligible := service.LookupTerminalTransition("a", "go")
+	assert.False(t, eligible, "legacy cross-singleton link must stay dormant")
+
+	created := domain.CloneSession(*opened.Session)
+	created.Terminals = append(created.Terminals, terminalForGroupTest("created", "Created"))
+	created.TerminalGroups = []domain.TerminalGroup{
+		{ID: "stale-route", Name: "Stale route", TerminalIDs: []string{"a", "b", "created"}},
+	}
+	require.True(t, service.Save(t.Context(), created, 1).OK)
+	afterCreate := service.Snapshot()
+	require.NotNil(t, afterCreate.Session)
+	assert.Equal(t, []string{"created"}, terminalGroupByMember(t, afterCreate.Session.TerminalGroups, "created").TerminalIDs)
+	assertCanonicalTerminalGroups(t, *afterCreate.Session)
+
+	deleted := domain.CloneSession(*afterCreate.Session)
+	deleted.Terminals = append([]domain.Terminal(nil), deleted.Terminals[:2]...)
+	require.True(t, service.Save(t.Context(), deleted, 2).OK)
+	afterDelete := service.Snapshot()
+	require.NotNil(t, afterDelete.Session)
+	assertCanonicalTerminalGroups(t, *afterDelete.Session)
+	assert.Len(t, afterDelete.Session.TerminalGroups, 2)
+	assert.Equal(t, "b", afterDelete.Session.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID)
+	_, eligible = service.LookupTerminalTransition("a", "go")
+	assert.False(t, eligible, "ordinary lifecycle saves must not activate a dormant legacy link")
+
+	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	assert.Equal(t, *afterDelete.Session, persisted)
+}
+
+func TestGenericSaveRejectsNewOrRetargetedCrossGroupTransitions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*domain.Session)
+	}{
+		{
+			name: "new transition",
+			mutate: func(candidate *domain.Session) {
+				candidate.Terminals[0].Root.Children = append(candidate.Terminals[0].Root.Children,
+					domain.ContentNode{
+						ID:   "skip-to-gamma",
+						Type: domain.NodeCommand,
+						Name: "Skip to Gamma",
+						TerminalTransition: &domain.TerminalTransitionConfig{
+							TargetTerminalID: "c",
+						},
+					},
+				)
+			},
+		},
+		{
+			name: "retargeted transition",
+			mutate: func(candidate *domain.Session) {
+				candidate.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID = "c"
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			target := "/Volumes/Campaigns/" + strings.ReplaceAll(test.name, " ", "-") + ".json"
+			initial := linkedSessionForTest()
+			initial.Terminals = append(initial.Terminals, terminalForGroupTest("c", "Gamma"))
+			initial.TerminalGroups = []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b"}},
+				{ID: "gamma", Name: "Gamma", TerminalIDs: []string{"c"}},
+			}
+			fileSystem := testutil.NewFakeFileSystem()
+			fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+			service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+			t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+
+			opened := service.Open(t.Context())
+			require.True(t, opened.OK, "Open() = %#v", opened)
+			require.NotNil(t, opened.Session)
+			candidate := domain.CloneSession(*opened.Session)
+			test.mutate(&candidate)
+			writesBefore := len(fileSystem.WriteCalls())
+
+			result := service.Save(t.Context(), candidate, 1)
+
+			assert.False(t, result.OK)
+			assert.Contains(t, result.Error, "session is invalid")
+			assert.Equal(t, writesBefore, len(fileSystem.WriteCalls()))
+			active := service.Snapshot()
+			require.NotNil(t, active.Session)
+			assert.Equal(t, initial, *active.Session)
+			persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+			require.NoError(t, err)
+			assert.Equal(t, initial, persisted)
+		})
+	}
+}
+
+func TestFailedCommandStateMutationRollsBackGroupedSessionAndRevision(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/grouped-command-state-rollback.json"
+	initial := stateChangingSession("Grouped rollback")
+	initial.TerminalGroups = []domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"t1", "t2"}},
+	}
+	initialData := mustEncodeSession(t, initial)
+	store := &failingMutationStore{
+		path: target,
+		data: initialData,
+		err:  fmt.Errorf("injected grouped command-state failure"),
+	}
+	service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+
+	result := service.ExecuteCommandState(t.Context(), "t1", "doors")
+	assert.False(t, result.OK)
+	assert.False(t, result.Changed)
+	assert.Zero(t, result.Revision)
+	assert.Nil(t, result.Session)
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assert.Equal(t, initial, *active.Session)
+	assert.Zero(t, active.RequestedRevision)
+	assert.Zero(t, active.SavedRevision)
+	assert.Equal(t, SaveStateFailed, active.SaveState)
+	assert.Equal(t, initialData, store.data)
+}
+
+func TestCoalescedGenericSavesKeepNewestContentAndCanonicalGroups(t *testing.T) {
+	target := "/Volumes/Campaigns/coalesced-grouped-saves.json"
+	canonicalGroups := []domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b"}},
+		{ID: "gamma", Name: "Gamma", TerminalIDs: []string{"c"}},
+	}
+	initial := terminalGroupMutationTestSession(canonicalGroups)
+	store := newBlockingStore()
+	store.seed(target, mustEncodeSession(t, initial))
+	service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+
+	type completion struct {
+		revision uint64
+		result   SaveResult
+	}
+	completions := make(chan completion, 3)
+	startSave := func(revision uint64) {
+		candidate := domain.CloneSession(*opened.Session)
+		candidate.Name = fmt.Sprintf("revision-%d", revision)
+		candidate.TerminalGroups = []domain.TerminalGroup{
+			{ID: fmt.Sprintf("stale-%d", revision), Name: "Stale", TerminalIDs: []string{"c", "b", "a"}},
+		}
+		go func() {
+			completions <- completion{revision: revision, result: service.Save(t.Context(), candidate, revision)}
+		}()
+	}
+
+	startSave(1)
+	select {
+	case <-store.firstWriteStarted:
+	case <-time.After(2 * time.Second):
+		require.FailNow(t, "first grouped revision did not begin writing")
+	}
+	t.Cleanup(store.release)
+	for revision := uint64(2); revision <= 3; revision++ {
+		startSave(revision)
+		waitForRequestedRevision(t, service, revision)
+	}
+	store.release()
+
+	for range 3 {
+		select {
+		case completed := <-completions:
+			assert.True(t, completed.result.OK, "revision %d result = %#v", completed.revision, completed.result)
+			assert.Equal(t, completed.revision, completed.result.RequestedRevision)
+			assert.GreaterOrEqual(t, completed.result.SavedRevision, completed.revision)
+		case <-time.After(2 * time.Second):
+			require.FailNow(t, "grouped saves did not finish")
+		}
+	}
+
+	persisted, err := domain.DecodeSession(store.file(target))
+	require.NoError(t, err)
+	assert.Equal(t, "revision-3", persisted.Name)
+	assert.Equal(t, canonicalGroups, persisted.TerminalGroups)
+	assertCanonicalTerminalGroups(t, persisted)
+	active := service.Snapshot()
+	assert.Equal(t, uint64(3), active.RequestedRevision)
+	assert.Equal(t, uint64(3), active.SavedRevision)
+	assert.Equal(t, SaveStateSaved, active.SaveState)
+}
+
+func TestReplaceTerminalGroupsAppliesDissolutionAndMoveCandidatesAtomically(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		initial   []domain.TerminalGroup
+		candidate []domain.TerminalGroup
+	}{
+		{
+			name: "dissolve group into content-preserving singletons",
+			initial: []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+			},
+			candidate: []domain.TerminalGroup{
+				{ID: "singleton-a", Name: "Alpha", TerminalIDs: []string{"a"}},
+				{ID: "singleton-b", Name: "Beta", TerminalIDs: []string{"b"}},
+				{ID: "singleton-c", Name: "Gamma", TerminalIDs: []string{"c"}},
+			},
+		},
+		{
+			name: "move terminal between groups and preserve destination order",
+			initial: []domain.TerminalGroup{
+				{ID: "left", Name: "Left", TerminalIDs: []string{"a", "b"}},
+				{ID: "right", Name: "Right", TerminalIDs: []string{"c"}},
+			},
+			candidate: []domain.TerminalGroup{
+				{ID: "left", Name: "Left", TerminalIDs: []string{"a"}},
+				{ID: "right", Name: "Right", TerminalIDs: []string{"c", "b"}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			fileSystem := testutil.NewFakeFileSystem()
+			target := filepath.Join("/Volumes/Campaigns", strings.ReplaceAll(test.name, " ", "-")+".json")
+			initial := terminalGroupMutationTestSession(test.initial)
+			initialData := mustEncodeSession(t, initial)
+			fileSystem.SeedFile(target, initialData)
+			service := NewService(
+				NewStorage(fileSystem),
+				&testutil.FakeDialog{OpenResult: target},
+				testLocations,
+			)
+			t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+			opened := service.Open(t.Context())
+			require.True(t, opened.OK, "Open() = %#v", opened)
+			require.NotNil(t, opened.Session)
+
+			result := service.ReplaceTerminalGroups(t.Context(), test.candidate, 0)
+			require.True(t, result.OK, "ReplaceTerminalGroups() = %#v", result)
+			assert.True(t, result.Changed)
+			assert.Empty(t, result.Error)
+			assert.Equal(t, uint64(1), result.Revision)
+			require.NotNil(t, result.Session)
+			assert.Equal(t, test.candidate, result.Session.TerminalGroups)
+			assert.Equal(t, initial.Terminals, result.Session.Terminals,
+				"group replacement changed terminal content")
+
+			active := service.Snapshot()
+			require.NotNil(t, active.Session)
+			assert.Equal(t, uint64(1), active.RequestedRevision)
+			assert.Equal(t, uint64(1), active.SavedRevision)
+			assert.Equal(t, SaveStateSaved, active.SaveState)
+			assert.Equal(t, test.candidate, active.Session.TerminalGroups)
+			persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+			require.NoError(t, err)
+			assert.Equal(t, test.candidate, persisted.TerminalGroups)
+			assert.NotEqual(t, initialData, fileSystemFileData(t, fileSystem, target))
+
+			result.Session.TerminalGroups[0].TerminalIDs[0] = "mutated-result"
+			assert.Equal(t, test.candidate, service.Snapshot().Session.TerminalGroups,
+				"mutation result must be detached from active state")
+		})
+	}
+}
+
+func TestReplaceTerminalGroupsNoOpDoesNotAdvanceRevisionOrWrite(t *testing.T) {
+	t.Parallel()
+
+	groups := []domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+	}
+	initial := terminalGroupMutationTestSession(groups)
+	target := "/Volumes/Campaigns/group-no-op.json"
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+	writesBefore := len(fileSystem.WriteCalls())
+
+	result := service.ReplaceTerminalGroups(t.Context(), groups, 0)
+	require.True(t, result.OK, "ReplaceTerminalGroups(no-op) = %#v", result)
+	assert.False(t, result.Changed)
+	assert.Empty(t, result.Error)
+	assert.Zero(t, result.Revision)
+	require.NotNil(t, result.Session)
+	assert.Equal(t, initial, *result.Session)
+	assert.Equal(t, writesBefore, len(fileSystem.WriteCalls()))
+	active := service.Snapshot()
+	assert.Zero(t, active.RequestedRevision)
+	assert.Zero(t, active.SavedRevision)
+	assert.Equal(t, SaveStateSaved, active.SaveState)
+}
+
+func TestReplaceTerminalGroupsRejectsStaleAndDuplicateSubmissionsWithoutWriting(t *testing.T) {
+	t.Parallel()
+
+	initial := terminalGroupMutationTestSession([]domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+	})
+	coupled := []domain.TerminalGroup{
+		{ID: "front", Name: "Front", TerminalIDs: []string{"a", "b"}},
+		{ID: "back", Name: "Back", TerminalIDs: []string{"c"}},
+	}
+	target := "/Volumes/Campaigns/group-duplicate-submit.json"
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+
+	first := service.ReplaceTerminalGroups(t.Context(), coupled, 0)
+	require.True(t, first.OK, "first ReplaceTerminalGroups() = %#v", first)
+	require.True(t, first.Changed)
+	require.Equal(t, uint64(1), first.Revision)
+	writesAfterFirst := len(fileSystem.WriteCalls())
+
+	for _, test := range []struct {
+		name      string
+		candidate []domain.TerminalGroup
+	}{
+		{name: "duplicate submit", candidate: coupled},
+		{name: "different stale candidate", candidate: initial.TerminalGroups},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := service.ReplaceTerminalGroups(t.Context(), test.candidate, 0)
+			assert.False(t, result.OK)
+			assert.False(t, result.Changed)
+			assert.NotEmpty(t, result.Error)
+			assert.Equal(t, uint64(1), result.Revision)
+			require.NotNil(t, result.Session)
+			assert.Equal(t, coupled, result.Session.TerminalGroups)
+			assert.Equal(t, writesAfterFirst, len(fileSystem.WriteCalls()))
+		})
+	}
+
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assert.Equal(t, coupled, active.Session.TerminalGroups)
+	assert.Equal(t, uint64(1), active.SavedRevision)
+}
+
+func TestReplaceTerminalGroupsPersistenceFailureKeepsCanonicalSessionAndRevision(t *testing.T) {
+	t.Parallel()
+
+	initial := terminalGroupMutationTestSession([]domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+	})
+	candidate := []domain.TerminalGroup{
+		{ID: "left", Name: "Left", TerminalIDs: []string{"a"}},
+		{ID: "right", Name: "Right", TerminalIDs: []string{"b", "c"}},
+	}
+	target := "/Volumes/Campaigns/group-write-failure.json"
+	initialData := mustEncodeSession(t, initial)
+	store := &failingMutationStore{
+		path: target,
+		data: initialData,
+		err:  fmt.Errorf("injected group replacement failure"),
+	}
+	service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+
+	result := service.ReplaceTerminalGroups(t.Context(), candidate, 0)
+	assert.False(t, result.OK)
+	assert.False(t, result.Changed)
+	assert.NotEmpty(t, result.Error)
+	assert.Zero(t, result.Revision)
+	require.NotNil(t, result.Session)
+	assert.Equal(t, initial, *result.Session)
+	assert.Equal(t, 1, store.writes)
+	assert.Equal(t, initialData, store.data)
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assert.Equal(t, initial, *active.Session)
+	assert.Zero(t, active.RequestedRevision)
+	assert.Zero(t, active.SavedRevision)
+	assert.Equal(t, SaveStateSaved, active.SaveState)
+
+	result.Session.TerminalGroups[0].TerminalIDs[0] = "mutated-failure-result"
+	assert.Equal(t, initial.TerminalGroups, service.Snapshot().Session.TerminalGroups,
+		"failure result must be detached from canonical state")
 }
 
 func TestInvalidOpenRetainsPreviousActiveSessionAndPath(t *testing.T) {
@@ -565,7 +1244,11 @@ func TestTerminalCatalogReturnsDetachedCurrentSessionSnapshotsAndInvalidSaveIsAt
 
 	fileSystem := testutil.NewFakeFileSystem()
 	target := "/Volumes/Campaigns/linked.json"
-	fileSystem.SeedFile(target, mustEncodeSession(t, linkedSessionForTest()))
+	linked := linkedSessionForTest()
+	linked.TerminalGroups = []domain.TerminalGroup{
+		{ID: "linked", Name: "Linked", TerminalIDs: []string{"a", "b"}},
+	}
+	fileSystem.SeedFile(target, mustEncodeSession(t, linked))
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
 	require.True(t, service.Open(t.Context()).OK)
@@ -588,6 +1271,175 @@ func TestTerminalCatalogReturnsDetachedCurrentSessionSnapshotsAndInvalidSaveIsAt
 	assert.Equal(t, writesBefore, len(fileSystem.WriteCalls()))
 	after := service.Snapshot()
 	require.Equal(t, before.Session, after.Session)
+}
+
+func TestLookupTerminalTransitionRequiresCurrentSameGroupEndpoints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		groups    []domain.TerminalGroup
+		sourceID  string
+		commandID string
+		mutate    func(*domain.Session)
+		wantOK    bool
+	}{
+		{
+			name: "same group",
+			groups: []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+			},
+			sourceID: "a", commandID: "go", wantOK: true,
+		},
+		{
+			name: "cross group",
+			groups: []domain.TerminalGroup{
+				{ID: "source", Name: "Source", TerminalIDs: []string{"a", "c"}},
+				{ID: "target", Name: "Target", TerminalIDs: []string{"b"}},
+			},
+			sourceID: "a", commandID: "go",
+		},
+		{
+			name: "self target",
+			groups: []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+			},
+			sourceID: "a", commandID: "go",
+			mutate: func(session *domain.Session) {
+				session.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID = "a"
+			},
+		},
+		{
+			name: "missing target",
+			groups: []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+			},
+			sourceID: "a", commandID: "go",
+			mutate: func(session *domain.Session) {
+				session.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID = "missing"
+			},
+		},
+		{
+			name: "missing source",
+			groups: []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+			},
+			sourceID: "missing", commandID: "go",
+		},
+		{
+			name: "missing command",
+			groups: []domain.TerminalGroup{
+				{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+			},
+			sourceID: "a", commandID: "missing",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			target := filepath.Join("/Volumes/Campaigns", strings.ReplaceAll(test.name, " ", "-")+"-catalog.json")
+			fileSystem := testutil.NewFakeFileSystem()
+			fileSystem.SeedFile(target, mustEncodeSession(t, terminalTransitionCatalogSession(test.groups)))
+			service := NewService(
+				NewStorage(fileSystem),
+				&testutil.FakeDialog{OpenResult: target},
+				testLocations,
+			)
+			t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+			require.True(t, service.Open(t.Context()).OK)
+			if test.mutate != nil {
+				service.mu.Lock()
+				test.mutate(service.active.Session)
+				service.mu.Unlock()
+			}
+
+			transition, ok := service.LookupTerminalTransition(test.sourceID, test.commandID)
+			assert.Equal(t, test.wantOK, ok)
+			if !test.wantOK {
+				assert.Equal(t, domain.TerminalTransitionTarget{}, transition)
+				return
+			}
+			assert.Equal(t, "a", transition.SourceTerminalID)
+			assert.Equal(t, "Alpha", transition.SourceTerminalName)
+			assert.Equal(t, "go", transition.CommandID)
+			assert.Equal(t, "GO", transition.CommandName)
+			assert.Equal(t, "b", transition.Target.TerminalID)
+			assert.Equal(t, "Beta", transition.Target.TerminalName)
+		})
+	}
+}
+
+func TestLookupTerminalTransitionRejectsStaleRemovedLink(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/stale-terminal-link.json"
+	fileSystem := testutil.NewFakeFileSystem()
+	groups := []domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+	}
+	fileSystem.SeedFile(target, mustEncodeSession(t, terminalTransitionCatalogSession(groups)))
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+	_, ok := service.LookupTerminalTransition("a", "go")
+	require.True(t, ok)
+
+	candidate := domain.CloneSession(*service.Snapshot().Session)
+	candidate.Terminals[0].Root.Children = []domain.ContentNode{}
+	saved := service.Save(t.Context(), candidate, 1)
+	require.True(t, saved.OK, "Save(remove transition) = %#v", saved)
+	transition, ok := service.LookupTerminalTransition("a", "go")
+	assert.False(t, ok)
+	assert.Equal(t, domain.TerminalTransitionTarget{}, transition)
+	terminal, terminalOK := service.LookupTerminal("b")
+	assert.True(t, terminalOK)
+	assert.Equal(t, "b", terminal.TerminalID)
+}
+
+func TestLookupTerminalTransitionReturnsDeeplyDetachedTarget(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/detached-terminal-transition.json"
+	fileSystem := testutil.NewFakeFileSystem()
+	groups := []domain.TerminalGroup{
+		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
+	}
+	fileSystem.SeedFile(target, mustEncodeSession(t, terminalTransitionCatalogSession(groups)))
+	service := NewService(
+		NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		testLocations,
+	)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+
+	transition, ok := service.LookupTerminalTransition("a", "go")
+	require.True(t, ok)
+	transition.Target.Tree.Name = "MUTATED ROOT"
+	transition.Target.Tree.Children[0].Name = "MUTATED COMMAND"
+	transition.Target.Tree.Children[0].StateChange.CompletedName = "MUTATED COMPLETION"
+	transition.Target.CommandStates["status"] = domain.CommandExecutionState{
+		CompletedName: "MUTATED STATE",
+		ResultText:    "MUTATED RESULT",
+	}
+
+	again, ok := service.LookupTerminalTransition("a", "go")
+	require.True(t, ok)
+	assert.Equal(t, "ROOT", again.Target.Tree.Name)
+	require.Len(t, again.Target.Tree.Children, 1)
+	assert.Equal(t, "Status", again.Target.Tree.Children[0].Name)
+	require.NotNil(t, again.Target.Tree.Children[0].StateChange)
+	assert.Equal(t, "Status read", again.Target.Tree.Children[0].StateChange.CompletedName)
+	assert.Equal(t, domain.CommandExecutionState{
+		CompletedName: "Status read",
+		ResultText:    "All systems nominal.",
+	}, again.Target.CommandStates["status"])
 }
 
 func TestStableIDAndFrozenStateRulesAcross100CompletedCommands(t *testing.T) {
@@ -850,6 +1702,116 @@ func validSession(name string) domain.Session {
 			},
 		}},
 	}
+}
+
+func terminalForGroupTest(id, name string) domain.Terminal {
+	return domain.Terminal{
+		ID:        id,
+		Name:      name,
+		HackLevel: 0,
+		IntroText: "",
+		Root: domain.ContentNode{
+			ID:       "root",
+			Type:     domain.NodeFolder,
+			Name:     "ROOT",
+			Children: []domain.ContentNode{},
+		},
+	}
+}
+
+func terminalGroupMutationTestSession(groups []domain.TerminalGroup) domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Group mutation",
+		Terminals: []domain.Terminal{
+			terminalForGroupTest("a", "Alpha"),
+			terminalForGroupTest("b", "Beta"),
+			terminalForGroupTest("c", "Gamma"),
+		},
+		TerminalGroups: groups,
+	}
+}
+
+func terminalTransitionCatalogSession(groups []domain.TerminalGroup) domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Terminal transition catalog",
+		Terminals: []domain.Terminal{
+			{
+				ID: "a", Name: "Alpha",
+				Root: domain.ContentNode{
+					ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+					Children: []domain.ContentNode{{
+						ID: "go", Type: domain.NodeCommand, Name: "GO",
+						TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "b"},
+					}},
+				},
+			},
+			{
+				ID: "b", Name: "Beta",
+				Root: domain.ContentNode{
+					ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+					Children: []domain.ContentNode{{
+						ID: "status", Type: domain.NodeCommand, Name: "Status", Text: "All systems nominal.",
+						StateChange: &domain.StateChangeConfig{
+							CompletedName: "Status read", ConfirmationText: "Read status?",
+						},
+					}},
+				},
+				CommandStates: map[string]domain.CommandExecutionState{
+					"status": {CompletedName: "Status read", ResultText: "All systems nominal."},
+				},
+			},
+			terminalForGroupTest("c", "Gamma"),
+		},
+		TerminalGroups: groups,
+	}
+}
+
+func assertCanonicalTerminalGroups(t *testing.T, session domain.Session) {
+	t.Helper()
+
+	terminalIDs := make(map[string]struct{}, len(session.Terminals))
+	for _, terminal := range session.Terminals {
+		terminalIDs[terminal.ID] = struct{}{}
+	}
+	groupIDs := make(map[string]struct{}, len(session.TerminalGroups))
+	groupNames := make(map[string]struct{}, len(session.TerminalGroups))
+	memberships := make(map[string]int, len(session.Terminals))
+	for _, group := range session.TerminalGroups {
+		require.NotEmpty(t, strings.TrimSpace(group.ID))
+		require.NotEmpty(t, strings.TrimSpace(group.Name))
+		require.NotEmpty(t, group.TerminalIDs)
+		_, duplicateID := groupIDs[group.ID]
+		require.False(t, duplicateID, "duplicate terminal group ID %q", group.ID)
+		groupIDs[group.ID] = struct{}{}
+		normalizedName := strings.ToLower(strings.TrimSpace(group.Name))
+		_, duplicateName := groupNames[normalizedName]
+		require.False(t, duplicateName, "duplicate normalized terminal group name %q", group.Name)
+		groupNames[normalizedName] = struct{}{}
+		for _, terminalID := range group.TerminalIDs {
+			_, exists := terminalIDs[terminalID]
+			require.True(t, exists, "group %q references missing terminal %q", group.ID, terminalID)
+			memberships[terminalID]++
+		}
+	}
+	require.Len(t, memberships, len(session.Terminals))
+	for terminalID := range terminalIDs {
+		require.Equal(t, 1, memberships[terminalID], "terminal %q must have exactly one group", terminalID)
+	}
+}
+
+func terminalGroupByMember(t *testing.T, groups []domain.TerminalGroup, terminalID string) domain.TerminalGroup {
+	t.Helper()
+
+	for _, group := range groups {
+		if slices.Contains(group.TerminalIDs, terminalID) {
+			return group
+		}
+	}
+	require.FailNowf(t, "terminal group not found", "terminal %q has no group in %#v", terminalID, groups)
+
+	return domain.TerminalGroup{}
 }
 
 func assertInactive(t *testing.T, snapshot ActiveSession) {

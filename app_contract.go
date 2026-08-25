@@ -586,6 +586,61 @@ func routeSessionStateResult(result SessionStateResult) SessionStateResult {
 	return routed
 }
 
+func routeTerminalGroupReplacementRequest(payload TerminalGroupReplacementPayload) TerminalGroupReplacementPayload {
+	semantic := &privatev1.ReplaceTerminalGroupsRequest{
+		TerminalGroups:               make([]*persistencev1.TerminalGroup, 0, len(payload.TerminalGroups)),
+		ExpectedSessionRevision:      payload.ExpectedSessionRevision,
+		ExpectedCoordinationRevision: payload.ExpectedCoordinationRevision,
+	}
+	for _, group := range payload.TerminalGroups {
+		semantic.TerminalGroups = append(semantic.TerminalGroups, &persistencev1.TerminalGroup{
+			Id: group.ID, Name: group.Name, TerminalIds: append([]string(nil), group.TerminalIDs...),
+		})
+	}
+	routed := TerminalGroupReplacementPayload{
+		TerminalGroups:               make([]domain.TerminalGroup, 0, len(semantic.GetTerminalGroups())),
+		ExpectedSessionRevision:      semantic.GetExpectedSessionRevision(),
+		ExpectedCoordinationRevision: semantic.GetExpectedCoordinationRevision(),
+	}
+	for _, group := range semantic.GetTerminalGroups() {
+		routed.TerminalGroups = append(routed.TerminalGroups, domain.TerminalGroup{
+			ID: group.GetId(), Name: group.GetName(), TerminalIDs: append([]string(nil), group.GetTerminalIds()...),
+		})
+	}
+	return routed
+}
+
+func routeTerminalGroupReplacementResult(result TerminalGroupReplacementResult) TerminalGroupReplacementResult {
+	semantic := &privatev1.ReplaceTerminalGroupsResult{
+		Ok:                result.OK,
+		SessionRevision:   result.SessionRevision,
+		CoordinationState: coordinationStateToPrivate(result.CoordinationState),
+	}
+	if result.Error != "" {
+		semantic.Error = &result.Error
+	}
+	if result.Session != nil {
+		semantic.Session, _ = sessionservice.SessionToProto(*result.Session)
+	}
+	routed := TerminalGroupReplacementResult{
+		OK:                semantic.GetOk(),
+		Error:             semantic.GetError(),
+		SessionRevision:   semantic.GetSessionRevision(),
+		CoordinationState: coordinationStateFromPrivate(semantic.GetCoordinationState()),
+	}
+	if semantic.Session != nil {
+		template := domain.Session{}
+		if result.Session != nil {
+			template = *result.Session
+		}
+		if value, err := sessionservice.SessionFromProto(semantic.Session, template); err == nil {
+			restoreSessionNativeShape(&value, template)
+			routed.Session = &value
+		}
+	}
+	return routed
+}
+
 func routePlayerConfigResult(result PlayerConfigCommandResult) PlayerConfigCommandResult {
 	semantic := &privatev1.PlayerConfigOperationResult{Ok: result.OK, Canceled: result.Canceled, State: coordinationStateToPrivate(result.State)}
 	if result.Error != "" {
@@ -720,7 +775,23 @@ func restoreSessionNativeShape(session *domain.Session, template domain.Session)
 			if template.Terminals[templateIndex].CommandStates != nil && session.Terminals[index].CommandStates == nil {
 				session.Terminals[index].CommandStates = make(map[string]domain.CommandExecutionState)
 			}
+			restoreContentNodeNativeShape(&session.Terminals[index].Root, template.Terminals[templateIndex].Root)
 			break
+		}
+	}
+}
+
+func restoreContentNodeNativeShape(node *domain.ContentNode, template domain.ContentNode) {
+	if node == nil {
+		return
+	}
+	if template.Children == nil {
+		node.Children = nil
+		return
+	}
+	for index := range node.Children {
+		if index < len(template.Children) {
+			restoreContentNodeNativeShape(&node.Children[index], template.Children[index])
 		}
 	}
 }

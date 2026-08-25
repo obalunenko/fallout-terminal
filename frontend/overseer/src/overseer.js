@@ -10,6 +10,7 @@ const state = {
   editTerminalId: null,
   selectedNodeId: null,
   expanded:       new Set(['root']),
+  collapsedTerminalGroupIds: new Set(),
   liveHack:       null,   // last known hack-state of the live terminal, or null
   coordination:   null,   // authoritative roster/session/broadcast projection
 };
@@ -44,6 +45,16 @@ const btnAddFolder      = document.getElementById('btnAddFolder');
 const btnAddCommand     = document.getElementById('btnAddCommand');
 const btnAddEntry       = document.getElementById('btnAddEntry');
 const btnAddTerminal    = document.getElementById('btnAddTerminal');
+const btnCreateTerminalGroup = document.getElementById('btnCreateTerminalGroup');
+const terminalGroupError = document.getElementById('terminalGroupError');
+const terminalGroupDraftDialog = document.getElementById('terminalGroupDraftDialog');
+const terminalGroupDraftForm = document.getElementById('terminalGroupDraftForm');
+const terminalGroupNameInput = document.getElementById('terminalGroupNameInput');
+const terminalGroupTerminalChoices = document.querySelector('#terminalGroupTerminalChoices .terminal-group-terminal-choice-list');
+const terminalGroupTerminalChoiceTemplate = document.getElementById('terminalGroupTerminalChoiceTemplate');
+const terminalGroupDestinationSelect = document.getElementById('terminalGroupDestinationSelect');
+const terminalGroupImpactDialog = document.getElementById('terminalGroupImpactDialog');
+const terminalGroupImpactSummary = document.getElementById('terminalGroupImpactSummary');
 const btnStopBroadcast  = document.getElementById('btnStopBroadcast');
 const createTerminalDialog = document.getElementById('createTerminalDialog');
 const createTerminalForm = document.getElementById('createTerminalForm');
@@ -159,6 +170,10 @@ const resolvedTerminalNavigationRequestIDs = new Set();
 let logicalSessionDialogOpener = null;
 let playerManagementOpener = null;
 let pendingPlayerDelete = null;
+let terminalGroupDraft = null;
+let pendingTerminalGroupImpact = null;
+let terminalGroupSubmitting = false;
+let terminalGroupDialogOpener = null;
 
 const commandStateActions = document.createElement('div');
 commandStateActions.className = 'settings-row command-state-terminal-actions';
@@ -594,6 +609,7 @@ async function loadSession(session, filePath) {
   state.editTerminalId  = (session.terminals[0] && session.terminals[0].id) || null;
   state.selectedNodeId  = null;
   state.expanded         = new Set(['root']);
+  state.collapsedTerminalGroupIds = new Set();
   state.liveHack         = null;
 
   sessionFileLabel.textContent = filePath;
@@ -1647,75 +1663,635 @@ function renderTermList() {
     return;
   }
 
-  state.session.terminals.forEach(term => {
-    const row = document.createElement('div');
-    row.className = 'term-row'
-      + (term.id === state.editTerminalId ? ' editing' : '')
-      + (term.id === state.liveTerminalId ? ' is-live' : '');
+  ensureSessionTerminalGroups();
+  const currentGroupIDs = new Set(state.session.terminalGroups.map(group => group.id));
+  for (const groupID of state.collapsedTerminalGroupIds) {
+    if (!currentGroupIDs.has(groupID)) state.collapsedTerminalGroupIds.delete(groupID);
+  }
+  const terminalsByID = new Map(state.session.terminals.map(term => [term.id, term]));
+  state.session.terminalGroups.forEach((group, groupIndex) => {
+    const collapsed = state.collapsedTerminalGroupIds.has(group.id);
+    const groupEl = document.createElement('section');
+    groupEl.className = 'terminal-group' + (group.terminalIds.length === 1 ? ' is-singleton' : '');
+    groupEl.dataset.groupId = group.id;
+    groupEl.dataset.singleton = String(group.terminalIds.length === 1);
+    groupEl.dataset.collapsed = String(collapsed);
+    groupEl.setAttribute('role', 'listitem');
 
-    const nameRow = document.createElement('div');
-    nameRow.className = 'term-row-name';
-    nameRow.textContent = term.name;
-    row.appendChild(nameRow);
+    const header = document.createElement('header');
+    header.className = 'terminal-group-header';
 
-    const metaRow = document.createElement('div');
-    metaRow.className = 'term-row-meta';
-    metaRow.textContent = '● В ЭФИРЕ';
-    row.appendChild(metaRow);
+    const members = document.createElement('div');
+    members.className = 'terminal-group-members';
+    members.id = `terminal-group-members-${groupIndex}`;
+    members.hidden = collapsed;
+    members.setAttribute('role', 'list');
+    members.setAttribute('aria-label', `Терминалы группы ${group.name}`);
 
-    const actions = document.createElement('div');
-    actions.style.display = 'flex';
-    actions.style.gap = '6px';
-    actions.style.marginTop = '2px';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'terminal-group-toggle';
+    toggle.dataset.action = 'toggle-terminal-group';
+    toggle.setAttribute('aria-controls', members.id);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    toggle.setAttribute('aria-label', `${collapsed ? 'Развернуть' : 'Свернуть'} группу ${group.name}`);
 
-    const renameBtn = document.createElement('button');
-    renameBtn.className = 'btn btn-mini';
-    renameBtn.textContent = 'ПЕРЕИМ.';
-    renameBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      startRenameTerminal(term, nameRow);
+    const caret = document.createElement('span');
+    caret.className = 'terminal-group-caret';
+    caret.setAttribute('aria-hidden', 'true');
+    caret.textContent = collapsed ? '▸' : '▾';
+    const heading = document.createElement('span');
+    heading.className = 'terminal-group-name';
+    heading.textContent = group.name;
+    toggle.append(caret, heading);
+    toggle.addEventListener('click', () => {
+      const nextCollapsed = !state.collapsedTerminalGroupIds.has(group.id);
+      if (nextCollapsed) state.collapsedTerminalGroupIds.add(group.id);
+      else state.collapsedTerminalGroupIds.delete(group.id);
+      members.hidden = nextCollapsed;
+      groupEl.dataset.collapsed = String(nextCollapsed);
+      caret.textContent = nextCollapsed ? '▸' : '▾';
+      toggle.setAttribute('aria-expanded', String(!nextCollapsed));
+      toggle.setAttribute('aria-label', `${nextCollapsed ? 'Развернуть' : 'Свернуть'} группу ${group.name}`);
     });
-    actions.appendChild(renameBtn);
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn btn-mini btn-danger';
-    delBtn.textContent = 'УДАЛИТЬ';
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (state.liveTerminalId === term.id || state.coordination?.pendingSwitch?.sourceTerminalId === term.id) {
-        setCoordinationStatus('АКТИВНЫЙ ИЛИ СОХРАНЁННЫЙ ТЕРМИНАЛ НЕЛЬЗЯ УДАЛИТЬ', true);
-        return;
+    const memberCount = document.createElement('span');
+    memberCount.className = 'terminal-group-member-count';
+    memberCount.textContent = terminalCountLabel(group.terminalIds.length);
+
+    const groupActions = terminalActionMenu({
+      scope: 'terminal-group',
+      ownerID: group.id,
+      ownerName: group.name,
+      items: [
+        { label: 'ПЕРЕИМЕНОВАТЬ ГРУППУ', action: 'rename-terminal-group', handler: () => showTerminalGroupRename(group.id) },
+        { label: 'ПЕРЕМЕСТИТЬ ГРУППУ ВВЕРХ', action: 'move-terminal-group-up', handler: () => prepareTerminalGroupOrder(group.id, -1), disabled: groupIndex === 0 },
+        { label: 'ПЕРЕМЕСТИТЬ ГРУППУ ВНИЗ', action: 'move-terminal-group-down', handler: () => prepareTerminalGroupOrder(group.id, 1), disabled: groupIndex === state.session.terminalGroups.length - 1 },
+        { label: 'РАСФОРМИРОВАТЬ ГРУППУ', action: 'dissolve-terminal-group', handler: () => prepareTerminalGroupDissolution(group.id), destructive: true },
+      ],
+    });
+    header.append(toggle, memberCount, groupActions);
+    groupEl.append(header, members);
+
+    group.terminalIds.forEach((terminalID, memberIndex) => {
+      const term = terminalsByID.get(terminalID);
+      if (term) members.appendChild(buildTerminalRow(term, group, memberIndex));
+    });
+    termList.appendChild(groupEl);
+  });
+}
+
+function terminalCountLabel(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${count} ТЕРМИНАЛ`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} ТЕРМИНАЛА`;
+  return `${count} ТЕРМИНАЛОВ`;
+}
+
+function terminalActionMenu({ scope, ownerID, ownerName, items }) {
+  const menu = document.createElement('details');
+  menu.className = 'terminal-action-menu';
+  menu.addEventListener('click', event => event.stopPropagation());
+  menu.addEventListener('toggle', () => {
+    if (!menu.open) return;
+    for (const other of termList.querySelectorAll('.terminal-action-menu[open]')) {
+      if (other !== menu) other.open = false;
+    }
+  });
+
+  const trigger = document.createElement('summary');
+  trigger.className = 'terminal-action-menu-trigger';
+  trigger.dataset.actionMenuTrigger = scope;
+  trigger.dataset.actionMenuOwnerId = ownerID;
+  trigger.setAttribute('aria-label', `Действия: ${ownerName}`);
+  trigger.textContent = '•••';
+
+  const panel = document.createElement('div');
+  panel.className = 'terminal-action-menu-panel';
+  panel.setAttribute('role', 'menu');
+  panel.setAttribute('aria-label', `Действия: ${ownerName}`);
+  for (const item of items) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-mini terminal-action-menu-item'
+      + (item.destructive ? ' btn-danger terminal-action-menu-destructive' : '');
+    button.textContent = item.label;
+    button.dataset.action = item.action;
+    button.disabled = Boolean(item.disabled);
+    button.setAttribute('role', 'menuitem');
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      terminalGroupDialogOpener = { scope, ownerID };
+      menu.open = false;
+      item.handler();
+      if (!terminalGroupDraftDialog.open && !terminalGroupImpactDialog.open) {
+        terminalGroupDialogOpener = null;
+        if (document.activeElement === button) trigger.focus();
       }
-    const inbound = inboundTerminalTransitions(term.id);
-    if (inbound.length) {
+    });
+    panel.appendChild(button);
+  }
+  menu.append(trigger, panel);
+  return menu;
+}
+
+function closeTerminalActionMenus({ restoreFocus = false } = {}) {
+  const openMenu = termList.querySelector('.terminal-action-menu[open]');
+  if (!openMenu) return false;
+  const trigger = openMenu.querySelector('.terminal-action-menu-trigger');
+  openMenu.open = false;
+  if (restoreFocus) trigger?.focus();
+  return true;
+}
+
+document.addEventListener('click', event => {
+  if (!event.target.closest('.terminal-action-menu')) closeTerminalActionMenus();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && closeTerminalActionMenus({ restoreFocus: true })) event.preventDefault();
+});
+
+function ensureSessionTerminalGroups() {
+  if (!state.session) return;
+  const terminalIDs = new Set(state.session.terminals.map(term => term.id));
+  const represented = new Set();
+  const groups = [];
+  for (const group of state.session.terminalGroups ?? []) {
+    const members = (group.terminalIds ?? []).filter(id => terminalIDs.has(id) && !represented.has(id));
+    members.forEach(id => represented.add(id));
+    if (members.length) groups.push({ id: group.id, name: group.name, terminalIds: members });
+  }
+  const usedNames = new Set(groups.map(group => group.name.trim().toLocaleLowerCase()));
+  for (const term of state.session.terminals) {
+    if (represented.has(term.id)) continue;
+    let name = term.name.trim() || 'Terminal';
+    let suffix = 2;
+    while (usedNames.has(name.toLocaleLowerCase())) name = `${term.name.trim() || 'Terminal'} (${suffix++})`;
+    usedNames.add(name.toLocaleLowerCase());
+    groups.push({ id: uid('g'), name, terminalIds: [term.id] });
+  }
+  state.session.terminalGroups = groups;
+}
+
+function setTerminalGroupError(message = '') {
+  terminalGroupError.textContent = message;
+  terminalGroupError.hidden = !message;
+}
+
+function showTerminalGroupDialog(dialog, focusTarget) {
+  if (!terminalGroupDialogOpener) {
+    terminalGroupDialogOpener = { element: document.activeElement };
+  }
+  dialog.hidden = false;
+  if (typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+  else dialog.setAttribute('open', '');
+  focusTarget?.focus();
+}
+
+function hideTerminalGroupDialog(dialog) {
+  if (dialog.open && typeof dialog.close === 'function') dialog.close();
+  else dialog.removeAttribute('open');
+  dialog.hidden = true;
+}
+
+function restoreTerminalGroupDialogFocus() {
+  const opener = terminalGroupDialogOpener;
+  terminalGroupDialogOpener = null;
+  if (!opener) return;
+  if (opener.element?.isConnected) {
+    opener.element.focus();
+    return;
+  }
+  const trigger = [...termList.querySelectorAll(`[data-action-menu-trigger="${opener.scope}"]`)]
+    .find(candidate => candidate.dataset.actionMenuOwnerId === opener.ownerID);
+  trigger?.focus();
+}
+
+function closeTerminalGroupDraft({ restoreFocus = true } = {}) {
+  terminalGroupDraft = null;
+  terminalGroupDraftForm.reset();
+  hideTerminalGroupDialog(terminalGroupDraftDialog);
+  if (restoreFocus) restoreTerminalGroupDialogFocus();
+}
+
+function closeTerminalGroupImpact({ restoreFocus = true } = {}) {
+  pendingTerminalGroupImpact = null;
+  hideTerminalGroupDialog(terminalGroupImpactDialog);
+  if (restoreFocus) restoreTerminalGroupDialogFocus();
+}
+
+function populateTerminalChoices(selectedIDs = []) {
+  terminalGroupTerminalChoices.innerHTML = '';
+  const selected = new Set(selectedIDs);
+  for (const terminal of state.session.terminals) {
+    const fragment = terminalGroupTerminalChoiceTemplate.content.cloneNode(true);
+    const input = fragment.querySelector('input[name="terminalIds"]');
+    input.value = terminal.id;
+    input.checked = selected.has(terminal.id);
+    fragment.querySelector('.terminal-group-terminal-choice-name').textContent = terminal.name;
+    terminalGroupTerminalChoices.appendChild(fragment);
+  }
+}
+
+function configureTerminalGroupDraft(mode) {
+  const terminalChoicesFieldset = document.getElementById('terminalGroupTerminalChoices');
+  const destinationLabel = document.querySelector('label[for="terminalGroupDestinationSelect"]');
+  const reviewButton = terminalGroupDraftDialog.querySelector('[data-action="review-terminal-group-change"]');
+  const renameButton = terminalGroupDraftDialog.querySelector('[data-action="save-terminal-group-rename"]');
+  terminalChoicesFieldset.hidden = mode !== 'create';
+  terminalGroupNameInput.hidden = mode === 'move';
+  document.querySelector('label[for="terminalGroupNameInput"]').hidden = mode === 'move';
+  terminalGroupDestinationSelect.hidden = mode !== 'move';
+  destinationLabel.hidden = mode !== 'move';
+  reviewButton.hidden = mode === 'rename';
+  renameButton.hidden = mode !== 'rename';
+}
+
+function showTerminalGroupCreate() {
+  if (!state.session) return;
+  setTerminalGroupError();
+  terminalGroupDraftForm.reset();
+  terminalGroupDraft = { kind: 'create' };
+  configureTerminalGroupDraft('create');
+  populateTerminalChoices();
+  showTerminalGroupDialog(terminalGroupDraftDialog, terminalGroupNameInput);
+}
+
+function showTerminalGroupRename(groupID) {
+  const group = state.session.terminalGroups.find(candidate => candidate.id === groupID);
+  if (!group) return;
+  setTerminalGroupError();
+  terminalGroupDraftForm.reset();
+  terminalGroupDraft = { kind: 'rename', groupID };
+  configureTerminalGroupDraft('rename');
+  terminalGroupNameInput.value = group.name;
+  showTerminalGroupDialog(terminalGroupDraftDialog, terminalGroupNameInput);
+}
+
+function showTerminalMoveDraft(terminalID) {
+  const source = state.session.terminalGroups.find(group => group.terminalIds.includes(terminalID));
+  if (!source) return;
+  setTerminalGroupError();
+  terminalGroupDraftForm.reset();
+  terminalGroupDraft = { kind: 'move', terminalID, sourceGroupID: source.id };
+  configureTerminalGroupDraft('move');
+  terminalGroupDestinationSelect.innerHTML = '<option value="">ВЫБЕРИТЕ ГРУППУ</option>';
+  if (source.terminalIds.length > 1) {
+    const singletonOption = document.createElement('option');
+    singletonOption.value = 'new-singleton';
+    singletonOption.dataset.newSingleton = 'true';
+    singletonOption.textContent = 'НОВАЯ ОДИНОЧНАЯ ГРУППА';
+    terminalGroupDestinationSelect.appendChild(singletonOption);
+  }
+  for (const group of state.session.terminalGroups) {
+    if (group.id === source.id) continue;
+    const option = document.createElement('option');
+    option.value = group.id;
+    option.textContent = group.name;
+    terminalGroupDestinationSelect.appendChild(option);
+  }
+  showTerminalGroupDialog(terminalGroupDraftDialog, terminalGroupDestinationSelect);
+}
+
+function terminalName(terminalID) {
+  return state.session.terminals.find(terminal => terminal.id === terminalID)?.name || terminalID;
+}
+
+function groupName(groups, groupID) {
+  return groups.find(group => group.id === groupID)?.name || groupID || '—';
+}
+
+function uniqueLocalGroupName(base, groups) {
+  const used = new Set(groups.map(group => group.name.trim().toLocaleLowerCase()));
+  const encoder = new TextEncoder();
+  const truncate = (value, byteLimit) => {
+    let result = '';
+    let byteCount = 0;
+    for (const symbol of value) {
+      const symbolBytes = encoder.encode(symbol).length;
+      if (byteCount + symbolBytes > byteLimit) break;
+      result += symbol;
+      byteCount += symbolBytes;
+    }
+    return result;
+  };
+  const rawBase = String(base || 'Terminal').trim() || 'Terminal';
+  let candidate = truncate(rawBase, 256);
+  let suffix = 2;
+  while (used.has(candidate.toLocaleLowerCase())) {
+    const ending = ` (${suffix++})`;
+    candidate = truncate(rawBase, 256 - encoder.encode(ending).length) + ending;
+  }
+  return candidate;
+}
+
+function newLocalSingletonGroup(terminalID, groups) {
+  return {
+    id: uid('group'),
+    name: uniqueLocalGroupName(terminalName(terminalID), groups),
+    terminalIds: [terminalID],
+  };
+}
+
+function reviewTerminalGroupDraft() {
+  if (!terminalGroupDraft || !state.session) return;
+  const before = structuredClone(state.session.terminalGroups);
+  if (terminalGroupDraft.kind === 'create') {
+    const name = terminalGroupNameInput.value.trim();
+    const terminalIDs = [...terminalGroupDraftDialog.querySelectorAll('input[name="terminalIds"]:checked')]
+      .map(input => input.value);
+    if (!name || terminalIDs.length < 2) {
+      setTerminalGroupError('УКАЖИТЕ УНИКАЛЬНОЕ НАЗВАНИЕ И ВЫБЕРИТЕ НЕ МЕНЕЕ ДВУХ ТЕРМИНАЛОВ');
+      return;
+    }
+    if (before.some(group => group.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setTerminalGroupError('ГРУППА С ТАКИМ НАЗВАНИЕМ УЖЕ СУЩЕСТВУЕТ');
+      return;
+    }
+    const selected = new Set(terminalIDs);
+    const sourceNames = before.filter(group => group.terminalIds.some(id => selected.has(id))).map(group => group.name);
+    const candidate = before
+      .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => !selected.has(id)) }))
+      .filter(group => group.terminalIds.length);
+    candidate.push({ id: uid('group'), name, terminalIds: terminalIDs });
+    showTerminalGroupImpact({
+      kind: 'СОЗДАНИЕ ГРУППЫ', candidate, affectedGroupNames: [...sourceNames, name],
+      affectedTerminalIDs: terminalIDs, membership: `${name}: ${terminalIDs.map(terminalName).join(' → ')}`,
+      orderBefore: before.flatMap(group => group.terminalIds).map(terminalName),
+      orderAfter: candidate.flatMap(group => group.terminalIds).map(terminalName),
+    });
+    return;
+  }
+  if (terminalGroupDraft.kind === 'move') {
+    const destinationGroupID = terminalGroupDestinationSelect.value;
+    const sourceGroupID = terminalGroupDraft.sourceGroupID;
+    const terminalID = terminalGroupDraft.terminalID;
+    if (!destinationGroupID) {
+      setTerminalGroupError('ВЫБЕРИТЕ ГРУППУ НАЗНАЧЕНИЯ');
+      return;
+    }
+    const candidate = before
+      .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => id !== terminalID) }))
+      .filter(group => group.terminalIds.length);
+    const splitToSingleton = terminalGroupDestinationSelect.selectedOptions[0]?.dataset.newSingleton === 'true';
+    if (splitToSingleton) {
+      const singleton = newLocalSingletonGroup(terminalID, candidate);
+      candidate.push(singleton);
+      const source = candidate.find(group => group.id === sourceGroupID);
+      showTerminalGroupImpact({
+        kind: 'ОТДЕЛЕНИЕ ТЕРМИНАЛА', candidate,
+        affectedGroupNames: [groupName(before, sourceGroupID), singleton.name],
+        affectedTerminalIDs: [terminalID], sourceGroupID, destinationGroupID: singleton.id,
+        destinationGroupName: singleton.name,
+        membership: `${source.name}: ${source.terminalIds.map(terminalName).join(' → ')} · ${singleton.name}: ${terminalName(terminalID)}`,
+        orderBefore: before.find(group => group.id === sourceGroupID)?.terminalIds.map(terminalName) || [],
+        orderAfter: [...source.terminalIds, terminalID].map(terminalName),
+      });
+      return;
+    }
+    const destination = candidate.find(group => group.id === destinationGroupID);
+    if (!destination) {
+      setTerminalGroupError('ВЫБЕРИТЕ ГРУППУ НАЗНАЧЕНИЯ');
+      return;
+    }
+    destination.terminalIds.push(terminalID);
+    showTerminalGroupImpact({
+      kind: 'ПЕРЕМЕЩЕНИЕ ТЕРМИНАЛА', candidate,
+      affectedGroupNames: [groupName(before, sourceGroupID), groupName(before, destinationGroupID)],
+      affectedTerminalIDs: [terminalID], sourceGroupID, destinationGroupID,
+      membership: `${groupName(before, destinationGroupID)}: ${destination.terminalIds.map(terminalName).join(' → ')}`,
+      orderBefore: before.find(group => group.id === sourceGroupID)?.terminalIds.map(terminalName) || [],
+      orderAfter: destination.terminalIds.map(terminalName),
+    });
+  }
+}
+
+function prepareTerminalMemberOrder(groupID, terminalID, delta) {
+  const before = structuredClone(state.session.terminalGroups);
+  const candidate = structuredClone(before);
+  const group = candidate.find(item => item.id === groupID);
+  const index = group?.terminalIds.indexOf(terminalID) ?? -1;
+  const next = index + delta;
+  if (!group || index < 0 || next < 0 || next >= group.terminalIds.length) return;
+  [group.terminalIds[index], group.terminalIds[next]] = [group.terminalIds[next], group.terminalIds[index]];
+  showTerminalGroupImpact({
+    kind: 'ИЗМЕНЕНИЕ ПОРЯДКА', candidate, affectedGroupNames: [group.name],
+    affectedTerminalIDs: [terminalID, group.terminalIds[index]],
+    membership: `${group.name}: ${group.terminalIds.map(terminalName).join(' → ')}`,
+    orderBefore: before.find(item => item.id === groupID).terminalIds.map(terminalName),
+    orderAfter: group.terminalIds.map(terminalName),
+  });
+}
+
+function prepareTerminalGroupOrder(groupID, delta) {
+  const before = structuredClone(state.session.terminalGroups);
+  const candidate = structuredClone(before);
+  const index = candidate.findIndex(group => group.id === groupID);
+  const next = index + delta;
+  if (index < 0 || next < 0 || next >= candidate.length) return;
+  [candidate[index], candidate[next]] = [candidate[next], candidate[index]];
+  showTerminalGroupImpact({
+    kind: 'ИЗМЕНЕНИЕ ПОРЯДКА', candidate,
+    affectedGroupNames: [candidate[index].name, candidate[next].name], affectedTerminalIDs: [],
+    membership: candidate.map(group => group.name).join(' → '),
+    orderBefore: before.map(group => group.name), orderAfter: candidate.map(group => group.name),
+  });
+}
+
+function prepareTerminalGroupDissolution(groupID) {
+  const before = structuredClone(state.session.terminalGroups);
+  const group = before.find(candidate => candidate.id === groupID);
+  if (!group) return;
+  if (group.terminalIds.length === 1) {
+    setTerminalGroupError('ОДИНОЧНУЮ ГРУППУ НЕЛЬЗЯ РАСФОРМИРОВАТЬ: ТЕРМИНАЛ ДОЛЖЕН ОСТАТЬСЯ В ГРУППЕ');
+    return;
+  }
+  const candidate = before.filter(candidate => candidate.id !== groupID);
+  const resultantSingletons = [];
+  for (const terminalID of group.terminalIds) {
+    const singleton = newLocalSingletonGroup(terminalID, candidate);
+    candidate.push(singleton);
+    resultantSingletons.push(singleton);
+  }
+  showTerminalGroupImpact({
+    kind: 'РАСФОРМИРОВАНИЕ ГРУППЫ', candidate,
+    affectedGroupNames: [group.name, ...resultantSingletons.map(singleton => singleton.name)],
+    affectedTerminalIDs: group.terminalIds, sourceGroupID: group.id,
+    membership: resultantSingletons
+      .map(singleton => `${terminalName(singleton.terminalIds[0])} → ${singleton.name}`)
+      .join(' · '),
+    orderBefore: group.terminalIds.map(terminalName), orderAfter: group.terminalIds.map(terminalName),
+  });
+}
+
+function currentSessionRevision() {
+  return Number(saveStatus.dataset.savedRevision || startupStatus?.savedRevision || newestDurableRevision || 0);
+}
+
+function showTerminalGroupImpact(impact) {
+  setTerminalGroupError();
+  closeTerminalGroupDraft({ restoreFocus: false });
+  pendingTerminalGroupImpact = {
+    ...impact,
+    expectedSessionRevision: currentSessionRevision(),
+    expectedCoordinationRevision: coordinationRevision(state.coordination),
+  };
+  const values = {
+    kind: impact.kind,
+    groups: impact.affectedGroupNames.join(' · ') || '—',
+    terminals: impact.affectedTerminalIDs.map(terminalName).join(' · ') || '—',
+    'source-group': groupName(state.session.terminalGroups, impact.sourceGroupID),
+    'destination-group': impact.destinationGroupName || groupName(state.session.terminalGroups, impact.destinationGroupID),
+    membership: impact.membership || '—',
+    'order-before': (impact.orderBefore || []).join(' → ') || '—',
+    'order-after': (impact.orderAfter || []).join(' → ') || '—',
+  };
+  for (const [key, value] of Object.entries(values)) {
+    terminalGroupImpactSummary.querySelector(`[data-impact="${key}"]`).textContent = value;
+  }
+  showTerminalGroupDialog(
+    terminalGroupImpactDialog,
+    terminalGroupImpactDialog.querySelector('[data-action="cancel-terminal-group-change"]'),
+  );
+}
+
+async function submitTerminalGroupCandidate(candidate, expectedSessionRevision, expectedCoordinationRevision) {
+  if (terminalGroupSubmitting) return false;
+  terminalGroupSubmitting = true;
+  const controls = terminalGroupImpactDialog.querySelectorAll('button');
+  controls.forEach(control => { control.disabled = true; });
+  const result = await desktopAPI.replaceTerminalGroups({
+    terminalGroups: structuredClone(candidate), expectedSessionRevision, expectedCoordinationRevision,
+  });
+  terminalGroupSubmitting = false;
+  controls.forEach(control => { control.disabled = false; });
+  if (result?.session) state.session = result.session;
+  const revision = Number(result?.sessionRevision || 0);
+  newestDurableRevision = Math.max(newestDurableRevision, revision);
+  saveStatus.dataset.savedRevision = String(newestDurableRevision);
+  if (result?.coordinationState) applyCoordinationState(result.coordinationState);
+  if (!result?.ok) {
+    setTerminalGroupError(result?.error || 'НЕ УДАЛОСЬ ИЗМЕНИТЬ ГРУППЫ ТЕРМИНАЛОВ');
+    renderAll();
+    return false;
+  }
+  setTerminalGroupError();
+  saveStatus.textContent = `ГРУППЫ СОХРАНЕНЫ · ревизия ${revision}`;
+  saveStatus.classList.remove('err');
+  renderAll();
+  return true;
+}
+
+async function saveTerminalGroupRename() {
+  const group = state.session.terminalGroups.find(candidate => candidate.id === terminalGroupDraft?.groupID);
+  const name = terminalGroupNameInput.value.trim();
+  if (!group || !name) {
+    setTerminalGroupError('НАЗВАНИЕ ГРУППЫ НЕ ДОЛЖНО БЫТЬ ПУСТЫМ');
+    return;
+  }
+  if (state.session.terminalGroups.some(candidate => candidate.id !== group.id && candidate.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+    setTerminalGroupError('ГРУППА С ТАКИМ НАЗВАНИЕМ УЖЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  const candidate = structuredClone(state.session.terminalGroups);
+  candidate.find(item => item.id === group.id).name = name;
+  const ok = await submitTerminalGroupCandidate(candidate, currentSessionRevision(), coordinationRevision(state.coordination));
+  if (ok) closeTerminalGroupDraft();
+}
+
+btnCreateTerminalGroup.addEventListener('click', showTerminalGroupCreate);
+terminalGroupDraftDialog.querySelector('[data-action="review-terminal-group-change"]').addEventListener('click', reviewTerminalGroupDraft);
+terminalGroupDraftDialog.querySelector('[data-action="save-terminal-group-rename"]').addEventListener('click', () => { void saveTerminalGroupRename(); });
+for (const action of ['close-terminal-group-draft', 'cancel-terminal-group-draft']) {
+  terminalGroupDraftDialog.querySelector(`[data-action="${action}"]`).addEventListener('click', () => closeTerminalGroupDraft());
+}
+for (const action of ['close-terminal-group-change', 'cancel-terminal-group-change']) {
+  terminalGroupImpactDialog.querySelector(`[data-action="${action}"]`).addEventListener('click', () => closeTerminalGroupImpact());
+}
+terminalGroupImpactDialog.querySelector('[data-action="confirm-terminal-group-change"]').addEventListener('click', async () => {
+  const impact = pendingTerminalGroupImpact;
+  if (!impact || terminalGroupSubmitting) return;
+  await submitTerminalGroupCandidate(impact.candidate, impact.expectedSessionRevision, impact.expectedCoordinationRevision);
+  closeTerminalGroupImpact();
+});
+terminalGroupDraftDialog.addEventListener('cancel', event => { event.preventDefault(); closeTerminalGroupDraft(); });
+terminalGroupImpactDialog.addEventListener('cancel', event => { event.preventDefault(); closeTerminalGroupImpact(); });
+
+function buildTerminalRow(term, group, memberIndex) {
+  const row = document.createElement('div');
+  const selected = term.id === state.editTerminalId;
+  row.className = 'term-row'
+    + (selected ? ' editing' : '')
+    + (term.id === state.liveTerminalId ? ' is-live' : '');
+  row.dataset.terminalId = term.id;
+  row.tabIndex = 0;
+  row.setAttribute('role', 'listitem');
+  row.setAttribute('aria-current', String(selected));
+
+  const nameRow = document.createElement('div');
+  nameRow.className = 'term-row-name';
+  nameRow.textContent = term.name;
+  row.appendChild(nameRow);
+
+  const metaRow = document.createElement('div');
+  metaRow.className = 'term-row-meta';
+  metaRow.textContent = '● В ЭФИРЕ';
+  row.appendChild(metaRow);
+
+  const actions = terminalActionMenu({
+    scope: 'terminal',
+    ownerID: term.id,
+    ownerName: term.name,
+    items: [
+      { label: 'ПЕРЕИМЕНОВАТЬ ТЕРМИНАЛ', action: 'rename-terminal', handler: () => startRenameTerminal(term, nameRow) },
+      { label: 'ПЕРЕМЕСТИТЬ В ДРУГУЮ ГРУППУ', action: 'move-terminal', handler: () => showTerminalMoveDraft(term.id) },
+      { label: 'ПЕРЕМЕСТИТЬ ТЕРМИНАЛ ВВЕРХ', action: 'move-terminal-up', handler: () => prepareTerminalMemberOrder(group.id, term.id, -1), disabled: memberIndex === 0 },
+      { label: 'ПЕРЕМЕСТИТЬ ТЕРМИНАЛ ВНИЗ', action: 'move-terminal-down', handler: () => prepareTerminalMemberOrder(group.id, term.id, 1), disabled: memberIndex === group.terminalIds.length - 1 },
+      { label: 'УДАЛИТЬ ТЕРМИНАЛ', action: 'delete-terminal', handler: () => deleteTerminal(term), destructive: true },
+    ],
+  });
+  row.appendChild(actions);
+
+  const selectTerminal = () => {
+    if (state.editTerminalId === term.id) return;
+    state.editTerminalId = term.id;
+    state.selectedNodeId = null;
+    state.expanded = new Set(['root']);
+    renderAll();
+  };
+  row.addEventListener('click', selectTerminal);
+  row.addEventListener('keydown', event => {
+    if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+    event.preventDefault();
+    selectTerminal();
+  });
+  return row;
+}
+
+function deleteTerminal(term) {
+  if (state.liveTerminalId === term.id || state.coordination?.pendingSwitch?.sourceTerminalId === term.id) {
+    setCoordinationStatus('АКТИВНЫЙ ИЛИ СОХРАНЁННЫЙ ТЕРМИНАЛ НЕЛЬЗЯ УДАЛИТЬ', true);
+    return;
+  }
+  const inbound = inboundTerminalTransitions(term.id);
+  if (inbound.length) {
     setCoordinationStatus(`ТЕРМИНАЛ ИСПОЛЬЗУЕТСЯ КОМАНДАМИ ПЕРЕХОДА: ${inbound.join(', ')}`, true);
     return;
-    }
-      if (!window.confirm(`Удалить терминал "${term.name}" целиком?`)) return;
-      const idx = state.session.terminals.findIndex(t => t.id === term.id);
-      if (idx >= 0) state.session.terminals.splice(idx, 1);
-      if (state.editTerminalId === term.id) {
-        state.editTerminalId = (state.session.terminals[0] && state.session.terminals[0].id) || null;
-        state.selectedNodeId = null;
-        state.expanded = new Set(['root']);
-      }
-      autosave();
-      renderAll();
-    });
-    actions.appendChild(delBtn);
-
-    row.appendChild(actions);
-
-    row.addEventListener('click', () => {
-      if (state.editTerminalId === term.id) return;
-      state.editTerminalId = term.id;
-      state.selectedNodeId = null;
-      state.expanded = new Set(['root']);
-      renderAll();
-    });
-
-    termList.appendChild(row);
-  });
+  }
+  if (!window.confirm(`Удалить терминал "${term.name}" целиком?`)) return;
+  const idx = state.session.terminals.findIndex(candidate => candidate.id === term.id);
+  if (idx >= 0) state.session.terminals.splice(idx, 1);
+  state.session.terminalGroups = (state.session.terminalGroups ?? [])
+    .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => id !== term.id) }))
+    .filter(group => group.terminalIds.length > 0);
+  if (state.editTerminalId === term.id) {
+    state.editTerminalId = state.session.terminals[0]?.id || null;
+    state.selectedNodeId = null;
+    state.expanded = new Set(['root']);
+  }
+  void autosave();
+  renderAll();
 }
 
 function startRenameTerminal(term, nameRow) {
@@ -1952,8 +2528,10 @@ function renderNodeForm() {
       : node.terminalTransition
         ? 'terminal-transition'
         : 'ordinary';
+    const authoredGroup = state.session.terminalGroups?.find(group => group.terminalIds.includes(term.id));
+    const eligibleTransitionIDs = new Set(authoredGroup?.terminalIds ?? []);
     const transitionOptions = state.session.terminals
-      .filter(candidate => candidate.id !== term.id)
+      .filter(candidate => candidate.id !== term.id && eligibleTransitionIDs.has(candidate.id))
       .map(candidate => `<option value="${escAttr(candidate.id)}"${node.terminalTransition?.targetTerminalId === candidate.id ? ' selected' : ''}>${escHtml(candidate.name)}</option>`)
       .join('');
     html += `
@@ -2335,6 +2913,7 @@ createTerminalForm.addEventListener('submit', async (event) => {
     root:      { id: 'root', type: 'folder', name: 'ROOT', children: [] },
   };
   state.session.terminals.push(term);
+  ensureSessionTerminalGroups();
   state.editTerminalId = term.id;
   state.selectedNodeId = null;
   state.expanded = new Set(['root']);

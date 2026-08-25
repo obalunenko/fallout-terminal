@@ -1,0 +1,1775 @@
+{
+  "workflow": "companion",
+  "specName": "terminal grouping",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T21:56:30.657Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T22:00:10.745Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T22:20:49.209Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T22:25:40.497Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T22:26:54.466Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T22:27:36.492Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T23:06:47.651Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:08:52.712Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-24T23:09:39.856Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-24T23:09:56.099Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:10:12.701Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:10:13.002Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:10:41.481Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:11:11.404Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:11:33.565Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:11:33.840Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:14:16.907Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:14:30.995Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:15:54.685Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:17:55.360Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:17:55.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:19:55.344Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:22:46.822Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:23:03.743Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:25:14.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:26:37.815Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:26:57.408Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:27:44.618Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:29:06.290Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:29:25.307Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:30:40.018Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:30:42.187Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:32:24.312Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:34:29.654Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:41:35.856Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:52:28.333Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:52:28.543Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:53:30.116Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:53:51.859Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:54:59.804Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-24T23:55:37.379Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:03:40.038Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:04:24.200Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:06:17.433Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:06:53.654Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:07:41.864Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:11:36.201Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:13:46.080Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:14:13.887Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T00:14:32.657Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:53:19.768Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:53:19.880Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:53:19.990Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:55:09.989Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:57:12.170Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:57:30.018Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:59:27.206Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T06:59:27.250Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T051",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:02:19.501Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:02:35.628Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T050",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:03:42.098Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T052",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:05:47.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T054",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:06:05.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T053",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:10:05.645Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T055",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:16:16.701Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T056",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:17:07.888Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T057",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:18:03.612Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T058",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:21:06.087Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T059",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T07:22:29.309Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T07:22:29.372Z"
+    }
+  ],
+  "last_action": "T069-T070 implemented; make check, 154 browser tests, and make build passed",
+  "coverage": {
+    "FR-001": {
+      "title": "The Overseer MUST be able to create, rename, and dissolve terminal groups and to move terminals between groups within the current session.",
+      "tasks": [
+        "T025",
+        "T026",
+        "T027",
+        "T028",
+        "T034",
+        "T035",
+        "T036",
+        "T037"
+      ]
+    },
+    "FR-002": {
+      "title": "Each terminal MUST belong to exactly one terminal group at all times.",
+      "tasks": [
+        "T004",
+        "T008",
+        "T012",
+        "T013"
+      ]
+    },
+    "FR-003": {
+      "title": "A terminal that is not coupled with another terminal MUST be represented by a singleton group containing only that terminal.",
+      "tasks": [
+        "T008",
+        "T012",
+        "T013",
+        "T018"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs::splits one terminal into a collision-safe singleton only after confirmation"
+      ]
+    },
+    "FR-004": {
+      "title": "Each terminal group MUST have a stable identity and a non-empty display name unique within the session after trimming and case normalization.",
+      "tasks": [
+        "T008",
+        "T012",
+        "T026"
+      ]
+    },
+    "FR-005": {
+      "title": "Saved sessions MUST preserve terminal groups and each terminal's membership across close and reopen.",
+      "tasks": [
+        "T006",
+        "T009",
+        "T010",
+        "T013"
+      ]
+    },
+    "FR-006": {
+      "title": "Dissolving or merging a group MUST preserve every terminal and its content while leaving no zero-member group after the operation.",
+      "tasks": [
+        "T019",
+        "T025",
+        "T026",
+        "T027",
+        "T037"
+      ]
+    },
+    "FR-007": {
+      "title": "The transition destination editor MUST offer only other terminals that currently share the source terminal's group.",
+      "tasks": [
+        "T043"
+      ]
+    },
+    "FR-008": {
+      "title": "A forward terminal transition MUST be eligible only when its source and destination exist and currently belong to the same non-empty group.",
+      "tasks": [
+        "T038",
+        "T039",
+        "T041",
+        "T042"
+      ]
+    },
+    "FR-009": {
+      "title": "Selecting an eligible forward transition MUST create exactly one pending Overseer decision without changing the active terminal or route.",
+      "tasks": [
+        "T039",
+        "T042"
+      ]
+    },
+    "FR-010": {
+      "title": "Approving a forward transition MUST revalidate the authored link, both terminals, and their shared group before changing the active terminal.",
+      "tasks": [
+        "T039",
+        "T042"
+      ]
+    },
+    "FR-011": {
+      "title": "Rejecting or closing a forward transition decision MUST leave the active terminal and route unchanged.",
+      "tasks": [
+        "T039",
+        "T040",
+        "T042"
+      ]
+    },
+    "FR-012": {
+      "title": "An approved forward transition MUST add exactly one return point for its source terminal.",
+      "tasks": [
+        "T039",
+        "T042"
+      ]
+    },
+    "FR-013": {
+      "title": "A backward terminal return MUST be eligible only when the active terminal and saved return terminal currently belong to the same non-empty group.",
+      "tasks": [
+        "T045",
+        "T048"
+      ]
+    },
+    "FR-014": {
+      "title": "Selecting an eligible backward return MUST create exactly one pending Overseer decision without changing the active terminal or route.",
+      "tasks": [
+        "T045",
+        "T048"
+      ]
+    },
+    "FR-015": {
+      "title": "Approving a backward return MUST revalidate the current route point and shared group before changing the active terminal.",
+      "tasks": [
+        "T045",
+        "T048"
+      ]
+    },
+    "FR-016": {
+      "title": "An approved backward return MUST remove exactly the most recent route point.",
+      "tasks": [
+        "T045",
+        "T048"
+      ]
+    },
+    "FR-017": {
+      "title": "Rejecting or closing a backward return decision MUST leave the active terminal and route unchanged.",
+      "tasks": [
+        "T045",
+        "T048"
+      ]
+    },
+    "FR-018": {
+      "title": "The system MUST reject any authored or submitted transition whose endpoints are cross-group, missing from group representation, missing as terminals, or identical.",
+      "tasks": [
+        "T008",
+        "T012",
+        "T038",
+        "T039",
+        "T041",
+        "T042",
+        "T045",
+        "T048"
+      ],
+      "tests": [
+        "internal/session/service_test.go::TestGenericSaveRejectsNewOrRetargetedCrossGroupTransitions",
+        "tests/browser/terminal-grouping.spec.mjs::rejects a group proposal that would split an authored transition"
+      ]
+    },
+    "FR-019": {
+      "title": "The system MUST reject a group edit that would leave an authored terminal-transition command crossing a group boundary.",
+      "tasks": [
+        "T019",
+        "T020",
+        "T026",
+        "T027",
+        "T028"
+      ]
+    },
+    "FR-020": {
+      "title": "The system MUST reject a group edit that would invalidate a pending transition or an active return-route pair.",
+      "tasks": [
+        "T020",
+        "T025",
+        "T028"
+      ]
+    },
+    "FR-021": {
+      "title": "A rejected group edit MUST identify the affected terminal or transition without partially applying the edit.",
+      "tasks": [
+        "T019",
+        "T020",
+        "T025",
+        "T026",
+        "T027",
+        "T028",
+        "T037"
+      ],
+      "tests": [
+        "internal/domain/validate_test.go::TestTerminalGroupReplacementIdentifiesEveryCrossGroupCommandDeterministically",
+        "internal/control/service_test.go::TestReplaceTerminalGroupsPreservesSanitizedStoreRejectionAndCanonicalRevision",
+        "app_test.go::TestTerminalGroupReplacementUsesCanonicalStoreRejectionProjection",
+        "tests/browser/terminal-grouping.spec.mjs::rejects a group proposal that would split an authored transition"
+      ]
+    },
+    "FR-022": {
+      "title": "Group creation, membership changes, and group removal MUST be available only to the Overseer.",
+      "tasks": [
+        "T002",
+        "T022",
+        "T023",
+        "T032",
+        "T037"
+      ]
+    },
+    "FR-023": {
+      "title": "Sessions created before terminal grouping MUST open with their existing terminal content intact and with one singleton group representing each terminal.",
+      "tasks": [
+        "T007",
+        "T010",
+        "T011",
+        "T012",
+        "T013",
+        "T049",
+        "T050",
+        "T051"
+      ]
+    },
+    "FR-024": {
+      "title": "Existing transition commands in an older session MUST remain authored but MUST NOT execute until both endpoints are intentionally coupled into one group.",
+      "tasks": [
+        "T038",
+        "T039",
+        "T041",
+        "T042",
+        "T049",
+        "T050",
+        "T051"
+      ]
+    },
+    "FR-025": {
+      "title": "Direct Overseer terminal activation MAY cross group boundaries and MUST retain its existing route-clearing behavior.",
+      "tasks": [
+        "T045",
+        "T048",
+        "T051"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs::cross-group direct Overseer activation clears the player-created return route"
+      ]
+    },
+    "FR-026": {
+      "title": "Existing approval behavior for ordinary and state-changing commands MUST remain unchanged.",
+      "tasks": [
+        "T039",
+        "T045",
+        "T051",
+        "T057",
+        "T058"
+      ]
+    },
+    "FR-027": {
+      "title": "Connected player views MUST converge on the same authoritative terminal-navigation state after each accepted same-group transition or return.",
+      "tasks": [
+        "T040",
+        "T046",
+        "T051",
+        "T058"
+      ]
+    },
+    "FR-028": {
+      "title": "Group or terminal changes made while a decision is pending MUST be revalidated at approval time before any transition effect occurs.",
+      "tasks": [
+        "T020",
+        "T028",
+        "T039",
+        "T042",
+        "T045",
+        "T048"
+      ]
+    },
+    "FR-029": {
+      "title": "Each terminal group MUST preserve one explicit, deterministic order for all of its member terminals.",
+      "tasks": [
+        "T004",
+        "T008",
+        "T012",
+        "T018"
+      ]
+    },
+    "FR-030": {
+      "title": "Starting a fresh broadcast with any grouped terminal as its first active terminal MUST establish that terminal's position in the full ordered group without discarding members before or after it.",
+      "tasks": [
+        "T044",
+        "T045",
+        "T047",
+        "T048"
+      ]
+    },
+    "FR-031": {
+      "title": "When a fresh broadcast starts from a non-first group member, backward navigation MUST make each preceding member reachable in reverse group order even though those terminals were not visited earlier in the broadcast.",
+      "tasks": [
+        "T044",
+        "T045",
+        "T046",
+        "T047",
+        "T048"
+      ]
+    },
+    "FR-032": {
+      "title": "Starting a fresh broadcast from a non-first group member MUST NOT prevent approved forward navigation from reaching every following member or from later traversing from the group's first member through the full ordered group.",
+      "tasks": [
+        "T039",
+        "T040",
+        "T045",
+        "T046",
+        "T048"
+      ]
+    },
+    "FR-033": {
+      "title": "Every forward or backward transition created from the initialized group position MUST require exactly one Overseer approval before changing the active terminal or navigation position.",
+      "tasks": [
+        "T039",
+        "T040",
+        "T045",
+        "T046",
+        "T048"
+      ]
+    },
+    "FR-034": {
+      "title": "The system MUST reject a group reorder that would invalidate the current initialized position, a pending transition, or an active route without partially applying the reorder.",
+      "tasks": [
+        "T020",
+        "T025",
+        "T028",
+        "T045",
+        "T048"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestReplaceTerminalGroupsProtectsInitializedSeedChainAndPendingReturnAdjacency"
+      ]
+    },
+    "FR-035": {
+      "title": "Terminal groups MUST be the highest-level terminal representation, with terminals presented as members beneath groups rather than as ungrouped top-level items.",
+      "tasks": [
+        "T011",
+        "T016",
+        "T017",
+        "T018"
+      ]
+    },
+    "FR-036": {
+      "title": "Every persisted terminal group MUST contain at least one terminal.",
+      "tasks": [
+        "T008",
+        "T012",
+        "T013",
+        "T019",
+        "T026",
+        "T027"
+      ]
+    },
+    "FR-037": {
+      "title": "Creating or importing a standalone terminal MUST atomically create a singleton group that represents it.",
+      "tasks": [
+        "T010",
+        "T013",
+        "T018",
+        "T050"
+      ]
+    },
+    "FR-038": {
+      "title": "Moving or deleting the last member of a group MUST atomically remove the empty source group while keeping every surviving terminal represented by exactly one group.",
+      "tasks": [
+        "T010",
+        "T013",
+        "T019",
+        "T026",
+        "T027",
+        "T037",
+        "T050"
+      ]
+    },
+    "FR-039": {
+      "title": "Creating a group by reassigning existing terminals, dissolving or merging groups, splitting members, moving terminals, or changing traversal order MUST require explicit Overseer confirmation before any state changes.",
+      "tasks": [
+        "T025",
+        "T034",
+        "T035",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs::splits one terminal into a collision-safe singleton only after confirmation"
+      ]
+    },
+    "FR-040": {
+      "title": "A destructive group-change confirmation MUST identify the proposed action, every affected group and terminal, and the resulting membership or traversal-order impact.",
+      "tasks": [
+        "T025",
+        "T034",
+        "T035",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs:315"
+      ]
+    },
+    "FR-041": {
+      "title": "Cancelling, closing, or dismissing a destructive group-change confirmation MUST leave durable group data and current navigation state unchanged.",
+      "tasks": [
+        "T024",
+        "T025",
+        "T037"
+      ]
+    },
+    "FR-042": {
+      "title": "Confirming a destructive group change MUST revalidate the current groups, authored links, pending decisions, active terminal, and active route before applying the proposal.",
+      "tasks": [
+        "T020",
+        "T021",
+        "T027",
+        "T028",
+        "T030",
+        "T037"
+      ]
+    },
+    "FR-043": {
+      "title": "A confirmed destructive group change MUST either apply exactly once as one complete change or be rejected without partial effects.",
+      "tasks": [
+        "T019",
+        "T020",
+        "T021",
+        "T027",
+        "T028",
+        "T030"
+      ]
+    },
+    "FR-044": {
+      "title": "A repeated or stale destructive confirmation MUST produce no additional group or navigation change and MUST explain that the proposal is no longer applicable.",
+      "tasks": [
+        "T020",
+        "T024",
+        "T025",
+        "T028",
+        "T030",
+        "T037"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestReplaceTerminalGroupsPreservesSanitizedStoreRejectionAndCanonicalRevision",
+        "app_test.go::TestTerminalGroupReplacementUsesCanonicalStoreRejectionProjection"
+      ]
+    },
+    "FR-045": {
+      "title": "A rename-only change MUST preserve the group's stable identity, membership order, authored links, pending decisions, and active route.",
+      "tasks": [
+        "T019",
+        "T025",
+        "T026",
+        "T027",
+        "T037"
+      ]
+    },
+    "FR-046": {
+      "title": "Dissolving a multi-terminal group MUST preserve its terminals by representing each remaining member through a singleton group unless the same confirmed operation moves that member to another group.",
+      "tasks": [
+        "T019",
+        "T025",
+        "T026",
+        "T027",
+        "T037"
+      ]
+    },
+    "FR-047": {
+      "title": "Dissolving a singleton group without moving or deleting its terminal in the same operation MUST be unavailable or rejected.",
+      "tasks": [
+        "T019",
+        "T025",
+        "T026",
+        "T027",
+        "T037"
+      ]
+    },
+    "SC-001": {
+      "tests": [
+        "internal/session/service_test.go::TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 20,
+    "projectedTasks": 34,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "context": [
+    "area: durable session terminal catalog and validation",
+    "area: Overseer terminal and transition authoring",
+    "area: approved forward and backward terminal navigation",
+    "constraint: each terminal belongs to at most one group",
+    "constraint: Overseer approval remains mandatory",
+    "constraint: a fresh broadcast started in the middle retains the whole ordered group",
+    "constraint: every terminal belongs to exactly one high-level group",
+    "constraint: standalone terminals use non-empty singleton groups",
+    "area: terminal group management and navigation safety",
+    "constraint: destructive group mutations require explicit impact confirmation and stale-safe atomic application"
+  ],
+  "intent": "Give the Overseer safe create, rename, dissolve, and terminal-move controls over exact-one groups while keeping approved player navigation inside each ordered group.",
+  "expectations": [
+    "Do not auto-create groups from existing links.",
+    "Do not auto-delete or retarget transition commands during regrouping.",
+    "Do not expose group management to players.",
+    "Do not remove Overseer approval.",
+    "Do not restrict direct Overseer terminal activation by group.",
+    "Do not provide multi-step undo or historical restore for confirmed group changes."
+  ],
+  "approach": "Represent every terminal through one durable ordered group, normalizing legacy and lifecycle changes into singleton groups. Apply group CRUD through one private whole-set compare-and-replace guarded by session and coordination revisions after structured destructive confirmation, while reusing existing approved player navigation and seeded backward routes.",
+  "decisions": [
+    {
+      "decision": "Store groups as session-level ordered TerminalGroup records",
+      "why": "This preserves empty groups and gives membership and order one durable source of truth.",
+      "rejected": "Per-terminal groupId/order fields and inference from transition links."
+    },
+    {
+      "decision": "Allow legacy no-group sessions but apply strict validation to every authored group mutation",
+      "why": "Existing transition content remains readable while newly authored groups cannot leave dormant cross-group links.",
+      "rejected": "Reject legacy links or permit partially grouped authored graphs."
+    },
+    {
+      "decision": "Route group changes through one coordinator-guarded control-to-session mutation",
+      "why": "It serializes group edits with player navigation and closes stale generic-save bypasses.",
+      "rejected": "Validate then autosave, reverse session-to-control callbacks, or freeze all broadcasts."
+    },
+    {
+      "decision": "Seed preceding ordered members as the fresh broadcast's initial LIFO backward prefix",
+      "why": "The existing Back action, approval lifecycle, route projection, and reconnect behavior can cover middle starts.",
+      "rejected": "A new previous/next public RPC or an empty route at a middle start."
+    },
+    {
+      "decision": "Attach runtime-only group provenance to seeded return points",
+      "why": "Seeded order can be revalidated without misclassifying arbitrary authored jumps.",
+      "rejected": "Infer provenance from blank command IDs or reject every reorder during a broadcast."
+    },
+    {
+      "decision": "Keep the public player schema unchanged",
+      "why": "Existing route depth, return target, pending direction, and revision fields already express the required authoritative behavior.",
+      "rejected": "Publish private group metadata or add a second navigation protocol."
+    },
+    {
+      "decision": "Explicitly group the checked-in demo and test legacy compatibility separately",
+      "why": "The documented demo transition remains usable without auto-migrating user sessions.",
+      "rejected": "Leave the demo intentionally dormant or auto-group every opened session."
+    },
+    {
+      "decision": "Treat group deletion as dissolution without terminal-content deletion",
+      "why": "Every surviving terminal must remain represented by exactly one group; dissolved members become singleton groups unless atomically moved elsewhere.",
+      "rejected": "Delete member terminals with the group or leave them ungrouped."
+    },
+    {
+      "decision": "Require single-use impact confirmation for membership and traversal-order changes",
+      "why": "These changes can alter navigation eligibility or sequence; cancellation and stale confirmation must have zero effect.",
+      "rejected": "Confirm only group deletion or apply membership changes immediately."
+    },
+    {
+      "decision": "Supersede empty-group and ungrouped compatibility designs with exact-one membership and singleton normalization",
+      "why": "Groups are the mandatory high-level representation; legacy absence becomes deterministic singleton groups in memory without rewriting on open.",
+      "rejected": "Persist empty groups or carry a permanent ungrouped runtime mode."
+    },
+    {
+      "decision": "Dissolve a group without deleting terminal content",
+      "why": "Unassigned former members become singleton groups unless the same confirmed candidate moves them elsewhere.",
+      "rejected": "Cascade-delete terminals, retain an empty group, or invent a destination group."
+    },
+    {
+      "decision": "Use a structured UI impact dialog followed by one two-revision whole-set mutation",
+      "why": "Session and coordination expectations make stale, retried, and double-submitted destructive proposals zero-effect while keeping commit atomic.",
+      "rejected": "Client-only validation, a separate preview-token state machine, or partial per-operation persistence."
+    },
+    {
+      "decision": "Normalize terminal create and delete within generic saves while preserving canonical memberships for existing terminals",
+      "why": "Terminal lifecycle keeps exact-one representation without allowing stale full-session payloads to bypass group management.",
+      "rejected": "Require a follow-up group operation or trust all groups supplied by generic autosave."
+    },
+    {
+      "decision": "Compare generic-save transition identities with the canonical document before allowing a cross-group link",
+      "why": "Unchanged legacy links stay dormant while new or retargeted cross-group links are rejected",
+      "rejected": "Reject every legacy cross-group save or allow all generic-save links"
+    },
+    {
+      "decision": "Use a typed session-store rejection to carry only sanitized feedback and canonical revision state through coordination",
+      "why": "Candidate errors remain actionable without exposing arbitrary persistence errors",
+      "rejected": "Collapse every failure to a generic error or pass all store errors through"
+    },
+    {
+      "decision": "Record the initial terminal identity, group, and position as runtime-only broadcast provenance",
+      "why": "Group edits can validate the complete seeded successor chain and pending-return adjacency",
+      "rejected": "Infer the initialized position only from the remaining route stack"
+    },
+    {
+      "decision": "Derive dissolution impact from the exact generated singleton candidates",
+      "why": "The confirmation names collision-adjusted groups and terminal-to-group outcomes exactly",
+      "rejected": "Show only the removed group and terminal names"
+    },
+    {
+      "decision": "Validate the current active terminal against the top remaining seeded return point when that route top is initial-prefix provenance",
+      "why": "This mirrors approval-time seeded adjacency and rejects a reorder before it can disable the next Back action",
+      "rejected": "Infer validity only from the original terminal position and stored seed-point positions"
+    },
+    {
+      "decision": "Validate every seeded return point against the route point or active terminal that will eventually expose it",
+      "why": "Mixed authored and seeded routes can preserve the current return while breaking a deeper future return",
+      "rejected": "Checking only the current top seeded return target"
+    },
+    {
+      "decision": "Expose split-to-singleton as a reviewed move destination and submit one complete replacement candidate",
+      "why": "This reuses the established destructive impact and two-revision confirmation boundary",
+      "rejected": "Locally mutating memberships before confirmation"
+    },
+    {
+      "decision": "Identify rejected authored transitions by stable command node ID together with source and target terminal IDs",
+      "why": "Endpoint pairs alone cannot distinguish multiple authored links",
+      "rejected": "Index-based tree paths or command display names"
+    },
+    {
+      "decision": "Collect every invalidated authored transition in canonical terminal and content-tree traversal order and join the sanitized diagnostics.",
+      "why": "The existing authoring order is stable, deterministic, and preserves all command identities without inventing a secondary sort.",
+      "rejected": "Return only the first conflict or sort conflicts independently of canonical authoring order."
+    },
+    {
+      "decision": "Exercise SC-001 with exactly three nontrivially ordered groups and ten explicitly asserted terminals.",
+      "why": "Exact fixture and projection equality proves identities, names, group order, member order, and exact-one membership survive save/reopen.",
+      "rejected": "Rely on the smaller existing two-group persistence fixture."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Regenerated the full terminal-grouping design for exact-one groups, safe CRUD/moves, dissolution, confirmation, and two-revision atomicity.",
+      "key_finding": "Group validity spans durable session state and broadcast-scoped navigation, so confirmed replacement must compare both authoritative revisions under the coordinator lock."
+    },
+    "tasks": {
+      "summary": "59 tasks across foundational contracts, five independently testable user-story phases, and one single-owner verification phase; every FR-001 through FR-047 maps to implementation and test work."
+    },
+    "implement": {
+      "summary": "Closed convergence gaps with exact 3-group/10-terminal persistence coverage and deterministic aggregation of every invalidated authored-command identity."
+    }
+  },
+  "concerns": [
+    {
+      "note": "Specification changed after plan approval: regenerate plan artifacts for exact-one high-level group and singleton semantics before tasks.",
+      "step": "plan",
+      "kind": "stale-after-spec-change"
+    },
+    {
+      "note": "Specification changed again: regenerate plan artifacts to cover group CRUD, terminal moves, dissolve semantics, and destructive-change confirmations before tasks.",
+      "step": "plan",
+      "kind": "stale-after-spec-change"
+    },
+    {
+      "note": "Companion context was already status=completed when convergence tasks T060-T064 were appended; the sanctioned writer refused task finishes, so their tasks.md checkboxes could not be materialized without forbidden hand-editing",
+      "step": "implement",
+      "kind": "premature-terminal-context"
+    },
+    {
+      "note": "Companion context was already status=completed when T065 was appended; the sanctioned writer refused its finish, so tasks.md cannot materialize the checkbox without forbidden hand-editing",
+      "step": "implement",
+      "kind": "premature-terminal-context"
+    },
+    {
+      "note": "The feature context was already status completed before convergence tasks T060-T068 were appended; the Companion writer refused implement start and per-task finishes, so those task boxes remain unchecked despite implementation and validation.",
+      "step": "implement"
+    },
+    {
+      "note": "The feature context was already status=completed before convergence appended T060-T070, so the sanctioned writer refuses implement/task regression and their tasks.md markers remain unchecked despite passing implementation and validation.",
+      "step": "implement"
+    }
+  ],
+  "verified": [
+    {
+      "what": "Plan artifacts match the revised 47 requirements",
+      "result": "pass",
+      "command": "git diff --check plus contradiction and required-artifact checks",
+      "warnings": "Earlier stale-plan concerns remain historical context; this plan regeneration supersedes them."
+    },
+    {
+      "what": "Go static analysis and full unit suite after convergence",
+      "command": "go vet ./... && go test ./... -count=1",
+      "result": "pass",
+      "warnings": [
+        "macOS SDK deployment-version linker warnings are benign"
+      ]
+    },
+    {
+      "what": "Race coverage for convergence-owned backend surfaces",
+      "command": "go test -race ./internal/domain ./internal/session ./internal/control . -count=1",
+      "result": "pass",
+      "warnings": [
+        "macOS SDK deployment-version linker warnings are benign"
+      ]
+    },
+    {
+      "what": "Complete browser acceptance suite",
+      "command": "npm test --prefix tests/browser",
+      "result": "153 passed, 2 conditional live-ngrok tests skipped",
+      "warnings": [
+        "NO_COLOR/FORCE_COLOR notices and expected local TLS probe warnings"
+      ]
+    },
+    {
+      "what": "Owned application build and generated-contract checks",
+      "command": "make build",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "Diff formatting and Go language-server diagnostics",
+      "command": "git diff --check && gopls check changed Go files",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "T065 consumed-prefix seeded return adjacency regression",
+      "command": "go test ./internal/control -run TestReplaceTerminalGroupsProtectsInitializedSeedChainAndPendingReturnAdjacency -count=1",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "Control package and race validation after T065",
+      "command": "go test ./internal/control -count=1 && go test -race ./internal/control -count=1",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "Repository Go vet and unit suite after T065",
+      "command": "go vet ./... && go test ./... -count=1",
+      "result": "pass",
+      "warnings": [
+        "macOS SDK deployment-version linker warnings are benign"
+      ]
+    },
+    {
+      "what": "T065 formatting and language-server diagnostics",
+      "command": "gofmt -l changed Go files; git diff --check; gopls check changed Go files",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "Repository quality gates",
+      "command": "make check",
+      "result": "passed: fmt, vet, lint, full Go race suite, protobuf checks, and Wails binding checks",
+      "warnings": []
+    },
+    {
+      "what": "Production application build",
+      "command": "make build",
+      "result": "passed: macOS arm64 binary compiled",
+      "warnings": []
+    },
+    {
+      "what": "SC-001 exact 3-group/10-terminal persistence acceptance",
+      "command": "go test ./internal/session -run TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships -count=1",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "aggregated cross-group command identity coverage",
+      "command": "go test ./internal/domain ./internal/control . -run TestTerminalGroupReplacementIdentifiesEveryCrossGroupCommandDeterministically|TestReplaceTerminalGroupsPreservesSanitizedStoreRejectionAndCanonicalRevision|TestTerminalGroupReplacementUsesCanonicalStoreRejectionProjection -count=1",
+      "result": "passed",
+      "warnings": [
+        "benign macOS linker deployment-version warnings"
+      ]
+    },
+    {
+      "what": "full repository quality gate",
+      "command": "make check",
+      "result": "passed: vet, lint, race tests, protobuf, bindings, frontend build",
+      "warnings": []
+    },
+    {
+      "what": "complete browser acceptance suite",
+      "command": "npm test --prefix tests/browser",
+      "result": "154 passed, 2 expected opt-in ngrok tests skipped",
+      "warnings": [
+        "expected local TLS probe handshake logs"
+      ]
+    },
+    {
+      "what": "production build",
+      "command": "make build",
+      "result": "passed",
+      "warnings": []
+    }
+  ],
+  "currentTask": "T059",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added additive persistence TerminalGroup and Session.terminal_groups field.",
+      "files": [
+        "proto/fallout/terminal/persistence/v1/session.proto"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added private revisioned terminal-group replacement request and result contracts.",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Regenerated pinned Go and ECMAScript protobuf outputs and synced schema revision.",
+      "files": [
+        "internal/gen/",
+        "frontend/client/gen/",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added durable groups, detached snapshots, route origins, and deep group cloning.",
+      "files": [
+        "internal/domain/model.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Registered terminalGroups as a known portable JSON-v1 field while retaining extras.",
+      "files": [
+        "internal/domain/json.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Mapped ordered terminal groups through persistence protobuf adapters.",
+      "files": [
+        "internal/session/contract.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added table-driven canonical group validation coverage for exact-one membership, non-empty groups, normalized unique names, duplicate and missing members, and stable group/member order.",
+      "files": [
+        "internal/domain/validate_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Added browser journeys for high-level group hierarchy, singleton representation, deterministic ordering, and save/reopen persistence.",
+      "files": [
+        "tests/browser/terminal-grouping.spec.mjs"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added session coverage for legacy singleton normalization, starter and imported terminal groups, deletion cleanup, save/reopen order, and canonical membership preservation",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added legacy singleton normalization, JSON round-trip, ordered group, and deep-clone tests.",
+      "files": [
+        "internal/domain/model_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Added persistence group descriptor stability and ordered protobuf round-trip tests.",
+      "files": [
+        "internal/session/contract_test.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Normalized session terminal groups at every desktop result and event boundary while deeply detaching group records and ordered terminal ID arrays.",
+      "files": [
+        "frontend/overseer/src/desktop-api.js"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Added canonical, singleton, ordered, and legacy terminal-grouping browser fixture state with reset, open, save, and desktop binding routes.",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Implemented exact-one group validation, deterministic singleton normalization, unique names, and detached membership lookup.",
+      "files": [
+        "internal/domain/validate.go",
+        "internal/domain/json.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Normalized legacy and terminal-lifecycle groups, preserved canonical memberships during generic saves, and exposed detached ordered group lookups",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added an accessible terminal-group list and reusable high-level group/member markup while preserving existing terminal controls.",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Styled high-level terminal groups, ordered and singleton members, active selection, focus, scrolling, and responsive compact layouts.",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Rendered terminal groups in stored group/member order and normalized singleton presentation when terminals change",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added exact private terminal-group mutation descriptor coverage, protobuf round-trip checks, and public player schema leak assertions",
+      "files": [
+        "app_contract_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Added facade coverage for complete group candidates, dual revisions, canonical session and coordination normalization, errors, and deep detachment",
+      "files": [
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added session compare-and-replace contract tests for dissolution, moves, revisions, no-ops, duplicate submissions, detached results, and persistence rollback",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Added group-management browser journeys for create, rename, move, reorder, dissolve, impact review, cancel and close, stale retry, duplicate submission, and singleton rejection.",
+      "files": [
+        "tests/browser/terminal-grouping.spec.mjs"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Added coordinator group-replacement tests for expected revisions, stale replay, pending navigation, active routes, seeded order, context propagation, and atomic persistence rejection.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Added application orchestration tests for revisioned terminal-group replacement, session-before-coordination event ordering, detached canonical results, and stale failure projections.",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Added desktop signature and AST routing coverage for the narrow transparent ReplaceTerminalGroups trusted capability",
+      "files": [
+        "desktop_service_test.go"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Implemented server-derived complete-set group diffing, strict authored transition validation, safe dissolution semantics, singleton identity-churn rejection, and actionable affected-item errors",
+      "files": [
+        "internal/domain/validate.go internal/domain/model.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Implemented synchronous expected-revision terminal-group compare-and-replace with atomic persistence, no-op handling, rollback-safe failures, and detached canonical results",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Added the control-to-session group store seam and coordinator-locked revision, pending-navigation, active-route, seeded-order, stale, and atomic failure guards",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Composed the coordinator terminal-group durability seam through the session-owned synchronous compare-and-replace adapter in the established lock direction",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Routed trusted group replacement through application coordination, advanced durable/runtime projections after success, published session before coordination, and returned canonical stale projections without events",
+      "files": [
+        "app.go"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Mapped the complete group request and dual-authority result through generated private protobuf types with detached ordered members and native-shape restoration",
+      "files": [
+        "app_contract.go app.go"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Exposed exactly one narrow terminal-group replacement method on the private registered desktop service and retained transparent forwarding",
+      "files": [
+        "desktop_service.go app_contract_test.go desktop_service_test.go"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Regenerated Wails bindings from the registered private service and updated the exact 35-method allowlist drift guard",
+      "files": [
+        "frontend/overseer/bindings scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Added accessible terminal-group CRUD and move templates, draft controls, global error feedback, and structured destructive impact confirmation markup.",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Added revisioned terminal-group replacement facade with deep request snapshots and detached canonical session, coordination, revision, and error normalization",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Styled terminal-group CRUD controls, draft and destructive impact dialogs, validation, busy/stale feedback, focus treatment, and responsive layouts.",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Implemented complete create, rename, dissolve, move and reorder drafts; structured destructive review; zero-call cancel/close/Escape; duplicate-submit guard; stale canonical refresh; and atomic replacement",
+      "files": [
+        "frontend/overseer/src/overseer.js tests/browser/fixture-server/main.go tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "Added controller and observer browser journeys for approved same-group forward navigation and zero-effect cross-group attempts.",
+      "files": [
+        "tests/browser/terminal-navigation.spec.mjs"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Added same-group, cross-group, self, missing endpoint, stale-link, and deeply detached terminal-transition catalog coverage",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "Added group-aware forward navigation tests for controller authority, cross-group rejection, single pending approval, reject/close behavior, stale membership, and exactly one route point.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Restricted detached authored transition lookup to links whose current source and target share one canonical terminal group",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Enforced same-group forward eligibility and approval-time membership revalidation while preserving one pending decision and one route point",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Filtered terminal-transition authoring destinations to other ordered members of the edited terminal's current group",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Added LiveBroadcast clone coverage for authored and initial-prefix route provenance, detached ancestor paths, initialization state, and nil input",
+      "files": [
+        "internal/domain/model_test.go"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "Added ordered-group start and return tests for first/middle/last seeding, LIFO approvals, reject/close, stale order, cross-group rejection, and manual activation cleanup.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "Added the approved ordered middle-start C-to-B-to-A-to-B-to-C-to-D browser journey with observer reconnect and exact activation history checks.",
+      "files": [
+        "tests/browser/terminal-grouping.spec.mjs"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Added runtime-only initial-terminal state and deeply detached live-broadcast cloning with route provenance preservation.",
+      "files": [
+        "internal/domain/model.go"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Seeded the fresh broadcast route from preceding group members once and enforced approved same-group LIFO returns with seeded provenance revalidation.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T051": {
+      "status": "DONE",
+      "did": "Added browser regressions for legacy singleton normalization and dormant cross-group links plus ordinary-command approval and reconnect without route mutation.",
+      "files": [
+        "tests/browser/terminal-grouping.spec.mjs"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Added compatibility validation coverage for malformed explicit groups, legacy cross-singleton links, intentional coupling, and unknown-extra preservation",
+      "files": [
+        "internal/domain/validate_test.go"
+      ]
+    },
+    "T050": {
+      "status": "DONE",
+      "did": "Added session regressions for stale generic-save group protection, dormant legacy links through terminal lifecycle, state-change rollback, revision coalescing, protobuf mapping, and durable reopen round trips.",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T052": {
+      "status": "DONE",
+      "did": "Completed grouped, legacy singleton, seeded route, reconnect, pending navigation, and ordinary-command browser fixture states with real coordinator approvals.",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T054": {
+      "status": "DONE",
+      "did": "Documented terminal group management, automatic singleton compatibility, destructive confirmation impact, middle-start traversal, and per-transition Overseer approval behavior.",
+      "files": [
+        "README.md"
+      ]
+    },
+    "T053": {
+      "status": "DONE",
+      "did": "Added one explicit ordered demo terminal group containing the authored transition endpoints without changing terminal content.",
+      "files": [
+        "sessions/demo.json"
+      ]
+    },
+    "T055": {
+      "status": "DONE",
+      "did": "Applied code-simplification and Go-quality review findings: consolidated group cloning, removed redundant mutation/payload copies, and deleted dead Overseer templates/styles without behavior changes.",
+      "files": [
+        "internal/domain/model.go",
+        "internal/domain/validate.go",
+        "internal/session/service.go",
+        "internal/control/service.go",
+        "app.go",
+        "frontend/overseer/src/desktop-api.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T056": {
+      "status": "DONE",
+      "did": "Passed deterministic protobuf formatting, lint, generation, breaking-fixture, buildability, and exact 35-method Wails binding drift checks.",
+      "files": [
+        "proto/",
+        "internal/gen/",
+        "frontend/client/gen/",
+        "frontend/overseer/bindings/"
+      ]
+    },
+    "T057": {
+      "status": "DONE",
+      "did": "Passed repository-wide Go formatting, vet, unit, and race suites after refreshing the intentional schema-revision asset digest.",
+      "files": [
+        "internal/platform/assets_test.go",
+        "./"
+      ]
+    },
+    "T058": {
+      "status": "DONE",
+      "did": "Passed clean npm installs, client and Overseer production builds, Overseer browser subset, and the complete Playwright acceptance suite: 151 passed, 2 conditional ngrok tests skipped.",
+      "files": [
+        "frontend/",
+        "tests/browser/"
+      ]
+    },
+    "T059": {
+      "status": "DONE",
+      "did": "Built the owned arm64 binary and ad-hoc signed app, passed available packaged lifecycle checks, and audited SC-001 through SC-014 against unit/browser evidence. Interactive normal-close automation and real external ngrok stale-URL probes were conditionally unavailable and reported as NOT RUN.",
+      "files": [
+        "build/",
+        "specs/020-terminal-grouping/spec.md"
+      ]
+    }
+  }
+}

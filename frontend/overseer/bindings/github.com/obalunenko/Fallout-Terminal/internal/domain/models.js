@@ -1051,6 +1051,56 @@ export class ServerInfo {
  */
 
 /**
+ * TerminalGroup is the durable high-level representation of one ordered set
+ * of terminals. A standalone terminal is represented by a one-member group.
+ */
+export class TerminalGroup {
+    /**
+     * Creates a new TerminalGroup instance.
+     * @param {Partial<TerminalGroup>} [$$source = {}] - The source object to create the TerminalGroup.
+     */
+    constructor($$source = {}) {
+        if (!("id" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["name"] = "";
+        }
+        if (!("terminalIds" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["terminalIds"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TerminalGroup instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TerminalGroup}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("terminalIds" in $$parsedSource) {
+            $$parsedSource["terminalIds"] = $$createField2_0($$parsedSource["terminalIds"]);
+        }
+        return new TerminalGroup(/** @type {Partial<TerminalGroup>} */($$parsedSource));
+    }
+}
+
+/**
  * @readonly
  * @enum {string}
  */

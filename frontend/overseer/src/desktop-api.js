@@ -21,6 +21,7 @@ const APP_METHODS = Object.freeze({
   resetFailedHack: desktopService.ResetFailedHack,
   resetCommandState: desktopService.ResetCommandState,
   resetTerminalCommandStates: desktopService.ResetTerminalCommandStates,
+  replaceTerminalGroups: desktopService.ReplaceTerminalGroups,
   addCharacter: desktopService.AddCharacter,
   updateCharacter: desktopService.UpdateCharacter,
   deleteCharacter: desktopService.DeleteCharacter,
@@ -70,6 +71,20 @@ function snapshotPortableSession(session) {
   return JSON.parse(JSON.stringify(session));
 }
 
+function normalizeTerminalGroups(groups) {
+  if (!Array.isArray(groups)) return [];
+  return groups.map((group) => {
+    const value = group && typeof group === 'object' ? group : {};
+    return {
+      id: typeof value.id === 'string' ? value.id : '',
+      name: typeof value.name === 'string' ? value.name : '',
+      terminalIds: Array.isArray(value.terminalIds)
+        ? value.terminalIds.filter(terminalId => typeof terminalId === 'string')
+        : [],
+    };
+  });
+}
+
 function saveSessionCommand(session) {
   try {
     // Wails may complete the native call asynchronously. Capture the complete
@@ -82,6 +97,16 @@ function saveSessionCommand(session) {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+function normalizePortableSession(session) {
+  if (!session || typeof session !== 'object') return null;
+  return { ...snapshotPortableSession(session), terminalGroups: normalizeTerminalGroups(session.terminalGroups) };
+}
+
+function normalizeSessionResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  return Object.freeze({ ...value, session: normalizePortableSession(value.session) });
 }
 
 async function writeClipboardText(value) {
@@ -137,7 +162,7 @@ function normalizePlayerConfigResult(result) {
   const ok = value.ok === true;
   const canceled = value.canceled === true;
   const config = value.playerConfig && typeof value.playerConfig === 'object' ? value.playerConfig : null;
-  const session = value.session && typeof value.session === 'object' ? value.session : null;
+  const session = normalizePortableSession(value.session);
   const state = value.state && typeof value.state === 'object' ? value.state : null;
   let error = typeof value.error === 'string' ? value.error : '';
   if (!ok && !canceled && !error) error = 'Player config command failed';
@@ -152,7 +177,7 @@ function normalizeSessionStateResult(result) {
   const value = result && typeof result === 'object' ? result : {};
   const ok = value.ok === true;
   const revision = Number.isSafeInteger(value.revision) ? value.revision : 0;
-  const session = value.session && typeof value.session === 'object' ? value.session : null;
+  const session = normalizePortableSession(value.session);
   let error = typeof value.error === 'string' ? value.error : '';
   if (!ok && !error) error = 'Command state mutation failed';
   return Object.freeze({ ok, error, revision, session });
@@ -160,6 +185,48 @@ function normalizeSessionStateResult(result) {
 
 function sessionStateCommand(binding, payload) {
   return command(binding, payload).then(normalizeSessionStateResult);
+}
+
+function normalizeTerminalGroupReplacementPayload(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  return {
+    terminalGroups: normalizeTerminalGroups(source.terminalGroups),
+    expectedSessionRevision: Number.isSafeInteger(source.expectedSessionRevision)
+      && source.expectedSessionRevision >= 0 ? source.expectedSessionRevision : 0,
+    expectedCoordinationRevision: Number.isSafeInteger(source.expectedCoordinationRevision)
+      && source.expectedCoordinationRevision >= 0 ? source.expectedCoordinationRevision : 0,
+  };
+}
+
+function normalizeTerminalGroupReplacementResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  let error = typeof value.error === 'string' ? value.error : '';
+  if (ok) error = '';
+  if (!ok && !error) error = 'Terminal group replacement failed';
+  return Object.freeze({
+    ok,
+    error,
+    sessionRevision: Number.isSafeInteger(value.sessionRevision) && value.sessionRevision >= 0
+      ? value.sessionRevision
+      : 0,
+    session: normalizePortableSession(value.session),
+    coordinationState: value.coordinationState && typeof value.coordinationState === 'object'
+      ? snapshotPortableSession(value.coordinationState)
+      : null,
+  });
+}
+
+function replaceTerminalGroupsCommand(payload) {
+  try {
+    const request = normalizeTerminalGroupReplacementPayload(payload);
+    return command(APP_METHODS.replaceTerminalGroups, request)
+      .then(normalizeTerminalGroupReplacementResult);
+  } catch (error) {
+    return Promise.resolve(normalizeTerminalGroupReplacementResult({
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
 }
 
 function normalizeAddCharacterPayload(payload) {
@@ -205,7 +272,7 @@ function normalizeSessionStateEvent(event) {
   const value = event && typeof event === 'object' ? event : {};
   return Object.freeze({
     revision: Number.isSafeInteger(value.revision) ? value.revision : 0,
-    session: value.session && typeof value.session === 'object' ? value.session : null,
+    session: normalizePortableSession(value.session),
   });
 }
 
@@ -441,8 +508,8 @@ const desktopAPI = {
   },
   openUrl: (url) => command(APP_METHODS.openUrl, url),
   writeClipboardText,
-  openSession: () => command(APP_METHODS.openSession),
-  newSession: () => command(APP_METHODS.newSession),
+  openSession: () => command(APP_METHODS.openSession).then(normalizeSessionResult),
+  newSession: () => command(APP_METHODS.newSession).then(normalizeSessionResult),
   saveSession: saveSessionCommand,
   loadReferencedPlayerConfig: () => playerConfigCommand(APP_METHODS.loadReferencedPlayerConfig),
   newPlayerConfig: () => playerConfigCommand(APP_METHODS.newPlayerConfig),
@@ -470,6 +537,7 @@ const desktopAPI = {
   resetTerminalCommandStates: (payload) => sessionStateCommand(APP_METHODS.resetTerminalCommandStates, {
     terminalId: typeof payload?.terminalId === 'string' ? payload.terminalId : '',
   }),
+  replaceTerminalGroups: replaceTerminalGroupsCommand,
   addCharacter: (payload) => command(APP_METHODS.addCharacter, normalizeAddCharacterPayload(payload)),
   updateCharacter: (payload) => command(APP_METHODS.updateCharacter, normalizeUpdateCharacterPayload(payload)),
   deleteCharacter: (payload) => command(APP_METHODS.deleteCharacter, normalizeDeleteCharacterPayload(payload)),
