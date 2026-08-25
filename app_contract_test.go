@@ -636,3 +636,20 @@ func TestDetachedDesktopResultShapesPreserveCancellationErrorsAndStatusFields(t 
 		})
 	}
 }
+
+func TestTerminalGroupReplacementRequestPreservesLegacyRepairCandidate(t *testing.T) {
+	t.Parallel()
+
+	payload := TerminalGroupReplacementPayload{
+		TerminalGroups: []domain.TerminalGroup{{
+			ID: "singleton-source", Name: "Source", TerminalIDs: []string{"terminal-a", "terminal-b"},
+		}},
+		ExpectedSessionRevision: 7, ExpectedCoordinationRevision: 11,
+	}
+
+	routed := routeTerminalGroupReplacementRequest(payload)
+
+	require.Equal(t, payload, routed)
+	routed.TerminalGroups[0].TerminalIDs[0] = "mutated"
+	require.Equal(t, "terminal-a", payload.TerminalGroups[0].TerminalIDs[0])
+}

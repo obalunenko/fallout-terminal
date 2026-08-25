@@ -10,6 +10,8 @@
 
 **Bugfix**: 2026-08-25 — BUG-001 Added measurable terminal-list hierarchy, readable-name, collapsible-group, and contextual-action requirements based on the accepted UX mockup.
 
+**Bugfix**: 2026-08-25 — BUG-002 Added the positive legacy-transition repair flow so a dormant cross-singleton link can be made eligible by moving its target into the source group, with the accepted canonical grouping authoritative for subsequent eligibility checks.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Organize Every Terminal Through a Group (Priority: P1)
@@ -113,6 +115,8 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 
 **Independent Test**: Open an older session without groups, attempt conflicting regrouping during authored and active routes, and verify that invalid changes are blocked without data loss while ordinary terminal behavior continues.
 
+Also move the target of one dormant legacy transition into its source terminal's normalized singleton group, save and reopen, and verify that the preserved transition becomes same-group eligible.
+
 **Acceptance Scenarios**:
 
 1. **Given** an older session has terminals and transition commands but no groups, **When** it is opened, **Then** all terminals and command content load unchanged and every terminal is represented by its own singleton group.
@@ -123,6 +127,7 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 6. **Given** the Overseer directly activates a terminal in another group, **When** the existing manual activation flow completes, **Then** direct activation remains available and clears the player-created return route according to existing behavior.
 7. **Given** players reconnect during a pending or completed valid transition, **When** they receive the current broadcast state, **Then** they converge on the same active terminal, pending decision, and available return action.
 8. **Given** ordinary commands, state-changing commands, or navigation within one terminal are used, **When** the feature is enabled, **Then** their existing approval and execution behavior remains unchanged.
+9. **Given** an older A to B transition is dormant because A and B normalized into separate singleton groups, **When** the Overseer confirms moving B into A's existing singleton group, **Then** the complete candidate is accepted, B's empty source group is removed, the command remains authored, and A to B becomes eligible after save and reopen.
 
 ## Edge Cases
 
@@ -146,6 +151,7 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 - The Overseer cancels, dismisses, or loses the group-change confirmation before accepting it.
 - The Overseer attempts to delete a singleton group without moving or deleting its terminal in the same operation.
 - The same terminal is selected more than once while creating a group or proposing a bulk move.
+- A legacy transition is already cross-group because its endpoints normalized into separate singleton groups, and the proposed move joins the target to the source rather than creating a new conflict.
 
 ## Requirements
 
@@ -202,6 +208,7 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 - **FR-049**: Every group MUST expose its expanded or collapsed state, full display name, terminal count, and one target-specific contextual action trigger, while every visible terminal member MUST expose its explicit order, full display name, selected or live state when applicable, and one target-specific contextual action trigger.
 - **FR-050**: Group and terminal rename, move, reorder, dissolve, and delete actions MUST be available from the applicable target-specific contextual menu rather than as a permanently visible row of individual buttons; destructive actions MUST remain visually differentiated and retain all existing confirmation requirements.
 - **FR-051**: Collapsing or expanding a group MUST be operable by pointer and keyboard, MUST NOT mutate canonical group data or terminal selection, and MUST retain the current in-memory disclosure state across unrelated re-renders while that group continues to exist.
+- **FR-052**: Authored-transition validation for a terminal-group replacement MUST use the complete proposed membership set; when a candidate joins both endpoints of an existing dormant cross-group transition, the system MUST accept that link as same-group and MUST NOT reject the candidate using their pre-change singleton memberships.
 
 ## Key Entities
 
@@ -234,6 +241,7 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 - **SC-014**: Across stale, retried, and double-submitted destructive confirmations, each accepted proposal changes state at most once and every rejected proposal leaves 100% of the current state intact.
 - **SC-015**: At 1280×720 and 1600×900 browser viewports, groups containing realistic Russian names render with zero overlapping controls, every group and terminal name is available without ellipsis-only identification, and every applicable action is reachable from exactly one target-specific menu.
 - **SC-016**: In pointer and keyboard browser journeys, 100% of tested group disclosure and group/terminal action-menu operations expose the correct target and action labels, preserve selection during disclosure changes, and keep destructive actions visually separate before the existing confirmation flow.
+- **SC-017**: In the tested legacy A to B repair journey, moving B into A's normalized singleton group succeeds exactly once, removes B's empty singleton group, preserves the authored command and terminal content across save and reopen, and makes A to B eligible with zero stale pre-move group IDs used for candidate validation.
 
 ## Assumptions
 

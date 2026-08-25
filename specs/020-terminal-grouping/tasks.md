@@ -2,6 +2,8 @@
 
 **Bugfix**: 2026-08-25 — BUG-001 Updated from bugfix patch; T017 and T035 reopened and UX correction tasks T071–T074 added.
 
+**Bugfix**: 2026-08-25 — BUG-002 Updated from bugfix patch; T037 reopened, legacy-transition repair tasks T075–T079 added, and the traced no-production-drift outcome reconciled with T037/T078.
+
 ## Phase 1: Setup
 
 No setup-only changes are required. The feature uses the repository's existing pinned protobuf, Wails binding, Go, frontend, and Playwright tooling.
@@ -125,7 +127,7 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **⟶ Wait for Wave 9 to finish, then:**
 
-- [x] **T037** [US2] Implement create/rename/dissolve/move/reorder drafts, impact diffing, cancel-zero-call behavior, duplicate-submit guard, stale refresh, and canonical replacement · `frontend/overseer/src/overseer.js`
+- [x] **T037** [US2] ⚠️ Reopened — verify and regression-cover create/rename/dissolve/move/reorder drafts, impact diffing, cancel-zero-call behavior, duplicate-submit guard, stale refresh, and canonical replacement; prove the reviewed resultant membership is preserved when moving a dormant legacy transition target into its source group (reopened — BUG-002) · `frontend/overseer/src/overseer.js`, `tests/browser/terminal-grouping.spec.mjs`
 
 **Checkpoint**: US2 independently provides safe Overseer group management with explicit destructive confirmation and single atomic application.
 
@@ -245,29 +247,30 @@ No setup-only changes are required. The feature uses the repository's existing p
 - US5 runs after the navigation slices so compatibility and reconnect regressions cover the complete behavior.
 - Polish runs only after all story checkpoints.
 - Within each phase, every numbered wave blocks the next join line; tasks marked `[P]` touch different files and have no incomplete dependency within their wave.
+- BUG-002 Wave 1 establishes failing candidate-integrity coverage before reopened T037 and T078 trace the production path and correct the first stale integration projection if production already preserves the candidate; T079 is the final BUG-002 verification join.
 
 ## Phase 9: Convergence
 
-- [ ] T060 Reject newly authored or retargeted cross-group terminal transitions at the generic session-save boundary while preserving unchanged legacy dormant links, with focused session tests in `internal/session/service_test.go` per FR-018 (partial)
-- [ ] T061 Preserve sanitized session-revision and candidate-validation feedback through the terminal-group store/coordinator boundary and identify affected pending endpoints without exposing persistence details per FR-021 and FR-044 (partial)
-- [ ] T062 Track and validate the initialized active group position, seeded successor chain, and pending-return adjacency so terminal reorders that would invalidate backward navigation are rejected atomically per FR-034 (partial)
-- [ ] T063 Include every removed and collision-adjusted resultant singleton group plus exact terminal-to-group membership in the destructive dissolution impact dialog and its browser assertions per FR-040 (partial)
-- [ ] T064 Add browser acceptance journeys that reject an authored-link-conflicting group edit and prove cross-group direct Overseer activation clears the player-created return route per plan: Browser acceptance (missing)
+- [x] T060 Reject newly authored or retargeted cross-group terminal transitions at the generic session-save boundary while preserving unchanged legacy dormant links, with focused session tests in `internal/session/service_test.go` per FR-018 (partial)
+- [x] T061 Preserve sanitized session-revision and candidate-validation feedback through the terminal-group store/coordinator boundary and identify affected pending endpoints without exposing persistence details per FR-021 and FR-044 (partial)
+- [x] T062 Track and validate the initialized active group position, seeded successor chain, and pending-return adjacency so terminal reorders that would invalidate backward navigation are rejected atomically per FR-034 (partial)
+- [x] T063 Include every removed and collision-adjusted resultant singleton group plus exact terminal-to-group membership in the destructive dissolution impact dialog and its browser assertions per FR-040 (partial)
+- [x] T064 Add browser acceptance journeys that reject an authored-link-conflicting group edit and prove cross-group direct Overseer activation clears the player-created return route per plan: Browser acceptance (missing)
 
 ## Phase 10: Convergence
 
-- [ ] T065 Reject a group reorder that preserves stored seeded points but moves the current active terminal away from the remaining seeded return target after earlier prefix returns, with focused coordinator regression coverage in `internal/control/service_test.go` per FR-034 (partial)
+- [x] T065 Reject a group reorder that preserves stored seeded points but moves the current active terminal away from the remaining seeded return target after earlier prefix returns, with focused coordinator regression coverage in `internal/control/service_test.go` per FR-034 (partial)
 
 ## Phase 11: Convergence
 
-- [ ] T066 Reject a group reorder that preserves the current authored return target but breaks the deeper adjacency between an authored route point and the remaining seeded prefix it will expose, with mixed-route atomic regression coverage in `internal/control/service_test.go` per FR-034 (partial)
-- [ ] T067 Add a confirmed split-to-singleton operation that separates one terminal from a multi-terminal group while retaining every other source member, generates a collision-safe valid singleton candidate, and covers the complete browser journey in `frontend/overseer/src/overseer.js` and `tests/browser/terminal-grouping.spec.mjs` per US1/AC3 (missing)
-- [ ] T068 Include stable authored-command identity in sanitized cross-group replacement rejection feedback and assert it through domain, coordinator/application, and browser coverage so multiple links with the same terminal endpoints remain distinguishable per US5/AC3 (partial)
+- [x] T066 Reject a group reorder that preserves the current authored return target but breaks the deeper adjacency between an authored route point and the remaining seeded prefix it will expose, with mixed-route atomic regression coverage in `internal/control/service_test.go` per FR-034 (partial)
+- [x] T067 Add a confirmed split-to-singleton operation that separates one terminal from a multi-terminal group while retaining every other source member, generates a collision-safe valid singleton candidate, and covers the complete browser journey in `frontend/overseer/src/overseer.js` and `tests/browser/terminal-grouping.spec.mjs` per US1/AC3 (missing)
+- [x] T068 Include stable authored-command identity in sanitized cross-group replacement rejection feedback and assert it through domain, coordinator/application, and browser coverage so multiple links with the same terminal endpoints remain distinguishable per US5/AC3 (partial)
 
 ## Phase 12: Convergence
 
-- [ ] T069 Add an exact three-group, ten-terminal save/reopen acceptance matrix that preserves every group identity, name, group order, member order, and exact-one membership in `internal/session/service_test.go` per SC-001 (partial)
-- [ ] T070 Aggregate deterministic sanitized identities for every authored command invalidated by one cross-group replacement, including multiple commands with the same endpoints, and assert the complete feedback through domain, coordinator/application, and browser coverage per US5/AC3 (partial)
+- [x] T069 Add an exact three-group, ten-terminal save/reopen acceptance matrix that preserves every group identity, name, group order, member order, and exact-one membership in `internal/session/service_test.go` per SC-001 (partial)
+- [x] T070 Aggregate deterministic sanitized identities for every authored command invalidated by one cross-group replacement, including multiple commands with the same endpoints, and assert the complete feedback through domain, coordinator/application, and browser coverage per US5/AC3 (partial)
 
 ## Phase 13: BUG-001 — Terminal List UX Correction
 
@@ -288,3 +291,19 @@ No setup-only changes are required. The feature uses the repository's existing p
 **⟶ Wait for T073 to finish, then:**
 
 - [x] **T074** [US1] [US2] Run the Overseer build and terminal-grouping browser suite, verify the supported viewport matrix against the BUG-001 mockup, and record all BUG-001 requirements as satisfied · `frontend/overseer/`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-001.md`
+
+## Phase 14: BUG-002 — Legacy Transition Repair
+
+**Wave 1 — independent failing legacy-repair coverage:**
+
+- [x] **T075** [P] [US5] Add a domain regression that normalizes legacy A and B into singleton groups, moves B into A's existing group, removes B's empty source group, and accepts the preserved A to B command against the resultant membership per FR-052 and SC-017 · `internal/domain/validate_test.go`
+- [x] **T076** [P] [US2] [US5] Add session and application regressions that open a no-group legacy document, carry the exact reviewed move candidate through production replacement, persist and reopen it atomically, and preserve command identity and terminal content per FR-043 and FR-052 · `internal/session/service_test.go`, `app_contract_test.go`, `app_test.go`
+- [x] **T077** [P] [US2] [US5] Add a browser journey that moves the dormant legacy transition target into the source singleton group, asserts the reviewed/resultant memberships and removed source group, reopens the session, and proves the command becomes eligible per US5/AC9 and SC-017 · `tests/browser/fixture-server/main.go`, `tests/browser/terminal-grouping.spec.mjs`
+
+**⟶ Wait for T075–T077 to fail for the reported path, then complete reopened T037 and:**
+
+- [x] **T078** [US2] [US5] Trace the complete candidate through the desktop facade, private route, coordinator, session validator, and persistence boundary; if production already preserves it, record that result and correct the first stale integration projection found while retaining rejection for candidates that genuinely leave endpoints cross-group · `frontend/overseer/src/desktop-api.js`, `app_contract.go`, `app.go`, `internal/control/service.go`, `internal/session/service.go`, `tests/browser/fixture-server/main.go`, `specs/020-terminal-grouping/bugs/BUG-002.md`
+
+**⟶ Wait for T037 and T078 to finish, then:**
+
+- [x] **T079** [US2] [US5] Run the focused domain, session, application, desktop-facade, and terminal-grouping browser suites; verify save/reopen and same-group transition eligibility; and record BUG-002 implementation evidence without weakening cross-group rejection · `internal/domain/`, `internal/session/`, `app*_test.go`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-002.md`

@@ -6,6 +6,8 @@ Add durable, ordered terminal groups as the only high-level representation of te
 
 **Bugfix**: 2026-08-25 — BUG-001 Updated from bugfix patch using `bugs/assets/BUG-001-terminal-list-ux-mockup.png` as the visual implementation reference.
 
+**Bugfix**: 2026-08-25 — BUG-002 Updated from bugfix patch and reconciled with the traced production and integration boundaries.
+
 ## Project Structure
 
 ```text
@@ -77,6 +79,10 @@ No constitution violation or complexity exception is required.
 
 The design decisions and rejected alternatives are recorded in [research.md](./research.md). The load-bearing conclusions are to normalize legacy terminals into singleton groups, interpret group deletion as content-preserving dissolution, use one two-revision compare-and-replace after a structured confirmation, preserve the existing public navigation protocol, and seed only the fresh broadcast's initial backward prefix.
 
+### BUG-002 Edge-Case Tracking
+
+A legacy transition whose endpoints normalize into separate singleton groups is an existing dormant link, not a conflict introduced by a later repair candidate. Moving the target into the source terminal's existing singleton group must carry one complete resultant group set unchanged through the Overseer draft, desktop facade, private protobuf route, coordinator, and session compare-and-replace. Authored-link validation must build membership from that resultant set. Diagnostic coverage must trace every production boundary; if the production path already preserves the candidate, it must record that result and correct the first stale integration projection found so later eligibility uses the accepted canonical session.
+
 ## Phase 1: Design and Contracts
 
 The complete entities, validation rules, and state transitions are defined in [data-model.md](./data-model.md). Contract impact is split into:
@@ -95,6 +101,7 @@ The complete entities, validation rules, and state transitions are defined in [d
 6. Replace the flat terminal list with high-level group presentation and add create/rename/dissolve/move/reorder controls. Build structured destructive impact, cancel with zero calls, disable duplicate submission, and refresh from canonical results; keep rename-only edits confirmation-free.
 7. Restrict transition destination options to the edited terminal's group, update the demo and documentation, then complete unit, contract, browser, race, generation, build, and packaged acceptance gates.
 8. Refine the terminal organization panel to match the BUG-001 mockup: use a wider responsive sidebar, independently collapsible group cards, readable wrapping names and member counts, and one target-specific contextual menu per group or terminal. Reuse the existing mutation handlers and confirmation dialogs, preserve selection and disclosure state across unrelated renders, and keep destructive menu entries visually separated.
+9. Add the BUG-002 legacy repair matrix: normalize a no-group A to B session, move B into A's existing singleton group, assert the reviewed candidate at each private boundary, persist and reopen it without command or content loss, and prove A to B becomes same-group eligible while genuinely cross-group candidates remain rejected. Trace rather than assume a production defect; when production preserves the candidate, refresh the first stale integration projection from the accepted canonical session.
 
 ## Verification Strategy
 
@@ -106,4 +113,5 @@ The complete entities, validation rules, and state transitions are defined in [d
 | Coordinator | Both revision mismatches, pending/route mutation guards, fresh starts at first/middle/last members, seeded reverse prefix, C→B→A→B→C→D, exact-one approval, stale group/link/order rejection, manual activation cleanup, and reconnect behavior. |
 | Private boundary and Overseer UI | Generated two-revision request/result routing; create/rename/dissolve/reorder/move; impact contents; cancel/close zero call; double-submit guard; stale canonical refresh; normalized duplicate-name feedback; no player access; independently collapsible group cards; readable names/member counts; and target-specific contextual menus with separated destructive actions. |
 | Browser acceptance | Overseer plus controller and two observers; destructive accept/cancel/stale/retry journeys; dissolution into singletons; singleton-delete rejection; reconnect during pending; middle start; cross-group attempts; legacy normalization; direct activation regression; and BUG-001 layout, disclosure, focus, and menu reachability at 1280×720 and 1600×900. |
+| Legacy transition repair | Domain acceptance of the resultant membership set; exact candidate preservation through session/application/private boundaries; move-target browser confirmation; empty-source removal; save/reopen command preservation; same-group eligibility; and regression rejection for candidates that truly leave authored endpoints split. |
 | Repository gates | `gofmt -l .`, `go vet ./...`, `go test ./...`, `go test -race ./...`, frontend clean builds, browser tests, proto format/lint/generation/breaking checks, Wails binding drift check, owned build, and package smoke when the local macOS environment is available. |

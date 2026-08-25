@@ -721,6 +721,110 @@ func TestTerminalGroupReplacementPublishesCanonicalSessionBeforeCoordinationAndR
 	require.Equal(t, uint64(22), app.GetRuntimeStatus().CoordinationState.Revision)
 }
 
+func TestTerminalGroupReplacementForwardsExactLegacyRepairCandidate(t *testing.T) {
+	t.Parallel()
+
+	candidate := []domain.TerminalGroup{{
+		ID: "singleton-source", Name: "Source", TerminalIDs: []string{"terminal-a", "terminal-b"},
+	}}
+	canonicalSession := terminalGroupApplicationSession(candidate)
+	coordination := &recordingTerminalGroupCoordinationService{
+		replacementState: &domain.MasterCoordinationState{Revision: 9},
+		mutation: &controlservice.TerminalGroupMutation{
+			Changed: true, Revision: 6, Session: canonicalSession,
+		},
+	}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination})
+
+	result := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups: candidate, ExpectedSessionRevision: 5, ExpectedCoordinationRevision: 8,
+	})
+
+	require.True(t, result.OK, "ReplaceTerminalGroups() = %#v", result)
+	require.Len(t, coordination.calls, 1)
+	require.Equal(t, domain.TerminalGroupCandidate{
+		TerminalGroups: candidate, ExpectedSessionRevision: 5, ExpectedCoordinationRevision: 8,
+	}, coordination.calls[0].candidate)
+	require.Equal(t, candidate, result.Session.TerminalGroups)
+}
+
+func TestTerminalGroupReplacementRepairsLegacyDocumentThroughProductionServices(t *testing.T) {
+	t.Parallel()
+
+	target := "/Campaigns/legacy-group-repair.json"
+	legacy := domain.Session{
+		Version: 1, Name: "Legacy group repair",
+		Terminals: []domain.Terminal{
+			{
+				ID: "terminal-a", Name: "A",
+				Root: domain.ContentNode{
+					ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+					Children: []domain.ContentNode{{
+						ID: "open-b", Type: domain.NodeCommand, Name: "OPEN B",
+						TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "terminal-b"},
+					}},
+				},
+			},
+			{ID: "terminal-b", Name: "B", Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}}},
+		},
+	}
+	raw, err := domain.EncodeSession(legacy)
+	require.NoError(t, err)
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, raw)
+	locations := sessionservice.Locations{DocumentsDefault: "/Campaigns"}
+
+	newProductionBoundary := func() (*sessionservice.Service, *App) {
+		sessions := sessionservice.NewService(
+			sessionservice.NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, locations,
+		)
+		coordination := controlservice.New(controlservice.Config{
+			TerminalCatalog:    sessions,
+			TerminalGroupStore: &sessionCommandStateStore{service: sessions},
+		})
+		return sessions, NewAppWithDependencies(t.Context(), AppDependencies{
+			Sessions: sessions, Coordination: coordination,
+		})
+	}
+
+	sessions, app := newProductionBoundary()
+	opened := app.OpenSession()
+	require.True(t, opened.OK, "OpenSession() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.TerminalGroups, 2)
+	var sourceGroup domain.TerminalGroup
+	for _, group := range opened.Session.TerminalGroups {
+		if slices.Contains(group.TerminalIDs, "terminal-a") {
+			sourceGroup = group
+		}
+	}
+	require.NotEmpty(t, sourceGroup.ID)
+	candidate := []domain.TerminalGroup{{
+		ID: sourceGroup.ID, Name: sourceGroup.Name, TerminalIDs: []string{"terminal-a", "terminal-b"},
+	}}
+	status := app.GetRuntimeStatus()
+	require.NotNil(t, status.CoordinationState)
+	result := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups:               candidate,
+		ExpectedSessionRevision:      status.SavedRevision,
+		ExpectedCoordinationRevision: status.CoordinationState.Revision,
+	})
+	require.True(t, result.OK, "ReplaceTerminalGroups() = %#v", result)
+	require.Equal(t, candidate, result.Session.TerminalGroups)
+	require.NoError(t, sessions.Shutdown(context.WithoutCancel(t.Context())))
+
+	restartedSessions, restartedApp := newProductionBoundary()
+	t.Cleanup(func() { _ = restartedSessions.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restartedApp.OpenSession()
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	require.Equal(t, candidate, reopened.Session.TerminalGroups)
+	require.Equal(t, legacy.Terminals, reopened.Session.Terminals)
+	transition, ok := restartedSessions.LookupTerminalTransition("terminal-a", "open-b")
+	require.True(t, ok)
+	require.Equal(t, "terminal-b", transition.Target.TerminalID)
+}
+
 func TestTerminalGroupReplacementStaleFailureReturnsLatestProjectionsWithoutPublishing(t *testing.T) {
 	recorder := &callRecorder{}
 	canonicalSession := terminalGroupApplicationSession([]domain.TerminalGroup{

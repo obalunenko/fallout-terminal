@@ -249,6 +249,47 @@ func TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships(t *testing.T
 	assertCanonicalTerminalGroups(t, *reopened.Session)
 }
 
+func TestReplaceTerminalGroupsRepairsLegacyTransitionAndReopensExactCandidate(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/legacy-transition-repair.json"
+	legacy := linkedSessionForTest()
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, legacy))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.TerminalGroups, 2)
+	sourceGroup := terminalGroupByMember(t, opened.Session.TerminalGroups, "a")
+	targetGroup := terminalGroupByMember(t, opened.Session.TerminalGroups, "b")
+	candidate := []domain.TerminalGroup{{
+		ID: sourceGroup.ID, Name: sourceGroup.Name, TerminalIDs: []string{"a", "b"},
+	}}
+
+	replaced := service.ReplaceTerminalGroups(t.Context(), candidate, 0)
+	require.True(t, replaced.OK, "ReplaceTerminalGroups() = %#v", replaced)
+	require.True(t, replaced.Changed)
+	require.NotNil(t, replaced.Session)
+	assert.Equal(t, candidate, replaced.Session.TerminalGroups)
+	assert.NotEqual(t, targetGroup.ID, replaced.Session.TerminalGroups[0].ID)
+	require.Equal(t, "go", replaced.Session.Terminals[0].Root.Children[0].ID)
+	require.Equal(t, "b", replaced.Session.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID)
+	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
+
+	restarted := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = restarted.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restarted.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, candidate, reopened.Session.TerminalGroups)
+	assert.Equal(t, legacy.Terminals, reopened.Session.Terminals, "repair must preserve terminal content and command identity")
+	transition, ok := restarted.LookupTerminalTransition("a", "go")
+	require.True(t, ok, "repaired same-group transition must become eligible after reopen")
+	assert.Equal(t, "b", transition.Target.TerminalID)
+}
+
 func TestGenericSaveNormalizesTerminalLifecycleAndPreservesCanonicalMembership(t *testing.T) {
 	t.Parallel()
 

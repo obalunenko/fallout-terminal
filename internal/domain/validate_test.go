@@ -429,6 +429,30 @@ func TestLegacyCrossTerminalLinkRemainsCompatibleAfterSingletonNormalization(t *
 	assert.True(t, diff.MembershipOrOrderChanged)
 }
 
+func TestTerminalGroupReplacementRepairsLegacyTransitionByRetainingSourceSingleton(t *testing.T) {
+	t.Parallel()
+
+	normalized := NormalizeTerminalGroups(legacyTerminalGroupCompatibilitySession())
+	require.Len(t, normalized.TerminalGroups, 2)
+	sourceGroup := normalized.TerminalGroups[0]
+	targetGroup := normalized.TerminalGroups[1]
+	require.Equal(t, []string{"a"}, sourceGroup.TerminalIDs)
+	require.Equal(t, []string{"b"}, targetGroup.TerminalIDs)
+
+	candidate := []TerminalGroup{{
+		ID: sourceGroup.ID, Name: sourceGroup.Name, TerminalIDs: []string{"a", "b"},
+	}}
+	diff, err := ValidateTerminalGroupReplacement(normalized, candidate)
+
+	require.NoError(t, err)
+	assert.True(t, diff.Changed)
+	assert.True(t, diff.MembershipOrOrderChanged)
+	assert.Equal(t, []string{targetGroup.ID}, diff.RemovedGroupIDs)
+	assert.Equal(t, []string{"a", "b"}, diff.AffectedTerminalIDs)
+	assert.Equal(t, sourceGroup.ID, candidate[0].ID, "repair must retain the source singleton identity")
+	assert.Equal(t, []string{"a", "b"}, candidate[0].TerminalIDs)
+}
+
 func TestTerminalGroupReplacementIdentifiesEveryCrossGroupCommandDeterministically(t *testing.T) {
 	t.Parallel()
 

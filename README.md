@@ -42,7 +42,7 @@ make test       # тесты
 make test-race  # тесты с race detector
 make check      # полный набор проверок
 make speckit-install      # Spec Kit и расширения
-make speckit-update-check # проверить обновления Spec Kit
+make speckit-update-check # проверить обновления Spec Kit и Companion для редактора
 ```
 
 ### Spec Kit и расширения
@@ -61,7 +61,7 @@ make speckit-install
 make speckit-update-check
 ```
 
-Она запускает read-only `specify self check`, сравнивает установленные extensions/plugins с версиями из `Makefile`, проверяет последние стабильные upstream-теги и сверяет локальный manifest `feature-numbering`.
+Она запускает read-only `specify self check`, сравнивает установленные extensions/plugins с версиями из `Makefile`, отдельно проверяет установленный SpecKit Companion для VS Code/Cursor по релизам `vX.Y.Z`, проверяет последние стабильные upstream-теги и сверяет локальный manifest `feature-numbering`.
 
 Проверить установку отдельно можно так:
 

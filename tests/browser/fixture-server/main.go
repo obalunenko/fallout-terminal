@@ -1592,8 +1592,12 @@ export async function RequestTerminalActivation(payload) {
 			http.Error(response, "invalid terminal group replacement", http.StatusBadRequest)
 			return
 		}
+		result := terminalGroupingStore.replaceGroups(payload)
+		if result.OK && result.Session != nil {
+			navigationCatalog.replace(*result.Session)
+		}
 		response.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(response).Encode(terminalGroupingStore.replaceGroups(payload))
+		_ = json.NewEncoder(response).Encode(result)
 	})
 	mux.HandleFunc("POST /__fixture/terminal-grouping/advance-revisions", func(response http.ResponseWriter, request *http.Request) {
 		var payload struct {

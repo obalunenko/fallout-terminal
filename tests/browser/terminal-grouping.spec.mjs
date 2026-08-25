@@ -609,6 +609,65 @@ test('legacy load keeps content intact, projects singleton groups, and leaves it
   }
 });
 
+test('repairs a dormant legacy transition by moving its target into the source singleton', async ({ browser, request }) => {
+  await resetFixture(request, 'legacy');
+  const normalized = await activeFixtureSession(request);
+  const sourceGroup = normalized.terminalGroups.find(group => group.terminalIds.includes('legacy-one'));
+  const targetGroup = normalized.terminalGroups.find(group => group.terminalIds.includes('legacy-two'));
+  expect(sourceGroup).toBeTruthy();
+  expect(targetGroup).toBeTruthy();
+
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  try {
+    await chooseTerminalAction(overseer, 'legacy-two', 'move-terminal');
+    await groupDraftDialog(overseer).locator('[name="destinationGroupId"]').selectOption(sourceGroup.id);
+    await reviewGroupDraft(overseer);
+
+    const impact = groupImpactDialog(overseer);
+    await expect(impact.locator('[data-impact="source-group"]')).toHaveText(targetGroup.name);
+    await expect(impact.locator('[data-impact="destination-group"]')).toHaveText(sourceGroup.name);
+    await expect(impact.locator('[data-impact="membership"]'))
+      .toHaveText(`${sourceGroup.name}: Старый терминал 1 → Старый терминал 2`);
+    await expect(impact.locator('[data-impact="groups"]')).toContainText(targetGroup.name);
+    await expect(impact.locator('[data-impact="groups"]')).toContainText(sourceGroup.name);
+
+    await confirmGroupImpact(overseer);
+    await expect.poll(() => mutationCallCount(overseer)).toBe(1);
+    const repaired = await fixtureSession(request);
+    expect(repaired.terminalGroups).toEqual([{
+      id: sourceGroup.id,
+      name: sourceGroup.name,
+      terminalIds: ['legacy-one', 'legacy-two'],
+    }, normalized.terminalGroups.find(group => group.terminalIds.includes('legacy-three'))]);
+    expect(repaired.terminalGroups.some(group => group.id === targetGroup.id)).toBe(false);
+    expect(repaired.terminals).toEqual(normalized.terminals);
+
+    await overseer.reload();
+    await openOverseer(overseer);
+    expect(await renderedGroups(overseer)).toEqual(expectedGroups(repaired));
+
+    const controller = await openParticipant(browser);
+    try {
+      const repairedLink = controller.page.locator('.term-row', { hasText: 'СТАРЫЙ ПЕРЕХОД' });
+      await expect(repairedLink).toBeVisible();
+      await repairedLink.click();
+      await expectPendingNavigation(controller.page);
+      await expect.poll(async () => (await navigationSnapshot(request)).pendingTerminalNavigation)
+        .toMatchObject({
+          direction: 'forward',
+          sourceTerminalId: 'legacy-one',
+          targetTerminalId: 'legacy-two',
+        });
+    } finally {
+      await controller.context.close();
+    }
+  } finally {
+    await overseerContext.close();
+  }
+});
+
 test('ordinary command keeps its approval and reconnect behavior without changing the grouped route', async ({ browser, request }) => {
   await resetFixture(request, 'ordered-navigation');
   const overseerContext = await browser.newContext();
