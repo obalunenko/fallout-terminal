@@ -30,9 +30,9 @@ func TestPresentationUplinkBodyEnforcesIdleAndMaximumLifetime(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancelCause(t.Context())
 			reader, writer := io.Pipe()
-			defer func() { require.NoError(t, writer.Close()) }()
+			t.Cleanup(func() { require.NoError(t, writer.Close()) })
 			body := newPresentationUplinkBody(reader, cancel, test.idle, test.maximum)
-			defer body.Stop()
+			t.Cleanup(body.Stop)
 			readDone := make(chan error, 1)
 			go func() {
 				_, err := body.Read(make([]byte, 1))
@@ -49,8 +49,8 @@ func TestPresentationUplinkBodyActivityResetsOnlyIdleDeadline(t *testing.T) {
 	ctx, cancel := context.WithCancelCause(t.Context())
 	reader, writer := io.Pipe()
 	body := newPresentationUplinkBody(reader, cancel, 30*time.Millisecond, 55*time.Millisecond)
-	defer body.Stop()
-	defer func() { require.NoError(t, writer.Close()) }()
+	t.Cleanup(body.Stop)
+	t.Cleanup(func() { require.NoError(t, writer.Close()) })
 	readDone := make(chan error, 1)
 	go func() {
 		_, err := io.Copy(io.Discard, body)

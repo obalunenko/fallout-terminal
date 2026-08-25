@@ -593,12 +593,15 @@ func TestPublicAccessManagerGeneratedPasswordDoesNotPersistDevelopmentVisibleOve
 		value, ok := values[name]
 		return value, ok
 	})
+	ingresses := testutil.NewFakePublicIngressFactory()
 	manager, err := tunnel.NewPublicAccessManager(tunnel.ManagerConfig{
 		Settings: override, Secrets: override,
 		Tunnel:  testutil.NewFakeTunnelService(testutil.NewFakeTunnelEndpoint("https://override.example")),
-		Ingress: tunnel.NewPublicIngressFactory(), UpstreamURL: "http://127.0.0.1:3690",
+		Ingress: ingresses, UpstreamURL: "http://127.0.0.1:3690",
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.Zero(t, ingresses.ActiveIngresses()) })
+	t.Cleanup(func() { require.NoError(t, manager.Shutdown(context.WithoutCancel(t.Context()))) })
 	effective := manager.Initialize(t.Context())
 	require.Equal(t, "override.example", effective.Preferences.ReservedDomain)
 	require.Equal(t, "override-players", effective.Preferences.Username)
@@ -755,10 +758,10 @@ func TestPublicAccessManagerShutdownBoundsContextIgnoringCloseAndRetainsRetryOwn
 
 	shutdownDeadline, stopShutdownDeadline := context.WithTimeoutCause(t.Context(), 25*time.Millisecond, errors.New("test manager shutdown timed out"))
 	shutdownContext, cancelShutdown := context.WithCancelCause(shutdownDeadline)
-	defer func() {
+	t.Cleanup(func() {
 		cancelShutdown(errors.New("test manager shutdown completed"))
 		stopShutdownDeadline()
-	}()
+	})
 	finished := make(chan error, 1)
 	go func() { finished <- manager.Shutdown(shutdownContext) }()
 

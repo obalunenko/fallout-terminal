@@ -56,7 +56,7 @@ func TestServerAdmitsHTTP1AndUnencryptedHTTP2RequestStreaming(t *testing.T) {
 	clientID := "server-http2-tab"
 	client := playerv1connect.NewPlayerServiceClient(http2Client, server.Info().LocalURL)
 	subscriptionContext, cancelSubscription := context.WithCancel(t.Context())
-	defer cancelSubscription()
+	t.Cleanup(cancelSubscription)
 	subscription, err := client.Subscribe(subscriptionContext, connect.NewRequest(&playerv1.SubscribeRequest{
 		ClientInstanceId: &clientID,
 	}))

@@ -39,9 +39,10 @@ type ManagerConfig struct {
 }
 
 type PublicAccessResult struct {
-	OK       bool
-	Error    string
-	Snapshot PublicAccessSnapshot
+	OK             bool
+	Error          string
+	DiagnosticCode PublicAccessDiagnosticCode
+	Snapshot       PublicAccessSnapshot
 }
 
 type realClock struct{}
@@ -409,6 +410,7 @@ func (manager *PublicAccessManager) finishStart(
 		manager.status = failedStatus(manager.status, category)
 		manager.status.ErrorMessage = message
 		result := manager.resultLocked(false)
+		result.DiagnosticCode = safePublicAccessDiagnosticCode(startErr)
 		manager.mu.Unlock()
 		if ingress != nil {
 			ingress.Deny()

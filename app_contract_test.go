@@ -636,3 +636,58 @@ func TestDetachedDesktopResultShapesPreserveCancellationErrorsAndStatusFields(t 
 		})
 	}
 }
+
+func TestTerminalGroupReplacementRequestPreservesLegacyRepairCandidate(t *testing.T) {
+	t.Parallel()
+
+	payload := TerminalGroupReplacementPayload{
+		TerminalGroups: []domain.TerminalGroup{{
+			ID: "singleton-source", Name: "Source", TerminalIDs: []string{"terminal-a", "terminal-b"},
+		}},
+		ExpectedSessionRevision: 7, ExpectedCoordinationRevision: 11,
+	}
+
+	routed := routeTerminalGroupReplacementRequest(payload)
+
+	require.Equal(t, payload, routed)
+	routed.TerminalGroups[0].TerminalIDs[0] = "mutated"
+	require.Equal(t, "terminal-a", payload.TerminalGroups[0].TerminalIDs[0])
+}
+
+func TestTerminalGroupReplacementRequestPreservesMultiLinkLegacyCandidates(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		groups []domain.TerminalGroup
+	}{
+		{
+			name: "partial",
+			groups: []domain.TerminalGroup{
+				{ID: "singleton-service", Name: "Service", TerminalIDs: []string{"t-krel-service", "t-krel-admin"}},
+				{ID: "singleton-emergency", Name: "Emergency", TerminalIDs: []string{"t-krel-emergency"}},
+			},
+		},
+		{
+			name: "complete",
+			groups: []domain.TerminalGroup{{
+				ID: "singleton-service", Name: "Service",
+				TerminalIDs: []string{"t-krel-service", "t-krel-admin", "t-krel-emergency"},
+			}},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			payload := TerminalGroupReplacementPayload{
+				TerminalGroups: test.groups, ExpectedSessionRevision: 7, ExpectedCoordinationRevision: 11,
+			}
+
+			routed := routeTerminalGroupReplacementRequest(payload)
+
+			require.Equal(t, payload, routed)
+			routed.TerminalGroups[0].TerminalIDs[0] = "mutated"
+			require.Equal(t, "t-krel-service", payload.TerminalGroups[0].TerminalIDs[0])
+		})
+	}
+}

@@ -181,6 +181,7 @@ func TestPublicIngressRejectsUnsafeActivationAndClosesIdempotently(t *testing.T)
 	t.Cleanup(upstream.Close)
 	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), upstream.URL)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, ingress.Close(context.WithoutCancel(t.Context()))) })
 
 	for _, activation := range []struct {
 		host, username, password string

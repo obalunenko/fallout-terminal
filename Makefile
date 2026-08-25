@@ -31,7 +31,7 @@ SPECKIT_VERSION_ENV = \
 
 .PHONY: help dev run prepare build package \
 	deps deps-frontend deps-browser \
-	speckit-install speckit-update-check \
+	speckit-install speckit-update-check speckit-update-test \
 	fmt fmt-check vet lint test test-race check \
 	proto-generate proto-check proto-breaking bindings-check browser-test \
 	release-preflight release
@@ -65,8 +65,11 @@ deps-browser: ## Install locked browser-test dependencies.
 speckit-install: ## Install pinned Spec Kit and all project extensions.
 	$(SPECKIT_VERSION_ENV) $(SPECKIT_INSTALL)
 
-speckit-update-check: ## Check for Spec Kit and extension updates without installing them.
+speckit-update-check: ## Check for Spec Kit, plugin, and Companion editor updates without installing them.
 	$(SPECKIT_VERSION_ENV) $(SPECKIT_UPDATE_CHECK)
+
+speckit-update-test: ## Run the network-free Spec Kit update-checker regression tests.
+	python3 scripts/test_check_speckit_updates.py
 
 fmt: ## Format all Go sources.
 	gofmt -w .
@@ -106,7 +109,7 @@ browser-test: deps-frontend deps-browser ## Install Chromium and run Playwright 
 	$(NPM) exec --prefix tests/browser -- playwright install chromium
 	$(NPM) test --prefix tests/browser
 
-check: fmt-check vet lint test-race proto-check proto-breaking bindings-check ## Run the main local quality gates.
+check: fmt-check vet lint test-race proto-check proto-breaking bindings-check speckit-update-test ## Run the main local quality gates.
 
 release-preflight: ## Validate Developer ID and notarization prerequisites.
 	scripts/build-macos.sh --preflight

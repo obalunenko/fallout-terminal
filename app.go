@@ -791,13 +791,19 @@ func savePublicAccessMutationSettings(settings PublicAccessSettingsStore, prefer
 }
 
 func (app *App) StartPublicAccess(payload PublicAccessCommandPayload) (result PublicAccessCommandResult) {
+	var diagnosticCode tunnelservice.PublicAccessDiagnosticCode
 	defer func() {
-		app.recordOperation("public-access.start", operationOutcome(result.OK, false), publicAccessLogFields(result.Snapshot))
+		fields := publicAccessLogFields(result.Snapshot)
+		if diagnosticCode.Valid() {
+			fields["diagnostic_code"] = diagnosticCode.String()
+		}
+		app.recordOperation("public-access.start", operationOutcome(result.OK, false), fields)
 	}()
 	app.publicAccessCommandMu.Lock()
 	defer app.publicAccessCommandMu.Unlock()
 	if app.deps.PublicAccess != nil {
 		result := app.deps.PublicAccess.Start(app.contextSnapshot(), routePublicAccessCommandRequest(payload).ExpectedRevision)
+		diagnosticCode = result.DiagnosticCode
 		app.acceptPublicAccessSnapshot(result.Snapshot, true)
 		return routePublicAccessCommandResult(PublicAccessCommandResult{
 			OK: result.OK, Error: result.Error, Snapshot: routePublicAccessSnapshot(result.Snapshot),

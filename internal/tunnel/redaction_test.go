@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -39,6 +40,7 @@ func TestRedactedPublicAccessFailureMapsStableCategoriesWithoutSDKDiagnostics(t 
 		{name: "invalid policy", err: codedProviderError{code: "ERR_NGROK_9026", diagnostic: canary}, category: ErrorValidation, code: "ERR_NGROK_9026"},
 		{name: "network connectivity", err: codedProviderError{code: "ERR_NGROK_8001", diagnostic: canary}, category: ErrorNetworkUnavailable, code: "ERR_NGROK_8001"},
 		{name: "DNS unavailable", err: &net.DNSError{Err: canary, Name: "synthetic-domain-canary.example"}, category: ErrorNetworkUnavailable},
+		{name: "listener unavailable", err: &net.OpError{Op: "listen", Net: "tcp4", Err: errors.New(canary)}, category: ErrorNetworkUnavailable},
 		{name: "deadline", err: fmt.Errorf("wrapped: %w", context.DeadlineExceeded), category: ErrorTimeout},
 		{name: "Keychain denied", err: fmt.Errorf("wrapped: %w", ErrSecretStoreDenied), category: ErrorSecretStoreDenied},
 		{name: "unknown provider code", err: codedProviderError{code: "ERR_NGROK_9999", diagnostic: canary}, category: ErrorProviderFailure, code: "ERR_NGROK_9999"},
@@ -58,6 +60,21 @@ func TestRedactedPublicAccessFailureMapsStableCategoriesWithoutSDKDiagnostics(t 
 			}
 		})
 	}
+}
+
+func TestPublicIngressListenFailureReturnsOnlySafeNetworkCategory(t *testing.T) {
+	canary := "synthetic-listener-diagnostic-canary"
+	failure := publicIngressListenFailure(&net.OpError{
+		Op: "listen", Net: "tcp4", Err: errors.New(canary),
+	})
+	category, message := redactedPublicAccessFailure(failure)
+
+	assert.Equal(t, ErrorNetworkUnavailable, category)
+	assert.Equal(t, ErrorNetworkUnavailable.SafeMessage(), message)
+	assert.NotContains(t, failure.Error(), canary)
+	code := safePublicAccessDiagnosticCode(failure)
+	assert.Equal(t, DiagnosticPublicIngressListenFailed, code)
+	assert.Equal(t, "public_ingress_listen_failed", code.String())
 }
 
 func TestRedactedPublicAccessFailureDropsLongCanariesAndIsConcurrent(t *testing.T) {
@@ -141,6 +158,53 @@ type retryingSDKFactory struct {
 	attempts int
 }
 
+type redactionIngressFactory struct{ startErr error }
+
+func (factory redactionIngressFactory) Start(context.Context, string) (PublicIngress, error) {
+	if factory.startErr != nil {
+		return nil, factory.startErr
+	}
+	return &redactionIngress{url: url.URL{Scheme: "http", Host: "127.0.0.1:43690"}}, nil
+}
+
+type redactionIngress struct{ url url.URL }
+
+func (ingress *redactionIngress) URL() *url.URL {
+	copyURL := ingress.url
+	return &copyURL
+}
+
+func (*redactionIngress) Activate(string, string, []byte) error { return nil }
+func (*redactionIngress) Deny()                                 {}
+func (*redactionIngress) Close(context.Context) error           { return nil }
+
+func TestPublicAccessManagerPropagatesSafeIngressDiagnosticCode(t *testing.T) {
+	preferences := DefaultPublicAccessPreferences()
+	preferences.Revision = 7
+	canary := "synthetic-listener-diagnostic-canary"
+	manager, err := NewPublicAccessManager(ManagerConfig{
+		Settings: &redactionSettings{preferences: preferences},
+		Secrets: &redactionSecrets{
+			provider: []byte("synthetic-provider-input"), password: []byte("synthetic-player-input"),
+		},
+		Tunnel: newNgrokServiceWithFactory(&fakeSDKFactory{}),
+		Ingress: redactionIngressFactory{startErr: publicIngressListenFailure(&net.OpError{
+			Op: "listen", Net: "tcp4", Err: errors.New(canary),
+		})},
+		UpstreamURL: "http://127.0.0.1:3690",
+	})
+	require.NoError(t, err)
+	manager.Initialize(t.Context())
+	t.Cleanup(func() { require.NoError(t, manager.Shutdown(context.WithoutCancel(t.Context()))) })
+
+	result := manager.Start(t.Context(), preferences.Revision)
+	require.False(t, result.OK)
+	assert.Equal(t, DiagnosticPublicIngressListenFailed, result.DiagnosticCode)
+	assert.Equal(t, ErrorNetworkUnavailable, result.Snapshot.Status.ErrorCategory)
+	assert.Equal(t, ErrorNetworkUnavailable.SafeMessage(), result.Error)
+	assert.NotContains(t, fmt.Sprintf("%#v", result), canary)
+}
+
 func (factory *retryingSDKFactory) New(_ []byte) (ngrokAgent, error) {
 	factory.mu.Lock()
 	defer factory.mu.Unlock()
@@ -167,7 +231,7 @@ func TestRedactionSurvivesDirectResultStatusEventAndRetryPaths(t *testing.T) {
 		Secrets: &redactionSecrets{
 			provider: []byte("synthetic-provider-input"), password: []byte("synthetic-player-input"),
 		},
-		Tunnel: newNgrokServiceWithFactory(factory), Ingress: NewPublicIngressFactory(),
+		Tunnel: newNgrokServiceWithFactory(factory), Ingress: redactionIngressFactory{},
 		UpstreamURL: "http://127.0.0.1:3690",
 		Publish: func(snapshot PublicAccessSnapshot) {
 			eventMu.Lock()
@@ -177,6 +241,7 @@ func TestRedactionSurvivesDirectResultStatusEventAndRetryPaths(t *testing.T) {
 	})
 	require.NoError(t, err)
 	manager.Initialize(t.Context())
+	t.Cleanup(func() { require.NoError(t, manager.Shutdown(context.WithoutCancel(t.Context()))) })
 
 	failed := manager.Start(t.Context(), 7)
 	require.False(t, failed.OK)

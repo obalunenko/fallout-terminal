@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -206,8 +207,8 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 			Preferences: preferences8,
 			Status: tunnelservice.PublicAccessStatus{
 				State: tunnelservice.LifecycleFailed, Generation: 2, SettingsRevision: 8,
-				ErrorCategory: tunnelservice.ErrorProviderAuthentication,
-				ErrorMessage:  tunnelservice.ErrorProviderAuthentication.SafeMessage(),
+				ErrorCategory: tunnelservice.ErrorNetworkUnavailable,
+				ErrorMessage:  tunnelservice.ErrorNetworkUnavailable.SafeMessage(),
 			},
 		}
 		core := &recordingPublicAccessCore{
@@ -218,7 +219,10 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 					Status:      tunnelservice.PublicAccessStatus{State: tunnelservice.LifecycleDisabled, SettingsRevision: 8},
 				},
 			}},
-			start: tunnelservice.PublicAccessResult{Error: tunnelservice.ErrorProviderAuthentication.SafeMessage(), Snapshot: failed},
+			start: tunnelservice.PublicAccessResult{
+				Error: tunnelservice.ErrorNetworkUnavailable.SafeMessage(), DiagnosticCode: tunnelservice.DiagnosticPublicIngressListenFailed,
+				Snapshot: failed,
+			},
 			stop: tunnelservice.PublicAccessResult{OK: true, Snapshot: tunnelservice.PublicAccessSnapshot{
 				Preferences: preferences8,
 				Status:      tunnelservice.PublicAccessStatus{State: tunnelservice.LifecycleDisabled, Generation: 3, SettingsRevision: 8},
@@ -243,7 +247,8 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 		requireOperationRecord(t, records, "public-access.settings", "succeeded")
 		started := requireOperationRecord(t, records, "public-access.start", "failed")
 		require.Equal(t, "error", started.Fields["state"])
-		require.Equal(t, "provider_authentication", started.Fields["error_category"])
+		require.Equal(t, "network_unavailable", started.Fields["error_category"])
+		require.Equal(t, "public_ingress_listen_failed", started.Fields["diagnostic_code"])
 		requireOperationRecord(t, records, "public-access.stop", "succeeded")
 		eventRecord := requireEventLogRecord(t, records, clientCountEvent)
 		require.ErrorIs(t, eventRecord.Fields["error"].(error), eventErr)
@@ -719,6 +724,241 @@ func TestTerminalGroupReplacementPublishesCanonicalSessionBeforeCoordinationAndR
 	coordinationEvent.Revision = 1000
 	require.Equal(t, []string{"terminal-b", "terminal-a"}, sessions.Snapshot().Session.TerminalGroups[0].TerminalIDs)
 	require.Equal(t, uint64(22), app.GetRuntimeStatus().CoordinationState.Revision)
+}
+
+func TestTerminalGroupReplacementForwardsExactLegacyRepairCandidate(t *testing.T) {
+	t.Parallel()
+
+	candidate := []domain.TerminalGroup{{
+		ID: "singleton-source", Name: "Source", TerminalIDs: []string{"terminal-a", "terminal-b"},
+	}}
+	canonicalSession := terminalGroupApplicationSession(candidate)
+	coordination := &recordingTerminalGroupCoordinationService{
+		replacementState: &domain.MasterCoordinationState{Revision: 9},
+		mutation: &controlservice.TerminalGroupMutation{
+			Changed: true, Revision: 6, Session: canonicalSession,
+		},
+	}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination})
+
+	result := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups: candidate, ExpectedSessionRevision: 5, ExpectedCoordinationRevision: 8,
+	})
+
+	require.True(t, result.OK, "ReplaceTerminalGroups() = %#v", result)
+	require.Len(t, coordination.calls, 1)
+	require.Equal(t, domain.TerminalGroupCandidate{
+		TerminalGroups: candidate, ExpectedSessionRevision: 5, ExpectedCoordinationRevision: 8,
+	}, coordination.calls[0].candidate)
+	require.Equal(t, candidate, result.Session.TerminalGroups)
+}
+
+func TestTerminalGroupReplacementRepairsLegacyDocumentThroughProductionServices(t *testing.T) {
+	t.Parallel()
+
+	target := "/Campaigns/legacy-group-repair.json"
+	legacy := domain.Session{
+		Version: 1, Name: "Legacy group repair",
+		Terminals: []domain.Terminal{
+			{
+				ID: "terminal-a", Name: "A",
+				Root: domain.ContentNode{
+					ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+					Children: []domain.ContentNode{{
+						ID: "open-b", Type: domain.NodeCommand, Name: "OPEN B",
+						TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "terminal-b"},
+					}},
+				},
+			},
+			{ID: "terminal-b", Name: "B", Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}}},
+		},
+	}
+	raw, err := domain.EncodeSession(legacy)
+	require.NoError(t, err)
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, raw)
+	locations := sessionservice.Locations{DocumentsDefault: "/Campaigns"}
+
+	newProductionBoundary := func() (*sessionservice.Service, *App) {
+		sessions := sessionservice.NewService(
+			sessionservice.NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, locations,
+		)
+		coordination := controlservice.New(controlservice.Config{
+			TerminalCatalog:    sessions,
+			TerminalGroupStore: &sessionCommandStateStore{service: sessions},
+		})
+		return sessions, NewAppWithDependencies(t.Context(), AppDependencies{
+			Sessions: sessions, Coordination: coordination,
+		})
+	}
+
+	sessions, app := newProductionBoundary()
+	t.Cleanup(func() { _ = sessions.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := app.OpenSession()
+	require.True(t, opened.OK, "OpenSession() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.TerminalGroups, 2)
+	var sourceGroup domain.TerminalGroup
+	for _, group := range opened.Session.TerminalGroups {
+		if slices.Contains(group.TerminalIDs, "terminal-a") {
+			sourceGroup = group
+		}
+	}
+	require.NotEmpty(t, sourceGroup.ID)
+	candidate := []domain.TerminalGroup{{
+		ID: sourceGroup.ID, Name: sourceGroup.Name, TerminalIDs: []string{"terminal-a", "terminal-b"},
+	}}
+	status := app.GetRuntimeStatus()
+	require.NotNil(t, status.CoordinationState)
+	result := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups:               candidate,
+		ExpectedSessionRevision:      status.SavedRevision,
+		ExpectedCoordinationRevision: status.CoordinationState.Revision,
+	})
+	require.True(t, result.OK, "ReplaceTerminalGroups() = %#v", result)
+	require.Equal(t, candidate, result.Session.TerminalGroups)
+	require.NoError(t, sessions.Shutdown(context.WithoutCancel(t.Context())))
+
+	restartedSessions, restartedApp := newProductionBoundary()
+	t.Cleanup(func() { _ = restartedSessions.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restartedApp.OpenSession()
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	require.Equal(t, candidate, reopened.Session.TerminalGroups)
+	require.Equal(t, legacy.Terminals, reopened.Session.Terminals)
+	transition, ok := restartedSessions.LookupTerminalTransition("terminal-a", "open-b")
+	require.True(t, ok)
+	require.Equal(t, "terminal-b", transition.Target.TerminalID)
+}
+
+func TestTerminalGroupReplacementRepairsMultiLinkLegacyFixtureThroughProductionServices(t *testing.T) {
+	t.Parallel()
+
+	raw, err := os.ReadFile("tests/fixtures/session-05-cold-storage.json")
+	require.NoError(t, err)
+	testTerminalGroupReplacementRepairsMultiLinkLegacyDocumentThroughProductionServices(t, raw)
+}
+
+func TestTerminalGroupReplacementRepairsExactAuthoredMultiLinkLegacyDocumentThroughProductionServices(t *testing.T) {
+	t.Parallel()
+
+	exactPath := os.Getenv("FALLOUT_BUG004_SOURCE")
+	if exactPath == "" {
+		t.Skip("set FALLOUT_BUG004_SOURCE to run the exact authored-file regression")
+	}
+	raw, err := os.ReadFile(exactPath)
+	if os.IsNotExist(err) {
+		t.Skipf("exact BUG-004 source unavailable at %q", exactPath)
+	}
+	require.NoError(t, err)
+	require.Equal(t,
+		"b4ca8b89b7d7af32e05a9b598a007e36a747ef59ce3e2bd15a60d0b3f0ec9438",
+		fmt.Sprintf("%x", sha256.Sum256(raw)),
+	)
+	testTerminalGroupReplacementRepairsMultiLinkLegacyDocumentThroughProductionServices(t, raw)
+}
+
+func testTerminalGroupReplacementRepairsMultiLinkLegacyDocumentThroughProductionServices(t *testing.T, raw []byte) {
+	t.Helper()
+
+	target := "/Campaigns/session-05-cold-storage.json"
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, raw)
+	locations := sessionservice.Locations{DocumentsDefault: "/Campaigns"}
+
+	newProductionBoundary := func() (*sessionservice.Service, *App) {
+		sessions := sessionservice.NewService(
+			sessionservice.NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, locations,
+		)
+		coordination := controlservice.New(controlservice.Config{
+			TerminalCatalog:    sessions,
+			TerminalGroupStore: &sessionCommandStateStore{service: sessions},
+		})
+		return sessions, NewAppWithDependencies(t.Context(), AppDependencies{
+			Sessions: sessions, Coordination: coordination,
+		})
+	}
+	groupByMember := func(groups []domain.TerminalGroup, terminalID string) domain.TerminalGroup {
+		t.Helper()
+		var found domain.TerminalGroup
+		for _, group := range groups {
+			if slices.Contains(group.TerminalIDs, terminalID) {
+				found = group
+				break
+			}
+		}
+		require.NotEmpty(t, found.ID, "terminal %q has no group", terminalID)
+		return found
+	}
+
+	sessions, app := newProductionBoundary()
+	t.Cleanup(func() { _ = sessions.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := app.OpenSession()
+	require.True(t, opened.OK, "OpenSession() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.TerminalGroups, 3)
+	serviceGroup := groupByMember(opened.Session.TerminalGroups, "t-krel-service")
+	emergencyGroup := groupByMember(opened.Session.TerminalGroups, "t-krel-emergency")
+	status := app.GetRuntimeStatus()
+	require.NotNil(t, status.CoordinationState)
+	beforeSessionRevision := status.SavedRevision
+	beforeCoordinationRevision := status.CoordinationState.Revision
+
+	partial := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups: []domain.TerminalGroup{
+			{
+				ID: serviceGroup.ID, Name: serviceGroup.Name,
+				TerminalIDs: []string{"t-krel-service", "t-krel-admin"},
+			},
+			emergencyGroup,
+		},
+		ExpectedSessionRevision:      status.SavedRevision,
+		ExpectedCoordinationRevision: status.CoordinationState.Revision,
+	})
+	require.False(t, partial.OK)
+	assert.NotContains(t, partial.Error, `command "svc-access-admin"`)
+	assert.Contains(t, partial.Error, `command "adm-emergency"`)
+	assert.Equal(t, beforeSessionRevision, partial.SessionRevision)
+	require.NotNil(t, partial.Session)
+	assert.Equal(t, opened.Session.TerminalGroups, partial.Session.TerminalGroups)
+	require.NotNil(t, partial.CoordinationState)
+	assert.Equal(t, beforeCoordinationRevision, partial.CoordinationState.Revision)
+
+	status = app.GetRuntimeStatus()
+	require.NotNil(t, status.CoordinationState)
+	assert.Equal(t, beforeSessionRevision, status.SavedRevision)
+	assert.Equal(t, beforeCoordinationRevision, status.CoordinationState.Revision)
+	complete := []domain.TerminalGroup{{
+		ID: serviceGroup.ID, Name: serviceGroup.Name,
+		TerminalIDs: []string{"t-krel-service", "t-krel-admin", "t-krel-emergency"},
+	}}
+	replaced := app.ReplaceTerminalGroups(TerminalGroupReplacementPayload{
+		TerminalGroups:               complete,
+		ExpectedSessionRevision:      status.SavedRevision,
+		ExpectedCoordinationRevision: status.CoordinationState.Revision,
+	})
+	require.True(t, replaced.OK, "ReplaceTerminalGroups() = %#v", replaced)
+	require.NotNil(t, replaced.Session)
+	assert.Equal(t, beforeSessionRevision+1, replaced.SessionRevision)
+	require.NotNil(t, replaced.CoordinationState)
+	assert.Equal(t, beforeCoordinationRevision+1, replaced.CoordinationState.Revision)
+	assert.Equal(t, complete, replaced.Session.TerminalGroups)
+	assert.Equal(t, opened.Session.Terminals, replaced.Session.Terminals)
+	assert.Equal(t, opened.Session.PlayerConfig, replaced.Session.PlayerConfig)
+	require.NoError(t, sessions.Shutdown(context.WithoutCancel(t.Context())))
+
+	restartedSessions, restartedApp := newProductionBoundary()
+	t.Cleanup(func() { _ = restartedSessions.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restartedApp.OpenSession()
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, complete, reopened.Session.TerminalGroups)
+	assert.Equal(t, opened.Session.Terminals, reopened.Session.Terminals)
+	assert.Equal(t, opened.Session.PlayerConfig, reopened.Session.PlayerConfig)
+	_, serviceToAdmin := restartedSessions.LookupTerminalTransition("t-krel-service", "svc-access-admin")
+	assert.True(t, serviceToAdmin)
+	_, adminToEmergency := restartedSessions.LookupTerminalTransition("t-krel-admin", "adm-emergency")
+	assert.True(t, adminToEmergency)
 }
 
 func TestTerminalGroupReplacementStaleFailureReturnsLatestProjectionsWithoutPublishing(t *testing.T) {
@@ -3481,10 +3721,11 @@ func TestUnexpectedPublicEndpointFailureRetainsCleanupOwnershipBeforeRetryWithou
 	require.NoError(t, secrets.Replace(t.Context(), tunnelservice.ProviderAccountToken, []byte("synthetic-account-input")))
 	require.NoError(t, secrets.Replace(t.Context(), tunnelservice.PlayerBasicAuthPassword, []byte("synthetic-player-input")))
 	service := newFallbackMatrixTunnel(errors.New("synthetic first close failure"), nil)
+	ingresses := testutil.NewFakePublicIngressFactory()
 	var app *App
 	manager, err := tunnelservice.NewPublicAccessManager(tunnelservice.ManagerConfig{
 		Settings: settings, Secrets: secrets, Tunnel: service,
-		Ingress:     tunnelservice.NewPublicIngressFactory(),
+		Ingress:     ingresses,
 		UpstreamURL: "http://127.0.0.1:3690",
 		Publish: func(snapshot tunnelservice.PublicAccessSnapshot) {
 			if app != nil {
@@ -3498,6 +3739,8 @@ func TestUnexpectedPublicEndpointFailureRetainsCleanupOwnershipBeforeRetryWithou
 		Events: &recordingEventSink{recorder: recorder}, PublicAccess: manager,
 	})
 	require.NoError(t, app.Start(t.Context()))
+	t.Cleanup(func() { assert.Zero(t, ingresses.ActiveIngresses()) })
+	t.Cleanup(func() { require.NoError(t, app.Shutdown(context.WithoutCancel(t.Context()))) })
 	require.True(t, app.StartPublicAccess(PublicAccessCommandPayload{}).OK)
 	service.endpoints[0].Complete()
 	require.Eventually(t, func() bool {
@@ -3721,11 +3964,14 @@ func TestPublicAccessEnvironmentOverrideCompositionIsDevelopmentOnlyAndNeverAuto
 
 	developmentSettings, developmentSecrets := publicAccessStoresForProfile(settings, secrets, false, lookup)
 	service := testutil.NewFakeTunnelService(testutil.NewFakeTunnelEndpoint("https://override.example"))
+	ingresses := testutil.NewFakePublicIngressFactory()
 	manager, err := tunnelservice.NewPublicAccessManager(tunnelservice.ManagerConfig{
 		Settings: developmentSettings, Secrets: developmentSecrets, Tunnel: service,
-		Ingress: tunnelservice.NewPublicIngressFactory(), UpstreamURL: publicAccessCompositionRoute().UpstreamURL,
+		Ingress: ingresses, UpstreamURL: publicAccessCompositionRoute().UpstreamURL,
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.Zero(t, ingresses.ActiveIngresses()) })
+	t.Cleanup(func() { require.NoError(t, manager.Shutdown(context.WithoutCancel(t.Context()))) })
 	snapshot := manager.Initialize(t.Context())
 	assert.Equal(t, "override.example", snapshot.Preferences.ReservedDomain)
 	assert.Equal(t, "override-players", snapshot.Preferences.Username)
@@ -3772,7 +4018,6 @@ func TestPublicAccessEnvironmentOverrideCompositionIsDevelopmentOnlyAndNeverAuto
 	require.NoError(t, err)
 	assert.Equal(t, tunnelservice.SecretAbsent, underlyingProvider)
 	assert.Equal(t, tunnelservice.SecretPresent, underlyingPassword)
-	require.NoError(t, manager.Shutdown(t.Context()))
 
 	lookupCalls = 0
 	productionSettings, productionSecrets := publicAccessStoresForProfile(settings, secrets, true, lookup)

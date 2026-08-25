@@ -249,7 +249,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	playerURL := "http://" + listener.Addr().String()
 	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), playerURL)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, ingress.Close(t.Context())) }()
+	t.Cleanup(func() { require.NoError(t, ingress.Close(context.WithoutCancel(t.Context()))) })
 	require.NoError(t, ingress.Activate("public.example", edgeTestUsername, []byte(edgeTestPassword)))
 
 	for _, path := range []string{
@@ -293,7 +293,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	require.NotNil(t, manifest.Msg)
 
 	streamContext, cancelStream := context.WithCancelCause(t.Context())
-	defer cancelStream(errors.New("test public stream completed"))
+	t.Cleanup(func() { cancelStream(errors.New("test public stream completed")) })
 	clientInstanceID := "public-tab-1"
 	stream, err := client.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientInstanceID}))
 	require.NoError(t, err)

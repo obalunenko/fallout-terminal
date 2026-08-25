@@ -98,6 +98,23 @@ const (
 	ErrorConflict
 )
 
+type PublicAccessDiagnosticCode uint8
+
+const (
+	DiagnosticPublicIngressListenFailed PublicAccessDiagnosticCode = iota + 1
+)
+
+func (code PublicAccessDiagnosticCode) Valid() bool {
+	return code == DiagnosticPublicIngressListenFailed
+}
+
+func (code PublicAccessDiagnosticCode) String() string {
+	if code == DiagnosticPublicIngressListenFailed {
+		return "public_ingress_listen_failed"
+	}
+	return ""
+}
+
 func (category ErrorCategory) Valid() bool {
 	return category >= ErrorValidation && category <= ErrorConflict
 }

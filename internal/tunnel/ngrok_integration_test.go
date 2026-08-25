@@ -146,8 +146,8 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 	}
 	token := []byte(os.Getenv("FALLOUT_NGROK_AUTHTOKEN"))
 	password := []byte(os.Getenv("FALLOUT_PUBLIC_TEST_PASSWORD"))
-	defer clear(token)
-	defer clear(password)
+	t.Cleanup(func() { clear(token) })
+	t.Cleanup(func() { clear(password) })
 	if len(token) == 0 || len(password) < tunnel.MinimumPlayerPasswordBytes {
 		t.Skip("NOT RUN: external real-ngrok test credentials are unavailable")
 	}
@@ -181,11 +181,15 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 	protocols.SetUnencryptedHTTP2(true)
 	server := &http.Server{Handler: mux, Protocols: protocols}
 	go func() { _ = server.Serve(listener) }()
-	defer func() { _ = server.Shutdown(t.Context()) }()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), 5*time.Second)
+		defer cancel()
+		require.NoError(t, server.Shutdown(ctx))
+	})
 
 	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), "http://"+tunnel.PlayerUpstreamAddress)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, ingress.Close(t.Context())) }()
+	t.Cleanup(func() { require.NoError(t, ingress.Close(context.WithoutCancel(t.Context()))) })
 
 	service := tunnel.NewEmbeddedNgrokService()
 	endpoint, err := service.Start(t.Context(), tunnel.TunnelStartRequest{
@@ -193,10 +197,10 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 		AccountToken: token, Timeout: 30 * time.Second,
 	})
 	require.NoError(t, err)
-	defer func() {
+	t.Cleanup(func() {
 		ingress.Deny()
-		require.NoError(t, endpoint.Close(t.Context()))
-	}()
+		require.NoError(t, endpoint.Close(context.WithoutCancel(t.Context())))
+	})
 
 	publicURL := endpoint.URL()
 	require.NotNil(t, publicURL)
@@ -237,10 +241,10 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 	generated := playerv1connect.NewPlayerServiceClient(authenticatedClient, publicURL.String())
 	streamDeadline, stopStreamDeadline := context.WithTimeoutCause(t.Context(), 5*time.Second, errors.New("test ngrok stream timed out"))
 	streamContext, cancelStream := context.WithCancelCause(streamDeadline)
-	defer func() {
+	t.Cleanup(func() {
 		cancelStream(errors.New("test ngrok stream completed"))
 		stopStreamDeadline()
-	}()
+	})
 	startedAt := time.Now()
 	clientID := "real-ngrok-integration-tab"
 	stream, err := generated.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientID}))
@@ -286,7 +290,7 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 		}, "later public Subscribe frame")
 	}
 	evidenceContext, stopEvidence := context.WithTimeout(t.Context(), 5*time.Second)
-	defer stopEvidence()
+	t.Cleanup(stopEvidence)
 	receiveProtocol := func() string {
 		t.Helper()
 		select {

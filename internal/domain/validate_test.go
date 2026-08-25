@@ -1,9 +1,13 @@
 package domain
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -427,6 +431,156 @@ func TestLegacyCrossTerminalLinkRemainsCompatibleAfterSingletonNormalization(t *
 	require.NoError(t, err)
 	assert.True(t, diff.Changed)
 	assert.True(t, diff.MembershipOrOrderChanged)
+}
+
+func TestTerminalGroupReplacementRepairsLegacyTransitionByRetainingSourceSingleton(t *testing.T) {
+	t.Parallel()
+
+	normalized := NormalizeTerminalGroups(legacyTerminalGroupCompatibilitySession())
+	require.Len(t, normalized.TerminalGroups, 2)
+	sourceGroup := normalized.TerminalGroups[0]
+	targetGroup := normalized.TerminalGroups[1]
+	require.Equal(t, []string{"a"}, sourceGroup.TerminalIDs)
+	require.Equal(t, []string{"b"}, targetGroup.TerminalIDs)
+
+	candidate := []TerminalGroup{{
+		ID: sourceGroup.ID, Name: sourceGroup.Name, TerminalIDs: []string{"a", "b"},
+	}}
+	diff, err := ValidateTerminalGroupReplacement(normalized, candidate)
+
+	require.NoError(t, err)
+	assert.True(t, diff.Changed)
+	assert.True(t, diff.MembershipOrOrderChanged)
+	assert.Equal(t, []string{targetGroup.ID}, diff.RemovedGroupIDs)
+	assert.Equal(t, []string{"a", "b"}, diff.AffectedTerminalIDs)
+	assert.Equal(t, sourceGroup.ID, candidate[0].ID, "repair must retain the source singleton identity")
+	assert.Equal(t, []string{"a", "b"}, candidate[0].TerminalIDs)
+}
+
+func TestTerminalGroupReplacementClassifiesMultiLinkLegacyCandidateFromCompleteMembership(t *testing.T) {
+	t.Parallel()
+
+	const exactSHA256 = "b4ca8b89b7d7af32e05a9b598a007e36a747ef59ce3e2bd15a60d0b3f0ec9438"
+	documents := []struct {
+		name string
+		path string
+	}{
+		{name: "checked-in fixture", path: filepath.Join("..", "..", "tests", "fixtures", "session-05-cold-storage.json")},
+	}
+	exactPath := os.Getenv("FALLOUT_BUG004_SOURCE")
+	if exactPath == "" {
+		t.Log("set FALLOUT_BUG004_SOURCE to run the exact authored-file projection comparison")
+	} else if _, err := os.Stat(exactPath); err == nil {
+		documents = append(documents, struct {
+			name string
+			path string
+		}{name: "exact authored source", path: exactPath})
+	} else {
+		t.Logf("exact BUG-004 source unavailable at %q: %v", exactPath, err)
+	}
+
+	type validationProjection struct {
+		Version   int
+		Name      string
+		Terminals [][3]any
+		Edges     [][4]string
+	}
+	project := func(session Session) validationProjection {
+		t.Helper()
+		projection := validationProjection{Version: session.Version, Name: session.Name}
+		var collectEdges func(sourceID string, node ContentNode)
+		collectEdges = func(sourceID string, node ContentNode) {
+			if node.TerminalTransition != nil {
+				projection.Edges = append(projection.Edges, [4]string{
+					sourceID, node.ID, node.Name, node.TerminalTransition.TargetTerminalID,
+				})
+			}
+			for _, child := range node.Children {
+				collectEdges(sourceID, child)
+			}
+		}
+		for _, terminal := range session.Terminals {
+			projection.Terminals = append(projection.Terminals, [3]any{
+				terminal.ID, terminal.Name, terminal.HackLevel,
+			})
+			collectEdges(terminal.ID, terminal.Root)
+		}
+		return projection
+	}
+
+	var fixtureProjection validationProjection
+	for _, document := range documents {
+		t.Run(document.name, func(t *testing.T) {
+			raw, err := os.ReadFile(document.path)
+			require.NoError(t, err)
+			require.NotContains(t, string(raw), `"terminalGroups"`)
+			if document.name == "exact authored source" {
+				assert.Equal(t, exactSHA256, fmt.Sprintf("%x", sha256.Sum256(raw)))
+			}
+
+			normalized, err := DecodeSession(raw)
+			require.NoError(t, err)
+			require.Len(t, normalized.TerminalGroups, 3)
+			projection := project(normalized)
+			if document.name == "checked-in fixture" {
+				fixtureProjection = projection
+			} else {
+				assert.Equal(t, fixtureProjection, projection)
+			}
+
+			groupByMember := func(terminalID string) TerminalGroup {
+				t.Helper()
+				for _, group := range normalized.TerminalGroups {
+					if slices.Contains(group.TerminalIDs, terminalID) {
+						return group
+					}
+				}
+				require.FailNow(t, "terminal has no normalized group", terminalID)
+				return TerminalGroup{}
+			}
+			serviceGroup := groupByMember("t-krel-service")
+			adminGroup := groupByMember("t-krel-admin")
+			emergencyGroup := groupByMember("t-krel-emergency")
+
+			repairAdminToEmergency := []TerminalGroup{
+				serviceGroup,
+				{
+					ID: adminGroup.ID, Name: adminGroup.Name,
+					TerminalIDs: []string{"t-krel-admin", "t-krel-emergency"},
+				},
+			}
+			_, err = ValidateTerminalGroupReplacement(normalized, repairAdminToEmergency)
+			require.Error(t, err)
+			assert.ErrorContains(t, err, `command "svc-access-admin"`)
+			assert.NotContains(t, err.Error(), `command "adm-emergency"`)
+			assert.ErrorContains(t, err, serviceGroup.ID)
+			assert.ErrorContains(t, err, adminGroup.ID)
+
+			repairServiceToAdmin := []TerminalGroup{
+				{
+					ID: serviceGroup.ID, Name: serviceGroup.Name,
+					TerminalIDs: []string{"t-krel-service", "t-krel-admin"},
+				},
+				emergencyGroup,
+			}
+			_, err = ValidateTerminalGroupReplacement(normalized, repairServiceToAdmin)
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), `command "svc-access-admin"`)
+			assert.ErrorContains(t, err, `command "adm-emergency"`)
+			assert.ErrorContains(t, err, serviceGroup.ID)
+			assert.ErrorContains(t, err, emergencyGroup.ID)
+
+			complete := []TerminalGroup{{
+				ID: serviceGroup.ID, Name: serviceGroup.Name,
+				TerminalIDs: []string{"t-krel-service", "t-krel-admin", "t-krel-emergency"},
+			}}
+			diff, err := ValidateTerminalGroupReplacement(normalized, complete)
+			require.NoError(t, err)
+			assert.True(t, diff.Changed)
+			assert.True(t, diff.MembershipOrOrderChanged)
+			assert.Equal(t, []string{"t-krel-service", "t-krel-admin", "t-krel-emergency"}, diff.AffectedTerminalIDs)
+		})
+	}
 }
 
 func TestTerminalGroupReplacementIdentifiesEveryCrossGroupCommandDeterministically(t *testing.T) {

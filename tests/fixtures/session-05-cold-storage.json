@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "name": "session-05-cold-storage",
+  "terminals": [
+    {
+      "id": "t-krel-service",
+      "name": "K-REL / СЕРВИСНЫЙ КОНТУР",
+      "hackLevel": 0,
+      "introText": "",
+      "root": {
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder",
+        "children": [
+          {
+            "id": "svc-access-admin",
+            "name": "ВХОД АДМИНИСТРАТОРА",
+            "type": "command",
+            "terminalTransition": {
+              "targetTerminalId": "t-krel-admin"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "t-krel-admin",
+      "name": "K-REL / АДМИНИСТРАТОР",
+      "hackLevel": 0,
+      "introText": "",
+      "root": {
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder",
+        "children": [
+          {
+            "id": "adm-emergency",
+            "name": "АВАРИЙНОЕ УПРАВЛЕНИЕ",
+            "type": "command",
+            "terminalTransition": {
+              "targetTerminalId": "t-krel-emergency"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "t-krel-emergency",
+      "name": "K-REL / АВАРИЙНОЕ УПРАВЛЕНИЕ",
+      "hackLevel": 4,
+      "introText": "",
+      "root": {
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder",
+        "children": []
+      }
+    }
+  ]
+}

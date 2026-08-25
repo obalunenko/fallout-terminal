@@ -328,7 +328,7 @@ func TestConnectServerShutdownIsBoundedWithBlockedAndCanceledPhysicalStreams(t *
 
 	client := playerv1connect.NewPlayerServiceClient(http.DefaultClient, server.Info().LocalURL)
 	blockedContext, cancelBlocked := context.WithCancelCause(t.Context())
-	defer cancelBlocked(errors.New("test blocked stream closed"))
+	t.Cleanup(func() { cancelBlocked(errors.New("test blocked stream closed")) })
 	blocked, err := client.Subscribe(blockedContext, connect.NewRequest(&playerv1.SubscribeRequest{}))
 	require.NoError(t, err)
 	require.True(t, blocked.Receive(), "stream error: %v", blocked.Err())
@@ -355,10 +355,10 @@ func TestConnectServerShutdownIsBoundedWithBlockedAndCanceledPhysicalStreams(t *
 
 	shutdownDeadline, stopShutdownDeadline := context.WithTimeoutCause(t.Context(), 5*time.Second, errors.New("test player shutdown timed out"))
 	shutdownContext, cancelShutdown := context.WithCancelCause(shutdownDeadline)
-	defer func() {
+	t.Cleanup(func() {
 		cancelShutdown(errors.New("test player shutdown completed"))
 		stopShutdownDeadline()
-	}()
+	})
 	started := time.Now()
 	require.NoError(t, server.Stop(shutdownContext))
 	require.Equal(t, "player-server", server.context.Value(playerContextKey{}))

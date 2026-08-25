@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -247,6 +248,144 @@ func TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships(t *testing.T
 	assert.Equal(t, canonical.TerminalGroups, reopened.Session.TerminalGroups)
 	assert.Equal(t, canonical.Terminals, reopened.Session.Terminals)
 	assertCanonicalTerminalGroups(t, *reopened.Session)
+}
+
+func TestReplaceTerminalGroupsRepairsLegacyTransitionAndReopensExactCandidate(t *testing.T) {
+	t.Parallel()
+
+	target := "/Volumes/Campaigns/legacy-transition-repair.json"
+	legacy := linkedSessionForTest()
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, mustEncodeSession(t, legacy))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.TerminalGroups, 2)
+	sourceGroup := terminalGroupByMember(t, opened.Session.TerminalGroups, "a")
+	targetGroup := terminalGroupByMember(t, opened.Session.TerminalGroups, "b")
+	candidate := []domain.TerminalGroup{{
+		ID: sourceGroup.ID, Name: sourceGroup.Name, TerminalIDs: []string{"a", "b"},
+	}}
+
+	replaced := service.ReplaceTerminalGroups(t.Context(), candidate, 0)
+	require.True(t, replaced.OK, "ReplaceTerminalGroups() = %#v", replaced)
+	require.True(t, replaced.Changed)
+	require.NotNil(t, replaced.Session)
+	assert.Equal(t, candidate, replaced.Session.TerminalGroups)
+	assert.NotEqual(t, targetGroup.ID, replaced.Session.TerminalGroups[0].ID)
+	require.Equal(t, "go", replaced.Session.Terminals[0].Root.Children[0].ID)
+	require.Equal(t, "b", replaced.Session.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID)
+	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
+
+	restarted := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = restarted.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restarted.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, candidate, reopened.Session.TerminalGroups)
+	assert.Equal(t, legacy.Terminals, reopened.Session.Terminals, "repair must preserve terminal content and command identity")
+	transition, ok := restarted.LookupTerminalTransition("a", "go")
+	require.True(t, ok, "repaired same-group transition must become eligible after reopen")
+	assert.Equal(t, "b", transition.Target.TerminalID)
+}
+
+func TestReplaceTerminalGroupsClassifiesAndRepairsMultiLinkLegacyFixture(t *testing.T) {
+	t.Parallel()
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "tests", "fixtures", "session-05-cold-storage.json"))
+	require.NoError(t, err)
+	testReplaceTerminalGroupsClassifiesAndRepairsMultiLinkLegacyDocument(t, raw)
+}
+
+func TestReplaceTerminalGroupsClassifiesAndRepairsExactAuthoredMultiLinkLegacyDocument(t *testing.T) {
+	t.Parallel()
+
+	exactPath := os.Getenv("FALLOUT_BUG004_SOURCE")
+	if exactPath == "" {
+		t.Skip("set FALLOUT_BUG004_SOURCE to run the exact authored-file regression")
+	}
+	raw, err := os.ReadFile(exactPath)
+	if os.IsNotExist(err) {
+		t.Skipf("exact BUG-004 source unavailable at %q", exactPath)
+	}
+	require.NoError(t, err)
+	require.Equal(t,
+		"b4ca8b89b7d7af32e05a9b598a007e36a747ef59ce3e2bd15a60d0b3f0ec9438",
+		fmt.Sprintf("%x", sha256.Sum256(raw)),
+	)
+	testReplaceTerminalGroupsClassifiesAndRepairsMultiLinkLegacyDocument(t, raw)
+}
+
+func testReplaceTerminalGroupsClassifiesAndRepairsMultiLinkLegacyDocument(t *testing.T, raw []byte) {
+	t.Helper()
+
+	target := "/Volumes/Campaigns/session-05-cold-storage.json"
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, raw)
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.TerminalGroups, 3)
+	beforeRevision := service.Snapshot().SavedRevision
+	serviceGroup := terminalGroupByMember(t, opened.Session.TerminalGroups, "t-krel-service")
+	emergencyGroup := terminalGroupByMember(t, opened.Session.TerminalGroups, "t-krel-emergency")
+	repairServiceToAdmin := []domain.TerminalGroup{
+		{
+			ID: serviceGroup.ID, Name: serviceGroup.Name,
+			TerminalIDs: []string{"t-krel-service", "t-krel-admin"},
+		},
+		emergencyGroup,
+	}
+
+	partial := service.ReplaceTerminalGroups(t.Context(), repairServiceToAdmin, 0)
+	require.False(t, partial.OK)
+	assert.Equal(t, beforeRevision, partial.Revision)
+	assert.NotContains(t, partial.Error, `command "svc-access-admin"`)
+	assert.Contains(t, partial.Error, `command "adm-emergency"`)
+	require.NotNil(t, partial.Session)
+	assert.Equal(t, opened.Session.TerminalGroups, partial.Session.TerminalGroups)
+	assert.Equal(t, beforeRevision, service.Snapshot().SavedRevision)
+
+	complete := []domain.TerminalGroup{{
+		ID: serviceGroup.ID, Name: serviceGroup.Name,
+		TerminalIDs: []string{"t-krel-service", "t-krel-admin", "t-krel-emergency"},
+	}}
+	replaced := service.ReplaceTerminalGroups(t.Context(), complete, 0)
+	require.True(t, replaced.OK, "ReplaceTerminalGroups() = %#v", replaced)
+	require.NotNil(t, replaced.Session)
+	assert.Equal(t, beforeRevision+1, replaced.Revision)
+	assert.Equal(t, complete, replaced.Session.TerminalGroups)
+	assert.Equal(t, opened.Session.Terminals, replaced.Session.Terminals)
+	assert.Equal(t, opened.Session.PlayerConfig, replaced.Session.PlayerConfig)
+	durableRaw, err := fileSystem.ReadFile(target)
+	require.NoError(t, err)
+	durable, err := domain.DecodeSession(durableRaw)
+	require.NoError(t, err)
+	assert.Equal(t, complete, durable.TerminalGroups)
+	assert.Equal(t, opened.Session.Terminals, durable.Terminals)
+	assert.Equal(t, opened.Session.PlayerConfig, durable.PlayerConfig)
+	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
+
+	restarted := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = restarted.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restarted.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, complete, reopened.Session.TerminalGroups)
+	assert.Equal(t, opened.Session.Terminals, reopened.Session.Terminals)
+	assert.Equal(t, opened.Session.PlayerConfig, reopened.Session.PlayerConfig)
+
+	serviceToAdmin, ok := restarted.LookupTerminalTransition("t-krel-service", "svc-access-admin")
+	require.True(t, ok)
+	assert.Equal(t, "t-krel-admin", serviceToAdmin.Target.TerminalID)
+	adminToEmergency, ok := restarted.LookupTerminalTransition("t-krel-admin", "adm-emergency")
+	require.True(t, ok)
+	assert.Equal(t, "t-krel-emergency", adminToEmergency.Target.TerminalID)
 }
 
 func TestGenericSaveNormalizesTerminalLifecycleAndPreservesCanonicalMembership(t *testing.T) {

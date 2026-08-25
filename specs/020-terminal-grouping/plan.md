@@ -6,6 +6,14 @@ Add durable, ordered terminal groups as the only high-level representation of te
 
 **Bugfix**: 2026-08-25 — BUG-001 Updated from bugfix patch using `bugs/assets/BUG-001-terminal-list-ux-mockup.png` as the visual implementation reference.
 
+**Bugfix**: 2026-08-25 — BUG-002 Updated from bugfix patch and reconciled with the traced production and integration boundaries.
+
+**Bugfix**: 2026-08-25 — BUG-003 Updated from bugfix patch with production-fidelity multi-link legacy candidate coverage.
+
+**Bugfix**: 2026-08-25 — BUG-004 Updated from bugfix patch with exact-authored-file, candidate-boundary, canonical-state, and executable-identity diagnostics.
+
+**Bugfix**: 2026-08-26 — BUG-005 Updated from bugfix patch with exact user-action capture, actionable partial-candidate repair, and grouping-aware rebuilt-desktop verification.
+
 ## Project Structure
 
 ```text
@@ -77,6 +85,22 @@ No constitution violation or complexity exception is required.
 
 The design decisions and rejected alternatives are recorded in [research.md](./research.md). The load-bearing conclusions are to normalize legacy terminals into singleton groups, interpret group deletion as content-preserving dissolution, use one two-revision compare-and-replace after a structured confirmation, preserve the existing public navigation protocol, and seed only the fresh broadcast's initial backward prefix.
 
+### BUG-002 Edge-Case Tracking
+
+A legacy transition whose endpoints normalize into separate singleton groups is an existing dormant link, not a conflict introduced by a later repair candidate. Moving the target into the source terminal's existing singleton group must carry one complete resultant group set unchanged through the Overseer draft, desktop facade, private protobuf route, coordinator, and session compare-and-replace. Authored-link validation must build membership from that resultant set. Diagnostic coverage must trace every production boundary; if the production path already preserves the candidate, it must record that result and correct the first stale integration projection found so later eligibility uses the accepted canonical session.
+
+### BUG-003 Production-Fidelity Tracking
+
+The BUG-002 matrix must also preserve a production-shaped three-terminal, two-transition legacy graph equivalent to `t-krel-service` -> `t-krel-admin` -> `t-krel-emergency`. At every boundary, diagnostics must derive one membership index from the complete candidate and classify each authored edge independently. A partial candidate may be rejected only for an edge that remains split; it must not report an edge joined by that candidate. A complete candidate joining all three terminals must persist and reopen with both commands eligible. Use a sanitized checked-in copy or content-preserving equivalent of the reported JSON and include the built desktop path so synthetic fixture behavior cannot substitute for application acceptance.
+
+### BUG-004 Exact-Authored-File Tracking
+
+Reproduce from an unchanged disposable copy of the exact reported authored JSON before relying on the minimized fixture. Record the source content hash, executable/build identity, and precise UI gesture sequence; capture the complete membership shown in review and compare its semantic serialization at the desktop facade, private protobuf adapter, application, coordinator, session validator, and persistence boundary. Record the canonical session and revision immediately before and after rejection to distinguish an entirely unapplied candidate from partial application or stale state. Permanent minimized regressions remain appropriate only after their equivalence to the observed authored-file path is demonstrated. Correct the first divergent boundary, or make an intentionally partial action and its independently split edge explicit in the review and feedback, then rebuild and repeat complete-candidate save/reopen acceptance against the exact authored-file copy.
+
+### BUG-005 Grouping-Aware Action Tracking
+
+Reproduce the exact grouping-aware menu/editor gesture that produced the supplied screenshot instead of beginning from a test-authored candidate. Capture the selected action, editor membership, complete confirmation impact, executable identity, serialized candidate, and canonical pre/post revisions. If the reviewed candidate contains all three authored endpoints, correct the first boundary that drops one; if it is intentionally partial, preserve strict rejection but keep the draft available, show the complete resultant membership and independently split command endpoints, and provide a direct way to amend it into one valid all-endpoint proposal without committing an invalid intermediate state. Acceptance must follow that same user-visible route through save, reopen, and both authored transitions in an owned rebuilt bundle.
+
 ## Phase 1: Design and Contracts
 
 The complete entities, validation rules, and state transitions are defined in [data-model.md](./data-model.md). Contract impact is split into:
@@ -95,6 +119,10 @@ The complete entities, validation rules, and state transitions are defined in [d
 6. Replace the flat terminal list with high-level group presentation and add create/rename/dissolve/move/reorder controls. Build structured destructive impact, cancel with zero calls, disable duplicate submission, and refresh from canonical results; keep rename-only edits confirmation-free.
 7. Restrict transition destination options to the edited terminal's group, update the demo and documentation, then complete unit, contract, browser, race, generation, build, and packaged acceptance gates.
 8. Refine the terminal organization panel to match the BUG-001 mockup: use a wider responsive sidebar, independently collapsible group cards, readable wrapping names and member counts, and one target-specific contextual menu per group or terminal. Reuse the existing mutation handlers and confirmation dialogs, preserve selection and disclosure state across unrelated renders, and keep destructive menu entries visually separated.
+9. Add the BUG-002 legacy repair matrix: normalize a no-group A to B session, move B into A's existing singleton group, assert the reviewed candidate at each private boundary, persist and reopen it without command or content loss, and prove A to B becomes same-group eligible while genuinely cross-group candidates remain rejected. Trace rather than assume a production defect; when production preserves the candidate, refresh the first stale integration projection from the accepted canonical session.
+10. Extend the repair matrix for BUG-003 with a sanitized production-fidelity S to A to E legacy graph, assert independent per-edge classification for partial and complete candidates, trace the exact candidate through the built desktop boundary without assuming production correctness, and retain save/reopen eligibility for both commands as a permanent regression gate.
+11. Reopen the legacy-repair implementation and verification joins for BUG-004; reproduce the unchanged exact authored file with a recorded build identity, correlate the reviewed membership with every serialized production boundary and canonical pre/post state, add regressions for the observed partial and explicit complete candidates, correct the first divergence or misleading action semantics, and rerun built-desktop save/reopen acceptance.
+12. Reopen the exact BUG-005 screenshot-producing user action; bind its editor and confirmation state to every serialized boundary, retain strict partial rejection with actionable amendment into the complete candidate, and rerun the same user-visible repair through rebuilt-desktop save/reopen and both-transition eligibility.
 
 ## Verification Strategy
 
@@ -106,4 +134,8 @@ The complete entities, validation rules, and state transitions are defined in [d
 | Coordinator | Both revision mismatches, pending/route mutation guards, fresh starts at first/middle/last members, seeded reverse prefix, C→B→A→B→C→D, exact-one approval, stale group/link/order rejection, manual activation cleanup, and reconnect behavior. |
 | Private boundary and Overseer UI | Generated two-revision request/result routing; create/rename/dissolve/reorder/move; impact contents; cancel/close zero call; double-submit guard; stale canonical refresh; normalized duplicate-name feedback; no player access; independently collapsible group cards; readable names/member counts; and target-specific contextual menus with separated destructive actions. |
 | Browser acceptance | Overseer plus controller and two observers; destructive accept/cancel/stale/retry journeys; dissolution into singletons; singleton-delete rejection; reconnect during pending; middle start; cross-group attempts; legacy normalization; direct activation regression; and BUG-001 layout, disclosure, focus, and menu reachability at 1280×720 and 1600×900. |
+| Legacy transition repair | Domain acceptance of the resultant membership set; exact candidate preservation through session/application/private boundaries; move-target browser confirmation; empty-source removal; save/reopen command preservation; same-group eligibility; and regression rejection for candidates that truly leave authored endpoints split. |
+| Multi-link legacy repair | Sanitized production-fidelity three-terminal/two-transition fixture; per-edge candidate-membership diagnostics; partial-candidate rejection naming only independently split edges; complete-candidate acceptance; built desktop confirmation; save/reopen preservation; and eligibility for both authored commands. |
+| Exact authored-file diagnostic | Unchanged disposable copy at the reported SHA-256; recorded executable/build identity and UI gesture sequence; exact reviewed membership correlated through every production boundary; canonical session and revision captured before and after rejection; observed partial-candidate feedback; explicit complete-candidate acceptance; rebuilt-desktop save/reopen; and eligibility for both authored commands. |
+| Grouping-aware action repair | Exact BUG-005 screenshot-producing gesture; editor selection and complete confirmation membership; actionable partial-candidate feedback with zero intermediate mutation; direct amendment into one all-endpoint candidate; semantic equality through every production boundary; rebuilt-desktop save/reopen; and eligibility for both authored commands. |
 | Repository gates | `gofmt -l .`, `go vet ./...`, `go test ./...`, `go test -race ./...`, frontend clean builds, browser tests, proto format/lint/generation/breaking checks, Wails binding drift check, owned build, and package smoke when the local macOS environment is available. |
