@@ -737,9 +737,161 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-25T13:24:12.241Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-003",
+      "kind": "start",
+      "by": "ai",
+      "at": "2026-08-25T15:20:15.653Z",
+      "bugfix": "BUG-003",
+      "tasks": [
+        "T037",
+        "T075",
+        "T076",
+        "T077",
+        "T078",
+        "T079",
+        "T080",
+        "T081"
+      ],
+      "fromStatus": "completed"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T080",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T15:22:21.564Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T081",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T15:38:51.198Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T15:44:20.044Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-004",
+      "kind": "start",
+      "by": "ai",
+      "at": "2026-08-25T16:51:07.936Z",
+      "bugfix": "BUG-004",
+      "tasks": [
+        "T037",
+        "T075",
+        "T076",
+        "T077",
+        "T078",
+        "T079",
+        "T080",
+        "T081",
+        "T082",
+        "T083",
+        "T084",
+        "T085"
+      ],
+      "fromStatus": "completed"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T082",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T16:51:07.983Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T084",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T18:20:12.644Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T083",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T18:30:12.958Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T085",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T18:48:19.406Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T19:28:37.022Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-005",
+      "kind": "start",
+      "by": "ai",
+      "at": "2026-08-25T20:57:09.550Z",
+      "bugfix": "BUG-005",
+      "tasks": [
+        "T077",
+        "T084",
+        "T085",
+        "T086",
+        "T087",
+        "T088"
+      ],
+      "fromStatus": "completed"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T086",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T21:07:57.384Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T087",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T21:09:18.542Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T088",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T21:49:19.140Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T21:50:17.755Z"
     }
   ],
-  "last_action": "BUG-002 artifacts reconciled; 79/79 tasks journaled and completed through guarded bugfix reopen",
+  "last_action": "BUG-005 implemented, rebuilt, and verified through exact-source live acceptance",
   "coverage": {
     "FR-001": {
       "title": "The Overseer MUST be able to create, rename, and dissolve terminal groups and to move terminals between groups within the current session.",
@@ -1127,13 +1279,14 @@
     "FR-040": {
       "title": "A destructive group-change confirmation MUST identify the proposed action, every affected group and terminal, and the resulting membership or traversal-order impact.",
       "tasks": [
-        "T025",
-        "T034",
-        "T035",
-        "T037"
+        "T037",
+        "T077",
+        "T083",
+        "T085"
       ],
       "tests": [
-        "tests/browser/terminal-grouping.spec.mjs:315"
+        "tests/browser/terminal-grouping.spec.mjs::classifies and repairs the exact authored cold-storage document",
+        "tests/browser/desktop-api.spec.mjs::multi-link legacy partial and complete candidates remain exact at the desktop facade"
       ]
     },
     "FR-041": {
@@ -1147,23 +1300,28 @@
     "FR-042": {
       "title": "Confirming a destructive group change MUST revalidate the current groups, authored links, pending decisions, active terminal, and active route before applying the proposal.",
       "tasks": [
-        "T020",
-        "T021",
-        "T027",
-        "T028",
-        "T030",
-        "T037"
+        "T037",
+        "T076",
+        "T077",
+        "T083",
+        "T085"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs::classifies and repairs the exact authored cold-storage document",
+        "app_contract_test.go::terminal group candidate contract"
       ]
     },
     "FR-043": {
       "title": "A confirmed destructive group change MUST either apply exactly once as one complete change or be rejected without partial effects.",
       "tasks": [
-        "T019",
-        "T020",
-        "T021",
-        "T027",
-        "T028",
-        "T030"
+        "T076",
+        "T078",
+        "T083",
+        "T084"
+      ],
+      "tests": [
+        "internal/session/service_test.go::exact authored cold storage group replacement",
+        "app_test.go::exact authored cold storage group replacement"
       ]
     },
     "FR-044": {
@@ -1220,16 +1378,12 @@
       "title": "Legacy repair candidate is evaluated against complete resultant membership.",
       "tasks": [
         "T075",
-        "T076",
         "T077",
-        "T078",
-        "T079"
+        "T084"
       ],
       "tests": [
-        "internal/domain/validate_test.go::TestTerminalGroupReplacementRepairsLegacyTransitionByRetainingSourceSingleton",
-        "internal/session/service_test.go::TestReplaceTerminalGroupsRepairsLegacyTransitionAndReopensExactCandidate",
-        "app_test.go::TestTerminalGroupReplacementRepairsLegacyDocumentThroughProductionServices",
-        "tests/browser/terminal-grouping.spec.mjs::repairs a dormant legacy transition by moving its target into the source singleton"
+        "internal/domain/validate_test.go::exact authored cold storage candidate matrix",
+        "tests/browser/terminal-grouping.spec.mjs::classifies and repairs the exact authored cold-storage document"
       ]
     },
     "SC-017": {
@@ -1244,6 +1398,55 @@
         "internal/session/service_test.go::TestReplaceTerminalGroupsRepairsLegacyTransitionAndReopensExactCandidate",
         "app_test.go::TestTerminalGroupReplacementRepairsLegacyDocumentThroughProductionServices",
         "tests/browser/terminal-grouping.spec.mjs::repairs a dormant legacy transition by moving its target into the source singleton"
+      ]
+    },
+    "FR-053": {
+      "title": "Production-fidelity multi-link legacy grouping coverage",
+      "tasks": [
+        "T075",
+        "T076",
+        "T077",
+        "T080",
+        "T084"
+      ],
+      "tests": [
+        "internal/domain/validate_test.go::exact and fixture candidate equivalence",
+        "internal/session/service_test.go::exact authored cold storage group replacement",
+        "tests/browser/terminal-grouping.spec.mjs::classifies and repairs the exact authored cold-storage document"
+      ]
+    },
+    "FR-054": {
+      "title": "Retain an actionable independently split-edge rejection and direct editable all-endpoint amendment.",
+      "tasks": [
+        "T084",
+        "T085",
+        "T086",
+        "T087",
+        "T077",
+        "T088"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs",
+        "internal/domain/validate_test.go",
+        "internal/session/service_test.go",
+        "app_test.go"
+      ]
+    },
+    "SC-019": {
+      "title": "Exact grouping-aware partial-to-amended authored-file repair persists and both transitions remain eligible.",
+      "tasks": [
+        "T084",
+        "T085",
+        "T086",
+        "T087",
+        "T077",
+        "T088"
+      ],
+      "tests": [
+        "tests/browser/terminal-grouping.spec.mjs",
+        "internal/domain/validate_test.go",
+        "internal/session/service_test.go",
+        "app_test.go"
       ]
     }
   },
@@ -1401,6 +1604,25 @@
       "decision": "Use an auditable implement/bugfix-BUG-002 substep to reopen a completed feature only when a patched bug report owns pending tasks.",
       "why": "This preserves prior history while allowing the normal task append/materialize and mark-complete paths to reconcile late bugfix work.",
       "rejected": "Manual lifecycle JSON or checkbox edits."
+    },
+    {
+      "decision": "Treat the reported adm-emergency rejection as an independently unresolved adjacent edge and require one complete three-terminal candidate for this authored chain.",
+      "why": "The reported singleton ID for t-krel-admin is the service singleton, proving candidate membership was already in use."
+    },
+    {
+      "decision": "Treat the stale installed Desktop bundle as the first reproduced divergence and require the owned rebuilt bundle for BUG-004 acceptance.",
+      "why": "The installed executable predates terminal grouping and cannot construct or submit the reviewed candidate; the rebuilt bundle preserves the exact authored candidate end to end.",
+      "rejected": "Inferring candidate corruption from an error emitted without captured build identity."
+    },
+    {
+      "decision": "Show the complete resultant terminal membership in every grouping impact review.",
+      "why": "A partial move must visibly leave the independently split endpoint while a complete repair must show all three endpoints before submission.",
+      "rejected": "Showing only operation-local affected terminals, which can be mistaken for the final group topology."
+    },
+    {
+      "decision": "Keep strict authored-transition rejection and recover through an explicit editable all-endpoint amendment.",
+      "why": "The captured candidate is intentionally partial and remains exact through every boundary; automatically committing inferred groups would violate atomic review semantics.",
+      "rejected": "Weakening validation or silently auto-grouping linked terminals."
     }
   ],
   "step_summaries": {
@@ -1412,12 +1634,23 @@
       "summary": "59 tasks across foundational contracts, five independently testable user-story phases, and one single-owner verification phase; every FR-001 through FR-047 maps to implementation and test work."
     },
     "implement": {
-      "summary": "BUG-002 legacy transition repair is covered end to end; current production boundaries already preserve the complete reviewed candidate, and the browser fixture now refreshes its navigation catalog after accepted group replacement.",
-      "key_finding": "A normalized legacy A-to-B transition becomes eligible after B moves into the retained singleton for A and the session is reopened, while genuinely cross-group candidates remain rejected.",
-      "risks": "No unresolved workflow-state risk: 79/79 tasks are checked and uniquely journaled, and the BUG-002 guarded reopen has matching start and complete events."
+      "summary": "Implemented and verified BUG-005 actionable recovery for intentionally partial authored-transition group moves.",
+      "key_finding": "The reviewed candidate was never losing membership; the missing behavior was a retained, named, directly amendable rejection path.",
+      "risks": "The formatter depends on the stable validator diagnostic shape, which is covered end to end."
     }
   },
-  "concerns": null,
+  "concerns": [
+    {
+      "note": "Companion materialization globally de-duplicates historical task IDs, so reopened T037 and T075-T079 were initially auto-checked before their BUG-003 reruns; fresh per-task summaries and verification evidence were subsequently recorded.",
+      "step": "implement",
+      "kind": "tooling"
+    },
+    {
+      "note": "BUG-004 task materialization re-applied historical completions for reopened task IDs; fresh finish events and verification evidence were recorded after the actual reruns.",
+      "step": "implement",
+      "kind": "workflow"
+    }
+  ],
   "verified": [
     {
       "what": "Plan artifacts match the revised 47 requirements",
@@ -1560,9 +1793,81 @@
       "result": "pass",
       "command": "python3 .specify/extensions/companion/scripts/test_write_context.py (3 tests)",
       "warnings": []
+    },
+    {
+      "what": "BUG-003 focused Go regression matrix",
+      "result": "passed",
+      "command": "go test ./internal/domain ...; go test ./internal/session ...; go test . ..."
+    },
+    {
+      "what": "BUG-003 focused browser regression matrix",
+      "result": "2 passed",
+      "command": "npm test -- --grep multi-link ..."
+    },
+    {
+      "what": "Repository-wide quality gate",
+      "result": "passed",
+      "command": "make check",
+      "warnings": "Initial run found semantic-assertion convention issue; corrected and rerun passed."
+    },
+    {
+      "what": "Built macOS desktop acceptance",
+      "result": "passed",
+      "command": "make build plus native open/group/save/relaunch inspection",
+      "warnings": "Used a disposable fixture copy under /private/tmp."
+    },
+    {
+      "what": "BUG-004 exact-source Go boundary matrix",
+      "command": "env GOCACHE=/private/tmp/fallout-terminal-go-build-cache FALLOUT_BUG004_SOURCE=<authored-session> go test ./internal/domain ./internal/session ./internal/control .",
+      "result": "passed",
+      "warnings": [
+        "macOS linker emitted known deployment-target mismatch warnings"
+      ]
+    },
+    {
+      "what": "BUG-004 exact authored browser acceptance",
+      "command": "env FALLOUT_BUG004_SOURCE=<authored-session> npm test --prefix tests/browser -- desktop-api.spec.mjs terminal-grouping.spec.mjs",
+      "result": "28 passed",
+      "warnings": [
+        "NO_COLOR was ignored because FORCE_COLOR was set"
+      ]
+    },
+    {
+      "what": "BUG-004 rebuilt production desktop runtime",
+      "command": "make package; launch build/bin/Fallout Terminal.app and exercise exact authored copy",
+      "result": "owned bundle codesign-valid; complete K-REL candidate persisted; live service-to-admin and admin-to-emergency transitions both approved and completed",
+      "warnings": [
+        "the older installed Desktop bundle is stale and was excluded from acceptance"
+      ]
+    },
+    {
+      "what": "BUG-004 frontend and formatting checks",
+      "command": "npm run build:overseer --prefix frontend; make fmt-check; git diff --check",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "BUG-005 focused exact-source browser acceptance",
+      "result": "passed",
+      "command": "FALLOUT_BUG004_SOURCE=<exact source> npm test --prefix tests/browser -- terminal-grouping.spec.mjs --grep classifies"
+    },
+    {
+      "what": "Complete Go suite",
+      "result": "passed",
+      "command": "make test"
+    },
+    {
+      "what": "Complete Playwright suite",
+      "result": "159 passed, 2 optional ngrok tests skipped",
+      "command": "npm test --prefix tests/browser"
+    },
+    {
+      "what": "Rebuilt desktop acceptance",
+      "result": "signed bundle passed partial rejection, preselected amendment, persistence/reopen, svc-access-admin, and adm-emergency",
+      "command": "make package plus live disposable exact-source journey"
     }
   ],
-  "currentTask": "T079",
+  "currentTask": "T088",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1822,7 +2127,7 @@
     },
     "T037": {
       "status": "DONE",
-      "did": "Verified the Overseer preserves the reviewed legacy move candidate through confirmation and replacement.",
+      "did": "Verified the group review exposes the complete resultant membership and the browser contract submits the same candidate across create, move, reorder, cancel, stale-retry, and duplicate-submit paths.",
       "files": [
         "frontend/overseer/src/overseer.js",
         "tests/browser/terminal-grouping.spec.mjs"
@@ -2124,51 +2429,129 @@
     },
     "T075": {
       "status": "DONE",
-      "did": "Added domain coverage for retaining A's singleton while moving legacy target B into it.",
+      "did": "Ran the A-to-B and multi-link candidate matrix against both the exact SHA-locked authored document and the checked-in equivalent projection, proving independent partial-edge classification and full repair acceptance",
       "files": [
         "internal/domain/validate_test.go"
       ]
     },
     "T076": {
       "status": "DONE",
-      "did": "Added session, private-route, and production-service save/reopen coverage for the exact repair candidate.",
+      "did": "Exercised exact SHA-locked and checked-in legacy documents through session and application production boundaries, proving partial rollback, atomic full replacement, persistence/reopen, and terminal/player-config preservation",
       "files": [
         "internal/session/service_test.go",
-        "app_contract_test.go",
         "app_test.go"
       ]
     },
     "T077": {
       "status": "DONE",
-      "did": "Added the complete browser repair journey and synchronized the fixture navigation catalog after replacement.",
+      "did": "Extended and passed both the production-shaped and exact-authored-file browser journeys: exact move review, actionable partial rejection with zero mutation, direct all-three amendment, atomic persistence/reopen, and successful svc-access-admin then adm-emergency navigation.",
       "files": [
-        "tests/browser/fixture-server/main.go",
         "tests/browser/terminal-grouping.spec.mjs"
       ]
     },
     "T078": {
       "status": "DONE",
-      "did": "Traced all production boundaries, confirmed they preserve the candidate, and corrected the first stale integration projection.",
+      "did": "Traced exact partial and complete authored candidates through the desktop facade, application, coordinator, validator, and persistence boundaries; the first divergence was the stale installed bundle, while the rebuilt path preserves membership.",
       "files": [
-        "frontend/overseer/src/desktop-api.js",
-        "app_contract.go",
-        "app.go",
-        "internal/control/service.go",
-        "internal/session/service.go",
+        "app_contract_test.go",
+        "app_test.go",
+        "internal/session/service_test.go",
         "tests/browser/fixture-server/main.go",
-        "specs/020-terminal-grouping/bugs/BUG-002.md"
+        "specs/020-terminal-grouping/bugs/BUG-004.md"
       ]
     },
     "T079": {
       "status": "DONE",
-      "did": "Ran focused and full verification and recorded BUG-002 implementation evidence.",
+      "did": "Ran the final exact-source and fixture domain, session, control, application, desktop-facade, terminal-grouping, format, and frontend build verification; all focused checks passed.",
       "files": [
-        "internal/domain",
-        "internal/session",
+        "internal/domain/validate_test.go",
+        "internal/session/service_test.go",
+        "app_test.go",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "specs/020-terminal-grouping/bugs/BUG-004.md"
+      ]
+    },
+    "T080": {
+      "status": "DONE",
+      "did": "Documented every intentional exact-source/fixture difference and aligned their validation projection, including authored command names, terminal order, identities, hack levels, and both transition edges",
+      "files": [
+        "tests/fixtures/README.md",
+        "tests/fixtures/session-05-cold-storage.json",
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/terminal-grouping.spec.mjs"
+      ]
+    },
+    "T081": {
+      "status": "DONE",
+      "did": "Rebuilt and identified the owned desktop bundle, grouped the exact authored session, persisted and reopened it, and exercised both live authored transitions through the real desktop/player runtime.",
+      "files": [
+        "build/",
+        "tests/browser/",
+        "specs/020-terminal-grouping/bugs/BUG-004.md"
+      ]
+    },
+    "T082": {
+      "status": "DONE",
+      "did": "Verified the exact authored-file SHA, captured stale installed-build identity and precise open-session gestures, and recorded the unchanged canonical pre/post state at the executable boundary",
+      "files": [
+        "specs/020-terminal-grouping/bugs/BUG-004.md"
+      ]
+    },
+    "T084": {
+      "status": "DONE",
+      "did": "Extended the exact-authored-file regression from the screenshot-producing move; it now asserts partial membership, deterministic actionable split-edge feedback, zero persisted/revision mutation, and a preselected all-three amendment. Confirmed the new expectation fails before implementation.",
+      "files": [
+        "tests/browser/terminal-grouping.spec.mjs"
+      ]
+    },
+    "T083": {
+      "status": "DONE",
+      "did": "Asserted reviewed full membership equals the serialized facade request and retained exact partial/full candidates plus canonical pre/post revisions through protobuf, application, coordinator, session validation, and durable persistence",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "tests/browser/desktop-api.spec.mjs",
         "app_contract_test.go",
         "app_test.go",
-        "tests/browser",
-        "specs/020-terminal-grouping/bugs/BUG-002.md"
+        "internal/control/service_test.go",
+        "internal/session/service_test.go"
+      ]
+    },
+    "T085": {
+      "status": "DONE",
+      "did": "Retained authored-transition impact reviews after rejection, added named actionable split-edge feedback, and added a direct editable amendment that preselects all implicated terminal groups while preserving strict atomic validation and the reusable destination group identity.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T086": {
+      "status": "DONE",
+      "did": "Reproduced the exact BUG-005 admin-to-service move in the owned grouping-aware bundle; captured bundle/source identity, reviewed and serialized partial membership, unchanged revisions, rejection, and zero canonical mutation.",
+      "files": [
+        "specs/020-terminal-grouping/bugs/BUG-005.md"
+      ]
+    },
+    "T087": {
+      "status": "DONE",
+      "did": "Correlated the impact membership with the exact desktop-facade request and canonical response; asserted session/coordination revisions remain unchanged on rejection and advance once for the accepted complete candidate, ruling out membership loss in transit.",
+      "files": [
+        "tests/browser/terminal-grouping.spec.mjs",
+        "specs/020-terminal-grouping/bugs/BUG-005.md"
+      ]
+    },
+    "T088": {
+      "status": "DONE",
+      "did": "Re-verified the domain/session/application/facade/browser joins, rebuilt and verified the signed owned bundle, completed the exact live partial-to-preselected-amendment flow on an unchanged disposable authored copy, reopened the persisted group, and exercised svc-access-admin then adm-emergency to the level-4 screen.",
+      "files": [
+        "build/bin/Fallout Terminal.app",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "specs/020-terminal-grouping/bugs/BUG-005.md"
       ]
     }
   }

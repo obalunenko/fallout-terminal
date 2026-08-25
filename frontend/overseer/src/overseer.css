@@ -1253,6 +1253,16 @@ button {
   color: #ffe08a;
   line-height: 1.4;
 }
+.terminal-group-impact-rejection {
+  padding: 10px 11px;
+  border: 1px solid #c65a3a;
+  border-left-width: 3px;
+  background: #24130e;
+  color: #ffb092;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.terminal-group-impact-rejection[hidden] { display: none; }
 .terminal-group-change-actions,
 .terminal-group-draft-actions,
 .terminal-group-impact-actions {
@@ -1274,6 +1284,10 @@ button {
   border-color: #c65a3a;
   background: #24130e;
   color: #ff9a7a;
+}
+#terminalGroupImpactDialog [data-action="amend-terminal-group-change"] {
+  border-color: #6fae55;
+  color: #d8ffb8;
 }
 #terminalGroupDraftDialog :is(input, select, button):focus-visible,
 #terminalGroupImpactDialog :is(button, [tabindex]):focus-visible {

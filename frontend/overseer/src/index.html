@@ -261,7 +261,7 @@
   </form>
 </dialog>
 
-<dialog class="terminal-group-dialog terminal-group-impact-dialog" id="terminalGroupImpactDialog" aria-modal="true" aria-labelledby="terminalGroupImpactDialogTitle" aria-describedby="terminalGroupImpactDialogDescription terminalGroupImpactSummary terminalGroupError" hidden>
+<dialog class="terminal-group-dialog terminal-group-impact-dialog" id="terminalGroupImpactDialog" aria-modal="true" aria-labelledby="terminalGroupImpactDialogTitle" aria-describedby="terminalGroupImpactDialogDescription terminalGroupImpactSummary terminalGroupImpactError" hidden>
   <div class="terminal-group-dialog-panel">
     <header class="terminal-group-dialog-header">
       <div>
@@ -293,7 +293,7 @@
         <dd data-impact="destination-group"></dd>
       </div>
       <div class="terminal-group-impact-row">
-        <dt>ИТОГОВЫЙ СОСТАВ</dt>
+        <dt>ПОЛНЫЙ ИТОГОВЫЙ СОСТАВ</dt>
         <dd data-impact="membership"></dd>
       </div>
       <div class="terminal-group-impact-row">
@@ -306,8 +306,11 @@
       </div>
     </dl>
 
+    <div class="terminal-group-impact-rejection" id="terminalGroupImpactError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+
     <div class="terminal-group-impact-actions" role="group" aria-label="Подтверждение разрушительного изменения групп">
       <button class="btn btn-secondary" type="button" data-action="cancel-terminal-group-change">ОТМЕНА</button>
+      <button class="btn btn-primary" type="button" data-action="amend-terminal-group-change" hidden>ДОБАВИТЬ СВЯЗАННЫЕ ТЕРМИНАЛЫ</button>
       <button class="btn btn-danger" type="button" data-action="confirm-terminal-group-change">ПРИМЕНИТЬ ИЗМЕНЕНИЕ</button>
     </div>
   </div>

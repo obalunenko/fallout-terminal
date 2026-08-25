@@ -12,6 +12,12 @@
 
 **Bugfix**: 2026-08-25 — BUG-002 Added the positive legacy-transition repair flow so a dormant cross-singleton link can be made eligible by moving its target into the source group, with the accepted canonical grouping authoritative for subsequent eligibility checks.
 
+**Bugfix**: 2026-08-25 — BUG-003 Clarified complete-candidate validation for production-shaped legacy sessions with multiple terminals and authored transition edges, including independent edge classification and fixture-faithful acceptance evidence.
+
+**Bugfix**: 2026-08-25 — BUG-004 Clarified that legacy-repair acceptance evidence must bind the unchanged authored file, reviewed candidate, serialized production payload, executable identity, and canonical pre/post state before the repair is considered verified.
+
+**Bugfix**: 2026-08-26 — BUG-005 Added the exact grouping-aware user-action journey and actionable partial-candidate repair requirements so a valid strict rejection cannot be mistaken for completion of the multi-edge repair.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Organize Every Terminal Through a Group (Priority: P1)
@@ -117,6 +123,10 @@ As the Overseer, I receive clear feedback when a group edit would invalidate aut
 
 Also move the target of one dormant legacy transition into its source terminal's normalized singleton group, save and reopen, and verify that the preserved transition becomes same-group eligible.
 
+Repeat the repair with a three-terminal legacy chain equivalent to `t-krel-service` -> `t-krel-admin` -> `t-krel-emergency`: prove that each authored edge is classified from the complete candidate, a joined edge is never reported as cross-group, and a candidate joining all three terminals succeeds through save and reopen.
+
+**BUG-004 acceptance clarification**: Evidence for the legacy repair MUST use an unchanged disposable copy of the reported authored file and record its content identity, the active executable/build identity, the precise UI gesture sequence, the complete membership reviewed by the Overseer, the semantically equivalent candidate at each production boundary, and the canonical session and revision before and after submission. Evidence from a minimized equivalent fixture does not close a contradictory authored-file result until that equivalence and the first divergent boundary have been demonstrated.
+
 **Acceptance Scenarios**:
 
 1. **Given** an older session has terminals and transition commands but no groups, **When** it is opened, **Then** all terminals and command content load unchanged and every terminal is represented by its own singleton group.
@@ -128,6 +138,8 @@ Also move the target of one dormant legacy transition into its source terminal's
 7. **Given** players reconnect during a pending or completed valid transition, **When** they receive the current broadcast state, **Then** they converge on the same active terminal, pending decision, and available return action.
 8. **Given** ordinary commands, state-changing commands, or navigation within one terminal are used, **When** the feature is enabled, **Then** their existing approval and execution behavior remains unchanged.
 9. **Given** an older A to B transition is dormant because A and B normalized into separate singleton groups, **When** the Overseer confirms moving B into A's existing singleton group, **Then** the complete candidate is accepted, B's empty source group is removed, the command remains authored, and A to B becomes eligible after save and reopen.
+10. **Given** an older S to A to E transition chain normalized into three singleton groups, **When** the Overseer confirms either a partial candidate that joins A and E or a complete candidate that joins S, A, and E, **Then** every authored edge is classified independently from that candidate, A to E is not reported as cross-group in either case, only the still-split S to A edge rejects the partial candidate, and the complete candidate is accepted and remains eligible after save and reopen.
+11. **Given** the Overseer uses a grouping action on an older multi-edge chain and the resultant candidate would join one authored edge while leaving another split, **When** the impact is reviewed or the candidate is rejected, **Then** the UI shows the complete resultant membership, identifies the independently split command and endpoints, preserves zero partial changes, and provides a direct way to amend the proposal into one valid atomic candidate containing every required endpoint.
 
 ## Edge Cases
 
@@ -152,6 +164,7 @@ Also move the target of one dormant legacy transition into its source terminal's
 - The Overseer attempts to delete a singleton group without moving or deleting its terminal in the same operation.
 - The same terminal is selected more than once while creating a group or proposing a bulk move.
 - A legacy transition is already cross-group because its endpoints normalized into separate singleton groups, and the proposed move joins the target to the source rather than creating a new conflict.
+- A legacy session contains a chain or graph of multiple dormant transition commands, so one candidate repairs some edges while other edges either remain split or are joined by the same complete proposal.
 
 ## Requirements
 
@@ -209,6 +222,8 @@ Also move the target of one dormant legacy transition into its source terminal's
 - **FR-050**: Group and terminal rename, move, reorder, dissolve, and delete actions MUST be available from the applicable target-specific contextual menu rather than as a permanently visible row of individual buttons; destructive actions MUST remain visually differentiated and retain all existing confirmation requirements.
 - **FR-051**: Collapsing or expanding a group MUST be operable by pointer and keyboard, MUST NOT mutate canonical group data or terminal selection, and MUST retain the current in-memory disclosure state across unrelated re-renders while that group continues to exist.
 - **FR-052**: Authored-transition validation for a terminal-group replacement MUST use the complete proposed membership set; when a candidate joins both endpoints of an existing dormant cross-group transition, the system MUST accept that link as same-group and MUST NOT reject the candidate using their pre-change singleton memberships.
+- **FR-053**: For a legacy session with multiple authored transition edges, terminal-group replacement validation MUST classify every edge independently from the complete proposed membership index; it MUST exclude every edge joined by the candidate from cross-group rejection feedback, MUST continue to identify any different edge that remains split, and, when no other invariant fails, MUST accept a candidate that joins every authored endpoint pair.
+- **FR-054**: When a user-selected grouping action produces a partial candidate for a multi-edge authored graph, the Overseer UI MUST present the complete resultant terminal-to-group membership before submission, identify each edge that would remain split by command, source, and target, and provide a direct way to amend the proposal into one complete valid candidate without committing an invalid intermediate grouping; the amended candidate MUST pass unchanged through the existing atomic mutation path.
 
 ## Key Entities
 
@@ -242,6 +257,12 @@ Also move the target of one dormant legacy transition into its source terminal's
 - **SC-015**: At 1280×720 and 1600×900 browser viewports, groups containing realistic Russian names render with zero overlapping controls, every group and terminal name is available without ellipsis-only identification, and every applicable action is reachable from exactly one target-specific menu.
 - **SC-016**: In pointer and keyboard browser journeys, 100% of tested group disclosure and group/terminal action-menu operations expose the correct target and action labels, preserve selection during disclosure changes, and keep destructive actions visually separate before the existing confirmation flow.
 - **SC-017**: In the tested legacy A to B repair journey, moving B into A's normalized singleton group succeeds exactly once, removes B's empty singleton group, preserves the authored command and terminal content across save and reopen, and makes A to B eligible with zero stale pre-move group IDs used for candidate validation.
+- **SC-018**: In a production-fidelity version-1 session with three singleton-normalized terminals and authored S to A and A to E transitions, 100% of validation feedback reflects the complete candidate: a joined edge is never reported as split, an independently split edge is identified by its own command and endpoints, and one candidate joining S, A, and E persists and reopens with both transitions eligible.
+- **SC-019**: In the exact authored-file grouping-aware journey reported by BUG-005, 100% of partial-candidate reviews and rejections show the complete proposed memberships and independently split command endpoints, offer a direct route to amend the same repair into an all-endpoint candidate, apply zero invalid intermediate changes, and allow the amended candidate to save, reopen, and leave both authored transitions eligible.
+
+**BUG-004 evidence clarification (SC-017–SC-018)**: Closure evidence MUST correlate one unchanged authored-file copy and one identified executable build with the exact reviewed membership, the candidate observed at every production boundary, and the canonical session/revision before and after the attempted mutation; both partial-candidate feedback and complete-candidate save/reopen acceptance remain required.
+
+**BUG-005 evidence clarification (SC-019)**: Closure evidence MUST begin with the exact grouping-aware gesture that produced the supplied screenshot, capture the editor selection and review contents before submission, and correlate the amended complete candidate through the owned rebuilt desktop runtime rather than substituting a separately constructed test-only candidate.
 
 ## Assumptions
 

@@ -62,6 +62,42 @@ test('terminal-group replacement forwards both revisions and returns detached ca
   expect(observed.call.args[0].terminalGroups[0].terminalIds).toEqual(['terminal-a', 'terminal-b']);
 });
 
+test('multi-link legacy partial and complete candidates remain exact at the desktop facade', async ({ page }) => {
+  const partial = {
+    terminalGroups: [
+      {
+        id: 'singleton-service', name: 'Service',
+        terminalIds: ['t-krel-service', 't-krel-admin'],
+      },
+      {
+        id: 'singleton-emergency', name: 'Emergency',
+        terminalIds: ['t-krel-emergency'],
+      },
+    ],
+    expectedSessionRevision: 17,
+    expectedCoordinationRevision: 29,
+  };
+  const complete = {
+    terminalGroups: [{
+      id: 'singleton-service', name: 'Service',
+      terminalIds: ['t-krel-service', 't-krel-admin', 't-krel-emergency'],
+    }],
+    expectedSessionRevision: 17,
+    expectedCoordinationRevision: 29,
+  };
+
+  const calls = await page.evaluate(async candidates => {
+    await desktopAPI.replaceTerminalGroups(candidates.partial);
+    await desktopAPI.replaceTerminalGroups(candidates.complete);
+    return __desktopFixture.calls.filter(entry => entry.method === 'ReplaceTerminalGroups');
+  }, { partial, complete });
+
+  expect(calls.slice(-2)).toEqual([
+    { method: 'ReplaceTerminalGroups', args: [partial] },
+    { method: 'ReplaceTerminalGroups', args: [complete] },
+  ]);
+});
+
 test('addCharacter forwards one complete profile with explicit false and expected revision', async ({ page }) => {
   const request = {
     name: 'Mara',

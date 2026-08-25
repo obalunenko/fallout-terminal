@@ -24,6 +24,12 @@ async function activeFixtureSession(request) {
   return snapshot.session;
 }
 
+async function fixtureStatus(request) {
+  const response = await request.get(`${FIXTURE}/status`);
+  expect(response.ok()).toBe(true);
+  return response.json();
+}
+
 async function openOverseer(page) {
   await page.goto(OVERSEER);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
@@ -186,6 +192,13 @@ function expectedGroups(session) {
     terminalIds: group.terminalIds,
     terminalNames: group.terminalIds.map(id => terminalNames.get(id)),
   }));
+}
+
+function candidateMembership(groups, terminals) {
+  const names = new Map(terminals.map(terminal => [terminal.id, terminal.name]));
+  return groups
+    .map(group => `${group.name}: ${group.terminalIds.map(id => names.get(id) ?? id).join(' → ')}`)
+    .join(' · ');
 }
 
 test('renders groups as the only high-level terminal representation with exact-one membership', async ({ page, request }) => {
@@ -473,9 +486,9 @@ test('moves, reorders, and dissolves groups atomically without losing terminal c
     await expect(impact.locator('[data-impact="groups"]')).toContainText(resultantGroup);
   }
   const membership = impact.locator('[data-impact="membership"]');
-  await expect(membership).toContainText('Терминал Гамма → Терминал Гамма (2)');
-  await expect(membership).toContainText('Терминал Дельта → Терминал Дельта');
-  await expect(membership).toContainText('Терминал Альфа → Терминал Альфа');
+  await expect(membership).toContainText('Терминал Гамма (2): Терминал Гамма');
+  await expect(membership).toContainText('Терминал Дельта: Терминал Дельта');
+  await expect(membership).toContainText('Терминал Альфа: Терминал Альфа');
   await confirmGroupImpact(page);
   await expect.poll(() => mutationCallCount(page)).toBe(3);
   await expect(groupRow(page, 'north-route')).toHaveCount(0);
@@ -550,14 +563,22 @@ test('rejects a group proposal that would split an authored transition', async (
   await draft.locator('[name="terminalIds"][value="gamma"]').check();
   await draft.locator('[name="terminalIds"][value="delta"]').check();
   await reviewGroupDraft(page);
-  await confirmGroupImpact(page);
+  await groupImpactDialog(page).locator('[data-action="confirm-terminal-group-change"]').click();
 
   await expect.poll(() => mutationCallCount(page)).toBe(1);
+  await expect(groupImpactDialog(page)).toBeVisible();
   await expect(page.locator('#terminalGroupError')).toContainText('go-gamma');
   await expect(page.locator('#terminalGroupError')).toContainText('go-gamma-backup');
   await expect(page.locator('#terminalGroupError')).toContainText('beta');
   await expect(page.locator('#terminalGroupError')).toContainText('gamma');
   await expect(page.locator('#terminalGroupError')).toContainText(/crosses groups/i);
+  const actionableError = groupImpactDialog(page).locator('#terminalGroupImpactError');
+  await expect(actionableError).toContainText('go-gamma');
+  await expect(actionableError).toContainText('go-gamma-backup');
+  await expect(actionableError).toContainText('Терминал Бета');
+  await expect(actionableError).toContainText('Терминал Гамма');
+  await expect(groupImpactDialog(page).locator('[data-action="amend-terminal-group-change"]'))
+    .toBeVisible();
   expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
   expect(await fixtureSession(request)).toEqual(initial);
 });
@@ -629,7 +650,9 @@ test('repairs a dormant legacy transition by moving its target into the source s
     await expect(impact.locator('[data-impact="source-group"]')).toHaveText(targetGroup.name);
     await expect(impact.locator('[data-impact="destination-group"]')).toHaveText(sourceGroup.name);
     await expect(impact.locator('[data-impact="membership"]'))
-      .toHaveText(`${sourceGroup.name}: Старый терминал 1 → Старый терминал 2`);
+      .toContainText(`${sourceGroup.name}: Старый терминал 1 → Старый терминал 2`);
+    await expect(impact.locator('[data-impact="membership"]'))
+      .toContainText('Старый терминал 3: Старый терминал 3');
     await expect(impact.locator('[data-impact="groups"]')).toContainText(targetGroup.name);
     await expect(impact.locator('[data-impact="groups"]')).toContainText(sourceGroup.name);
 
@@ -666,6 +689,139 @@ test('repairs a dormant legacy transition by moving its target into the source s
   } finally {
     await overseerContext.close();
   }
+});
+
+async function runColdStorageRepairJourney({ browser, request }, scenario) {
+  await resetFixture(request, scenario);
+  const persisted = await fixtureSession(request);
+  const normalized = await activeFixtureSession(request);
+  const statusBefore = await fixtureStatus(request);
+  const serviceGroup = normalized.terminalGroups
+    .find(group => group.terminalIds.includes('t-krel-service'));
+  const emergencyGroup = normalized.terminalGroups
+    .find(group => group.terminalIds.includes('t-krel-emergency'));
+  expect(serviceGroup).toBeTruthy();
+  expect(emergencyGroup).toBeTruthy();
+
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  try {
+    await chooseTerminalAction(overseer, 't-krel-admin', 'move-terminal');
+    await groupDraftDialog(overseer).locator('[name="destinationGroupId"]').selectOption(serviceGroup.id);
+    await reviewGroupDraft(overseer);
+    const partialMembership = await groupImpactDialog(overseer)
+      .locator('[data-impact="membership"]').textContent();
+    await expect(groupImpactDialog(overseer).locator('[data-impact="membership"]'))
+      .toContainText(`${emergencyGroup.name}: K-REL / АВАРИЙНОЕ УПРАВЛЕНИЕ`);
+    await groupImpactDialog(overseer).locator('[data-action="confirm-terminal-group-change"]').click();
+
+    await expect.poll(() => mutationCallCount(overseer)).toBe(1);
+    await expect(groupImpactDialog(overseer)).toBeVisible();
+    const partialCall = await overseer.evaluate(() => __desktopFixture.calls
+      .filter(call => call.method === 'ReplaceTerminalGroups').at(-1));
+    expect(partialMembership).toBe(candidateMembership(partialCall.args[0].terminalGroups, normalized.terminals));
+    expect(partialCall.args[0]).toMatchObject({
+      expectedSessionRevision: statusBefore.savedRevision,
+      expectedCoordinationRevision: statusBefore.coordinationState.revision,
+    });
+    expect(partialCall.args[0].terminalGroups).toEqual([
+      { ...serviceGroup, terminalIds: ['t-krel-service', 't-krel-admin'] },
+      emergencyGroup,
+    ]);
+    const actionableError = groupImpactDialog(overseer).locator('#terminalGroupImpactError');
+    await expect(actionableError).toContainText('adm-emergency');
+    await expect(actionableError).not.toContainText('svc-access-admin');
+    await expect(actionableError).toContainText('K-REL / АДМИНИСТРАТОР');
+    await expect(actionableError).toContainText('K-REL / АВАРИЙНОЕ УПРАВЛЕНИЕ');
+    await expect(actionableError).toContainText(serviceGroup.name);
+    await expect(actionableError).toContainText(emergencyGroup.name);
+    expect(await fixtureStatus(request)).toEqual(statusBefore);
+    expect(await fixtureSession(request)).toEqual(persisted);
+
+    await groupImpactDialog(overseer)
+      .locator('[data-action="amend-terminal-group-change"]').click();
+    const draft = groupDraftDialog(overseer);
+    await expect(draft).toBeVisible();
+    await expect(draft.locator('[name="groupName"]')).toHaveValue(serviceGroup.name);
+    for (const terminalID of ['t-krel-service', 't-krel-admin', 't-krel-emergency']) {
+      await expect(draft.locator(`[name="terminalIds"][value="${terminalID}"]`)).toBeChecked();
+    }
+    await reviewGroupDraft(overseer);
+    const completeMembership = await groupImpactDialog(overseer)
+      .locator('[data-impact="membership"]').textContent();
+    await expect(groupImpactDialog(overseer).locator('[data-impact="membership"]'))
+      .toContainText(`${serviceGroup.name}: K-REL / СЕРВИСНЫЙ КОНТУР → K-REL / АДМИНИСТРАТОР → K-REL / АВАРИЙНОЕ УПРАВЛЕНИЕ`);
+    await confirmGroupImpact(overseer);
+
+    await expect.poll(() => mutationCallCount(overseer)).toBe(2);
+    const completeCall = await overseer.evaluate(() => __desktopFixture.calls
+      .filter(call => call.method === 'ReplaceTerminalGroups').at(-1));
+    expect(completeMembership).toBe(candidateMembership(completeCall.args[0].terminalGroups, normalized.terminals));
+    expect(completeCall.args[0]).toMatchObject({
+      expectedSessionRevision: statusBefore.savedRevision,
+      expectedCoordinationRevision: statusBefore.coordinationState.revision,
+    });
+    expect(completeCall.args[0].terminalGroups).toEqual([{
+      ...serviceGroup,
+      terminalIds: ['t-krel-service', 't-krel-admin', 't-krel-emergency'],
+    }]);
+    const statusAfter = await fixtureStatus(request);
+    expect(statusAfter.savedRevision).toBe(statusBefore.savedRevision + 1);
+    expect(statusAfter.coordinationState.revision)
+      .toBe(statusBefore.coordinationState.revision + 1);
+    const repaired = await fixtureSession(request);
+    expect(repaired.terminalGroups).toHaveLength(1);
+    expect(repaired.terminalGroups[0]).toEqual({
+      ...serviceGroup,
+      terminalIds: ['t-krel-service', 't-krel-admin', 't-krel-emergency'],
+    });
+    expect(repaired.terminals).toEqual(normalized.terminals);
+
+    await overseer.reload();
+    await openOverseer(overseer);
+    expect(await renderedGroups(overseer)).toEqual(expectedGroups(repaired));
+
+    const controller = await openParticipant(browser);
+    try {
+      await controller.page.locator('.term-row', { hasText: 'ВХОД АДМИНИСТРАТОРА' }).click();
+      await expectPendingNavigation(controller.page);
+      await expect.poll(async () => (await navigationSnapshot(request)).pendingTerminalNavigation)
+        .toMatchObject({
+          sourceTerminalId: 't-krel-service',
+          targetTerminalId: 't-krel-admin',
+        });
+      const firstPending = (await navigationSnapshot(request)).pendingTerminalNavigation;
+      const approved = await request.post(`${FIXTURE}/resolve-navigation`, {
+        data: { requestId: firstPending.requestId, decision: 'approve' },
+      });
+      expect(approved.ok()).toBe(true);
+      await expect.poll(async () => (await navigationSnapshot(request)).activeTerminalId)
+        .toBe('t-krel-admin');
+
+      const emergencyLink = controller.page.locator('.term-row', { hasText: 'АВАРИЙНОЕ УПРАВЛЕНИЕ' });
+      await expect(emergencyLink).toBeVisible();
+      await emergencyLink.click();
+      await expectPendingNavigation(controller.page);
+      await expect.poll(async () => (await navigationSnapshot(request)).pendingTerminalNavigation)
+        .toMatchObject({
+          sourceTerminalId: 't-krel-admin',
+          targetTerminalId: 't-krel-emergency',
+        });
+    } finally {
+      await controller.context.close();
+    }
+  } finally {
+    await overseerContext.close();
+  }
+}
+
+test('classifies partial multi-link repair and accepts the complete cold-storage fixture group', async ({ browser, request }) => {
+  await runColdStorageRepairJourney({ browser, request }, 'legacy-multi-link');
+});
+
+test('classifies and repairs the exact authored cold-storage document', async ({ browser, request }) => {
+  await runColdStorageRepairJourney({ browser, request }, 'legacy-multi-link-authored');
 });
 
 test('ordinary command keeps its approval and reconnect behavior without changing the grouped route', async ({ browser, request }) => {

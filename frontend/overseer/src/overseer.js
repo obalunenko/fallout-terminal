@@ -55,6 +55,8 @@ const terminalGroupTerminalChoiceTemplate = document.getElementById('terminalGro
 const terminalGroupDestinationSelect = document.getElementById('terminalGroupDestinationSelect');
 const terminalGroupImpactDialog = document.getElementById('terminalGroupImpactDialog');
 const terminalGroupImpactSummary = document.getElementById('terminalGroupImpactSummary');
+const terminalGroupImpactError = document.getElementById('terminalGroupImpactError');
+const amendTerminalGroupChangeButton = terminalGroupImpactDialog.querySelector('[data-action="amend-terminal-group-change"]');
 const btnStopBroadcast  = document.getElementById('btnStopBroadcast');
 const createTerminalDialog = document.getElementById('createTerminalDialog');
 const createTerminalForm = document.getElementById('createTerminalForm');
@@ -1839,6 +1841,12 @@ function setTerminalGroupError(message = '') {
   terminalGroupError.hidden = !message;
 }
 
+function setTerminalGroupImpactError(message = '', canAmend = false) {
+  terminalGroupImpactError.textContent = message;
+  terminalGroupImpactError.hidden = !message;
+  amendTerminalGroupChangeButton.hidden = !canAmend;
+}
+
 function showTerminalGroupDialog(dialog, focusTarget) {
   if (!terminalGroupDialogOpener) {
     terminalGroupDialogOpener = { element: document.activeElement };
@@ -2005,18 +2013,21 @@ function reviewTerminalGroupDraft() {
       setTerminalGroupError('УКАЖИТЕ УНИКАЛЬНОЕ НАЗВАНИЕ И ВЫБЕРИТЕ НЕ МЕНЕЕ ДВУХ ТЕРМИНАЛОВ');
       return;
     }
-    if (before.some(group => group.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
-      setTerminalGroupError('ГРУППА С ТАКИМ НАЗВАНИЕМ УЖЕ СУЩЕСТВУЕТ');
-      return;
-    }
     const selected = new Set(terminalIDs);
     const sourceNames = before.filter(group => group.terminalIds.some(id => selected.has(id))).map(group => group.name);
     const candidate = before
       .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => !selected.has(id)) }))
       .filter(group => group.terminalIds.length);
-    candidate.push({ id: uid('group'), name, terminalIds: terminalIDs });
+    if (candidate.some(group => group.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setTerminalGroupError('ГРУППА С ТАКИМ НАЗВАНИЕМ УЖЕ СУЩЕСТВУЕТ');
+      return;
+    }
+    const reusableGroup = before.find(group =>
+      group.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase()
+      && group.terminalIds.every(id => selected.has(id)));
+    candidate.push({ id: reusableGroup?.id || uid('group'), name, terminalIds: terminalIDs });
     showTerminalGroupImpact({
-      kind: 'СОЗДАНИЕ ГРУППЫ', candidate, affectedGroupNames: [...sourceNames, name],
+      kind: 'СОЗДАНИЕ ГРУППЫ', candidate, affectedGroupNames: [...new Set([...sourceNames, name])],
       affectedTerminalIDs: terminalIDs, membership: `${name}: ${terminalIDs.map(terminalName).join(' → ')}`,
       orderBefore: before.flatMap(group => group.terminalIds).map(terminalName),
       orderAfter: candidate.flatMap(group => group.terminalIds).map(terminalName),
@@ -2129,8 +2140,54 @@ function currentSessionRevision() {
   return Number(saveStatus.dataset.savedRevision || startupStatus?.savedRevision || newestDurableRevision || 0);
 }
 
+function terminalGroupCandidateMembership(groups) {
+  return groups
+    .map(group => `${group.name}: ${group.terminalIds.map(terminalName).join(' → ')}`)
+    .join(' · ');
+}
+
+function authoredTransitionRejections(message) {
+  const pattern = /terminal transition command "([^"]+)" in terminal "([^"]+)" targets terminal "([^"]+)" and crosses groups "([^"]+)" and "([^"]+)"/g;
+  return [...String(message || '').matchAll(pattern)].map(match => ({
+    commandID: match[1],
+    sourceTerminalID: match[2],
+    targetTerminalID: match[3],
+    sourceGroupID: match[4],
+    targetGroupID: match[5],
+  }));
+}
+
+function actionableTransitionRejection(rejections, candidate) {
+  const edges = rejections.map(rejection =>
+    `КОМАНДА «${rejection.commandID}»: «${terminalName(rejection.sourceTerminalID)}» → «${terminalName(rejection.targetTerminalID)}» ОСТАЁТСЯ МЕЖДУ ГРУППАМИ «${groupName(candidate, rejection.sourceGroupID)}» И «${groupName(candidate, rejection.targetGroupID)}»`);
+  return `${edges.join(' · ')}. ДОБАВЬТЕ СВЯЗАННЫЕ ТЕРМИНАЛЫ В ОДНО ПРЕДЛОЖЕНИЕ И ПРОВЕРЬТЕ ЕГО ПЕРЕД ПРИМЕНЕНИЕМ.`;
+}
+
+function amendRejectedTerminalGroupImpact() {
+  const impact = pendingTerminalGroupImpact;
+  if (!impact?.rejections?.length) return;
+  const involvedGroupIDs = new Set(impact.rejections.flatMap(rejection =>
+    [rejection.sourceGroupID, rejection.targetGroupID]));
+  const selectedTerminalIDs = impact.candidate
+    .filter(group => involvedGroupIDs.has(group.id))
+    .flatMap(group => group.terminalIds);
+  const preferredGroup = impact.candidate.find(group => group.id === impact.destinationGroupID)
+    || impact.candidate.find(group => group.id === impact.rejections[0].sourceGroupID);
+
+  pendingTerminalGroupImpact = null;
+  hideTerminalGroupDialog(terminalGroupImpactDialog);
+  setTerminalGroupError();
+  terminalGroupDraftForm.reset();
+  terminalGroupDraft = { kind: 'create' };
+  configureTerminalGroupDraft('create');
+  populateTerminalChoices(selectedTerminalIDs);
+  terminalGroupNameInput.value = preferredGroup?.name || '';
+  showTerminalGroupDialog(terminalGroupDraftDialog, terminalGroupNameInput);
+}
+
 function showTerminalGroupImpact(impact) {
   setTerminalGroupError();
+  setTerminalGroupImpactError();
   closeTerminalGroupDraft({ restoreFocus: false });
   pendingTerminalGroupImpact = {
     ...impact,
@@ -2143,7 +2200,7 @@ function showTerminalGroupImpact(impact) {
     terminals: impact.affectedTerminalIDs.map(terminalName).join(' · ') || '—',
     'source-group': groupName(state.session.terminalGroups, impact.sourceGroupID),
     'destination-group': impact.destinationGroupName || groupName(state.session.terminalGroups, impact.destinationGroupID),
-    membership: impact.membership || '—',
+    membership: terminalGroupCandidateMembership(impact.candidate) || '—',
     'order-before': (impact.orderBefore || []).join(' → ') || '—',
     'order-after': (impact.orderAfter || []).join(' → ') || '—',
   };
@@ -2172,7 +2229,16 @@ async function submitTerminalGroupCandidate(candidate, expectedSessionRevision, 
   saveStatus.dataset.savedRevision = String(newestDurableRevision);
   if (result?.coordinationState) applyCoordinationState(result.coordinationState);
   if (!result?.ok) {
-    setTerminalGroupError(result?.error || 'НЕ УДАЛОСЬ ИЗМЕНИТЬ ГРУППЫ ТЕРМИНАЛОВ');
+    const error = result?.error || 'НЕ УДАЛОСЬ ИЗМЕНИТЬ ГРУППЫ ТЕРМИНАЛОВ';
+    setTerminalGroupError(error);
+    const rejections = authoredTransitionRejections(error);
+    if (pendingTerminalGroupImpact && rejections.length) {
+      pendingTerminalGroupImpact.rejections = rejections;
+      setTerminalGroupImpactError(
+        actionableTransitionRejection(rejections, pendingTerminalGroupImpact.candidate),
+        true,
+      );
+    }
     renderAll();
     return false;
   }
@@ -2212,9 +2278,11 @@ for (const action of ['close-terminal-group-change', 'cancel-terminal-group-chan
 terminalGroupImpactDialog.querySelector('[data-action="confirm-terminal-group-change"]').addEventListener('click', async () => {
   const impact = pendingTerminalGroupImpact;
   if (!impact || terminalGroupSubmitting) return;
-  await submitTerminalGroupCandidate(impact.candidate, impact.expectedSessionRevision, impact.expectedCoordinationRevision);
-  closeTerminalGroupImpact();
+  const ok = await submitTerminalGroupCandidate(impact.candidate, impact.expectedSessionRevision, impact.expectedCoordinationRevision);
+  if (ok || !impact.rejections?.length) closeTerminalGroupImpact();
+  else amendTerminalGroupChangeButton.focus();
 });
+amendTerminalGroupChangeButton.addEventListener('click', amendRejectedTerminalGroupImpact);
 terminalGroupDraftDialog.addEventListener('cancel', event => { event.preventDefault(); closeTerminalGroupDraft(); });
 terminalGroupImpactDialog.addEventListener('cancel', event => { event.preventDefault(); closeTerminalGroupImpact(); });
 

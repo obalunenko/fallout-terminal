@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2422,6 +2423,25 @@ func terminalGroupingSession(scenario string) (domain.Session, error) {
 				terminal("legacy-three", "Старый терминал 3"),
 			},
 		}, nil
+	case "legacy-multi-link":
+		service := terminal("t-krel-service", "K-REL / СЕРВИСНЫЙ КОНТУР")
+		service.Root.Children = append(service.Root.Children, domain.ContentNode{
+			ID: "svc-access-admin", Type: domain.NodeCommand, Name: "ВХОД АДМИНИСТРАТОРА",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "t-krel-admin"},
+		})
+		admin := terminal("t-krel-admin", "K-REL / АДМИНИСТРАТОР")
+		admin.Root.Children = append(admin.Root.Children, domain.ContentNode{
+			ID: "adm-emergency", Type: domain.NodeCommand, Name: "АВАРИЙНОЕ УПРАВЛЕНИЕ",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "t-krel-emergency"},
+		})
+		emergency := terminal("t-krel-emergency", "K-REL / АВАРИЙНОЕ УПРАВЛЕНИЕ")
+		emergency.HackLevel = 4
+		return domain.Session{
+			Version: 1, Name: "session-05-cold-storage",
+			Terminals: []domain.Terminal{service, admin, emergency},
+		}, nil
+	case "legacy-multi-link-authored":
+		return bug004AuthoredSession()
 	case "ordered-navigation":
 		alpha := terminal("alpha", "Терминал Альфа")
 		alpha.Root.Children = append(alpha.Root.Children, domain.ContentNode{
@@ -2460,6 +2480,43 @@ func terminalGroupingSession(scenario string) (domain.Session, error) {
 	default:
 		return domain.Session{}, fmt.Errorf("unknown terminal-grouping scenario %q", scenario)
 	}
+}
+
+func bug004AuthoredSession() (domain.Session, error) {
+	const exactSHA256 = "b4ca8b89b7d7af32e05a9b598a007e36a747ef59ce3e2bd15a60d0b3f0ec9438"
+	exactPath := strings.TrimSpace(os.Getenv("FALLOUT_BUG004_SOURCE"))
+	candidates := []string{exactPath}
+	if exactPath == "" {
+		candidates = []string{
+			filepath.Join("..", "fixtures", "session-05-cold-storage.json"),
+			filepath.Join("tests", "fixtures", "session-05-cold-storage.json"),
+			filepath.Join("..", "..", "tests", "fixtures", "session-05-cold-storage.json"),
+		}
+	}
+	var raw []byte
+	var sourcePath string
+	var readErr error
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		raw, readErr = os.ReadFile(candidate)
+		if readErr == nil {
+			sourcePath = candidate
+			break
+		}
+	}
+	if readErr != nil || sourcePath == "" {
+		return domain.Session{}, fmt.Errorf("read BUG-004 authored fixture: %w", readErr)
+	}
+	if exactPath != "" && fmt.Sprintf("%x", sha256.Sum256(raw)) != exactSHA256 {
+		return domain.Session{}, fmt.Errorf("BUG-004 authored source SHA-256 does not match %s", exactSHA256)
+	}
+	session, err := domain.DecodeSession(raw)
+	if err != nil {
+		return domain.Session{}, fmt.Errorf("decode BUG-004 authored fixture %s: %w", sourcePath, err)
+	}
+	return session, nil
 }
 
 func terminalNavigationSession() domain.Session {

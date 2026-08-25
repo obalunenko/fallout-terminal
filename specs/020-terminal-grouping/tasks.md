@@ -4,6 +4,12 @@
 
 **Bugfix**: 2026-08-25 — BUG-002 Updated from bugfix patch; T037 reopened, legacy-transition repair tasks T075–T079 added, and the traced no-production-drift outcome reconciled with T037/T078.
 
+**Bugfix**: 2026-08-25 — BUG-003 Updated from bugfix patch; T037 and T075–T079 reopened, and production-fidelity fixture and built-desktop verification tasks T080–T081 added.
+
+**Bugfix**: 2026-08-25 — BUG-004 Updated from bugfix patch; T037 and T075–T081 reopened, and exact-authored-file diagnostic and correction tasks T082–T085 added.
+
+**Bugfix**: 2026-08-26 — BUG-005 Updated from bugfix patch; T077, T084, and T085 reopened, and exact grouping-aware action capture and verification tasks T086–T088 added.
+
 ## Phase 1: Setup
 
 No setup-only changes are required. The feature uses the repository's existing pinned protobuf, Wails binding, Go, frontend, and Playwright tooling.
@@ -127,7 +133,7 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **⟶ Wait for Wave 9 to finish, then:**
 
-- [x] **T037** [US2] ⚠️ Reopened — verify and regression-cover create/rename/dissolve/move/reorder drafts, impact diffing, cancel-zero-call behavior, duplicate-submit guard, stale refresh, and canonical replacement; prove the reviewed resultant membership is preserved when moving a dormant legacy transition target into its source group (reopened — BUG-002) · `frontend/overseer/src/overseer.js`, `tests/browser/terminal-grouping.spec.mjs`
+- [x] **T037** [US2] ⚠️ Reopened — verify and regression-cover create/rename/dissolve/move/reorder drafts, impact diffing, cancel-zero-call behavior, duplicate-submit guard, stale refresh, and canonical replacement; capture the exact authored-file UI gesture sequence and prove the reviewed resultant membership is the candidate submitted when moving dormant legacy transition targets (reopened — BUG-002; reopened — BUG-003; reopened — BUG-004) · `frontend/overseer/src/overseer.js`, `tests/browser/terminal-grouping.spec.mjs`
 
 **Checkpoint**: US2 independently provides safe Overseer group management with explicit destructive confirmation and single atomic application.
 
@@ -248,6 +254,9 @@ No setup-only changes are required. The feature uses the repository's existing p
 - Polish runs only after all story checkpoints.
 - Within each phase, every numbered wave blocks the next join line; tasks marked `[P]` touch different files and have no incomplete dependency within their wave.
 - BUG-002 Wave 1 establishes failing candidate-integrity coverage before reopened T037 and T078 trace the production path and correct the first stale integration projection if production already preserves the candidate; T079 is the final BUG-002 verification join.
+- BUG-003 starts with T080; the checked-in production-fidelity fixture then feeds reopened T075–T077 in parallel, whose failing evidence blocks reopened T037 and T078. T079 verifies the corrected focused suites, and T081 is the final built-desktop save/reopen acceptance join.
+- BUG-004 starts with T082 against an unchanged exact authored-file copy. T082 feeds reopened T080 and T075–T077 plus T083–T084; their evidence blocks reopened T037/T078 and T085. T079 verifies the focused correction, and reopened T081 is the final rebuilt-desktop exact-file save/reopen acceptance join.
+- BUG-005 starts with T086 against the exact grouping-aware screenshot-producing gesture. T086 feeds reopened T084 and T087 in parallel; their evidence blocks reopened T085, which then blocks reopened T077. T088 re-verifies the previously completed boundary joins and is the final rebuilt-desktop partial-to-amended repair acceptance join.
 
 ## Phase 9: Convergence
 
@@ -296,14 +305,57 @@ No setup-only changes are required. The feature uses the repository's existing p
 
 **Wave 1 — independent failing legacy-repair coverage:**
 
-- [x] **T075** [P] [US5] Add a domain regression that normalizes legacy A and B into singleton groups, moves B into A's existing group, removes B's empty source group, and accepts the preserved A to B command against the resultant membership per FR-052 and SC-017 · `internal/domain/validate_test.go`
-- [x] **T076** [P] [US2] [US5] Add session and application regressions that open a no-group legacy document, carry the exact reviewed move candidate through production replacement, persist and reopen it atomically, and preserve command identity and terminal content per FR-043 and FR-052 · `internal/session/service_test.go`, `app_contract_test.go`, `app_test.go`
-- [x] **T077** [P] [US2] [US5] Add a browser journey that moves the dormant legacy transition target into the source singleton group, asserts the reviewed/resultant memberships and removed source group, reopens the session, and proves the command becomes eligible per US5/AC9 and SC-017 · `tests/browser/fixture-server/main.go`, `tests/browser/terminal-grouping.spec.mjs`
+- [x] **T075** [P] [US5] ⚠️ Reopened — retain the A to B repair and load the exact BUG-004 authored document plus the T080 fixture in domain regressions to prove their equivalent per-edge complete-candidate classification for partial and full repairs per FR-052–FR-053 and SC-017–SC-018 (reopened — BUG-003; reopened — BUG-004) · `internal/domain/validate_test.go`
+- [x] **T076** [P] [US2] [US5] ⚠️ Reopened — add session and application regressions that open an unchanged copy of the exact BUG-004 no-group legacy document, carry exact partial and complete candidates through production replacement, persist and reopen atomically, and preserve both command identities and terminal content per FR-043 and FR-052–FR-053 (reopened — BUG-003; reopened — BUG-004) · `internal/session/service_test.go`, `app_contract_test.go`, `app_test.go`
+- [x] **T077** [P] [US2] [US5] ⚠️ Reopened — extend the exact-authored-file browser journey to begin with the BUG-005 screenshot-producing gesture, assert the complete partial membership and actionable independently split-edge feedback, amend that same repair into one all-three-terminal proposal, reopen the session, and prove both commands become eligible per US5/AC10–AC11 and SC-018–SC-019 (reopened — BUG-003; reopened — BUG-004; reopened — BUG-005) · `tests/browser/fixture-server/main.go`, `tests/browser/terminal-grouping.spec.mjs`
 
 **⟶ Wait for T075–T077 to fail for the reported path, then complete reopened T037 and:**
 
-- [x] **T078** [US2] [US5] Trace the complete candidate through the desktop facade, private route, coordinator, session validator, and persistence boundary; if production already preserves it, record that result and correct the first stale integration projection found while retaining rejection for candidates that genuinely leave endpoints cross-group · `frontend/overseer/src/desktop-api.js`, `app_contract.go`, `app.go`, `internal/control/service.go`, `internal/session/service.go`, `tests/browser/fixture-server/main.go`, `specs/020-terminal-grouping/bugs/BUG-002.md`
+- [x] **T078** [US2] [US5] ⚠️ Reopened — trace the exact BUG-004 authored-file partial and complete candidates through the desktop facade, private route, coordinator, session validator, and persistence boundary; compare each with the reviewed membership, correct the first stale membership or error-classification boundary found, and retain rejection only for edges genuinely split by the resultant candidate (reopened — BUG-003; reopened — BUG-004) · `frontend/overseer/src/desktop-api.js`, `app_contract.go`, `app.go`, `internal/control/service.go`, `internal/session/service.go`, `tests/browser/fixture-server/main.go`, `specs/020-terminal-grouping/bugs/BUG-002.md`, `specs/020-terminal-grouping/bugs/BUG-003.md`, `specs/020-terminal-grouping/bugs/BUG-004.md`
 
 **⟶ Wait for T037 and T078 to finish, then:**
 
-- [x] **T079** [US2] [US5] Run the focused domain, session, application, desktop-facade, and terminal-grouping browser suites; verify save/reopen and same-group transition eligibility; and record BUG-002 implementation evidence without weakening cross-group rejection · `internal/domain/`, `internal/session/`, `app*_test.go`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-002.md`
+- [x] **T079** [US2] [US5] ⚠️ Reopened — run the focused domain, session, application, desktop-facade, and terminal-grouping browser suites against both the exact BUG-004 authored-file copy and T080; verify per-edge feedback, full-candidate save/reopen, canonical pre/post state, and eligibility for both transitions without weakening genuine cross-group rejection (reopened — BUG-003; reopened — BUG-004) · `internal/domain/`, `internal/session/`, `app*_test.go`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-002.md`, `specs/020-terminal-grouping/bugs/BUG-003.md`, `specs/020-terminal-grouping/bugs/BUG-004.md`
+
+## Phase 15: BUG-003 — Production-Fidelity Multi-Link Legacy Repair
+
+**Wave 1 — source-faithful regression fixture:**
+
+- [x] **T080** [US5] ⚠️ Reopened — compare the sanitized checked-in `session-05-cold-storage` fixture with an unchanged copy of the exact BUG-004 source at SHA-256 `b4ca8b89b7d7af32e05a9b598a007e36a747ef59ce3e2bd15a60d0b3f0ec9438`, document every intentional difference, and prove behavioral equivalence before using the fixture as permanent evidence per FR-053 and SC-018 (reopened — BUG-004) · `tests/fixtures/`, `tests/browser/fixture-server/main.go`
+
+**⟶ Wait for T080, then complete reopened T075–T077; wait for their failing evidence, then complete reopened T037 and T078; wait for T079, then:**
+
+- [x] **T081** [US2] [US5] ⚠️ Reopened — rebuild the owned desktop application, record its identity, run it against an unchanged disposable copy of the exact BUG-004 authored file, correlate the reviewed and submitted complete candidate, save and reopen, verify both authored transitions are eligible, and record final BUG-004 acceptance evidence (reopened — BUG-004) · `build/`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-003.md`, `specs/020-terminal-grouping/bugs/BUG-004.md`
+
+## Phase 16: BUG-004 — Exact Authored-File Candidate Trace
+
+**Wave 1 — capture the contradictory production path:**
+
+- [x] **T082** [US2] [US5] Reproduce from an unchanged disposable copy of the exact reported authored JSON; verify its SHA-256, record the executable/build identity and precise UI gesture sequence, and capture the reviewed membership plus canonical session and revision immediately before and after rejection · `build/`, `tests/fixtures/`, `specs/020-terminal-grouping/bugs/BUG-004.md`
+
+**⟶ Wait for T082, then Wave 2 — independent boundary and regression evidence:**
+
+- [x] **T083** [P] [US2] [US5] Capture and assert semantic equality of the reviewed terminal-to-group index and serialized request at the desktop facade, private protobuf adapter, application, coordinator, session validator, and persistence boundary, including canonical pre/post revision assertions · `frontend/overseer/src/desktop-api.js`, `app_contract_test.go`, `app_test.go`, `internal/control/`, `internal/session/`
+- [x] **T084** [P] [US2] [US5] ⚠️ Reopened — extend the exact-authored-file regressions from the BUG-005 screenshot-producing action; assert the editor's partial membership, deterministic actionable split-edge feedback with zero mutation, and amendment into the exact atomic all-three-terminal candidate per FR-054 and SC-019 (reopened — BUG-005) · `internal/domain/validate_test.go`, `internal/session/service_test.go`, `app_test.go`, `tests/browser/fixture-server/main.go`, `tests/browser/terminal-grouping.spec.mjs`
+
+**⟶ Wait for reopened T037, T075–T078, T080, and T083–T084, then:**
+
+- [x] **T085** [US2] [US5] ⚠️ Reopened — correct the first boundary that changes the BUG-005 reviewed candidate or, when the action is intentionally partial, retain the draft and provide complete resultant membership, actionable independently split-edge feedback, and direct amendment into one valid all-endpoint proposal; retain strict rejection for genuinely split edges per FR-054 (reopened — BUG-005) · `frontend/overseer/src/`, `app_contract.go`, `app.go`, `internal/control/`, `internal/session/`
+
+**⟶ Wait for T085, then complete reopened T079; wait for T079, then complete reopened T081.**
+
+**BUG-005 supersession**: Phase 17 replaces this earlier completion join for the newly reported grouping-aware action path.
+
+## Phase 17: BUG-005 — Grouping-Aware Action Repair
+
+**Wave 1 — capture the exact post-fix user path:**
+
+- [x] **T086** [US2] [US5] Reproduce the screenshot-producing gesture in the current owned grouping-aware bundle; record the executable and source hashes, exact menu action, editor selections, confirmation contents, serialized candidate, and canonical session/coordination revisions before and after rejection · `build/`, `frontend/overseer/src/`, `specs/020-terminal-grouping/bugs/BUG-005.md`
+
+**⟶ Wait for T086, then complete reopened T084 and Wave 2 in parallel:**
+
+- [x] **T087** [P] [US2] [US5] Correlate the BUG-005 editor and review terminal-to-group index with the desktop facade, private protobuf adapter, application, coordinator, session validator, and persistence boundary; identify whether the live proposal is partial or loses membership in transit and retain canonical pre/post assertions · `frontend/overseer/src/desktop-api.js`, `app_contract_test.go`, `app_test.go`, `internal/control/`, `internal/session/`, `specs/020-terminal-grouping/bugs/BUG-005.md`
+
+**⟶ Wait for T084 and T087, then complete reopened T085; wait for T085, then complete reopened T077; wait for T077, then:**
+
+- [x] **T088** [US2] [US5] Re-verify T037, T078–T079, T081, and T083 against the captured BUG-005 live candidate, rebuild the owned desktop bundle, execute the exact user-visible partial-to-amended repair against an unchanged authored-file copy, save/reopen, exercise `svc-access-admin` and `adm-emergency`, and record final SC-019 evidence · `build/`, `internal/`, `app*_test.go`, `tests/browser/`, `specs/020-terminal-grouping/bugs/BUG-005.md`
