@@ -324,11 +324,14 @@ drive_demo_open() {
   xdotool key --clearmodifiers --window "${dialog_id}" ctrl+l
   sleep 0.2
   xdotool type --clearmodifiers --window "${dialog_id}" --delay 1 -- "${demo_path}"
-  xdotool key --clearmodifiers --window "${dialog_id}" Return
-  sleep 0.5
-  if xdotool search --onlyvisible --name '^Open Fallout Terminal Session$' >/dev/null 2>&1; then
-    xdotool key --clearmodifiers --window "${dialog_id}" Return
-  fi
+  local deadline=$((SECONDS + 10))
+  while ((SECONDS <= deadline)); do
+    process_is_alive || return 1
+    xdotool search --onlyvisible --name '^Open Fallout Terminal Session$' >/dev/null 2>&1 || return 0
+    xdotool key --clearmodifiers --window "${dialog_id}" Return || return 1
+    sleep 0.5
+  done
+  return 1
 }
 
 [[ "$#" == 1 ]] || fail 'usage: scripts/verify-linux-package.sh ARCHIVE.tar.gz'

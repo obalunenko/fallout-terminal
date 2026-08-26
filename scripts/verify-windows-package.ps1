@@ -264,9 +264,20 @@ function Wait-ForTopLevelWindow([string] $Name, [int] $TimeoutSeconds) {
 function Find-DescendantByProperty(
     $Root,
     $Property,
-    [object] $Value
+    [object] $Value,
+    [System.Windows.Automation.ControlType] $ControlType = $null
 ) {
     $Condition = [System.Windows.Automation.PropertyCondition]::new($Property, $Value)
+    if ($null -ne $ControlType) {
+        $Conditions = [System.Windows.Automation.Condition[]] @(
+            $Condition,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                $ControlType
+            )
+        )
+        $Condition = [System.Windows.Automation.AndCondition]::new($Conditions)
+    }
     return $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
 }
 
@@ -275,7 +286,8 @@ function Wait-ForDescendantByProperty(
     $Property,
     [object] $Value,
     [System.Diagnostics.Process] $Process,
-    [int] $TimeoutSeconds
+    [int] $TimeoutSeconds,
+    [System.Windows.Automation.ControlType] $ControlType = $null
 ) {
     $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while ([DateTime]::UtcNow -lt $Deadline) {
@@ -284,7 +296,7 @@ function Wait-ForDescendantByProperty(
             Fail "application exited before UI Automation exposed $Value (exit code $($Process.ExitCode))"
         }
         try {
-            $Element = Find-DescendantByProperty $Root $Property $Value
+            $Element = Find-DescendantByProperty $Root $Property $Value $ControlType
             if ($null -ne $Element) {
                 return $Element
             }
@@ -694,7 +706,8 @@ try {
     $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
     Wait-ForPlayerListener $true 60
     $OpenSessionButton = Wait-ForDescendantByProperty $OverseerWindow `
-        ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName $ApplicationProcess 30
+        ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName `
+        $ApplicationProcess 30 ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $OpenSessionButton 'Open Session button'
 
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
@@ -709,7 +722,9 @@ try {
     Invoke-Element $OpenButton 'native Open dialog confirmation'
 
     $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
-    $AddFolder = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) '+ ПАПКА'
+    $AddFolder = Find-DescendantByProperty $OverseerWindow `
+        ([System.Windows.Automation.AutomationElement]::NameProperty) '+ ПАПКА' `
+        ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $AddFolder 'session authoring action'
     Wait-ForOperationEvidence $StandardOutput $StandardError 'session.save' 60
 
@@ -736,7 +751,8 @@ try {
     $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
     Wait-ForPlayerListener $true 60
     $OpenSessionButton = Wait-ForDescendantByProperty $OverseerWindow `
-        ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName $ApplicationProcess 30
+        ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName `
+        $ApplicationProcess 30 ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $OpenSessionButton 'Open Session button for saved copy'
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
     $FileNameInput = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148'
@@ -749,7 +765,9 @@ try {
     Invoke-Element $OpenButton 'native Open dialog confirmation for saved copy'
     $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
 
-    $StartBroadcast = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) 'НАЧАТЬ ТРАНСЛЯЦИЮ'
+    $StartBroadcast = Find-DescendantByProperty $OverseerWindow `
+        ([System.Windows.Automation.AutomationElement]::NameProperty) 'НАЧАТЬ ТРАНСЛЯЦИЮ' `
+        ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $StartBroadcast 'start demo broadcast'
     $LocalURL = Find-DescendantByNamePrefix $OverseerWindow 'http://127.0.0.1:'
     Invoke-Element $LocalURL 'allowlisted HTTP external link'
