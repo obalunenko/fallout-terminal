@@ -7,6 +7,7 @@ workspace=''
 app_pid=''
 window_id=''
 player_probe_pid=''
+app_log=''
 
 fail() {
   printf 'verify-linux-package: %s\n' "$1" >&2
@@ -43,6 +44,11 @@ wait_for_process_exit() {
 cleanup() {
   local status=$?
   trap - EXIT HUP INT TERM
+
+  if ((status != 0)) && [[ -s "${app_log}" ]]; then
+    printf '%s\n' 'verify-linux-package: application log (last 160 lines):' >&2
+    tail -n 160 "${app_log}" >&2
+  fi
 
   if player_probe_is_alive; then
     kill -TERM "${player_probe_pid}" 2>/dev/null || true

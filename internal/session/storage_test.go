@@ -16,7 +16,7 @@ func TestStorageWriteAtomicUsesPrivateSameDirectoryTemporaryFile(t *testing.T) {
 
 	fileSystem := testutil.NewFakeFileSystem()
 	storage := NewStorage(fileSystem)
-	target := "/Users/test/Documents/Fallout Terminal/Sessions/campaign.json"
+	target := filepath.Join(testLocations.DocumentsDefault, "campaign.json")
 	want := []byte("{\n  \"version\": 1\n}\n")
 
 	require.NoError(t, storage.WriteAtomic(target, want))
@@ -45,7 +45,7 @@ func TestStorageWriteAtomicKeepsOldTargetAndCleansTemporaryOnRenameFailure(t *te
 	base := testutil.NewFakeFileSystem()
 	fileSystem := &renameFailingFileSystem{FakeFileSystem: base, err: errors.New("volume unavailable")}
 	storage := NewStorage(fileSystem)
-	target := "/Users/test/Documents/Fallout Terminal/Sessions/campaign.json"
+	target := filepath.Join(testLocations.DocumentsDefault, "campaign.json")
 	oldData := []byte("old complete document\n")
 	base.SeedFile(target, oldData)
 
@@ -67,7 +67,7 @@ func TestStorageWriteAtomicKeepsOldTargetAndSkipsRenameOnTemporaryWriteFailure(t
 	base := testutil.NewFakeFileSystem()
 	fileSystem := &writeFailingFileSystem{FakeFileSystem: base, err: errors.New("disk full")}
 	storage := NewStorage(fileSystem)
-	target := "/Users/test/Documents/Fallout Terminal/Sessions/campaign.json"
+	target := filepath.Join(testLocations.DocumentsDefault, "campaign.json")
 	oldData := []byte("old complete document\n")
 	base.SeedFile(target, oldData)
 
@@ -89,8 +89,8 @@ func TestStorageCopyAtomicLeavesBundledDemoUnchanged(t *testing.T) {
 
 	fileSystem := testutil.NewFakeFileSystem()
 	storage := NewStorage(fileSystem)
-	source := "/Applications/Fallout Terminal.app/Contents/Resources/sessions/demo.json"
-	destination := "/Users/test/Documents/Fallout Terminal/Sessions/demo-copy.json"
+	source := testLocations.BundledDemo
+	destination := filepath.Join(testLocations.DocumentsDefault, "demo-copy.json")
 	demo := []byte("{\n  \"version\": 1,\n  \"name\": \"demo\",\n  \"terminals\": []\n}\n")
 	fileSystem.SeedFile(source, demo)
 
