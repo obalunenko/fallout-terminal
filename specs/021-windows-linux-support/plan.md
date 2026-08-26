@@ -4,6 +4,18 @@
 
 Add complete Wails desktop distributions for `windows/arm64`, `windows/amd64`, `linux/arm64`, and `linux/amd64` while preserving the existing macOS arm64 package. A pinned Go Task v3 command graph will replace Make-based project automation, interoperate with Wails’ Task-backed build entrypoints, and delegate deterministic archive and verification logic to the repository-owned Go build package. Matching native runners verify binary identity, resources, metadata, and a launched window, while runtime work replaces macOS-only package detection, paths, close handling, and credentials with explicit platform adapters without changing application, session, player, or public-access contracts.
 
+Local `task package:all` runs on `darwin/arm64`, builds the canonical native macOS application plus the current checkout in architecture-matched Docker containers, verifies the application bundle and four portable archives with their directly accessible `bin/<os>-<arch>/` executable/resource payloads, and publishes the five-target result atomically. Host and Docker failures must retain actionable prerequisite diagnostics, and local Docker static evidence remains distinct from matching-host Windows/Linux launch evidence.
+
+SemVer tag delivery joins two native trust surfaces from one tag SHA: the existing signed/notarized `darwin/arm64` DMG and the four-target Windows/Linux portable matrix. Only after all five target outputs and checksums are eligible does the repository-pinned GoReleaser v2 flow publish one GitHub Release and one versioned GHCR artifact; a failed target or join cannot publish partial success.
+
+**Bugfix**: 2026-08-26 — BUG-001 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-26 — BUG-002 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-26 — BUG-003 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-26 — BUG-004 Updated from bugfix patch.
+
 ## Project Structure
 
 ```text
@@ -28,7 +40,8 @@ internal/buildtool/
 ├── docker.go                                 # local four-target Docker build/verify/publish coordinator
 ├── buildtool_test.go                         # target, ordering and existing macOS behavior
 ├── archive_test.go                           # deterministic layout and hostile-path coverage
-└── aggregate_test.go                         # four-target completion/failure coordination
+├── aggregate_test.go                         # four-target completion/failure coordination
+└── docker_test.go                            # local payload, atomicity, and Docker diagnostic contracts
 
 build/
 ├── appicon.png                               # common embedded/runtime icon source
@@ -83,19 +96,19 @@ README.md                                     # target table, commands, prerequi
 
 ## Constitution Check
 
-The current Project Identity names macOS 13+ arm64 as the only deployment profile, makes direct Go build commands canonical, and explicitly prohibits Taskfiles. Implementation is gated on a constitution amendment that adds the four approved Windows/Linux targets, authorizes the pinned root Taskfile as the canonical Wails-compatible command graph, confines Make to installing isolated Go tools, and retains detailed build ownership in Go; no production code or release claim may land while that governing text remains contradictory.
+~~The current Project Identity names macOS 13+ arm64 as the only deployment profile, makes direct Go build commands canonical, and explicitly prohibits Taskfiles. Implementation is gated on a constitution amendment that adds the four approved Windows/Linux targets, authorizes the pinned root Taskfile as the canonical Wails-compatible command graph, confines Make to installing isolated Go tools, and retains detailed build ownership in Go; no production code or release claim may land while that governing text remains contradictory.~~ This prerequisite was satisfied by constitution v6.0.2 and corrected in v6.0.3 to distinguish local `task package:all` Docker evidence from `task package:all:remote` matching-host native evidence.
 
 | Principle | Before Research | After Design | Assessment |
 |---|---|---|---|
-| I. Govern the Accepted Desktop Runtime | PASS with amendment prerequisite | PASS with amendment prerequisite | The pinned Wails v3 runtime, one root composition, typed Go build policy, Wails-compatible Task graph, platform adapter boundary, and tunnel lifecycle remain authoritative. Deployment and orchestration rules must be amended first. |
+| I. Govern the Accepted Desktop Runtime | ~~PASS with amendment prerequisite~~ PASS | ~~PASS with amendment prerequisite~~ PASS | The pinned Wails v3 runtime, one root composition, typed Go build policy, Wails-compatible Task graph, platform adapter boundary, and tunnel lifecycle remain authoritative. Constitution v6.0.3 governs local and remote aggregate packaging separately. |
 | II. Make Protobuf the Application Contract Source of Truth | PASS | PASS | No application-owned structured contract changes. Target manifests, archive metadata, and CI workflow inputs are explicitly excluded build metadata. |
 | III. Use ConnectRPC and Keep State Server-Authoritative | PASS | PASS | Player RPCs, canonical state ownership, unary mutations, server streams, and public-access routing do not change across desktop hosts. |
 | IV. Separate Public and Private Capabilities | PASS | PASS | Native dialogs, paths, and secure stores stay private platform adapters; Windows/Linux credential failures remain fail-closed and never introduce a player-facing or plaintext fallback. |
 | V. Evolve Schemas Safely and Reproducibly | PASS | PASS | No protobuf schema changes are planned; existing generation and breaking-change gates remain required on every native package path. |
 | VI. Preserve Portable Session JSON Version 1 | PASS | PASS | Session JSON and player configuration remain byte-compatible and portable; only their native default directories vary. |
-| VII. Complete Cutovers and Remove Superseded Protocols | PASS with amendment prerequisite | PASS with amendment prerequisite | Make workflow aliases are removed in one cutover, the Taskfile becomes the only command graph, typed Go remains the only detailed build/package implementation, and unsupported credential behavior is narrowed to genuinely unsupported targets. |
+| VII. Complete Cutovers and Remove Superseded Protocols | ~~PASS with amendment prerequisite~~ PASS | ~~PASS with amendment prerequisite~~ PASS | Make workflow aliases are removed in one cutover, the Taskfile becomes the only command graph, typed Go remains the only detailed build/package implementation, and unsupported credential behavior is narrowed to genuinely unsupported targets. |
 
-No complexity exception is required. The governance amendment is a prerequisite, not a waiver.
+No complexity exception is required. The governance amendment is complete and is not a waiver.
 
 ## Phase 0: Research
 
@@ -124,9 +137,10 @@ The build, artifact, storage, credential, and verification entities and their st
 10. Isolate any Darwin-only window-close fallback behind platform files, keep the common Wails closing hook exact-once, supply Windows/Linux application options and icons, and verify that normal close and startup failure release the player listener, tunnel resources, goroutines, and process.
 11. Add `.github/workflows/wails-portable.yml` with four independent native target jobs and one aggregate gate. Each target bootstraps pinned tools, executes `task package GOOS=<os> GOARCH=<arch>`, verifies and launches the extracted artifact, closes it, and uploads only on success; the aggregate job requires exactly four unique verified outputs.
 12. Implement `task package:all:remote` as a correlated GitHub workflow dispatch/wait/download path for the current clean pushed branch over a Go helper, including authenticated CLI prerequisite, `origin` repository and exact source identity, clear per-target progress, complete-matrix failure semantics, and collision-free local download into `build/dist`.
-13. Implement `task package:all` as a local Docker matrix over the current checkout, using architecture-matched Linux containers, quarantined per-target exports, complete static verification, and atomic publication while keeping native launch evidence exclusive to matching-host CI.
-13. Promote shipped credential modules to direct pins, update target-union license checks and third-party notices, document the Make-to-Task mapping, tool bootstrap, target selection, WebView2 and GTK4/WebKitGTK6/Secret Service prerequisites, launch steps, native data locations, aggregate packaging, and actionable troubleshooting.
-14. Run the complete verification matrix only in CI and matching target environments, then confirm the unchanged macOS package still passes its existing build, signature, launch, resource, reproducibility, and release checks through the migrated Task entrypoints.
+13. Implement `task package:all` as a hybrid local aggregate on `darwin/arm64`: execute the canonical no-target package plan for the native ad-hoc signed application bundle, then build the four Windows/Linux targets using architecture-matched Linux containers, quarantined per-target exports, complete static verification, and atomic publication of the Darwin bundle plus all four archives and exact `bin/<os>-<arch>/` executable/resource payloads. Preserve host/Docker causes and recovery instructions. Permit repeat runs by retaining an existing owned output until the new matrix is verified, swapping it through a backup inside a same-filesystem sibling work root, and restoring it if final publication fails; reject unsafe or unrecognized existing targets. Keep Docker-built Windows/Linux launch evidence exclusive to matching-host CI.
+14. Promote shipped credential modules to direct pins, update target-union license checks and third-party notices, document the Make-to-Task mapping, tool bootstrap, target selection, WebView2 and GTK4/WebKitGTK6/Secret Service prerequisites, launch steps, native data locations, aggregate packaging, and actionable troubleshooting.
+15. Run the complete verification matrix only in CI and matching target environments, then confirm the unchanged macOS package still passes its existing build, signature, launch, resource, reproducibility, and release checks through the migrated Task entrypoints.
+16. On SemVer tag pushes, run the established macOS Developer ID/notarization/DMG gates and four native Windows/Linux package jobs against the exact tag SHA, quarantine their outputs until a five-target join verifies the Darwin DMG/checksum plus four portable archives/sidecars and aggregate index, then let only the repository-pinned GoReleaser v2 publication step create or update the GitHub Release and versioned GHCR artifact. Preserve prerelease suffix behavior and fail closed before either destination reports partial success. [FR-029, SC-013]
 
 ## Verification Strategy
 
@@ -138,10 +152,13 @@ No tests or builds are run locally during this planning work, per the user’s i
 | Task migration and bootstrap | Task schema/version pin, Wails `build`/`package` dispatch without recursion, complete legacy Make-to-Task parity, variable forwarding, cross-platform command syntax, Make containing only the discovery-based all-tool installer plus non-mutating help, every `tools/*/go.mod` installed, and CI using the pinned Task binary. |
 | Build ordering and portability | Cross-platform command construction; locked frontend/protobuf/binding/resource/license gates before compile/archive; Task-to-Go ownership boundary; pinned Wails calls; spaces and non-ASCII checkout paths; cancellation and child-process cleanup. |
 | Archive and executable identity | Deterministic ZIP/TAR.GZ order, timestamps and modes; exact safe inventory; both demo files and notices; Windows PE machine/subsystem/version/icon; Linux ELF machine/executable mode; manifest hashes and archive sidecars; path traversal and duplicate-entry rejection. |
+| Local Docker aggregate | Contract tests with controlled Docker command outcomes for missing executable, stopped daemon, unsupported platform, and per-target failure; exact four-target `bin/<os>-<arch>/` inventory; executable/resource hashes equal the verified archive; no partial output; repeat publication over the default or recognized prior aggregate through same-filesystem backup/rollback; rejection of files, symlinks, roots, and unrecognized custom directories. The four-target build itself runs only in CI or an explicitly selected Docker environment, not as a required local test. |
+| Local Darwin package join | Host validation rejects every runtime except `darwin/arm64` before mutation; the canonical no-target package plan produces the ad-hoc signed bundle; controlled tree-copy tests preserve exact regular-file inventory and modes, reject links/special files, require executable/plist/resources/signature evidence, report `bin/darwin-arm64/Fallout Terminal.app`, and include it in the same replacement transaction as the four Docker payloads. |
+| Tagged five-target release | A tag-scoped macOS runner produces and verifies the established signed/notarized DMG; four matching Windows/Linux runners produce eligible portable archives; the join requires one SHA and exact DMG/archive/checksum/index inventory; GoReleaser v2 and GHCR publication run only after that join, preserve prerelease semantics, and expose no partial success under injected target, trust, or destination failure. |
 | Production identity and resources | Development checkout behavior; production `.app`, `.exe`, and ELF layouts; launch from an unrelated working directory; immutable environment-override gating; missing/corrupt resource failure; bundled demo loading. |
 | Platform storage and desktop adapters | Redirected and unavailable native roots, XDG fallbacks, Windows Known Folders, separators, Unicode and spaces; JSON dialog filters; HTTP/HTTPS external links; platform options/icon; exact-once close with listener/tunnel/process release. |
 | Secure credentials | Shared replace/presence/delete/use semantics; native not-found/locked/denied/unavailable mapping; Linux context timeout and prompt behavior; Windows blob clearing; zero plaintext fallback; redacted logs/status; initialization failure preservation and recovery. |
 | Windows native acceptance | On `windows/amd64` and `windows/arm64`, unpack the ZIP, verify WebView2 or report an actionable prerequisite, observe the real Overseer window within 60 seconds, load the bundled demo, close it, and confirm process/listener exit. |
 | Linux native acceptance | On `linux/amd64` and `linux/arm64`, unpack the TAR.GZ under Xvfb or a native desktop, verify GTK4/WebKitGTK6 and Secret Service availability or actionable status, observe the real window within 60 seconds, load the demo, close it, and confirm process/listener exit. |
-| Workflow and aggregate gate | Clean-checkout matrix with fail-fast disabled, upload-after-verification, independent target reports, failure injection for each job, exactly four unique names/manifests/checksums, correlated workflow dispatch, wait/download behavior, and no combined artifact on partial success. |
+| Workflow and aggregate gate | Clean-checkout native matrix with fail-fast disabled, upload-after-verification, independent target reports, failure injection for each job, exactly four unique names/manifests/checksums, correlated workflow dispatch, wait/download behavior, and no combined artifact on partial success; local Docker contract evidence separately covers payload publication and prerequisite diagnostics. |
 | Application parity and macOS regression | Representative Windows and Linux session open/save, one player connection, synchronized control, public-access status, and clean shutdown; existing macOS tests, package path, signing/notary/DMG, launch, resource, license, and reproducibility gates remain green. |

@@ -15,6 +15,11 @@ on:
         description: Exact pushed source revision to package
         required: true
         type: string
+      validate_release:
+        description: Build and join the signed Darwin candidate without publishing a tag
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -101,8 +106,8 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
-            build-essential dbus-x11 gnome-keyring libgtk-4-dev libwebkitgtk-6.0-dev \
-            pkg-config python3 xdotool xvfb
+            at-spi2-core build-essential dbus-x11 gnome-keyring libgtk-4-dev libwebkitgtk-6.0-dev \
+            pkg-config python3 python3-pyatspi xdotool xvfb
 
       - name: Package native target with pinned Task
         shell: bash
@@ -121,8 +126,19 @@ jobs:
           dbus-run-session -- bash -lc '
             set -euo pipefail
             eval "$(gnome-keyring-daemon --start --components=secrets)"
+            export NO_AT_BRIDGE=0
             xvfb-run -a -s "-screen 0 1280x800x24" scripts/verify-linux-package.sh "$1"
           ' _ "build/dist/${{ matrix.archive }}"
+
+      - name: Verify Linux secure-store outage remains fail-closed
+        if: ${{ matrix.goos == 'linux' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          dbus-run-session -- bash -lc '
+            set -euo pipefail
+            go run ./cmd/native-credential-smoke --expect-unavailable
+          '
 
       - name: Confirm verification left only canonical publish inputs
         shell: bash
@@ -220,10 +236,108 @@ jobs:
           retention-days: 7
           path: combined/*
 
+  macos-trust:
+    name: Build trusted Darwin release candidate
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release }}
+    uses: ./.github/workflows/wails-macos.yml
+    with:
+      source_sha: ${{ inputs.source_sha || github.sha }}
+      release_candidate: true
+    secrets: inherit
+
+  release-join:
+    name: Gate complete five-target release candidate
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release }}
+    needs: [aggregate, macos-trust]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download complete portable matrix
+        uses: actions/download-artifact@v4
+        with:
+          name: fallout-terminal-portable
+          path: combined
+
+      - name: Download trusted Darwin candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: fallout-terminal-darwin
+          path: darwin
+
+      - name: Validate and join exact five-target inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+
+          source = os.environ["SOURCE_SHA"]
+          combined = pathlib.Path("combined")
+          darwin = pathlib.Path("darwin")
+          portable_expected = {
+              "aggregate-index.json",
+              "Fallout-Terminal-windows-amd64.zip",
+              "Fallout-Terminal-windows-amd64.zip.sha256",
+              "Fallout-Terminal-windows-arm64.zip",
+              "Fallout-Terminal-windows-arm64.zip.sha256",
+              "Fallout-Terminal-linux-amd64.tar.gz",
+              "Fallout-Terminal-linux-amd64.tar.gz.sha256",
+              "Fallout-Terminal-linux-arm64.tar.gz",
+              "Fallout-Terminal-linux-arm64.tar.gz.sha256",
+          }
+          darwin_expected = {
+              "Fallout-Terminal-arm64.dmg",
+              "Fallout-Terminal-arm64.dmg.sha256",
+              "darwin-verification.json",
+          }
+          assert {path.name for path in combined.iterdir() if path.is_file()} == portable_expected
+          assert {path.name for path in darwin.iterdir() if path.is_file()} == darwin_expected
+          assert not any(path.is_dir() for path in combined.iterdir())
+          assert not any(path.is_dir() for path in darwin.iterdir())
+
+          index = json.loads((combined / "aggregate-index.json").read_text(encoding="utf-8"))
+          assert index["sourceRevision"] == source, "portable aggregate source revision mismatch"
+          assert len(index["artifacts"]) == 4, "portable aggregate must contain exactly four targets"
+          evidence = json.loads((darwin / "darwin-verification.json").read_text(encoding="utf-8"))
+          assert evidence == {
+              "schemaVersion": 1,
+              "target": "darwin/arm64",
+              "sourceRevision": source,
+              "artifact": "Fallout-Terminal-arm64.dmg",
+          }, "Darwin verification record mismatch"
+
+          dmg = darwin / "Fallout-Terminal-arm64.dmg"
+          digest = hashlib.sha256(dmg.read_bytes()).hexdigest()
+          assert (darwin / "Fallout-Terminal-arm64.dmg.sha256").read_text(encoding="ascii") == (
+              f"{digest}  Fallout-Terminal-arm64.dmg\n"
+          ), "Darwin checksum sidecar mismatch"
+          for name in ["Fallout-Terminal-arm64.dmg", "Fallout-Terminal-arm64.dmg.sha256"]:
+              (combined / name).write_bytes((darwin / name).read_bytes())
+
+          release_expected = portable_expected | {
+              "Fallout-Terminal-arm64.dmg",
+              "Fallout-Terminal-arm64.dmg.sha256",
+          }
+          assert {path.name for path in combined.iterdir() if path.is_file()} == release_expected
+          assert all(path.stat().st_size > 0 for path in combined.iterdir())
+          PY
+
+      - name: Upload preverified five-target release candidate
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fallout-terminal-release-candidate
+          if-no-files-found: error
+          retention-days: 7
+          path: combined/*
+
   publish:
-    name: Publish tagged portable release
+    name: Publish tagged five-target release
     if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
-    needs: [aggregate]
+    needs: [release-join]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -246,10 +360,10 @@ jobs:
             tools/goreleaser/go.sum
             tools/oras/go.sum
 
-      - name: Download complete portable matrix
+      - name: Download complete five-target release candidate
         uses: actions/download-artifact@v4
         with:
-          name: fallout-terminal-portable
+          name: fallout-terminal-release-candidate
           path: combined
 
       - name: Validate tag and publication inventory
@@ -261,6 +375,8 @@ jobs:
             exit 1
           }
           expected=(
+            Fallout-Terminal-arm64.dmg
+            Fallout-Terminal-arm64.dmg.sha256
             aggregate-index.json
             Fallout-Terminal-windows-amd64.zip
             Fallout-Terminal-windows-amd64.zip.sha256
@@ -281,9 +397,10 @@ jobs:
             test -s "$artifact"
           done
 
-      - name: Publish portable matrix to GitHub Packages
+      - name: Refuse existing publication destinations
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -291,11 +408,38 @@ jobs:
           package_reference="ghcr.io/${package_repository}:${GITHUB_REF_NAME}"
           printf '%s' "$GHCR_TOKEN" | go tool -modfile=tools/oras/go.mod oras login ghcr.io \
             --username "$GITHUB_ACTOR" --password-stdin
-          go tool -modfile=tools/oras/go.mod oras push "$package_reference" \
-            --artifact-type application/vnd.fallout-terminal.portable.v1 \
+          if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "GitHub Release ${GITHUB_REF_NAME} already exists; refusing a non-atomic replacement" >&2
+            exit 1
+          fi
+          if go tool -modfile=tools/oras/go.mod oras manifest fetch "$package_reference" >/dev/null 2>&1; then
+            echo "GHCR artifact ${package_reference} already exists; refusing a non-atomic replacement" >&2
+            exit 1
+          fi
+          printf 'PACKAGE_REFERENCE=%s\n' "$package_reference" >> "$GITHUB_ENV"
+          printf 'PUBLICATION_STARTED=1\n' >> "$GITHUB_ENV"
+
+      - name: Create complete draft release with GoReleaser v2
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml
+
+      - name: Publish complete release to GitHub Packages
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | go tool -modfile=tools/oras/go.mod oras login ghcr.io \
+            --username "$GITHUB_ACTOR" --password-stdin
+          go tool -modfile=tools/oras/go.mod oras push "$PACKAGE_REFERENCE" \
+            --artifact-type application/vnd.fallout-terminal.release.v1 \
             --annotation "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
             --annotation "org.opencontainers.image.revision=${SOURCE_SHA}" \
             --annotation "org.opencontainers.image.version=${GITHUB_REF_NAME}" \
+            combined/Fallout-Terminal-arm64.dmg:application/x-apple-diskimage \
+            combined/Fallout-Terminal-arm64.dmg.sha256:text/plain \
             combined/aggregate-index.json:application/json \
             combined/Fallout-Terminal-windows-amd64.zip:application/zip \
             combined/Fallout-Terminal-windows-amd64.zip.sha256:text/plain \
@@ -306,8 +450,27 @@ jobs:
             combined/Fallout-Terminal-linux-arm64.tar.gz:application/gzip \
             combined/Fallout-Terminal-linux-arm64.tar.gz.sha256:text/plain
 
-      - name: Publish portable archives with GoReleaser v2
+      - name: Expose complete GitHub Release
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" --jq .id)"
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false >/dev/null
+
+      - name: Roll back incomplete cross-destination publication
+        if: ${{ failure() && env.PUBLICATION_STARTED == '1' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          printf '%s' "$GHCR_TOKEN" | go tool -modfile=tools/oras/go.mod oras login ghcr.io \
+            --username "$GITHUB_ACTOR" --password-stdin
+          go tool -modfile=tools/oras/go.mod oras manifest delete --force "$PACKAGE_REFERENCE"
+          release_id="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}" --jq .id 2>/dev/null)"
+          if [[ -n "$release_id" ]]; then
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${release_id}"
+          fi

@@ -270,6 +270,23 @@ function Find-DescendantByProperty(
     return $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
 }
 
+function Find-DescendantByNamePrefix($Root, [string] $Prefix) {
+    $Elements = $Root.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition
+    )
+    foreach ($Element in $Elements) {
+        try {
+            if ($Element.Current.Name.StartsWith($Prefix, [StringComparison]::Ordinal)) {
+                return $Element
+            }
+        } catch {
+            # The accessibility tree may refresh during enumeration.
+        }
+    }
+    return $null
+}
+
 function Invoke-Element($Element, [string] $Description) {
     if ($null -eq $Element) {
         Fail "UI Automation element is missing: $Description"
@@ -443,7 +460,26 @@ const first = await iterator.next();
 if (first.done || first.value?.payload?.case !== "snapshot") {
   throw new Error("player subscription did not return a complete synchronized snapshot");
 }
-await writeFile(evidencePath, "connected\n", { encoding: "utf8", mode: 0o600 });
+const snapshot = first.value.payload.value;
+const candidate = snapshot?.playerState?.roster?.find((entry) => Number(entry.availability) === 1);
+if (!snapshot?.recognitionHandle || !snapshot?.playerState?.broadcastId || !candidate?.characterId) {
+  throw new Error("player snapshot did not expose an available synchronized control choice");
+}
+const selected = await client.selectCharacter({
+  recognitionHandle: snapshot.recognitionHandle,
+  requestId: "native-package-select-character",
+  broadcastId: snapshot.playerState.broadcastId,
+  characterId: candidate.characterId,
+});
+if (!selected?.accepted) throw new Error("player control action was rejected");
+let synchronized = false;
+while (!synchronized) {
+  const next = await iterator.next();
+  if (next.done) throw new Error("player subscription ended before synchronized control state");
+  const state = next.value?.payload?.case === "update" ? next.value.payload.value?.playerState : null;
+  synchronized = state?.assignedCharacter?.characterId === candidate.characterId;
+}
+await writeFile(evidencePath, "connected\ncontrol-accepted\nsynchronized\n", { encoding: "utf8", mode: 0o600 });
 try {
   while (!(await iterator.next()).done) {
     // Keep the real subscription connected until the application is closed.
@@ -475,6 +511,80 @@ function Wait-ForPlayerEvidence([string] $EvidencePath, [int] $TimeoutSeconds) {
         Start-Sleep -Milliseconds 200
     }
     Fail 'one local player did not receive a synchronized snapshot within 30 seconds'
+}
+
+function Wait-ForOperationEvidence(
+    [string] $StandardOutput,
+    [string] $StandardError,
+    [string] $Operation,
+    [int] $TimeoutSeconds
+) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $ApplicationProcess.Refresh()
+        if ($ApplicationProcess.HasExited) {
+            Fail "application exited before $Operation completed"
+        }
+        $Combined = ([System.IO.File]::ReadAllText($StandardOutput) + "`n" + [System.IO.File]::ReadAllText($StandardError))
+        if ($Combined -match "operation[=:]\S*$([Regex]::Escape($Operation)).*outcome[=:]\S*succeeded" -or
+            $Combined -match "outcome[=:]\S*succeeded.*operation[=:]\S*$([Regex]::Escape($Operation))") {
+            return
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail "$Operation did not report durable success"
+}
+
+function Invoke-NativeCredentialRoundTrip([string] $RepositoryRoot, [string] $CanaryPath) {
+    $OutputPath = Join-Path $OwnedRoot 'native-credential-smoke.log'
+    Push-Location $RepositoryRoot
+    try {
+        $Output = @(& go run ./cmd/native-credential-smoke --canary-file $CanaryPath 2>&1)
+        $Status = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    [System.IO.File]::WriteAllLines($OutputPath, [string[]] $Output)
+    if ($Status -ne 0) {
+        Fail 'native Windows Credential Manager write/read/replace/delete acceptance failed'
+    }
+}
+
+function Assert-NoCredentialCanaryLeak([string] $CanaryPath, [string[]] $Roots, $Window) {
+    $Canaries = @(Get-Content -LiteralPath $CanaryPath -Encoding ASCII | Where-Object { -not [string]::IsNullOrEmpty($_) })
+    if ($Canaries.Count -eq 0) {
+        Fail 'credential canary file is empty'
+    }
+    foreach ($Element in $Window.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition
+    )) {
+        try {
+            foreach ($Canary in $Canaries) {
+                if ($Element.Current.Name.Contains($Canary, [StringComparison]::Ordinal)) {
+                    Fail 'credential canary reached public accessibility state'
+                }
+            }
+        } catch {
+            # The accessibility tree may refresh during enumeration.
+        }
+    }
+    foreach ($Root in $Roots) {
+        if ([string]::IsNullOrEmpty($Root) -or -not (Test-Path -LiteralPath $Root -PathType Container)) {
+            continue
+        }
+        foreach ($File in Get-ChildItem -LiteralPath $Root -Recurse -Force -File) {
+            if ($File.FullName -eq $CanaryPath) {
+                continue
+            }
+            $Contents = [System.IO.File]::ReadAllText($File.FullName)
+            foreach ($Canary in $Canaries) {
+                if ($Contents.Contains($Canary, [StringComparison]::Ordinal)) {
+                    Fail "credential canary reached an owned file: $($File.Name)"
+                }
+            }
+        }
+    }
 }
 
 function Remove-OwnedRoot {
@@ -532,6 +642,8 @@ try {
     $WorkingRoot = Join-Path $OwnedRoot 'unrelated working directory'
     New-Item -ItemType Directory -Path $ExtractRoot | Out-Null
     New-Item -ItemType Directory -Path $WorkingRoot | Out-Null
+    $CanaryPath = Join-Path $OwnedRoot 'native credential canaries'
+    Invoke-NativeCredentialRoundTrip $RepositoryRoot $CanaryPath
 
     Expand-Archive -LiteralPath $ResolvedArchive -DestinationPath $ExtractRoot
     $ArchiveChildren = @(Get-ChildItem -LiteralPath $ExtractRoot -Force)
@@ -607,9 +719,58 @@ try {
     Invoke-Element $OpenButton 'native Open dialog confirmation'
 
     $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
+    $AddFolder = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) '+ ПАПКА'
+    Invoke-Element $AddFolder 'session authoring action'
+    Wait-ForOperationEvidence $StandardOutput $StandardError 'session.save' 60
+
+    $FirstWindowPattern = $OverseerWindow.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+    ([System.Windows.Automation.WindowPattern] $FirstWindowPattern).Close()
+    if (-not $ApplicationProcess.WaitForExit(15000)) {
+        Fail 'application did not exit after saving the session copy'
+    }
+    if ($ApplicationProcess.ExitCode -ne 0) {
+        Fail "application exited with code $($ApplicationProcess.ExitCode) after saving the session copy"
+    }
+    $ApplicationProcess = $null
+    Wait-ForPlayerListener $false 15
+    $FirstLog = ([System.IO.File]::ReadAllText($StandardOutput) + "`n" + [System.IO.File]::ReadAllText($StandardError))
+    if (-not $FirstLog.Contains('application shutdown completed')) {
+        Fail 'first application lifecycle did not release its resources'
+    }
+
+    $StandardOutput = Join-Path $OwnedRoot 'application-reopen.stdout.log'
+    $StandardError = Join-Path $OwnedRoot 'application-reopen.stderr.log'
+    $StartParameters.RedirectStandardOutput = $StandardOutput
+    $StartParameters.RedirectStandardError = $StandardError
+    $ApplicationProcess = Start-Process @StartParameters
+    $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
+    Wait-ForPlayerListener $true 60
+    $OpenSessionButton = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName
+    Invoke-Element $OpenSessionButton 'Open Session button for saved copy'
+    $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
+    $FileNameInput = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148'
+    if ($null -eq $FileNameInput) {
+        Fail 'native Open dialog file-name input was not found while reopening the saved copy'
+    }
+    $ValuePattern = $FileNameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    ([System.Windows.Automation.ValuePattern] $ValuePattern).SetValue($DemoCopy)
+    $OpenButton = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1'
+    Invoke-Element $OpenButton 'native Open dialog confirmation for saved copy'
+    $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
+
+    $StartBroadcast = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) 'НАЧАТЬ ТРАНСЛЯЦИЮ'
+    Invoke-Element $StartBroadcast 'start demo broadcast'
+    $LocalURL = Find-DescendantByNamePrefix $OverseerWindow 'http://127.0.0.1:'
+    Invoke-Element $LocalURL 'allowlisted HTTP external link'
+    $SettingsRoot = if ([string]::IsNullOrEmpty($env:APPDATA)) { $null } else { Join-Path $env:APPDATA 'com.vaulttec.fallout-terminal' }
+    Assert-NoCredentialCanaryLeak $CanaryPath @($OwnedRoot, $SettingsRoot) $OverseerWindow
     $PlayerEvidence = Join-Path $OwnedRoot 'player connection.evidence'
     Start-PlayerProbe $RepositoryRoot $PlayerEvidence
     Wait-ForPlayerEvidence $PlayerEvidence 30
+    $PlayerEvidenceText = [System.IO.File]::ReadAllText($PlayerEvidence)
+    if (-not $PlayerEvidenceText.Contains('control-accepted') -or -not $PlayerEvidenceText.Contains('synchronized')) {
+        Fail 'player control action was not accepted and synchronized'
+    }
     $ApplicationDescendants = @(Get-DescendantProcessIds $ApplicationProcess.Id)
     $WindowPattern = $OverseerWindow.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
     ([System.Windows.Automation.WindowPattern] $WindowPattern).Close()
@@ -641,7 +802,7 @@ try {
         $PlayerProbeProcess = $null
     }
 
-    Write-Output 'verify-windows-package: PE/runtime identity, exact manifest/checksum, native window, bundled demo, player snapshot, secure store, and complete resource release passed'
+    Write-Output 'verify-windows-package: PE/runtime identity, exact manifest/checksum, native JSON open/save, HTTP link, player control synchronization, protected credential round trip/leak scan, and complete resource release passed'
 } finally {
     if ($null -ne $PlayerProbeProcess) {
         try {

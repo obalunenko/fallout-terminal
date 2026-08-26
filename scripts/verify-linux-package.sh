@@ -173,7 +173,26 @@ const first = await iterator.next();
 if (first.done || first.value?.payload?.case !== "snapshot") {
   throw new Error("player subscription did not return a complete synchronized snapshot");
 }
-await writeFile(evidencePath, "connected\n", { encoding: "utf8", mode: 0o600 });
+const snapshot = first.value.payload.value;
+const candidate = snapshot?.playerState?.roster?.find((entry) => Number(entry.availability) === 1);
+if (!snapshot?.recognitionHandle || !snapshot?.playerState?.broadcastId || !candidate?.characterId) {
+  throw new Error("player snapshot did not expose an available synchronized control choice");
+}
+const selected = await client.selectCharacter({
+  recognitionHandle: snapshot.recognitionHandle,
+  requestId: "native-package-select-character",
+  broadcastId: snapshot.playerState.broadcastId,
+  characterId: candidate.characterId,
+});
+if (!selected?.accepted) throw new Error("player control action was rejected");
+let synchronized = false;
+while (!synchronized) {
+  const next = await iterator.next();
+  if (next.done) throw new Error("player subscription ended before synchronized control state");
+  const state = next.value?.payload?.case === "update" ? next.value.payload.value?.playerState : null;
+  synchronized = state?.assignedCharacter?.characterId === candidate.characterId;
+}
+await writeFile(evidencePath, "connected\ncontrol-accepted\nsynchronized\n", { encoding: "utf8", mode: 0o600 });
 try {
   while (!(await iterator.next()).done) {
     // Keep the real subscription connected until the application is closed.
@@ -248,6 +267,20 @@ wait_for_session_open() {
   return 1
 }
 
+wait_for_operation_success() {
+  local log_path="$1"
+  local operation="$2"
+  local deadline=$((SECONDS + verification_deadline_seconds))
+  local succeeded="operation[=:][^[:space:]]*${operation}.*outcome[=:][^[:space:]]*succeeded|outcome[=:][^[:space:]]*succeeded.*operation[=:][^[:space:]]*${operation}"
+
+  while ((SECONDS <= deadline)); do
+    process_is_alive || return 1
+    grep -Eq "${succeeded}" "${log_path}" 2>/dev/null && return 0
+    sleep 0.2
+  done
+  return 1
+}
+
 drive_demo_open() {
   local demo_path="$1"
   local dialog_id=''
@@ -266,7 +299,7 @@ drive_demo_open() {
 [[ "$(uname -s)" == Linux ]] || fail 'verification requires Linux'
 [[ -n "${DISPLAY:-}" ]] || fail 'DISPLAY is required; start Xvfb and a window manager before verification'
 
-for command in awk basename cat chmod cp dirname find gdbus grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sleep tar tr uname xdotool xdpyinfo; do
+for command in awk basename cat chmod cp dirname find gdbus go grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sleep tar tr uname xdotool xdpyinfo; do
   require_command "${command}"
 done
 xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1 || fail "cannot connect to DISPLAY ${DISPLAY}"
@@ -295,6 +328,12 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+canary_file="${workspace}/native credential canaries"
+credential_log="${workspace}/native-credential-smoke.log"
+if ! (cd "${repository_root}" && go run ./cmd/native-credential-smoke --canary-file "${canary_file}") >"${credential_log}" 2>&1; then
+  fail 'native Secret Service write/read/replace/delete acceptance failed'
+fi
 
 archive_entries="$(tar -tzf "${archive}")" || fail 'archive cannot be listed as tar.gz'
 archive_details="$(tar -tvzf "${archive}")" || fail 'archive metadata cannot be read'
@@ -463,9 +502,40 @@ fi
 process_is_alive || fail 'application exited after loading the packaged demo'
 xdotool search --onlyvisible --pid "${app_pid}" --name 'Fallout Terminal.*Overseer Control' >/dev/null 2>&1 || fail 'Overseer window disappeared after loading the packaged demo'
 
+python3 "${repository_root}/scripts/native-ui-smoke.py" invoke --name '+ ПАПКА' || fail 'could not perform a session-authoring action'
+wait_for_operation_success "${app_log}" 'session\.save' || fail 'the opened JSON session was not durably saved'
+
+xdotool windowclose "${window_id}"
+wait_for_process_exit || fail 'application did not exit after saving the session copy'
+if wait "${app_pid}"; then
+  :
+else
+  exit_status=$?
+  app_pid=''
+  fail "application exited with status ${exit_status} after saving the session copy"
+fi
+app_pid=''
+wait_for_listener closed || fail 'local player listener remained reachable before reopening the saved copy'
+grep -Fq 'application shutdown completed' "${app_log}" || fail 'first application lifecycle did not release its resources'
+
+app_log="${workspace}/application-reopen.log"
+window_id=''
+(cd "${launch_cwd}" && exec "${executable}" >"${app_log}" 2>&1) &
+app_pid=$!
+wait_for_window || fail 'a real Overseer window did not reappear within 60 seconds'
+wait_for_listener open || fail 'the local player listener did not restart before reopening the saved copy'
+drive_demo_open "${demo_copy}" || fail 'could not reopen the saved JSON copy through the native dialog'
+wait_for_session_open "${app_log}" || fail 'the saved JSON copy did not reopen successfully'
+
+python3 "${repository_root}/scripts/native-ui-smoke.py" invoke --name 'НАЧАТЬ ТРАНСЛЯЦИЮ' || fail 'could not start the demo broadcast'
+python3 "${repository_root}/scripts/native-ui-smoke.py" invoke --name 'http://127.0.0.1:' --prefix || fail 'could not exercise the allowlisted HTTP external link'
+python3 "${repository_root}/scripts/native-ui-smoke.py" assert-canaries-absent --canary-file "${canary_file}" || fail 'credential canary reached public accessibility state'
+
 player_evidence="${workspace}/player connection.evidence"
 start_player_probe "${repository_root}" "${player_evidence}"
-wait_for_player_evidence "${player_evidence}" || fail 'one local player did not receive a synchronized snapshot within 30 seconds'
+wait_for_player_evidence "${player_evidence}" || fail 'one local player did not complete a synchronized control action within 30 seconds'
+grep -Fq 'control-accepted' "${player_evidence}" || fail 'player control action was not accepted'
+grep -Fq 'synchronized' "${player_evidence}" || fail 'player control state was not synchronized'
 grep -Fq 'player server ready' "${app_log}" || fail 'application log does not confirm player-listener readiness'
 grep -Fq 'application ready' "${app_log}" || fail 'application did not reach local-ready state with native Secret Service available'
 
@@ -488,10 +558,16 @@ if ((${#application_descendants[@]} > 0)); then
 fi
 grep -Fq 'application shutdown completed' "${app_log}" || fail 'application log does not confirm complete resource release'
 
+"${repository_root}/scripts/secret-leak-check.sh" --canary-file "${canary_file}" --scan-root "${workspace}"
+linux_settings_root="${XDG_CONFIG_HOME:-${HOME}/.config}/com.vaulttec.fallout-terminal"
+if [[ -d "${linux_settings_root}" ]]; then
+  "${repository_root}/scripts/secret-leak-check.sh" --canary-file "${canary_file}" --scan-root "${linux_settings_root}"
+fi
+
 if player_probe_is_alive; then
   kill -TERM "${player_probe_pid}" 2>/dev/null || true
   wait "${player_probe_pid}" 2>/dev/null || true
 fi
 player_probe_pid=''
 
-printf 'Verified %s: ELF/runtime identity, exact manifest/checksum, real Overseer window, bundled demo, player snapshot, secure store, and complete resource release.\n' "${expected_archive}"
+printf 'Verified %s: ELF/runtime identity, exact manifest/checksum, native JSON open/save, HTTP link, player control synchronization, protected credential round trip/leak scan, and complete resource release.\n' "${expected_archive}"

@@ -62,12 +62,7 @@ tasks:
         fi
 
   package:all:
-    desc: Package the current checkout for all portable targets locally with Docker.
-    preconditions:
-      - sh: command -v docker >/dev/null 2>&1
-        msg: Docker is required; install Docker and start its daemon.
-      - sh: docker info >/dev/null 2>&1
-        msg: Docker daemon is unavailable; start Docker and retry.
+    desc: Package Darwin natively and all portable targets locally with Docker.
     cmds:
       - |
         if [ -n "{{.OUTPUT}}" ]; then

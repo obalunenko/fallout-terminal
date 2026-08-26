@@ -38,5 +38,13 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     FALLOUT_TERMINAL_SOURCE_REVISION="${SOURCE_REVISION}" \
     go run ./cmd/build package-container --target "${TARGETOS}/${TARGETARCH}"
 
+RUN mkdir -p \
+        /export/dist \
+        "/export/bin/${TARGETOS}-${TARGETARCH}" \
+    && cp build/dist/* /export/dist/ \
+    && cp -a \
+        "build/bin/${TARGETOS}-${TARGETARCH}/stage/Fallout Terminal/." \
+        "/export/bin/${TARGETOS}-${TARGETARCH}/"
+
 FROM scratch AS artifact
-COPY --from=builder /workspace/build/dist/ /
+COPY --from=builder /export/ /

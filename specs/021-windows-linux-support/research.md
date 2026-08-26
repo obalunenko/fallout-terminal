@@ -1,10 +1,16 @@
 # Phase 0 Research: Windows and Linux Desktop Support
 
+**Bugfix**: 2026-08-26 — BUG-001 clarifies the local Docker payload and diagnostic contract while preserving native release evidence.
+
+**Bugfix**: 2026-08-26 — BUG-003 joins native `darwin/arm64` packaging to the local aggregate without changing the remote release matrix.
+
+**Bugfix**: 2026-08-26 — BUG-004 defines the missing five-target SemVer-tag publication gate and reopens incomplete evidence.
+
 ## Native target builders and aggregate orchestration
 
-**Decision**: Package `windows/amd64`, `windows/arm64`, `linux/amd64`, and `linux/arm64` on matching operating-system and architecture runners. `task package:all:remote` resolves the current clean pushed branch in `origin`, dispatches the dedicated GitHub Actions workflow, waits for its four target jobs, and fails unless the complete native matrix succeeds. `task package:all` additionally builds the current checkout locally through architecture-matched Docker containers and performs static artifact verification without claiming native launch evidence. Each target path delegates detailed planning and archive work to `cmd/build`.
+**Decision**: Package `windows/amd64`, `windows/arm64`, `linux/amd64`, and `linux/arm64` on matching operating-system and architecture runners. `task package:all:remote` resolves the current clean pushed branch in `origin`, dispatches the dedicated GitHub Actions workflow, waits for its four target jobs, and fails unless the complete native matrix succeeds. Local `task package:all` runs only on `darwin/arm64`, reuses the canonical no-target package plan for `Fallout Terminal.app`, additionally builds the current checkout through architecture-matched Docker containers, statically verifies every portable archive, and atomically exposes the Darwin bundle plus four matching Windows/Linux executable/resource payloads under `bin/<os>-<arch>/` without claiming native Windows/Linux launch evidence. Host, Docker installation, stopped daemon, or unsupported platform failures retain their underlying diagnostic and provide actionable recovery. Each target path delegates detailed planning, archive work, and verification to `cmd/build`.
 
-**Rationale**: Wails v3 can cross-compile several combinations, but its production guidance recommends native CI runners for each platform. Linux builds require CGO plus matching GTK and WebKitGTK development libraries, and the feature requires a real-window launch check on the target platform. Native architecture runners make the artifact build and its acceptance evidence one coherent unit. An aggregate CI dispatch is also the only honest interpretation of “package all” when a single local host cannot satisfy the matching-host rule.
+**Rationale**: Wails v3 can cross-compile several combinations, but its production guidance recommends native CI runners for each platform. Linux builds require CGO plus matching GTK and WebKitGTK development libraries, and the feature requires a real-window launch check on the target platform. Native architecture runners make the artifact build and its acceptance evidence one coherent unit. ~~An aggregate CI dispatch is also the only honest interpretation of “package all” when a single local host cannot satisfy the matching-host rule.~~ The remote aggregate is the release-evidence path; the local Docker aggregate is an explicit developer build/static-verification path whose payload/archive equality is useful without pretending to satisfy matching-host acceptance.
 
 **Alternatives considered**: Wails Docker cross-builds remain useful developer tooling but were rejected as release evidence because they cannot provide the required matching-target window check; a local sequential `package-all` was rejected because it could not execute all four matching-host commands; four unrelated manual workflow commands were rejected because they cannot enforce complete-matrix success.
 
@@ -73,6 +79,12 @@ The implementation pin is Wails `v3.0.0-beta.13` for the root Go runtime and iso
 **Rationale**: Separating workflows preserves macOS signing, notarization, reproducibility, and single-job assertions while giving each new platform an independent failure report. Upload-after-verification and an explicit aggregation gate implement the requirement that incomplete or unverifiable targets are never presented as successful output.
 
 **Alternatives considered**: Extending the macOS job into a matrix was rejected because it couples unrelated trust and release surfaces; uploading first and validating later was rejected because failed binaries could appear successful; one build job plus inspection-only jobs was rejected because each platform must own its native build and launch evidence.
+
+**Tagged-release decision**: Keep macOS and portable targets on their appropriate native runners, but join their verified outputs before publication. A SemVer tag resolves one immutable source SHA; the macOS path produces the established Developer ID-signed, hardened-runtime, notarized, stapled, and Gatekeeper-verified `Fallout-Terminal-arm64.dmg` plus its checksum, while the portable path produces four eligible archives, their sidecars, and the aggregate index. Repository-pinned GoReleaser v2 owns the single GitHub Release publication only after the exact five-target inventory is present, and the same inventory is pushed as the versioned GHCR artifact.
+
+**Tagged-release rationale**: Separate native jobs preserve platform trust ownership, while a final join makes “release all targets” observable and fail-closed. Publishing the four portable targets before Darwin succeeds would create a misleading partial release and would violate the established macOS distribution guarantee.
+
+**Tagged-release alternatives considered**: Leaving Darwin to an unrelated manual release was rejected because a SemVer tag would not represent all supported targets; publishing the ad-hoc local `.app` was rejected because public macOS distribution requires the existing Developer ID/notarization/DMG gates; allowing two independent GitHub Release writers was rejected because their failure and replacement behavior cannot provide one atomic eligibility decision.
 
 ## Existing macOS behavior and governance
 

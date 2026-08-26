@@ -50,7 +50,7 @@ Wails dispatches the same root `package` task and therefore reaches the same Go 
 task package
 ```
 
-On the supported macOS arm64 host with no `GOOS`/`GOARCH` override, the command retains the existing behavior and produces `build/bin/Fallout Terminal.app`. It does not join the four-target portable matrix and does not change signing, DMG, notarization, or reproducibility contracts. The existing pinned-Wails entrypoint `go tool -modfile=tools/wails/go.mod wails3 package` resolves to the same root Task task.
+On the supported macOS arm64 host with no `GOOS`/`GOARCH` override, the command retains the existing behavior and produces `build/bin/Fallout Terminal.app`. ~~It does not join the four-target portable matrix.~~ The same canonical plan supplies the native Darwin bundle joined by local `task package:all`, while Darwin remains outside the four-target portable archive/release matrix. Signing, DMG, notarization, and reproducibility contracts do not change. The existing pinned-Wails entrypoint `go tool -modfile=tools/wails/go.mod wails3 package` resolves to the same root Task task.
 
 ## Local Docker aggregate command
 
@@ -58,32 +58,37 @@ On the supported macOS arm64 host with no `GOOS`/`GOARCH` override, the command 
 task package:all [OUTPUT=<directory>]
 ```
 
-The default output directory is `build/dist`. This command builds the current checkout for all four portable targets in architecture-matched Linux containers and delegates isolation, collection, validation, and atomic publication to the Go aggregate helper.
+The default output directory is `build/dist`. On the supported `darwin/arm64` host this command builds the canonical native macOS package and all four portable targets in architecture-matched Linux containers, then delegates isolation, collection, validation, and atomic five-target publication to the Go aggregate helper.
 
 ### Preconditions
 
+- The runtime host is exactly `darwin/arm64`; other hosts fail before package mutation because Darwin must be built natively.
 - Docker is installed, its daemon is running, and BuildKit can execute `linux/amd64` and `linux/arm64` build platforms.
-- `OUTPUT` does not already exist.
+- `OUTPUT` may be absent, the repository-owned default `build/dist`, or a recognized previous local aggregate directory containing its regular `aggregate-index.json` marker.
+- An existing file, symlink, repository/filesystem root, or unrecognized custom directory is rejected without modification.
 - The current checkout has a valid Git `HEAD`; a clean tree, named branch, remote, push, GitHub CLI, and GitHub access are not required.
 
 ### Behavior
 
-1. Resolve the current `HEAD` source revision and pass the current Docker build context to each isolated target build.
-2. Build Linux with native CGO inside a target-architecture Linux container and Windows with CGO-disabled Go cross-compilation inside the matching-architecture container.
-3. Export each archive and checksum to a target-owned quarantine and report target progress independently.
-4. Revalidate the source revision, exact target set, unique names, manifests, PE/ELF identity, and checksums, then create `aggregate-index.json`.
-5. Atomically expose the complete nine-file matrix in `OUTPUT`; any failure removes the temporary matrix.
+1. Validate the native `darwin/arm64` host, resolve the current `HEAD`, execute the canonical no-target package plan, and copy the complete ad-hoc signed bundle into quarantine as `bin/darwin-arm64/Fallout Terminal.app`.
+2. Pass the current Docker build context to each isolated portable target build.
+3. Build Linux with native CGO inside a target-architecture Linux container and Windows with CGO-disabled Go cross-compilation inside the matching-architecture container.
+4. Export each archive, checksum, executable, and required resource tree to a target-owned quarantine and report target progress independently.
+5. Verify the Darwin bundle, then revalidate the source revision, exact portable target set, unique names, manifests, PE/ELF identity, checksums, and byte-for-byte agreement between each portable runnable payload and its archive; create `aggregate-index.json` for the four portable artifacts.
+6. Expose the Darwin application bundle, complete portable release inventory, and `bin/<os>-<arch>/` runnable payloads in `OUTPUT`. When an owned prior output exists, retain it until verification finishes, rename it into a same-filesystem sibling work root, publish the new directory, restore the backup if final publication fails, and remove the backup only after success.
 
 ### Success
 
-- Exit status is zero only when all four target records are eligible and all four archives are present locally.
-- The command reports the resolved source SHA, output directory, and one archive/checksum result per target.
+- Exit status is zero only when the verified Darwin application bundle and all four portable target records, archives, and executable payloads are present locally.
+- The command reports the resolved source SHA, output directory, Darwin application bundle path, and archive, checksum, and executable path for every portable target.
 
 ### Failure
 
 - An unavailable Docker daemon, unsupported emulation platform, failed build, missing, duplicated, mismatched-revision, or unverifiable target makes the command nonzero.
+- Docker installation, daemon, or build-platform failures identify Docker as the failed prerequisite, preserve the underlying command diagnostic when available, and include an actionable install/start/platform recovery instruction. Task MUST NOT replace this diagnostic with a generic precondition failure.
 - A partial matrix is reported by target but is never presented in the aggregate success output directory.
-- Local Docker output proves build and static artifact validity only; it does not satisfy native application launch acceptance.
+- Build or verification failure leaves an existing owned output byte-unchanged. Final publication failure restores the prior output before returning nonzero; if rollback itself fails, the command reports and retains the recovery directory instead of deleting it. An unsafe existing target is rejected before Docker starts.
+- The Darwin bundle is built natively through the canonical package plan. Docker output proves Windows/Linux build and static artifact validity only; it does not satisfy their native application launch acceptance.
 
 ## Remote native aggregate command
 

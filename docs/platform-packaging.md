@@ -36,7 +36,7 @@ source of build order, target validation, package layout, and verification polic
 | `task prepare` | Verify/generate protobuf assets, build the player, generate Wails bindings, and build Overseer assets in the owned order. |
 | `task build [GOOS=<os> GOARCH=<arch>]` | Build for the current host by default, or for one exact supported target when both variables are supplied. |
 | `task package [GOOS=<os> GOARCH=<arch>]` | Preserve the macOS arm64 package path with no override, or create one matching-host Windows/Linux portable archive. |
-| `task package:all [OUTPUT=<directory>]` | Build and verify all four portable targets from the current checkout locally with Docker. |
+| `task package:all [OUTPUT=<directory>]` | On `darwin/arm64`, build the native macOS bundle and all four portable targets from the current checkout locally with Docker. |
 | `task package:all:remote [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete native four-target GitHub Actions matrix. |
 | `task deps` | Install both locked frontend and browser-test npm workspaces. |
 | `task deps:frontend` | Install locked client and Overseer dependencies with `npm ci`. |
@@ -141,17 +141,21 @@ Verification rejects unexpected or unsafe inventory, absolute/traversal paths, l
 files, a wrong PE/ELF machine, missing product/icon/runtime metadata, incorrect modes, a target or
 source mismatch, and a bad manifest or sidecar checksum.
 
-## Package the complete matrix locally with Docker
+## Package the complete matrix locally on macOS with Docker
 
-`package:all` builds all four targets from the current checkout. Docker and a running Docker daemon
-with BuildKit support are the only additional host prerequisites:
+`package:all` builds the native `darwin/arm64` application bundle and all four portable targets from
+the current checkout. It requires a `darwin/arm64` host plus Docker and a running Docker daemon with
+BuildKit support. Other hosts fail before packaging or output replacement:
 
 ```text
 task package:all
 task package:all OUTPUT=build/portable-local
 ```
 
-The helper runs four isolated `docker build` operations from `build/docker/Dockerfile.package`.
+The helper first executes the same canonical native plan as no-target `task package`, copies the
+complete ad-hoc signed application bundle into quarantine, and verifies its required inventory,
+ARM64 Mach-O executable, and signature. It then runs four isolated `docker build` operations from
+`build/docker/Dockerfile.package`.
 Linux targets run with `--platform=linux/amd64` or `linux/arm64` so their CGO, GTK4, and WebKitGTK
 compilation happens on the target architecture. Windows uses Go's CGO-free cross-compilation inside
 the corresponding architecture container. The image selects the Go 1.27 and Node.js 24 image lines and
@@ -163,14 +167,44 @@ and untracked source changes not excluded by `.dockerignore`; `.env` files, VCS 
 trees, and previous outputs are excluded. The archive manifest identifies the current `HEAD` source
 revision, just like a one-target local `task package` build.
 
-Each target is exported into an owned quarantine. The helper rejects missing or extra files,
-revalidates every archive, manifest, PE/ELF architecture, and checksum, writes
-`aggregate-index.json`, and atomically renames the complete nine-file matrix to `OUTPUT`. The output
-path must not already exist. Any failed target removes the temporary matrix and leaves no partial
-success directory.
+Each target is exported into an owned quarantine. The helper rejects an incomplete or invalid Darwin
+bundle and missing or extra portable payload files, revalidates every archive, manifest, PE/ELF
+architecture, and checksum, writes
+`aggregate-index.json`, verifies that every exported executable and resource matches its archive,
+and publishes the complete matrix to `OUTPUT`. The repository-owned default `build/dist` may
+already exist, so repeated canonical runs need no manual cleanup. A custom existing directory is
+replaceable only when its regular `aggregate-index.json` identifies it as a previous aggregate;
+files, symlinks, repository/filesystem roots, and unrelated custom directories are rejected before
+Docker starts.
 
-Docker packaging cannot launch Windows or Linux desktop applications on their native UI stack.
-Use the remote native matrix before treating artifacts as release evidence.
+An existing owned output remains untouched throughout build and verification. At final publication
+the helper moves it into a same-filesystem sibling work root, renames the verified matrix into place, restores the
+backup if that rename fails, and removes the backup after success. If rollback itself fails, the
+error reports the retained recovery directory instead of deleting it. Any failed target removes the
+temporary matrix and leaves the previous successful output available.
+
+The root of `OUTPUT` retains the nine Windows/Linux release files. It also exposes the native Darwin
+bundle and the same runnable payload that each target-specific `package` command stages:
+
+```text
+OUTPUT/
+├── Fallout-Terminal-<os>-<arch>.<zip|tar.gz>
+├── Fallout-Terminal-<os>-<arch>.<zip|tar.gz>.sha256
+├── aggregate-index.json
+└── bin/
+    ├── darwin-arm64/Fallout Terminal.app/
+    ├── windows-amd64/Fallout Terminal.exe
+    ├── windows-arm64/Fallout Terminal.exe
+    ├── linux-amd64/Fallout Terminal
+    └── linux-arm64/Fallout Terminal
+```
+
+The Darwin path contains the entire signed `.app`; every Windows/Linux `bin/<os>-<arch>/` directory
+also contains the required `resources/` tree. The coordinator rejects an executable payload whose
+exact inventory or file hashes differ from its verified archive.
+
+Darwin is built natively. Docker packaging cannot launch Windows or Linux desktop applications on
+their native UI stack; use the remote native matrix before treating those artifacts as release evidence.
 
 ## Package and launch-verify the complete matrix through GitHub Actions
 
@@ -234,7 +268,7 @@ sidecars, and `aggregate-index.json`; these files are the CI evidence consumed a
 
 ## Publish a tagged release
 
-Pushing a semantic version tag triggers the same native four-target workflow automatically:
+Pushing a semantic version tag triggers one five-target release transaction automatically:
 
 ```text
 git tag v1.2.3
@@ -242,23 +276,29 @@ git push origin v1.2.3
 ```
 
 Accepted tags use `vMAJOR.MINOR.PATCH` with an optional prerelease suffix, for example
-`v1.2.3-beta.1`. A suffix marks the GitHub Release as a prerelease. The publication job starts only
-after the aggregate gate has accepted all four native packages; a missing, failed, or unverifiable
-target prevents both publication steps.
+`v1.2.3-beta.1`. A suffix marks the GitHub Release as a prerelease. The portable workflow accepts
+all four matching-runner Windows/Linux packages, invokes the reusable macOS trust workflow at the
+same tag SHA, and requires its Developer ID signed, hardened-runtime, notarized, stapled, and
+Gatekeeper-accepted `Fallout-Terminal-arm64.dmg` plus checksum. Publication starts only after the
+five-target join has checked the exact source revision, every sidecar, and the complete inventory;
+a missing, failed, or unverifiable target prevents both publication destinations.
 
-The workflow publishes the nine-file aggregate inventory in two forms:
+The workflow publishes the exact 11-file joined inventory in two forms:
 
-- GitHub Release assets: the four archives, four `.sha256` sidecars, and
-  `aggregate-index.json`, published with generated release notes by the repository-pinned
-  GoReleaser v2 configuration;
+- GitHub Release assets: `Fallout-Terminal-arm64.dmg`, its `.sha256` sidecar, the four portable
+  archives, their four `.sha256` sidecars, and `aggregate-index.json`, published by the
+  repository-pinned GoReleaser v2 configuration;
 - one generic OCI artifact in GitHub Packages (GHCR), tagged as
   `ghcr.io/<owner>/<repository>:<git-tag>` and associated with the source repository and revision.
 
 GitHub Release publication is owned by `.goreleaser.yaml` with configuration schema `version: 2`
 and the pinned `tools/goreleaser` module. GoReleaser skips compilation because the matching native
-jobs already built and verified the complete matrix; `release.extra_files` uploads only those nine
-aggregate files and `prerelease: auto` follows the SemVer suffix. It runs through
+jobs already built and verified the complete matrix; `release.extra_files` uploads only those 11
+joined files and `prerelease: auto` follows the SemVer suffix. It runs through
 `go tool -modfile=tools/goreleaser/go.mod goreleaser release`, never a floating action or global CLI.
+GoReleaser first creates a draft. The workflow exposes that release only after the matching GHCR
+artifact succeeds; if either destination fails, the workflow removes the draft and versioned GHCR
+manifest so a partial cross-destination publication is not presented as a successful release.
 
 The GHCR artifact is published by the pinned ORAS tool module using the workflow-scoped
 `GITHUB_TOKEN`; no registry secret or globally installed CLI is required. Package visibility follows
@@ -268,6 +308,16 @@ pinned tools available:
 ```text
 go tool -modfile=tools/oras/go.mod oras pull ghcr.io/<owner>/<repository>:v1.2.3
 ```
+
+For a non-publishing acceptance run, dispatch `Wails Portable` with the clean pushed revision,
+the normal correlation identifier, and `validate_release=true`. The workflow executes the same
+signed/notarized Darwin build and exact five-target join, uploads only the short-lived
+`fallout-terminal-release-candidate` workflow artifact, and deliberately skips both GoReleaser and
+ORAS because no SemVer tag event exists. The macOS repository secrets are:
+`MACOS_DEVELOPER_ID_CERTIFICATE` (base64 PKCS#12),
+`MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `MACOS_DEVELOPER_ID_APPLICATION`,
+`MACOS_NOTARYTOOL_APPLE_ID`, `MACOS_NOTARYTOOL_TEAM_ID`, and
+`MACOS_NOTARYTOOL_PASSWORD` (an app-specific password).
 
 GitHub Releases provide the normal end-user download surface through GoReleaser v2. GitHub Packages provides the same
 versioned files as a machine-consumable OCI artifact rather than pretending portable desktop
@@ -285,8 +335,10 @@ Packaging and aggregation never convert partial work into a successful distribut
   the aggregate gate fails.
 - A missing, duplicate, mislabeled, wrong-revision, wrong-machine, or checksum-invalid target makes
   the complete matrix ineligible.
-- A failed aggregate keeps downloads quarantined and never exposes a partial `OUTPUT`; an existing
-  destination is never overwritten.
+- A failed aggregate keeps downloads quarantined and never exposes a partial `OUTPUT`. Local Docker
+  packaging may replace only the repository-owned default or a recognized previous aggregate after
+  full verification, with backup/rollback; remote native download still refuses an existing
+  destination.
 
 In short: an incomplete or unverifiable matrix **не публикуется**, and every such failure returns a
 nonzero **код завершения**. Exit status zero means the requested target archive—or all four joined

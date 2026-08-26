@@ -40,7 +40,7 @@ task --list                # список доступных задач
 task dev                   # разработка
 task build                 # сборка для текущей ОС
 task package               # пакет для текущей ОС
-task package:all           # все Windows/Linux-пакеты локально через Docker
+task package:all           # macOS-пакет нативно и Windows/Linux локально через Docker
 task package:all:remote    # все пакеты с нативной проверкой в GitHub Actions
 task test                  # Go-тесты
 task test:race             # Go-тесты с race detector
@@ -170,35 +170,57 @@ task package GOOS=linux GOARCH=amd64
 task package GOOS=linux GOARCH=arm64
 ```
 
-### Все платформы локально через Docker
+### Все платформы локально на macOS с Docker
 
-Для локальной сборки полной матрицы нужен установленный и запущенный Docker с поддержкой BuildKit,
-`linux/amd64` и `linux/arm64`. На macOS и Windows это обычно предоставляет Docker Desktop. Проверить
-готовность daemon и запустить сборку можно так:
+Для локальной сборки полной матрицы нужен Mac с `darwin/arm64` и установленный и запущенный Docker
+с поддержкой BuildKit, `linux/amd64` и `linux/arm64`. Docker Desktop обычно предоставляет эти
+возможности. На другой ОС или архитектуре команда завершается до упаковки с сообщением о требуемом
+хосте. Проверить готовность daemon и запустить сборку можно так:
 
 ```bash
 docker info
 task package:all
-# или указать собственный новый каталог:
+# или указать собственный каталог:
 task package:all OUTPUT=build/portable
 ```
 
-Без `OUTPUT` результат записывается в `build/dist`. Выходной каталог не должен существовать до
-запуска: это защищает ранее собранные пакеты от перезаписи. Для повторной сборки укажите новый
-каталог либо предварительно переместите старый результат.
+Без `OUTPUT` результат записывается в repository-owned `build/dist`; повторный запуск безопасно
+заменяет предыдущий результат только после полной проверки новой матрицы. Предыдущий output остаётся
+на месте при ошибке сборки или проверки и восстанавливается при ошибке финальной публикации.
+Существующий custom `OUTPUT` заменяется только когда он распознан как предыдущая aggregate-сборка
+по обычному файлу `aggregate-index.json`; файл, symlink или посторонний каталог команда не трогает.
 
-Docker получает текущую рабочую копию, поэтому команда собирает и незакоммиченные изменения; commit,
-push, `origin`, `gh` и доступ к GitHub не нужны. Для Linux запускаются контейнеры соответствующей
-архитектуры с CGO, GTK4 и WebKitGTK 6.0, а Windows-бинарники собираются средствами Go в контейнере
-той же архитектуры. После статической проверки PE/ELF, manifest и SHA-256 команда атомарно публикует:
+Команда сначала выполняет тот же нативный план, что и `task package`, и проверяет ARM64 Mach-O,
+состав bundle и ad-hoc подпись. Docker получает текущую рабочую копию, поэтому команда собирает и
+незакоммиченные изменения; commit, push, `origin`, `gh` и доступ к GitHub не нужны. Для Linux
+запускаются контейнеры соответствующей архитектуры с CGO, GTK4 и WebKitGTK 6.0, а Windows-бинарники
+собираются средствами Go в контейнере той же архитектуры. После проверки команда атомарно публикует:
 
+- полный `Fallout Terminal.app` для `darwin/arm64`;
 - четыре portable-архива;
 - четыре одноимённых файла `.sha256`;
-- общий `aggregate-index.json`.
+- общий `aggregate-index.json`;
+- четыре распакованных runnable-каталога в `bin/<os>-<arch>/` с executable и обязательными
+  `resources`.
 
-Если хотя бы одна цель не собирается или не проходит проверку, успешный `OUTPUT` не создаётся.
-Локальная Docker-сборка не запускает GUI-приложения в целевых ОС и поэтому не является нативным
-release evidence.
+Исполняемые файлы доступны напрямую:
+
+```text
+build/dist/bin/windows-amd64/Fallout Terminal.exe
+build/dist/bin/windows-arm64/Fallout Terminal.exe
+build/dist/bin/linux-amd64/Fallout Terminal
+build/dist/bin/linux-arm64/Fallout Terminal
+build/dist/bin/darwin-arm64/Fallout Terminal.app
+```
+
+При собственном `OUTPUT` замените в этих путях `build/dist` на выбранный каталог. Не отделяйте
+executable от соседнего `resources`: bundled demo, icon и third-party notices являются частью
+runnable package.
+
+Если хотя бы одна из пяти целей не собирается или не проходит проверку, новый `OUTPUT` не публикуется, а
+предыдущий успешный результат остаётся доступен.
+macOS bundle собирается нативно; Docker-сборка не запускает Windows/Linux GUI-приложения в целевых
+ОС и поэтому не является для них нативным release evidence.
 
 ### Все платформы с нативной проверкой в GitHub Actions
 
@@ -218,7 +240,7 @@ Remote-команда требует чистую именованную вет�
 
 Каждый push в `main` и каждый pull request автоматически запускает workflow [Wails Cross-Platform Build](.github/workflows/wails-cross-platform.yml). Он выполняет `task build` на четырёх соответствующих нативных runner-ах (`windows/amd64`, `windows/arm64`, `linux/amd64`, `linux/arm64`) и проверяет наличие непустого executable. Полная нативная упаковка, запуск и smoke-проверка архивов остаются в отдельном workflow [Wails Portable](.github/workflows/wails-portable.yml); вручную его диспетчеризует `task package:all:remote`.
 
-Push SemVer-тага вида `v1.2.3` или `v1.2.3-beta.1` автоматически запускает полную четырёхцелевую упаковку. Только после успешной проверки всей матрицы закреплённый GoReleaser `v2.18.0` публикует архивы, `.sha256` и `aggregate-index.json` как assets GitHub Release; тот же набор публикуется как versioned OCI artifact `ghcr.io/<owner>/<repository>:<tag>` в GitHub Packages. Тег с prerelease-суффиксом создаёт prerelease; частичная или непроверенная матрица не публикуется.
+Push SemVer-тага вида `v1.2.3` или `v1.2.3-beta.1` автоматически запускает одну пятицелевую release-транзакцию: четыре нативно проверенных Windows/Linux архива объединяются с подписанным Developer ID, notarized и stapled `Fallout-Terminal-arm64.dmg` из существующего macOS trust workflow на том же SHA. Только после проверки точного набора из DMG и sidecar, четырёх архивов и sidecar-ов и `aggregate-index.json` закреплённый GoReleaser `v2.18.0` публикует один GitHub Release; тот же 11-файловый набор закреплённый ORAS публикует как versioned OCI artifact `ghcr.io/<owner>/<repository>:<tag>` в GitHub Packages. Тег с prerelease-суффиксом создаёт prerelease; ошибка любого target, подписи/notarization, join или destination не может быть представлена как частичный успех. Workflow можно безопасно проверить без публикации через `workflow_dispatch` с `validate_release=true`: он строит и объединяет preverified candidate, но не создаёт GitHub Release или GHCR version.
 
 Без `GOOS` и `GOARCH` команда `task package` сохраняет совместимое поведение macOS и создаёт локальный ad-hoc подписанный пакет `build/bin/Fallout Terminal.app`. При первом запуске macOS может потребовать разрешение в **System Settings → Privacy & Security**.
 

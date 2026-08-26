@@ -1,15 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 6.0.1 -> 6.0.2
-- Modified principles:
-  - Principle I (accepted Windows/Linux deployment targets and native platform adapters)
-  - Principle VII (one-step Make-to-Task orchestration cutover)
+- Version change: 6.0.3 -> 6.0.4
+- Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Expanded guidance:
-  - Accepted Wails runtime, CLI, and frontend pins advance together from v3.0.0-beta.10 to v3.0.0-beta.13
-  - Make may retain non-mutating bootstrap discovery through `make help`; Task remains the sole workflow graph
+  - Extend local `task package:all` to include the canonical native `darwin/arm64` application
+    bundle alongside the four Docker-built Windows/Linux archives and runnable payloads
+  - Keep `task package:all:remote` scoped to the four-target Windows/Linux matching-host evidence
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -466,8 +465,15 @@ Applicable commands MUST succeed before a change is considered complete:
 - `task package` succeeds and produces the existing self-contained macOS Apple Silicon application
   on its supported host. `task package GOOS=<os> GOARCH=<arch>` MUST produce the governed portable
   archive for each accepted Windows/Linux target on its matching host.
-- `task package:all REF=<git-ref>` MUST coordinate the four Windows/Linux native target jobs and
-  fail unless every verified archive belongs to the same source revision.
+- `task package:all` MUST run on the supported `darwin/arm64` host, build the canonical native macOS
+  application through the same plan as `task package`, and build and statically verify the complete
+  four-target Windows/Linux matrix from the current checkout through architecture-matched Docker
+  containers. It MUST expose the `darwin/arm64` application bundle plus all four governed archives
+  and directly accessible Windows/Linux executable/resource payloads, fail atomically on any target
+  or Docker prerequisite error, and MUST NOT treat Docker cross-builds as native launch acceptance.
+- `task package:all:remote` MUST coordinate the four Windows/Linux matching-host native target jobs
+  for the current clean pushed branch and fail unless every verified archive belongs to the same
+  source revision.
 - Release candidates pass signing, hardened-runtime, notarization, stapling, DMG, and Gatekeeper
   checks when release credentials are available.
 
@@ -581,4 +587,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 6.0.2 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-26
+**Version**: 6.0.4 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-26

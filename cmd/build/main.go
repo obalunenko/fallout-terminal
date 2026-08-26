@@ -120,12 +120,23 @@ func runPackageAllDocker(ctx context.Context, root string, options packageAllOpt
 
 	fmt.Printf("==> source revision: %s\n", result.SourceSHA)
 	fmt.Printf("==> aggregate output: %s\n", result.OutputDirectory)
+	fmt.Printf("==> darwin/arm64 application: %s\n", result.DarwinBundlePath)
 	for _, artifact := range result.Artifacts {
 		fmt.Printf(
 			"==> %s: %s (%s)\n",
 			artifact.Target(),
 			artifact.ArchiveName(),
 			artifact.Checksum(),
+		)
+		fmt.Printf(
+			"==> %s executable: %s\n",
+			artifact.Target(),
+			filepath.Join(
+				result.OutputDirectory,
+				"bin",
+				artifact.Target().OS()+"-"+artifact.Target().Arch(),
+				artifact.Target().ExecutableName(),
+			),
 		)
 	}
 	return nil

@@ -51,6 +51,30 @@ The aggregate job runs even when a target fails so it can provide a complete mat
 
 On success the job publishes one combined downloadable workflow artifact containing the four portable archives, their sidecars, and a redacted aggregate index. On any partial result it publishes only diagnostic job logs/records permitted by repository policy and marks the aggregate run failed.
 
+## Tagged five-target publication gate
+
+The four-target aggregate remains the native Windows/Linux evidence owner. On a valid SemVer tag, a
+separate macOS arm64 job at the same tag SHA runs the established Developer ID signing,
+hardened-runtime, notarization, stapling, DMG, Gatekeeper, launch/resource, and checksum gates. Its
+eligible output is exactly `Fallout-Terminal-arm64.dmg` plus
+`Fallout-Terminal-arm64.dmg.sha256`.
+
+Publication eligibility requires all of the following before either destination reports success:
+
+- the macOS job and all four portable target jobs resolved the exact tag SHA and succeeded;
+- the Darwin DMG and sidecar, four portable archives and sidecars, and `aggregate-index.json` are
+  present, nonempty, uniquely named, and contain no unexpected release input;
+- every checksum verifies and the aggregate index identifies the same tag SHA;
+- the repository-pinned GoReleaser v2 configuration accepts the complete inventory and preserves
+  prerelease suffix behavior; and
+- the versioned GHCR artifact uses the same tag and exact joined inventory as the GitHub Release.
+
+GoReleaser owns GitHub Release creation/update and consumes preverified inputs without compiling.
+The repository-pinned ORAS client publishes the versioned GitHub Packages artifact. A missing
+macOS credential, failed trust gate, failed portable target, mismatch, unexpected input, or
+publication error is nonzero and cannot be presented as a complete tagged release. Diagnostic
+workflow artifacts remain distinct from GitHub Release assets and versioned GHCR success.
+
 ## Evidence retention
 
 The aggregate index records the workflow run, source SHA, target, archive name, archive SHA-256, native runner identity, and check outcomes. It contains no absolute user paths, credentials, session data created during smoke tests, or mutable “latest” target labels. Documentation links each supported target to its prerequisite and troubleshooting guidance.

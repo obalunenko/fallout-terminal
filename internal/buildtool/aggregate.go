@@ -131,6 +131,7 @@ type AggregateResult struct {
 	RunURL              string
 	Records             []AggregateTargetRecord
 	OutputDirectory     string
+	DarwinBundlePath    string
 	QuarantineDirectory string
 	Artifacts           []VerifiedArtifact
 }

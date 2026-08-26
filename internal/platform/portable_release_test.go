@@ -65,6 +65,35 @@ func TestPortableReleaseUploadsOnlyAfterNativeVerification(t *testing.T) {
 	assert.NotContains(t, packageSource, "\n          task package")
 }
 
+func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	windows := readAcceptanceDocument(t, filepath.Join(root, "scripts", "verify-windows-package.ps1"))
+	linux := readAcceptanceDocument(t, filepath.Join(root, "scripts", "verify-linux-package.sh"))
+	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
+	secretCheck := readAcceptanceDocument(t, filepath.Join(root, "scripts", "secret-leak-check.sh"))
+
+	for _, script := range []string{windows, linux} {
+		for _, required := range []string{
+			"go run ./cmd/native-credential-smoke",
+			"session.save",
+			"application-reopen",
+			"control-accepted",
+			"synchronized",
+			"http://127.0.0.1:",
+		} {
+			assert.Contains(t, script, required)
+		}
+	}
+	assert.Contains(t, linux, "native-ui-smoke.py")
+	assert.Contains(t, linux, "--scan-root")
+	assert.Contains(t, windows, "Assert-NoCredentialCanaryLeak")
+	assert.Contains(t, workflow, "python3-pyatspi")
+	assert.Contains(t, workflow, "--expect-unavailable")
+	assert.Contains(t, secretCheck, "--scan-root")
+}
+
 func TestPortableReleaseAggregateAlwaysGatesCompleteVerifiedMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -90,7 +119,7 @@ func TestPortableReleaseAggregateAlwaysGatesCompleteVerifiedMatrix(t *testing.T)
 	assert.Contains(t, aggregateSource, "linux-arm64")
 }
 
-func TestPortableReleasePublishesCompleteMatrixForVersionTags(t *testing.T) {
+func TestPortableReleasePublishesCompleteFiveTargetInventoryForVersionTags(t *testing.T) {
 	t.Parallel()
 
 	workflow := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), ".github", "workflows", "wails-portable.yml"))
@@ -101,20 +130,27 @@ func TestPortableReleasePublishesCompleteMatrixForVersionTags(t *testing.T) {
 	for _, required := range []string{
 		"tags:",
 		"- 'v*'",
-		"needs: [aggregate]",
+		"validate_release:",
+		"uses: ./.github/workflows/wails-macos.yml",
+		"needs: [aggregate, macos-trust]",
+		"fallout-terminal-release-candidate",
 		"github.ref_type == 'tag'",
 		"contents: write",
 		"packages: write",
 		"go tool -modfile=tools/oras/go.mod oras push",
+		"oras manifest delete --force",
 		"ghcr.io/${package_repository}:${GITHUB_REF_NAME}",
 		"go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml",
+		"Roll back incomplete cross-destination publication",
+		"Fallout-Terminal-arm64.dmg",
+		"Fallout-Terminal-arm64.dmg.sha256",
 		"combined/*",
 	} {
 		assert.Contains(t, workflow, required)
 	}
 
-	assert.Contains(t, publishSource, "fallout-terminal-portable")
-	assert.Contains(t, publishSource, "application/vnd.fallout-terminal.portable.v1")
+	assert.Contains(t, publishSource, "fallout-terminal-release-candidate")
+	assert.Contains(t, publishSource, "application/vnd.fallout-terminal.release.v1")
 	assert.Contains(t, publishSource, "aggregate-index.json")
 	assert.NotContains(t, publishSource, "gh release")
 	assert.NotContains(t, publishSource, "make ")
@@ -129,8 +165,11 @@ func TestGoReleaserV2PublishesOnlyPreverifiedPortableFiles(t *testing.T) {
 		"skip: true",
 		"disable: true",
 		"prerelease: auto",
+		"draft: true",
 		"replace_existing_artifacts: true",
 		"./combined/aggregate-index.json",
+		"./combined/Fallout-Terminal-arm64.dmg",
+		"./combined/Fallout-Terminal-arm64.dmg.sha256",
 		"./combined/Fallout-Terminal-windows-amd64.zip",
 		"./combined/Fallout-Terminal-windows-arm64.zip",
 		"./combined/Fallout-Terminal-linux-amd64.tar.gz",
@@ -138,7 +177,7 @@ func TestGoReleaserV2PublishesOnlyPreverifiedPortableFiles(t *testing.T) {
 	} {
 		assert.Contains(t, config, required)
 	}
-	assert.Equal(t, 9, strings.Count(config, "- glob: ./combined/"))
+	assert.Equal(t, 11, strings.Count(config, "- glob: ./combined/"))
 }
 
 func TestPortableReleaseRemainsSeparateFromMacOSTrustWorkflow(t *testing.T) {
@@ -150,6 +189,10 @@ func TestPortableReleaseRemainsSeparateFromMacOSTrustWorkflow(t *testing.T) {
 
 	assert.Contains(t, macOS, "name: Wails macOS")
 	assert.Contains(t, macOS, "runs-on: macos-15")
+	assert.Contains(t, macOS, "workflow_call:")
+	assert.Contains(t, macOS, "go tool -modfile=tools/task/go.mod task release")
+	assert.Contains(t, macOS, "Fallout-Terminal-arm64.dmg.sha256")
+	assert.Contains(t, macOS, "darwin-verification.json")
 	assert.NotContains(t, macOS, "windows-11-arm")
 	assert.NotContains(t, macOS, "ubuntu-24.04-arm")
 	assert.NotContains(t, portable, "notarytool")

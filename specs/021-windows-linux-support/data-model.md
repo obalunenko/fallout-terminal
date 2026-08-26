@@ -2,6 +2,14 @@
 
 This feature does not change persisted session or player RPC data. Its new models belong to build orchestration, platform composition, and verification; target manifests are build metadata and do not require protobuf definitions.
 
+**Bugfix**: 2026-08-26 — BUG-001 adds the local Docker aggregate and directly runnable payload models without changing native release eligibility.
+
+**Bugfix**: 2026-08-26 — BUG-002 adds owned-output recognition and rollback-safe repeat publication.
+
+**Bugfix**: 2026-08-26 — BUG-003 joins the native Darwin compatibility package to the local aggregate.
+
+**Bugfix**: 2026-08-26 — BUG-004 adds the joined five-target tagged-release model and reopens incomplete validation.
+
 ## Platform Target
 
 Represents one buildable desktop destination.
@@ -34,7 +42,21 @@ Captures the environment executing one package plan.
 | `NativeDependencies` | set | Target-specific development/runtime probes required before compile and launch. |
 | `SourceRevision` | commit identity | Must match the clean revision requested by the workflow. |
 
-Relationship: one Build Host owns one Target Package attempt. Aggregate orchestration owns four remote Build Hosts, never impersonates them locally.
+Relationship: one Build Host owns one matching-host Target Package attempt. ~~Aggregate orchestration owns four remote Build Hosts, never impersonates them locally.~~ Remote native orchestration owns four Build Hosts; local Docker orchestration instead owns four Docker Build Environments and may produce static build evidence without impersonating or satisfying native launch evidence.
+
+## Docker Build Environment
+
+Captures one isolated build environment used by the local aggregate command.
+
+| Field | Type | Rules |
+|---|---|---|
+| `ContainerPlatform` | string | Exactly `linux/amd64` or `linux/arm64`, matching the requested target architecture. |
+| `Target` | Platform Target | One of the four portable Windows/Linux targets; Windows is CGO-free cross-compilation and Linux uses native-architecture CGO. |
+| `BuildContext` | checkout snapshot | Current Docker build context, including allowed uncommitted files and excluding `.dockerignore` entries. |
+| `SourceRevision` | commit identity | Current `HEAD` recorded in artifact metadata; a clean tree, named branch, remote, and push are not required. |
+| `EvidenceKind` | constant | `static`; it cannot record a native window launch or release eligibility. |
+
+Relationship: one Local Aggregate Run owns exactly four Docker Build Environments, one per portable target, and one native Darwin Package Plan.
 
 ## Package Plan
 
@@ -82,7 +104,7 @@ Defines the sole repository workflow-alias surface after migration.
 | `SchemaVersion` | string | Taskfile schema `3`. |
 | `TaskName` | string | Stable documented command, including migrated Make tasks and package matrix tasks. |
 | `Dependencies` | ordered/DAG references | Preserve current prerequisite ordering and avoid duplicate execution. |
-| `Variables` | typed-by-contract strings | Forward existing inputs plus `GOOS`, `GOARCH`, `REF`, output path, and application args explicitly. |
+| `Variables` | typed-by-contract strings | Forward existing inputs plus `GOOS`, `GOARCH`, output path, and application args explicitly. Local aggregate packaging has no `REF`; remote aggregate packaging resolves the current branch and revision from Git. |
 | `Command` | process invocation | Calls Go build policy, pinned tools, npm, or an owned script; top-level Wails tasks cannot call the matching high-level Wails wrapper recursively. |
 
 Relationship: the Task Graph invokes Package Plans and quality/release helpers. The Make bootstrap installs the Task Tool Module but does not invoke application workflows.
@@ -104,8 +126,26 @@ One portable runnable archive and its verification sidecar.
 Relationships:
 
 - A Distribution Artifact belongs to exactly one Platform Target and source revision.
-- An Aggregate Packaging Run contains exactly one eligible artifact for each of the four targets.
+- A Remote Native Aggregate Packaging Run contains exactly one eligible artifact for each of the four targets.
+- A successful Local Aggregate Run pairs every Distribution Artifact with one verified Runnable Payload and includes one verified native Darwin application bundle.
 - Bundled resources are immutable inputs; user session documents and settings never appear in an archive.
+
+## Runnable Payload
+
+The directly accessible application tree exported by local Docker packaging for one target.
+
+| Field | Type | Rules |
+|---|---|---|
+| `Target` | Platform Target | Must match its directory name, executable header, and paired Distribution Artifact. |
+| `Directory` | path | Exactly `bin/<os>-<arch>/` below the aggregate output. |
+| `Executable` | path | `Fallout Terminal.exe` for Windows or `Fallout Terminal` for Linux. |
+| `Resources` | directory | Exact required `resources/` tree from the paired archive. |
+| `Inventory` | ordered list | Must equal the paired archive inventory after removing the archive root directory. |
+| `FileHashes` | map path to SHA-256 | Every executable/resource file MUST equal the corresponding verified archive entry byte-for-byte. |
+
+Runnable Payloads are local developer output, not additional release artifacts. They carry static
+identity evidence only and do not become native-launch eligible merely because their archive is
+valid.
 
 ## Production Storage Profile
 
@@ -171,7 +211,7 @@ pending -> building -> packaged -> verified -> eligible
 - `eligible` permits the target job to upload its archive and checksum.
 - Any failure is terminal for that attempt and invalidates/quarantines partial output.
 
-## Aggregate Packaging Run
+## Remote Native Aggregate Packaging Run
 
 Coordinates the complete native matrix for one source revision.
 
@@ -195,3 +235,63 @@ dispatching -> running -> succeeded
 - `succeeded` requires four eligible records, four unique archive names, one source SHA, and valid checksum sidecars.
 - A canceled, missing, duplicated, or failed target makes the aggregate run failed.
 - Downloads occur only after the workflow aggregate gate succeeds; partial matrices are not copied into the success output directory.
+
+## Tagged Release Run
+
+Joins every supported native distribution for one SemVer tag before either publication destination reports success.
+
+| Field | Type | Rules |
+|---|---|---|
+| `Tag` | SemVer tag | Exactly `vMAJOR.MINOR.PATCH` with an optional prerelease suffix. |
+| `SourceRevision` | commit identity | The tag's immutable SHA; every Darwin and portable input MUST resolve to it. |
+| `DarwinArtifact` | trusted distribution | Exactly `Fallout-Terminal-arm64.dmg` and its SHA-256 sidecar after Developer ID signing, hardened runtime, notarization, stapling, Gatekeeper, and release verification. |
+| `PortableArtifacts` | fixed artifact set | Exactly four eligible Windows/Linux archives and sidecars plus `aggregate-index.json`. |
+| `ReleasePublisher` | tool identity | Repository-pinned GoReleaser v2; it consumes preverified inputs and does not rebuild them. |
+| `PackagePublisher` | tool identity | Repository-pinned ORAS client publishing the identical joined inventory as a versioned GHCR artifact. |
+| `Destinations` | fixed set | One GitHub Release and one GitHub Packages GHCR reference for the same tag. |
+| `Status` | state | `building`, `joining`, `publishing`, `succeeded`, or `failed`. |
+
+State transition:
+
+```text
+building -> joining -> publishing -> succeeded
+    |          |            |
+    +----------+------------+-> failed
+```
+
+- `joining` succeeds only when all five target distributions, every checksum, and the portable aggregate index are present, nonempty, verified, and bound to one tag SHA.
+- A prerelease suffix marks the GitHub Release as a prerelease and retains the exact tag in the GHCR version.
+- Any missing target, signing/notarization failure, source mismatch, invalid checksum, unexpected file, GitHub Release failure, or GHCR failure makes the run failed and MUST NOT be represented as a successful complete release.
+- Diagnostic workflow artifacts may be retained under repository policy, but they are not release assets or versioned package success.
+
+## Local Aggregate Run
+
+Coordinates the canonical native Darwin package and complete portable static matrix from the current checkout.
+
+| Field | Type | Rules |
+|---|---|---|
+| `SourceRevision` | commit identity | Current `HEAD`; uncommitted build-context changes are allowed and no remote identity is required. |
+| `NativeTarget` | Platform Target | Exactly `darwin/arm64`, built on the matching runtime host through the canonical no-target package plan. |
+| `PortableTargets` | fixed set | Exactly `windows/arm64`, `windows/amd64`, `linux/arm64`, and `linux/amd64`. |
+| `Builds` | map target to Docker Build Environment | Exactly one terminal build result per target. |
+| `DarwinBundle` | native application tree | `bin/darwin-arm64/Fallout Terminal.app`, copied from `build/bin/Fallout Terminal.app` with exact regular-file inventory and modes after canonical packaging. |
+| `Artifacts` | map target to Distribution Artifact | Exactly four statically verified archives and checksum sidecars. |
+| `Payloads` | map target to Runnable Payload | Exactly four payload directories whose inventory and hashes equal their paired archives. |
+| `OutputDirectory` | path | Owned destination, default `build/dist`; it may be absent, the repository-owned default, or a recognized previous aggregate with a regular aggregate index. Files, symlinks, roots, and unrecognized custom directories are rejected. |
+| `PreviousOutput` | optional path | Existing owned output retained unchanged until complete verification, then moved into a same-filesystem sibling work root for the final replacement transaction. |
+| `Failure` | structured build error | Names Docker installation/daemon/platform or target/phase failure, preserves the underlying diagnostic when available, and gives an actionable recovery instruction. |
+| `Status` | state | `checking`, `building`, `verifying`, `succeeded`, or `failed`. |
+
+State transition:
+
+```text
+checking -> building -> verifying -> succeeded
+    |          |           |
+    +----------+-----------+-> failed
+```
+
+- `succeeded` requires the complete verified Darwin application bundle, four verified archives, four checksum sidecars, one aggregate index, and four matching portable Runnable Payloads.
+- `failed` removes or quarantines all temporary output and never exposes the requested output directory as a partial success.
+- Build and verification failures leave `PreviousOutput` untouched. A final publish failure restores its backup before the command returns nonzero; successful replacement removes the backup and stale prior matrix entries together.
+- A non-`darwin/arm64` host, Darwin package/copy/verification failure, Docker absence, stopped daemon, unsupported build platform, target failure, inventory mismatch, or hash mismatch is nonzero and actionable.
+- The Darwin bundle is a native build result but is not new launch evidence by itself. Static local success MUST NOT create Windows/Linux native window, runtime, lifecycle, or secure-store acceptance evidence.

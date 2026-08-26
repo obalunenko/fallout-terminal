@@ -1,26 +1,49 @@
 name: Wails macOS
 
 on:
+  workflow_call:
+    inputs:
+      source_sha:
+        description: Exact source revision shared by the five-target release candidate
+        required: true
+        type: string
+      release_candidate:
+        description: Build the signed, notarized, stapled Darwin DMG
+        required: true
+        type: boolean
+    secrets:
+      MACOS_DEVELOPER_ID_CERTIFICATE:
+        required: true
+      MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD:
+        required: true
+      MACOS_DEVELOPER_ID_APPLICATION:
+        required: true
+      MACOS_NOTARYTOOL_APPLE_ID:
+        required: true
+      MACOS_NOTARYTOOL_TEAM_ID:
+        required: true
+      MACOS_NOTARYTOOL_PASSWORD:
+        required: true
   workflow_dispatch:
   push:
     branches:
       - 'main'
   pull_request:
-    types: [ opened, synchronize, reopened ]
+    types: [opened, synchronize, reopened]
     branches:
       - '*'
-
 
 permissions:
   contents: read
 
 concurrency:
-  group: wails-macos-${{ github.ref }}
-  cancel-in-progress: true
+  group: wails-macos-${{ github.ref }}-${{ inputs.source_sha || github.sha }}
+  cancel-in-progress: ${{ !inputs.release_candidate }}
 
 env:
   GO_VERSION: 1.27.x
   NODE_VERSION: 20.19.0
+  SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
 
 jobs:
   ci:
@@ -32,8 +55,18 @@ jobs:
       CGO_CFLAGS: -mmacosx-version-min=13.0
       CGO_LDFLAGS: -mmacosx-version-min=13.0
     steps:
-      - name: Check out clean source
+      - name: Check out exact clean source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --verify HEAD^{commit})" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -54,8 +87,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Lint
         run: go tool -modfile=tools/task/go.mod task fmt:check vet lint
@@ -68,3 +100,104 @@ jobs:
 
       - name: Build application
         run: go tool -modfile=tools/task/go.mod task package
+
+  release-candidate:
+    name: Signed and notarized Darwin release candidate
+    if: ${{ inputs.release_candidate }}
+    needs: [ci]
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+      CGO_CFLAGS: -mmacosx-version-min=13.0
+      CGO_LDFLAGS: -mmacosx-version-min=13.0
+      DEVELOPER_ID_APPLICATION: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION }}
+      NOTARYTOOL_KEYCHAIN_PROFILE: fallout-terminal-ci
+    steps:
+      - name: Check out exact clean source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --verify HEAD^{commit})" = "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            tools/buf/go.sum
+            tools/protoc-gen-connect-go/go.sum
+            tools/protoc-gen-go/go.sum
+            tools/task/go.sum
+            tools/wails/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Import Developer ID and notarization credentials
+        shell: bash
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          NOTARYTOOL_APPLE_ID: ${{ secrets.MACOS_NOTARYTOOL_APPLE_ID }}
+          NOTARYTOOL_TEAM_ID: ${{ secrets.MACOS_NOTARYTOOL_TEAM_ID }}
+          NOTARYTOOL_PASSWORD: ${{ secrets.MACOS_NOTARYTOOL_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/fallout-terminal-signing.keychain-db"
+          certificate="$RUNNER_TEMP/fallout-terminal-developer-id.p12"
+          keychain_password="$(openssl rand -hex 32)"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode >"$certificate"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          security default-keychain -d user -s "$keychain"
+          xcrun notarytool store-credentials "$NOTARYTOOL_KEYCHAIN_PROFILE" \
+            --apple-id "$NOTARYTOOL_APPLE_ID" \
+            --team-id "$NOTARYTOOL_TEAM_ID" \
+            --password "$NOTARYTOOL_PASSWORD" \
+            --keychain "$keychain"
+          rm -f "$certificate"
+
+      - name: Build and verify signed notarized release DMG
+        run: go tool -modfile=tools/task/go.mod task release
+
+      - name: Bind Darwin evidence to the exact source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg=build/bin/Fallout-Terminal-arm64.dmg
+          sidecar="$dmg.sha256"
+          test -s "$dmg"
+          test -s "$sidecar"
+          (cd build/bin && shasum -a 256 -c Fallout-Terminal-arm64.dmg.sha256)
+          printf '{"schemaVersion":1,"target":"darwin/arm64","sourceRevision":"%s","artifact":"Fallout-Terminal-arm64.dmg"}\n' \
+            "$SOURCE_SHA" >build/bin/darwin-verification.json
+
+      - name: Upload eligible Darwin release candidate
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: fallout-terminal-darwin
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            build/bin/Fallout-Terminal-arm64.dmg
+            build/bin/Fallout-Terminal-arm64.dmg.sha256
+            build/bin/darwin-verification.json

@@ -1,9 +1,9 @@
 {
   "workflow": "companion",
   "specName": "windows linux support",
-  "branch": "develop",
+  "branch": "021-windows-linux-support",
   "currentStep": "implement",
-  "status": "completed",
+  "status": "implementing",
   "history": [
     {
       "step": "specify",
@@ -528,6 +528,83 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-08-26T00:42:52.239Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-004",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-26T12:18:36.126Z",
+      "bugfix": "BUG-004",
+      "tasks": [
+        "T055",
+        "T060"
+      ],
+      "fromStatus": "completed"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T059",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T12:19:23.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T061",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T12:19:23.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T063",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T12:19:23.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T064",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T12:19:23.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T062",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T12:38:22.975Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T060",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T12:48:47.462Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T056",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T12:52:52.745Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T057",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T12:52:52.840Z"
     }
   ],
   "last_action": "living specs evaluated — skipped (not configured)",
@@ -760,6 +837,12 @@
       "tests": [
         "internal/platform/startup_test.go"
       ]
+    },
+    "FR-029": {
+      "title": "A valid SemVer tag publishes one verified five-target release through pinned GoReleaser v2 to GitHub Releases and GitHub Packages, with no partial success.",
+      "tasks": [
+        "T060"
+      ]
     }
   },
   "size": "oversized",
@@ -839,10 +922,10 @@
       "key_finding": "Wails v3 is Task-backed, but production acceptance still needs matching native runners; Task should orchestrate while the existing Go build package owns typed policy."
     },
     "tasks": {
-      "summary": "55 dependency-ordered tasks across Setup, Foundational, four user-story phases, and Polish; explicit waves preserve test-first joins and CI-only native validation."
+      "summary": "64 dependency-ordered tasks across Setup, Foundational, four user-story phases, Polish, and Convergence; 58 complete and six pending after BUG-004 reopened T055/T060 for five-target tag-release evidence."
     }
   },
-  "currentTask": "T055",
+  "currentTask": "T057",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1281,6 +1364,54 @@
         ".github/workflows/wails-portable.yml",
         ".github/workflows/wails-macos.yml"
       ]
+    },
+    "T062": {
+      "status": "DONE",
+      "did": "Added controlled four-target payload/archive parity, partial-output, atomic publication, and actionable Docker prerequisite diagnostic coverage",
+      "files": [
+        "internal/buildtool/docker.go",
+        "internal/buildtool/docker_test.go",
+        "internal/platform/startup_test.go",
+        "specs/021-windows-linux-support/validation.md"
+      ]
+    },
+    "T060": {
+      "status": "DONE",
+      "did": "Joined the signed/notarized Darwin DMG and four native portable targets on one SHA before pinned GoReleaser and ORAS publication, with a non-publishing rehearsal path",
+      "files": [
+        ".goreleaser.yaml",
+        ".github/workflows/wails-portable.yml",
+        ".github/workflows/wails-macos.yml",
+        "scripts/build-macos.sh",
+        "internal/platform/portable_release_test.go",
+        "README.md",
+        "docs/platform-packaging.md",
+        "specs/021-windows-linux-support/validation.md"
+      ]
+    },
+    "T056": {
+      "status": "DONE",
+      "did": "Expanded native Windows/Linux smoke journeys to author and save the demo copy, reopen it, perform and observe a synchronized player control action, and invoke the allowlisted local HTTP link",
+      "files": [
+        "scripts/verify-windows-package.ps1",
+        "scripts/verify-linux-package.sh",
+        "scripts/native-ui-smoke.py",
+        "internal/platform/portable_release_test.go",
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T057": {
+      "status": "DONE",
+      "did": "Added matching-host native credential write/read/replace/delete acceptance, Linux unavailable-state verification, local-listener continuity, and canary scans across files, logs, and public accessibility state",
+      "files": [
+        "cmd/native-credential-smoke/main.go",
+        "scripts/verify-windows-package.ps1",
+        "scripts/verify-linux-package.sh",
+        "scripts/native-ui-smoke.py",
+        "scripts/secret-leak-check.sh",
+        ".github/workflows/wails-portable.yml",
+        "internal/platform/portable_release_test.go"
+      ]
     }
   },
   "verified": [
@@ -1296,5 +1427,6 @@
       "command": "go list -m -versions github.com/wailsapp/wails/v3; npm view @wailsio/runtime versions --json; go mod tidy in root and tools/wails; Wails beta.13 bindings generation; gopls check",
       "warnings": "No local test suite or application build was run."
     }
-  ]
+  ],
+  "telemetryInstanceId": "4e7c7789-e39f-4e0a-a2af-818817e90a98"
 }

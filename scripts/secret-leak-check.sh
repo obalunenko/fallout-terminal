@@ -24,6 +24,7 @@ scan_canary_file() {
   local leaked=0
 
   while IFS= read -r -d '' file; do
+    [[ "$file" == "$canary_file" ]] && continue
     if [[ "$file" = /* ]]; then
       relative="${file#"$scan_root"/}"
     else
@@ -181,6 +182,7 @@ check_native_secure_store_scope() {
 
 check_tree() {
   local canary_file="${1:-}"
+  local scan_root="${2:-$repository_root}"
   check_public_contracts
   check_active_sources
   check_generated_password_scope
@@ -188,7 +190,8 @@ check_tree() {
   check_native_secure_store_scope
   if [[ -n "$canary_file" ]]; then
     [[ -s "$canary_file" ]] || { fail 'canary file is missing or empty'; return 1; }
-    scan_canary_file "$canary_file"
+    [[ -d "$scan_root" ]] || { fail 'canary scan root is missing or not a directory'; return 1; }
+    scan_canary_file "$canary_file" "$scan_root"
   fi
   printf 'Secret-bearing fields remain confined to narrow private inputs/results; no forbidden leak was detected.\n'
 }
@@ -245,13 +248,19 @@ case "${1:-}" in
     check_tree
     ;;
   --canary-file)
-    [[ "$#" == 2 ]] || { fail 'usage: secret-leak-check.sh --canary-file PATH'; exit 2; }
-    check_tree "$2"
+    if [[ "$#" == 2 ]]; then
+      check_tree "$2"
+    elif [[ "$#" == 4 && "$3" == --scan-root ]]; then
+      check_tree "$2" "$4"
+    else
+      fail 'usage: secret-leak-check.sh --canary-file PATH [--scan-root DIRECTORY]'
+      exit 2
+    fi
     ;;
   --self-test)
     self_test
     ;;
   *)
-    fail 'usage: secret-leak-check.sh [--canary-file PATH|--self-test]'
+    fail 'usage: secret-leak-check.sh [--canary-file PATH [--scan-root DIRECTORY]|--self-test]'
     ;;
 esac

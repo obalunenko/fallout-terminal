@@ -11,6 +11,35 @@
 
 Each completed archive has a sibling `<archive>.sha256` sidecar using the lowercase hexadecimal SHA-256 of the archive. Sidecars are verification evidence and do not count as additional runnable archives.
 
+The established trusted `darwin/arm64` tag-release artifact is
+`Fallout-Terminal-arm64.dmg` with sibling `Fallout-Terminal-arm64.dmg.sha256`. It is a signed,
+notarized macOS distribution rather than a fifth portable archive. A successful tagged release
+contains this DMG and sidecar together with the four portable archives, four portable sidecars, and
+`aggregate-index.json`; all inputs resolve to the same tag SHA.
+
+## Local aggregate runnable payloads
+
+A successful local `task package:all [OUTPUT=<directory>]` keeps the four archives, four checksum
+sidecars, and `aggregate-index.json` at the root of `OUTPUT` and additionally exposes these exact
+runnable paths:
+
+| Target | Executable | Required adjacent tree |
+|---|---|---|
+| `darwin/arm64` | `bin/darwin-arm64/Fallout Terminal.app` | Complete native `.app/Contents/` bundle with executable, resources, metadata, and ad-hoc signature. |
+| `windows/amd64` | `bin/windows-amd64/Fallout Terminal.exe` | `bin/windows-amd64/resources/` |
+| `windows/arm64` | `bin/windows-arm64/Fallout Terminal.exe` | `bin/windows-arm64/resources/` |
+| `linux/amd64` | `bin/linux-amd64/Fallout Terminal` | `bin/linux-amd64/resources/` |
+| `linux/arm64` | `bin/linux-arm64/Fallout Terminal` | `bin/linux-arm64/resources/` |
+
+Each target payload contains exactly the regular files required by its archive after removing the
+single `Fallout Terminal/` archive root. Every payload file MUST match its corresponding verified
+archive entry byte-for-byte, including the executable, icon, notices, and both demo session files.
+Unexpected files, links, special files, missing resources, architecture mismatch, or a hash mismatch
+invalidates the complete local matrix. The Darwin bundle is copied from the canonical native package
+plan and must contain only directories and regular files while preserving modes and signature
+metadata. Payload directories are developer conveniences and are not additional portable release
+artifacts; Docker-built Windows/Linux payloads are not native launch evidence.
+
 ## Windows archive
 
 ```text

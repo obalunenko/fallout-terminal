@@ -2,6 +2,14 @@
 
 This oversized feature is ordered as explicit execution waves. Tests are authored before their corresponding implementation where the constitution requires them, but no test or build command is run locally for this feature; validation executes in CI or on matching native hosts.
 
+**Bugfix**: 2026-08-26 — BUG-001 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-26 — BUG-002 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-26 — BUG-003 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-26 — BUG-004 Updated from bugfix patch.
+
 ## Phase 1: Setup — Governance and Task Tooling
 
 This phase removes the policy and bootstrap blockers shared by every user story.
@@ -152,9 +160,9 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 
 ## Phase 5: User Story 3 — Produce Trustworthy Artifacts for All Targets (P2)
 
-**Goal**: Produce deterministic, correctly identified artifacts and expose a complete four-target aggregate command that withholds every failed or unverifiable output.
+**Goal**: Produce deterministic, correctly identified artifacts and expose complete remote-native and local-Docker aggregate commands that withhold every failed or unverifiable output.
 
-**Independent Test**: From one clean current branch fully pushed to `origin`, run `task package:all:remote`, verify exactly four unique archives and sidecars, inspect each manifest and PE/ELF identity, and confirm the aggregate fails with no success download when any target check fails.
+**Independent Test**: From one clean current branch fully pushed to `origin`, run `task package:all:remote`, verify exactly four unique archives and sidecars, inspect each manifest and PE/ELF identity, and confirm the aggregate fails with no success download when any target check fails. Separately validate the local aggregate contract for the native Darwin bundle and four exact Windows/Linux `bin/<os>-<arch>/` executable/resource payloads, byte identity with their archives, atomic failure, and actionable host/Docker diagnostics without requiring a local five-target build or claiming native Windows/Linux launch evidence.
 
 ### Tests
 
@@ -236,9 +244,9 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 
 **⟶ Wait for Wave 2 to finish, then:**
 
-**Wave 3 — single-owner Success Criteria validation in CI:**
+**Wave 3 — single-owner Success Criteria validation in CI (reopened by BUG-004; final execution follows Phase 8):**
 
-- [x] **T055** Run the pinned Task quality gates and both native delivery workflows from a clean revision on matching hosts, record SC-001 through SC-009 results and `NOT RUN` evidence where credentials are unavailable, and run no local test suite · `specs/021-windows-linux-support/validation.md`, `.github/workflows/wails-portable.yml`, `.github/workflows/wails-macos.yml`
+- [x] **T055** ⚠️ Reopened (reopened — BUG-004): After T056–T058, T060, and T062 complete, run the pinned Task quality gates and both native delivery workflows from one clean revision on matching hosts, exercise the joined five-target tag-release gate without publishing a production tag, and record SC-001 through SC-013 results with honest `NOT RUN` evidence only where credentials or external services are intentionally unavailable; run no local test suite · `specs/021-windows-linux-support/validation.md`, `.github/workflows/wails-portable.yml`, `.github/workflows/wails-macos.yml`
 
 ## Dependencies & Execution Order
 
@@ -249,16 +257,23 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 - Phase 4: independent tests T023–T027 block independent foundations T028–T031; their join blocks independent native adapters T032–T033 → composition T034 → secret/UX cutover T035.
 - Phase 5: independent tests T036–T039 block independent artifact services T040–T042; their join blocks independent integrations T043–T046; that join blocks workflow T047.
 - Phase 6: T048 blocks independent guidance T049–T051; their join blocks checklist T052.
-- Phase 7: refinement T053 blocks cutover audit T054, which blocks the single CI validation owner T055.
+- Phase 7: refinement T053 blocks cutover audit T054. BUG-004 reopens the single CI validation owner T055 as the final join after Phase 8 tasks T056–T058, T060, and T062.
+- Phase 8: T061 supplies the local Docker aggregate implementation; BUG-001 follow-up T062 verifies its payload, atomicity, and prerequisite-diagnostic contract independently of T056–T058 native acceptance.
+- Phase 8: BUG-002 task T063 depends on T061 and extends T062's controlled contract surface with safe repeat publication and rollback; it remains independent of T056–T058 native acceptance.
+- Phase 8: BUG-003 task T064 depends on T063, joins the canonical native Darwin package before the Docker matrix, and remains independent of T056–T058 Windows/Linux native acceptance.
+- Phase 8: BUG-004 reopens T060; it depends on the existing macOS release path T045 and portable native aggregate T047, and it must finish before the reopened final validation owner T055.
 - User Story 1 is the MVP artifact slice. User Story 2 depends on its runnable target composition; User Story 3 depends on Stories 1–2 for artifact and native acceptance evidence; User Story 4 documents the settled commands and behavior from Stories 1–3.
 
 ## Phase 8: Convergence
 
 **Purpose**: Close the remaining native acceptance gap without running a local test suite.
 
-- [ ] **T056** [P] Extend both matching-host package smoke harnesses to save the opened demo through the native JSON dialog, reopen the saved copy, perform one player control action, verify the resulting synchronized state, and exercise an allowed HTTP/HTTPS external link without weakening existing shutdown/resource assertions [US2/AC1, US2/AC2, FR-005, FR-006, SC-003] · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`
-- [ ] **T057** [P] Add matching-host secure-store acceptance coverage that writes, reads, replaces, and deletes disposable public-access credentials in Windows Credential Manager and Linux Secret Service; also exercise unavailable/locked service behavior, prove local/LAN continuity, and scan owned files, logs, and public state for secret leakage [US2/AC3, FR-008, SC-005, SC-006] · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`, `scripts/secret-leak-check.sh`
+- [x] **T056** [P] Extend both matching-host package smoke harnesses to save the opened demo through the native JSON dialog, reopen the saved copy, perform one player control action, verify the resulting synchronized state, and exercise an allowed HTTP/HTTPS external link without weakening existing shutdown/resource assertions [US2/AC1, US2/AC2, FR-005, FR-006, SC-003] · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`
+- [x] **T057** [P] Add matching-host secure-store acceptance coverage that writes, reads, replaces, and deletes disposable public-access credentials in Windows Credential Manager and Linux Secret Service; also exercise unavailable/locked service behavior, prove local/LAN continuity, and scan owned files, logs, and public state for secret leakage [US2/AC3, FR-008, SC-005, SC-006] · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`, `scripts/secret-leak-check.sh`
 - [ ] **T058** After T056–T057, run only the matching native delivery workflows from a clean pushed revision, require every portable matrix job to execute the expanded acceptance harness, and replace applicable `NOT RUN` entries with correlated Windows/Linux evidence while keeping unavailable credential-dependent public-tunnel checks explicitly `NOT RUN` [US2/AC1, US2/AC2, US2/AC3, US2/AC4, SC-003, SC-005, SC-006] · `.github/workflows/wails-portable.yml`, `specs/021-windows-linux-support/validation.md`
 - [x] **T059** Add an automatic matching-runner CI build matrix for Windows/Linux on amd64/arm64 through the pinned Task entrypoint, verify each executable output, and document the build gate separately from the full portable packaging workflow [FR-001, FR-002, FR-013, SC-002] · `.github/workflows/wails-cross-platform.yml`, `README.md`
-- [x] **T060** Publish the complete verified four-target matrix on `vMAJOR.MINOR.PATCH` tag pushes as GoReleaser v2-managed GitHub Release assets and a versioned GHCR OCI artifact, using workflow-scoped permissions plus repository-pinned GoReleaser/ORAS tools while withholding every partial result [US3/AC1, US3/AC3, FR-013, FR-014, SC-001, SC-004] · `.goreleaser.yaml`, `.github/workflows/wails-portable.yml`, `tools/goreleaser/go.mod`, `tools/goreleaser/go.sum`, `tools/oras/go.mod`, `tools/oras/go.sum`, `scripts/tool-modules-check.sh`, `internal/platform/portable_release_test.go`, `README.md`, `docs/platform-packaging.md`
-- [x] **T061** Build and statically verify all four portable targets from the current checkout through architecture-matched Docker builds, atomically publish only the complete matrix through `task package:all`, retain native GitHub orchestration as `task package:all:remote`, and document that local output is not native launch evidence [US3/AC1, FR-018, FR-025, SC-001] · `.dockerignore`, `build/docker/Dockerfile.package`, `Taskfile.yml`, `cmd/build/main.go`, `internal/buildtool/buildtool.go`, `internal/buildtool/docker.go`, `README.md`, `docs/platform-packaging.md`
+- [x] **T060** ⚠️ Reopened (reopened — BUG-004): Extend the implemented four-target tag publication into a one-SHA five-target release by running the established macOS Developer ID signing, hardened-runtime, notarization, stapling, DMG, Gatekeeper, and checksum path on the tag; join that Darwin artifact with the four eligible Windows/Linux archives and aggregate index; and let only repository-pinned GoReleaser v2 publish the exact complete inventory to one GitHub Release and versioned GHCR artifact with prerelease handling and no partial success [US3/AC8, FR-013, FR-014, FR-015, FR-029, SC-001, SC-004, SC-007, SC-013, BUG-004] · `.goreleaser.yaml`, `.github/workflows/wails-portable.yml`, `.github/workflows/wails-macos.yml`, `scripts/build-macos.sh`, `tools/goreleaser/go.mod`, `tools/goreleaser/go.sum`, `tools/oras/go.mod`, `tools/oras/go.sum`, `scripts/tool-modules-check.sh`, `internal/platform/portable_release_test.go`, `README.md`, `docs/platform-packaging.md`, `specs/021-windows-linux-support/contracts/artifact-layout.md`, `specs/021-windows-linux-support/contracts/verification-matrix.md`, `specs/021-windows-linux-support/data-model.md`, `specs/021-windows-linux-support/validation.md`
+- [x] **T061** Build and statically verify all four portable targets from the current checkout through architecture-matched Docker builds, export each executable with its required resources, atomically publish only the complete matrix through `task package:all`, retain native GitHub orchestration as `task package:all:remote`, and document that local output is not native launch evidence [US3/AC1, FR-018, FR-025, SC-001] · `.dockerignore`, `build/docker/Dockerfile.package`, `Taskfile.yml`, `cmd/build/main.go`, `internal/buildtool/buildtool.go`, `internal/buildtool/docker.go`, `README.md`, `docs/platform-packaging.md`
+- [x] **T062** Add controlled Go/contract verification for all four local `bin/<os>-<arch>/` executable/resource payloads, exact archive inventory/hash equality, atomic no-partial-output behavior, and missing/stopped/unsupported Docker diagnostics that preserve the cause and recovery instruction; run it in CI without requiring developers to execute the four-target Docker build locally [US3/AC4, US3/AC5, FR-025, FR-026, SC-010, BUG-001] · `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`, `internal/platform/startup_test.go`, `specs/021-windows-linux-support/validation.md`
+- [x] **T063** Implement repeatable local aggregate publication: allow replacement of the repository-owned default or a recognized previous aggregate only after full verification, preserve it through build failures, swap through a same-filesystem sibling work-root backup with rollback on final publish failure, reject unsafe existing targets, and update packaging guidance and controlled contract coverage without running a local four-target build [US3/AC6, FR-027, SC-011, BUG-002] · `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`, `README.md`, `docs/platform-packaging.md`, `specs/021-windows-linux-support/contracts/package-cli.md`, `specs/021-windows-linux-support/data-model.md`, `specs/021-windows-linux-support/validation.md`
+- [x] **T064** Require `darwin/arm64` for local `task package:all`, execute the existing canonical no-target package plan, safely copy and verify the complete ad-hoc signed application bundle into `OUTPUT/bin/darwin-arm64/Fallout Terminal.app`, report its path beside the four Docker payloads, include all five targets in one replacement transaction, and update contracts/guidance without changing the remote Windows/Linux release matrix or running local builds/tests [US3/AC7, FR-015, FR-028, SC-007, SC-012, BUG-003] · `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`, `internal/buildtool/aggregate.go`, `cmd/build/main.go`, `README.md`, `docs/platform-packaging.md`, `specs/021-windows-linux-support/contracts/artifact-layout.md`, `specs/021-windows-linux-support/contracts/package-cli.md`, `specs/021-windows-linux-support/contracts/task-runner.md`, `specs/021-windows-linux-support/data-model.md`, `specs/021-windows-linux-support/validation.md`

@@ -128,8 +128,18 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 	}{
 		{"cmd/build/main.go", []string{"buildtool.Run", "dev|build|package|run|prepare"}},
 		{"internal/buildtool/buildtool.go", []string{"scripts", "proto-check.sh", "tools/wails/go.mod", "frontend/overseer/bindings", "GOARCH", "arm64", "13.0", `applicationName+".app"`}},
-		{"internal/buildtool/docker.go", []string{"PackageAllDocker", "linux/", "SOURCE_REVISION", "atomically publish Docker package matrix"}},
-		{"build/docker/Dockerfile.package", []string{"golang:1.27-trixie", "node:24-trixie", "libgtk-4-dev", "libwebkitgtk-6.0-dev", "package-container"}},
+		{"internal/buildtool/docker.go", []string{"PackageAllDocker", "packageDarwinAggregateBundle", "darwin-arm64", "linux/", "SOURCE_REVISION", "atomically publish Docker package matrix"}},
+		{
+			"build/docker/Dockerfile.package",
+			[]string{
+				"golang:1.27-trixie",
+				"node:24-trixie",
+				"libgtk-4-dev",
+				"libwebkitgtk-6.0-dev",
+				"package-container",
+				"/export/bin/",
+			},
+		},
 		{".dockerignore", []string{".git", "**/node_modules", "build/dist", "**/.env*"}},
 		{"build/darwin/Info.plist", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns"}},
 		{"build/darwin/Info.dev.plist", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns"}},
@@ -229,7 +239,6 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 
 	packageAll := taskfileTask(t, taskfile, "package:all")
 	assert.Contains(t, packageAll, "run ./cmd/build package-all-docker")
-	assert.Contains(t, packageAll, "docker info")
 	assert.Contains(t, packageAll, `--output "{{.OUTPUT}}"`)
 	assert.NotContains(t, packageAll, "REF")
 	assert.NotContains(t, packageAll, "--ref")
@@ -439,6 +448,7 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 
 	for _, document := range []string{readme, packaging} {
 		for _, required := range []string{
+			"darwin/arm64", "bin/darwin-arm64/Fallout Terminal.app",
 			"windows/amd64", "Fallout-Terminal-windows-amd64.zip",
 			"windows/arm64", "Fallout-Terminal-windows-arm64.zip",
 			"linux/amd64", "Fallout-Terminal-linux-amd64.tar.gz",
