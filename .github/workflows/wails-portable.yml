@@ -3,6 +3,8 @@ run-name: Portable ${{ inputs.correlation_id || github.ref_name }}
 
 on:
   push:
+    branches:
+      - '021-windows-linux-support'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -238,7 +240,7 @@ jobs:
 
   macos-trust:
     name: Build trusted Darwin release candidate
-    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release }}
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release || (github.event_name == 'push' && github.ref == 'refs/heads/021-windows-linux-support' && contains(github.event.head_commit.message, '[validate-release]')) }}
     uses: ./.github/workflows/wails-macos.yml
     with:
       source_sha: ${{ inputs.source_sha || github.sha }}
@@ -247,7 +249,7 @@ jobs:
 
   release-join:
     name: Gate complete five-target release candidate
-    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release }}
+    if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release || (github.event_name == 'push' && github.ref == 'refs/heads/021-windows-linux-support' && contains(github.event.head_commit.message, '[validate-release]')) }}
     needs: [aggregate, macos-trust]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
