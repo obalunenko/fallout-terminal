@@ -286,13 +286,13 @@ func resolveCurrentCheckout(ctx context.Context, root string) (aggregateCheckout
 	}
 	if len(bytes.TrimSpace(status)) != 0 {
 		return aggregateCheckout{}, errors.New(
-			"package:all requires a clean current branch; commit the working-tree changes and push the branch to origin",
+			"package:all:remote requires a clean current branch; commit the working-tree changes and push the branch to origin",
 		)
 	}
 
 	branchOutput, err := runGitCommand(ctx, root, "symbolic-ref", "--quiet", "--short", "HEAD")
 	if err != nil {
-		return aggregateCheckout{}, errors.New("package:all requires a named current branch; detached HEAD is unsupported")
+		return aggregateCheckout{}, errors.New("package:all:remote requires a named current branch; detached HEAD is unsupported")
 	}
 	branch := strings.TrimSpace(string(branchOutput))
 	if err := validateGitRef(branch); err != nil {
@@ -310,7 +310,7 @@ func resolveCurrentCheckout(ctx context.Context, root string) (aggregateCheckout
 
 	remoteOutput, err := runGitCommand(ctx, root, "remote", "get-url", "origin")
 	if err != nil {
-		return aggregateCheckout{}, errors.New("package:all requires a GitHub remote named origin")
+		return aggregateCheckout{}, errors.New("package:all:remote requires a GitHub remote named origin")
 	}
 	repository, err := githubRepositoryFromRemote(strings.TrimSpace(string(remoteOutput)))
 	if err != nil {
@@ -701,7 +701,7 @@ func (workflow *githubCLIWorkflow) ResolveRevision(ctx context.Context, ref stri
 	output, err := workflow.run(ctx, "api", endpoint)
 	if err != nil {
 		return AggregateRevision{}, fmt.Errorf(
-			"resolve current branch %q in origin repository %s; push the branch before package:all: %w",
+			"resolve current branch %q in origin repository %s; push the branch before package:all:remote: %w",
 			ref,
 			workflow.repository,
 			err,
@@ -746,7 +746,7 @@ func (workflow *githubCLIWorkflow) Dispatch(ctx context.Context, dispatch Aggreg
 		"--yaml",
 	); err != nil {
 		return fmt.Errorf(
-			"portable workflow %q is not installed on the default branch of %s; merge the workflow once before using package:all from feature branches: %w",
+			"portable workflow %q is not installed on the default branch of %s; merge the workflow once before using package:all:remote from feature branches: %w",
 			workflow.workflowFile,
 			dispatch.Revision.Repository,
 			err,

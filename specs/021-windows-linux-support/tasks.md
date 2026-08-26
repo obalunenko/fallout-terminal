@@ -154,7 +154,7 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 
 **Goal**: Produce deterministic, correctly identified artifacts and expose a complete four-target aggregate command that withholds every failed or unverifiable output.
 
-**Independent Test**: From one clean current branch fully pushed to `origin`, run `task package:all`, verify exactly four unique archives and sidecars, inspect each manifest and PE/ELF identity, and confirm the aggregate fails with no success download when any target check fails.
+**Independent Test**: From one clean current branch fully pushed to `origin`, run `task package:all:remote`, verify exactly four unique archives and sidecars, inspect each manifest and PE/ELF identity, and confirm the aggregate fails with no success download when any target check fails.
 
 ### Tests
 
@@ -179,7 +179,7 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 
 **Wave 3 — independent command, smoke, trust, and license integrations:**
 
-- [x] **T043** [P] Add `task package:all OUTPUT=<directory>` over the Go aggregate helper with automatic current-branch/`origin` resolution, authenticated `gh` prerequisite, exact pushed-SHA validation, and complete-matrix exit semantics · `Taskfile.yml`, `internal/buildtool/aggregate.go`
+- [x] **T043** [P] Add the remote aggregate command (now `task package:all:remote OUTPUT=<directory>`) over the Go helper with automatic current-branch/`origin` resolution, authenticated `gh` prerequisite, exact pushed-SHA validation, and complete-matrix exit semantics · `Taskfile.yml`, `internal/buildtool/aggregate.go`
 - [x] **T044** [P] Extend the native smoke harnesses with PE/ELF identity, runtime prerequisite, exact inventory, metadata, checksum, player connection, secure-store state, and resource-release evidence · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`
 - [x] **T045** [P] Migrate macOS CI/release/reproducibility entrypoints to pinned Task commands without weakening bundle identity, signature, notarization, DMG, Gatekeeper, or hash checks · `.github/workflows/wails-macos.yml`, `scripts/build-macos.sh`, `scripts/reproducible-build-check.sh`
 - [x] **T046** [P] Validate the union of shipped target dependency graphs and add Windows Credential Manager, D-Bus/Secret Service, and Task tooling licenses/notices to packaged compliance evidence · `scripts/dependency-license-check.sh`, `THIRD_PARTY_NOTICES.md`
@@ -212,7 +212,7 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 
 - [x] **T049** [P] Replace active Make workflow guidance with the tool bootstrap, Task quickstart, four-target download table, portable launch summary, and links to detailed platform/release guidance · `README.md`
 - [x] **T050** [P] Document Windows 10/11 WebView2 and Linux GTK4/WebKitGTK6/Secret Service prerequisites, archive selection/launch, OS-native session/settings locations, secure-store expectations, and troubleshooting · `docs/platform-support.md`
-- [x] **T051** [P] Document every migrated Task command, Wails-compatible invocation, matching-host package commands, `package:all` authentication/current-branch/`origin`/output behavior, artifact layouts, CI evidence, and failure semantics · `docs/platform-packaging.md`
+- [x] **T051** [P] Document every migrated Task command, Wails-compatible invocation, matching-host package commands, remote aggregate authentication/current-branch/`origin`/output behavior, artifact layouts, CI evidence, and failure semantics · `docs/platform-packaging.md`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
@@ -261,3 +261,4 @@ This phase supplies the typed target, host, CLI, and portable preflight infrastr
 - [ ] **T058** After T056–T057, run only the matching native delivery workflows from a clean pushed revision, require every portable matrix job to execute the expanded acceptance harness, and replace applicable `NOT RUN` entries with correlated Windows/Linux evidence while keeping unavailable credential-dependent public-tunnel checks explicitly `NOT RUN` [US2/AC1, US2/AC2, US2/AC3, US2/AC4, SC-003, SC-005, SC-006] · `.github/workflows/wails-portable.yml`, `specs/021-windows-linux-support/validation.md`
 - [x] **T059** Add an automatic matching-runner CI build matrix for Windows/Linux on amd64/arm64 through the pinned Task entrypoint, verify each executable output, and document the build gate separately from the full portable packaging workflow [FR-001, FR-002, FR-013, SC-002] · `.github/workflows/wails-cross-platform.yml`, `README.md`
 - [x] **T060** Publish the complete verified four-target matrix on `vMAJOR.MINOR.PATCH` tag pushes as GoReleaser v2-managed GitHub Release assets and a versioned GHCR OCI artifact, using workflow-scoped permissions plus repository-pinned GoReleaser/ORAS tools while withholding every partial result [US3/AC1, US3/AC3, FR-013, FR-014, SC-001, SC-004] · `.goreleaser.yaml`, `.github/workflows/wails-portable.yml`, `tools/goreleaser/go.mod`, `tools/goreleaser/go.sum`, `tools/oras/go.mod`, `tools/oras/go.sum`, `scripts/tool-modules-check.sh`, `internal/platform/portable_release_test.go`, `README.md`, `docs/platform-packaging.md`
+- [x] **T061** Build and statically verify all four portable targets from the current checkout through architecture-matched Docker builds, atomically publish only the complete matrix through `task package:all`, retain native GitHub orchestration as `task package:all:remote`, and document that local output is not native launch evidence [US3/AC1, FR-018, FR-025, SC-001] · `.dockerignore`, `build/docker/Dockerfile.package`, `Taskfile.yml`, `cmd/build/main.go`, `internal/buildtool/buildtool.go`, `internal/buildtool/docker.go`, `README.md`, `docs/platform-packaging.md`

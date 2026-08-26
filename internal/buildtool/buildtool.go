@@ -209,11 +209,48 @@ func Run(ctx context.Context, root, action string, applicationArguments []string
 // RunForTarget validates the repository, pure plan, and native host before it
 // executes the first potentially mutating step.
 func RunForTarget(ctx context.Context, root, action string, target Target, applicationArguments []string) error {
+	return runForTargetOnHost(ctx, root, action, target, RuntimeHost(), applicationArguments)
+}
+
+// RunPortablePackageInContainer executes one portable package inside the
+// architecture-matched Linux container created by PackageAllDocker. Windows
+// uses Go's CGO-free cross-compilation; Linux remains a native CGO build.
+func RunPortablePackageInContainer(ctx context.Context, root string, target Target) error {
+	if !target.Portable() {
+		return fmt.Errorf("container package requires a portable target, got %s", target)
+	}
+	if runtimeTarget := os.Getenv("FALLOUT_TERMINAL_CONTAINER_TARGET"); runtimeTarget != target.String() {
+		return fmt.Errorf(
+			"container package target marker mismatch: expected %q, got %q",
+			target.String(),
+			runtimeTarget,
+		)
+	}
+	runtimeHost := RuntimeHost()
+	if runtimeHost.OS() != goosLinux || runtimeHost.Arch() != target.Arch() {
+		return fmt.Errorf(
+			"container package for %s requires a linux/%s runtime, got %s",
+			target,
+			target.Arch(),
+			runtimeHost,
+		)
+	}
+	return runForTargetOnHost(ctx, root, "package", target, NewHost(target.OS(), target.Arch()), nil)
+}
+
+func runForTargetOnHost(
+	ctx context.Context,
+	root string,
+	action string,
+	target Target,
+	host Host,
+	applicationArguments []string,
+) error {
 	if err := validateRoot(root); err != nil {
 		return err
 	}
 	if action != "prepare" {
-		if err := ValidateHost(target, RuntimeHost()); err != nil {
+		if err := ValidateHost(target, host); err != nil {
 			return err
 		}
 	}
@@ -223,7 +260,7 @@ func RunForTarget(ctx context.Context, root, action string, target Target, appli
 	}
 	var packagePlan PackagePlan
 	if action == "package" && target.Portable() {
-		packagePlan, err = NewPackagePlan(target, RuntimeHost())
+		packagePlan, err = NewPackagePlan(target, host)
 		if err != nil {
 			return err
 		}
@@ -280,6 +317,13 @@ func writePlannedPortableArchive(ctx context.Context, root string, plan PackageP
 }
 
 func resolveSourceRevision(ctx context.Context, root string) (string, error) {
+	if revision := os.Getenv("FALLOUT_TERMINAL_SOURCE_REVISION"); revision != "" &&
+		os.Getenv("FALLOUT_TERMINAL_CONTAINER_TARGET") != "" {
+		if err := validateSourceRevision(revision); err != nil {
+			return "", fmt.Errorf("resolve package source revision from environment: %w", err)
+		}
+		return revision, nil
+	}
 	command := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "HEAD^{commit}")
 	command.Dir = root
 	output, err := command.Output()

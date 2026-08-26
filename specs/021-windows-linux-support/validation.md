@@ -39,4 +39,4 @@ No commit, push, or workflow dispatch was performed because those external state
 
 ## Native CI follow-up
 
-After the changes are reviewed, commit them and push the current branch to `origin`, authenticate with `gh auth login`, then run `task package:all OUTPUT=<new-directory>`. Preserve the correlated portable workflow URL and its `fallout-terminal-portable` artifact. Run the macOS workflow at the same revision, then replace the `NOT RUN` entries above only with evidence from those matching-host jobs. Any failed or missing target must remain ineligible rather than being reported as a partial success.
+After the changes are reviewed, commit them and push the current branch to `origin`, authenticate with `gh auth login`, then run `task package:all:remote OUTPUT=<new-directory>`. Preserve the correlated portable workflow URL and its `fallout-terminal-portable` artifact. Run the macOS workflow at the same revision, then replace the `NOT RUN` entries above only with evidence from those matching-host jobs. Any failed or missing target must remain ineligible rather than being reported as a partial success.

@@ -21,7 +21,7 @@
 - [x] The README leads with Task commands and links to the complete command reference; it does not present Make as an application workflow owner.
 - [x] The packaging guide documents every root Task command, its purpose, important inputs, and nonzero failure behavior.
 - [x] The four matching-host `task package GOOS=... GOARCH=...` commands map directly to the four canonical target identifiers and archive names.
-- [x] `task package:all [OUTPUT=<directory>]` documents GitHub CLI authentication, automatic current-branch/`origin` resolution, exact pushed-SHA validation, native runners, quarantine, verification, and atomic output publication.
+- [x] `task package:all [OUTPUT=<directory>]` documents local Docker prerequisites, current-checkout behavior, static verification, quarantine, and atomic output publication; `task package:all:remote` separately documents GitHub authentication, branch synchronization, and native launch evidence.
 - [x] The combined `fallout-terminal-portable` artifact and `aggregate-index.json` inventory are explicit, and any missing or unverifiable target is documented as ineligible for publication.
 
 ## Result

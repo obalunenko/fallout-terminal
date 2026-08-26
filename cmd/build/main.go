@@ -75,6 +75,21 @@ func run(ctx context.Context, root string, arguments []string) error {
 			return buildtool.Run(ctx, root, action, nil)
 		}
 		return buildtool.RunForTarget(ctx, root, action, target, nil)
+	case "package-container":
+		target, explicit, err := parseTargetFlag(action, actionArguments)
+		if err != nil {
+			return err
+		}
+		if !explicit {
+			return newUsageError("package-container requires --target GOOS/GOARCH")
+		}
+		return buildtool.RunPortablePackageInContainer(ctx, root, target)
+	case "package-all-docker":
+		options, err := parsePackageAllOptions(actionArguments)
+		if err != nil {
+			return err
+		}
+		return runPackageAllDocker(ctx, root, options)
 	case "package-all":
 		options, err := parsePackageAllOptions(actionArguments)
 		if err != nil {
@@ -83,9 +98,37 @@ func run(ctx context.Context, root string, arguments []string) error {
 		return runPackageAll(ctx, root, options)
 	default:
 		return newUsageError(
-			fmt.Sprintf("unknown action %q (want dev, build, package, package-all, run, or prepare)", action),
+			fmt.Sprintf(
+				"unknown action %q (want dev, build, package, package-all-docker, package-all, run, or prepare)",
+				action,
+			),
 		)
 	}
+}
+
+func runPackageAllDocker(ctx context.Context, root string, options packageAllOptions) error {
+	result, err := buildtool.PackageAllDocker(ctx, root, options.output, func(record buildtool.AggregateTargetRecord) {
+		if record.Failure != nil {
+			fmt.Printf("==> %s: %s (%v)\n", record.Target, record.Status, record.Failure)
+			return
+		}
+		fmt.Printf("==> %s: %s\n", record.Target, record.Status)
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("==> source revision: %s\n", result.SourceSHA)
+	fmt.Printf("==> aggregate output: %s\n", result.OutputDirectory)
+	for _, artifact := range result.Artifacts {
+		fmt.Printf(
+			"==> %s: %s (%s)\n",
+			artifact.Target(),
+			artifact.ArchiveName(),
+			artifact.Checksum(),
+		)
+	}
+	return nil
 }
 
 func parseTargetFlag(action string, arguments []string) (buildtool.Target, bool, error) {
@@ -192,6 +235,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build <dev|run> [application arguments]")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build <build|package> [--target GOOS/GOARCH]")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-container --target GOOS/GOARCH")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build prepare")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all-docker [--output <directory>]")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all [--output <directory>]")
 }

@@ -128,6 +128,9 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 	}{
 		{"cmd/build/main.go", []string{"buildtool.Run", "dev|build|package|run|prepare"}},
 		{"internal/buildtool/buildtool.go", []string{"scripts", "proto-check.sh", "tools/wails/go.mod", "frontend/overseer/bindings", "GOARCH", "arm64", "13.0", `applicationName+".app"`}},
+		{"internal/buildtool/docker.go", []string{"PackageAllDocker", "linux/", "SOURCE_REVISION", "atomically publish Docker package matrix"}},
+		{"build/docker/Dockerfile.package", []string{"golang:1.27-trixie", "node:24-trixie", "libgtk-4-dev", "libwebkitgtk-6.0-dev", "package-container"}},
+		{".dockerignore", []string{".git", "**/node_modules", "build/dist", "**/.env*"}},
 		{"build/darwin/Info.plist", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns"}},
 		{"build/darwin/Info.dev.plist", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns"}},
 		{"build/darwin/entitlements.plist", []string{"com.apple.security.network.server"}},
@@ -183,6 +186,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 		"build",
 		"package",
 		"package:all",
+		"package:all:remote",
 		"deps",
 		"deps:frontend",
 		"deps:browser",
@@ -224,10 +228,15 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	}
 
 	packageAll := taskfileTask(t, taskfile, "package:all")
-	assert.Contains(t, packageAll, "run ./cmd/build package-all")
+	assert.Contains(t, packageAll, "run ./cmd/build package-all-docker")
+	assert.Contains(t, packageAll, "docker info")
 	assert.Contains(t, packageAll, `--output "{{.OUTPUT}}"`)
 	assert.NotContains(t, packageAll, "REF")
 	assert.NotContains(t, packageAll, "--ref")
+	packageAllRemote := taskfileTask(t, taskfile, "package:all:remote")
+	assert.Contains(t, packageAllRemote, "run ./cmd/build package-all")
+	assert.Contains(t, packageAllRemote, "gh auth status")
+	assert.Contains(t, packageAllRemote, `--output "{{.OUTPUT}}"`)
 
 	dev := taskfileTask(t, taskfile, "dev")
 	run := taskfileTask(t, taskfile, "run")

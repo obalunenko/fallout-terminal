@@ -2,7 +2,7 @@
 
 ## Native target builders and aggregate orchestration
 
-**Decision**: Package `windows/amd64`, `windows/arm64`, `linux/amd64`, and `linux/arm64` on matching operating-system and architecture runners. Add `task package:all` to resolve the current clean pushed branch in `origin`, dispatch the dedicated GitHub Actions workflow, wait for its four target jobs, and fail unless the complete matrix succeeds. Each runner invokes `task package GOOS=<os> GOARCH=<arch>`, which delegates detailed target planning and archive work to `cmd/build`.
+**Decision**: Package `windows/amd64`, `windows/arm64`, `linux/amd64`, and `linux/arm64` on matching operating-system and architecture runners. `task package:all:remote` resolves the current clean pushed branch in `origin`, dispatches the dedicated GitHub Actions workflow, waits for its four target jobs, and fails unless the complete native matrix succeeds. `task package:all` additionally builds the current checkout locally through architecture-matched Docker containers and performs static artifact verification without claiming native launch evidence. Each target path delegates detailed planning and archive work to `cmd/build`.
 
 **Rationale**: Wails v3 can cross-compile several combinations, but its production guidance recommends native CI runners for each platform. Linux builds require CGO plus matching GTK and WebKitGTK development libraries, and the feature requires a real-window launch check on the target platform. Native architecture runners make the artifact build and its acceptance evidence one coherent unit. An aggregate CI dispatch is also the only honest interpretation of “package all” when a single local host cannot satisfy the matching-host rule.
 

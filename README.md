@@ -40,6 +40,8 @@ task --list                # список доступных задач
 task dev                   # разработка
 task build                 # сборка для текущей ОС
 task package               # пакет для текущей ОС
+task package:all           # все Windows/Linux-пакеты локально через Docker
+task package:all:remote    # все пакеты с нативной проверкой в GitHub Actions
 task test                  # Go-тесты
 task test:race             # Go-тесты с race detector
 task check                 # полный набор локальных проверок
@@ -157,6 +159,8 @@ specify extension list
 
 ## Сборка приложения
 
+### Один пакет на нативном хосте
+
 На соответствующем нативном хосте пакет для Windows или Linux собирается так:
 
 ```bash
@@ -166,16 +170,53 @@ task package GOOS=linux GOARCH=amd64
 task package GOOS=linux GOARCH=arm64
 ```
 
-Собрать и скачать проверенную матрицу всех четырёх portable-целей для текущей ветки можно через GitHub CLI:
+### Все платформы локально через Docker
+
+Для локальной сборки полной матрицы нужен установленный и запущенный Docker с поддержкой BuildKit,
+`linux/amd64` и `linux/arm64`. На macOS и Windows это обычно предоставляет Docker Desktop. Проверить
+готовность daemon и запустить сборку можно так:
 
 ```bash
-gh auth login
+docker info
+task package:all
+# или указать собственный новый каталог:
 task package:all OUTPUT=build/portable
 ```
 
-Команда автоматически использует текущую именованную ветку и GitHub-репозиторий из `origin`. Перед запуском working tree должен быть чистым, а локальный `HEAD` — полностью отправлен в одноимённую ветку `origin`; незакоммиченные изменения нельзя передать удалённым native runner-ам. Команда завершается ошибкой и не выдаёт частичный успешный набор, если ветка не синхронизирована или хотя бы одна нативная цель не прошла проверку. Формат архивов, manifest/checksum и CI evidence подробно описаны в [docs/platform-packaging.md](docs/platform-packaging.md).
+Без `OUTPUT` результат записывается в `build/dist`. Выходной каталог не должен существовать до
+запуска: это защищает ранее собранные пакеты от перезаписи. Для повторной сборки укажите новый
+каталог либо предварительно переместите старый результат.
 
-Каждый push в `main` и каждый pull request автоматически запускает workflow [Wails Cross-Platform Build](.github/workflows/wails-cross-platform.yml). Он выполняет `task build` на четырёх соответствующих нативных runner-ах (`windows/amd64`, `windows/arm64`, `linux/amd64`, `linux/arm64`) и проверяет наличие непустого executable. Полная упаковка, запуск и smoke-проверка архивов остаются в отдельном workflow [Wails Portable](.github/workflows/wails-portable.yml), который запускает `task package:all`.
+Docker получает текущую рабочую копию, поэтому команда собирает и незакоммиченные изменения; commit,
+push, `origin`, `gh` и доступ к GitHub не нужны. Для Linux запускаются контейнеры соответствующей
+архитектуры с CGO, GTK4 и WebKitGTK 6.0, а Windows-бинарники собираются средствами Go в контейнере
+той же архитектуры. После статической проверки PE/ELF, manifest и SHA-256 команда атомарно публикует:
+
+- четыре portable-архива;
+- четыре одноимённых файла `.sha256`;
+- общий `aggregate-index.json`.
+
+Если хотя бы одна цель не собирается или не проходит проверку, успешный `OUTPUT` не создаётся.
+Локальная Docker-сборка не запускает GUI-приложения в целевых ОС и поэтому не является нативным
+release evidence.
+
+### Все платформы с нативной проверкой в GitHub Actions
+
+Для сборки и проверки реального запуска на Windows/Linux runner-ах сначала commit/push текущую ветку,
+а затем выполните:
+
+```bash
+gh auth login
+gh auth status
+task package:all:remote OUTPUT=build/portable-native
+```
+
+Remote-команда требует чистую именованную ветку, полностью синхронизированную с одноимённой веткой
+в `origin`. Она ожидает полную нативную матрицу, проверяет скачанные результаты и также не публикует
+частичный набор. Формат архивов, manifest/checksum и различие локальной и нативной проверки подробно
+описаны в [руководстве по упаковке](docs/platform-packaging.md).
+
+Каждый push в `main` и каждый pull request автоматически запускает workflow [Wails Cross-Platform Build](.github/workflows/wails-cross-platform.yml). Он выполняет `task build` на четырёх соответствующих нативных runner-ах (`windows/amd64`, `windows/arm64`, `linux/amd64`, `linux/arm64`) и проверяет наличие непустого executable. Полная нативная упаковка, запуск и smoke-проверка архивов остаются в отдельном workflow [Wails Portable](.github/workflows/wails-portable.yml); вручную его диспетчеризует `task package:all:remote`.
 
 Push SemVer-тага вида `v1.2.3` или `v1.2.3-beta.1` автоматически запускает полную четырёхцелевую упаковку. Только после успешной проверки всей матрицы закреплённый GoReleaser `v2.18.0` публикует архивы, `.sha256` и `aggregate-index.json` как assets GitHub Release; тот же набор публикуется как versioned OCI artifact `ghcr.io/<owner>/<repository>:<tag>` в GitHub Packages. Тег с prerelease-суффиксом создаёт prerelease; частичная или непроверенная матрица не публикуется.
 

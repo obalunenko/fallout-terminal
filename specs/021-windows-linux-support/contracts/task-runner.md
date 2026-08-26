@@ -47,7 +47,8 @@ The Makefile contains no application build, development, dependency, test, gener
 | `make prepare` | `task prepare` | Protobuf, player, bindings, Overseer assets in existing order. |
 | `make build` | `task build` | Current host by default; `GOOS`/`GOARCH` when explicitly supported. |
 | `make package` | `task package` | Existing macOS default plus the four explicit portable targets. |
-| — | `task package:all [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete four-target matrix. |
+| — | `task package:all [OUTPUT=<directory>]` | Build and verify the complete four-target matrix from the current checkout locally with Docker. |
+| — | `task package:all:remote [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete native four-target matrix. |
 | `make deps` | `task deps` | Locked frontend and browser dependencies. |
 | `make deps-frontend` | `task deps:frontend` | Locked frontend workspace install. |
 | `make deps-browser` | `task deps:browser` | Locked browser-test install. |

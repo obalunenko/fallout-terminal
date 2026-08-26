@@ -52,41 +52,49 @@ task package
 
 On the supported macOS arm64 host with no `GOOS`/`GOARCH` override, the command retains the existing behavior and produces `build/bin/Fallout Terminal.app`. It does not join the four-target portable matrix and does not change signing, DMG, notarization, or reproducibility contracts. The existing pinned-Wails entrypoint `go tool -modfile=tools/wails/go.mod wails3 package` resolves to the same root Task task.
 
-## Aggregate command
+## Local Docker aggregate command
 
 ```text
 task package:all [OUTPUT=<directory>]
 ```
 
-The default output directory is `build/dist`. This command is CI orchestration, not local cross-compilation. Its Task body delegates correlation, dispatch, waiting, download, and validation to the Go aggregate helper.
+The default output directory is `build/dist`. This command builds the current checkout for all four portable targets in architecture-matched Linux containers and delegates isolation, collection, validation, and atomic publication to the Go aggregate helper.
 
 ### Preconditions
 
-- `gh` is installed and authenticated for workflow dispatch, run inspection, and artifact download in the current repository.
-- The current checkout is on a named branch with a clean working tree, and its local `HEAD` exactly matches the same branch in the GitHub `origin` repository.
-- The portable workflow exists and accepts the four-target matrix plus a generated correlation identifier.
+- Docker is installed, its daemon is running, and BuildKit can execute `linux/amd64` and `linux/arm64` build platforms.
+- `OUTPUT` does not already exist.
+- The current checkout has a valid Git `HEAD`; a clean tree, named branch, remote, push, GitHub CLI, and GitHub access are not required.
 
 ### Behavior
 
-1. Resolve the GitHub repository from `origin` and the current branch from `HEAD`, verify the branch is clean and fully pushed, generate a unique correlation identifier, and dispatch `.github/workflows/wails-portable.yml` with an explicit repository and branch.
-2. Find only the workflow run carrying that correlation identifier and display each target’s independent state.
-3. Wait until the workflow’s aggregate gate succeeds or fails; interruption cancels local waiting but does not silently claim the remote run was canceled.
-4. On success, download the four archives and checksum sidecars into a temporary owned directory.
-5. Revalidate the source revision, exact target set, unique names, manifests, and checksums before atomically exposing them in `OUTPUT`.
+1. Resolve the current `HEAD` source revision and pass the current Docker build context to each isolated target build.
+2. Build Linux with native CGO inside a target-architecture Linux container and Windows with CGO-disabled Go cross-compilation inside the matching-architecture container.
+3. Export each archive and checksum to a target-owned quarantine and report target progress independently.
+4. Revalidate the source revision, exact target set, unique names, manifests, PE/ELF identity, and checksums, then create `aggregate-index.json`.
+5. Atomically expose the complete nine-file matrix in `OUTPUT`; any failure removes the temporary matrix.
 
 ### Success
 
 - Exit status is zero only when all four target records are eligible and all four archives are present locally.
-- The command reports the workflow run URL, resolved source SHA, output directory, and one archive/checksum result per target.
+- The command reports the resolved source SHA, output directory, and one archive/checksum result per target.
 
 ### Failure
 
-- Any failed, canceled, timed-out, missing, duplicated, mismatched-revision, or unverifiable target makes the command nonzero.
+- An unavailable Docker daemon, unsupported emulation platform, failed build, missing, duplicated, mismatched-revision, or unverifiable target makes the command nonzero.
 - A partial matrix is reported by target but is never presented in the aggregate success output directory.
-- Authentication, authorization, ref, workflow-dispatch, and download failures are distinguished with actionable messages.
+- Local Docker output proves build and static artifact validity only; it does not satisfy native application launch acceptance.
+
+## Remote native aggregate command
+
+```text
+task package:all:remote [OUTPUT=<directory>]
+```
+
+This command retains the GitHub Actions orchestration contract: it requires `gh` authentication, a named clean current branch whose `HEAD` exactly matches `origin`, and an installed portable workflow. It correlates and dispatches the native matrix, reports each runner, waits for the aggregate gate, downloads the verified result into quarantine, revalidates it, and atomically exposes it in `OUTPUT`. Authentication, authorization, ref, workflow-dispatch, and download failures remain distinct and actionable.
 
 ## Help and compatibility
 
-- `task --list` documents both packaging forms and the four exact target pairs.
+- `task --list` documents single-target, local Docker aggregate, and remote native aggregate packaging plus the four exact target pairs.
 - Existing developer, quality, protobuf, browser, Spec Kit, and release workflows have Task equivalents defined by the task-runner contract.
 - Unknown Task variables used as target inputs and invalid arguments passed through to Go fail nonzero rather than being ignored.

@@ -62,7 +62,22 @@ tasks:
         fi
 
   package:all:
-    desc: Package the current pushed branch on the complete native portable matrix.
+    desc: Package the current checkout for all portable targets locally with Docker.
+    preconditions:
+      - sh: command -v docker >/dev/null 2>&1
+        msg: Docker is required; install Docker and start its daemon.
+      - sh: docker info >/dev/null 2>&1
+        msg: Docker daemon is unavailable; start Docker and retry.
+    cmds:
+      - |
+        if [ -n "{{.OUTPUT}}" ]; then
+          {{.GO}} run ./cmd/build package-all-docker --output "{{.OUTPUT}}"
+        else
+          {{.GO}} run ./cmd/build package-all-docker
+        fi
+
+  package:all:remote:
+    desc: Package the clean pushed branch on the complete native GitHub Actions matrix.
     preconditions:
       - sh: command -v gh >/dev/null 2>&1
         msg: GitHub CLI is required; install gh and authenticate with `gh auth login`.

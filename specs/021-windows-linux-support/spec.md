@@ -109,6 +109,7 @@ As a user or maintainer, I can find the supported versions, runtime prerequisite
 - **FR-022**: The root Makefile MUST retain only one bootstrap responsibility: installing every Go tool declared by the isolated modules under `tools/`, including Go Task; it MAY expose a non-mutating `help` target that points to Task discovery, but MUST NOT remain a parallel owner or proxy of application workflows.
 - **FR-023**: Existing maintainer workflows currently exposed through Make MUST have documented Task equivalents with preserved ordering, inputs, and failure behavior.
 - **FR-024**: The accepted Wails Go runtime, isolated CLI tool, and frontend runtime MUST be upgraded together and pinned exactly to the latest published beta, `v3.0.0-beta.13` / `3.0.0-beta.13`, with committed Go and npm checksums.
+- **FR-025**: Maintainers MUST be able to build and statically verify the complete four-target portable matrix from the current local checkout with Docker, without requiring a clean or pushed branch; partial output MUST remain unpublished and native launch verification MUST remain explicitly separate.
 
 ## Key Entities
 

@@ -1,9 +1,9 @@
 # Platform Packaging Guide
 
 This guide is for maintainers building Fallout Terminal from source. Portable Windows and Linux
-packages are native builds: run a target-specific command on a host whose operating system and
-architecture match `GOOS` and `GOARCH`, or use the GitHub-hosted aggregate command. The project does
-not support local cross-compilation as a substitute for native launch verification.
+packages can be built one at a time on a matching native host, as a complete local Docker matrix,
+or through the GitHub-hosted native matrix. Docker cross-platform packaging verifies artifact
+structure and binary identity, but it is not a substitute for native launch verification.
 
 For end-user operating-system prerequisites, launch instructions, data locations, and secure-store
 troubleshooting, see [Platform Support](platform-support.md).
@@ -36,7 +36,8 @@ source of build order, target validation, package layout, and verification polic
 | `task prepare` | Verify/generate protobuf assets, build the player, generate Wails bindings, and build Overseer assets in the owned order. |
 | `task build [GOOS=<os> GOARCH=<arch>]` | Build for the current host by default, or for one exact supported target when both variables are supplied. |
 | `task package [GOOS=<os> GOARCH=<arch>]` | Preserve the macOS arm64 package path with no override, or create one matching-host Windows/Linux portable archive. |
-| `task package:all [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete native four-target GitHub Actions matrix. |
+| `task package:all [OUTPUT=<directory>]` | Build and verify all four portable targets from the current checkout locally with Docker. |
+| `task package:all:remote [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete native four-target GitHub Actions matrix. |
 | `task deps` | Install both locked frontend and browser-test npm workspaces. |
 | `task deps:frontend` | Install locked client and Overseer dependencies with `npm ci`. |
 | `task deps:browser` | Install locked browser-test dependencies with `npm ci`. |
@@ -140,18 +141,49 @@ Verification rejects unexpected or unsafe inventory, absolute/traversal paths, l
 files, a wrong PE/ELF machine, missing product/icon/runtime metadata, incorrect modes, a target or
 source mismatch, and a bad manifest or sidecar checksum.
 
-## Package the complete matrix through GitHub Actions
+## Package the complete matrix locally with Docker
 
-`package:all` is remote native orchestration, not local cross-compilation. Install the GitHub CLI,
+`package:all` builds all four targets from the current checkout. Docker and a running Docker daemon
+with BuildKit support are the only additional host prerequisites:
+
+```text
+task package:all
+task package:all OUTPUT=build/portable-local
+```
+
+The helper runs four isolated `docker build` operations from `build/docker/Dockerfile.package`.
+Linux targets run with `--platform=linux/amd64` or `linux/arm64` so their CGO, GTK4, and WebKitGTK
+compilation happens on the target architecture. Windows uses Go's CGO-free cross-compilation inside
+the corresponding architecture container. The image selects the Go 1.27 and Node.js 24 image lines and
+installs the Linux desktop development packages required by Wails.
+
+Unlike the remote command, the local command does not require a named branch, clean working tree,
+push, `origin`, `gh`, or GitHub access. Docker receives the current build context, including tracked
+and untracked source changes not excluded by `.dockerignore`; `.env` files, VCS metadata, dependency
+trees, and previous outputs are excluded. The archive manifest identifies the current `HEAD` source
+revision, just like a one-target local `task package` build.
+
+Each target is exported into an owned quarantine. The helper rejects missing or extra files,
+revalidates every archive, manifest, PE/ELF architecture, and checksum, writes
+`aggregate-index.json`, and atomically renames the complete nine-file matrix to `OUTPUT`. The output
+path must not already exist. Any failed target removes the temporary matrix and leaves no partial
+success directory.
+
+Docker packaging cannot launch Windows or Linux desktop applications on their native UI stack.
+Use the remote native matrix before treating artifacts as release evidence.
+
+## Package and launch-verify the complete matrix through GitHub Actions
+
+`package:all:remote` is remote native orchestration. Install the GitHub CLI,
 authenticate it for the current repository, and confirm the session before dispatch:
 
 ```text
 gh auth login
 gh auth status
-task package:all
+task package:all:remote
 ```
 
-`package:all` selects the current named branch automatically and derives the target GitHub repository
+`package:all:remote` selects the current named branch automatically and derives the target GitHub repository
 from the `origin` remote, independent of any repository saved by `gh repo set-default`. The working
 tree must be clean, the branch must exist in `origin`, and its remote SHA must exactly match local
 `HEAD`; commit and push first when any of those checks fails. The helper resolves the branch to one
@@ -162,7 +194,7 @@ run, reports each native target independently, and waits for the always-running 
 The default local output is `build/dist`. Select a different non-existing destination when needed:
 
 ```text
-task package:all OUTPUT=build/portable-<name>
+task package:all:remote OUTPUT=build/portable-<name>
 ```
 
 The helper refuses to replace an existing output path. Downloads remain in a quarantined temporary
@@ -198,7 +230,7 @@ checksum, and writes `aggregate-index.json`. The index joins `schemaVersion`, `c
 Only a successful join uploads the combined GitHub Actions artifact named
 `fallout-terminal-portable`. It contains exactly the four canonical archives, their four checksum
 sidecars, and `aggregate-index.json`; these files are the CI evidence consumed and revalidated by
-`task package:all`.
+`task package:all:remote`.
 
 ## Publish a tagged release
 

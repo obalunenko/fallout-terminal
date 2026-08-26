@@ -25,12 +25,14 @@ internal/buildtool/
 ├── archive.go                                # deterministic ZIP/TAR.GZ and file manifests
 ├── verify.go                                 # PE/ELF, inventory, checksum and path-safety checks
 ├── aggregate.go                              # authenticated workflow dispatch/wait/download
+├── docker.go                                 # local four-target Docker build/verify/publish coordinator
 ├── buildtool_test.go                         # target, ordering and existing macOS behavior
 ├── archive_test.go                           # deterministic layout and hostile-path coverage
 └── aggregate_test.go                         # four-target completion/failure coordination
 
 build/
 ├── appicon.png                               # common embedded/runtime icon source
+├── docker/Dockerfile.package                 # architecture-matched local portable build image
 ├── darwin/                                   # existing plist/entitlements/signing inputs, preserved
 └── windows/
     ├── app.manifest                          # Windows application/compatibility manifest
@@ -121,7 +123,8 @@ The build, artifact, storage, credential, and verification entities and their st
 9. Add Windows Credential Manager and Linux Secret Service implementations behind the existing secret-store contract, with bounded Linux D-Bus operations, precise unavailable/locked/denied/not-found mapping, temporary-buffer clearing, and no insecure fallback. Preserve the first secure-store initialization error through public-access start/retry status.
 10. Isolate any Darwin-only window-close fallback behind platform files, keep the common Wails closing hook exact-once, supply Windows/Linux application options and icons, and verify that normal close and startup failure release the player listener, tunnel resources, goroutines, and process.
 11. Add `.github/workflows/wails-portable.yml` with four independent native target jobs and one aggregate gate. Each target bootstraps pinned tools, executes `task package GOOS=<os> GOARCH=<arch>`, verifies and launches the extracted artifact, closes it, and uploads only on success; the aggregate job requires exactly four unique verified outputs.
-12. Implement `task package:all` as a correlated GitHub workflow dispatch/wait/download path for the current clean pushed branch over a Go helper, including authenticated CLI prerequisite, `origin` repository and exact source identity, clear per-target progress, complete-matrix failure semantics, and collision-free local download into `build/dist`.
+12. Implement `task package:all:remote` as a correlated GitHub workflow dispatch/wait/download path for the current clean pushed branch over a Go helper, including authenticated CLI prerequisite, `origin` repository and exact source identity, clear per-target progress, complete-matrix failure semantics, and collision-free local download into `build/dist`.
+13. Implement `task package:all` as a local Docker matrix over the current checkout, using architecture-matched Linux containers, quarantined per-target exports, complete static verification, and atomic publication while keeping native launch evidence exclusive to matching-host CI.
 13. Promote shipped credential modules to direct pins, update target-union license checks and third-party notices, document the Make-to-Task mapping, tool bootstrap, target selection, WebView2 and GTK4/WebKitGTK6/Secret Service prerequisites, launch steps, native data locations, aggregate packaging, and actionable troubleshooting.
 14. Run the complete verification matrix only in CI and matching target environments, then confirm the unchanged macOS package still passes its existing build, signature, launch, resource, reproducibility, and release checks through the migrated Task entrypoints.
 
