@@ -287,14 +287,21 @@ function Find-ValueElementByAutomationId($Root, [string] $AutomationId) {
     if ($null -eq $Container) {
         return $null
     }
-    if ($Container.Current.IsValuePatternAvailable) {
+    $Pattern = $null
+    if ($Container.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref] $Pattern)) {
         return $Container
     }
-    $Condition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::IsValuePatternAvailableProperty,
-        $true
+    $Candidates = $Container.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition
     )
-    return $Container.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
+    foreach ($Candidate in $Candidates) {
+        $Pattern = $null
+        if ($Candidate.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref] $Pattern)) {
+            return $Candidate
+        }
+    }
+    return $null
 }
 
 function Wait-ForDescendantByProperty(

@@ -277,9 +277,10 @@ git push origin v1.2.3
 
 Accepted tags use `vMAJOR.MINOR.PATCH` with an optional prerelease suffix, for example
 `v1.2.3-beta.1`. A suffix marks the GitHub Release as a prerelease. The portable workflow accepts
-all four matching-runner Windows/Linux packages, invokes the reusable macOS trust workflow at the
-same tag SHA, and requires its Developer ID signed, hardened-runtime, notarized, stapled, and
-Gatekeeper-accepted `Fallout-Terminal-arm64.dmg` plus checksum. Publication starts only after the
+all four matching-runner Windows/Linux packages, invokes the reusable macOS checksum workflow at the
+same tag SHA, and requires an unsigned `Fallout-Terminal-arm64.dmg` plus a sidecar that matches its
+SHA-256 exactly. Developer ID, hardened runtime, notarization, stapling, Gatekeeper, and macOS
+release secrets are not eligibility requirements. Publication starts only after the
 five-target join has checked the exact source revision, every sidecar, and the complete inventory;
 a missing, failed, or unverifiable target prevents both publication destinations.
 
@@ -311,13 +312,9 @@ go tool -modfile=tools/oras/go.mod oras pull ghcr.io/<owner>/<repository>:v1.2.3
 
 For a non-publishing acceptance run, dispatch `Wails Portable` with the clean pushed revision,
 the normal correlation identifier, and `validate_release=true`. The workflow executes the same
-signed/notarized Darwin build and exact five-target join, uploads only the short-lived
+unsigned Darwin build, SHA-256 verification, and exact five-target join, uploads only the short-lived
 `fallout-terminal-release-candidate` workflow artifact, and deliberately skips both GoReleaser and
-ORAS because no SemVer tag event exists. The macOS repository secrets are:
-`MACOS_DEVELOPER_ID_CERTIFICATE` (base64 PKCS#12),
-`MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD`, `MACOS_DEVELOPER_ID_APPLICATION`,
-`MACOS_NOTARYTOOL_APPLE_ID`, `MACOS_NOTARYTOOL_TEAM_ID`, and
-`MACOS_NOTARYTOOL_PASSWORD` (an app-specific password).
+ORAS because no SemVer tag event exists. No macOS signing or notarization secrets are required.
 
 GitHub Releases provide the normal end-user download surface through GoReleaser v2. GitHub Packages provides the same
 versioned files as a machine-consumable OCI artifact rather than pretending portable desktop

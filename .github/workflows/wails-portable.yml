@@ -18,7 +18,7 @@ on:
         required: true
         type: string
       validate_release:
-        description: Build and join the signed Darwin candidate without publishing a tag
+        description: Build and join the SHA-256 verified Darwin candidate without publishing a tag
         required: false
         default: false
         type: boolean
@@ -246,19 +246,18 @@ jobs:
           retention-days: 7
           path: combined/*
 
-  macos-trust:
-    name: Build trusted Darwin release candidate
+  macos-checksum:
+    name: Build SHA-256 verified Darwin release candidate
     if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release || (github.event_name == 'push' && github.ref == 'refs/heads/021-windows-linux-support' && contains(github.event.head_commit.message, '[validate-release]')) }}
     uses: ./.github/workflows/wails-macos.yml
     with:
       source_sha: ${{ inputs.source_sha || github.sha }}
       release_candidate: true
-    secrets: inherit
 
   release-join:
     name: Gate complete five-target release candidate
     if: ${{ (github.event_name == 'push' && github.ref_type == 'tag') || inputs.validate_release || (github.event_name == 'push' && github.ref == 'refs/heads/021-windows-linux-support' && contains(github.event.head_commit.message, '[validate-release]')) }}
-    needs: [aggregate, macos-trust]
+    needs: [aggregate, macos-checksum]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -268,7 +267,7 @@ jobs:
           name: fallout-terminal-portable
           path: combined
 
-      - name: Download trusted Darwin candidate
+      - name: Download SHA-256 verified Darwin candidate
         uses: actions/download-artifact@v4
         with:
           name: fallout-terminal-darwin

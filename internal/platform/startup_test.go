@@ -356,15 +356,14 @@ func TestReproducibleBuildHashesPackagedExecutableAndUsesQuietToolEnvironments(t
 	assert.Contains(t, protoGenerate, `--no-experimental-webstorage`)
 }
 
-func TestCIRunsOnlyMinimalPinnedTaskLintTestProtobufAndApplicationBuild(t *testing.T) {
+func TestCIRunsPinnedTaskQualityBuildAndChecksumOnlyDarwinCandidate(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
 	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-macos.yml"))
-	assert.Equal(t, 1, strings.Count(workflow, "\n    runs-on:"), "CI must use one job")
+	assert.Equal(t, 2, strings.Count(workflow, "\n    runs-on:"), "workflow must isolate quality and Darwin artifact jobs")
 	for _, required := range []string{
 		"tools/task/go.sum",
-		"make tools",
 		"- name: Lint",
 		"task fmt:check",
 		"task vet",
@@ -375,6 +374,10 @@ func TestCIRunsOnlyMinimalPinnedTaskLintTestProtobufAndApplicationBuild(t *testi
 		"task proto:check",
 		"- name: Build application",
 		"task package",
+		"SHA-256 verified Darwin release candidate",
+		"hdiutil create",
+		"shasum -a 256 -c",
+		"actions/upload-artifact@v4",
 	} {
 		assert.Contains(t, workflow, required)
 	}
@@ -387,7 +390,9 @@ func TestCIRunsOnlyMinimalPinnedTaskLintTestProtobufAndApplicationBuild(t *testi
 		"secret-leak-check.sh",
 		"legacy-public-access-check.sh",
 		"proto-breaking.sh",
-		"actions/upload-artifact",
+		"make tools",
+		"notarytool",
+		"Developer ID Application",
 	} {
 		assert.NotContains(t, workflow, forbidden)
 	}

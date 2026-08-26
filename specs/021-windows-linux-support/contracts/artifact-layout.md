@@ -11,9 +11,9 @@
 
 Each completed archive has a sibling `<archive>.sha256` sidecar using the lowercase hexadecimal SHA-256 of the archive. Sidecars are verification evidence and do not count as additional runnable archives.
 
-The established trusted `darwin/arm64` tag-release artifact is
-`Fallout-Terminal-arm64.dmg` with sibling `Fallout-Terminal-arm64.dmg.sha256`. It is a signed,
-notarized macOS distribution rather than a fifth portable archive. A successful tagged release
+The `darwin/arm64` tag-release artifact is `Fallout-Terminal-arm64.dmg` with sibling
+`Fallout-Terminal-arm64.dmg.sha256`. It is an unsigned native macOS distribution whose release
+eligibility is based only on exact SHA-256 verification rather than signing or notarization. A successful tagged release
 contains this DMG and sidecar together with the four portable archives, four portable sidecars, and
 `aggregate-index.json`; all inputs resolve to the same tag SHA.
 

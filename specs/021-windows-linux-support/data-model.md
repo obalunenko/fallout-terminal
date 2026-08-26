@@ -244,7 +244,7 @@ Joins every supported native distribution for one SemVer tag before either publi
 |---|---|---|
 | `Tag` | SemVer tag | Exactly `vMAJOR.MINOR.PATCH` with an optional prerelease suffix. |
 | `SourceRevision` | commit identity | The tag's immutable SHA; every Darwin and portable input MUST resolve to it. |
-| `DarwinArtifact` | trusted distribution | Exactly `Fallout-Terminal-arm64.dmg` and its SHA-256 sidecar after Developer ID signing, hardened runtime, notarization, stapling, Gatekeeper, and release verification. |
+| `DarwinArtifact` | checksum-verified distribution | Exactly the unsigned `Fallout-Terminal-arm64.dmg` and its SHA-256 sidecar after native build, DMG creation, and exact checksum verification. |
 | `PortableArtifacts` | fixed artifact set | Exactly four eligible Windows/Linux archives and sidecars plus `aggregate-index.json`. |
 | `ReleasePublisher` | tool identity | Repository-pinned GoReleaser v2; it consumes preverified inputs and does not rebuild them. |
 | `PackagePublisher` | tool identity | Repository-pinned ORAS client publishing the identical joined inventory as a versioned GHCR artifact. |

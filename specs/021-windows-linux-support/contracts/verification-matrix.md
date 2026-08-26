@@ -54,10 +54,10 @@ On success the job publishes one combined downloadable workflow artifact contain
 ## Tagged five-target publication gate
 
 The four-target aggregate remains the native Windows/Linux evidence owner. On a valid SemVer tag, a
-separate macOS arm64 job at the same tag SHA runs the established Developer ID signing,
-hardened-runtime, notarization, stapling, DMG, Gatekeeper, launch/resource, and checksum gates. Its
-eligible output is exactly `Fallout-Terminal-arm64.dmg` plus
-`Fallout-Terminal-arm64.dmg.sha256`.
+separate macOS arm64 job at the same tag SHA builds an unsigned DMG and verifies only its exact
+SHA-256 sidecar; signing, hardened runtime, notarization, stapling, Gatekeeper, and release
+credentials are not eligibility gates. Its eligible output is exactly
+`Fallout-Terminal-arm64.dmg` plus `Fallout-Terminal-arm64.dmg.sha256`.
 
 Publication eligibility requires all of the following before either destination reports success:
 
@@ -71,7 +71,7 @@ Publication eligibility requires all of the following before either destination 
 
 GoReleaser owns GitHub Release creation/update and consumes preverified inputs without compiling.
 The repository-pinned ORAS client publishes the versioned GitHub Packages artifact. A missing
-macOS credential, failed trust gate, failed portable target, mismatch, unexpected input, or
+failed Darwin checksum, failed portable target, mismatch, unexpected input, or
 publication error is nonzero and cannot be presented as a complete tagged release. Diagnostic
 workflow artifacts remain distinct from GitHub Release assets and versioned GHCR success.
 

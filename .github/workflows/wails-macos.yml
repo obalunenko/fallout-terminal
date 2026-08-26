@@ -8,22 +8,9 @@ on:
         required: true
         type: string
       release_candidate:
-        description: Build the signed, notarized, stapled Darwin DMG
+        description: Build the Darwin DMG and verify its SHA-256 sidecar
         required: true
         type: boolean
-    secrets:
-      MACOS_DEVELOPER_ID_CERTIFICATE:
-        required: true
-      MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD:
-        required: true
-      MACOS_DEVELOPER_ID_APPLICATION:
-        required: true
-      MACOS_NOTARYTOOL_APPLE_ID:
-        required: true
-      MACOS_NOTARYTOOL_TEAM_ID:
-        required: true
-      MACOS_NOTARYTOOL_PASSWORD:
-        required: true
   workflow_dispatch:
   push:
     branches:
@@ -102,7 +89,7 @@ jobs:
         run: go tool -modfile=tools/task/go.mod task package
 
   release-candidate:
-    name: Signed and notarized Darwin release candidate
+    name: SHA-256 verified Darwin release candidate
     if: ${{ inputs.release_candidate }}
     needs: [ci]
     runs-on: macos-15
@@ -111,8 +98,6 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: "13.0"
       CGO_CFLAGS: -mmacosx-version-min=13.0
       CGO_LDFLAGS: -mmacosx-version-min=13.0
-      DEVELOPER_ID_APPLICATION: ${{ secrets.MACOS_DEVELOPER_ID_APPLICATION }}
-      NOTARYTOOL_KEYCHAIN_PROFILE: fallout-terminal-ci
     steps:
       - name: Check out exact clean source
         uses: actions/checkout@v4
@@ -147,36 +132,24 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Import Developer ID and notarization credentials
+      - name: Build Darwin application
+        run: go tool -modfile=tools/task/go.mod task package
+
+      - name: Build and verify checksum-only Darwin DMG
         shell: bash
-        env:
-          CERTIFICATE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
-          NOTARYTOOL_APPLE_ID: ${{ secrets.MACOS_NOTARYTOOL_APPLE_ID }}
-          NOTARYTOOL_TEAM_ID: ${{ secrets.MACOS_NOTARYTOOL_TEAM_ID }}
-          NOTARYTOOL_PASSWORD: ${{ secrets.MACOS_NOTARYTOOL_PASSWORD }}
         run: |
           set -euo pipefail
-          keychain="$RUNNER_TEMP/fallout-terminal-signing.keychain-db"
-          certificate="$RUNNER_TEMP/fallout-terminal-developer-id.p12"
-          keychain_password="$(openssl rand -hex 32)"
-          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode >"$certificate"
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$certificate" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain"
-          security list-keychains -d user -s "$keychain"
-          security default-keychain -d user -s "$keychain"
-          xcrun notarytool store-credentials "$NOTARYTOOL_KEYCHAIN_PROFILE" \
-            --apple-id "$NOTARYTOOL_APPLE_ID" \
-            --team-id "$NOTARYTOOL_TEAM_ID" \
-            --password "$NOTARYTOOL_PASSWORD" \
-            --keychain "$keychain"
-          rm -f "$certificate"
-
-      - name: Build and verify signed notarized release DMG
-        run: go tool -modfile=tools/task/go.mod task release
+          app='build/bin/Fallout Terminal.app'
+          dmg='build/bin/Fallout-Terminal-arm64.dmg'
+          sidecar="$dmg.sha256"
+          staging="$RUNNER_TEMP/fallout-terminal-dmg"
+          test -d "$app"
+          mkdir "$staging"
+          ditto "$app" "$staging/Fallout Terminal.app"
+          hdiutil create -volname 'Fallout Terminal' -srcfolder "$staging" -ov -format UDZO "$dmg"
+          digest="$(shasum -a 256 "$dmg" | awk '{print $1}')"
+          printf '%s  %s\n' "$digest" "$(basename "$dmg")" >"$sidecar"
+          (cd build/bin && shasum -a 256 -c Fallout-Terminal-arm64.dmg.sha256)
 
       - name: Bind Darwin evidence to the exact source revision
         shell: bash
@@ -190,7 +163,7 @@ jobs:
           printf '{"schemaVersion":1,"target":"darwin/arm64","sourceRevision":"%s","artifact":"Fallout-Terminal-arm64.dmg"}\n' \
             "$SOURCE_SHA" >build/bin/darwin-verification.json
 
-      - name: Upload eligible Darwin release candidate
+      - name: Upload checksum-verified Darwin release candidate
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:

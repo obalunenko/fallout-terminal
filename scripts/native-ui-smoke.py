@@ -37,14 +37,21 @@ def accessible_name(node) -> str:
         return ""
 
 
-def find(name: str, prefix: bool, timeout: float):
+def invoke_named(name: str, prefix: bool, timeout: float) -> None:
     deadline = time.monotonic() + timeout
+    last_error = None
     while time.monotonic() < deadline:
         for node in candidates():
             candidate = accessible_name(node)
             if candidate == name or (prefix and candidate.startswith(name)):
-                return node
+                try:
+                    invoke(node)
+                    return
+                except RuntimeError as error:
+                    last_error = error
         time.sleep(0.2)
+    if last_error is not None:
+        raise last_error
     raise RuntimeError(f"accessible element was not observed: {name}")
 
 
@@ -89,7 +96,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.command == "invoke":
-        invoke(find(args.name, args.prefix, args.timeout))
+        invoke_named(args.name, args.prefix, args.timeout)
     else:
         assert_canaries_absent(args.canary_file, args.timeout)
     return 0

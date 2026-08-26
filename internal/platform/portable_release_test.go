@@ -139,7 +139,7 @@ func TestPortableReleasePublishesCompleteFiveTargetInventoryForVersionTags(t *te
 		"- 'v*'",
 		"validate_release:",
 		"uses: ./.github/workflows/wails-macos.yml",
-		"needs: [aggregate, macos-trust]",
+		"needs: [aggregate, macos-checksum]",
 		"fallout-terminal-release-candidate",
 		"github.ref_type == 'tag'",
 		"contents: write",
@@ -187,7 +187,7 @@ func TestGoReleaserV2PublishesOnlyPreverifiedPortableFiles(t *testing.T) {
 	assert.Equal(t, 11, strings.Count(config, "- glob: ./combined/"))
 }
 
-func TestPortableReleaseRemainsSeparateFromMacOSTrustWorkflow(t *testing.T) {
+func TestPortableReleaseUsesSeparateDarwinChecksumWorkflow(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
@@ -197,11 +197,16 @@ func TestPortableReleaseRemainsSeparateFromMacOSTrustWorkflow(t *testing.T) {
 	assert.Contains(t, macOS, "name: Wails macOS")
 	assert.Contains(t, macOS, "runs-on: macos-15")
 	assert.Contains(t, macOS, "workflow_call:")
-	assert.Contains(t, macOS, "go tool -modfile=tools/task/go.mod task release")
+	assert.Contains(t, macOS, "go tool -modfile=tools/task/go.mod task package")
+	assert.Contains(t, macOS, "hdiutil create")
+	assert.Contains(t, macOS, "shasum -a 256 -c")
 	assert.Contains(t, macOS, "Fallout-Terminal-arm64.dmg.sha256")
 	assert.Contains(t, macOS, "darwin-verification.json")
 	assert.NotContains(t, macOS, "windows-11-arm")
 	assert.NotContains(t, macOS, "ubuntu-24.04-arm")
-	assert.NotContains(t, portable, "notarytool")
-	assert.NotContains(t, portable, "Developer ID Application")
+	for _, workflow := range []string{portable, macOS} {
+		assert.NotContains(t, workflow, "notarytool")
+		assert.NotContains(t, workflow, "Developer ID Application")
+		assert.NotContains(t, workflow, "MACOS_DEVELOPER_ID")
+	}
 }
