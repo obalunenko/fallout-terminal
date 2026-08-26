@@ -7,6 +7,7 @@ workspace=''
 app_pid=''
 window_id=''
 player_probe_pid=''
+window_manager_pid=''
 app_log=''
 
 fail() {
@@ -24,6 +25,25 @@ process_is_alive() {
 
 player_probe_is_alive() {
   [[ "${player_probe_pid}" =~ ^[0-9]+$ ]] && kill -0 "${player_probe_pid}" 2>/dev/null
+}
+
+window_manager_is_alive() {
+  [[ "${window_manager_pid}" =~ ^[0-9]+$ ]] && kill -0 "${window_manager_pid}" 2>/dev/null
+}
+
+ensure_window_manager() {
+  xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id #' && return
+
+  require_command openbox
+  openbox >"${workspace}/openbox.log" 2>&1 &
+  window_manager_pid=$!
+  local deadline=$((SECONDS + 10))
+  while ((SECONDS <= deadline)); do
+    window_manager_is_alive || fail 'window manager exited during startup'
+    xprop -root _NET_SUPPORTING_WM_CHECK 2>/dev/null | grep -q 'window id #' && return
+    sleep 0.1
+  done
+  fail 'window manager did not claim the X11 display within 10 seconds'
 }
 
 wait_for_process_exit() {
@@ -46,6 +66,8 @@ cleanup() {
   trap - EXIT HUP INT TERM
 
   if ((status != 0)) && [[ -s "${app_log}" ]]; then
+    printf '%s\n' 'verify-linux-package: application log (first 120 lines):' >&2
+    head -n 120 "${app_log}" >&2
     printf '%s\n' 'verify-linux-package: application log (last 160 lines):' >&2
     tail -n 160 "${app_log}" >&2
   fi
@@ -65,6 +87,11 @@ cleanup() {
       kill -KILL "${app_pid}" 2>/dev/null || true
     fi
     wait "${app_pid}" 2>/dev/null || true
+  fi
+
+  if window_manager_is_alive; then
+    kill -TERM "${window_manager_pid}" 2>/dev/null || true
+    wait "${window_manager_pid}" 2>/dev/null || true
   fi
 
   if [[ -n "${workspace}" ]]; then
@@ -305,7 +332,7 @@ drive_demo_open() {
 [[ "$(uname -s)" == Linux ]] || fail 'verification requires Linux'
 [[ -n "${DISPLAY:-}" ]] || fail 'DISPLAY is required; start Xvfb and a window manager before verification'
 
-for command in awk basename cat chmod cp dirname find gdbus go grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sleep tar tr uname xdotool xdpyinfo; do
+for command in awk basename cat chmod cp dirname find gdbus go grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sleep tail tar tr uname xdotool xdpyinfo xprop; do
   require_command "${command}"
 done
 xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1 || fail "cannot connect to DISPLAY ${DISPLAY}"
@@ -334,6 +361,8 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+ensure_window_manager
 
 canary_file="${workspace}/native credential canaries"
 credential_log="${workspace}/native-credential-smoke.log"

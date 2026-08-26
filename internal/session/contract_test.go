@@ -93,7 +93,7 @@ func TestSessionContractMapsEveryKnownFieldAndPreservesRecursiveJSONExtras(t *te
 }
 
 func TestSessionContractRejectsMissingOneofAndInvalidReference(t *testing.T) {
-	value := domain.Session{Version: 1, Name: "Vault", PlayerConfig: "/absolute/players.json", Terminals: []domain.Terminal{}}
+	value := domain.Session{Version: 1, Name: "Vault", PlayerConfig: testAbsolutePath("absolute", "players.json"), Terminals: []domain.Terminal{}}
 	_, err := SessionToProto(value)
 	require.Error(t, err)
 }
