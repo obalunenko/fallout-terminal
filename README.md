@@ -41,7 +41,10 @@ task dev                   # разработка
 task build                 # сборка для текущей ОС
 task package               # пакет для текущей ОС
 task package:all           # macOS-пакет нативно и Windows/Linux локально через Docker
-task package:all:remote    # все пакеты с нативной проверкой в GitHub Actions
+task package:all:remote    # portable-пакеты с нативных GitHub Actions runner-ов
+task release:local         # точные 11 файлов будущего unsigned GitHub Release
+task release:macos:preflight # проверить prerequisites ручного подписанного macOS-релиза
+task release:macos:signed  # собрать ручной Developer ID/notarized macOS-релиз
 task test                  # Go-тесты
 task test:race             # Go-тесты с race detector
 task check                 # полный набор локальных проверок
@@ -222,9 +225,22 @@ runnable package.
 macOS bundle собирается нативно; Docker-сборка не запускает Windows/Linux GUI-приложения в целевых
 ОС и поэтому не является для них нативным release evidence.
 
-### Все платформы с нативной проверкой в GitHub Actions
+Перед созданием тега можно собрать ровно тот набор файлов, который будет опубликован:
 
-Для сборки и проверки реального запуска на Windows/Linux runner-ах сначала commit/push текущую ветку,
+```bash
+task release:local
+# или указать собственный каталог:
+task release:local OUTPUT=build/release-check
+```
+
+Команда использует Wails-aware `cmd/build`, потому что GoReleaser в этом проекте публикует уже
+готовые пакеты, а не компилирует GUI-приложение. По умолчанию результат находится в `build/release`:
+unsigned DMG для `darwin/arm64`, четыре Windows/Linux архива, пять `.sha256` и
+`aggregate-index.json`. Каталог содержит только 11 будущих release assets.
+
+### Все платформы с нативной упаковкой в GitHub Actions
+
+Для сборки на Windows/Linux runner-ах сначала commit/push текущую ветку,
 а затем выполните:
 
 ```bash
@@ -235,7 +251,7 @@ task package:all:remote OUTPUT=build/portable-native
 
 Remote-команда требует чистую именованную ветку, полностью синхронизированную с одноимённой веткой
 в `origin`. Она ожидает полную нативную матрицу, проверяет скачанные результаты и также не публикует
-частичный набор. Формат архивов, manifest/checksum и различие локальной и нативной проверки подробно
+частичный набор. Формат архивов, manifest/checksum и различие локальной и нативной упаковки подробно
 описаны в [руководстве по упаковке](docs/platform-packaging.md).
 
 Каждый push в `main` и каждый pull request автоматически запускает workflow [Wails Cross-Platform Build](.github/workflows/wails-cross-platform.yml). Он выполняет `task build` на четырёх соответствующих нативных runner-ах (`windows/amd64`, `windows/arm64`, `linux/amd64`, `linux/arm64`) и проверяет наличие непустого executable. Полная нативная упаковка, запуск и smoke-проверка архивов остаются в отдельном workflow [Wails Portable](.github/workflows/wails-portable.yml); вручную его диспетчеризует `task package:all:remote`.
@@ -246,7 +262,7 @@ Push SemVer-тага вида `v1.2.3` или `v1.2.3-beta.1` автоматич
 
 Автоматический публичный релиз проверяет Darwin только по SHA-256. Историческая ручная процедура Developer ID/notarization в [scripts/build-macos.sh](scripts/build-macos.sh) не является CI/release gate.
 
-Активная процедура отката: [Wails v3 → v2](docs/wails-v3-migration-rollback.md). Каталоги [спецификации Wails v2](specs/001-wails-v2-migration/) и [старого rollback](docs/wails-migration-rollback.md) — неизменяемые исторические evidence, а не действующие инструкции.
+Активная процедура отката: [Wails v3 → v2](docs/wails-v3-migration-rollback.md). [Материалы завершённой миграции Wails v3](specs/006-wails-v3-migration/quickstart.md), каталоги [спецификации Wails v2](specs/001-wails-v2-migration/) и [старого rollback](docs/wails-migration-rollback.md) — неизменяемые исторические evidence, а не действующие инструкции.
 
 ## Проверки
 
@@ -275,3 +291,9 @@ task browser:test
 - `sessions/` — встроенные примеры session JSON;
 - `tests/browser/` — браузерные сценарии;
 - `specs/` — спецификации реализованных возможностей.
+
+## Документация проекта
+
+- [Архитектура](ARCHITECTURE.md) — границы модулей, владельцы состояния и основные runtime-последовательности;
+- [Участие в разработке](CONTRIBUTING.md) — настройка окружения, правила изменений и проверки;
+- [Политика безопасности](SECURITY.md) — поддерживаемые версии и приватная отправка отчётов об уязвимостях.

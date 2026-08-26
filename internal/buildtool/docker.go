@@ -32,13 +32,13 @@ func PackageAllDocker(
 		return result, err
 	}
 	if ctx == nil {
-		return result, errors.New("Docker package context is required")
+		return result, errors.New("docker package context is required")
 	}
 	if err := ctx.Err(); err != nil {
 		return result, err
 	}
 	if outputDirectory == "" {
-		return result, errors.New("Docker package output directory must not be empty")
+		return result, errors.New("docker package output directory must not be empty")
 	}
 	output := outputDirectory
 	if !filepath.IsAbs(output) {
@@ -185,7 +185,7 @@ func packageDarwinAggregateBundle(ctx context.Context, root string, destination 
 
 func copyDarwinBundle(ctx context.Context, source string, destination string) error {
 	if ctx == nil {
-		return errors.New("Darwin bundle copy context is required")
+		return errors.New("darwin bundle copy context is required")
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -305,7 +305,7 @@ func verifyDarwinBundleInventory(bundle string) error {
 		return fmt.Errorf("inspect Darwin application executable: %w", err)
 	}
 	if info.Mode().Perm()&0o111 == 0 {
-		return fmt.Errorf("Darwin application executable is not executable: %q", executable)
+		return fmt.Errorf("darwin application executable is not executable: %q", executable)
 	}
 	return nil
 }
@@ -318,7 +318,7 @@ func verifyDarwinBundleExecutable(bundle string) error {
 	}
 	if file.Cpu != macho.CpuArm64 {
 		_ = file.Close()
-		return fmt.Errorf("Darwin application executable CPU is %s, want %s", file.Cpu, macho.CpuArm64)
+		return fmt.Errorf("darwin application executable CPU is %s, want %s", file.Cpu, macho.CpuArm64)
 	}
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("close Mach-O executable %q: %w", executable, err)
@@ -347,7 +347,7 @@ func validateDockerAggregateOutput(root string, outputDirectory string) error {
 	root = filepath.Clean(root)
 	outputDirectory = filepath.Clean(outputDirectory)
 	if outputDirectory == filepath.VolumeName(outputDirectory)+string(filepath.Separator) {
-		return fmt.Errorf("Docker aggregate output must not be a filesystem root: %q", outputDirectory)
+		return fmt.Errorf("docker aggregate output must not be a filesystem root: %q", outputDirectory)
 	}
 	relativeRoot, err := filepath.Rel(outputDirectory, root)
 	if err != nil {
@@ -356,7 +356,7 @@ func validateDockerAggregateOutput(root string, outputDirectory string) error {
 	outputContainsRoot := relativeRoot == "." ||
 		(relativeRoot != ".." && !strings.HasPrefix(relativeRoot, ".."+string(filepath.Separator)))
 	if outputContainsRoot {
-		return fmt.Errorf("Docker aggregate output must not contain the repository root: %q", outputDirectory)
+		return fmt.Errorf("docker aggregate output must not contain the repository root: %q", outputDirectory)
 	}
 
 	info, err := os.Lstat(outputDirectory)
@@ -366,9 +366,9 @@ func validateDockerAggregateOutput(root string, outputDirectory string) error {
 	case err != nil:
 		return fmt.Errorf("inspect Docker aggregate output %q: %w", outputDirectory, err)
 	case info.Mode()&os.ModeSymlink != 0:
-		return fmt.Errorf("Docker aggregate output must not be a symlink: %q", outputDirectory)
+		return fmt.Errorf("docker aggregate output must not be a symlink: %q", outputDirectory)
 	case !info.IsDir():
-		return fmt.Errorf("Docker aggregate output must be a directory: %q", outputDirectory)
+		return fmt.Errorf("docker aggregate output must be a directory: %q", outputDirectory)
 	}
 
 	defaultOutput := filepath.Join(root, "build", "dist")
@@ -388,7 +388,7 @@ func validateDockerAggregateOutput(root string, outputDirectory string) error {
 		return fmt.Errorf("inspect Docker aggregate marker %q: %w", indexPath, err)
 	}
 	if indexInfo.Mode()&os.ModeSymlink != 0 || !indexInfo.Mode().IsRegular() {
-		return fmt.Errorf("Docker aggregate marker must be a regular file: %q", indexPath)
+		return fmt.Errorf("docker aggregate marker must be a regular file: %q", indexPath)
 	}
 	return nil
 }
@@ -506,7 +506,7 @@ type dockerInfoRunner func(context.Context, string) (string, error)
 
 func requireDockerWith(ctx context.Context, root string, run dockerInfoRunner) error {
 	if run == nil {
-		return errors.New("Docker prerequisite probe is unavailable; install Docker and start its daemon")
+		return errors.New("docker prerequisite probe is unavailable; install Docker and start its daemon")
 	}
 	detail, err := run(ctx, root)
 	if err == nil {
@@ -516,14 +516,14 @@ func requireDockerWith(ctx context.Context, root string, run dockerInfoRunner) e
 		return ctx.Err()
 	}
 	if errors.Is(err, exec.ErrNotFound) {
-		return errors.New("Docker is required; install Docker and start its daemon")
+		return errors.New("docker is required; install Docker and start its daemon")
 	}
 	detail = strings.TrimSpace(detail)
 	if detail == "" {
 		detail = "Docker returned no diagnostic"
 	}
 	return fmt.Errorf(
-		"Docker daemon is unavailable: %s; start Docker and verify `docker info` succeeds: %w",
+		"docker daemon is unavailable: %s; start Docker and verify `docker info` succeeds: %w",
 		detail,
 		err,
 	)
@@ -589,7 +589,7 @@ func dockerBuildFailure(target Target, detail string, err error) error {
 		detail = "Docker returned no diagnostic"
 	}
 	return fmt.Errorf(
-		"Docker build for %s failed: %s; ensure Docker BuildKit can execute linux/%s (enable containerd image storage or install the matching binfmt handler): %w",
+		"docker build for %s failed: %s; ensure Docker BuildKit can execute linux/%s (enable containerd image storage or install the matching binfmt handler): %w",
 		target,
 		detail,
 		target.Arch(),
@@ -609,7 +609,7 @@ func collectDockerTarget(
 	}
 	if len(entries) != 2 || entries[0].Name() != "bin" || entries[1].Name() != "dist" ||
 		!entries[0].IsDir() || !entries[1].IsDir() {
-		return "", errors.New("Docker output requires exactly the bin and dist directories")
+		return "", errors.New("docker output requires exactly the bin and dist directories")
 	}
 	distDirectory := filepath.Join(sourceDirectory, "dist")
 	distEntries, err := os.ReadDir(distDirectory)
@@ -621,18 +621,18 @@ func collectDockerTarget(
 		target.ArchiveName() + ".sha256": {},
 	}
 	if len(distEntries) != len(expected) {
-		return "", fmt.Errorf("Docker archive output requires exactly two files, got %d", len(distEntries))
+		return "", fmt.Errorf("docker archive output requires exactly two files, got %d", len(distEntries))
 	}
 	for _, entry := range distEntries {
 		if _, ok := expected[entry.Name()]; !ok {
-			return "", fmt.Errorf("Docker archive output contains unexpected entry %q", entry.Name())
+			return "", fmt.Errorf("docker archive output contains unexpected entry %q", entry.Name())
 		}
 		info, err := entry.Info()
 		if err != nil {
 			return "", fmt.Errorf("inspect Docker archive output %q: %w", entry.Name(), err)
 		}
 		if !info.Mode().IsRegular() {
-			return "", fmt.Errorf("Docker archive output %q is not a regular file", entry.Name())
+			return "", fmt.Errorf("docker archive output %q is not a regular file", entry.Name())
 		}
 		if err := os.Rename(
 			filepath.Join(distDirectory, entry.Name()),
@@ -649,7 +649,7 @@ func collectDockerTarget(
 		return "", fmt.Errorf("read Docker executable output: %w", err)
 	}
 	if len(binEntries) != 1 || binEntries[0].Name() != targetName || !binEntries[0].IsDir() {
-		return "", fmt.Errorf("Docker executable output requires exactly the %s directory", targetName)
+		return "", fmt.Errorf("docker executable output requires exactly the %s directory", targetName)
 	}
 	dockerPayload := filepath.Join(dockerBinDirectory, targetName)
 	payloadDirectory := filepath.Join(executableDirectory, targetName)

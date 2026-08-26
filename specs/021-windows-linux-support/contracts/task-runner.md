@@ -67,8 +67,8 @@ The Makefile contains no application build, development, dependency, test, gener
 | `make bindings-check` | `task bindings:check` | Deterministic Wails bindings. |
 | `make browser-test` | `task browser:test` | Locked browser dependencies, Chromium, journeys. |
 | `make check` | `task check` | Same principal quality-gate dependency set. |
-| `make release-preflight` | `task release:preflight` | Existing macOS signing/notary prerequisites. |
-| `make release` | `task release` | Existing signed/notarized macOS DMG workflow. |
+| `make release-preflight` | `task release:macos:preflight` | Optional macOS signing/notary prerequisites. |
+| `make release` | `task release:macos:signed` | Optional manually distributed signed/notarized macOS DMG. |
 
 Task dependencies must preserve the current one-time dependency semantics: for example, the combined dependency task installs both npm workspaces, protobuf tasks obtain frontend dependencies before generation/checking, browser acceptance obtains both workspaces, and the quality aggregate fails on any constituent gate.
 

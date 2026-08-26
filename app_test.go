@@ -1190,7 +1190,7 @@ func TestApplicationStartupFailureCleansBoundedResourcesExactlyOnce(t *testing.T
 	startedAt := time.Now()
 	err := app.Start(t.Context())
 	require.ErrorContains(t, err, "bridge unavailable")
-	require.NoError(t, app.Shutdown(context.Background()))
+	require.NoError(t, app.Shutdown(t.Context()))
 
 	assert.Equal(t, []string{
 		"player:start", "public:initialize", "event:server-info",
@@ -1246,8 +1246,8 @@ func TestApplicationNormalCloseCleansConnectedPlayersPublicAccessAndProcessesExa
 	recorder.Reset()
 
 	startedAt := time.Now()
-	require.NoError(t, app.Shutdown(context.Background()))
-	require.NoError(t, app.Shutdown(context.Background()))
+	require.NoError(t, app.Shutdown(t.Context()))
+	require.NoError(t, app.Shutdown(t.Context()))
 
 	assert.Equal(t, []string{
 		"public:shutdown", "player:stop", "session:shutdown", "desktop:close",

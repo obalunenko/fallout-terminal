@@ -86,6 +86,16 @@ tasks:
           {{.GO}} run ./cmd/build package-all
         fi
 
+  release:local:
+    desc: Build and verify the exact unsigned files published by a tagged release.
+    cmds:
+      - |
+        if [ -n "{{.OUTPUT}}" ]; then
+          {{.GO}} run ./cmd/build release-candidate --output "{{.OUTPUT}}"
+        else
+          {{.GO}} run ./cmd/build release-candidate
+        fi
+
   deps:
     desc: Install all locked Node.js dependencies.
     cmds:
@@ -206,12 +216,12 @@ tasks:
       - task: bindings:check
       - task: speckit:update:test
 
-  release:preflight:
+  release:macos:preflight:
     desc: Validate Developer ID and notarization prerequisites.
     cmds:
       - scripts/build-macos.sh --preflight
 
-  release:
+  release:macos:signed:
     desc: Build, sign, notarize, and verify the release DMG.
     cmds:
       - scripts/build-macos.sh

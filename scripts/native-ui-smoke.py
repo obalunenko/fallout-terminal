@@ -37,6 +37,17 @@ def accessible_name(node) -> str:
         return ""
 
 
+def wait_for_named(name: str, prefix: bool, timeout: float):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        for node in candidates():
+            candidate = accessible_name(node)
+            if candidate == name or (prefix and candidate.startswith(name)):
+                return node
+        time.sleep(0.2)
+    raise RuntimeError(f"accessible element was not observed: {name}")
+
+
 def invoke_named(name: str, prefix: bool, timeout: float) -> None:
     deadline = time.monotonic() + timeout
     last_error = None
@@ -90,6 +101,10 @@ def main() -> int:
     invoke_parser.add_argument("--name", required=True)
     invoke_parser.add_argument("--prefix", action="store_true")
     invoke_parser.add_argument("--timeout", type=float, default=15)
+    name_parser = subparsers.add_parser("assert-name")
+    name_parser.add_argument("--name", required=True)
+    name_parser.add_argument("--prefix", action="store_true")
+    name_parser.add_argument("--timeout", type=float, default=15)
     absent_parser = subparsers.add_parser("assert-canaries-absent")
     absent_parser.add_argument("--canary-file", type=pathlib.Path, required=True)
     absent_parser.add_argument("--timeout", type=float, default=1)
@@ -97,6 +112,8 @@ def main() -> int:
 
     if args.command == "invoke":
         invoke_named(args.name, args.prefix, args.timeout)
+    elif args.command == "assert-name":
+        wait_for_named(args.name, args.prefix, args.timeout)
     else:
         assert_canaries_absent(args.canary_file, args.timeout)
     return 0

@@ -429,7 +429,7 @@ func TestDockerPrerequisiteDiagnosticsPreserveCauseAndRecovery(t *testing.T) {
 			run: func(context.Context, string) (string, error) {
 				return "", exec.ErrNotFound
 			},
-			wantParts: []string{"Docker is required", "install Docker", "start its daemon"},
+			wantParts: []string{"docker is required", "install Docker", "start its daemon"},
 		},
 		{
 			name: "stopped Docker daemon",

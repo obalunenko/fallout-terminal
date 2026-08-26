@@ -306,7 +306,7 @@ func resolveCurrentCheckout(ctx context.Context, root string) (aggregateCheckout
 	}
 	head := strings.ToLower(strings.TrimSpace(string(headOutput)))
 	if !aggregateSHApattern.MatchString(head) {
-		return aggregateCheckout{}, errors.New("Git returned an invalid current branch revision")
+		return aggregateCheckout{}, errors.New("git returned an invalid current branch revision")
 	}
 
 	remoteOutput, err := runGitCommand(ctx, root, "remote", "get-url", "origin")
@@ -1015,11 +1015,11 @@ func waitAggregatePoll(ctx context.Context, interval time.Duration) error {
 
 func validateGitRef(ref string) error {
 	if ref == "" || strings.TrimSpace(ref) != ref || strings.HasPrefix(ref, "-") {
-		return errors.New("Git ref must be non-empty and must not start with a flag prefix")
+		return errors.New("git ref must be non-empty and must not start with a flag prefix")
 	}
 	for _, character := range ref {
 		if character < 0x20 || character == 0x7f {
-			return errors.New("Git ref contains control characters")
+			return errors.New("git ref contains control characters")
 		}
 	}
 	if strings.ContainsAny(ref, `~^:?*[\`) ||
@@ -1028,7 +1028,7 @@ func validateGitRef(ref string) error {
 		strings.Contains(ref, "//") ||
 		strings.HasSuffix(ref, ".") ||
 		strings.HasSuffix(ref, "/") {
-		return errors.New("Git ref contains unsupported characters")
+		return errors.New("git ref contains unsupported characters")
 	}
 	return nil
 }

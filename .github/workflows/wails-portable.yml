@@ -120,6 +120,11 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-windows-package.ps1 "build/dist/${{ matrix.archive }}"
 
+      - name: Verify Windows credential failure categories
+        if: ${{ matrix.goos == 'windows' }}
+        shell: bash
+        run: go test ./internal/platform -run '^TestTranslateWindowsCredentialErrorCategories$' -count=1
+
       - name: Verify Linux package launch and cleanup
         if: ${{ matrix.goos == 'linux' }}
         shell: bash
@@ -140,15 +145,20 @@ jobs:
             xvfb-run -a -s "-screen 0 1280x800x24 -extension MIT-SHM" scripts/verify-linux-package.sh "$1"
           ' _ "build/dist/${{ matrix.archive }}"
 
-      - name: Verify Linux secure-store outage remains fail-closed
+      - name: Verify Linux secure-store outage keeps local access available
         if: ${{ matrix.goos == 'linux' }}
         shell: bash
         run: |
           set -euo pipefail
           dbus-run-session -- bash -lc '
             set -euo pipefail
-            go run ./cmd/native-credential-smoke --expect-unavailable
-          '
+            export FALLOUT_CREDENTIAL_MODE=unavailable
+            export NO_AT_BRIDGE=0
+            export GSK_RENDERER=cairo
+            export WEBKIT_DISABLE_DMABUF_RENDERER=1
+            export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+            xvfb-run -a -s "-screen 0 1280x800x24 -extension MIT-SHM" scripts/verify-linux-package.sh "$1"
+          ' _ "build/dist/${{ matrix.archive }}"
 
       - name: Confirm verification left only canonical publish inputs
         shell: bash

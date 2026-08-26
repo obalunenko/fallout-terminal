@@ -9,6 +9,7 @@ window_id=''
 player_probe_pid=''
 window_manager_pid=''
 app_log=''
+credential_mode="${FALLOUT_CREDENTIAL_MODE:-available}"
 
 fail() {
   printf 'verify-linux-package: %s\n' "$1" >&2
@@ -338,9 +339,64 @@ drive_demo_open() {
   return 1
 }
 
+verify_credential_outage() {
+  local player_evidence="${workspace}/outage player connection.evidence"
+  local application_descendants=()
+
+  app_log="${workspace}/application-credential-outage.log"
+  (cd "${launch_cwd}" && exec "${executable}" >"${app_log}" 2>&1) &
+  app_pid=$!
+  wait_for_window || fail 'a real Overseer window did not appear with Secret Service unavailable'
+  wait_for_listener open || fail 'local access did not remain reachable with Secret Service unavailable'
+  python3 "${repository_root}/scripts/native-ui-smoke.py" assert-name \
+    --name 'The secure credential store is unavailable; local access remains available.' --timeout 30 || \
+    fail 'the packaged application did not expose the fail-closed secure-store status'
+
+  drive_demo_open "${demo_copy}" || fail 'local session open failed with Secret Service unavailable'
+  wait_for_session_open "${app_log}" || fail 'the local session did not load with Secret Service unavailable'
+  python3 "${repository_root}/scripts/native-ui-smoke.py" invoke --name 'НАЧАТЬ ТРАНСЛЯЦИЮ' || \
+    fail 'local broadcast failed with Secret Service unavailable'
+  start_player_probe "${repository_root}" "${player_evidence}"
+  wait_for_player_evidence "${player_evidence}" || \
+    fail 'local player synchronization failed with Secret Service unavailable'
+  grep -Fq 'control-accepted' "${player_evidence}" || fail 'local player control was rejected during credential outage'
+  grep -Fq 'synchronized' "${player_evidence}" || fail 'local player state did not synchronize during credential outage'
+  mapfile -t application_descendants < <(collect_descendants "${app_pid}")
+
+  xdotool windowclose "${window_id}"
+  wait_for_process_exit || fail 'application did not exit after credential-outage acceptance'
+  if wait "${app_pid}"; then
+    :
+  else
+    local exit_status=$?
+    app_pid=''
+    fail "application exited with status ${exit_status} after credential-outage acceptance"
+  fi
+  app_pid=''
+  wait_for_listener closed || fail 'local listener remained reachable after credential-outage shutdown'
+  if ((${#application_descendants[@]} > 0)); then
+    wait_for_descendants_exit "${application_descendants[@]}" || \
+      fail 'an application-owned child process remained after credential-outage shutdown'
+  fi
+  grep -Fq 'application ready' "${app_log}" || fail 'application did not reach local-ready state during credential outage'
+  grep -Fq 'application shutdown completed' "${app_log}" || \
+    fail 'application did not complete cleanup after credential-outage acceptance'
+
+  if player_probe_is_alive; then
+    kill -TERM "${player_probe_pid}" 2>/dev/null || true
+    wait "${player_probe_pid}" 2>/dev/null || true
+  fi
+  player_probe_pid=''
+  printf 'Verified %s: Secret Service outage stayed fail-closed while local session/player operation and cleanup remained available.\n' "${expected_archive}"
+}
+
 [[ "$#" == 1 ]] || fail 'usage: scripts/verify-linux-package.sh ARCHIVE.tar.gz'
 [[ "$(uname -s)" == Linux ]] || fail 'verification requires Linux'
 [[ -n "${DISPLAY:-}" ]] || fail 'DISPLAY is required; start Xvfb and a window manager before verification'
+case "${credential_mode}" in
+  available|unavailable) ;;
+  *) fail 'FALLOUT_CREDENTIAL_MODE must be available or unavailable' ;;
+esac
 
 for command in awk basename cat chmod cp dirname find gdbus go grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sleep tail tar tr uname xdotool xdpyinfo xprop; do
   require_command "${command}"
@@ -376,9 +432,14 @@ ensure_window_manager
 
 canary_file="${workspace}/native credential canaries"
 credential_log="${workspace}/native-credential-smoke.log"
-if ! (cd "${repository_root}" && go run ./cmd/native-credential-smoke --canary-file "${canary_file}") >"${credential_log}" 2>&1; then
+if [[ "${credential_mode}" == available ]]; then
+  if ! (cd "${repository_root}" && go run ./cmd/native-credential-smoke --canary-file "${canary_file}") >"${credential_log}" 2>&1; then
+    head -n 80 "${credential_log}" >&2
+    fail 'native Secret Service write/read/replace/delete acceptance failed'
+  fi
+elif ! (cd "${repository_root}" && go run ./cmd/native-credential-smoke --expect-unavailable) >"${credential_log}" 2>&1; then
   head -n 80 "${credential_log}" >&2
-  fail 'native Secret Service write/read/replace/delete acceptance failed'
+  fail 'native Secret Service outage did not map to a fail-closed category'
 fi
 
 archive_entries="$(tar -tzf "${archive}")" || fail 'archive cannot be listed as tar.gz'
@@ -499,7 +560,11 @@ pkg-config --exists gtk4 || fail 'GTK4 development/runtime metadata is unavailab
 pkg-config --exists webkitgtk-6.0 || fail 'WebKitGTK 6.0 development/runtime metadata is unavailable; install webkitgtk-6.0'
 [[ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]] || fail 'a D-Bus session with Secret Service is required'
 secret_service_owner="$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus --method org.freedesktop.DBus.NameHasOwner org.freedesktop.secrets 2>/dev/null)" || fail 'could not query the D-Bus session for Secret Service'
-[[ "${secret_service_owner}" == '(true,)' ]] || fail 'Secret Service is unavailable; start an unlocked native Secret Service test session'
+if [[ "${credential_mode}" == available ]]; then
+  [[ "${secret_service_owner}" == '(true,)' ]] || fail 'Secret Service is unavailable; start an unlocked native Secret Service test session'
+else
+  [[ "${secret_service_owner}" == '(false,)' ]] || fail 'credential-outage acceptance requires Secret Service to remain unavailable'
+fi
 
 python3 - "${demo}" "${players}" <<'PY'
 import json
@@ -528,6 +593,12 @@ players_copy="${acceptance_root}/demo-players.json"
 cp "${demo}" "${demo_copy}"
 cp "${players}" "${players_copy}"
 chmod u+w "${demo_copy}" "${players_copy}"
+
+if [[ "${credential_mode}" == unavailable ]]; then
+  verify_credential_outage
+  exit 0
+fi
+
 app_log="${workspace}/application.log"
 
 (cd "${launch_cwd}" && exec "${executable}" >"${app_log}" 2>&1) &

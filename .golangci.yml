@@ -1,0 +1,23 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  # Keep the accepted baseline explicit instead of inheriting golangci-lint's
+  # version-dependent standard set. Adopt additional linters separately so
+  # their findings are reviewed and fixed as part of the enabling change.
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+issues:
+  # CI should report the complete result rather than truncate repeated issues.
+  max-issues-per-linter: 0
+  max-same-issues: 0

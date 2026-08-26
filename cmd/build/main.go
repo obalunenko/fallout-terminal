@@ -85,21 +85,27 @@ func run(ctx context.Context, root string, arguments []string) error {
 		}
 		return buildtool.RunPortablePackageInContainer(ctx, root, target)
 	case "package-all-docker":
-		options, err := parsePackageAllOptions(actionArguments)
+		options, err := parsePackageAllOptions(action, actionArguments, filepath.Join("build", "dist"))
 		if err != nil {
 			return err
 		}
 		return runPackageAllDocker(ctx, root, options)
 	case "package-all":
-		options, err := parsePackageAllOptions(actionArguments)
+		options, err := parsePackageAllOptions(action, actionArguments, filepath.Join("build", "dist"))
 		if err != nil {
 			return err
 		}
 		return runPackageAll(ctx, root, options)
+	case "release-candidate":
+		options, err := parsePackageAllOptions(action, actionArguments, filepath.Join("build", "release"))
+		if err != nil {
+			return err
+		}
+		return runReleaseCandidate(ctx, root, options)
 	default:
 		return newUsageError(
 			fmt.Sprintf(
-				"unknown action %q (want dev, build, package, package-all-docker, package-all, run, or prepare)",
+				"unknown action %q (want dev, build, package, package-all-docker, package-all, release-candidate, run, or prepare)",
 				action,
 			),
 		)
@@ -180,24 +186,44 @@ func parseTargetFlag(action string, arguments []string) (buildtool.Target, bool,
 	return target, true, nil
 }
 
-func parsePackageAllOptions(arguments []string) (packageAllOptions, error) {
-	flags := flag.NewFlagSet("package-all", flag.ContinueOnError)
+func parsePackageAllOptions(action string, arguments []string, defaultOutput string) (packageAllOptions, error) {
+	flags := flag.NewFlagSet(action, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
-	options := packageAllOptions{output: filepath.Join("build", "dist")}
+	options := packageAllOptions{output: defaultOutput}
 	flags.StringVar(&options.output, "output", options.output, "aggregate artifact output directory")
 	if err := flags.Parse(arguments); err != nil {
-		return packageAllOptions{}, newUsageError(fmt.Sprintf("package-all flags: %v", err))
+		return packageAllOptions{}, newUsageError(fmt.Sprintf("%s flags: %v", action, err))
 	}
 	if flags.NArg() != 0 {
 		return packageAllOptions{}, newUsageError(
-			fmt.Sprintf("package-all accepts only --output; unexpected argument %q", flags.Arg(0)),
+			fmt.Sprintf("%s accepts only --output; unexpected argument %q", action, flags.Arg(0)),
 		)
 	}
 	if options.output == "" {
 		return packageAllOptions{}, newUsageError("--output must not be empty")
 	}
 	return options, nil
+}
+
+func runReleaseCandidate(ctx context.Context, root string, options packageAllOptions) error {
+	result, err := buildtool.BuildReleaseCandidate(ctx, root, options.output, func(record buildtool.AggregateTargetRecord) {
+		if record.Failure != nil {
+			fmt.Printf("==> %s: %s (%v)\n", record.Target, record.Status, record.Failure)
+			return
+		}
+		fmt.Printf("==> %s: %s\n", record.Target, record.Status)
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("==> source revision: %s\n", result.SourceSHA)
+	fmt.Printf("==> release candidate: %s\n", result.OutputDirectory)
+	for _, name := range result.Files {
+		fmt.Printf("==> release file: %s\n", name)
+	}
+	return nil
 }
 
 func runPackageAll(ctx context.Context, root string, options packageAllOptions) error {
@@ -250,4 +276,5 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build prepare")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all-docker [--output <directory>]")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all [--output <directory>]")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build release-candidate [--output <directory>]")
 }

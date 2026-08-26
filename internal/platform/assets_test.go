@@ -1951,7 +1951,7 @@ func TestBundledDemoManifestIsValidAndResolvesFromResources(t *testing.T) {
 		{ID: "demo_guard", Name: "Престон Гарви", Intelligence: 6, HackerPerkAvailable: false},
 	}, playerConfig.Roster, "bundled player profiles must preserve authored IDs, order, and private attributes")
 
-	locations, err := NewSessionLocations(filepath.Join(root, ".manifest-home"), root)
+	locations, err := NewSessionLocations(t.TempDir(), root)
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -2130,7 +2130,7 @@ func TestActiveWailsV3DocumentsStaySeparateFromHistoricalEvidence(t *testing.T) 
 		"active Go source contains v2 or dual-runtime code",
 		"application module still resolves Wails v2",
 		"frontend source/generated/bundle contains a v2 global or dual-runtime fallback",
-		"active command/documentation uses v2, global, or floating Wails resolution",
+		"active command/documentation bypasses Task or uses v2, global, or floating Wails resolution",
 		"historical Wails v2 spec is missing",
 		"historical Electron-to-Wails rollback record is missing",
 		"git -C \"${repository_root}\" diff --exit-code -- specs/001-wails-v2-migration docs/wails-migration-rollback.md",

@@ -150,14 +150,18 @@ func inspectArtifactArchive(ctx context.Context, archivePath string, target Targ
 	}
 }
 
-func inspectZIPArtifact(ctx context.Context, archivePath string, target Target) (map[string]inspectedArtifactFile, error) {
+func inspectZIPArtifact(
+	ctx context.Context,
+	archivePath string,
+	target Target,
+) (files map[string]inspectedArtifactFile, resultErr error) {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return nil, fmt.Errorf("inspect ZIP archive: %w", err)
 	}
-	defer reader.Close()
+	defer closeVerificationResource(&resultErr, "close ZIP archive", reader)
 
-	files := make(map[string]inspectedArtifactFile, len(reader.File))
+	files = make(map[string]inspectedArtifactFile, len(reader.File))
 	seen := make(map[string]struct{}, len(reader.File))
 	previousName := ""
 	var totalSize int64
@@ -211,19 +215,22 @@ func inspectZIPArtifact(ctx context.Context, archivePath string, target Target) 
 	return files, nil
 }
 
-func inspectTarGzipArtifact(ctx context.Context, archivePath string) (map[string]inspectedArtifactFile, error) {
+func inspectTarGzipArtifact(
+	ctx context.Context,
+	archivePath string,
+) (files map[string]inspectedArtifactFile, resultErr error) {
 	archive, err := os.Open(archivePath)
 	if err != nil {
 		return nil, fmt.Errorf("open TAR.GZ archive: %w", err)
 	}
-	defer archive.Close()
+	defer closeVerificationResource(&resultErr, "close TAR.GZ archive", archive)
 	gzipReader, err := gzip.NewReader(archive)
 	if err != nil {
 		return nil, fmt.Errorf("inspect TAR.GZ archive: %w", err)
 	}
-	defer gzipReader.Close()
+	defer closeVerificationResource(&resultErr, "close gzip reader", gzipReader)
 
-	files := make(map[string]inspectedArtifactFile)
+	files = make(map[string]inspectedArtifactFile)
 	tarReader := tar.NewReader(gzipReader)
 	previousName := ""
 	var totalSize int64
@@ -246,7 +253,8 @@ func inspectTarGzipArtifact(ctx context.Context, archivePath string) (map[string
 		if err != nil {
 			return nil, err
 		}
-		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		// A zero type flag is the historical regular-file encoding accepted by tar readers.
+		if header.Typeflag != tar.TypeReg && header.Typeflag != 0 {
 			return nil, fmt.Errorf("archive entry %q is not a regular file", header.Name)
 		}
 		if err := verifyArtifactSize(relative, header.Size, &totalSize); err != nil {
@@ -567,12 +575,18 @@ func verifyELFExecutable(target Target, contents []byte) error {
 	return nil
 }
 
-func readLimitedFile(ctx context.Context, filePath string, limit int64) ([]byte, error) {
+func closeVerificationResource(resultErr *error, operation string, closer io.Closer) {
+	if err := closer.Close(); err != nil {
+		*resultErr = errors.Join(*resultErr, fmt.Errorf("%s: %w", operation, err))
+	}
+}
+
+func readLimitedFile(ctx context.Context, filePath string, limit int64) (_ []byte, resultErr error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer closeVerificationResource(&resultErr, "close limited verification file", file)
 	var contents bytes.Buffer
 	written, err := copyWithContext(ctx, &contents, io.LimitReader(file, limit+1))
 	if err != nil {
@@ -598,12 +612,12 @@ func requireRegularVerificationFile(name, filePath string, maximumSize int64) er
 	return nil
 }
 
-func hashFile(ctx context.Context, filePath string) (string, error) {
+func hashFile(ctx context.Context, filePath string) (_ string, resultErr error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer closeVerificationResource(&resultErr, "close verification hash input", file)
 	digest := sha256.New()
 	if _, err := copyWithContext(ctx, digest, file); err != nil {
 		return "", err

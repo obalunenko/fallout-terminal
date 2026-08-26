@@ -1,14 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 6.0.3 -> 6.0.4
+- Version change: 6.0.4 -> 6.1.0
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
-- Expanded guidance:
-  - Extend local `task package:all` to include the canonical native `darwin/arm64` application
-    bundle alongside the four Docker-built Windows/Linux archives and runnable payloads
-  - Keep `task package:all:remote` scoped to the four-target Windows/Linux matching-host evidence
+- Modified guidance:
+  - Establish the root `.golangci.yml` and pinned `task lint` command as the repository-wide Go
+    lint baseline while retaining no numeric coverage threshold
+  - Distinguish the unsigned automated tagged release from the optional manual Developer ID,
+    notarization, stapling, and Gatekeeper workflow
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -417,9 +418,10 @@ independently without sacrificing deterministic local and CI behavior.
 
 Go code MUST use colocated tests and deterministic fakes at filesystem, dialog, process, provider,
 secure-store, random, network, clock, stream, and event boundaries. Concurrency-sensitive code MUST
-pass the race detector. Browser journeys use Playwright under `tests/browser/`. No numeric coverage
-threshold or repository-wide linter is currently defined; plans MUST choose verification
-proportionate to the affected behavior instead of inventing or claiming either gate.
+pass the race detector. Browser journeys use Playwright under `tests/browser/`. The root
+`.golangci.yml` defines the repository-wide Go lint baseline, and `task lint` MUST execute it through
+the pinned `tools/golangci-lint` module. No numeric coverage threshold is currently defined; plans
+MUST choose verification proportionate to the affected behavior instead of inventing one.
 
 Go tests MUST follow these conventions:
 
@@ -443,6 +445,7 @@ Applicable commands MUST succeed before a change is considered complete:
 
 - `gofmt -l .` produces no Go source paths.
 - `go vet ./...` succeeds.
+- `task lint` succeeds using the root `.golangci.yml` and pinned `tools/golangci-lint` module.
 - `go test ./...` succeeds.
 - `go test -race ./...` succeeds for changes affecting concurrent runtime, player, live, control,
   session, stream, startup, or tunnel behavior.
@@ -474,8 +477,10 @@ Applicable commands MUST succeed before a change is considered complete:
 - `task package:all:remote` MUST coordinate the four Windows/Linux matching-host native target jobs
   for the current clean pushed branch and fail unless every verified archive belongs to the same
   source revision.
-- Release candidates pass signing, hardened-runtime, notarization, stapling, DMG, and Gatekeeper
-  checks when release credentials are available.
+- Automated SemVer-tag releases publish the exact checksum-verified unsigned Darwin DMG and four
+  Windows/Linux archives only after the complete joined inventory passes. Developer ID signing,
+  hardened runtime, notarization, stapling, and Gatekeeper verification belong to the optional
+  manual macOS distribution workflow and are not automated tagged-release eligibility gates.
 
 Schema and RPC changes MUST additionally verify:
 
@@ -587,4 +592,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 6.0.4 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-26
+**Version**: 6.1.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-26

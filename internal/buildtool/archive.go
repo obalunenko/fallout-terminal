@@ -321,7 +321,7 @@ func encodeZIP(ctx context.Context, entries []preparedArchiveFile) ([]byte, erro
 		}
 		header := &zip.FileHeader{Name: entry.path, Method: zip.Deflate}
 		header.SetMode(entry.mode)
-		header.SetModTime(normalizedArchiveTime)
+		header.Modified = normalizedArchiveTime
 		entryWriter, err := writer.CreateHeader(header)
 		if err != nil {
 			_ = writer.Close()
@@ -344,8 +344,8 @@ func encodeTarGzip(ctx context.Context, entries []preparedArchiveFile) ([]byte, 
 	if err != nil {
 		return nil, fmt.Errorf("create gzip writer: %w", err)
 	}
-	gzipWriter.Header.ModTime = normalizedArchiveTime
-	gzipWriter.Header.OS = 255
+	gzipWriter.ModTime = normalizedArchiveTime
+	gzipWriter.OS = 255
 	tarWriter := tar.NewWriter(gzipWriter)
 	for _, entry := range entries {
 		if err := ctx.Err(); err != nil {

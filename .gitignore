@@ -16,6 +16,7 @@ frontend/overseer/dist/*
 # Go/Wails build output
 build/bin/
 build/dev/
+build/release/
 frontend/node_modules/
 frontend/overseer/wailsjs/
 tests/browser/test-results/

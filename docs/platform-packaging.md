@@ -38,6 +38,7 @@ source of build order, target validation, package layout, and verification polic
 | `task package [GOOS=<os> GOARCH=<arch>]` | Preserve the macOS arm64 package path with no override, or create one matching-host Windows/Linux portable archive. |
 | `task package:all [OUTPUT=<directory>]` | On `darwin/arm64`, build the native macOS bundle and all four portable targets from the current checkout locally with Docker. |
 | `task package:all:remote [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete native four-target GitHub Actions matrix. |
+| `task release:local [OUTPUT=<directory>]` | Build and verify the exact 11 unsigned files that a version tag publishes; the default output is `build/release`. |
 | `task deps` | Install both locked frontend and browser-test npm workspaces. |
 | `task deps:frontend` | Install locked client and Overseer dependencies with `npm ci`. |
 | `task deps:browser` | Install locked browser-test dependencies with `npm ci`. |
@@ -56,8 +57,8 @@ source of build order, target validation, package layout, and verification polic
 | `task bindings:check` | Verify deterministic Wails bindings and their reviewed public surface. |
 | `task browser:test` | Install locked frontend/browser dependencies and Chromium, then run Playwright journeys. |
 | `task check` | Run formatting, vet, lint, race, protobuf, bindings, and Spec Kit update regression gates; any failed constituent fails the task. |
-| `task release:preflight` | Validate the established macOS Developer ID and notarization prerequisites. |
-| `task release` | Build, sign, notarize, and verify the established macOS DMG release. |
+| `task release:macos:preflight` | Validate the optional macOS Developer ID and notarization prerequisites. |
+| `task release:macos:signed` | Build, sign, notarize, and verify the optional manually distributed macOS DMG. |
 
 Task exits nonzero when an input is missing or invalid or when any owned step fails. `GOOS` and
 `GOARCH` must be supplied together and are case-sensitive. Aliases such as `win`, `x64`, `x86_64`,
@@ -202,11 +203,31 @@ OUTPUT/
 The Darwin path contains the entire signed `.app`; every Windows/Linux `bin/<os>-<arch>/` directory
 also contains the required `resources/` tree. The coordinator rejects an executable payload whose
 exact inventory or file hashes differ from its verified archive.
+The runnable Darwin path is `bin/darwin-arm64/Fallout Terminal.app` beneath `OUTPUT`.
 
 Darwin is built natively. Docker packaging cannot launch Windows or Linux desktop applications on
 their native UI stack; use the remote native matrix before treating those artifacts as release evidence.
 
-## Package and launch-verify the complete matrix through GitHub Actions
+## Build the exact release candidate locally
+
+`release:local` wraps the complete local matrix, creates an unsigned compressed DMG from the verified
+Darwin bundle, and publishes only the files configured in `.goreleaser.yaml`:
+
+```text
+task release:local
+task release:local OUTPUT=build/release-check
+```
+
+The default output is `build/release`. It contains exactly 11 regular files: the Darwin DMG and its
+sidecar, four Windows/Linux archives and their sidecars, and `aggregate-index.json`. The command
+recomputes all five SHA-256 values, revalidates the four portable archive manifests, and checks the
+exact inventory before atomically replacing a previous recognized candidate.
+
+GoReleaser does not compile this Wails application. Its checked-in configuration intentionally skips
+builds and uploads these prebuilt files. Platform packaging remains in `cmd/build`, where the app
+bundle, native metadata, resources, CGO requirements, and portable layouts are handled consistently.
+
+## Package the complete matrix through GitHub Actions
 
 `package:all:remote` is remote native orchestration. Install the GitHub CLI,
 authenticate it for the current repository, and confirm the session before dispatch:
@@ -217,7 +238,7 @@ gh auth status
 task package:all:remote
 ```
 
-`package:all:remote` selects the current named branch automatically and derives the target GitHub repository
+`package:all:remote` selects the current branch automatically and derives the target GitHub repository
 from the `origin` remote, independent of any repository saved by `gh repo set-default`. The working
 tree must be clean, the branch must exist in `origin`, and its remote SHA must exactly match local
 `HEAD`; commit and push first when any of those checks fails. The helper resolves the branch to one
@@ -250,11 +271,14 @@ The portable workflow uses four independent native jobs with fail-fast disabled:
 | `linux/amd64` | `ubuntu-24.04` | `portable-linux-amd64` |
 | `linux/arm64` | `ubuntu-24.04-arm` | `portable-linux-arm64` |
 
-Each job checks out the aggregate request’s exact clean source SHA, installs pinned Go/Node tools
+Each job checks out the aggregate request's exact clean source SHA, installs pinned Go/Node tools
 and native prerequisites, packages with pinned Task, validates PE or ELF identity and exact archive
 inventory, launches the extracted application on the matching host, observes its player endpoint
 and secure-store state, closes it, checks resource cleanup, and uploads only the verified archive
-and sidecar. A build alone is not publication evidence.
+and sidecar. Windows also validates native locked/denied/unavailable error classification. Linux
+runs a second packaged-app journey without Secret Service, requires the explicit fail-closed status,
+and proves local session and player synchronization remain available. A build alone is not
+publication evidence.
 
 The always-running aggregate job first requires all native jobs to be successful. It downloads the
 four `portable-*` artifacts, rejects any missing, duplicate, or extra file, recomputes every
@@ -316,9 +340,9 @@ unsigned Darwin build, SHA-256 verification, and exact five-target join, uploads
 `fallout-terminal-release-candidate` workflow artifact, and deliberately skips both GoReleaser and
 ORAS because no SemVer tag event exists. No macOS signing or notarization secrets are required.
 
-GitHub Releases provide the normal end-user download surface through GoReleaser v2. GitHub Packages provides the same
-versioned files as a machine-consumable OCI artifact rather than pretending portable desktop
-archives are an npm, Maven, NuGet, or container-image package.
+GitHub Releases provide the normal end-user download surface through GoReleaser v2. GitHub Packages
+provides the same versioned files as a machine-consumable OCI artifact rather than pretending portable
+desktop archives are an npm, Maven, NuGet, or container-image package.
 
 ## Fail-closed behavior
 

@@ -605,6 +605,30 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-26T12:52:52.840Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T065",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T19:10:13.426Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T066",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T19:10:32.432Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T067",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T19:12:58.179Z"
     }
   ],
   "last_action": "living specs evaluated — skipped (not configured)",
@@ -925,7 +949,7 @@
       "summary": "64 dependency-ordered tasks across Setup, Foundational, four user-story phases, Polish, and Convergence; 58 complete and six pending after BUG-004 reopened T055/T060 for five-target tag-release evidence."
     }
   },
-  "currentTask": "T057",
+  "currentTask": "T067",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1411,6 +1435,48 @@
         "scripts/secret-leak-check.sh",
         ".github/workflows/wails-portable.yml",
         "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T065": {
+      "status": "DONE",
+      "did": "Gated every portable artifact upload and aggregate/release join on matching-host native smoke verification, with contract tests and packaging guidance restored.",
+      "files": [
+        ".github/workflows/wails-portable.yml",
+        "internal/platform/portable_release_test.go",
+        "docs/platform-packaging.md",
+        "README.md"
+      ]
+    },
+    "T066": {
+      "status": "DONE",
+      "did": "Added matching-host Windows native credential error classification and a Linux packaged-app Secret Service outage journey proving fail-closed status, local player continuity, and cleanup.",
+      "files": [
+        ".github/workflows/wails-portable.yml",
+        "internal/platform/keychain_windows_test.go",
+        "scripts/verify-linux-package.sh",
+        "scripts/native-ui-smoke.py",
+        "internal/platform/portable_release_test.go",
+        "docs/platform-packaging.md"
+      ]
+    },
+    "T067": {
+      "status": "DONE",
+      "did": "Restored atomic dual-destination tagged publication: pinned GoReleaser draft GitHub Release plus pinned ORAS versioned GHCR artifact with exact inventory, tag/SHA binding, and rollback.",
+      "files": [
+        ".github/workflows/wails-portable.yml",
+        ".github/workflows/wails-macos.yml",
+        ".goreleaser.yaml",
+        "tools/oras/go.mod",
+        "tools/oras/go.sum",
+        "scripts/tool-modules-check.sh",
+        "internal/platform/portable_release_test.go",
+        "README.md",
+        "docs/platform-packaging.md",
+        "specs/021-windows-linux-support/plan.md",
+        "specs/021-windows-linux-support/research.md",
+        "specs/021-windows-linux-support/data-model.md",
+        "specs/021-windows-linux-support/contracts/verification-matrix.md",
+        "specs/021-windows-linux-support/bugs/BUG-004.md"
       ]
     }
   },

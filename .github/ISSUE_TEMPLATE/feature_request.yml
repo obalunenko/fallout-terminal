@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest a focused improvement for home or tabletop use
+title: "feat: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe the tabletop or maintenance problem, not only the proposed implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Explain what should become possible and who benefits.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Optional implementation or interaction ideas.
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility considerations
+      description: Note any session JSON, player protocol, platform, or public-access impact you expect.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request is focused on one user-visible capability or maintenance outcome.
+          required: true

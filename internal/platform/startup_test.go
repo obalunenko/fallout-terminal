@@ -126,8 +126,9 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 		path   string
 		tokens []string
 	}{
-		{"cmd/build/main.go", []string{"buildtool.Run", "dev|build|package|run|prepare"}},
-		{"internal/buildtool/buildtool.go", []string{"scripts", "proto-check.sh", "tools/wails/go.mod", "frontend/overseer/bindings", "GOARCH", "arm64", "13.0", `applicationName+".app"`}},
+		{"cmd/build/main.go", []string{"buildtool.Run", "package-all-docker", "release-candidate"}},
+		{"internal/buildtool/buildtool.go", []string{"scripts", "verifyProtobufAndGeneratedClients", "tools/wails/go.mod", "frontend/overseer/bindings", "GOARCH", "arm64", "13.0", `applicationName+".app"`}},
+		{"internal/buildtool/preflight.go", []string{"verifyGeneratedContracts", "tools/buf/go.mod", "generate Go protobuf contracts", "build generated browser client"}},
 		{"internal/buildtool/docker.go", []string{"PackageAllDocker", "packageDarwinAggregateBundle", "darwin-arm64", "linux/", "SOURCE_REVISION", "atomically publish Docker package matrix"}},
 		{
 			"build/docker/Dockerfile.package",
@@ -215,8 +216,9 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 		"bindings:check",
 		"browser:test",
 		"check",
-		"release:preflight",
-		"release",
+		"release:macos:preflight",
+		"release:local",
+		"release:macos:signed",
 	} {
 		t.Run("task "+taskName, func(t *testing.T) {
 			t.Parallel()
@@ -246,6 +248,9 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	assert.Contains(t, packageAllRemote, "run ./cmd/build package-all")
 	assert.Contains(t, packageAllRemote, "gh auth status")
 	assert.Contains(t, packageAllRemote, `--output "{{.OUTPUT}}"`)
+	releaseLocal := taskfileTask(t, taskfile, "release:local")
+	assert.Contains(t, releaseLocal, "run ./cmd/build release-candidate")
+	assert.Contains(t, releaseLocal, `--output "{{.OUTPUT}}"`)
 
 	dev := taskfileTask(t, taskfile, "dev")
 	run := taskfileTask(t, taskfile, "run")
@@ -310,9 +315,9 @@ func TestGoPackageOutputDeploymentTargetAndFinalSignOrderAreExplicit(t *testing.
 	for _, required := range []string{
 		`minimumMacOS    = "13.0"`,
 		`filepath.Join("build", "bin", applicationName+".app")`,
-		`"GOARCH":                   "arm64"`,
-		`"GOOS":                     "darwin"`,
-		`"MACOSX_DEPLOYMENT_TARGET": minimumMacOS`,
+		`"GOARCH":      target.Arch()`,
+		`"GOOS":        target.OS()`,
+		`environment["MACOSX_DEPLOYMENT_TARGET"] = minimumMacOS`,
 		`commandStep("sign completed application bundle"`,
 	} {
 		assert.Contains(t, buildSource, required)
@@ -329,7 +334,7 @@ func TestGoPackageOutputDeploymentTargetAndFinalSignOrderAreExplicit(t *testing.
 	require.NotEqual(t, -1, packageEnd)
 	packageSource := buildSource[packageStart : packageStart+packageEnd]
 	installDemo := strings.Index(packageSource, `Name: "install bundled demo"`)
-	compile := strings.Index(packageSource, `compileStep(executable)`)
+	compile := strings.Index(packageSource, `compileStep(DefaultTarget(), executable)`)
 	sign := strings.Index(packageSource, `commandStep("sign completed application bundle"`)
 	require.NotEqual(t, -1, installDemo)
 	require.NotEqual(t, -1, compile)
@@ -356,7 +361,7 @@ func TestReproducibleBuildHashesPackagedExecutableAndUsesQuietToolEnvironments(t
 	assert.Contains(t, protoGenerate, `--no-experimental-webstorage`)
 }
 
-func TestCIRunsPinnedTaskQualityBuildAndChecksumOnlyDarwinCandidate(t *testing.T) {
+func TestMacOSCIRunsPinnedTaskQualityBuildAndChecksumOnlyDarwinCandidate(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
@@ -365,15 +370,14 @@ func TestCIRunsPinnedTaskQualityBuildAndChecksumOnlyDarwinCandidate(t *testing.T
 	for _, required := range []string{
 		"tools/task/go.sum",
 		"- name: Lint",
-		"task fmt:check",
-		"task vet",
-		"task lint",
+		"task fmt:check vet lint",
 		"- name: Test",
 		"task test",
 		"- name: Build protobuf",
 		"task proto:check",
 		"- name: Build application",
 		"task package",
+		"workflow_call:",
 		"SHA-256 verified Darwin release candidate",
 		"hdiutil create",
 		"shasum -a 256 -c",
@@ -493,7 +497,7 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 		"task deps", "task fmt", "task vet", "task lint", "task test",
 		"task proto:generate", "task proto:check", "task proto:breaking",
 		"task bindings:check", "task browser:test", "task check",
-		"task release:preflight", "task release",
+		"task release:macos:preflight", "task release:local", "task release:macos:signed",
 		"GOOS", "GOARCH", "gh auth login",
 		"task package:all", "current branch", "origin", "OUTPUT=", "fallout-terminal-portable",
 		"aggregate-index.json", "не публикуется", "код завершения",

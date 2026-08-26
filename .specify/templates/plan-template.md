@@ -14,19 +14,19 @@
 
 **Language/Version**: Go 1.27; browser JavaScript modules with Node.js 20.19+ build/test tooling
 
-**Primary Dependencies**: Wails v3.0.0-beta.13, `github.com/coder/websocket` v1.8.15, Vite 8.1.5; Playwright 1.62.1 for browser journeys
+**Primary Dependencies**: Wails v3.0.0-beta.13, `connectrpc.com/connect` v1.20.0, `google.golang.org/protobuf` v1.36.11, `@connectrpc/connect`/`@connectrpc/connect-web` 2.1.2, and Vite 8.1.5; Playwright 1.62.1 for browser journeys
 
 **Storage**: Versioned local JSON session and player-configuration files; ephemeral live, navigation, hacking, connection, and coordination state in process memory
 
-**Testing**: Colocated Go `*_test.go` tests with deterministic fakes; Playwright specs under `tests/browser/*.spec.mjs`; no numeric coverage threshold or repository-wide linter detected
+**Testing**: Colocated Go `*_test.go` tests with deterministic fakes; Playwright specs under `tests/browser/*.spec.mjs`; repository-wide Go lint through `.golangci.yml` and `task lint`; no numeric coverage threshold
 
-**Target Platform**: Wails desktop application on macOS 13+ / Apple Silicon (`arm64`), with modern browser clients on the local network or an authenticated public endpoint
+**Target Platform**: Wails desktop application on `darwin/arm64`, `windows/amd64`, `windows/arm64`, `linux/amd64`, and `linux/arm64`, with modern browser clients on the local network or an authenticated public endpoint
 
-**Project Type**: Go modular desktop monolith with a Wails Overseer frontend and embedded HTTP/WebSocket player frontend
+**Project Type**: Go modular desktop monolith with a Wails Overseer frontend and an embedded static-HTTP/ConnectRPC player frontend
 
 **Performance Goals**: [Feature-specific responsiveness, synchronization, startup, persistence, or client-count goal]
 
-**Constraints**: Preserve narrow Wails bindings, server-authoritative shared state, persistent JSON compatibility, same-host WebSocket policy, owned-resource cleanup, and the single-process runtime
+**Constraints**: Preserve narrow Wails bindings, generated protobuf/ConnectRPC contracts, server-authoritative shared state, persistent JSON compatibility, governed browser-origin policy, owned-resource cleanup, and the single-process runtime
 
 **Scale/Scope**: One Overseer desktop process, one active broadcast, and [expected connected player-client count or NEEDS CLARIFICATION]
 
@@ -35,7 +35,7 @@
 *GATE: Must pass before Phase 0 research and be re-checked after Phase 1 design.*
 
 - [ ] Runtime ownership remains within `main.go`/`app.go`, the relevant `internal/` packages, `frontend/overseer/src/`, `frontend/client/`, and `sessions/` boundaries.
-- [ ] Cross-boundary Wails, HTTP, and WebSocket contracts document producer, consumer, payload, validation, failure, ordering, and reconnect behavior.
+- [ ] Cross-boundary Wails, protobuf/ConnectRPC, and HTTP asset contracts document producer, consumer, payload, validation, failure, ordering, and reconnect behavior.
 - [ ] Shared navigation, hacking, roster, and controller behavior remains server-authoritative and reconnect-safe.
 - [ ] Wails method exposure, CSP, external URL handling, player-origin/input checks, and public-access secret protections are preserved where applicable.
 - [ ] Session or player-configuration changes define versioning, defaults, references, migration, and backward compatibility.
@@ -55,7 +55,7 @@ specs/[###-feature]/
 ├── research.md          # Include only when research decisions are needed
 ├── data-model.md        # Include for persistent or runtime model changes
 ├── quickstart.md        # Feature verification instructions
-├── contracts/           # Include for Wails/HTTP/WebSocket/JSON contracts
+├── contracts/           # Include for Wails/protobuf/ConnectRPC/HTTP asset/JSON contracts
 └── tasks.md
 ```
 
@@ -72,8 +72,8 @@ internal/
 ├── control/                    # Sessions, roster, controller, broadcast coordination
 ├── session/                    # Session persistence and native file workflow
 ├── playerconfig/               # Player configuration persistence and references
-├── player/                     # HTTP assets, WebSocket server, public protocol
-├── platform/                   # Wails desktop adapter and macOS paths
+├── player/                     # HTTP assets, ConnectRPC service, public protocol
+├── platform/                   # Wails desktop adapters and supported-platform paths
 ├── tunnel/                     # Optional embedded public-endpoint lifecycle
 └── testutil/                   # Shared deterministic test fakes and fixtures
 frontend/
@@ -101,8 +101,8 @@ tests/browser/
 └── playwright.config.mjs
 sessions/
 └── demo.json                   # Versioned example session
-build/                          # macOS metadata, icon, hooks, and output location
-scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
+build/                          # Platform metadata, icon, hooks, and output location
+scripts/build-macos.sh          # Optional manual signed/notarized macOS distribution pipeline
 ```
 
 **Structure Decision**: [List affected paths, their ownership, and why the feature belongs in each]
@@ -117,9 +117,9 @@ scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
 
 [Document bound method/event names, directions, payloads, public projections, validation, errors, readiness, and shutdown behavior, or N/A]
 
-### HTTP and WebSocket
+### Protobuf/ConnectRPC and HTTP Assets
 
-[Document routes/message types, directions, payloads, origin and size checks, server validation, authorization, revisions, broadcasts, action results, and reconnect state, or N/A]
+[Document RPC methods/cardinality, generated messages, static routes, directions, origin and size checks, server validation, authorization, revisions, publications, action results, and reconnect state, or N/A]
 
 ### Runtime-State Lifecycle
 
@@ -127,7 +127,7 @@ scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
 
 ### Platform, Tunnel, and Packaging
 
-[Describe macOS paths/dialogs, embedded provider resources, Keychain-backed secrets, temporary material, embedding, build, or release implications, or N/A]
+[Describe supported-platform paths/dialogs, embedded provider resources, OS secure-store secrets, temporary material, embedding, build, or release implications, or N/A]
 
 ## Implementation Phases
 
@@ -139,7 +139,7 @@ scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
 
 ### Phase 1: Contracts and Data Design
 
-- [Define persistent JSON, Wails, HTTP, and WebSocket contracts as applicable]
+- [Define persistent JSON, Wails, protobuf/ConnectRPC, and HTTP asset contracts as applicable]
 - [Define validation, public projection, ordering, compatibility, and reconnection behavior]
 - [Map producer and consumer changes to exact paths]
 - [Re-run the Constitution Check after design]
@@ -149,7 +149,7 @@ scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
 - [Implement pure models/rules in `internal/domain/`, `internal/nav/`, or `internal/hack/`]
 - [Implement canonical state and coordination in `internal/live/` or `internal/control/`]
 - [Implement persistence in `internal/session/` or `internal/playerconfig/`]
-- [Implement HTTP/WebSocket behavior in `internal/player/`]
+- [Implement static HTTP and ConnectRPC behavior in `internal/player/`]
 
 ### Phase 3: Desktop and Presentation Integration
 
@@ -168,13 +168,13 @@ scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
 
 | Surface | Automated check | Interactive/manual check | Expected result |
 |---|---|---|---|
-| Go domain/services | `go test ./...` | [Focused scenario if needed] | [Result] |
-| Concurrent runtime | `go test -race ./...` when affected | [Stress/reconnect scenario] | [Result] |
-| Go quality | `gofmt -l .` and `go vet ./...` | N/A | No formatting paths; vet succeeds |
-| Overseer frontend | `npm ci --prefix frontend` and `npm run build --prefix frontend` | `go run ./cmd/build dev` + [Overseer journey] | [Result] |
+| Go domain/services | `task test` | [Focused scenario if needed] | [Result] |
+| Concurrent runtime | `task test:race` when affected | [Stress/reconnect scenario] | [Result] |
+| Go quality | `task fmt:check`, `task vet`, and `task lint` | N/A | Formatting, vet, and repository lint succeed |
+| Overseer frontend | `npm ci --prefix frontend` and `npm run build --prefix frontend` | `task dev` + [Overseer journey] | [Result] |
 | Player browser(s) | `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` when affected | [Multi-client/audio/reconnect journey] | [Result] |
-| Unsigned package | `go run ./cmd/build package` when affected | [Packaged `.app` smoke] | [Result] |
-| Signed release/public provider | [Configured preflight or N/A] | [Credential-dependent journey] | [Result or explicitly unavailable] |
+| Package/release candidate | `task package` and `task release:local` when affected | [Packaged target smoke] | [Result] |
+| Signed macOS distribution/public provider | [`task release:macos:preflight` or N/A] | [Credential-dependent journey] | [Result or explicitly unavailable] |
 
 ## Project-Specific Complexity Factors
 
@@ -182,7 +182,7 @@ scripts/build-macos.sh          # Signing, notarization, DMG release pipeline
 - Server-authoritative state projections shared across Overseer and player presentation surfaces
 - Backward-compatible user-owned JSON files and cross-file player-configuration references
 - Browser identity, multi-tab recognition, controller authority, revisions, and reconnect convergence
-- macOS application embedding, arm64 packaging, signing/notarization, and Gatekeeper requirements
+- Cross-platform application embedding and packaging, unsigned tagged releases, and optional manual macOS signing/notarization requirements
 
 ## Complexity Tracking
 

@@ -77,7 +77,6 @@ func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing
 	for _, script := range []string{windows, linux} {
 		for _, required := range []string{
 			"go run ./cmd/native-credential-smoke",
-			"session.save",
 			"application-reopen",
 			"control-accepted",
 			"synchronized",
@@ -86,6 +85,8 @@ func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing
 			assert.Contains(t, script, required)
 		}
 	}
+	assert.Contains(t, windows, "session.save")
+	assert.Contains(t, linux, `session\.save`)
 	assert.Contains(t, linux, "native-ui-smoke.py")
 	assert.Contains(t, linux, "--scan-root")
 	assert.Contains(t, windows, "Assert-NoCredentialCanaryLeak")
@@ -96,8 +97,12 @@ func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing
 	assert.Contains(t, workflow, "-extension MIT-SHM")
 	assert.Contains(t, workflow, "WEBKIT_DISABLE_DMABUF_RENDERER=1")
 	assert.Contains(t, workflow, "WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1")
-	assert.Contains(t, workflow, "_NET_SUPPORTING_WM_CHECK")
-	assert.Contains(t, workflow, "--expect-unavailable")
+	assert.Contains(t, linux, "_NET_SUPPORTING_WM_CHECK")
+	assert.Contains(t, linux, "--expect-unavailable")
+	assert.Contains(t, linux, "FALLOUT_CREDENTIAL_MODE")
+	assert.Contains(t, linux, "The secure credential store is unavailable; local access remains available.")
+	assert.Contains(t, workflow, "FALLOUT_CREDENTIAL_MODE=unavailable")
+	assert.Contains(t, workflow, "TestTranslateWindowsCredentialErrorCategories")
 	assert.Contains(t, secretCheck, "--scan-root")
 }
 
