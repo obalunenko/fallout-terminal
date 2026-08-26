@@ -1,2 +1,4 @@
+* text=auto eol=lf
+
 # protoc-gen-es emits one intentional separator line before EOF.
 frontend/client/gen/**/*.js whitespace=-blank-at-eof

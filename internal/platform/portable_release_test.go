@@ -90,6 +90,7 @@ func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing
 	assert.Contains(t, linux, "--scan-root")
 	assert.Contains(t, windows, "Assert-NoCredentialCanaryLeak")
 	assert.Contains(t, workflow, "python3-pyatspi")
+	assert.Contains(t, workflow, "x11-utils")
 	assert.Contains(t, workflow, "--expect-unavailable")
 	assert.Contains(t, secretCheck, "--scan-root")
 }

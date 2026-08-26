@@ -109,7 +109,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             at-spi2-core build-essential dbus-x11 gnome-keyring libgtk-4-dev libwebkitgtk-6.0-dev \
-            pkg-config python3 python3-pyatspi xdotool xvfb
+            pkg-config python3 python3-pyatspi x11-utils xdotool xvfb
 
       - name: Package native target with pinned Task
         shell: bash
