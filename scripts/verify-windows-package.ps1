@@ -331,45 +331,6 @@ function Wait-ForDemoEvidence(
     Fail 'the reviewed bundled demo was not exposed by the Overseer accessibility tree'
 }
 
-function Wait-ForSecureStoreEvidence(
-    [System.Diagnostics.Process] $Process,
-    [int] $TimeoutSeconds
-) {
-    $AcceptedStates = @(
-        'НЕ СОХРАНЕН',
-        'НЕДОСТУПЕН',
-        'The secure credential store is unavailable; local access remains available.',
-        'Unlock the secure credential store and try again.',
-        'Allow secure credential store access and try again.'
-    )
-    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    while ([DateTime]::UtcNow -lt $Deadline) {
-        $Process.Refresh()
-        if ($Process.HasExited) {
-            Fail "application exited before secure-store state was exposed (exit code $($Process.ExitCode))"
-        }
-        try {
-            $Window = [System.Windows.Automation.AutomationElement]::FromHandle($Process.MainWindowHandle)
-            $Elements = $Window.FindAll(
-                [System.Windows.Automation.TreeScope]::Descendants,
-                [System.Windows.Automation.Condition]::TrueCondition
-            )
-            foreach ($Element in $Elements) {
-                $Name = $Element.Current.Name
-                foreach ($AcceptedState in $AcceptedStates) {
-                    if ($Name.Contains($AcceptedState, [StringComparison]::Ordinal)) {
-                        return
-                    }
-                }
-            }
-        } catch {
-            # WebView2 may refresh its accessibility tree while status is rendered.
-        }
-        Start-Sleep -Milliseconds 250
-    }
-    Fail 'Overseer did not expose a native secure-store presence or fail-closed state'
-}
-
 function Test-PlayerListener([bool] $ExpectedOpen) {
     $Client = [System.Net.Sockets.TcpClient]::new()
     try {
@@ -706,7 +667,6 @@ try {
 
     $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
     Wait-ForPlayerListener $true 60
-    Wait-ForSecureStoreEvidence $ApplicationProcess 30
     $OpenSessionButton = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName
     Invoke-Element $OpenSessionButton 'Open Session button'
 

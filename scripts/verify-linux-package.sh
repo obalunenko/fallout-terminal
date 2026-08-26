@@ -318,8 +318,7 @@ drive_demo_open() {
   local demo_path="$1"
   local dialog_id=''
 
-  xdotool windowactivate --sync "${window_id}"
-  xdotool key --clearmodifiers --window "${window_id}" Tab Return
+  python3 "${repository_root}/scripts/native-ui-smoke.py" invoke --name 'ОТКРЫТЬ СЕССИЮ' || return 1
   dialog_id="$(wait_for_open_dialog)" || return 1
   xdotool windowactivate --sync "${dialog_id}"
   xdotool key --clearmodifiers --window "${dialog_id}" ctrl+l
