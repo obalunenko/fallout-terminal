@@ -18,9 +18,10 @@ func TestCreateLoadSaveAndReusePlayerConfig(t *testing.T) {
 	t.Parallel()
 
 	fs := testutil.NewFakeFileSystem()
-	target := "/Campaigns/shared/vault-13-players.json"
+	root := t.TempDir()
+	target := filepath.Join(root, "shared", "vault-13-players.json")
 	dialog := &testutil.FakeDialog{SaveResult: target}
-	service := NewService(NewStorage(fs), dialog, "/Campaigns")
+	service := NewService(NewStorage(fs), dialog, root)
 
 	created := service.Create(t.Context())
 	require.Falsef(t, !created.OK || created.Canceled || created.FilePath != target || created.Config == nil,
@@ -59,7 +60,8 @@ func TestCreateLoadSaveAndReusePlayerConfig(t *testing.T) {
 	require.Contains(t, string(saved), `"hackerPerkAvailable": true`)
 	require.Contains(t, string(saved), `"hackerPerkAvailable": false`)
 
-	reference, err := RelativeReference("/Campaigns/sessions/game.json", target)
+	sessionPath := filepath.Join(root, "sessions", "game.json")
+	reference, err := RelativeReference(sessionPath, target)
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -69,7 +71,7 @@ func TestCreateLoadSaveAndReusePlayerConfig(t *testing.T) {
 			"reference = %q, want %q", reference, want)
 	}
 
-	loaded := service.LoadReferenced("/Campaigns/sessions/game.json", reference)
+	loaded := service.LoadReferenced(sessionPath, reference)
 	require.Falsef(t, !loaded.OK || loaded.Config == nil || !cmp.Equal(loaded.Config.Roster, wantRoster),
 		"LoadReferenced() = %#v", loaded)
 	require.Equal(t, refreshedHandle.ContentDigest, loaded.ContentDigest)
@@ -84,7 +86,8 @@ func TestCreateLoadSaveAndReusePlayerConfig(t *testing.T) {
 func TestPlayerConfigSaveRejectsMissingReplacedOrUnreadableActiveFile(t *testing.T) {
 	t.Parallel()
 
-	target := "/Campaigns/players.json"
+	root := t.TempDir()
+	target := filepath.Join(root, "players.json")
 	original := []byte("{\n  \"version\": 1,\n  \"name\": \"Players\",\n  \"roster\": [\n    {\n      \"id\": \"mara\",\n      \"name\": \"Mara\",\n      \"intelligence\": 8,\n      \"hackerPerkAvailable\": true\n    }\n  ]\n}\n")
 	replacement := []byte("{\n  \"version\": 1,\n  \"name\": \"Externally replaced\",\n  \"roster\": []\n}\n")
 	candidate := []domain.CharacterRosterEntry{
@@ -126,8 +129,8 @@ func TestPlayerConfigSaveRejectsMissingReplacedOrUnreadableActiveFile(t *testing
 			t.Parallel()
 			fileSystem := testutil.NewFakeFileSystem()
 			fileSystem.SeedFile(target, original)
-			service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{}, "/Campaigns")
-			loaded := service.LoadReferenced("/Campaigns/game.json", "players.json")
+			service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{}, root)
+			loaded := service.LoadReferenced(filepath.Join(root, "game.json"), "players.json")
 			require.Truef(t, loaded.OK, "LoadReferenced() = %#v", loaded)
 			require.NotEmpty(t, loaded.ContentDigest)
 			handle := domain.PlayerConfigHandle{
@@ -157,11 +160,12 @@ func TestPlayerConfigSaveKeepsOldContentWhenAtomicReplacementFails(t *testing.T)
 		FakeFileSystem: base,
 		err:            errors.New("volume unavailable"),
 	}
-	target := "/Campaigns/players.json"
+	root := t.TempDir()
+	target := filepath.Join(root, "players.json")
 	original := []byte("{\n  \"version\": 1,\n  \"name\": \"Players\",\n  \"roster\": [\n    {\n      \"id\": \"mara\",\n      \"name\": \"Mara\",\n      \"intelligence\": 8,\n      \"hackerPerkAvailable\": true\n    }\n  ]\n}\n")
 	base.SeedFile(target, original)
-	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{}, "/Campaigns")
-	loaded := service.LoadReferenced("/Campaigns/game.json", "players.json")
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{}, root)
+	loaded := service.LoadReferenced(filepath.Join(root, "game.json"), "players.json")
 	require.Truef(t, loaded.OK, "LoadReferenced() = %#v", loaded)
 	handle := domain.PlayerConfigHandle{
 		Path: target, Version: loaded.Config.Version, Name: loaded.Config.Name, ContentDigest: loaded.ContentDigest,
@@ -182,7 +186,8 @@ func TestPlayerConfigCancellationAndFailuresAreNonMutating(t *testing.T) {
 	t.Parallel()
 
 	fs := testutil.NewFakeFileSystem()
-	service := NewService(NewStorage(fs), &testutil.FakeDialog{}, "/Campaigns")
+	root := t.TempDir()
+	service := NewService(NewStorage(fs), &testutil.FakeDialog{}, root)
 	{
 		result := service.Create(t.Context())
 		require.Falsef(t, !result.Canceled || result.OK,
@@ -201,8 +206,8 @@ func TestPlayerConfigCancellationAndFailuresAreNonMutating(t *testing.T) {
 			"cancellation wrote files: %#v", writes)
 	}
 
-	fs.SeedFile("/Campaigns/invalid.json", []byte(`{"version":1,"name":"Players","roster":[{"id":"","name":"Mara"}]}`))
-	result := service.LoadReferenced("/Campaigns/game.json", "invalid.json")
+	fs.SeedFile(filepath.Join(root, "invalid.json"), []byte(`{"version":1,"name":"Players","roster":[{"id":"","name":"Mara"}]}`))
+	result := service.LoadReferenced(filepath.Join(root, "game.json"), "invalid.json")
 	require.Falsef(t, result.OK || result.Error == "" || result.Config != nil,
 		"invalid LoadReferenced() = %#v", result)
 
@@ -212,10 +217,11 @@ func TestPlayerConfigRejectsUnknownFieldsWithoutReplacingKnownFile(t *testing.T)
 	t.Parallel()
 
 	fs := testutil.NewFakeFileSystem()
-	target := "/Campaigns/players.json"
+	root := t.TempDir()
+	target := filepath.Join(root, "players.json")
 	unknown := []byte(`{"version":1,"name":"Players","roster":[],"futureCapability":true}`)
 	fs.SeedFile(target, unknown)
-	service := NewService(NewStorage(fs), &testutil.FakeDialog{OpenResult: target}, "/Campaigns")
+	service := NewService(NewStorage(fs), &testutil.FakeDialog{OpenResult: target}, root)
 
 	result := service.Open(t.Context())
 	require.False(t, result.OK)
@@ -229,8 +235,9 @@ func TestPlayerConfigRejectsUnknownFieldsWithoutReplacingKnownFile(t *testing.T)
 
 func TestCompleteCandidateSaveFailurePublishesNoSuccessfulConfig(t *testing.T) {
 	t.Parallel()
+	root := t.TempDir()
 	store := &failingPlayerConfigStore{err: errors.New("disk full")}
-	service := NewService(store, &testutil.FakeDialog{SaveResult: "/Campaigns/players.json"}, "/Campaigns")
+	service := NewService(store, &testutil.FakeDialog{SaveResult: filepath.Join(root, "players.json")}, root)
 	created := service.Create(t.Context())
 	require.Falsef(t, created.OK || created.Config != nil || created.FilePath != "" || store.writes != 1,
 		"failed atomic create published state: result=%#v writes=%d", created, store.writes)

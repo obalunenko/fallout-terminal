@@ -332,6 +332,7 @@ trap 'exit 143' TERM
 canary_file="${workspace}/native credential canaries"
 credential_log="${workspace}/native-credential-smoke.log"
 if ! (cd "${repository_root}" && go run ./cmd/native-credential-smoke --canary-file "${canary_file}") >"${credential_log}" 2>&1; then
+  head -n 80 "${credential_log}" >&2
   fail 'native Secret Service write/read/replace/delete acceptance failed'
 fi
 
