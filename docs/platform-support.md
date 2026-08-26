@@ -1,84 +1,76 @@
-# Windows and Linux support
+# Platform support
 
-Fallout Terminal is distributed as a portable archive for four native targets. “Portable” means that the archive does not need an installer or a development toolchain; the operating system's desktop and web-view runtimes are still required. Select the archive that matches both the operating system and processor architecture:
+For portable releases, support means **archive availability**: the release provides a governed,
+non-empty archive with the expected executable and resources for each listed target. Launching the
+native GUI is optional acceptance evidence and is recorded as `NOT RUN` when no suitable host is
+available; it does not invalidate an otherwise eligible archive.
 
-| Target | Supported host | Archive |
+| Target | Archive | Minimum host |
 |---|---|---|
-| `windows/amd64` | Windows 10 or Windows 11 on an x64 processor | `Fallout-Terminal-windows-amd64.zip` |
-| `windows/arm64` | Windows 11 on an ARM64 processor | `Fallout-Terminal-windows-arm64.zip` |
-| `linux/amd64` | An x64 GTK4 desktop, initially Ubuntu 24.04+ or Debian 13+ class distributions | `Fallout-Terminal-linux-amd64.tar.gz` |
-| `linux/arm64` | An ARM64 GTK4 desktop, initially Ubuntu 24.04+ or Debian 13+ class distributions | `Fallout-Terminal-linux-arm64.tar.gz` |
+| `windows/amd64` | `Fallout-Terminal-windows-amd64.zip` | Windows 10 or Windows 11, x64 |
+| `windows/arm64` | `Fallout-Terminal-windows-arm64.zip` | Windows 11, ARM64 |
+| `linux/amd64` | `Fallout-Terminal-linux-amd64.tar.gz` | x64 Linux desktop |
+| `linux/arm64` | `Fallout-Terminal-linux-arm64.tar.gz` | ARM64 Linux desktop |
+| `darwin/arm64` | `Fallout-Terminal-darwin-arm64.zip` | macOS 13+, Apple Silicon |
 
-Do not select an archive from the operating-system label alone. On Windows, open **Settings → System → About → System type**. On Linux, `uname -m` reports `x86_64` for `amd64` and `aarch64` for `arm64`. An archive built for another architecture will not start.
+Choose by both OS and CPU. On Windows, check **Settings → System → About → System type**. On Linux,
+`uname -m` reports `x86_64` for amd64 and `aarch64` for arm64. The Darwin archive is an unsigned
+portable ZIP, not a signed installer.
 
 ## Runtime prerequisites
 
-Windows 10 and Windows 11 require the Microsoft Edge **WebView2** runtime matching the host architecture. Current Windows installations commonly include the Evergreen runtime, but it remains an operating-system prerequisite and is not bundled in the ZIP. If Fallout Terminal opens no window or Windows reports a missing WebView2 loader/runtime, install or repair the matching Evergreen WebView2 runtime from Microsoft and retry.
+Windows requires Microsoft **WebView2** matching the host architecture. Windows 10 and Windows 11
+often include its Evergreen runtime; install or repair it if the application opens no window.
+Protected public-access secrets use **Windows Credential Manager**.
 
-Linux requires **GTK4** and **WebKitGTK 6.0**, including their transitive desktop libraries. Install the runtime packages supplied by the distribution; do not substitute GTK3 or WebKitGTK 4.x. A graphical session and a working display are also required. If launch reports a missing shared object, use `ldd "./Fallout Terminal"` from the extracted application directory to identify the package that is absent.
+Linux requires a graphical session, **GTK4**, and **WebKitGTK 6.0** with their transitive runtime
+libraries. Public-access secrets additionally require an unlocked freedesktop **Secret Service**
+provider in the signed-in user's D-Bus session. Missing secure storage disables public tunnelling,
+but does not disable the локальный player service.
 
-Protected public access on Linux additionally requires a freedesktop **Secret Service** provider on the user's session D-Bus, such as the provider integrated with the desktop keyring. The collection must be available and unlockable for the signed-in user. This credential service is separate from GTK4 and WebKitGTK 6.0 and is not bundled in the TAR.GZ.
+macOS requires macOS 13 or later on Apple Silicon and the system WebKit runtime. Protected secrets
+use **Keychain**. Because the portable app is unsigned, Finder may block the first launch; after
+confirming the archive came from the expected release, use **System Settings → Privacy & Security →
+Open Anyway**. Signed/notarized packages are a separate manual maintainer option.
 
-## Verify, extract, and launch
+## Extract and launch
 
-Keep the downloaded archive beside its `.sha256` sidecar. The sidecar names the archive whose digest it covers. If the digest does not match, discard both downloads rather than launching the application.
+Fully extract the chosen archive so resources remain beside the executable:
 
-### Windows
+- Windows: run `Fallout Terminal.exe` from the extracted directory.
+- Linux: run `./Fallout Terminal`; if transfer removed its mode, use `chmod 0755 "./Fallout Terminal"`.
+- macOS: open the extracted `Fallout Terminal.app` bundle.
 
-In PowerShell, select the matching ZIP, compare `Get-FileHash -Algorithm SHA256` with its sidecar, and extract it. For example, on Windows amd64:
+Do not run from an archive viewer or copy only the executable. The bundled demos, icon, third-party
+notices, and artifact manifest are part of the application resource tree.
 
-```powershell
-$archive = ".\Fallout-Terminal-windows-amd64.zip"
-Get-FileHash -Algorithm SHA256 $archive
-Get-Content "$archive.sha256"
-Expand-Archive -LiteralPath $archive -DestinationPath ".\Fallout-Terminal"
-& ".\Fallout-Terminal\Fallout Terminal\Fallout Terminal.exe"
-```
+## Sessions, settings, and credentials
 
-The native executable is `Fallout Terminal.exe`. Repeat the commands with `Fallout-Terminal-windows-arm64.zip` on a Windows 11 ARM64 host. Do not run either executable from inside the ZIP viewer; extract the complete `Fallout Terminal` directory so its adjacent `resources` directory remains available.
+User data is stored separately from the extracted archive:
 
-### Linux
+| Platform | Sessions | Non-secret settings | Protected credentials |
+|---|---|---|---|
+| Windows | Known Documents → `Fallout Terminal\Sessions` | `%APPDATA%\com.vaulttec.fallout-terminal` | Windows Credential Manager |
+| Linux | XDG Documents; fallback `~/Documents/Fallout Terminal/Sessions` | `$XDG_CONFIG_HOME`; fallback `~/.config/com.vaulttec.fallout-terminal` | Secret Service |
+| macOS | Documents → `Fallout Terminal/Sessions` | `~/Library/Application Support/com.vaulttec.fallout-terminal` | Keychain |
 
-In a terminal, select the matching TAR.GZ, verify it with `sha256sum`, extract it, and launch the native executable. For example, on Linux amd64:
-
-```sh
-sha256sum -c Fallout-Terminal-linux-amd64.tar.gz.sha256
-mkdir -p "./Fallout-Terminal"
-tar -xzf Fallout-Terminal-linux-amd64.tar.gz -C "./Fallout-Terminal"
-cd "./Fallout-Terminal/Fallout Terminal"
-"./Fallout Terminal"
-```
-
-Use `Fallout-Terminal-linux-arm64.tar.gz` on an ARM64 host. The executable path is `./Fallout Terminal`; keep its `resources` directory beside it. The archive records executable mode `0755`. If a transfer tool removed that mode, restore it only after the checksum succeeds with `chmod 0755 "./Fallout Terminal"`.
-
-## Sessions, settings, and resources
-
-The bundled demos and icon are read-only application resources beneath the extracted application's `resources` directory. User sessions and settings are stored separately and are never written back into the portable archive directory.
-
-| Platform | Default session folder | Non-secret public-access settings |
-|---|---|---|
-| Windows | The user's Known Documents folder, then `Fallout Terminal\Sessions` | `%APPDATA%\com.vaulttec.fallout-terminal\public-access.json` |
-| Linux | The XDG Documents folder, then `Fallout Terminal/Sessions`; fallback `~/Documents/Fallout Terminal/Sessions` | `$XDG_CONFIG_HOME/com.vaulttec.fallout-terminal/public-access.json`; fallback `~/.config/com.vaulttec.fallout-terminal/public-access.json` |
-
-Windows Known Documents and `%APPDATA%` can be redirected by the user, an organization, or cloud-folder policy; the application asks Windows for the active locations. On Linux, desktop/XDG configuration can likewise redirect the documents and configuration roots. Native Open and Save dialogs start from these resolved locations and create the session directory only after a save is confirmed.
-
-`public-access.json` contains non-secret preferences only. Provider tokens and player passwords are never written there, to a session document, or beside the executable.
-
-## Credential storage and network availability
-
-On Windows, secrets are generic credentials in **Windows Credential Manager**, scoped to Fallout Terminal's production public-access service and account names. On Linux, secrets are items in the user's **Secret Service** collection. Replacing and deleting a public-access credential updates the native store rather than a plaintext application file.
-
-If the native store is missing, locked, access-denied, or the unlock prompt is cancelled, Fallout Terminal reports public access as unavailable and does not start or publish a public tunnel. It does not silently reinterpret the failure as a missing password, and it does not create an environment, settings-file, or other unprotected fallback.
-
-The application and its local player listener remain usable when secure storage fails. Local and direct LAN players can continue to connect using the address shown by the application; only provider-backed public access is unavailable. Fix or unlock the native credential service, then retry initialization or saving the credentials.
+Session files and non-secret preferences never contain provider tokens or player passwords. If a
+credential store is locked, denied, missing, or cancelled, public access fails closed while local
+and LAN sessions remain available.
 
 ## устранение неполадок
 
-- **Windows сообщает об отсутствующем WebView2 или окно не открывается.** Установите или восстановите Evergreen WebView2 той же архитектуры, что Windows и выбранный ZIP. Затем снова запустите извлечённый `Fallout Terminal.exe`.
-- **Linux сообщает `error while loading shared libraries`.** Запустите `ldd "./Fallout Terminal"`, установите пакеты, предоставляющие отсутствующие библиотеки GTK4 или WebKitGTK 6.0, и повторите запуск в графическом сеансе. Не переходите на GTK3.
-- **Linux не может подключиться к дисплею.** Проверьте, что запуск выполняется из графического сеанса и переменная `DISPLAY` или `WAYLAND_DISPLAY` принадлежит этому сеансу. SSH-сеанс без перенаправления дисплея не может открыть нативное окно.
-- **Приложение сообщает, что хранилище секретов недоступно или заблокировано.** В Windows откройте Windows Credential Manager под тем же пользователем. В Linux запустите или разблокируйте Secret Service в пользовательском D-Bus-сеансе. После исправления повторите сохранение учётных данных; не переносите секреты в `public-access.json`.
-- **Публичный адрес недоступен из-за хранилища секретов.** Это ожидаемый безопасный отказ: публичный туннель не запускается. Локальный режим и прямое подключение по LAN остаются доступны (`локальный/LAN доступ`), пока устраняется проблема с защищённым хранилищем.
-- **Не найден демонстрационный сеанс или значок.** Убедитесь, что рядом с исполняемым файлом находится исходный каталог `resources`. Повторно извлеките весь архив в каталог с правом чтения; не копируйте только исполняемый файл.
-- **Сеанс не сохраняется.** Проверьте права на фактическую папку Known Documents в Windows или XDG Documents в Linux. Для настроек проверьте `%APPDATA%` либо `$XDG_CONFIG_HOME`/`~/.config`; каталог приложения с ресурсами не должен быть доступен для записи данных пользователя.
-- **Система сообщает о неверном формате или архитектуре.** Снова проверьте System type или `uname -m`, выберите точное имя архива из таблицы и проверьте SHA-256 перед запуском.
+- **Wrong format or architecture:** recheck System type or `uname -m`, then download the exact name
+  from the table. The five governed names are `Fallout-Terminal-windows-amd64.zip`,
+  `Fallout-Terminal-windows-arm64.zip`, `Fallout-Terminal-linux-amd64.tar.gz`,
+  `Fallout-Terminal-linux-arm64.tar.gz`, and `Fallout-Terminal-darwin-arm64.zip`.
+- **Windows window is missing:** install or repair WebView2 for the selected architecture, fully
+  extract the ZIP, and rerun `Fallout Terminal.exe`.
+- **Linux reports a missing library:** run `ldd "./Fallout Terminal"`, install the distribution's
+  GTK4/WebKitGTK 6.0 runtime packages, and retry in a graphical session.
+- **macOS blocks launch:** confirm the source, extract the entire unsigned ZIP, and approve
+  `Fallout Terminal.app` in Privacy & Security. Do not remove files from the bundle.
+- **Secure storage is unavailable:** unlock Windows Credential Manager, Secret Service, or Keychain
+  for the signed-in user. Retry credentials afterward; do not create a plaintext fallback.
+- **Sessions do not save:** check the resolved Documents directory and the platform settings path.
+  Keep the extracted application directory read-only and preserve its resources.

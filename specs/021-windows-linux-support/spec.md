@@ -4,173 +4,196 @@
 
 ### Session 2026-08-26
 
-- Q: How should maintainers package all supported platforms? → A: Separate per-target commands run on matching operating-system hosts, plus an aggregate command that packages the complete matrix.
-- Q: What distribution form must each target-specific package command produce? → A: A portable runnable archive for every target.
+- Q: How should maintainers package all supported platforms? → A: Separate per-target commands run on compatible operating-system hosts and coordinated by the version-tag workflow; no local or Docker aggregate is required for release.
+- Q: What distribution form must each target-specific package command produce? → A: A portable archive containing the target executable and required resources.
 - Q: Which repository task runner owns developer and packaging commands? → A: Migrate project automation from Make to Go Task, pin Task like the other isolated Go tools, and leave Make only as the bootstrap that installs every Go tool declared under `tools/`.
 - Q: May Make retain a help target after the Task migration? → A: Yes. `make help` is a non-mutating discovery target that documents `make tools` and directs maintainers to `task --list`; it must not proxy project workflows.
-- Q: What must local `task package:all` expose? → A: On `darwin/arm64`, the canonical native signed application bundle plus the four governed archives and four directly accessible Windows/Linux target payloads under `bin/<os>-<arch>/`, with the five targets published atomically.
-- Q: How must a missing or stopped Docker daemon fail? → A: Nonzero with an actionable diagnostic that preserves the Docker failure reason and tells the maintainer to install or start Docker; a generic Task precondition error is insufficient.
-- Q: What must a SemVer tag publish for all supported targets? → A: One joined five-target release from the tag SHA: an unsigned `darwin/arm64` DMG verified only by its SHA-256 sidecar plus all four verified Windows/Linux portable archives, published only as a complete set to GitHub Releases and GitHub Packages through pinned GoReleaser v2 orchestration; signing and notarization credentials are not required.
+- Q: What must a version tag publish for all supported targets? → A: One unsigned portable archive per supported target, built consistently and attached to a single GitHub Release; signing and notarization are not required.
+- Q: What should each tagged release contain for every supported target? → A: One portable archive containing the executable and required resources.
+- Q: Which target matrix must every tagged release build? → A: Windows amd64 and arm64, Linux amd64 and arm64, and macOS arm64.
+- Q: When should the five-target build matrix run? → A: Version tags only.
+- Q: Which tags should be treated as release tags? → A: Semantic-version tags in the form `vMAJOR.MINOR.PATCH`, including optional prerelease suffixes such as `v1.2.3-beta.1`.
+- Q: What should happen if the tag already has a GitHub Release? → A: The workflow fails and leaves the existing release and its assets unchanged.
 
-**Bugfix**: 2026-08-26 — BUG-001 aligned local Docker aggregate output, diagnostics, and verification across the feature artifacts.
+### Session 2026-08-27
 
-**Bugfix**: 2026-08-26 — BUG-002 makes local aggregate publication safely repeatable when an owned prior output exists.
-
-**Bugfix**: 2026-08-26 — BUG-003 adds the supported native `darwin/arm64` package to local `package:all`.
-
-**Bugfix**: 2026-08-26 — BUG-004 adds the missing five-target tagged-release contract and reopens false completion evidence.
+- Q: How are FR-012, FR-018, and FR-025 divided without overlap? → A: FR-012 defines the exact five-target matrix, FR-018 requires all five archives to succeed before publication, and FR-025 requires every target to use the same explicit target-aware package entrypoint.
+- Q: How are FR-015, FR-029, SC-007, and SC-013 divided without overlap? → A: FR-015 requires the common unsigned target build-and-archive flow, FR-029 prohibits DMG, signing, and notarization-specific release paths, SC-007 measures zero signing and notarization steps, and SC-013 measures the resulting macOS portable archive contract.
+- Q: How is a partial GitHub Release recovered after publication fails? → A: The workflow performs no automated rollback, reports manual recovery instructions, and refuses automated reruns until a maintainer deletes the partial release; the maintainer may then rerun the same tag.
+- Q: What runs on pull requests and pushes to the main branch if the five-target release matrix is tag-only? → A: A separate non-release quality workflow runs project quality checks, does not run the five-target release matrix, and publishes no release assets.
+- Q: What does platform support mean for this hobby-project distribution feature? → A: Support means availability of the governed unsigned portable archive with its executable and required resources; native runtime and operating-system integration journeys are optional, non-gating evidence and are not acceptance claims of this feature.
+- Q: How are optional local Docker aggregation and obsolete remote release commands governed? → A: Retain `task package:all` and its Docker implementation only as optional maintainer convenience outside CI and release acceptance; remove `package:all:remote`, `release:local`, and their remote aggregation and joined-release implementations.
+- Q: How must tagged publication enter the repository's canonical command graph? → A: The tag workflow invokes a CI-owned `release:publish` Task command, which invokes repository-pinned GoReleaser as the sole GitHub Release publisher.
+- Q: Which native build commands must final local validation run? → A: Run `task build` and `task package GOOS=darwin GOARCH=arm64`; validate unavailable matching-host targets through static contracts until the tag workflow builds them natively.
+- Q: How must the tagged-release user story be independently accepted? → A: After static and local validation passes, push a maintainer-approved unused SemVer prerelease tag in this repository and verify the real five-archive GitHub Release.
+- Q: Which decision does FR-013 limit to four observable conditions? → A: Per-target archive eligibility only; SemVer preflight, exact publication inventory, and existing-release safety remain separate required checks.
 
 ## User Scenarios & Testing
 
-### User Story 1 - Run the desktop application on every supported target (Priority: P1)
+### User Story 1 - Obtain the complete archive for every target (Priority: P1)
 
-As an Overseer, I can obtain the Fallout Terminal desktop application for my Windows or Linux computer and launch it as a complete native application, so I can host a game without owning a Mac or installing development tools.
+As a user, I can obtain the Fallout Terminal portable archive matching my operating system and processor, so I receive the packaged executable and required resources without installing the source repository or build tools.
 
-**Why this priority**: A usable application on each requested operating-system and processor combination is the core value of the feature.
+**Why this priority**: Complete, target-identifiable archives are the core distribution value of the feature.
 
-**Independent Test**: On a clean machine for each target, unpack or install the matching artifact, launch it, confirm the Overseer window opens, and load the bundled demo without a development toolchain or repository checkout.
-
-**Acceptance Scenarios**:
-
-1. **Given** a supported Windows computer and the matching processor artifact, **When** the user launches Fallout Terminal, **Then** the Overseer window opens with the bundled application assets and demo available.
-2. **Given** a supported Linux computer and the matching processor artifact, **When** the user launches Fallout Terminal, **Then** the Overseer window opens with the bundled application assets and demo available.
-3. **Given** a user selects an artifact for the wrong operating system or processor architecture, **When** they consult the artifact name and release documentation, **Then** they can identify the mismatch before attempting normal use.
-
-### User Story 2 - Host the same game workflow across platforms (Priority: P1)
-
-As an Overseer running Windows or Linux, I can create and save sessions, control terminals, serve the player experience, open external links, and manage public-access credentials with the same security and lifecycle guarantees as the existing desktop application.
-
-**Why this priority**: Launching alone is insufficient; the new builds must preserve the workflows that make the application useful during a game.
-
-**Independent Test**: On one supported machine per operating system, complete a representative game-hosting journey from opening the bundled demo through connecting a player browser, saving a session, using native dialogs, exercising configured public access, and closing the application cleanly.
+**Independent Test**: Inspect the archive produced for each target and confirm its stable name, non-zero size, expected executable, and required bundled resources without launching native UI or operating-system integrations.
 
 **Acceptance Scenarios**:
 
-1. **Given** the application is running on a supported Windows or Linux target, **When** the Overseer opens or saves a session, **Then** the native dialog starts from an appropriate user location and the selected JSON file is handled correctly.
-2. **Given** a player is on the same reachable network as the host, **When** they open the address shown by the application, **Then** they receive the synchronized player terminal and can participate in the same session workflow as with the existing application.
-3. **Given** the operating system provides an available secure credential service, **When** the Overseer stores public-access credentials, **Then** the credentials persist in that protected service and never appear in session files, settings files, logs, or public state.
-4. **Given** the Overseer closes the application, **When** shutdown completes, **Then** owned listeners and public-access resources are released without leaving a background application process.
+1. **Given** a Windows target, **When** its archive is inspected, **Then** the archive name identifies Windows and its processor and the archive contains the Windows executable and required resources.
+2. **Given** a Linux target, **When** its archive is inspected, **Then** the archive name identifies Linux and its processor and the archive contains the executable and required resources.
+3. **Given** a user selects an archive for the wrong operating system or processor architecture, **When** they consult the filename and release documentation, **Then** they can identify the mismatch before downloading or unpacking it.
 
-### User Story 3 - Produce trustworthy artifacts for all targets (Priority: P2)
+### User Story 2 - Preserve project quality outside releases (Priority: P1)
 
-As a maintainer, I can produce and inspect a complete release matrix of portable runnable archives for Windows and Linux and build the native Darwin package plus the same four target payloads directly from my current checkout, so every advertised artifact and local executable has clear target identity and evidence that it contains the required application resources.
+As a maintainer, I can receive the project's established quality results on pull requests and main-branch pushes without running the five-target release matrix or publishing release assets.
 
-**Why this priority**: Repeatable release evidence prevents users from receiving mislabeled, incomplete, or architecture-incompatible downloads.
+**Why this priority**: Simplifying hobby-project releases must not remove the ordinary feedback that protects the existing application and build contracts.
 
-**Independent Test**: Start from a clean checkout in the supported automation environment, produce the full target matrix, and verify that each archive is uniquely named, can be unpacked without an installer, has the declared operating system and architecture, contains the required resources, and passes its platform launch check. Separately, on `darwin/arm64`, inspect a local aggregate from the current checkout and verify the complete signed application bundle plus exactly four Windows/Linux `bin/<os>-<arch>/` payloads, byte identity with their archives, atomic failure behavior, and actionable host/Docker prerequisite errors without treating Docker output as native Windows/Linux launch evidence.
+**Independent Test**: Inspect and run the non-release quality workflow on a pull request or `main` push and confirm it performs the configured Go, protobuf, frontend, startup, Wails-pin, and binding checks with read-only permissions and no release assets.
 
 **Acceptance Scenarios**:
 
-1. **Given** a clean source revision and suitable target builders, **When** the aggregate packaging command runs, **Then** it coordinates the target-specific commands and produces one non-colliding artifact for each of the four requested target combinations.
-2. **Given** a produced artifact, **When** its target and resource inventory are inspected, **Then** its operating system, processor architecture, executable metadata, application assets, bundled demo, and required notices match the declared target.
-3. **Given** any target build or target-specific validation fails, **When** the workflow completes, **Then** that target is not presented as a successful release artifact and the failing target is clearly reported.
-4. **Given** a current checkout that may contain uncommitted changes and a usable Docker daemon, **When** `task package:all` succeeds, **Then** its output contains all four archives and exactly one directly runnable executable/resource payload for each target under `bin/<os>-<arch>/`, and every payload file matches the corresponding verified archive.
-5. **Given** Docker is missing, stopped, or cannot execute a required build platform, **When** `task package:all` starts, **Then** it exits nonzero without publishing a partial output and reports the underlying Docker cause plus an actionable recovery instruction.
-6. **Given** the repository-owned default output or a recognized previous aggregate output already exists, **When** `task package:all` completes successfully, **Then** it replaces that output only after the new five-target local result is fully verified; if build, verification, or publication fails, the previous output remains available unchanged.
-7. **Given** the command runs on the supported `darwin/arm64` host with Docker available, **When** `task package:all` succeeds, **Then** it publishes the native ad-hoc signed `Fallout Terminal.app` produced through the canonical `task package` plan under `bin/darwin-arm64/` together with all four Windows/Linux archives and runnable payloads.
-8. **Given** a valid SemVer tag whose source revision passes all native target gates, **When** tag delivery succeeds, **Then** the same GitHub Release and versioned GitHub Packages artifact contain the unsigned Darwin DMG, its verified SHA-256 sidecar, all four Windows/Linux archives and sidecars, and the aggregate index; if any target, checksum, inventory check, or publication step fails, no partial five-target release is presented as successful.
+1. **Given** a pull request or push to `main`, **When** the quality workflow runs, **Then** it executes the configured Go tests and vet, protobuf checks, clean frontend builds, startup contracts, exact Wails-pin checks, and clean binding generation.
+2. **Given** a quality run, **When** its permissions and outputs are inspected, **Then** it has read-only repository access, creates no GitHub Release, and publishes no release asset.
+3. **Given** a semantic-version tag, **When** automation is selected, **Then** the non-release quality workflow is not used as a dependency or gate for the five-target release matrix.
+4. **Given** an optional native UI, dialog, player, lifecycle, or secure-store check is not run, **When** quality evidence is reported, **Then** the check is marked `NOT RUN` rather than claimed as passing and it does not affect archive support.
 
-### User Story 4 - Choose and operate the correct distribution (Priority: P3)
+### User Story 3 - Publish simple tagged releases for all targets (Priority: P2)
 
-As a user or maintainer, I can find the supported versions, runtime prerequisites, artifact naming rules, launch instructions, storage locations, and known platform limitations, so I can select and operate the correct distribution without guesswork.
+As a maintainer of a hobby project, I can push a version tag and receive one portable archive containing the executable and required resources for every supported target in a single release, without maintaining signing credentials or complex native UI automation.
+
+**Why this priority**: A small project needs dependable downloadable builds without enterprise release ceremony.
+
+**Independent Test**: After static and local validation passes, push a maintainer-approved unused SemVer prerelease tag from the committed implementation, wait for every native target build to finish, and confirm that the resulting real GitHub Release contains exactly one uniquely named, non-empty portable archive per supported target with its executable and required resources.
+
+**Acceptance Scenarios**:
+
+1. **Given** a clean tagged source revision, **When** the release workflow runs, **Then** it builds each supported operating-system and processor target independently using the same target-specific build contract.
+2. **Given** a target build succeeds, **When** its release asset is prepared, **Then** the asset is one portable archive whose name identifies the target and whose contents include the executable and required resources.
+3. **Given** every target build succeeds and the tag has no existing GitHub Release, **When** the workflow reaches publication, **Then** it creates the tag's GitHub Release with the complete archive set.
+4. **Given** any target build or archive preparation fails, **When** the workflow completes, **Then** release publication is withheld and the failed target is clearly reported.
+5. **Given** the macOS target is built, **When** its archive is prepared, **Then** it uses the same unsigned target-build and archive flow as Windows and Linux without signing or notarization.
+6. **Given** the tag already has a GitHub Release, **When** publication is attempted, **Then** the workflow fails without changing that release or its assets.
+7. **Given** publication creates a partial GitHub Release and then fails, **When** the failed run reports its result, **Then** it leaves the partial release unchanged and instructs a maintainer to delete it before rerunning the same tag.
+8. **Given** a pull request or push to the main branch, **When** automation runs, **Then** a separate non-release quality workflow reports project quality results without running the five-target release matrix or publishing release assets.
+
+### User Story 4 - Choose the correct distribution (Priority: P3)
+
+As a user or maintainer, I can find supported archive targets, runtime prerequisites, artifact naming rules, launch guidance, data locations, and known platform limitations, so I can select the correct distribution without guesswork.
 
 **Why this priority**: Documentation reduces installation and support friction after the application and release matrix are functional.
 
-**Independent Test**: Give the release documentation and artifact list to a user unfamiliar with the build process and confirm they can choose the correct download, identify prerequisites, launch it, and locate user-owned data.
+**Independent Test**: Give the release documentation and artifact list to a user unfamiliar with the build process and confirm they can choose the correct download and identify its prerequisites, launch guidance, and user-owned data locations without requiring a successful native launch demonstration.
 
 **Acceptance Scenarios**:
 
-1. **Given** the available Windows and Linux artifacts, **When** a user consults the documentation, **Then** they can select the artifact matching their operating system and processor architecture.
+1. **Given** the five available Windows, Linux, and macOS artifacts, **When** a user consults the documentation, **Then** they can select the artifact matching their operating system and processor architecture.
 2. **Given** a target has an operating-system runtime prerequisite, **When** a user prepares the machine, **Then** the documentation states the prerequisite and how to recognize when it is unavailable.
 3. **Given** a user needs to back up or troubleshoot Fallout Terminal, **When** they consult the platform guidance, **Then** they can locate session documents and private application settings without exposing stored secrets.
 
 ## Edge Cases
 
-- What happens when an artifact is launched on the wrong operating system or processor architecture?
-- How does startup fail when a required native web-view, desktop library, or secure credential service is missing or locked?
-- How are user-data and application-resource locations resolved when the home directory is redirected, read-only, contains spaces or non-ASCII characters, or follows a non-default layout?
-- How does the application distinguish packaged resources from a development checkout on each operating system?
-- What happens when a saved session or settings file from macOS is opened on Windows or Linux, and vice versa?
-- How are native dialog filters and external-link behavior kept consistent despite operating-system differences?
-- What happens when the player-listener port is already occupied or public access cannot start?
-- How does shutdown behave when players are connected or public access is active?
-- How are artifacts prevented from overwriting one another when all four targets are produced from the same source revision?
-- How is a target withheld when its application resources, metadata, executable permissions, or architecture cannot be verified?
-- How does local aggregate packaging preserve the Docker diagnostic and avoid exposing a partial output when the daemon or a required build platform is unavailable?
+- What happens when a user selects an archive for the wrong operating system or processor architecture?
+- How does archive inspection report a missing executable, required resource, or empty file?
+- How are packaged read-only resources distinguished from user-owned data that must not enter an archive?
+- How are target archives kept uniquely named when every supported target is built from the same tag?
+- What happens when one target build fails after other target archives have already completed?
+- If a qualifying version tag already has a GitHub Release, the workflow fails without replacing, deleting, or adding assets to that release.
+- If publication creates a partial GitHub Release and then fails, the workflow performs no automated rollback, reports instructions to delete the partial release manually, and refuses to modify it on a rerun; after deletion, a maintainer can rerun the same tag.
+- If GoReleaser fails without creating a GitHub Release, the workflow reports that the same tag may be rerun immediately and does not instruct the maintainer to delete a nonexistent release.
+- A live acceptance tag must be an unused maintainer-approved SemVer prerelease tag; if its run succeeds, the created prerelease remains as repository acceptance evidence rather than being automatically deleted.
+- Native launch, UI, dialog, player, lifecycle, secure-store, tunnel, and signing behavior remain existing product concerns outside this archive-availability feature and may be reported as optional `NOT RUN` evidence.
 
 ## Requirements
 
 ### Functional Requirements
 
-- **FR-001**: The product MUST support distributable desktop application targets for Windows on arm64, Windows on amd64, Linux on arm64, and Linux on amd64.
+- **FR-001**: The product MUST make governed portable archives available for Windows on arm64, Windows on amd64, Linux on arm64, Linux on amd64, and macOS on arm64.
 - **FR-002**: The product MUST document the minimum supported operating-system versions and required system runtime dependencies for each target.
 - **FR-003**: Every target artifact MUST include the complete Overseer interface, player interface, bundled demo data, product identity, application icon, and required third-party notices.
-- **FR-004**: A user MUST be able to launch each target artifact without installing the source repository, a compiler, or frontend build tools.
-- **FR-005**: Every target MUST preserve the existing session authoring, terminal control, navigation, hacking, sound, local player connection, and configured public-access workflows.
-- **FR-006**: Every target MUST provide working native open-file, save-file, and external-link interactions with JSON file selection behavior consistent across operating systems.
-- **FR-007**: Every target MUST keep user-owned session documents, private application settings, and read-only bundled resources in distinct locations appropriate to that operating system.
-- **FR-008**: Every target MUST store public-access secrets only in an operating-system-protected credential service and MUST fail closed with a clear status when no secure service is available.
-- **FR-009**: Every target MUST release owned listeners, public-access resources, and background activity when the application exits normally or startup fails.
+- **FR-004**: A user MUST be able to unpack each target archive and locate its packaged executable and required resources without installing the source repository, a compiler, or frontend build tools.
+- **FR-005**: This feature MUST preserve existing application behavior without making session, control, player, dialog, lifecycle, or public-access journeys a platform-support or tagged-release acceptance requirement.
+- **FR-006**: Native UI, dialog, external-link, player, lifecycle, credential-store, tunnel, and signing checks MUST remain optional and non-gating, and unexecuted checks MUST be reported as `NOT RUN` rather than passing evidence.
+- **FR-007**: Every archive MUST contain only packaged read-only application resources and MUST NOT contain user-owned session documents or private application settings.
+- **FR-008**: Every archive and automated release output MUST contain zero public-access credentials, plaintext secret fallbacks, or secret-bearing verification records.
+- **FR-009**: Archive eligibility and platform support MUST NOT require application startup, native interaction, or shutdown evidence.
 - **FR-010**: Maintainers MUST have a documented packaging command for each supported target that runs on a matching operating-system host without requiring source changes between targets.
 - **FR-011**: Each produced artifact MUST have a stable, unique name that identifies its operating system and processor architecture.
-- **FR-012**: The automated delivery workflow MUST build and report all four target combinations independently from a clean source revision.
-- **FR-013**: The delivery workflow MUST verify each artifact's declared target, required resource inventory, product metadata, and ability to reach an opened application window on a matching platform.
+- **FR-012**: The automated delivery workflow MUST define exactly this five-target build matrix from one clean tagged source revision: Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64.
+- **FR-013**: Automated per-target archive eligibility validation MUST be limited to successful target compilation, non-empty archive creation, and presence of the executable and required resources; strict native UI, dialog, credential-store, player-journey, signing, and notarization checks MUST NOT gate hobby-project releases.
 - **FR-014**: A failed or unverifiable target MUST NOT be reported or published as a successful artifact.
-- **FR-015**: Existing macOS application behavior and its supported distribution MUST remain available without regression while Windows and Linux support is added.
+- **FR-015**: The supported macOS target MUST enter the same explicit target-specific unsigned build-and-portable-archive flow as every Windows and Linux target.
 - **FR-016**: User-facing documentation MUST explain target selection, prerequisites, launch steps, data locations, credential-service expectations, and platform-specific troubleshooting.
-- **FR-017**: Platform or architecture mismatches and missing runtime dependencies MUST produce actionable failure information rather than silent exit or partial startup.
-- **FR-018**: Maintainers MUST have an additional aggregate packaging command that coordinates all four target-specific commands and reports failure unless every target package succeeds.
-- **FR-019**: Each target-specific packaging command MUST produce a portable runnable archive that requires no native installer.
+- **FR-017**: Documentation and archive diagnostics MUST provide actionable information for platform or architecture mismatches, missing archive contents, and unavailable runtime prerequisites.
+- **FR-018**: The version-tag workflow MUST withhold GitHub Release publication unless all five required target archives succeed.
+- **FR-019**: Each target-specific packaging command MUST produce a portable archive containing the target executable and required resources without requiring a native installer.
 - **FR-020**: The repository MUST migrate its developer, verification, build, package, release, and Spec Kit command aliases from the root Makefile into a root Taskfile compatible with the pinned Wails task-based workflow.
 - **FR-021**: Go Task MUST be version-pinned in its own isolated Go tool module under `tools/` and MUST be installed through the same repository-owned bootstrap as every other Go development tool.
 - **FR-022**: The root Makefile MUST retain only one bootstrap responsibility: installing every Go tool declared by the isolated modules under `tools/`, including Go Task; it MAY expose a non-mutating `help` target that points to Task discovery, but MUST NOT remain a parallel owner or proxy of application workflows.
 - **FR-023**: Existing maintainer workflows currently exposed through Make MUST have documented Task equivalents with preserved ordering, inputs, and failure behavior.
-- **FR-024**: The accepted Wails Go runtime, isolated CLI tool, and frontend runtime MUST be upgraded together and pinned exactly to the latest published beta, `v3.0.0-beta.13` / `3.0.0-beta.13`, with committed Go and npm checksums.
-- **FR-025**: Maintainers MUST be able to build and statically verify the complete four-target portable matrix from the current local checkout with Docker, including a directly accessible executable and required resource tree for every target, without requiring a clean or pushed branch; partial output MUST remain unpublished and native launch verification MUST remain explicitly separate.
-- **FR-026**: Local aggregate packaging prerequisite failures MUST identify Docker as the failing dependency, preserve the underlying diagnostic when available, provide an actionable install/start/platform recovery instruction, and MUST NOT be replaced by a generic task-runner precondition failure.
-- **FR-027**: Local aggregate packaging MUST safely replace an existing repository-owned default output or recognized previous aggregate output only after complete verification, MUST restore or preserve the previous output on publication failure, and MUST reject replacement of a file, symlink, repository root, filesystem root, or unrecognized custom directory.
-- **FR-028**: Local `task package:all` MUST require the supported `darwin/arm64` host, build the macOS application through the same canonical plan as no-target `task package`, verify and expose its complete application bundle at `OUTPUT/bin/darwin-arm64/Fallout Terminal.app`, and publish it in the same all-or-nothing transaction as the four Docker-built Windows/Linux targets.
-- **FR-029**: A valid `vMAJOR.MINOR.PATCH` tag with an optional prerelease suffix MUST coordinate an unsigned `darwin/arm64` DMG whose SHA-256 sidecar verifies exactly with the complete four-target Windows/Linux native matrix from one tag SHA, and the repository-pinned GoReleaser v2 flow MUST publish the complete joined inventory to one GitHub Release; signing, notarization, stapling, Gatekeeper, and macOS release credentials MUST NOT be release eligibility requirements, while any missing, failed, mismatched, or unverifiable target, checksum, or publication step MUST withhold release publication.
+- **FR-024**: The accepted Wails Go runtime, isolated CLI tool, and frontend runtime MUST remain pinned exactly to the accepted `v3.0.0-beta.13` / `3.0.0-beta.13` baseline, with committed Go and npm checksums.
+- **FR-025**: Every supported target MUST be built from the tagged revision on a compatible runner by invoking the same explicit target-aware repository package entrypoint with that target's operating-system and processor-architecture inputs.
+- **FR-026**: The release workflow MUST NOT depend on Docker aggregate builds, native UI automation, credential-store integration tests, public-tunnel tests, GitHub Packages publication, signing, notarization, or rollback orchestration.
+- **FR-027**: Pushing a semantic-version tag in the form `vMAJOR.MINOR.PATCH`, with an optional prerelease suffix, MUST trigger the complete supported-target build matrix and a single GitHub Release publication flow; other tags, pull requests, and ordinary branch pushes MUST NOT trigger that matrix.
+- **FR-028**: The GitHub Release MUST contain exactly one uniquely named portable archive per supported target, and each archive MUST contain that target's executable and required runtime resources.
+- **FR-029**: The macOS tagged-release path MUST NOT create or require a DMG, signature, notarization, stapling, or any macOS-specific publication path.
+- **FR-030**: If a qualifying tag already has a GitHub Release, the workflow MUST fail and MUST leave the existing release and all of its assets unchanged.
+- **FR-031**: If publication creates a partial GitHub Release and then fails, the workflow MUST leave it unchanged, report instructions for a maintainer to delete it manually, refuse automated reruns while it exists, and allow the same tag to be rerun after its deletion.
+- **FR-032**: A separate non-release quality workflow MUST run project quality checks for pull requests and pushes to the main branch, MUST NOT run the five-target release matrix, and MUST publish no release assets.
+- **FR-033**: The repository MUST retain `task package:all` and its Docker implementation as optional maintainer convenience that runs neither in CI nor as a platform-support, quality-workflow, feature-completion, or tagged-release gate.
+- **FR-034**: The repository MUST remove `package:all:remote`, `release:local`, and their remote aggregation and joined-release implementations, tests, tool dependencies, and active documentation.
+- **FR-035**: Tagged publication MUST enter through the CI-owned `release:publish` Task command, which MUST invoke repository-pinned GoReleaser as the sole GitHub Release publisher.
 
 ## Key Entities
 
 - **Platform Target**: One supported operating-system and processor-architecture combination, including its compatibility baseline and runtime prerequisites.
-- **Distribution Artifact**: The portable runnable archive for one platform target, including its target identity, product metadata, executable content, resources, and verification status.
-- **Runnable Payload**: The directly accessible executable and required resource tree exported for one local Docker target; its exact inventory and file hashes must match the corresponding verified Distribution Artifact.
-- **Local Aggregate Run**: One atomic five-target build from the current checkout that owns the canonical native `darwin/arm64` package, four quarantined Docker target outputs, static verification, actionable host/Docker prerequisite diagnostics, and final publication without claiming native Windows/Linux launch evidence.
-- **Platform Storage Profile**: The target-specific locations for user session documents, private non-secret settings, protected credentials, and bundled read-only resources.
-- **Target Verification Record**: Evidence associated with one artifact showing its declared target, required resource inventory, launch result, and release eligibility.
-- **Tagged Release Run**: One five-target release transaction for a SemVer tag that joins the SHA-256-verified unsigned Darwin DMG with four eligible portable artifacts from the same SHA before GoReleaser-owned GitHub Release publication.
+- **Distribution Artifact**: The governed portable archive for one platform target, including its target identity, product metadata, executable content, resources, and verification status.
+- **Release Build Matrix**: The five independent compatible-runner builds for Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64 from one version tag.
+- **Target Build Result**: The success or failure of compiling one target and creating its non-empty portable archive with executable and required resources.
+- **Tagged Release Run**: One workflow run that builds every supported target from a version tag and attaches the complete archive set to that tag's GitHub Release.
+- **Non-Release Quality Run**: A pull-request or main-branch workflow run that evaluates project quality without invoking the five-target release matrix or publishing release assets.
+- **Local Package-All Run**: An optional maintainer-initiated Docker aggregate from the current checkout that is isolated from CI, platform support, feature completion, and tagged releases.
 
 ## Success Criteria
 
 ### Measurable Outcomes
 
-- **SC-001**: A clean aggregate packaging run with suitable target builders produces exactly four independently identified portable runnable archives, one for each requested operating-system and processor combination.
-- **SC-002**: On a clean matching system, 100% of the four artifacts open the Overseer window and load the bundled demo within 60 seconds without developer tooling.
-- **SC-003**: A representative host-and-player journey passes on both Windows and Linux, including session open/save, one connected player, synchronized control, and clean shutdown.
-- **SC-004**: Artifact inspection confirms the declared operating system, processor architecture, product identity, and required resource inventory for all four artifacts with zero mismatches.
-- **SC-005**: Public-access credentials are absent from session files, non-secret settings, logs, and public state in every supported target verification.
-- **SC-006**: When a secure credential service is unavailable, every affected verification reports public access as unavailable and stores zero secrets in an unprotected fallback.
-- **SC-007**: The macOS distribution continues to meet build, launch, inventory, and SHA-256 acceptance checks after the new targets are introduced, without a signing or notarization gate.
+- **SC-001**: A successful version-tag run produces exactly five uniquely identified portable archives: Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64.
+- **SC-002**: Every published archive is non-empty and contains its target executable plus all required runtime resources.
+- **SC-003**: Archive inspection for every target requires zero native window, dialog, player, lifecycle, credential-store, tunnel, or signing execution steps.
+- **SC-004**: Every archive name identifies its operating system and processor architecture with zero collisions across the release.
+- **SC-005**: Public-access credentials, plaintext secret fallbacks, and secret-bearing verification records are absent from all five archives and every automated release asset.
+- **SC-006**: Every optional native or external-service check that is unavailable or unexecuted is reported as `NOT RUN` and changes zero archive-eligibility, platform-support, quality-workflow, or tagged-release outcomes.
+- **SC-007**: A successful macOS target job executes zero signing, notarization, or stapling steps.
 - **SC-008**: Using only the published guidance, a maintainer can identify the correct artifact, its prerequisites, and its user-data locations for any supported target in under five minutes.
 - **SC-009**: After one tool-bootstrap command, a maintainer can run every migrated repository workflow through the pinned Task binary, and automated inspection finds no application workflow remaining in the Makefile.
-- **SC-010**: A successful local `task package:all` output contains the complete Darwin bundle plus exactly four Windows/Linux target payload directories and directly accessible executables with complete required resources, zero inventory or hash differences from their corresponding archives, while an unavailable host or Docker prerequisite yields an actionable nonzero error and no partial output directory.
-- **SC-011**: Two consecutive successful `task package:all` runs using the same owned output require no manual deletion; the second exposes only its complete verified matrix, while injected build or final-publication failure leaves the first result available and byte-unchanged and unsafe existing output targets are rejected.
-- **SC-012**: On a supported `darwin/arm64` host, a successful local `task package:all` reports and exposes exactly one complete macOS application bundle plus the four Windows/Linux runnable payloads; a non-Darwin or non-arm64 host fails before packaging with no output replacement.
-- **SC-013**: For every successful SemVer tag publication, the GitHub Release exposes exactly one verified Darwin DMG with checksum, four verified Windows/Linux archives with sidecars, and one aggregate index from the same source SHA; controlled failure of any of the five target gates produces no GitHub Release publication.
+- **SC-010**: A controlled target-build failure prevents the tag's release from being published as complete and identifies the failed target.
+- **SC-011**: A successful version-tag workflow attaches the full supported-target archive set to one GitHub Release without publishing a duplicate raw executable, checksum sidecar, aggregate index, or package-registry copy.
+- **SC-012**: The release workflow contains zero strict native UI, dialog, secure-store, public-tunnel, signing, notarization, or rollback-orchestration gates.
+- **SC-013**: The macOS release asset is one non-empty portable archive whose stable name identifies macOS arm64 and whose contents include the packaged application executable and required resources under the same archive eligibility contract as Windows and Linux.
+- **SC-014**: Re-running publication for a tag that already has a GitHub Release makes zero changes to that release or its assets and reports failure.
+- **SC-015**: A controlled publication failure after partial release creation performs zero automated deletion or replacement actions, reports the manual deletion-and-rerun procedure, and permits the same tag to publish only after a maintainer deletes the partial release.
+- **SC-016**: Every pull-request and main-branch quality run publishes zero release assets and invokes zero jobs from the five-target release matrix.
 
 ## Assumptions
 
-- “Support” means a complete desktop distribution with functional parity for existing game-hosting workflows, not merely a cross-compiled command-line executable.
-- The scope covers the four requested Windows/Linux targets; additional operating systems and processor architectures are not implied.
+- “Support” means availability of a governed unsigned portable archive containing the desktop executable and required resources, not verified native runtime behavior, an installer, or a signed platform-native distribution.
+- The release scope covers the four requested Windows/Linux targets plus the existing macOS arm64 target; macOS amd64 and other targets are not implied.
 - Each platform's minimum supported version will follow the compatibility range of the project's accepted desktop runtime and native dependencies and will be stated explicitly in release documentation.
-- Portable runnable release archives are required for the four new targets; native installers and platform signing are not required by this feature.
-- Session and player-configuration file formats remain portable across supported operating systems.
-- Acceptance evidence may be produced by automation or matching platform hosts; this specification step does not require local test execution.
+- Governed portable release archives are required for all five targets; native installers and platform signing are not required by this feature.
+- Existing session, player, native UI, dialog, lifecycle, credential-store, and public-access behavior is unchanged and outside the acceptance scope of this archive-availability feature.
+- Detailed native and operating-system integration behavior may be checked manually when useful, but those checks do not gate feature completion, quality CI, platform support, or hobby-project tagged releases.
+- The five-target build matrix is release automation only and runs for semantic-version tags in the form `vMAJOR.MINOR.PATCH`, including optional prerelease suffixes; it does not run for other tags, pull requests, or ordinary branch pushes.
+- Pull requests and pushes to the main branch continue to run project quality checks in a separate non-release workflow that publishes no release assets.
+- Optional local `task package:all` may retain Docker-specific checksums and aggregate metadata because those outputs never enter CI or a tagged release.
+- Live acceptance uses a maintainer-approved unused SemVer prerelease tag only after the implementation is committed and local/static validation passes; a successful acceptance prerelease is preserved as evidence.
 - The Taskfile is the command-orchestration surface; existing Go packages and commands may continue to own detailed build, archive, and verification logic so that orchestration is not duplicated in YAML.
+- Maintainers own deletion of a partial GitHub Release before rerunning its tag; release automation never rolls back or modifies an existing release.
 
 ## Verbatim Constraints
 
 - Operating systems: `windows`, `linux`
 - Processor architectures: `arm64`, `amd64`
+- Existing macOS target: `darwin/arm64`
+- CI publisher task: `release:publish`

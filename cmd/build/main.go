@@ -90,30 +90,93 @@ func run(ctx context.Context, root string, arguments []string) error {
 			return err
 		}
 		return runPackageAllDocker(ctx, root, options)
-	case "package-all":
-		options, err := parsePackageAllOptions(action, actionArguments, filepath.Join("build", "dist"))
+	case "validate-release-tag":
+		tag, err := parseRequiredStringFlag(action, actionArguments, "tag")
 		if err != nil {
 			return err
 		}
-		return runPackageAll(ctx, root, options)
-	case "release-candidate":
-		options, err := parsePackageAllOptions(action, actionArguments, filepath.Join("build", "release"))
+		prerelease, err := buildtool.ValidateReleaseTag(tag)
 		if err != nil {
 			return err
 		}
-		return runReleaseCandidate(ctx, root, options)
+		fmt.Printf("==> valid release tag: %s prerelease=%t\n", tag, prerelease)
+		return nil
+	case "inspect-release-archive":
+		target, archive, err := parseReleaseArchiveOptions(action, actionArguments)
+		if err != nil {
+			return err
+		}
+		if err := buildtool.InspectReleaseArchive(ctx, target, archive); err != nil {
+			return err
+		}
+		fmt.Printf("==> eligible release archive: %s %s\n", target, archive)
+		return nil
+	case "inspect-release-inventory":
+		directory, err := parseRequiredStringFlag(action, actionArguments, "directory")
+		if err != nil {
+			return err
+		}
+		if err := buildtool.InspectReleaseInventory(ctx, directory); err != nil {
+			return err
+		}
+		fmt.Printf("==> exact release inventory: %s\n", directory)
+		return nil
 	default:
 		return newUsageError(
 			fmt.Sprintf(
-				"unknown action %q (want dev, build, package, package-all-docker, package-all, release-candidate, run, or prepare)",
+				"unknown action %q (want dev, build, package, package-all-docker, validate-release-tag, inspect-release-archive, inspect-release-inventory, run, or prepare)",
 				action,
 			),
 		)
 	}
 }
 
+func parseRequiredStringFlag(action string, arguments []string, name string) (string, error) {
+	flags := flag.NewFlagSet(action, flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	var value string
+	flags.StringVar(&value, name, "", "required value")
+	if err := flags.Parse(arguments); err != nil {
+		return "", newUsageError(fmt.Sprintf("%s flags: %v", action, err))
+	}
+	if flags.NArg() != 0 {
+		return "", newUsageError(fmt.Sprintf("%s accepts only --%s; unexpected argument %q", action, name, flags.Arg(0)))
+	}
+	if value == "" {
+		return "", newUsageError(fmt.Sprintf("--%s must not be empty", name))
+	}
+	return value, nil
+}
+
+func parseReleaseArchiveOptions(action string, arguments []string) (buildtool.Target, string, error) {
+	flags := flag.NewFlagSet(action, flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	var rawTarget string
+	var archive string
+	flags.StringVar(&rawTarget, "target", "", "exact GOOS/GOARCH release target")
+	flags.StringVar(&archive, "archive", "", "release archive path")
+	if err := flags.Parse(arguments); err != nil {
+		return buildtool.Target{}, "", newUsageError(fmt.Sprintf("%s flags: %v", action, err))
+	}
+	if flags.NArg() != 0 {
+		return buildtool.Target{}, "", newUsageError(fmt.Sprintf("%s accepts only --target and --archive", action))
+	}
+	if rawTarget == "" || archive == "" {
+		return buildtool.Target{}, "", newUsageError("inspect-release-archive requires non-empty --target and --archive values")
+	}
+	goos, goarch, found := strings.Cut(rawTarget, "/")
+	if !found || strings.Contains(goarch, "/") {
+		return buildtool.Target{}, "", newUsageError(fmt.Sprintf("invalid --target %q (want GOOS/GOARCH)", rawTarget))
+	}
+	target, err := buildtool.ParseTarget(goos, goarch)
+	if err != nil {
+		return buildtool.Target{}, "", newUsageError(err.Error())
+	}
+	return target, archive, nil
+}
+
 func runPackageAllDocker(ctx context.Context, root string, options packageAllOptions) error {
-	result, err := buildtool.PackageAllDocker(ctx, root, options.output, func(record buildtool.AggregateTargetRecord) {
+	result, err := buildtool.PackageAllDocker(ctx, root, options.output, func(record buildtool.LocalPackageTargetRecord) {
 		if record.Failure != nil {
 			fmt.Printf("==> %s: %s (%v)\n", record.Target, record.Status, record.Failure)
 			return
@@ -206,55 +269,6 @@ func parsePackageAllOptions(action string, arguments []string, defaultOutput str
 	return options, nil
 }
 
-func runReleaseCandidate(ctx context.Context, root string, options packageAllOptions) error {
-	result, err := buildtool.BuildReleaseCandidate(ctx, root, options.output, func(record buildtool.AggregateTargetRecord) {
-		if record.Failure != nil {
-			fmt.Printf("==> %s: %s (%v)\n", record.Target, record.Status, record.Failure)
-			return
-		}
-		fmt.Printf("==> %s: %s\n", record.Target, record.Status)
-	})
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("==> source revision: %s\n", result.SourceSHA)
-	fmt.Printf("==> release candidate: %s\n", result.OutputDirectory)
-	for _, name := range result.Files {
-		fmt.Printf("==> release file: %s\n", name)
-	}
-	return nil
-}
-
-func runPackageAll(ctx context.Context, root string, options packageAllOptions) error {
-	result, err := buildtool.PackageAll(ctx, root, options.output, func(record buildtool.AggregateTargetRecord) {
-		if record.Failure != nil {
-			fmt.Printf("==> %s: %s (%v)\n", record.Target, record.Status, record.Failure)
-			return
-		}
-		fmt.Printf("==> %s: %s\n", record.Target, record.Status)
-	})
-	if err != nil {
-		if result.RunURL != "" {
-			fmt.Printf("==> workflow: %s\n", result.RunURL)
-		}
-		return err
-	}
-
-	fmt.Printf("==> workflow: %s\n", result.RunURL)
-	fmt.Printf("==> source revision: %s\n", result.SourceSHA)
-	fmt.Printf("==> aggregate output: %s\n", result.OutputDirectory)
-	for _, artifact := range result.Artifacts {
-		fmt.Printf(
-			"==> %s: %s (%s)\n",
-			artifact.Target(),
-			artifact.ArchiveName(),
-			artifact.Checksum(),
-		)
-	}
-	return nil
-}
-
 func containsTargetFlag(arguments []string) bool {
 	for _, argument := range arguments {
 		if argument == "--target" || strings.HasPrefix(argument, "--target=") {
@@ -272,9 +286,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build <dev|run> [application arguments]")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build <build|package> [--target GOOS/GOARCH]")
+	fmt.Fprintln(os.Stderr, "    explicit targets: windows/amd64, windows/arm64, linux/amd64, linux/arm64, darwin/arm64")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-container --target GOOS/GOARCH")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build prepare")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all-docker [--output <directory>]")
-	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all [--output <directory>]")
-	fmt.Fprintln(os.Stderr, "  go run ./cmd/build release-candidate [--output <directory>]")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build validate-release-tag --tag <vMAJOR.MINOR.PATCH[-PRERELEASE]>")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-archive --target GOOS/GOARCH --archive <path>")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-inventory --directory <path>")
 }

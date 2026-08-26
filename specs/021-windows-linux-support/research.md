@@ -1,95 +1,137 @@
-# Phase 0 Research: Windows and Linux Desktop Support
+# Research: Constitution v8 Archive-Availability Convergence
 
-**Bugfix**: 2026-08-26 — BUG-001 clarifies the local Docker payload and diagnostic contract while preserving native release evidence.
+## Decision: Define platform support as portable archive availability
 
-**Bugfix**: 2026-08-26 — BUG-003 joins native `darwin/arm64` packaging to the local aggregate without changing the remote release matrix.
+**Decision**: For this feature, a platform is supported when the matching build host can produce the governed unsigned portable archive containing its executable and required resources. Native window, dialog, player, lifecycle, secure-store, tunnel, and signing journeys are optional evidence and do not gate feature completion, quality CI, platform support, or tagged releases.
 
-**Bugfix**: 2026-08-26 — BUG-004 defines the missing five-target SemVer-tag publication gate and reopens incomplete evidence.
+**Rationale**: This is a hobby-project distribution feature whose primary value is simple, complete downloads. Constitution v8.0.0 deliberately separates archive availability from claims that every native operating-system integration journey was executed for a revision.
 
-## Native target builders and aggregate orchestration
+**Alternatives considered**:
 
-**Decision**: Package `windows/amd64`, `windows/arm64`, `linux/amd64`, and `linux/arm64` on matching operating-system and architecture runners. `task package:all:remote` resolves the current clean pushed branch in `origin`, dispatches the dedicated GitHub Actions workflow, waits for its four target jobs, and fails unless the complete native matrix succeeds. Local `task package:all` runs only on `darwin/arm64`, reuses the canonical no-target package plan for `Fallout Terminal.app`, additionally builds the current checkout through architecture-matched Docker containers, statically verifies every portable archive, and atomically exposes the Darwin bundle plus four matching Windows/Linux executable/resource payloads under `bin/<os>-<arch>/` without claiming native Windows/Linux launch evidence. Host, Docker installation, stopped daemon, or unsupported platform failures retain their underlying diagnostic and provide actionable recovery. Each target path delegates detailed planning, archive work, and verification to `cmd/build`.
+- Require matching-host native journeys before feature completion: rejected because constitution v8 makes that evidence optional.
+- Treat optional checks as passing when unavailable: rejected because unexecuted evidence must be reported honestly as `NOT RUN`.
+- Remove the existing native checks: rejected because they remain useful when a maintainer chooses to run them.
 
-**Rationale**: Wails v3 can cross-compile several combinations, but its production guidance recommends native CI runners for each platform. Linux builds require CGO plus matching GTK and WebKitGTK development libraries, and the feature requires a real-window launch check on the target platform. Native architecture runners make the artifact build and its acceptance evidence one coherent unit. ~~An aggregate CI dispatch is also the only honest interpretation of “package all” when a single local host cannot satisfy the matching-host rule.~~ The remote aggregate is the release-evidence path; the local Docker aggregate is an explicit developer build/static-verification path whose payload/archive equality is useful without pretending to satisfy matching-host acceptance.
+## Decision: Keep quality and release automation separate
 
-**Alternatives considered**: Wails Docker cross-builds remain useful developer tooling but were rejected as release evidence because they cannot provide the required matching-target window check; a local sequential `package-all` was rejected because it could not execute all four matching-host commands; four unrelated manual workflow commands were rejected because they cannot enforce complete-matrix success.
+**Decision**: Retain `.github/workflows/wails-cross-platform.yml` as the non-release workflow for pull requests and pushes to `main`, and make `.github/workflows/wails-portable.yml` the only SemVer-tag release workflow. Consolidate the useful macOS CI checks into the quality workflow, rewrite the portable workflow so it no longer calls the reusable macOS workflow, then remove `.github/workflows/wails-macos.yml` and its active `scripts/proto-check.sh` reference as one ordered cutover.
 
-## Repository-owned target and packaging graph
+**Rationale**: Constitution v8.0.0 requires the broader Go, Buf/protobuf, frontend, startup, Wails-pin, and binding checks to continue without making them release gates. Separate trigger and permission scopes make that boundary visible: quality runs are read-only and cannot publish; release runs do only the five minimal packages and one GitHub Release.
 
-**Decision**: Extend `cmd/build` and `internal/buildtool` with an explicit target value, host compatibility validation, deterministic staging, archive creation, manifest generation, and artifact verification. Make the root Taskfile the canonical command graph and Wails-compatible `build`/`package` entry surface while delegating detailed, testable build plans to Go. Use the pinned Wails CLI for bindings, icons, Windows `.syso` resources, and its supported Task integration. Preserve the existing macOS package behavior and output path through the migrated `task package` command.
+**Alternatives considered**:
 
-The implementation pin is Wails `v3.0.0-beta.13` for the root Go runtime and isolated CLI module and `@wailsio/runtime` `3.0.0-beta.13` for the Overseer frontend. These were the newest matching beta versions published by the official Go module proxy and npm registry on 2026-08-26 and must advance together.
+- Delete PR/main CI entirely: rejected because the approved decision explicitly retains project quality automation.
+- Run quality jobs inside the tag workflow: rejected because strict quality checks must not gate hobby-project releases.
+- Keep the standalone macOS workflow: rejected because its current PR/main CI duplicates the quality owner and its callable DMG job is superseded.
 
-**Rationale**: Task is a cross-platform command runner implemented in Go, and Wails v3 routes its high-level build/package commands through root Taskfile tasks. A thin Task graph gives contributors one native command surface without moving archive or security policy into YAML. A typed Go target model removes the current macOS constants and lets tests verify artifact identity and layout. Go standard-library ZIP, TAR/GZIP, SHA-256, PE, and ELF support avoids another packager.
+## Decision: Use the same explicit package entrypoint on five matching runners
 
-**Alternatives considered**: Keeping Make as a parallel alias graph was rejected because commands and variables would drift; moving detailed build policy entirely into Task YAML was rejected because typed validation, deterministic archives, and unit-testable plans belong in Go; native installers and third-party packagers were rejected because the specification requires portable archives and excludes installers.
+**Decision**: Build `windows/amd64` on `windows-2025`, `windows/arm64` on `windows-11-arm`, `linux/amd64` on `ubuntu-24.04`, `linux/arm64` on `ubuntu-24.04-arm`, and `darwin/arm64` on `macos-15`. Every matrix row invokes `task package GOOS=<os> GOARCH=<arch>` through `tools/task`.
 
-## Task migration and tool bootstrap
+**Rationale**: These matching runner labels already exist in the repository, and the current Go build boundary owns preparation, target validation, resources, Wails invocation, and archive behavior. Extending the accepted target parser and package plan to Darwin gives all five jobs one explicit contract without copying build policy into workflow YAML.
 
-**Decision**: Pin `github.com/go-task/task/v3/cmd/task` at `v3.53.1` in a new isolated `tools/task/go.mod` module. Add a root `Taskfile.yml` using schema version 3 and migrate every application workflow Make target to a documented Task task. Reduce `Makefile` to one default/phony `tools` bootstrap that discovers every `tools/*/go.mod` module and runs `go install tool` inside each—including Task—without hard-coding a partial list, plus a non-mutating `help` target that directs maintainers to `task --list`.
+**Alternatives considered**:
 
-**Rationale**: The supplied Task documentation defines `Taskfile.yml`, version 3 syntax, named tasks, variables, and cross-platform shell interpretation; the supplied Wails guide demonstrates that Wails’ `build`, `package`, and platform dispatch use Taskfiles. Isolating Task exactly like Buf, Wails, generators, and the linter preserves tool-version ownership. A single bootstrap avoids the circular requirement that Task must already exist before it can install itself, while discovery ensures newly added tool modules cannot be omitted silently.
+- Cross-compile all targets from Linux: rejected because native Wails build dependencies require matching hosts for the governed package entrypoint.
+- Call `go build` or Wails directly in YAML: rejected because that bypasses the repository’s ordered frontend, binding, resource, and package policy.
+- Call local `task package:all`: rejected because its Docker outputs are a convenience, not native release inputs.
 
-**Alternatives considered**: Installing Task globally or through an unpinned setup action was rejected because it bypasses repository version ownership; retaining Make workflow aliases after migration was rejected because it creates two command graphs, while informational `make help` remains safe because it performs no workflow; installing only Task in Make was rejected because the user requires one bootstrap for all Go tools and a hard-coded list would drift from `tools/`; making Task invoke `wails3 build` from the `build` task was rejected because Wails dispatches back to that task and would recurse.
+## Decision: Package Darwin as an unsigned portable ZIP
 
-## Portable build prerequisites and runtime baselines
+**Decision**: Explicit `darwin/arm64` packaging assembles the existing `Fallout Terminal.app` metadata, executable, icon, notices, and bundled sessions without a signing step, then writes `Fallout-Terminal-darwin-arm64.zip` through the common archive boundary.
 
-**Decision**: Use the pinned Wails v3 default Linux stack—GTK4, WebKitGTK 6.0, and CGO—and document Ubuntu 24.04-class runtime packages as the initial supported Linux baseline. Use the WebView2 runtime on Windows, with Windows 11 ARM as the arm64 acceptance baseline and supported Windows 10/11 versions for amd64 as permitted by the pinned runtime. Runtime libraries remain operating-system prerequisites rather than being bundled into the archives.
+**Rationale**: The application bundle is the runnable macOS unit and must remain intact. ZIP preserves the bundle hierarchy and executable mode while giving Darwin the same target command, stable archive name, workflow transport, eligibility checks, and GitHub Release treatment as Windows and Linux.
 
-**Rationale**: These are the native stacks selected by the accepted Wails version. Building on native runners with the same dependency family catches missing dynamic libraries before upload. Keeping platform runtimes external produces normal portable application archives while avoiding an undocumented custom runtime distribution.
+**Alternatives considered**:
 
-**Alternatives considered**: Wails’ legacy GTK3 build mode was rejected because it is already a compatibility path scheduled for removal; statically bundling GTK/WebKitGTK or WebView2 was rejected because it would greatly expand the distribution and security-update surface; claiming support below the pinned runtime’s tested baselines was rejected because it would lack acceptance evidence.
+- DMG: rejected because it creates a macOS-specific tagged-release path.
+- Raw Mach-O executable: rejected because it omits required application metadata and resources.
+- Ad-hoc or Developer ID signing, notarization, or stapling: rejected because the approved release contract is unsigned.
+- `darwin/amd64`: rejected because it is outside the exact five-target matrix.
 
-## Packaged identity and resource resolution
+## Decision: Limit tagged-release eligibility to four observable outcomes
 
-**Decision**: Replace path-shape detection of a package with a compile-time production build profile. Development builds resolve resources from the checkout; production macOS builds retain `Contents/Resources`; production Windows and Linux builds resolve a read-only `resources` directory relative to the executable. The same production profile gates secret-bearing environment overrides and secure-store namespaces.
+**Decision**: A target is release-eligible only when compilation succeeds, the archive exists and is non-empty, the target executable is present, and required resources are present. Implement a small network-free inspection seam for those checks instead of invoking the current checksum-heavy verifier or native smoke scripts.
 
-**Rationale**: The current `.app/Contents/MacOS` heuristic classifies every extracted Windows or Linux binary as a development build. That is both a startup bug and a security bug because it enables development credential overrides. A build-tagged profile is immutable at runtime and independent of executable naming or the current working directory.
+**Rationale**: The existing `VerifyArtifact` and native workflows prove considerably more than the hobby release requires. Keeping those checks available for local, quality, or manual evidence preserves engineering value without making UI, dialogs, credentials, players, tunnels, checksums, or platform signing part of tag success.
 
-**Alternatives considered**: Adding `.exe` and ELF path heuristics was rejected because renamed or relocated executables would still be ambiguous; using the current working directory in production was rejected because launchers and file managers do not guarantee it; a mutable linker string was rejected because it makes the security boundary easier to misconfigure than a production build tag.
+**Alternatives considered**:
 
-## Platform storage profiles
+- Reuse the full current verifier: rejected because it requires checksum sidecars, manifest/hash checks, and architecture inspection beyond the approved release gate.
+- Remove the richer tests and smoke scripts: rejected because only their release-gating role is removed.
+- Validate only file existence: rejected because executable and required-resource presence are explicit release conditions.
 
-**Decision**: Keep storage ownership in `internal/platform`, split OS-specific root discovery behind an injectable directory provider, and derive session documents and private application settings from native locations. Preserve the current macOS locations; use Windows Known Folders and application data; use XDG documents/config locations on Linux with documented home-directory fallbacks. Bundled resources never share a writable user-data root.
+## Decision: Keep pinned GoReleaser as the sole GitHub Release publisher
 
-**Rationale**: The current `~/Documents` and `~/Library/Application Support` construction is not valid on Windows or XDG systems. An injected provider keeps path-policy tests deterministic for redirected, non-ASCII, spaced, and unavailable directories while the production adapter can use the pinned Wails path API or the corresponding OS facility.
+**Decision**: Retain `tools/goreleaser` and `.goreleaser.yaml`. The workflow enters publication through the CI-owned `release:publish` Task command, which invokes pinned GoReleaser. It lists all release states, including drafts, before starting the matrix and again immediately before publication; the configuration disables generated checksums, lists exactly five prebuilt archives, uses `draft: false`, does not enable `replace_existing_artifacts`, and uses no second publisher or post-publication mutator.
 
-**Alternatives considered**: Literal home-relative paths were rejected because they ignore redirection and XDG policy; storing settings next to the portable executable was rejected because extracted application directories may be read-only and would mix user data with trusted resources; environment-only resolution was rejected because it is incomplete on Windows and hard to validate consistently.
+**Rationale**: GoReleaser is already pinned and accepted by constitution v8.0.0. Its v2.18 GitHub client can otherwise update a non-immutable existing release, so create-only behavior must be enforced by the workflow’s refusal checks and by never invoking it on an existing tag release. A second check closes the long build-window gap, while per-tag workflow concurrency prevents overlapping automated runs.
 
-## Secure credential adapters
+**Alternatives considered**:
 
-**Decision**: Preserve the existing `tunnel.SecretStore` contract and Darwin Keychain adapter. Add a Windows Credential Manager adapter using the pinned `github.com/danieljoos/wincred` library and a Linux Secret Service adapter using context-aware `github.com/godbus/dbus/v5` calls. Promote the actual runtime libraries to direct, version-pinned dependencies; map missing, locked, denied, and unavailable services to the existing fail-closed error identities; clear temporary secret bytes; and never add a file, environment, or settings fallback.
+- GitHub CLI as publisher: rejected because the approved decision retains GoReleaser as sole publisher.
+- Direct GoReleaser invocation from workflow YAML: rejected because release automation must enter through the canonical pinned Task graph.
+- `replace_existing_artifacts: true`: rejected because it directly violates create-only publication.
+- Reuse an existing draft or append missing files: rejected because every existing release, including a partial draft, must block automation.
+- Create with one tool and expose with another: rejected because that creates a second release mutator.
 
-**Rationale**: Windows Credential Manager and the freedesktop Secret Service are the platform-protected stores needed by FR-008. Direct adapters retain precise error semantics, support bounded/cancelable Linux D-Bus calls, and keep secret lifetimes visible to the application. The public-access manager must preserve an initialization failure instead of later rewriting it as a generic missing-credential state.
+## Decision: Publish only the five portable archives
 
-**Alternatives considered**: `github.com/zalando/go-keyring` was rejected for this boundary because its string-based API prevents reliable buffer clearing, does not expose context for Linux calls, and coarsens error mapping; encrypted or plaintext files were rejected because the operating system, not an application-owned key, must protect the secrets; disabling public access silently was rejected because the specification requires a clear fail-closed status.
+**Decision**: Each matrix job transports only its archive to the publication job, and GoReleaser receives exactly the five stable filenames. Remove ORAS/GitHub Packages, DMG assets, checksum sidecars as release assets, aggregate indexes, raw executables, verification records, and any joined multi-destination inventory.
 
-## Target metadata, layout, and deterministic evidence
+**Rationale**: The release archive is the complete user-downloadable unit. Exact filename and inventory validation already proves that all targets are present; extra release assets create duplicate or implementation-facing choices without improving the hobby-project contract.
 
-**Decision**: Produce `Fallout-Terminal-windows-{amd64,arm64}.zip` and `Fallout-Terminal-linux-{amd64,arm64}.tar.gz`. Each archive contains the native executable, a `resources` tree with both bundled demos and notices, product/icon metadata, and a machine-readable manifest/checksum. Generate Windows PE resources through the pinned Wails `generate syso` path without committing architecture-specific generated output; verify PE/ELF architecture, exact inventory, safe relative paths, executable mode, metadata, and checksum before an artifact is eligible for upload.
+**Alternatives considered**:
 
-**Rationale**: Stable names let users choose a target before extraction, while an internal manifest gives the aggregate workflow an exact four-artifact completeness contract. Deterministic timestamps, modes, and ordering make archive comparison meaningful. Header inspection prevents a correctly named archive from hiding a wrongly compiled executable.
+- Keep SHA-256 sidecars: rejected because the accepted GitHub Release contains exactly five assets.
+- Keep `aggregate-index.json`: rejected because the exact five-file inventory and workflow dependency graph replace it.
+- Keep GHCR through ORAS: rejected because GitHub Releases are the sole automated destination.
 
-**Alternatives considered**: Reusing one filename was rejected because parallel outputs would collide; relying only on archive names was rejected because labels are not proof of binary architecture or content; committing `.syso` files for both Windows architectures was rejected because generated target-specific objects can drift or be linked into the wrong build.
+## Decision: Report partial publication and require manual recovery
 
-## CI evidence and publication gate
+**Decision**: After GoReleaser fails, an always-running read-only diagnostic looks up the tag. If no release exists, it reports that the same tag can be rerun immediately. If a partial release exists, it reports that a maintainer must delete that release and then rerun the same tag. The workflow never deletes a release or asset, and every rerun refuses to invoke GoReleaser while any release for that tag exists.
 
-**Decision**: Add a portable-artifact workflow separate from the existing macOS release workflow. Its four independent native jobs install target prerequisites, build, inspect, unpack, launch to an observed application window, close cleanly, and upload only verified target artifacts. A final always-running aggregation job downloads successful outputs, verifies that exactly four unique target manifests/checksums exist, and exposes the combined set only when every target job succeeded.
+**Rationale**: A single-destination hobby release does not justify destructive rollback automation. Distinguishing the two failure states avoids telling maintainers to delete a nonexistent release while preserving the explicit, recoverable create-only procedure for partial publication.
 
-**Rationale**: Separating workflows preserves macOS native build, reproducibility, checksum, and single-job assertions while giving each new platform an independent failure report. Upload-after-verification and an explicit aggregation gate implement the requirement that incomplete or unverifiable targets are never presented as successful output.
+**Alternatives considered**:
 
-**Alternatives considered**: Extending the macOS job into a matrix was rejected because it couples unrelated platform and release surfaces; uploading first and validating later was rejected because failed binaries could appear successful; one build job plus inspection-only jobs was rejected because each platform must own its native build and launch evidence.
+- Automatically delete the partial release: rejected by the approved recovery decision.
+- Resume or append missing assets on rerun: rejected because reruns cannot modify an existing release.
+- Treat a partial release as successful: rejected because the release contract requires all five assets.
 
-**Tagged-release decision**: Keep macOS and portable targets on their appropriate native runners, but join their verified outputs before publication. A SemVer tag resolves one immutable source SHA; the macOS path produces an unsigned `Fallout-Terminal-arm64.dmg` whose eligibility is determined only by its verified SHA-256 sidecar, while the portable path produces four eligible archives, their sidecars, and the aggregate index. Repository-pinned GoReleaser v2 owns the single GitHub Release publication only after the exact five-target inventory is present, and the same inventory is pushed as the versioned GHCR artifact.
+## Decision: Retain only the local Docker aggregate
 
-**Tagged-release rationale**: Separate native jobs preserve platform build ownership, while the final checksum join makes “release all targets” observable and fail-closed. Publishing the four portable targets before the Darwin DMG checksum succeeds would create a misleading partial release.
+**Decision**: Keep `task package:all`, `package-all-docker`, `internal/buildtool/docker.go`, and `build/docker/Dockerfile.package` as optional local tooling. Move every dependency retained by Docker—result and record types, artifact interface, target helpers, cloning and validation functions, directory verifier, constants, and index structures—into a local-only boundary with its regression tests, then remove `package:all:remote`, the remote `package-all` CLI/action implementation, `aggregate.go`, `release:local`, the `release-candidate` implementation, and ORAS.
 
-**Tagged-release alternatives considered**: Leaving Darwin to an unrelated manual release was rejected because a SemVer tag would not represent all supported targets; requiring Developer ID/notarization was rejected by the maintainer because Darwin validation is checksum-only; allowing two independent GitHub Release writers was rejected because their failure and replacement behavior cannot provide one atomic eligibility decision.
+**Rationale**: The local command remains useful to maintainers and was explicitly retained, but it must have no dataflow edge into either CI workflow. Separating its shared types allows the obsolete remote coordinator and joined release implementation to be removed cleanly without rewriting the Docker convenience.
 
-## Existing macOS behavior and governance
+**Alternatives considered**:
 
-**Decision**: Treat macOS packaging as an unchanged compatibility path and make a constitution amendment the first implementation prerequisite. The amendment must replace the macOS-only deployment statement with the approved target table, authorize the pinned Taskfile as the canonical command graph, reduce Make to the Go-tool bootstrap, and update platform-aware verification language without weakening the accepted Wails version, detailed Go build ownership, security, signing, or generated-code rules.
+- Delete all Docker aggregation: rejected because the approved decision retains it locally.
+- Keep the remote implementation dormant: rejected by the complete-cutover rule and the explicit removal decision.
+- Reuse the local aggregate as a release join: rejected because tagged releases must use five matching native runners directly.
 
-**Rationale**: The feature is explicitly authorized, but the current constitution still declares macOS 13+ arm64 as the only supported deployment profile and explicitly prohibits Taskfiles. Updating both governing decisions before implementation keeps code, CI, and project policy aligned. Keeping the macOS path distinct minimizes regression risk to native app, DMG, SHA-256, and reproducibility checks.
+## Decision: Validate contracts statically, then publish one acceptance prerelease
 
-**Alternatives considered**: Implementing under standing deployment and Taskfile violations was rejected because both are governance decisions; folding macOS into the new portable archives was rejected because it has a distinct native bundle/DMG layout; omitting the macOS checksum gate was rejected because FR-015 requires preservation of verified artifact identity.
+**Decision**: Use table-driven Go fixtures and static repository acceptance tests to validate strict tag syntax, exact workflow triggers, five matrix rows, archive eligibility, exact publication inventory, Task-to-GoReleaser ownership, existing-release refusal, and manual recovery wording. Do not add `workflow_dispatch` to the release workflow. After implementation, static checks, local native build/package validation, and commit all succeed, push one maintainer-approved unused SemVer prerelease tag and preserve its real five-archive GitHub Release as acceptance evidence.
+
+**Rationale**: Static fixtures provide fast deterministic regression coverage, while the approved live prerelease proves the matching-host matrix and create-only publisher work end to end in the real repository. Deferring the live run until every local gate passes limits runner use and avoids publishing from an unvalidated revision.
+
+**Alternatives considered**:
+
+- A non-publishing release workflow dispatch: rejected because the five-target release matrix is tag-only.
+- Static validation only: rejected because the approved independent acceptance requires one real prerelease publication.
+- Automatic cleanup of the successful acceptance release: rejected because the prerelease is retained as acceptance evidence and release automation never deletes releases.
+- Rely only on manual YAML review: rejected because regressions in triggers, inventory, and forbidden commands are machine-checkable.
+
+## Decision: Preserve completed work outside a fresh delta task list
+
+**Decision**: Preserve the superseded `T001` through `T067` record in `tasks-history.md` and keep only the active unchecked constitution-v8 delta beginning at `T068` in `tasks.md`.
+
+**Rationale**: The feature has extensive implemented history that must remain auditable, but mixing checked historical items with the new convergence delta obscures remaining work. Continuing task IDs also prevents existing Companion completion events from auto-completing newly generated tasks.
+
+**Alternatives considered**:
+
+- Leave the superseded tasks in the active list: rejected because the user requested a fresh delta-focused queue.
+- Restart IDs at `T001`: rejected because recorded completion events already use those IDs.
+- Delete the prior task list: rejected because it would discard implementation history.

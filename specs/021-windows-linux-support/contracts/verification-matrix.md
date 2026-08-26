@@ -1,80 +1,140 @@
-# Contract: Native Verification Matrix
+# Contract: Tag-Only Release Matrix
 
-## Target ownership
+## Trigger and preflight
 
-| Target | Native runner | Build/runtime prerequisites | Archive |
+`.github/workflows/wails-portable.yml` is entered only by pushed tags matching the lightweight candidate filter `v*`. It has no branch, pull-request, schedule, reusable-call, or workflow-dispatch trigger.
+
+Before any matrix job starts, preflight:
+
+1. validates the tag as `vMAJOR.MINOR.PATCH` with an optional SemVer prerelease suffix;
+2. rejects leading-zero numeric version or prerelease identifiers, empty identifiers, build metadata, and unrelated `v*` strings;
+3. binds the run to the pushed tag revision; and
+4. performs a paginated read-only lookup across published, prerelease, and draft releases and fails if any release for the tag already exists, including a partial release.
+
+The five matrix jobs depend on successful preflight. Invalid tags and existing releases therefore consume no native package runners.
+
+Examples:
+
+| Tag | Result |
+|---|---|
+| `v1.2.3` | stable release candidate |
+| `v1.2.3-beta.1` | prerelease candidate |
+| `v0.0.0-rc.1` | prerelease candidate |
+| `v01.2.3` | rejected |
+| `v1.2.3-01` | rejected |
+| `v1.2.3+build.1` | rejected |
+| `vnext` | rejected |
+
+## Exact native matrix
+
+| Target | Runner | Build command | Workflow artifact |
 |---|---|---|---|
-| `windows/amd64` | GitHub-hosted Windows x64 runner | Pinned Go/Node/tools, Windows build facilities, WebView2 | ZIP |
-| `windows/arm64` | GitHub-hosted Windows 11 arm64 runner, or documented matching self-hosted fallback | Pinned Go/Node/tools, Windows build facilities, WebView2 | ZIP |
-| `linux/amd64` | Ubuntu 24.04 x64 runner | Pinned Go/Node/tools, CGO, GTK4, WebKitGTK 6.0, Xvfb, Secret Service test session | TAR.GZ |
-| `linux/arm64` | Ubuntu 24.04 arm64 runner, or documented matching self-hosted fallback | Pinned Go/Node/tools, CGO, GTK4, WebKitGTK 6.0, Xvfb, Secret Service test session | TAR.GZ |
+| `windows/amd64` | `windows-2025` | `task package GOOS=windows GOARCH=amd64` | `release-windows-amd64` |
+| `windows/arm64` | `windows-11-arm` | `task package GOOS=windows GOARCH=arm64` | `release-windows-arm64` |
+| `linux/amd64` | `ubuntu-24.04` | `task package GOOS=linux GOARCH=amd64` | `release-linux-amd64` |
+| `linux/arm64` | `ubuntu-24.04-arm` | `task package GOOS=linux GOARCH=arm64` | `release-linux-arm64` |
+| `darwin/arm64` | `macos-15` | `task package GOOS=darwin GOARCH=arm64` | `release-darwin-arm64` |
 
-Workflow runner labels are pinned explicitly in `.github/workflows/wails-portable.yml`, not inherited from an ambiguous `latest` label. If a hosted arm64 label is unavailable to the repository, the documented fallback must still be a matching native arm64 host and must produce the same checks; emulation does not satisfy launch acceptance.
+Each job checks out the exact tagged revision, installs only its build prerequisites, invokes Task through `tools/task`, performs minimal archive inspection, and uploads only its one stable archive. Matrix fail-fast is disabled so each target reports its result, but publication requires all five matrix entries to succeed.
 
-## Per-target gate
+The matrix does not invoke `task package:all`, Docker, a separate macOS workflow, or any raw Go/Wails build path.
 
-Every target job starts from a clean checkout of the aggregate run’s resolved SHA and runs independently with matrix fail-fast disabled.
+## Release eligibility
 
-Required phases, in order:
+Automated eligibility consists only of:
 
-1. Verify pinned tool versions and native build dependencies.
-2. Run repository lint, protobuf/generation, Go, frontend, dependency, and license gates required by the package graph.
-3. Run `task package GOOS=<os> GOARCH=<arch>` through the repository-pinned Task binary.
-4. Verify archive safety, exact inventory, manifest, checksum, and PE/ELF target identity.
-5. Extract to a clean path containing spaces and launch from an unrelated working directory.
-6. Observe a real Overseer application window within 60 seconds and load the bundled demo.
-7. Exercise native open/save and external-link adapters in the platform acceptance harness.
-8. Verify secure-store success when the native service is available and a clear fail-closed state when it is intentionally unavailable/locked.
-9. Connect one local player, observe synchronized state, close the application, and confirm listener, public-access resources, child processes, and application process exit.
-10. Upload the archive, checksum, and redacted verification record only after all phases succeed.
+- successful target compilation and archive creation;
+- non-zero archive size;
+- expected executable presence; and
+- required-resource presence.
 
-No local test execution is required while creating this plan. These gates execute in CI or matching target environments during implementation and acceptance.
+The tag workflow does not run or require:
 
-## Failure semantics
+- native window or UI automation;
+- dialog or external-link journeys;
+- credential-store checks;
+- player, listener, or tunnel journeys;
+- checksum sidecars, aggregate indexes, or external verification records;
+- executable architecture inspection beyond successful matching-host compilation;
+- codesign, signing, hardened runtime, notarization, stapling, or Gatekeeper;
+- Docker aggregate builds; or
+- multi-browser checks.
 
-- A target job reports its canonical target and failed phase even when another target fails.
-- Missing native runtime dependencies produce an actionable prerequisite failure, not a silent exit.
-- Secrets and credential payloads never appear in command output, logs, manifests, screenshots, or uploaded records.
-- A failed, timed-out, canceled, mismatched, or unverified target uploads no runnable artifact.
-- Retry creates a new verification record; it does not mutate failed evidence into success.
+These checks may remain available as unit tests, optional manual evidence, or separately dispatched non-release checks. They never change Target Build Result eligibility.
 
-## Aggregate gate
+## Publication inventory
 
-The aggregate job runs even when a target fails so it can provide a complete matrix report. It is successful only when:
+The publication job depends on all five matrix entries and downloads their workflow artifacts into `combined/`. A network-free repository check requires exactly:
 
-- all four canonical targets have exactly one successful verification record;
-- all records resolve the same source SHA;
-- archive names are the four stable names with no collision or extra target;
-- each sidecar verifies its archive and each manifest agrees with the job target;
-- every target includes native window, demo-load, and clean-shutdown evidence; and
-- the existing macOS workflow remains a separate required compatibility check for release readiness.
+```text
+Fallout-Terminal-windows-amd64.zip
+Fallout-Terminal-windows-arm64.zip
+Fallout-Terminal-linux-amd64.tar.gz
+Fallout-Terminal-linux-arm64.tar.gz
+Fallout-Terminal-darwin-arm64.zip
+```
 
-On success the job publishes one combined downloadable workflow artifact containing the four portable archives, their sidecars, and a redacted aggregate index. On any partial result it publishes only diagnostic job logs/records permitted by repository policy and marks the aggregate run failed.
+Missing, duplicate, empty, nested, or extra entries fail before publication. In particular, `.sha256`, `aggregate-index.json`, DMGs, raw executables, and verification JSON are rejected.
 
-## Tagged five-target publication gate
+## Create-only GoReleaser publication
 
-The four-target aggregate remains the native Windows/Linux evidence owner. On a valid SemVer tag, a
-separate macOS arm64 job at the same tag SHA builds an unsigned DMG and verifies only its exact
-SHA-256 sidecar; signing, hardened runtime, notarization, stapling, Gatekeeper, and release
-credentials are not eligibility gates. Its eligible output is exactly
-`Fallout-Terminal-arm64.dmg` plus `Fallout-Terminal-arm64.dmg.sha256`.
+Only the publication job receives `contents: write`; it does not receive `packages: write`. Immediately before GoReleaser invocation, it repeats the read-only existing-release lookup and fails if a release now exists.
 
-Publication eligibility requires all of the following before either destination reports success:
+The workflow's only publication entrypoint is:
 
-- the macOS job and all four portable target jobs resolved the exact tag SHA and succeeded;
-- the Darwin DMG and sidecar, four portable archives and sidecars, and `aggregate-index.json` are
-  present, nonempty, uniquely named, and contain no unexpected release input;
-- every checksum verifies and the aggregate index identifies the same tag SHA;
-- the repository-pinned GoReleaser v2 configuration accepts the complete inventory and preserves
-  prerelease suffix behavior; and
-- the versioned GHCR artifact uses the same tag and exact joined inventory as the GitHub Release.
+```text
+go tool -modfile=tools/task/go.mod task release:publish
+```
 
-GoReleaser owns GitHub Release creation/update and consumes preverified inputs without compiling.
-The repository-pinned ORAS client publishes the versioned GitHub Packages artifact. A missing
-failed Darwin checksum, failed portable target, mismatch, unexpected input, or
-publication error is nonzero and cannot be presented as a complete tagged release. Diagnostic
-workflow artifacts remain distinct from GitHub Release assets and versioned GHCR success.
+The `release:publish` Task command invokes:
 
-## Evidence retention
+```text
+go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml
+```
 
-The aggregate index records the workflow run, source SHA, target, archive name, archive SHA-256, native runner identity, and check outcomes. It contains no absolute user paths, credentials, session data created during smoke tests, or mutable “latest” target labels. Documentation links each supported target to its prerequisite and troubleshooting guidance.
+`.goreleaser.yaml`:
+
+- uses schema version 2 and the repository-pinned tool;
+- skips compilation because the native matrix owns builds;
+- disables GoReleaser-generated checksum assets;
+- lists exactly the five files under `release.extra_files`;
+- uses `draft: false` so GoReleaser both creates and exposes the release without a second mutator;
+- sets `prerelease: auto`;
+- does not enable `replace_existing_artifacts` or reuse an existing draft; and
+- defines no publisher or upload beyond the single GitHub Release.
+
+The workflow contains no `gh release create`, release update/PATCH, asset append, asset replacement, release deletion, ORAS, GHCR, or GitHub Packages operation. Read-only GitHub queries used for refusal and diagnostics are not publishers.
+
+## Failure and manual recovery
+
+- A failed target prevents publication.
+- An invalid five-file inventory prevents GoReleaser invocation.
+- An existing release at either refusal check prevents the matrix or publisher, respectively.
+- After GoReleaser fails, an always-running read-only diagnostic looks up the tag across all release states.
+- If no release exists, the diagnostic reports the publication error and that the same tag may be rerun immediately.
+- If GoReleaser leaves a partial release, the diagnostic reports: delete that release manually, then rerun the same tag.
+- The workflow never deletes, rolls back, replaces, or appends to the partial release.
+- A rerun while the partial release exists fails preflight unchanged.
+
+Per-tag workflow concurrency prevents overlapping automated runs for the same tag. Publication succeeds only when one GitHub Release exposes exactly the five archives from the tagged revision.
+
+## Non-publishing validation
+
+The PR/main quality workflow runs static and network-free contract tests that cover:
+
+- accepted and rejected tag fixtures;
+- exact trigger and permission shape;
+- five and only five runner/target/command rows;
+- minimal valid and invalid archive fixtures;
+- exact and malformed publication inventories;
+- existing-release refusal before matrix and before GoReleaser;
+- exactly five GoReleaser extra files and disabled generated checksums;
+- the sole `release:publish` Task-to-pinned-GoReleaser ownership chain;
+- absence of release mutation, ORAS, package publication, DMG, and rollback commands; and
+- distinct no-release immediate-rerun and partial-release delete-then-rerun diagnostics.
+
+The release workflow has no `workflow_dispatch` validation mode, so these tests cannot accidentally start the native matrix or publish a release.
+
+## Live prerelease acceptance
+
+After implementation, static/non-publishing fixtures, local `task build`, explicit `darwin/arm64` packaging, and commit succeed, a maintainer supplies and approves one unused SemVer prerelease tag. Pushing that tag runs the real five-target workflow. Acceptance requires one GitHub Release containing exactly the five governed archives; the successful prerelease is preserved as evidence. A failed run follows the same no-release or manual partial-release recovery contract and performs no automated cleanup.

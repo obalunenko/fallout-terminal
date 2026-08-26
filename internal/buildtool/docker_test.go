@@ -190,7 +190,7 @@ func TestValidateDockerAggregateOutput(t *testing.T) {
 			output: func(root string) string { return filepath.Join(root, "build", "portable") },
 			prepare: func(t *testing.T, output string) {
 				require.NoError(t, os.MkdirAll(output, 0o755))
-				require.NoError(t, os.WriteFile(filepath.Join(output, portableAggregateIndexName), []byte("{}\n"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(output, localAggregateIndexName), []byte("{}\n"), 0o644))
 			},
 		},
 		{

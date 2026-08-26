@@ -25,9 +25,9 @@ func PackageAllDocker(
 	ctx context.Context,
 	root string,
 	outputDirectory string,
-	report func(AggregateTargetRecord),
-) (AggregateResult, error) {
-	result := AggregateResult{}
+	report func(LocalPackageTargetRecord),
+) (LocalPackageResult, error) {
+	result := LocalPackageResult{}
 	if err := validateRoot(root); err != nil {
 		return result, err
 	}
@@ -88,8 +88,8 @@ func PackageAllDocker(
 		return result, err
 	}
 
-	records := make([]AggregateTargetRecord, 0, len(portableMatrixTargets()))
-	for _, target := range portableMatrixTargets() {
+	records := make([]LocalPackageTargetRecord, 0, len(localDockerTargets()))
+	for _, target := range localDockerTargets() {
 		targetDirectory := filepath.Join(workRoot, target.OS()+"-"+target.Arch())
 		record, err := packageDockerTarget(
 			ctx,
@@ -103,26 +103,26 @@ func PackageAllDocker(
 		)
 		records = append(records, record)
 		if err != nil {
-			result.Records = cloneAggregateRecords(records)
+			result.Records = cloneLocalPackageRecords(records)
 			return result, err
 		}
 	}
-	result.Records = cloneAggregateRecords(records)
+	result.Records = cloneLocalPackageRecords(records)
 
 	if err := writeLocalAggregateIndex(publishDirectory, result.CorrelationID, revision, records); err != nil {
 		return result, err
 	}
-	artifacts, err := (directoryAggregateVerifier{}).Verify(ctx, publishDirectory)
+	artifacts, err := (directoryLocalAggregateVerifier{}).Verify(ctx, publishDirectory)
 	if err != nil {
 		return result, fmt.Errorf("verify complete Docker package matrix: %w", err)
 	}
-	if err := validateAggregateRecords(records, revision); err != nil {
+	if err := validateLocalPackageRecords(records, revision); err != nil {
 		return result, err
 	}
-	if err := validateAggregateArtifacts(artifacts, records, revision); err != nil {
+	if err := validateLocalPackageArtifacts(artifacts, records, revision); err != nil {
 		return result, err
 	}
-	result.Artifacts = append([]VerifiedArtifact(nil), artifacts...)
+	result.Artifacts = append([]LocalVerifiedArtifact(nil), artifacts...)
 	if err := os.Rename(executableDirectory, filepath.Join(publishDirectory, "bin")); err != nil {
 		return result, fmt.Errorf("publish verified Docker executables: %w", err)
 	}
@@ -375,14 +375,14 @@ func validateDockerAggregateOutput(root string, outputDirectory string) error {
 	if outputDirectory == defaultOutput {
 		return nil
 	}
-	indexPath := filepath.Join(outputDirectory, portableAggregateIndexName)
+	indexPath := filepath.Join(outputDirectory, localAggregateIndexName)
 	indexInfo, err := os.Lstat(indexPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf(
 				"refusing to replace unrecognized Docker aggregate output %q: %s is missing",
 				outputDirectory,
-				portableAggregateIndexName,
+				localAggregateIndexName,
 			)
 		}
 		return fmt.Errorf("inspect Docker aggregate marker %q: %w", indexPath, err)
@@ -430,15 +430,15 @@ func packageDockerTarget(
 	executableDirectory string,
 	target Target,
 	revision string,
-	report func(AggregateTargetRecord),
-) (AggregateTargetRecord, error) {
-	record := AggregateTargetRecord{
+	report func(LocalPackageTargetRecord),
+) (LocalPackageTargetRecord, error) {
+	record := LocalPackageTargetRecord{
 		Target:      target,
 		SourceSHA:   revision,
-		Status:      AggregateTargetBuilding,
+		Status:      LocalPackageTargetBuilding,
 		ArchiveName: target.ArchiveName(),
 	}
-	reportAggregateTarget(report, record)
+	reportLocalPackageTarget(report, record)
 
 	if err := buildPortableDockerTarget(ctx, root, targetDirectory, target, revision); err != nil {
 		return failDockerTarget(record, report, fmt.Errorf("package %s with Docker: %w", target, err))
@@ -469,20 +469,20 @@ func packageDockerTarget(
 	); err != nil {
 		return failDockerTarget(record, report, fmt.Errorf("verify %s Docker executable: %w", target, err))
 	}
-	record.Status = AggregateTargetEligible
+	record.Status = LocalPackageTargetEligible
 	record.Checksum = verified.Checksum()
-	reportAggregateTarget(report, record)
+	reportLocalPackageTarget(report, record)
 	return record, nil
 }
 
 func failDockerTarget(
-	record AggregateTargetRecord,
-	report func(AggregateTargetRecord),
+	record LocalPackageTargetRecord,
+	report func(LocalPackageTargetRecord),
 	err error,
-) (AggregateTargetRecord, error) {
-	record.Status = AggregateTargetFailed
+) (LocalPackageTargetRecord, error) {
+	record.Status = LocalPackageTargetFailed
 	record.Failure = err
-	reportAggregateTarget(report, record)
+	reportLocalPackageTarget(report, record)
 	return record, err
 }
 
@@ -720,16 +720,16 @@ func writeLocalAggregateIndex(
 	directory string,
 	correlationID string,
 	revision string,
-	records []AggregateTargetRecord,
+	records []LocalPackageTargetRecord,
 ) error {
-	index := aggregateIndexDocument{
+	index := localAggregateIndexDocument{
 		SchemaVersion:  1,
 		CorrelationID:  correlationID,
 		SourceRevision: revision,
-		Artifacts:      make([]aggregateIndexArtifact, 0, len(records)),
+		Artifacts:      make([]localAggregateIndexArtifact, 0, len(records)),
 	}
 	for _, record := range records {
-		index.Artifacts = append(index.Artifacts, aggregateIndexArtifact{
+		index.Artifacts = append(index.Artifacts, localAggregateIndexArtifact{
 			Target:      record.Target.String(),
 			ArchiveName: record.ArchiveName,
 			Checksum:    record.Checksum,
@@ -740,13 +740,13 @@ func writeLocalAggregateIndex(
 		return fmt.Errorf("encode local aggregate index: %w", err)
 	}
 	contents = append(contents, '\n')
-	if err := os.WriteFile(filepath.Join(directory, portableAggregateIndexName), contents, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, localAggregateIndexName), contents, 0o644); err != nil {
 		return fmt.Errorf("write local aggregate index: %w", err)
 	}
 	return nil
 }
 
-func reportAggregateTarget(report func(AggregateTargetRecord), record AggregateTargetRecord) {
+func reportLocalPackageTarget(report func(LocalPackageTargetRecord), record LocalPackageTargetRecord) {
 	if report != nil {
 		report(record)
 	}

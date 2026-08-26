@@ -89,7 +89,7 @@ func WritePortableArchive(
 		return ArchiveResult{}, err
 	}
 	if !target.Portable() {
-		return ArchiveResult{}, fmt.Errorf("portable archive requires a Windows or Linux target, got %s", target)
+		return ArchiveResult{}, fmt.Errorf("portable archive requires a supported release target, got %s", target)
 	}
 	if outputDirectory == "" {
 		return ArchiveResult{}, errors.New("archive output directory is empty")
@@ -260,19 +260,18 @@ func validateExactArchiveInventory(target Target, prepared []preparedArchiveFile
 }
 
 func requiredArchivePaths(target Target) []string {
-	paths := []string{
-		target.ExecutableName(),
-		"resources/THIRD_PARTY_NOTICES.md",
-		"resources/appicon.png",
-		"resources/sessions/demo-players.json",
-		"resources/sessions/demo.json",
+	paths := []string{target.ExecutablePath()}
+	for _, resource := range target.RequiredResourcePaths() {
+		if resource != artifactManifestFilename {
+			paths = append(paths, resource)
+		}
 	}
 	sort.Strings(paths)
 	return paths
 }
 
 func archiveFileMode(target Target, archivePath string) fs.FileMode {
-	if archivePath == target.ExecutableName() {
+	if archivePath == target.ExecutablePath() {
 		return 0o755
 	}
 	return 0o444

@@ -49,7 +49,20 @@ type Step struct {
 
 // Plan returns the ordered, nonrecursive graph for an action.
 func Plan(action string, applicationArguments []string) ([]Step, error) {
-	return PlanForTarget(action, DefaultTarget(), applicationArguments)
+	target := DefaultTarget()
+	switch action {
+	case "prepare":
+		return preparePlan(), nil
+	case "build":
+		return append(preparePlan(), implicitBuildSteps(target)...), nil
+	case "dev", "run":
+		steps := append(preparePlan(), developmentSteps()...)
+		return append(steps, commandStep("run development application", developmentExecutable(), applicationArguments...)), nil
+	case "package":
+		return append(preparePlan(), packageSteps()...), nil
+	default:
+		return nil, fmt.Errorf("unknown action %q (want dev, build, package, run, or prepare)", action)
+	}
 }
 
 // PlanForTarget returns the ordered, nonrecursive graph for an action and
@@ -109,6 +122,13 @@ func buildSteps(target Target) []Step {
 		compileStep(target, filepath.Join(outputDirectory, target.ExecutableName())),
 	)
 	return steps
+}
+
+func implicitBuildSteps(target Target) []Step {
+	return []Step{
+		{Name: "create binary output directory", Operation: makeDirectory, Path: filepath.Join("build", "bin"), Mode: 0o755},
+		compileStep(target, filepath.Join("build", "bin", target.ExecutableName())),
+	}
 }
 
 func developmentSteps() []Step {
@@ -203,7 +223,25 @@ func preflightStep(name string, preflight preflightKind, target Target) Step {
 
 // Run executes one action from the repository root.
 func Run(ctx context.Context, root, action string, applicationArguments []string) error {
-	return RunForTarget(ctx, root, action, DefaultTarget(), applicationArguments)
+	if err := validateRoot(root); err != nil {
+		return err
+	}
+	if action != "prepare" {
+		if err := ValidateHost(DefaultTarget(), RuntimeHost()); err != nil {
+			return err
+		}
+	}
+	steps, err := Plan(action, applicationArguments)
+	if err != nil {
+		return err
+	}
+	for _, step := range steps {
+		fmt.Printf("==> %s\n", step.Name)
+		if err := execute(ctx, root, step); err != nil {
+			return fmt.Errorf("%s: %w", step.Name, err)
+		}
+	}
+	return nil
 }
 
 // RunForTarget validates the repository, pure plan, and native host before it

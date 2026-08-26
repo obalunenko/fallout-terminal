@@ -179,7 +179,7 @@ check_active_commands() {
   local file_matches
   local matches=''
   local forbidden_pattern='(go[[:space:]]+install[[:space:]]+(github\.com/wailsapp/wails|github\.com/go-task/task/v3/cmd/task|github\.com/bufbuild/buf/cmd/buf|github\.com/golangci/golangci-lint/v2/cmd/golangci-lint|github\.com/goreleaser/goreleaser/v2|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect/cmd/protoc-gen-connect-go|oras\.land/oras/cmd/oras)|go[[:space:]]+run[[:space:]]+(github\.com/golangci/golangci-lint/v2/cmd/golangci-lint|github\.com/goreleaser/goreleaser/v2|oras\.land/oras/cmd/oras)|go[[:space:]]+tool[[:space:]]+(wails3|buf|golangci-lint|goreleaser|protoc-gen-go|protoc-gen-connect-go|oras)([[:space:]]|$)|(^|[[:space:]`;&|])(wails3|buf|golangci-lint|goreleaser|oras)[[:space:]]+(dev|build|package|generate|format|lint|breaking|run|release|check|login|push)([[:space:]]|$))'
-  local allowed_pattern='go tool -modfile=tools/(wails|buf|goreleaser|protoc-gen-go|protoc-gen-connect-go|oras)/go\.mod (wails3|buf|goreleaser|protoc-gen-go|protoc-gen-connect-go|oras)([[:space:]]|$)'
+	local allowed_pattern='go tool -modfile=tools/(wails|buf|goreleaser|protoc-gen-go|protoc-gen-connect-go)/go\.mod (wails3|buf|goreleaser|protoc-gen-go|protoc-gen-connect-go)([[:space:]]|$)'
 
   while IFS= read -r -d '' file; do
     if [[ "$file" = /* ]]; then
@@ -213,7 +213,11 @@ check_tree() {
   local scan_root="$1"
   local module_file
 
-  discover_tool_modules "$scan_root" || return
+	discover_tool_modules "$scan_root" || return
+	if [[ -e "$scan_root/tools/oras" ]]; then
+		fail 'tools/oras must be absent; GitHub Packages publication is not supported'
+		return
+	fi
   for module_file in "${tool_module_files[@]}"; do
     check_tool_module_contract "$scan_root" "$module_file" || return
   done
@@ -223,8 +227,7 @@ check_tree() {
   check_tool_pin "$scan_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.13.1 || return
   check_tool_pin "$scan_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.11 || return
   check_tool_pin "$scan_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.20.0 || return
-  check_tool_pin "$scan_root" oras oras.land/oras/cmd/oras oras.land/oras v1.3.3 || return
-  check_tool_pin "$scan_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0 || return
+	check_tool_pin "$scan_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0 || return
   check_root_module "$scan_root" || return
   check_make_bootstrap "$scan_root" || return
   check_active_commands "$scan_root" || return
@@ -301,7 +304,6 @@ self_test() {
   write_fixture_module "$fixture_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.13.1
   write_fixture_module "$fixture_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.11
   write_fixture_module "$fixture_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.20.0
-  write_fixture_module "$fixture_root" oras oras.land/oras/cmd/oras oras.land/oras v1.3.3
   write_fixture_module "$fixture_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0
   check_tree "$fixture_root"
 

@@ -179,6 +179,77 @@ func TestPortablePackagePlanOutputsAreStableAndCollisionFree(t *testing.T) {
 	assert.Len(t, checksums, 4)
 }
 
+func TestDarwinPortablePackagePlanStagesCompleteUnsignedApplicationBundle(t *testing.T) {
+	t.Parallel()
+
+	target := mustParseTarget(t, goosDarwin, goarchARM64)
+	plan := mustPackagePlan(t, target)
+	root := t.TempDir()
+	t.Cleanup(func() { require.NoError(t, plan.CleanupFailure(root)) })
+
+	assert.Equal(t, filepath.Join("build", "bin", "darwin-arm64", "stage"), plan.StageRoot())
+	assert.Equal(t, filepath.Join(plan.StageRoot(), applicationName), plan.PayloadRoot())
+	assert.Equal(t, filepath.Join("build", "dist", "Fallout-Terminal-darwin-arm64.zip"), plan.OutputPath())
+
+	actions := plan.Actions()
+	compile, compileIndex := packageCompileStep(t, actions)
+	assert.Equal(t, goosDarwin, compile.Environment["GOOS"])
+	assert.Equal(t, goarchARM64, compile.Environment["GOARCH"])
+	assert.Equal(t, "1", compile.Environment["CGO_ENABLED"])
+	assert.Contains(t, compile.Arguments, filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "MacOS", applicationName))
+
+	wantCopies := map[string]string{
+		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Info.plist"):                                 filepath.Join("build", "darwin", "Info.plist"),
+		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "THIRD_PARTY_NOTICES.md"):        "THIRD_PARTY_NOTICES.md",
+		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo.json"):         filepath.Join("sessions", "demo.json"),
+		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo-players.json"): filepath.Join("sessions", "demo-players.json"),
+	}
+	for destination, source := range wantCopies {
+		step, index := requirePackageStep(t, actions, func(step Step) bool {
+			return step.Operation == copyFile && step.Destination == destination
+		}, "stage Darwin bundle resource")
+		assert.Equal(t, source, step.Source)
+		assert.Less(t, index, compileIndex)
+	}
+	icon, iconIndex := requirePinnedWailsGenerateStep(t, actions, "icons")
+	assert.Equal(t,
+		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "icon.icns"),
+		requiredFlagValue(t, icon.Arguments, "-macfilename"),
+	)
+	assert.Less(t, iconIndex, compileIndex)
+
+	joined := strings.ToLower(packageActionText(actions))
+	for _, forbidden := range []string{
+		"codesign", "notar", "staple", ".dmg", "credentials", "settings.json", "sessions/active", "plaintext", "secret",
+	} {
+		assert.NotContains(t, joined, forbidden)
+	}
+}
+
+func TestDarwinPortableAndImplicitDeveloperPackagePlansRemainDistinct(t *testing.T) {
+	t.Parallel()
+
+	explicit, err := PlanForTarget("package", mustParseTarget(t, goosDarwin, goarchARM64), nil)
+	require.NoError(t, err)
+	implicit, err := Plan("package", nil)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, packageActionText(implicit), packageActionText(explicit))
+	assert.NotContains(t, strings.ToLower(packageActionText(explicit)), "codesign")
+	assert.Contains(t, strings.ToLower(packageActionText(implicit)), "codesign")
+}
+
+func TestNativePrerequisitesDoNotApplyLinuxDesktopChecksToWindowsOrDarwin(t *testing.T) {
+	t.Setenv("PATH", "")
+
+	for _, target := range []Target{
+		mustParseTarget(t, goosWindows, goarchAMD64),
+		mustParseTarget(t, goosDarwin, goarchARM64),
+	} {
+		require.NoError(t, verifyNativePrerequisites(t.Context(), t.TempDir(), target))
+	}
+}
+
 func TestPortablePackagePlanAccessorsDoNotExposeMutableState(t *testing.T) {
 	t.Parallel()
 
@@ -317,4 +388,12 @@ func writePackageFixture(t *testing.T, root, relative string) {
 	path := filepath.Join(root, relative)
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	require.NoError(t, os.WriteFile(path, []byte("fixture"), 0o600))
+}
+
+func packageActionText(actions []Step) string {
+	var parts []string
+	for _, action := range actions {
+		parts = append(parts, action.Name, action.Program, strings.Join(action.Arguments, " "), action.Source, action.Destination, action.Path)
+	}
+	return strings.Join(parts, "\n")
 }

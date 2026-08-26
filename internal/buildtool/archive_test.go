@@ -77,6 +77,7 @@ func TestWritePortableArchiveIsDeterministic(t *testing.T) {
 	}{
 		{name: "Windows ZIP", target: mustParseTarget(t, goosWindows, goarchAMD64)},
 		{name: "Linux TAR.GZ", target: mustParseTarget(t, goosLinux, goarchARM64)},
+		{name: "Darwin ZIP", target: mustParseTarget(t, goosDarwin, goarchARM64)},
 	}
 
 	for _, test := range tests {
@@ -243,6 +244,49 @@ func TestWritePortableArchiveRequiresExactInventory(t *testing.T) {
 	}
 }
 
+func TestWritePortableArchiveExcludesUserOwnedAndSecretBearingFiles(t *testing.T) {
+	t.Parallel()
+
+	for _, target := range PortableTargets() {
+		t.Run(target.String(), func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			fixture := newArchiveTestFixture(t, root, target)
+			result, err := WritePortableArchive(t.Context(), filepath.Join(root, "output"), target, archiveTestRevision, fixture.files)
+			require.NoError(t, err)
+
+			observed := readObservedArchive(t, target.ArchiveFormat(), readArchiveTestFile(t, result.ArchivePath))
+			for _, entry := range observed.entries {
+				lower := strings.ToLower(entry.name)
+				for _, forbidden := range []string{
+					"credentials", "private-settings", "plaintext", "secret", "verification-record", "user-sessions",
+				} {
+					assert.NotContains(t, lower, forbidden)
+				}
+			}
+		})
+	}
+}
+
+func TestWritePortableDarwinArchiveRejectsUnsafePathsAndCancellation(t *testing.T) {
+	t.Parallel()
+
+	target := mustParseTarget(t, goosDarwin, goarchARM64)
+	root := t.TempDir()
+	fixture := newArchiveTestFixture(t, root, target)
+	fixture.files[0].Path = "../Fallout Terminal.app/Contents/MacOS/Fallout Terminal"
+	_, err := WritePortableArchive(t.Context(), filepath.Join(root, "unsafe"), target, archiveTestRevision, fixture.files)
+	require.ErrorContains(t, err, "parent traversal")
+
+	fixture = newArchiveTestFixture(t, root, target)
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	cancel()
+	_, err = WritePortableArchive(ctx, filepath.Join(root, "canceled"), target, archiveTestRevision, fixture.files)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
 func assertDeterministicArchiveEntries(
 	t *testing.T,
 	target Target,
@@ -295,11 +339,12 @@ func newArchiveTestFixture(t *testing.T, root string, target Target) archiveTest
 	t.Helper()
 
 	contents := map[string][]byte{
-		target.ExecutableName():                []byte("target executable for " + target.String()),
-		"resources/appicon.png":                []byte("reviewed icon"),
-		"resources/THIRD_PARTY_NOTICES.md":     []byte("reviewed notices"),
-		"resources/sessions/demo-players.json": []byte(`{"players":[]}`),
-		"resources/sessions/demo.json":         []byte(`{"name":"demo"}`),
+		target.ExecutablePath(): []byte("target executable for " + target.String()),
+	}
+	for _, resource := range target.RequiredResourcePaths() {
+		if resource != artifactManifestFilename {
+			contents[resource] = []byte("reviewed resource for " + resource)
+		}
 	}
 	paths := make([]string, 0, len(contents))
 	for archivePath := range contents {
@@ -318,13 +363,9 @@ func newArchiveTestFixture(t *testing.T, root string, target Target) archiveTest
 }
 
 func expectedArchivePaths(target Target) []string {
-	paths := []string{
-		path.Join(applicationName, target.ExecutableName()),
-		path.Join(applicationName, "artifact-manifest.json"),
-		path.Join(applicationName, "resources/appicon.png"),
-		path.Join(applicationName, "resources/THIRD_PARTY_NOTICES.md"),
-		path.Join(applicationName, "resources/sessions/demo-players.json"),
-		path.Join(applicationName, "resources/sessions/demo.json"),
+	paths := []string{path.Join(applicationName, target.ExecutablePath())}
+	for _, resource := range target.RequiredResourcePaths() {
+		paths = append(paths, path.Join(applicationName, resource))
 	}
 	sort.Strings(paths)
 	return paths
@@ -351,7 +392,7 @@ func expectedManifestFiles(target Target, contents map[string][]byte) []testMani
 }
 
 func testNormalizedArchiveMode(target Target, filePath string) fs.FileMode {
-	if filePath == target.ExecutableName() {
+	if filePath == target.ExecutablePath() {
 		return 0o755
 	}
 	return 0o444

@@ -93,7 +93,7 @@ func verifyNativePrerequisites(ctx context.Context, root string, target Target) 
 	if !target.Portable() {
 		return fmt.Errorf("native portable preflight requires a portable target, got %s", target)
 	}
-	if target.OS() == goosWindows {
+	if target.OS() != goosLinux {
 		return nil
 	}
 	if _, err := exec.LookPath("pkg-config"); err != nil {

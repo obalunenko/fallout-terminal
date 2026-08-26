@@ -60,12 +60,6 @@ func TestWailsV3GoToolsAreIsolatedFromApplicationModule(t *testing.T) {
 			parentRequire: "connectrpc.com/connect v1.20.0",
 		},
 		{
-			name:          "ORAS CLI",
-			directory:     "oras",
-			tool:          "oras.land/oras/cmd/oras",
-			parentRequire: "oras.land/oras v1.3.3",
-		},
-		{
 			name:          "GoReleaser",
 			directory:     "goreleaser",
 			tool:          "github.com/goreleaser/goreleaser/v2",
@@ -126,7 +120,7 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 		path   string
 		tokens []string
 	}{
-		{"cmd/build/main.go", []string{"buildtool.Run", "package-all-docker", "release-candidate"}},
+		{"cmd/build/main.go", []string{"buildtool.Run", "package-all-docker", "validate-release-tag", "inspect-release-archive", "inspect-release-inventory"}},
 		{"internal/buildtool/buildtool.go", []string{"scripts", "verifyProtobufAndGeneratedClients", "tools/wails/go.mod", "frontend/overseer/bindings", "GOARCH", "arm64", "13.0", `applicationName+".app"`}},
 		{"internal/buildtool/preflight.go", []string{"verifyGeneratedContracts", "tools/buf/go.mod", "generate Go protobuf contracts", "build generated browser client"}},
 		{"internal/buildtool/docker.go", []string{"PackageAllDocker", "packageDarwinAggregateBundle", "darwin-arm64", "linux/", "SOURCE_REVISION", "atomically publish Docker package matrix"}},
@@ -197,7 +191,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 		"build",
 		"package",
 		"package:all",
-		"package:all:remote",
+		"ci:quality",
 		"deps",
 		"deps:frontend",
 		"deps:browser",
@@ -217,7 +211,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 		"browser:test",
 		"check",
 		"release:macos:preflight",
-		"release:local",
+		"release:publish",
 		"release:macos:signed",
 	} {
 		t.Run("task "+taskName, func(t *testing.T) {
@@ -244,13 +238,9 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	assert.Contains(t, packageAll, `--output "{{.OUTPUT}}"`)
 	assert.NotContains(t, packageAll, "REF")
 	assert.NotContains(t, packageAll, "--ref")
-	packageAllRemote := taskfileTask(t, taskfile, "package:all:remote")
-	assert.Contains(t, packageAllRemote, "run ./cmd/build package-all")
-	assert.Contains(t, packageAllRemote, "gh auth status")
-	assert.Contains(t, packageAllRemote, `--output "{{.OUTPUT}}"`)
-	releaseLocal := taskfileTask(t, taskfile, "release:local")
-	assert.Contains(t, releaseLocal, "run ./cmd/build release-candidate")
-	assert.Contains(t, releaseLocal, `--output "{{.OUTPUT}}"`)
+	releasePublish := taskfileTask(t, taskfile, "release:publish")
+	assert.Contains(t, releasePublish, "tools/goreleaser/go.mod")
+	assert.Contains(t, releasePublish, "goreleaser release")
 
 	dev := taskfileTask(t, taskfile, "dev")
 	run := taskfileTask(t, taskfile, "run")
@@ -307,6 +297,43 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	assert.Equal(t, "help", matches[1][1])
 }
 
+func TestReleaseToolSurfaceUsesTaskAndPinnedGoReleaserOnly(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	taskfile := readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+	mainSource := readAcceptanceDocument(t, filepath.Join(root, "cmd", "build", "main.go"))
+	releaseWorkflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
+	qualityWorkflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-cross-platform.yml"))
+
+	for _, taskName := range []string{"package", "package:all", "release:publish"} {
+		require.NotEmpty(t, taskfileTask(t, taskfile, taskName))
+	}
+	for _, removed := range []string{"package:all:remote", "release:local"} {
+		assert.NotContains(t, taskfile, "\n  "+removed+":\n")
+	}
+	assert.Contains(t, taskfileTask(t, taskfile, "package:all"), "package-all-docker")
+	assert.Contains(t, taskfileTask(t, taskfile, "release:publish"), "tools/goreleaser/go.mod")
+	assert.Contains(t, taskfileTask(t, taskfile, "release:publish"), "goreleaser release --clean --config .goreleaser.yaml")
+
+	for _, removedAction := range []string{`case "package-all":`, `case "release-candidate":`} {
+		assert.NotContains(t, mainSource, removedAction)
+	}
+	assert.Contains(t, mainSource, `case "package-all-docker":`)
+
+	assert.FileExists(t, filepath.Join(root, "tools", "goreleaser", "go.mod"))
+	assert.NoFileExists(t, filepath.Join(root, "tools", "oras", "go.mod"))
+	for _, workflow := range []string{releaseWorkflow, qualityWorkflow} {
+		assert.NotContains(t, strings.ToLower(workflow), "package-all-docker")
+		assert.NotContains(t, strings.ToLower(workflow), "release:macos:signed")
+		assert.NotContains(t, strings.ToLower(workflow), "oras")
+	}
+
+	makefile := readAcceptanceDocument(t, filepath.Join(root, "Makefile"))
+	targetPattern := regexp.MustCompile(`(?m)^([[:alnum:]_-]+):[^=\n]*$`)
+	require.Len(t, targetPattern.FindAllStringSubmatch(makefile, -1), 2)
+}
+
 func TestGoPackageOutputDeploymentTargetAndFinalSignOrderAreExplicit(t *testing.T) {
 	t.Parallel()
 
@@ -361,45 +388,15 @@ func TestReproducibleBuildHashesPackagedExecutableAndUsesQuietToolEnvironments(t
 	assert.Contains(t, protoGenerate, `--no-experimental-webstorage`)
 }
 
-func TestMacOSCIRunsPinnedTaskQualityBuildAndChecksumOnlyDarwinCandidate(t *testing.T) {
+func TestStandaloneMacOSWorkflowIsRemovedFromActiveAutomation(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
-	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-macos.yml"))
-	assert.Equal(t, 2, strings.Count(workflow, "\n    runs-on:"), "workflow must isolate quality and Darwin artifact jobs")
-	for _, required := range []string{
-		"tools/task/go.sum",
-		"- name: Lint",
-		"task fmt:check vet lint",
-		"- name: Test",
-		"task test",
-		"- name: Build protobuf",
-		"task proto:check",
-		"- name: Build application",
-		"task package",
-		"workflow_call:",
-		"SHA-256 verified Darwin release candidate",
-		"hdiutil create",
-		"shasum -a 256 -c",
-		"actions/upload-artifact@v4",
-	} {
-		assert.Contains(t, workflow, required)
-	}
-	for _, forbidden := range []string{
-		"go run ./cmd/build package",
-		"go run -modfile=tools/golangci-lint/go.mod",
-		"go test -race",
-		"tests/browser",
-		"reproducible-build-check.sh",
-		"secret-leak-check.sh",
-		"legacy-public-access-check.sh",
-		"proto-breaking.sh",
-		"make tools",
-		"notarytool",
-		"Developer ID Application",
-	} {
-		assert.NotContains(t, workflow, forbidden)
-	}
+	assert.NoFileExists(t, filepath.Join(root, ".github", "workflows", "wails-macos.yml"))
+	portable := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
+	protoCheck := readAcceptanceDocument(t, filepath.Join(root, "scripts", "proto-check.sh"))
+	assert.NotContains(t, portable, "wails-macos.yml")
+	assert.NotContains(t, protoCheck, "wails-macos.yml")
 }
 
 func TestWailsV3RollbackRecordHasIdentitySafetyTriggersAndHonestEvidenceFields(t *testing.T) {
@@ -455,9 +452,9 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 	support := readAcceptanceDocument(t, filepath.Join(root, "docs", "platform-support.md"))
 	packaging := readAcceptanceDocument(t, filepath.Join(root, "docs", "platform-packaging.md"))
 
-	for _, document := range []string{readme, packaging} {
+	for _, document := range []string{readme, packaging, support} {
 		for _, required := range []string{
-			"darwin/arm64", "bin/darwin-arm64/Fallout Terminal.app",
+			"darwin/arm64", "Fallout-Terminal-darwin-arm64.zip",
 			"windows/amd64", "Fallout-Terminal-windows-amd64.zip",
 			"windows/arm64", "Fallout-Terminal-windows-arm64.zip",
 			"linux/amd64", "Fallout-Terminal-linux-amd64.tar.gz",
@@ -473,7 +470,8 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 		"task dev",
 		"task build",
 		"task package",
-		"task package:all OUTPUT=",
+		"task package:all",
+		"pull requests", "main", "tag",
 		"docs/platform-support.md",
 		"docs/platform-packaging.md",
 	} {
@@ -483,8 +481,10 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 	for _, required := range []string{
 		"Windows 10", "Windows 11", "WebView2",
 		"GTK4", "WebKitGTK 6.0", "Secret Service",
-		"Windows Credential Manager", "%APPDATA%", "~/.config",
-		"Fallout Terminal.exe", "./Fallout Terminal",
+		"macOS 13", "Apple Silicon", "unsigned", "Keychain",
+		"Windows Credential Manager", "%APPDATA%", "~/.config", "~/Library/Application Support",
+		"Fallout Terminal.exe", "./Fallout Terminal", "Fallout Terminal.app",
+		"archive availability", "optional", "NOT RUN",
 		"локальн", "устранение неполадок",
 	} {
 		assert.Contains(t, support, required)
@@ -497,12 +497,27 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 		"task deps", "task fmt", "task vet", "task lint", "task test",
 		"task proto:generate", "task proto:check", "task proto:breaking",
 		"task bindings:check", "task browser:test", "task check",
-		"task release:macos:preflight", "task release:local", "task release:macos:signed",
-		"GOOS", "GOARCH", "gh auth login",
-		"task package:all", "current branch", "origin", "OUTPUT=", "fallout-terminal-portable",
-		"aggregate-index.json", "не публикуется", "код завершения",
+		"task release:macos:preflight", "task release:publish", "task release:macos:signed",
+		"GOOS", "GOARCH",
+		"task package GOOS=windows GOARCH=amd64",
+		"task package GOOS=windows GOARCH=arm64",
+		"task package GOOS=linux GOARCH=amd64",
+		"task package GOOS=linux GOARCH=arm64",
+		"task package GOOS=darwin GOARCH=arm64",
+		"task package:all", "OUTPUT=", "local", "Docker", "never runs in CI",
+		"exactly five", "pinned GoReleaser", "create-only",
+		"rerun the same tag immediately", "Delete the partial release manually",
+		"не публикуется", "код завершения",
 	} {
 		assert.Contains(t, packaging, required)
+	}
+
+	for _, document := range []string{readme, packaging, support} {
+		for _, obsolete := range []string{
+			"package:all:remote", "release:local", "aggregate-index.json", "GitHub Packages", "tools/oras", ".dmg.sha256",
+		} {
+			assert.NotContains(t, document, obsolete)
+		}
 	}
 }
 

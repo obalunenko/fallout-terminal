@@ -29,7 +29,7 @@ type PackagePlan struct {
 // verification stages.
 func NewPackagePlan(target Target, host Host) (PackagePlan, error) {
 	if !target.Portable() {
-		return PackagePlan{}, fmt.Errorf("portable package plan requires a Windows or Linux target, got %s", target)
+		return PackagePlan{}, fmt.Errorf("portable package plan requires a supported release target, got %s", target)
 	}
 	if err := ValidateHost(target, host); err != nil {
 		return PackagePlan{}, err
@@ -155,6 +155,9 @@ func (p PackagePlan) archiveFiles(root string) ([]ArchiveFile, error) {
 }
 
 func portablePackageActions(plan PackagePlan) []Step {
+	if plan.target.OS() == goosDarwin {
+		return darwinPortablePackageActions(plan)
+	}
 	resources := filepath.Join(plan.payloadRoot, "resources")
 	actions := append([]Step(nil), preparePlan()...)
 	actions = append(actions,
@@ -203,6 +206,37 @@ func portablePackageActions(plan PackagePlan) []Step {
 	return actions
 }
 
+func darwinPortablePackageActions(plan PackagePlan) []Step {
+	bundle := filepath.Join(plan.payloadRoot, applicationName+".app")
+	contents := filepath.Join(bundle, "Contents")
+	macOS := filepath.Join(contents, "MacOS")
+	resources := filepath.Join(contents, "Resources")
+	executable := filepath.Join(macOS, applicationName)
+
+	actions := append([]Step(nil), preparePlan()...)
+	actions = append(actions,
+		preflightStep("verify "+plan.target.String()+" native build prerequisites", verifyNativeBuildPrerequisites, plan.target),
+		Step{Name: "remove previous " + plan.target.String() + " staging directory", Operation: removeTree, Path: plan.stageRoot},
+		Step{Name: "create portable application root", Operation: makeDirectory, Path: plan.payloadRoot, Mode: 0o755},
+		Step{Name: "create Darwin application executable directory", Operation: makeDirectory, Path: macOS, Mode: 0o755},
+		Step{Name: "create Darwin bundled session directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
+		Step{Name: "install Darwin application metadata", Operation: copyFile, Source: filepath.Join("build", "darwin", "Info.plist"), Destination: filepath.Join(contents, "Info.plist"), Mode: 0o644},
+		commandStep(
+			"install Darwin application icon",
+			"go", "tool", "-modfile=tools/wails/go.mod", "wails3", "generate", "icons",
+			"-input", filepath.Join("build", "appicon.png"),
+			"-macfilename", filepath.Join(resources, "icon.icns"),
+			"-windowsfilename", "",
+		),
+		Step{Name: "install Darwin third-party notices", Operation: copyFile, Source: "THIRD_PARTY_NOTICES.md", Destination: filepath.Join(resources, "THIRD_PARTY_NOTICES.md"), Mode: 0o444},
+		Step{Name: "install Darwin bundled demo player config", Operation: copyFile, Source: filepath.Join("sessions", "demo-players.json"), Destination: filepath.Join(resources, "sessions", "demo-players.json"), Mode: 0o444},
+		Step{Name: "install Darwin bundled demo", Operation: copyFile, Source: filepath.Join("sessions", "demo.json"), Destination: filepath.Join(resources, "sessions", "demo.json"), Mode: 0o444},
+		compileStep(plan.target, executable),
+		Step{Name: "make Darwin application executable", Operation: changeMode, Path: executable, Mode: 0o755},
+	)
+	return actions
+}
+
 func windowsIconPath(target Target) string {
 	return filepath.Join("build", "bin", target.OS()+"-"+target.Arch(), "appicon-"+target.Arch()+".ico")
 }
@@ -247,12 +281,10 @@ func ownedRemovalPath(root, resolved string) bool {
 			return true
 		}
 	}
-	for _, goos := range []string{goosWindows, goosLinux} {
-		for _, goarch := range []string{goarchARM64, goarchAMD64} {
-			stage := filepath.Join(cleanRoot, "build", "bin", goos+"-"+goarch, "stage")
-			if resolved == stage {
-				return true
-			}
+	for _, target := range PortableTargets() {
+		stage := filepath.Join(cleanRoot, "build", "bin", target.OS()+"-"+target.Arch(), "stage")
+		if resolved == stage {
+			return true
 		}
 	}
 	for _, goarch := range []string{goarchARM64, goarchAMD64} {

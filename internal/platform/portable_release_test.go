@@ -2,7 +2,6 @@ package platform
 
 import (
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -10,165 +9,150 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPortableReleaseWorkflowUsesExplicitNativeRunnerMatrix(t *testing.T) {
+func TestQualityWorkflowIsReadOnlyAndSeparatedFromReleaseAutomation(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-cross-platform.yml"))
+	taskfile := readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+
+	for _, required := range []string{
+		"pull_request:",
+		"types: [opened, synchronize, reopened]",
+		"push:",
+		"- main",
+		"permissions:",
+		"contents: read",
+		"go tool -modfile=tools/task/go.mod task ci:quality",
+	} {
+		assert.Contains(t, workflow, required)
+	}
+	for _, forbidden := range []string{
+		"workflow_dispatch:",
+		"contents: write",
+		"packages: write",
+		"strategy:",
+		"matrix:",
+		"windows/amd64",
+		"linux/arm64",
+		"darwin/arm64",
+		"actions/upload-artifact",
+		"goreleaser",
+		"release:publish",
+		"task package",
+		"package:all",
+	} {
+		assert.NotContains(t, workflow, forbidden)
+	}
+
+	quality := taskfileTask(t, taskfile, "ci:quality")
+	require.NotEmpty(t, quality)
+	for _, dependency := range []string{
+		"test",
+		"vet",
+		"frontend:build",
+		"startup:check",
+		"wails:pins:check",
+		"bindings:check",
+		"proto:format:check",
+		"proto:lint",
+		"proto:drift:check",
+		"proto:breaking",
+		"proto:generated:check",
+	} {
+		assert.Contains(t, quality, "task: "+dependency)
+	}
+	for _, forbidden := range []string{"package", "release", "docker", "sign", "native-ui"} {
+		assert.NotContains(t, strings.ToLower(quality), forbidden)
+	}
+}
+
+func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-cross-platform.yml"))
+	composition := workflow + "\n" + readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+	for _, required := range []string{
+		"ci --prefix frontend",
+		"run build:overseer --prefix frontend",
+		"run build:client --prefix frontend",
+		"scripts/wails-v3-contract-check.sh",
+		"scripts/wails-bindings-check.sh",
+		"scripts/proto-drift-test.sh",
+		"scripts/proto-breaking.sh",
+	} {
+		assert.Contains(t, composition, required)
+	}
+	for _, pin := range []string{"v3.0.0-beta.13", "3.0.0-beta.13"} {
+		assert.Contains(t, composition, pin)
+	}
+}
+
+func TestPortableReleaseWorkflowIsTagOnlyCreateOnlyFiveTargetCoordination(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
 	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
-
 	for _, required := range []string{
+		"tags:",
+		"- 'v*'",
+		"preflight:",
+		"needs: [preflight]",
 		"fail-fast: false",
 		"runs-on: ${{ matrix.runner }}",
 		"windows-2025",
 		"windows-11-arm",
 		"ubuntu-24.04",
 		"ubuntu-24.04-arm",
-		"windows/amd64",
-		"windows/arm64",
-		"linux/amd64",
-		"linux/arm64",
-	} {
-		assert.Contains(t, workflow, required)
-	}
-	for _, runner := range []string{"windows-2025", "windows-11-arm", "ubuntu-24.04", "ubuntu-24.04-arm"} {
-		pattern := regexp.MustCompile(`(?m)^[[:space:]]+runner: ` + regexp.QuoteMeta(runner) + `$`)
-		assert.Len(t, pattern.FindAllString(workflow, -1), 1, "%s must identify exactly one native target", runner)
-	}
-	assert.NotContains(t, workflow, "runs-on: ubuntu-latest")
-	assert.NotContains(t, workflow, "runs-on: windows-latest")
-}
-
-func TestPortableReleaseUploadsOnlyAfterNativeVerification(t *testing.T) {
-	t.Parallel()
-
-	workflow := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), ".github", "workflows", "wails-portable.yml"))
-	packageJob := strings.Index(workflow, "  package:")
-	aggregateJob := strings.Index(workflow, "  aggregate:")
-	require.NotEqual(t, -1, packageJob)
-	require.Greater(t, aggregateJob, packageJob)
-	packageSource := workflow[packageJob:aggregateJob]
-
-	for _, required := range []string{
-		"go tool -modfile=tools/task/go.mod task package",
-		"scripts/verify-windows-package.ps1",
-		"scripts/verify-linux-package.sh",
-		"actions/upload-artifact@v4",
-		"if: ${{ success() }}",
-	} {
-		assert.Contains(t, packageSource, required)
-	}
-	upload := strings.Index(packageSource, "actions/upload-artifact@v4")
-	require.NotEqual(t, -1, upload)
-	assert.Less(t, strings.Index(packageSource, "scripts/verify-windows-package.ps1"), upload)
-	assert.Less(t, strings.Index(packageSource, "scripts/verify-linux-package.sh"), upload)
-	assert.NotContains(t, packageSource, "make ")
-	assert.NotContains(t, packageSource, "\n          task package")
-}
-
-func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing.T) {
-	t.Parallel()
-
-	root := repositoryRoot(t)
-	windows := readAcceptanceDocument(t, filepath.Join(root, "scripts", "verify-windows-package.ps1"))
-	linux := readAcceptanceDocument(t, filepath.Join(root, "scripts", "verify-linux-package.sh"))
-	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
-	secretCheck := readAcceptanceDocument(t, filepath.Join(root, "scripts", "secret-leak-check.sh"))
-
-	for _, script := range []string{windows, linux} {
-		for _, required := range []string{
-			"go run ./cmd/native-credential-smoke",
-			"application-reopen",
-			"control-accepted",
-			"synchronized",
-			"http://127.0.0.1:",
-		} {
-			assert.Contains(t, script, required)
-		}
-	}
-	assert.Contains(t, windows, "session.save")
-	assert.Contains(t, linux, `session\.save`)
-	assert.Contains(t, linux, "native-ui-smoke.py")
-	assert.Contains(t, linux, "--scan-root")
-	assert.Contains(t, windows, "Assert-NoCredentialCanaryLeak")
-	assert.Contains(t, workflow, "python3-pyatspi")
-	assert.Contains(t, workflow, "x11-utils")
-	assert.Contains(t, workflow, "openbox")
-	assert.Contains(t, workflow, "GSK_RENDERER=cairo")
-	assert.Contains(t, workflow, "-extension MIT-SHM")
-	assert.Contains(t, workflow, "WEBKIT_DISABLE_DMABUF_RENDERER=1")
-	assert.Contains(t, workflow, "WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1")
-	assert.Contains(t, linux, "_NET_SUPPORTING_WM_CHECK")
-	assert.Contains(t, linux, "--expect-unavailable")
-	assert.Contains(t, linux, "FALLOUT_CREDENTIAL_MODE")
-	assert.Contains(t, linux, "The secure credential store is unavailable; local access remains available.")
-	assert.Contains(t, workflow, "FALLOUT_CREDENTIAL_MODE=unavailable")
-	assert.Contains(t, workflow, "TestTranslateWindowsCredentialErrorCategories")
-	assert.Contains(t, secretCheck, "--scan-root")
-}
-
-func TestPortableReleaseAggregateAlwaysGatesCompleteVerifiedMatrix(t *testing.T) {
-	t.Parallel()
-
-	workflow := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), ".github", "workflows", "wails-portable.yml"))
-	aggregateJob := strings.Index(workflow, "  aggregate:")
-	require.NotEqual(t, -1, aggregateJob)
-	aggregateSource := workflow[aggregateJob:]
-	for _, required := range []string{
-		"if: ${{ always() }}",
+		"macos-15",
+		"task package GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}",
+		"inspect-release-archive",
+		"inspect-release-inventory",
 		"needs: [package]",
-		"actions/download-artifact@v4",
-		"actions/upload-artifact@v4",
-		"fallout-terminal-portable",
-		"SOURCE_SHA",
-	} {
-		assert.Contains(t, aggregateSource, required)
-	}
-	assert.Contains(t, aggregateSource, "needs.package.result")
-	assert.Contains(t, aggregateSource, "success")
-	assert.Contains(t, aggregateSource, "windows-amd64")
-	assert.Contains(t, aggregateSource, "windows-arm64")
-	assert.Contains(t, aggregateSource, "linux-amd64")
-	assert.Contains(t, aggregateSource, "linux-arm64")
-}
-
-func TestPortableReleasePublishesCompleteFiveTargetInventoryForVersionTags(t *testing.T) {
-	t.Parallel()
-
-	workflow := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), ".github", "workflows", "wails-portable.yml"))
-	publishJob := strings.Index(workflow, "  publish:")
-	require.NotEqual(t, -1, publishJob)
-	publishSource := workflow[publishJob:]
-
-	for _, required := range []string{
-		"tags:",
-		"- 'v*'",
-		"validate_release:",
-		"uses: ./.github/workflows/wails-macos.yml",
-		"needs: [aggregate, macos-checksum]",
-		"fallout-terminal-release-candidate",
-		"github.ref_type == 'tag'",
+		"task release:publish",
 		"contents: write",
-		"packages: write",
-		"go tool -modfile=tools/oras/go.mod oras push",
-		"oras manifest delete --force",
-		"ghcr.io/${package_repository}:${GITHUB_REF_NAME}",
-		"go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml",
-		"Roll back incomplete cross-destination publication",
-		"Fallout-Terminal-arm64.dmg",
-		"Fallout-Terminal-arm64.dmg.sha256",
-		"combined/*",
+		"--paginate",
+		"include drafts",
+		"No release exists; rerun the same tag immediately.",
+		"Delete the partial release manually, then rerun the same tag.",
 	} {
 		assert.Contains(t, workflow, required)
 	}
-
-	assert.Contains(t, publishSource, "fallout-terminal-release-candidate")
-	assert.Contains(t, publishSource, "application/vnd.fallout-terminal.release.v1")
-	assert.Contains(t, publishSource, "aggregate-index.json")
-	assert.NotContains(t, publishSource, "gh release")
-	assert.NotContains(t, publishSource, "make ")
+	for _, target := range []string{"windows/amd64", "windows/arm64", "linux/amd64", "linux/arm64", "darwin/arm64"} {
+		assert.Equal(t, 1, strings.Count(workflow, "target: "+target), target)
+	}
+	for _, archive := range []string{
+		"Fallout-Terminal-windows-amd64.zip",
+		"Fallout-Terminal-windows-arm64.zip",
+		"Fallout-Terminal-linux-amd64.tar.gz",
+		"Fallout-Terminal-linux-arm64.tar.gz",
+		"Fallout-Terminal-darwin-arm64.zip",
+	} {
+		assert.Contains(t, workflow, archive)
+	}
+	for _, forbidden := range []string{
+		"workflow_dispatch:",
+		"pull_request:",
+		"branches:",
+		"packages: write",
+		".sha256",
+		"aggregate-index.json",
+		"verification.json",
+		".dmg",
+		"wails-macos.yml",
+		"gh release create",
+		"gh release delete",
+		"oras",
+		"rollback",
+		"replace",
+	} {
+		assert.NotContains(t, strings.ToLower(workflow), strings.ToLower(forbidden))
+	}
+	assert.GreaterOrEqual(t, strings.Count(workflow, "gh api --paginate"), 3, "preflight, pre-publish, and failure diagnosis must inspect all release states")
 }
 
-func TestGoReleaserV2PublishesOnlyPreverifiedPortableFiles(t *testing.T) {
+func TestGoReleaserPublishesOnlyFivePrebuiltArchives(t *testing.T) {
 	t.Parallel()
 
 	config := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), ".goreleaser.yaml"))
@@ -176,42 +160,18 @@ func TestGoReleaserV2PublishesOnlyPreverifiedPortableFiles(t *testing.T) {
 		"version: 2",
 		"skip: true",
 		"disable: true",
+		"draft: false",
 		"prerelease: auto",
-		"draft: true",
-		"replace_existing_artifacts: true",
-		"./combined/aggregate-index.json",
-		"./combined/Fallout-Terminal-arm64.dmg",
-		"./combined/Fallout-Terminal-arm64.dmg.sha256",
 		"./combined/Fallout-Terminal-windows-amd64.zip",
 		"./combined/Fallout-Terminal-windows-arm64.zip",
 		"./combined/Fallout-Terminal-linux-amd64.tar.gz",
 		"./combined/Fallout-Terminal-linux-arm64.tar.gz",
+		"./combined/Fallout-Terminal-darwin-arm64.zip",
 	} {
 		assert.Contains(t, config, required)
 	}
-	assert.Equal(t, 11, strings.Count(config, "- glob: ./combined/"))
-}
-
-func TestPortableReleaseUsesSeparateDarwinChecksumWorkflow(t *testing.T) {
-	t.Parallel()
-
-	root := repositoryRoot(t)
-	portable := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
-	macOS := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-macos.yml"))
-
-	assert.Contains(t, macOS, "name: Wails macOS")
-	assert.Contains(t, macOS, "runs-on: macos-15")
-	assert.Contains(t, macOS, "workflow_call:")
-	assert.Contains(t, macOS, "go tool -modfile=tools/task/go.mod task package")
-	assert.Contains(t, macOS, "hdiutil create")
-	assert.Contains(t, macOS, "shasum -a 256 -c")
-	assert.Contains(t, macOS, "Fallout-Terminal-arm64.dmg.sha256")
-	assert.Contains(t, macOS, "darwin-verification.json")
-	assert.NotContains(t, macOS, "windows-11-arm")
-	assert.NotContains(t, macOS, "ubuntu-24.04-arm")
-	for _, workflow := range []string{portable, macOS} {
-		assert.NotContains(t, workflow, "notarytool")
-		assert.NotContains(t, workflow, "Developer ID Application")
-		assert.NotContains(t, workflow, "MACOS_DEVELOPER_ID")
+	assert.Equal(t, 5, strings.Count(config, "- glob: ./combined/"))
+	for _, forbidden := range []string{"keep-existing", "replace_existing_artifacts", ".sha256", ".dmg", "aggregate-index", "publisher"} {
+		assert.NotContains(t, strings.ToLower(config), strings.ToLower(forbidden))
 	}
 }

@@ -1,7 +1,6 @@
-name: Wails Cross-Platform Build
+name: Wails Quality
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
@@ -12,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wails-cross-platform-${{ github.ref }}
+  group: wails-quality-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,55 +19,15 @@ env:
   NODE_VERSION: 20.19.0
 
 jobs:
-  release-config:
-    name: Check GoReleaser v2 configuration
+  quality:
+    name: Repository quality contracts
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 45
     steps:
       - name: Check out clean source
         uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: tools/goreleaser/go.sum
-
-      - name: Validate release configuration
-        run: go tool -modfile=tools/goreleaser/go.mod goreleaser check --config .goreleaser.yaml
-
-  build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: windows/amd64
-            goos: windows
-            goarch: amd64
-            runner: windows-2025
-            executable: build/bin/windows-amd64/Fallout Terminal.exe
-          - target: windows/arm64
-            goos: windows
-            goarch: arm64
-            runner: windows-11-arm
-            executable: build/bin/windows-arm64/Fallout Terminal.exe
-          - target: linux/amd64
-            goos: linux
-            goarch: amd64
-            runner: ubuntu-24.04
-            executable: build/bin/linux-amd64/Fallout Terminal
-          - target: linux/arm64
-            goos: linux
-            goarch: arm64
-            runner: ubuntu-24.04-arm
-            executable: build/bin/linux-arm64/Fallout Terminal
-    steps:
-      - name: Check out clean source
-        uses: actions/checkout@v4
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -78,6 +37,9 @@ jobs:
           cache-dependency-path: |
             go.sum
             tools/buf/go.sum
+            tools/golangci-lint/go.sum
+            tools/protoc-gen-connect-go/go.sum
+            tools/protoc-gen-go/go.sum
             tools/task/go.sum
             tools/wails/go.sum
 
@@ -89,20 +51,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install Linux build dependencies
-        if: ${{ matrix.goos == 'linux' }}
-        shell: bash
         run: |
-          set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends \
             build-essential libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
 
-      - name: Build native target with pinned Task
-        shell: bash
-        run: go tool -modfile=tools/task/go.mod task build GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}
-
-      - name: Verify build output
-        shell: bash
-        env:
-          EXECUTABLE: ${{ matrix.executable }}
-        run: test -s "$EXECUTABLE"
+      - name: Run locked repository quality composition
+        run: go tool -modfile=tools/task/go.mod task ci:quality

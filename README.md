@@ -40,9 +40,7 @@ task --list                # список доступных задач
 task dev                   # разработка
 task build                 # сборка для текущей ОС
 task package               # пакет для текущей ОС
-task package:all           # macOS-пакет нативно и Windows/Linux локально через Docker
-task package:all:remote    # portable-пакеты с нативных GitHub Actions runner-ов
-task release:local         # точные 11 файлов будущего unsigned GitHub Release
+task package:all           # опциональная локальная матрица через macOS и Docker
 task release:macos:preflight # проверить prerequisites ручного подписанного macOS-релиза
 task release:macos:signed  # собрать ручной Developer ID/notarized macOS-релиз
 task test                  # Go-тесты
@@ -147,7 +145,7 @@ specify extension list
 
 ## Готовые пакеты и запуск
 
-В portable-выпуске выберите архив, который в точности соответствует ОС и архитектуре компьютера:
+В portable-выпуске выберите один архив, который в точности соответствует ОС и архитектуре:
 
 | Целевая платформа | Архив для скачивания | Запуск после распаковки |
 |---|---|---|
@@ -155,112 +153,40 @@ specify extension list
 | `windows/arm64` | `Fallout-Terminal-windows-arm64.zip` | `Fallout Terminal.exe` |
 | `linux/amd64` | `Fallout-Terminal-linux-amd64.tar.gz` | `./Fallout Terminal` |
 | `linux/arm64` | `Fallout-Terminal-linux-arm64.tar.gz` | `./Fallout Terminal` |
+| `darwin/arm64` | `Fallout-Terminal-darwin-arm64.zip` | `Fallout Terminal.app` |
 
-Скачайте также одноимённый файл `.sha256`, проверьте контрольную сумму, полностью распакуйте архив и запускайте приложение из распакованного каталога. В Windows откройте `Fallout Terminal.exe`; в Linux при необходимости разрешите выполнение (`chmod +x 'Fallout Terminal'`) и запустите `./Fallout Terminal`. Не переносите исполняемый файл отдельно от каталога `resources/`.
+Полностью распакуйте архив и не отделяйте executable или app bundle от ресурсов. Darwin ZIP содержит
+unsigned-приложение для macOS 13+ на Apple Silicon; первый запуск может потребовать подтверждения в
+Privacy & Security. Требования WebView2, GTK4, WebKitGTK 6.0, защищённых хранилищ, расположение
+данных и устранение неполадок описаны в [docs/platform-support.md](docs/platform-support.md).
 
-Точные версии Windows, WebView2, GTK4, WebKitGTK 6.0 и Secret Service, команды запуска и устранение неполадок находятся в [docs/platform-support.md](docs/platform-support.md).
+Поддержка означает наличие корректного governed-архива для платформы. Нативный запуск полезен как
+дополнительная проверка, но не является обязательным условием публикации portable-архива.
 
 ## Сборка приложения
 
-### Один пакет на нативном хосте
-
-На соответствующем нативном хосте пакет для Windows или Linux собирается так:
+На соответствующем нативном runner-е все пять целей используют один entrypoint:
 
 ```bash
 task package GOOS=windows GOARCH=amd64
 task package GOOS=windows GOARCH=arm64
 task package GOOS=linux GOARCH=amd64
 task package GOOS=linux GOARCH=arm64
+task package GOOS=darwin GOARCH=arm64
 ```
 
-### Все платформы локально на macOS с Docker
+На Apple Silicon Mac команда `task package:all` опционально собирает локальную матрицу: Darwin на
+хосте, Windows/Linux через Docker. Можно задать `OUTPUT=build/portable`. Это только удобство для
+разработчика: команда никогда не запускается в CI и её каталог не используется для публикации.
 
-Для локальной сборки полной матрицы нужен Mac с `darwin/arm64` и установленный и запущенный Docker
-с поддержкой BuildKit, `linux/amd64` и `linux/arm64`. Docker Desktop обычно предоставляет эти
-возможности. На другой ОС или архитектуре команда завершается до упаковки с сообщением о требуемом
-хосте. Проверить готовность daemon и запустить сборку можно так:
+События `pull requests` и push в `main` запускают только read-only quality workflow. Push строгого SemVer `tag`
+вида `v1.2.3` или `v1.2.3-beta.1` запускает пять нативных package jobs и create-only публикацию через
+закреплённый GoReleaser. Публикуются ровно пять указанных архивов; checksum-sidecars, installers и
+package registry не входят в контракт. Существующий draft или release для тега приводит к отказу.
 
-```bash
-docker info
-task package:all
-# или указать собственный каталог:
-task package:all OUTPUT=build/portable
-```
-
-Без `OUTPUT` результат записывается в repository-owned `build/dist`; повторный запуск безопасно
-заменяет предыдущий результат только после полной проверки новой матрицы. Предыдущий output остаётся
-на месте при ошибке сборки или проверки и восстанавливается при ошибке финальной публикации.
-Существующий custom `OUTPUT` заменяется только когда он распознан как предыдущая aggregate-сборка
-по обычному файлу `aggregate-index.json`; файл, symlink или посторонний каталог команда не трогает.
-
-Команда сначала выполняет тот же нативный план, что и `task package`, и проверяет ARM64 Mach-O,
-состав bundle и ad-hoc подпись. Docker получает текущую рабочую копию, поэтому команда собирает и
-незакоммиченные изменения; commit, push, `origin`, `gh` и доступ к GitHub не нужны. Для Linux
-запускаются контейнеры соответствующей архитектуры с CGO, GTK4 и WebKitGTK 6.0, а Windows-бинарники
-собираются средствами Go в контейнере той же архитектуры. После проверки команда атомарно публикует:
-
-- полный `Fallout Terminal.app` для `darwin/arm64`;
-- четыре portable-архива;
-- четыре одноимённых файла `.sha256`;
-- общий `aggregate-index.json`;
-- четыре распакованных runnable-каталога в `bin/<os>-<arch>/` с executable и обязательными
-  `resources`.
-
-Исполняемые файлы доступны напрямую:
-
-```text
-build/dist/bin/windows-amd64/Fallout Terminal.exe
-build/dist/bin/windows-arm64/Fallout Terminal.exe
-build/dist/bin/linux-amd64/Fallout Terminal
-build/dist/bin/linux-arm64/Fallout Terminal
-build/dist/bin/darwin-arm64/Fallout Terminal.app
-```
-
-При собственном `OUTPUT` замените в этих путях `build/dist` на выбранный каталог. Не отделяйте
-executable от соседнего `resources`: bundled demo, icon и third-party notices являются частью
-runnable package.
-
-Если хотя бы одна из пяти целей не собирается или не проходит проверку, новый `OUTPUT` не публикуется, а
-предыдущий успешный результат остаётся доступен.
-macOS bundle собирается нативно; Docker-сборка не запускает Windows/Linux GUI-приложения в целевых
-ОС и поэтому не является для них нативным release evidence.
-
-Перед созданием тега можно собрать ровно тот набор файлов, который будет опубликован:
-
-```bash
-task release:local
-# или указать собственный каталог:
-task release:local OUTPUT=build/release-check
-```
-
-Команда использует Wails-aware `cmd/build`, потому что GoReleaser в этом проекте публикует уже
-готовые пакеты, а не компилирует GUI-приложение. По умолчанию результат находится в `build/release`:
-unsigned DMG для `darwin/arm64`, четыре Windows/Linux архива, пять `.sha256` и
-`aggregate-index.json`. Каталог содержит только 11 будущих release assets.
-
-### Все платформы с нативной упаковкой в GitHub Actions
-
-Для сборки на Windows/Linux runner-ах сначала commit/push текущую ветку,
-а затем выполните:
-
-```bash
-gh auth login
-gh auth status
-task package:all:remote OUTPUT=build/portable-native
-```
-
-Remote-команда требует чистую именованную ветку, полностью синхронизированную с одноимённой веткой
-в `origin`. Она ожидает полную нативную матрицу, проверяет скачанные результаты и также не публикует
-частичный набор. Формат архивов, manifest/checksum и различие локальной и нативной упаковки подробно
-описаны в [руководстве по упаковке](docs/platform-packaging.md).
-
-Каждый push в `main` и каждый pull request автоматически запускает workflow [Wails Cross-Platform Build](.github/workflows/wails-cross-platform.yml). Он выполняет `task build` на четырёх соответствующих нативных runner-ах (`windows/amd64`, `windows/arm64`, `linux/amd64`, `linux/arm64`) и проверяет наличие непустого executable. Полная нативная упаковка, запуск и smoke-проверка архивов остаются в отдельном workflow [Wails Portable](.github/workflows/wails-portable.yml); вручную его диспетчеризует `task package:all:remote`.
-
-Push SemVer-тага вида `v1.2.3` или `v1.2.3-beta.1` автоматически запускает одну пятицелевую release-транзакцию: четыре нативно проверенных Windows/Linux архива объединяются с unsigned `Fallout-Terminal-arm64.dmg` из macOS workflow на том же SHA. Darwin eligibility проверяется только точным совпадением SHA-256 sidecar; Developer ID, notarization, stapling, Gatekeeper и macOS release secrets не требуются. Только после проверки точного набора из DMG и sidecar, четырёх архивов и sidecar-ов и `aggregate-index.json` закреплённый GoReleaser `v2.18.0` публикует один GitHub Release; тот же 11-файловый набор закреплённый ORAS публикует как versioned OCI artifact `ghcr.io/<owner>/<repository>:<tag>` в GitHub Packages. Тег с prerelease-суффиксом создаёт prerelease; ошибка любого target, checksum, join или destination не может быть представлена как частичный успех. Workflow можно безопасно проверить без публикации через `workflow_dispatch` с `validate_release=true`: он строит и объединяет preverified candidate, но не создаёт GitHub Release или GHCR version.
-
-Без `GOOS` и `GOARCH` команда `task package` сохраняет совместимое поведение macOS и создаёт локальный ad-hoc подписанный пакет `build/bin/Fallout Terminal.app`. При первом запуске macOS может потребовать разрешение в **System Settings → Privacy & Security**.
-
-Автоматический публичный релиз проверяет Darwin только по SHA-256. Историческая ручная процедура Developer ID/notarization в [scripts/build-macos.sh](scripts/build-macos.sh) не является CI/release gate.
+При сбое до создания release исправьте причину и перезапустите тот же тег. Если GitHub успел создать
+частичный release, maintainer должен удалить его вручную перед повторным запуском. Подробный контракт,
+команды и процедура восстановления: [docs/platform-packaging.md](docs/platform-packaging.md).
 
 Активная процедура отката: [Wails v3 → v2](docs/wails-v3-migration-rollback.md). [Материалы завершённой миграции Wails v3](specs/006-wails-v3-migration/quickstart.md), каталоги [спецификации Wails v2](specs/001-wails-v2-migration/) и [старого rollback](docs/wails-migration-rollback.md) — неизменяемые исторические evidence, а не действующие инструкции.
 

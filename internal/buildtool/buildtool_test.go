@@ -127,13 +127,15 @@ func TestBuildPlanTargetEnvironmentIsExplicitAndIsolated(t *testing.T) {
 	}
 }
 
-func TestDefaultTargetBuildPlanPreservesLegacyCompatibility(t *testing.T) {
-	legacy, err := Plan("build", nil)
+func TestImplicitAndExplicitDarwinBuildPlansRemainDistinct(t *testing.T) {
+	implicit, err := Plan("build", nil)
 	require.NoError(t, err)
-	targeted, err := PlanForTarget("build", DefaultTarget(), nil)
+	explicit, err := PlanForTarget("build", DefaultTarget(), nil)
 	require.NoError(t, err)
 
-	assert.Equal(t, legacy, targeted)
+	assert.NotEqual(t, implicit, explicit)
+	assert.Contains(t, requireCompileStep(t, implicit).Arguments, filepath.Join("build", "bin", applicationName))
+	assert.Contains(t, requireCompileStep(t, explicit).Arguments, filepath.Join("build", "bin", "darwin-arm64", applicationName))
 }
 
 func TestDevelopmentPlansAssembleAndLaunchOwnedApplicationIdentity(t *testing.T) {

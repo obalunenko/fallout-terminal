@@ -31,13 +31,13 @@ type Target struct {
 	goarch string
 }
 
-// ParseTarget validates one explicit portable target. The existing macOS
-// compatibility target is intentionally available only through DefaultTarget.
+// ParseTarget validates one explicit portable target from the closed release
+// matrix. Values are deliberately case-sensitive and aliases are rejected.
 func ParseTarget(goos, goarch string) (Target, error) {
 	target := Target{goos: goos, goarch: goarch}
-	if !isPortableOS(goos) || !isPortableArch(goarch) {
+	if !target.Portable() {
 		return Target{}, fmt.Errorf(
-			"unsupported target %s (want windows/arm64, windows/amd64, linux/arm64, or linux/amd64)",
+			"unsupported target %s (want windows/amd64, windows/arm64, linux/amd64, linux/arm64, or darwin/arm64)",
 			target.String(),
 		)
 	}
@@ -66,7 +66,14 @@ func (t Target) String() string {
 
 // Portable reports whether the target belongs to the portable archive matrix.
 func (t Target) Portable() bool {
-	return isPortableOS(t.goos) && isPortableArch(t.goarch)
+	switch t.goos {
+	case goosWindows, goosLinux:
+		return t.goarch == goarchAMD64 || t.goarch == goarchARM64
+	case goosDarwin:
+		return t.goarch == goarchARM64
+	default:
+		return false
+	}
 }
 
 // ExecutableName returns the target-native application executable name.
@@ -77,10 +84,41 @@ func (t Target) ExecutableName() string {
 	return applicationName
 }
 
+// ExecutablePath returns the payload-relative executable path expected in the
+// portable archive. Darwin keeps the executable inside its application bundle.
+func (t Target) ExecutablePath() string {
+	if t.goos == goosDarwin {
+		return "Fallout Terminal.app/Contents/MacOS/Fallout Terminal"
+	}
+	return t.ExecutableName()
+}
+
+// RequiredResourcePaths returns the payload-relative files needed to use and
+// identify a packaged application. The returned slice is always a fresh copy.
+func (t Target) RequiredResourcePaths() []string {
+	if t.goos == goosDarwin {
+		return []string{
+			artifactManifestFilename,
+			"Fallout Terminal.app/Contents/Info.plist",
+			"Fallout Terminal.app/Contents/Resources/THIRD_PARTY_NOTICES.md",
+			"Fallout Terminal.app/Contents/Resources/icon.icns",
+			"Fallout Terminal.app/Contents/Resources/sessions/demo-players.json",
+			"Fallout Terminal.app/Contents/Resources/sessions/demo.json",
+		}
+	}
+	return []string{
+		artifactManifestFilename,
+		"resources/THIRD_PARTY_NOTICES.md",
+		"resources/appicon.png",
+		"resources/sessions/demo-players.json",
+		"resources/sessions/demo.json",
+	}
+}
+
 // ArchiveFormat returns the portable archive format for the target.
 func (t Target) ArchiveFormat() ArchiveFormat {
 	switch t.goos {
-	case goosWindows:
+	case goosWindows, goosDarwin:
 		return ArchiveFormatZIP
 	case goosLinux:
 		return ArchiveFormatTarGzip
@@ -173,13 +211,16 @@ func ValidateHost(target Target, host Host) error {
 }
 
 func (t Target) valid() bool {
-	return t.Portable() || t == DefaultTarget()
+	return t.Portable()
 }
 
-func isPortableOS(goos string) bool {
-	return goos == goosWindows || goos == goosLinux
-}
-
-func isPortableArch(goarch string) bool {
-	return goarch == goarchARM64 || goarch == goarchAMD64
+// PortableTargets returns the exact stable release matrix in publication order.
+func PortableTargets() []Target {
+	return []Target{
+		{goos: goosWindows, goarch: goarchAMD64},
+		{goos: goosWindows, goarch: goarchARM64},
+		{goos: goosLinux, goarch: goarchAMD64},
+		{goos: goosLinux, goarch: goarchARM64},
+		{goos: goosDarwin, goarch: goarchARM64},
+	}
 }

@@ -31,5 +31,6 @@
 
 ## Notes
 
-- Single self-check pass completed with no unresolved clarification markers.
-- Local test execution was not performed, as requested.
+- T097 re-audit completed on 2026-08-27 against constitution v8, every settled clarification, the active T068–T099 delta, and the archived BUG-001–BUG-004 boundary.
+- All checklist criteria remain satisfied, no unresolved clarification marker or unmet specification requirement was found, and no superseded bug record was reopened.
+- Implementation validation is recorded separately in `validation.md`; the live tag-dependent acceptance remains owned solely by T099.

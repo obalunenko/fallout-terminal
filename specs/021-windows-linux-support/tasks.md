@@ -1,286 +1,199 @@
-# Tasks: Windows and Linux Desktop Support
+# Tasks: Windows and Linux Desktop Support — Constitution v8 Delta
 
-This oversized feature is ordered as explicit execution waves. Tests are authored before their corresponding implementation where the constitution requires them, but no test or build command is run locally for this feature; validation executes in CI or on matching native hosts.
+**Input**: Design documents in `specs/021-windows-linux-support/`
 
-**Bugfix**: 2026-08-26 — BUG-001 Updated from bugfix patch.
+**Historical record**: The prior `T001`–`T067` implementation record remains in [tasks-history.md](./tasks-history.md); its unchecked legacy validation item is superseded with the rest of that queue. This active list contains only the unchecked constitution-v8 convergence delta from `T068` through `T099` and deliberately starts at `T068` so historical Companion events cannot complete new work.
 
-**Bugfix**: 2026-08-26 — BUG-002 Updated from bugfix patch.
+**Tests**: Constitution v8 requires static, network-free contract tests and focused Go tests before implementation, followed by local build/package validation and one maintainer-approved live prerelease acceptance after commit. Native UI, dialog, credential-store, player, tunnel, and signing journeys may still be run manually or separately, but they do not define platform support or gate tagged releases.
 
-**Bugfix**: 2026-08-26 — BUG-003 Updated from bugfix patch.
+## Phase 1: Setup
 
-**Bugfix**: 2026-08-26 — BUG-004 Updated from bugfix patch.
+**Purpose**: Confirm that no new dependency or project scaffold is needed before the delta.
 
-## Phase 1: Setup — Governance and Task Tooling
+No setup task is required. The existing Go test structure, pinned Task/Wails/GoReleaser modules, workflow directory, and buildtool package are the approved foundations; adding a baseline install/build task would not produce implementation value.
 
-This phase removes the policy and bootstrap blockers shared by every user story.
+## Phase 2: Foundational — Exact Targets and Non-Publishing Checks
 
-**Wave 1 — governance prerequisite:**
+**Purpose**: Establish shared target identity and network-free release validation before any user-story implementation.
 
-- [x] **T001** Amend the deployment profile and Go-tool orchestration rules to authorize `windows`/`linux` on `arm64`/`amd64`, the pinned root Taskfile, Make-only tool bootstrap, and retained Go build-policy ownership · `.specify/memory/constitution.md`
+**Wave 1 — independent failing contract tests (different files):**
+
+- [x] **T068** [P] Extend table-driven target tests to accept exactly `windows/amd64`, `windows/arm64`, `linux/amd64`, `linux/arm64`, and `darwin/arm64`, reject aliases/case variants/`darwin/amd64`, assert stable archive names and formats, and require exact matching hosts · `internal/buildtool/target_test.go`
+- [x] **T069** [P] Add table-driven, network-free failing fixtures for strict release SemVer, minimal ZIP/TAR.GZ eligibility, exact five-file inventory, cancellation, missing executable/resources, empty archives, unexpected sidecars/indexes/raw files/DMGs/verification-record assets, and safe test-owned cleanup with `t.Cleanup`; keep forbidden-extra-asset checks separate from the four-condition per-archive eligibility contract · `internal/buildtool/releasecheck_test.go`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-**Wave 2 — independent tooling files:**
+**Wave 2 — independent shared implementations (different files):**
 
-- [x] **T002** [P] Add the isolated Go Task module pin for `github.com/go-task/task/v3/cmd/task` v3.53.1 with its committed dependency checksums · `tools/task/go.mod`, `tools/task/go.sum`
-- [x] **T003** [P] Replace the Make workflow graph with the sole default `tools` bootstrap that discovers each `tools/*/go.mod` and runs `go install tool` in deterministic order, plus non-mutating bootstrap help · `Makefile`
-- [x] **T004** [P] Create the schema-v3 Wails-compatible Task graph and migrate every existing Make workflow, variable, dependency, and failure contract without Wails→Task recursion · `Taskfile.yml`
+- [x] **T070** [P] Make the target model a closed five-pair set with runner-independent stable ZIP/TAR.GZ names, expected executable paths, required-resource paths, and explicit `darwin/arm64` portable identity · `internal/buildtool/target.go`
+- [x] **T071** [P] Implement pure, network-free release-tag, minimal archive, and exact publication-inventory validators with cancellation-aware readers and no checksum, launch, architecture, signing, or external-service eligibility requirements · `internal/buildtool/releasecheck.go`
 
-**⟶ Wait for Wave 2 to finish, then:**
+**Checkpoint**: Exact target identity and all non-publishing release decisions are independently testable without GitHub access or native UI automation.
 
-**Wave 3 — independent cutover guards:**
+## Phase 3: User Story 1 — Obtain a Complete Archive for Every Supported Target (P1)
 
-- [x] **T005** [P] Replace active Taskfile-prohibition and direct-Go-entrypoint checks with root-Taskfile presence, recursion-safety, and single-command-graph assertions · `scripts/wails-v3-contract-check.sh`, `scripts/wails-v3-cutover-check.sh`
-- [x] **T006** [P] Extend isolated-tool validation to discover `tools/task`, verify v3.53.1 and every module’s one-tool contract, and prove tool resolution leaves the root module unchanged · `scripts/tool-modules-check.sh`
-- [x] **T007** [P] Update startup/build ownership tests for `make tools`, non-mutating `make help`, the migrated Task surface, Wails dispatch, and the absence of Make-owned application workflows · `internal/platform/startup_test.go`
+**Goal**: Produce the fifth portable target through the same explicit package flow while preserving the four existing Windows/Linux archives and the resources each archive requires.
 
-## Phase 2: Foundational — Target-Aware Build Graph
-
-This phase supplies the typed target, host, CLI, and portable preflight infrastructure that blocks all four stories.
+**Independent Test**: Run focused target, package, and archive tests to prove each exact target has a stable non-empty portable archive contract and that Darwin contains the unsigned application bundle, executable, metadata, notices, icon, and demo resources. Native launch evidence is optional, non-gating, and not required to claim archive availability.
 
 ### Tests
 
-**Wave 1 — independent failing contract tests:**
+**Wave 1 — independent failing package contracts (different files):**
 
-- [x] **T008** [P] Add table-driven tests for exact `windows`/`linux` and `arm64`/`amd64` parsing, host mismatch, aliases, case changes, and the existing macOS default · `internal/buildtool/target_test.go`
-- [x] **T009** [P] Refactor build-plan tests to require portable tool invocation, locked preparation order, target environment isolation, and unchanged macOS resource/signature ordering · `internal/buildtool/buildtool_test.go`
+- [x] **T072** [P] [US1] Extend package-plan tests for explicit `darwin/arm64` native compilation, complete unsigned application-bundle staging, stable collision-free output, exclusion of user-owned documents, private settings, credentials, and plaintext secret fallbacks, no DMG/sign/notarize/staple command, and failure cleanup registered immediately with `t.Cleanup` · `internal/buildtool/package_test.go`
+- [x] **T073** [P] [US1] Extend archive tests for deterministic Darwin ZIP bundle layout, executable mode, required resources, non-empty output, unsafe-path rejection, cancellation, preservation of existing Windows/Linux behavior, and absence across target archives of user-owned documents, private settings, credentials, plaintext secret fallbacks, and secret-bearing verification records, using `t.Cleanup` for test-owned files · `internal/buildtool/archive_test.go`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-**Wave 2 — canonical target model:**
+**Wave 2 — independent Darwin package components (different files):**
 
-- [x] **T010** Implement immutable Platform Target and Build Host values, exact validation, executable/archive properties, and actionable mismatch errors · `internal/buildtool/target.go`
+- [x] **T074** [P] [US1] Extend the common target-aware package plan to stage the complete unsigned `Fallout Terminal.app` for explicit `darwin/arm64` while keeping implicit developer packaging separate from tagged-release inputs · `internal/buildtool/package.go`, `internal/buildtool/buildtool.go`
+- [x] **T075** [P] [US1] Extend the common archive writer to emit `Fallout-Terminal-darwin-arm64.zip` containing the intact application bundle while retaining local-only checksum output for optional `package:all` and excluding it from release eligibility · `internal/buildtool/archive.go`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
-**Wave 3 — independent target consumers:**
+**Wave 3 — package-entrypoint integration:**
 
-- [x] **T011** [P] Extend the owned build CLI to accept validated GOOS/GOARCH target inputs and internal aggregate actions while preserving existing action compatibility and nonzero usage failures · `cmd/build/main.go`
-- [x] **T012** [P] Refactor the shared build sequence into platform-neutral preparation and native preflight actions that preserve frontend→protobuf→client→bindings→Overseer→resources ordering · `internal/buildtool/buildtool.go`, `internal/buildtool/preflight.go`
+- [x] **T076** [US1] Wire and document the explicit `task package GOOS=darwin GOARCH=arm64` path through the existing `cmd/build package --target` boundary, preserve paired input validation and implicit local packaging, and expose no signing or DMG branch to tagged callers · `Taskfile.yml`, `cmd/build/main.go`
 
-**⟶ Wait for Wave 3 to finish, then:**
+**Checkpoint**: User Story 1 is independently functional: all five targets have one explicit native package entrypoint and one stable portable archive contract.
 
-**Wave 4 — shared package plan:**
+## Phase 4: User Story 2 — Preserve Product Quality Outside Releases (P1)
 
-- [x] **T013** Add the immutable Package Plan, isolated target staging roots, explicit production environment, owned cleanup allowlist, and failure-without-success-output semantics · `internal/buildtool/package.go`
+**Goal**: Retain project quality and startup contracts for pull requests and `main` pushes without coupling them to the five-target release matrix or publishing assets.
 
-## Phase 3: User Story 1 — Run the Desktop Application on Every Target (P1)
-
-**Goal**: Produce a runnable native application for all four exact Windows/Linux targets with packaged resources, identity, icon, and bundled demo.
-
-**Independent Test**: On each clean matching host, run the target package task, extract the archive, launch from an unrelated working directory, observe the Overseer window, and load the bundled demo without repository or developer tooling.
+**Independent Test**: Static repository tests prove that the quality workflow has only pull-request/main triggers, read-only permissions, all required quality checks, zero target-matrix rows, zero release publishers, and zero release assets; optional native journeys remain non-gating evidence.
 
 ### Tests
 
-**Wave 1 — independent failing story tests:**
+**Wave 1 — failing workflow separation contract:**
 
-- [x] **T014** [P] Add target package-plan tests for executable names, GUI/CGO flags, isolated staging, complete resource inventory, metadata generation, and collision-free outputs · `internal/buildtool/package_test.go`
-- [x] **T015** [P] Extend production resource tests for compile-time package identity, macOS bundle roots, executable-relative Windows/Linux roots, unrelated working directories, and missing resources · `production_resources_test.go`
-- [x] **T016** [P] Add Wails host tests for Windows/Linux application options, stable program identity, icon presence, platform fallback registration, and exact-once close behavior · `wails_host_test.go`
+- [x] **T077** [US2] Replace duplicate-CI assertions with static tests for the sole PR/main quality workflow: Go tests and vet, locked frontend install, clean Overseer/player builds, startup contracts, exact Wails pins, clean binding generation, Buf/protobuf formatting, lint, generation-drift, breaking, and generated-code checks, read-only permissions, no five-target matrix, and no release/package publication · `internal/platform/portable_release_test.go`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-**Wave 2 — independent runtime/package inputs:**
+**Wave 2 — repository-owned quality composition:**
 
-- [x] **T017** [P] Replace bundle-path heuristics with immutable development/production profiles and platform-specific packaged resource roots · `build_profile_development.go`, `build_profile_production.go`, `resource_roots.go`
-- [x] **T018** [P] Add reviewed Windows compatibility, product/version, and icon-generation inputs without committing architecture-specific generated objects · `build/windows/app.manifest`, `build/windows/info.json`
-- [x] **T019** [P] Split Darwin-only close fallback from portable Wails host composition and supply Windows/Linux product name and icon options · `wails_host.go`, `wails_host_darwin.go`, `wails_host_other.go`
+- [x] **T078** [US2] Add a deterministic CI-quality Task composition using locked dependencies for Go tests/vet, both frontend production builds, startup/Wails-pin contracts, binding generation, and Buf/protobuf formatting, lint, generation-drift, breaking, and generated-code checks while keeping packaging, native journeys, signing, and publication outside the task · `Taskfile.yml`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
-**Wave 3 — target package assembly:**
+**Wave 3 — quality workflow cutover:**
 
-- [x] **T020** Implement Windows GUI and Linux CGO compilation, build-scoped `.syso` generation, executable-relative resource staging, both bundled demos, icon, and notices for each exact target · `internal/buildtool/package.go`
+- [x] **T079** [US2] Rewrite the cross-platform workflow as the sole read-only pull-request/main quality workflow, invoke the repository-owned quality composition including Buf/protobuf checks, remove `workflow_dispatch` and target-matrix/release-config jobs, and upload no distribution or release asset · `.github/workflows/wails-cross-platform.yml`
 
-**⟶ Wait for Wave 3 to finish, then:**
+**Checkpoint**: User Story 2 is independently testable: PR/main automation preserves required quality checks and has no path to release publication.
 
-**Wave 4 — canonical maintainer command:**
+## Phase 5: User Story 3 — Publish Simple Tagged Releases for All Targets (P2)
 
-- [x] **T021** Wire `task package GOOS=<os> GOARCH=<arch>` and Wails-dispatched `package` to the same Go plan while retaining no-variable macOS arm64 behavior · `Taskfile.yml`
+**Goal**: Build exactly five native archives only for qualifying SemVer tags and publish them create-only to one GitHub Release through repository-pinned GoReleaser.
 
-**⟶ Wait for Wave 4 to finish, then:**
-
-**Wave 5 — matching-host launch harnesses:**
-
-- [x] **T022** Add Windows and Linux native smoke harnesses that extract under a spaced path, launch from another directory, observe the Overseer window within 60 seconds, load the bundled demo, and close cleanly · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`
-
-**Checkpoint**: Each of the four target-specific commands now produces an independently launchable application archive on its matching host.
-
-## Phase 4: User Story 2 — Host the Same Game Workflow Across Platforms (P1)
-
-**Goal**: Preserve session, player, native desktop, public-access credential, and shutdown behavior on Windows and Linux with OS-appropriate storage and fail-closed security.
-
-**Independent Test**: On one matching Windows and Linux host, open the demo, save/reopen JSON through native dialogs, connect a player, exercise synchronized controls and secure credentials, open an allowed external URL, and close with no listener, tunnel, or process left behind.
+**Independent Test**: First run network-free Go fixtures and static workflow/config tests proving strict tag refusal, preflight before matrix, exact native runner/command rows, minimal archive checks, all-five success gating, exact assets, sole GoReleaser publication, existing-release refusal, and manual partial-release recovery without mutation. After all local/static gates pass and the implementation is committed, push one explicitly maintainer-approved unused SemVer prerelease tag and verify the preserved real five-archive GitHub Release.
 
 ### Tests
 
-**Wave 1 — independent failing story tests:**
+**Wave 1 — independent failing release cutover contracts (different files):**
 
-- [x] **T023** [P] Expand path tests for Windows Known Folders, Linux XDG roots/fallbacks, preserved macOS paths, redirection, read-only roots, spaces, Unicode, and resource/data separation · `internal/platform/paths_test.go`
-- [x] **T024** [P] Expand desktop adapter tests for native Windows/Linux JSON open/save filters, initial directories, cancel outcomes, and HTTP/HTTPS-only external links · `internal/platform/desktop_test.go`
-- [x] **T025** [P] Expand the shared secure-store contract tests for Windows/Linux presence, replace, delete, scoped use, byte clearing, and not-found/locked/denied/unavailable mapping · `internal/platform/keychain_test.go`
-- [x] **T026** [P] Add public-access manager tests that preserve secure-store initialization failures, recover on retry, keep local/LAN access available, and never downgrade failure to “credential missing” · `internal/tunnel/manager_test.go`
-- [x] **T027** [P] Add application lifecycle tests for startup failure and normal close with connected players/public access, exact-once shutdown, and bounded listener/tunnel/process cleanup · `app_test.go`
+- [x] **T081** [P] [US3] Replace aggregate/DMG/native-smoke publication assertions with static tests for tag-only triggers, strict preflight before matrix, the exact five native runner rows and Task commands, minimal non-gating validation, all-five publication dependency, exact archive transport with no separate secret-bearing verification record, sole `release:publish` Task entrypoint invoking pinned GoReleaser, two existing-release refusals including drafts, distinct no-release immediate-rerun versus partial-release manual-delete/rerun diagnostics with no rollback/mutation, and absence of stale standalone-macOS/proto-script references · `internal/platform/portable_release_test.go`
+- [x] **T082** [P] [US3] Add CLI tests for `validate-release-tag`, `inspect-release-archive`, and `inspect-release-inventory`, retained `package-all-docker`, rejected obsolete `package-all`/`release-candidate` actions, usage diagnostics, cancellation, and test-owned cleanup via `t.Cleanup` · `cmd/build/main_test.go`
+- [x] **T083** [P] [US3] Update startup/tool-surface assertions for retained explicit package and local `package:all`, added CI-owned `release:publish`, removed `package:all:remote`/`release:local`, pinned GoReleaser ownership, ORAS absence, no CI Docker/manual-signed invocations, and Make remaining bootstrap/help-only · `internal/platform/startup_test.go`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-**Wave 2 — independent platform foundations:**
+**Wave 2 — independent publication foundations and cutovers (different files):**
 
-- [x] **T028** [P] Introduce an injectable native-directory provider and implement preserved Darwin, Windows Known Folder/application-data, and Linux XDG document/config storage profiles · `internal/platform/paths.go`, `internal/platform/paths_darwin.go`, `internal/platform/paths_windows.go`, `internal/platform/paths_linux.go`
-- [x] **T029** [P] Make native dialog filters and external-link handling portable while retaining privileged-boundary validation and lifetime guards · `internal/platform/desktop.go`
-- [x] **T030** [P] Generalize secure-store errors/accounts, narrow the unsupported build tags, and add direct pinned runtime dependencies for Windows Credential Manager and Linux D-Bus · `internal/platform/keychain.go`, `internal/platform/keychain_other.go`, `go.mod`, `go.sum`
-- [x] **T031** [P] Preserve precise secure-store availability across initialization/start/retry and use platform-neutral redacted status wording · `internal/tunnel/manager.go`, `internal/tunnel/model.go`
-
-**⟶ Wait for Wave 2 to finish, then:**
-
-**Wave 3 — independent native credential providers:**
-
-- [x] **T032** [P] Implement Windows Credential Manager presence/replace/delete/scoped-use semantics with stable service/account names, native error mapping, and cleared credential blobs · `internal/platform/keychain_windows.go`
-- [x] **T033** [P] Implement context-bounded freedesktop Secret Service collection/unlock/prompt/GetSecret/replace/delete behavior with precise fail-closed error mapping and cleared buffers · `internal/platform/keychain_linux.go`
-
-**⟶ Wait for Wave 3 to finish, then:**
-
-**Wave 4 — application composition join:**
-
-- [x] **T034** Wire production profile, packaged resources, storage profiles, native secure stores, and exact-once lifecycle cleanup through the existing root application composition without changing player/session contracts · `main.go`, `app.go`
-
-**⟶ Wait for Wave 4 to finish, then:**
-
-**Wave 5 — secret and UX cutover:**
-
-- [x] **T035** Extend leak enforcement and replace macOS-specific “Keychain” user wording with redacted “secure credential store” status while retaining zero persistence/log/public-state exposure · `scripts/secret-leak-check.sh`, `frontend/overseer/src/overseer.js`
-
-**Checkpoint**: A representative host-and-player journey is independently functional on Windows and Linux, including native dialogs, protected credentials, local/LAN continuity, and clean shutdown.
-
-## Phase 5: User Story 3 — Produce Trustworthy Artifacts for All Targets (P2)
-
-**Goal**: Produce deterministic, correctly identified artifacts and expose complete remote-native and local-Docker aggregate commands that withhold every failed or unverifiable output.
-
-**Independent Test**: From one clean current branch fully pushed to `origin`, run `task package:all:remote`, verify exactly four unique archives and sidecars, inspect each manifest and PE/ELF identity, and confirm the aggregate fails with no success download when any target check fails. Separately validate the local aggregate contract for the native Darwin bundle and four exact Windows/Linux `bin/<os>-<arch>/` executable/resource payloads, byte identity with their archives, atomic failure, and actionable host/Docker diagnostics without requiring a local five-target build or claiming native Windows/Linux launch evidence.
-
-### Tests
-
-**Wave 1 — independent failing story tests:**
-
-- [x] **T036** [P] Add deterministic ZIP/TAR.GZ tests for sorted safe paths, normalized timestamps/modes, exact inventory, duplicate/traversal/symlink rejection, and stable per-file manifests · `internal/buildtool/archive_test.go`
-- [x] **T037** [P] Add PE/ELF, product metadata, target/name, checksum, executable-mode, required-resource, and corrupted/mismatched artifact verification tests · `internal/buildtool/verify_test.go`
-- [x] **T038** [P] Add aggregate-run tests for correlation IDs, exact four-target/source-SHA joins, independent failure reporting, cancellation, partial download quarantine, and atomic success exposure · `internal/buildtool/aggregate_test.go`
-- [x] **T039** [P] Add repository contract tests for explicit native runner labels, fail-fast disabled, upload-after-verification, aggregate gating, pinned Task use, and separate macOS trust workflow · `internal/platform/portable_release_test.go`
-
-### Implementation
-
-**⟶ Wait for Wave 1 to finish, then:**
-
-**Wave 2 — independent artifact services:**
-
-- [x] **T040** [P] Implement deterministic ZIP/TAR.GZ writers, safe normalized inventory, schema-v1 file manifests, and archive SHA-256 sidecars · `internal/buildtool/archive.go`
-- [x] **T041** [P] Implement archive extraction inspection, PE/ELF machine validation, product/resource/mode/manifest checks, and actionable verification failures · `internal/buildtool/verify.go`
-- [x] **T042** [P] Implement correlated GitHub workflow dispatch, target progress, wait/cancel semantics, aggregate verification, quarantined partial downloads, and atomic success output · `internal/buildtool/aggregate.go`, `cmd/build/main.go`
+- [x] **T084** [P] [US3] Expose the three network-free release-check actions in `cmd/build`, preserve `package-all-docker`, and remove the remote aggregate and joined-release action dispatch/help surface without adding any network publisher · `cmd/build/main.go`
+- [x] **T085** [P] [US3] Move every dependency retained by optional Docker packaging—local result/record types, artifact interfaces, exact-target helpers, clone/validation functions, directory verification, constants, and index structures—out of the remote aggregate coordinator into a local-only boundary; update Docker aggregation and tests to depend only on that boundary before the coordinator is deleted · `internal/buildtool/local_aggregate.go`, `internal/buildtool/aggregate.go`, `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`
+- [x] **T086** [P] [US3] Narrow GoReleaser v2 configuration to five prebuilt archives, disabled generated checksums, `draft: false`, automatic prerelease classification, and no keep-existing, replacement, append, second publisher, or extra asset · `.goreleaser.yaml`
+- [x] **T087** [P] [US3] Add CI-owned `release:publish` invoking `go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml`; remove `package:all:remote` and `release:local` while retaining explicit `package`, optional local `package:all` → `package-all-docker`, and optional manual `release:macos:*` commands outside CI · `Taskfile.yml`
+- [x] **T088** [P] [US3] Remove the isolated ORAS tool module and change tool discovery checks to require pinned GoReleaser while proving ORAS and GitHub Packages publication are absent · `tools/oras/go.mod`, `tools/oras/go.sum`, `scripts/tool-modules-check.sh`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
-**Wave 3 — independent command, smoke, trust, and license integrations:**
+**Wave 3 — independent workflow and obsolete-code cutovers (different files):**
 
-- [x] **T043** [P] Add the remote aggregate command (now `task package:all:remote OUTPUT=<directory>`) over the Go helper with automatic current-branch/`origin` resolution, authenticated `gh` prerequisite, exact pushed-SHA validation, and complete-matrix exit semantics · `Taskfile.yml`, `internal/buildtool/aggregate.go`
-- [x] **T044** [P] Extend the native smoke harnesses with PE/ELF identity, runtime prerequisite, exact inventory, metadata, checksum, player connection, secure-store state, and resource-release evidence · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`
-- [x] **T045** [P] Migrate macOS CI/release/reproducibility entrypoints to pinned Task commands without weakening bundle identity, signature, notarization, DMG, Gatekeeper, or hash checks · `.github/workflows/wails-macos.yml`, `scripts/build-macos.sh`, `scripts/reproducible-build-check.sh`
-- [x] **T046** [P] Validate the union of shipped target dependency graphs and add Windows Credential Manager, D-Bus/Secret Service, and Task tooling licenses/notices to packaged compliance evidence · `scripts/dependency-license-check.sh`, `THIRD_PARTY_NOTICES.md`
+- [x] **T089** [P] [US3] Replace the portable workflow with `v*` push-only coordination: strict SemVer and paginated all-release-state refusal before matrix, exact five matching native runners invoking `task package GOOS=<os> GOARCH=<arch>`, one minimally inspected archive per job, all-five join, exact inventory check, second refusal, one pinned `task release:publish` entrypoint to GoReleaser, per-tag concurrency, and an always-run read-only failure lookup that reports immediate same-tag rerun when no release exists or manual deletion then same-tag rerun when a partial release exists, with no append/replace/delete/rollback · `.github/workflows/wails-portable.yml`
+- [x] **T090** [P] [US3] Delete the remote GitHub Actions aggregate coordinator and joined local release implementation/tests after their local Docker dependencies have moved, leaving no remote `package-all` CLI action, release-candidate action, remote download, joined DMG, or rollback implementation while preserving local `package-all-docker` · `internal/buildtool/aggregate.go`, `internal/buildtool/aggregate_test.go`, `internal/buildtool/release.go`, `internal/buildtool/release_test.go`
 
-**⟶ Wait for Wave 3 to finish, then:**
+**⟶ Wait for T089 to finish, then:**
 
-**Wave 4 — native delivery matrix join:**
+**Wave 4 — ordered standalone-workflow removal:**
 
-- [x] **T047** Add the clean-checkout four-job native matrix plus always-running aggregate gate, exact source SHA, upload-after-launch verification, redacted records, and combined-success artifact · `.github/workflows/wails-portable.yml`
+- [x] **T080** [US3] Delete the superseded standalone macOS workflow only after the portable workflow no longer calls it, remove the deleted workflow reference from the protobuf-check script, and preserve optional manual signed-macOS Task commands outside CI · `.github/workflows/wails-macos.yml`, `scripts/proto-check.sh`
 
-**Checkpoint**: The aggregate command independently produces exactly four verified archives from one revision and refuses to expose a partial or mislabeled matrix.
+**Checkpoint**: User Story 3 is independently functional: a qualifying tag can create one complete five-archive GitHub Release, while any failed target or existing release prevents publication and partial publication requires manual recovery.
 
 ## Phase 6: User Story 4 — Choose and Operate the Correct Distribution (P3)
 
-**Goal**: Let users and maintainers identify the correct target, install prerequisites, launch it, locate non-secret data, bootstrap tools, and troubleshoot failures without guesswork.
+**Goal**: Make the exact five downloads, prerequisites, launch/data guidance, CI split, local Docker convenience, and create-only recovery procedure discoverable without obsolete release paths.
 
-**Independent Test**: Give only the README and platform guides to a new maintainer/user and confirm they select the correct archive, identify prerequisites and data locations, launch it, and find the Task packaging commands in under five minutes.
+**Independent Test**: Give only the README and platform guides to a new user or maintainer and verify they can choose the right archive, identify prerequisites and data locations, distinguish quality from release CI, run explicit packaging, and recover a partial release in under five minutes.
 
 ### Tests
 
-**Wave 1 — documentation contract tests:**
+**Wave 1 — failing documentation contract:**
 
-- [x] **T048** Add documentation assertions for all four exact identifiers/names, `make tools`, migrated Task commands, OS/runtime baselines, launch steps, data locations, secure-store behavior, aggregate packaging, and actionable failures · `internal/platform/startup_test.go`
+- [x] **T091** [US4] Replace stale aggregate/DMG/checksum/package-registry documentation assertions with the exact five names, archive-availability support boundary, portable launch/prerequisite/data/credential guidance that makes native success optional, quality-versus-tag workflow split, explicit package commands, optional local Docker boundary, unsigned Darwin ZIP, create-only refusal, and manual partial-release deletion/rerun procedure · `internal/platform/startup_test.go`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-**Wave 2 — independent guidance surfaces:**
+**Wave 2 — independent guidance surfaces (different files):**
 
-- [x] **T049** [P] Replace active Make workflow guidance with the tool bootstrap, Task quickstart, four-target download table, portable launch summary, and links to detailed platform/release guidance · `README.md`
-- [x] **T050** [P] Document Windows 10/11 WebView2 and Linux GTK4/WebKitGTK6/Secret Service prerequisites, archive selection/launch, OS-native session/settings locations, secure-store expectations, and troubleshooting · `docs/platform-support.md`
-- [x] **T051** [P] Document every migrated Task command, Wails-compatible invocation, matching-host package commands, remote aggregate authentication/current-branch/`origin`/output behavior, artifact layouts, CI evidence, and failure semantics · `docs/platform-packaging.md`
+- [x] **T092** [P] [US4] Update the project quickstart and download/release overview for the exact five portable archives, unsigned Darwin ZIP, separate PR/main quality checks, tag-only GoReleaser publication, optional local Docker aggregation, and manual partial-release recovery · `README.md`
+- [x] **T093** [P] [US4] Rewrite packaging guidance around the common five-target Task entrypoint, native runner matrix, minimal per-target release eligibility, exact five assets, `release:publish` → pinned-GoReleaser create-only ownership, optional local Docker output, live prerelease acceptance, and deletion-before-rerun recovery; remove active remote aggregate, joined release, DMG tag asset, checksum asset, ORAS, and rollback instructions · `docs/platform-packaging.md`
+- [x] **T094** [P] [US4] Update platform support guidance to define support as availability of the governed archive for each exact OS/architecture, document minimum runtime prerequisites and optional portable launch steps including unsigned macOS behavior, explain user/session/settings locations and protected credential expectations, and provide actionable mismatch/runtime failures without making successful native execution an acceptance gate · `docs/platform-support.md`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
-**Wave 3 — usability acceptance record:**
+**Wave 3 — documentation usability acceptance:**
 
-- [x] **T052** Create and complete the five-minute target-selection, prerequisite, launch, data-location, tool-bootstrap, and package-matrix documentation checklist · `specs/021-windows-linux-support/checklists/distribution-guidance.md`
+- [x] **T095** [US4] Re-run and record the under-five-minute distribution-guidance acceptance against the v8 documents, including all five filenames, archive-availability support meaning, optional native launch guidance, prerequisites, data locations, quality/release distinction, explicit package inputs, local-only Docker status, and manual partial-release recovery · `specs/021-windows-linux-support/checklists/distribution-guidance.md`
 
-**Checkpoint**: A user or maintainer can independently choose, launch, operate, troubleshoot, and package the correct distribution using published guidance alone.
+**Checkpoint**: User Story 4 is independently functional: users and maintainers can select, package, launch, troubleshoot, and recover the supported distributions without relying on superseded paths.
 
 ## Phase 7: Polish and Cross-Cutting Validation
 
-**Wave 1 — implementation refinement:**
+**Wave 1 — independent refinement and specification audit (different files):**
 
-- [x] **T053** Simplify and review changed Go orchestration/platform code and the Wails beta.13 dependency cutover for duplicate helpers, unnecessary state, context/error handling, cleanup ownership, secret lifetime, dependency hygiene, mutually compatible runtime/tool/frontend pins, and idiomatic quality · `cmd/build/main.go`, `internal/buildtool/target.go`, `internal/buildtool/preflight.go`, `internal/buildtool/package.go`, `internal/buildtool/archive.go`, `internal/buildtool/verify.go`, `internal/buildtool/aggregate.go`, `internal/platform/paths.go`, `internal/platform/keychain.go`, `internal/platform/keychain_windows.go`, `internal/platform/keychain_linux.go`, `internal/tunnel/manager.go`, `main.go`, `app.go`, `wails_host.go`, `go.mod`, `go.sum`, `tools/wails/go.mod`, `tools/wails/go.sum`, `frontend/overseer/package.json`, `frontend/package-lock.json`
+- [x] **T096** [P] Run simplification and idiomatic Go quality review over the changed build/release seams, remove redundant helpers or band-aid state, preserve precise cancellation/errors, and ensure every test-owned resource uses immediate `t.Cleanup` ownership with `context.WithoutCancel(t.Context())` plus a bounded timeout when cleanup can block · `cmd/build/main.go`, `cmd/build/main_test.go`, `internal/buildtool/target.go`, `internal/buildtool/target_test.go`, `internal/buildtool/package.go`, `internal/buildtool/package_test.go`, `internal/buildtool/archive.go`, `internal/buildtool/archive_test.go`, `internal/buildtool/releasecheck.go`, `internal/buildtool/releasecheck_test.go`, `internal/buildtool/local_aggregate.go`, `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`
+- [x] **T097** [P] Re-audit the active spec checklist against constitution v8, all settled clarifications, the fresh delta tasks, and archived bug boundaries; record any unmet requirement without reopening superseded BUG-001–BUG-004 records · `specs/021-windows-linux-support/checklists/requirements.md`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
-**Wave 2 — cutover audit:**
+**Wave 2 — local and static Success Criteria validation:**
 
-- [x] **T054** Audit active repository commands and dependencies; enforce the exact Wails beta.13 runtime/CLI/frontend pins; and remove remaining non-bootstrap Make workflow references, unqualified/global Go tools, stale Taskfile prohibitions, and obsolete macOS-only support claims · `Taskfile.yml`, `Makefile`, `README.md`, `docs/platform-support.md`, `docs/platform-packaging.md`, `scripts/tool-modules-check.sh`, `scripts/wails-v3-contract-check.sh`, `scripts/wails-v3-cutover-check.sh`, `scripts/build-macos.sh`, `scripts/reproducible-build-check.sh`, `internal/platform/startup_test.go`, `.github/workflows/wails-macos.yml`, `.github/workflows/wails-portable.yml`
+- [x] **T098** Run `gofmt -l .`, `go vet ./...`, `task lint`, `go test ./...`, focused buildtool/platform contract tests, locked frontend production builds, Wails pin and binding checks, `task proto:check`, `task proto:breaking`, `scripts/secret-leak-check.sh`, tool-module checks, pinned GoReleaser config validation, `task build`, and `task package GOOS=darwin GOARCH=arm64`; use static/non-publishing fixtures for release behavior, record the local/static evidence relevant to SC-001–SC-016 and FR-033–FR-035 with exact commands, keep every tag-dependent criterion pending T099, and mark optional native UI/dialog/credential/player/tunnel/signing journeys honestly as `NOT RUN` without failing archive support or the release contract · `specs/021-windows-linux-support/validation.md`
 
-**⟶ Wait for Wave 2 to finish, then:**
+**⟶ Wait for Wave 2 to finish and for the implementation to be committed, then:**
 
-**Wave 3 — single-owner Success Criteria validation in CI (reopened by BUG-004; final execution follows Phase 8):**
+**Wave 3 — live prerelease acceptance:**
 
-- [x] **T055** ⚠️ Reopened (reopened — BUG-004): After T056–T058, T060, and T062 complete, run the pinned Task quality gates and both native delivery workflows from one clean revision on matching hosts, exercise the joined five-target tag-release gate without publishing a production tag, and record SC-001 through SC-013 results with honest `NOT RUN` evidence only where credentials or external services are intentionally unavailable; run no local test suite · `specs/021-windows-linux-support/validation.md`, `.github/workflows/wails-portable.yml`, `.github/workflows/wails-macos.yml`
+- [ ] **T099** [US3] With an explicitly maintainer-approved unused SemVer prerelease tag, push the committed implementation tag, wait for the real five-target workflow, verify the preserved GitHub prerelease exposes exactly the five non-empty governed archives with expected executable/resource contents and no extra assets, and record the tag, release URL, job results, and SC-001/SC-002/SC-004/SC-007/SC-011/SC-013 evidence; if publication fails, follow and record the existing no-release or manual partial-release recovery procedure without automated deletion · `specs/021-windows-linux-support/validation.md`
 
 ## Dependencies & Execution Order
 
 - Phase order is strict: Setup → Foundational → User Story 1 → User Story 2 → User Story 3 → User Story 4 → Polish.
-- Phase 1: T001 blocks the independent T002–T004 tooling wave; its join blocks the independent T005–T007 cutover-guard wave.
-- Phase 2: independent failing tests T008–T009 block T010; T010 blocks independent consumers T011–T012; their join blocks T013.
-- Phase 3: independent tests T014–T016 block independent runtime inputs T017–T019; their join blocks T020 → T021 → T022.
-- Phase 4: independent tests T023–T027 block independent foundations T028–T031; their join blocks independent native adapters T032–T033 → composition T034 → secret/UX cutover T035.
-- Phase 5: independent tests T036–T039 block independent artifact services T040–T042; their join blocks independent integrations T043–T046; that join blocks workflow T047.
-- Phase 6: T048 blocks independent guidance T049–T051; their join blocks checklist T052.
-- Phase 7: refinement T053 blocks cutover audit T054. BUG-004 reopens the single CI validation owner T055 as the final join after Phase 8 tasks T056–T058, T060, and T062.
-- Phase 8: T061 supplies the local Docker aggregate implementation; BUG-001 follow-up T062 verifies its payload, atomicity, and prerequisite-diagnostic contract independently of T056–T058 native acceptance.
-- Phase 8: BUG-002 task T063 depends on T061 and extends T062's controlled contract surface with safe repeat publication and rollback; it remains independent of T056–T058 native acceptance.
-- Phase 8: BUG-003 task T064 depends on T063, joins the canonical native Darwin package before the Docker matrix, and remains independent of T056–T058 Windows/Linux native acceptance.
-- Phase 8: BUG-004 reopens T060; it depends on the existing macOS release path T045 and portable native aggregate T047, and it must finish before the reopened final validation owner T055.
-- User Story 1 is the MVP artifact slice. User Story 2 depends on its runnable target composition; User Story 3 depends on Stories 1–2 for artifact and native acceptance evidence; User Story 4 documents the settled commands and behavior from Stories 1–3.
+- Phase 1 adds no prerequisite work; Phase 2 begins immediately.
+- Phase 2: independent failing tests T068–T069 block independent implementations T070–T071.
+- Phase 3: independent failing tests T072–T073 block independent package components T074–T075; their join blocks entrypoint integration T076.
+- Phase 4: quality contract T077 blocks Task composition T078, which blocks workflow cutover T079.
+- Phase 5: independent failing contracts T081–T083 block independent foundations T084–T088; their join blocks independent tag-workflow and obsolete-code cutovers T089–T090. T085 must finish before T090 deletes the remote coordinator. T089 must finish before T080 deletes the standalone macOS workflow and cleans its protobuf-script reference.
+- Phase 6: documentation contract T091 blocks independent guidance T092–T094; their join blocks acceptance record T095.
+- Phase 7: independent review/audit T096–T097 block local/static validation T098; T098 and a committed implementation block live prerelease acceptance T099.
+- User Story 1 is the portable-artifact MVP. User Story 2 depends on shared foundations but remains a non-release increment. User Story 3 depends on Stories 1–2 for the package and quality/release separation. User Story 4 documents the settled behavior from Stories 1–3.
 
-## Phase 8: Convergence
+## Parallel Opportunities
 
-**Purpose**: Close the remaining native acceptance gap without running a local test suite.
-
-- [x] **T056** [P] Extend both matching-host package smoke harnesses to save the opened demo through the native JSON dialog, reopen the saved copy, perform one player control action, verify the resulting synchronized state, and exercise an allowed HTTP/HTTPS external link without weakening existing shutdown/resource assertions [US2/AC1, US2/AC2, FR-005, FR-006, SC-003] · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`
-- [x] **T057** [P] Add matching-host secure-store acceptance coverage that writes, reads, replaces, and deletes disposable public-access credentials in Windows Credential Manager and Linux Secret Service; also exercise unavailable/locked service behavior, prove local/LAN continuity, and scan owned files, logs, and public state for secret leakage [US2/AC3, FR-008, SC-005, SC-006] · `scripts/verify-windows-package.ps1`, `scripts/verify-linux-package.sh`, `scripts/secret-leak-check.sh`
-- [ ] **T058** After T056–T057, run only the matching native delivery workflows from a clean pushed revision, require every portable matrix job to execute the expanded acceptance harness, and replace applicable `NOT RUN` entries with correlated Windows/Linux evidence while keeping unavailable credential-dependent public-tunnel checks explicitly `NOT RUN` [US2/AC1, US2/AC2, US2/AC3, US2/AC4, SC-003, SC-005, SC-006] · `.github/workflows/wails-portable.yml`, `specs/021-windows-linux-support/validation.md`
-- [x] **T059** Add an automatic matching-runner CI build matrix for Windows/Linux on amd64/arm64 through the pinned Task entrypoint, verify each executable output, and document the build gate separately from the full portable packaging workflow [FR-001, FR-002, FR-013, SC-002] · `.github/workflows/wails-cross-platform.yml`, `README.md`
-- [x] **T060** ⚠️ Reopened (reopened — BUG-004): Extend the implemented four-target tag publication into a one-SHA five-target release by building an unsigned Darwin DMG and verifying only its SHA-256 sidecar; join that Darwin artifact with the four eligible Windows/Linux archives and aggregate index without signing/notarization credentials; and let only repository-pinned GoReleaser v2 publish the exact complete inventory to one GitHub Release with prerelease handling and no partial publication [US3/AC8, FR-013, FR-014, FR-015, FR-029, SC-001, SC-004, SC-007, SC-013, BUG-004] · `.goreleaser.yaml`, `.github/workflows/wails-portable.yml`, `.github/workflows/wails-macos.yml`, `tools/goreleaser/go.mod`, `tools/goreleaser/go.sum`, `internal/platform/portable_release_test.go`, `README.md`, `docs/platform-packaging.md`, `specs/021-windows-linux-support/contracts/artifact-layout.md`, `specs/021-windows-linux-support/contracts/verification-matrix.md`, `specs/021-windows-linux-support/data-model.md`, `specs/021-windows-linux-support/validation.md`
-- [x] **T061** Build and statically verify all four portable targets from the current checkout through architecture-matched Docker builds, export each executable with its required resources, atomically publish only the complete matrix through `task package:all`, retain native GitHub orchestration as `task package:all:remote`, and document that local output is not native launch evidence [US3/AC1, FR-018, FR-025, SC-001] · `.dockerignore`, `build/docker/Dockerfile.package`, `Taskfile.yml`, `cmd/build/main.go`, `internal/buildtool/buildtool.go`, `internal/buildtool/docker.go`, `README.md`, `docs/platform-packaging.md`
-- [x] **T062** Add controlled Go/contract verification for all four local `bin/<os>-<arch>/` executable/resource payloads, exact archive inventory/hash equality, atomic no-partial-output behavior, and missing/stopped/unsupported Docker diagnostics that preserve the cause and recovery instruction; run it in CI without requiring developers to execute the four-target Docker build locally [US3/AC4, US3/AC5, FR-025, FR-026, SC-010, BUG-001] · `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`, `internal/platform/startup_test.go`, `specs/021-windows-linux-support/validation.md`
-- [x] **T063** Implement repeatable local aggregate publication: allow replacement of the repository-owned default or a recognized previous aggregate only after full verification, preserve it through build failures, swap through a same-filesystem sibling work-root backup with rollback on final publish failure, reject unsafe existing targets, and update packaging guidance and controlled contract coverage without running a local four-target build [US3/AC6, FR-027, SC-011, BUG-002] · `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`, `README.md`, `docs/platform-packaging.md`, `specs/021-windows-linux-support/contracts/package-cli.md`, `specs/021-windows-linux-support/data-model.md`, `specs/021-windows-linux-support/validation.md`
-- [x] **T064** Require `darwin/arm64` for local `task package:all`, execute the existing canonical no-target package plan, safely copy and verify the complete ad-hoc signed application bundle into `OUTPUT/bin/darwin-arm64/Fallout Terminal.app`, report its path beside the four Docker payloads, include all five targets in one replacement transaction, and update contracts/guidance without changing the remote Windows/Linux release matrix or running local builds/tests [US3/AC7, FR-015, FR-028, SC-007, SC-012, BUG-003] · `internal/buildtool/docker.go`, `internal/buildtool/docker_test.go`, `internal/buildtool/aggregate.go`, `cmd/build/main.go`, `README.md`, `docs/platform-packaging.md`, `specs/021-windows-linux-support/contracts/artifact-layout.md`, `specs/021-windows-linux-support/contracts/package-cli.md`, `specs/021-windows-linux-support/contracts/task-runner.md`, `specs/021-windows-linux-support/data-model.md`, `specs/021-windows-linux-support/validation.md`
-
-## Phase 9: Convergence
-
-- [x] **T065** CRITICAL: Gate every Windows/Linux package upload, aggregate success, and tagged-release eligibility on the matching-host distribution-grade smoke harnesses; install their native prerequisites, execute the Windows or Linux harness in every matrix job, and replace the repository tests and guidance that currently require those gates to be absent per Constitution Project Identity, FR-013, US1/AC1–AC2, and US2/AC1–AC4 (contradicts)
-- [x] **T066** Extend matching-host credential acceptance to exercise unavailable, locked, or denied Windows Credential Manager and Linux Secret Service states through the existing fail-closed probe; prove the packaged application reports precise unavailability while local/LAN player operation continues, and retain canary scans across owned files, logs, accessibility/public state, and settings per US2/AC3, FR-008, and SC-006 (partial)
-- [x] **T067** Publish the exact joined five-target inventory as one versioned GitHub Packages artifact in addition to the GitHub Release through repository-pinned GoReleaser v2 orchestration; grant only the required package permission, verify both destinations are bound to the tag SHA and complete inventory, and fail the transaction without reporting partial publication when either destination fails per US3/AC8 (contradicts)
-- [ ] **T068** Run the pinned quality gates and complete matching-host Windows, Linux, Darwin, aggregate, and non-production tagged-release workflows from one clean pushed revision; preserve correlated run and artifact evidence, replace every applicable `NOT RUN`/`PARTIAL` entry in the validation record with honest results, and leave credential-dependent external-service checks `NOT RUN` when unavailable per SC-001–SC-013 (partial)
+- In Foundational, T068 and T069 can run together; after their join, T070 and T071 can run together.
+- In User Story 1, T072 and T073 can run together; after their join, T074 and T075 can run together.
+- In User Story 3, T081–T083 can run together; after their join, T084–T088 touch independent surfaces and can run together; after that join, T089 and T090 can run together, and T080 follows T089 as the ordered workflow-removal cutover.
+- In User Story 4, T092–T094 can run together after T091.
+- In Polish, T096 and T097 can run together before T098 performs local/static validation; T099 then performs the sole live prerelease acceptance after commit.

@@ -11,20 +11,12 @@ checksum:
   disable: true
 
 release:
-  draft: true
+  draft: false
   prerelease: auto
-  mode: keep-existing
-  replace_existing_artifacts: true
   name_template: 'Fallout Terminal {{ .Tag }}'
   extra_files:
-    - glob: ./combined/Fallout-Terminal-arm64.dmg
-    - glob: ./combined/Fallout-Terminal-arm64.dmg.sha256
-    - glob: ./combined/aggregate-index.json
     - glob: ./combined/Fallout-Terminal-windows-amd64.zip
-    - glob: ./combined/Fallout-Terminal-windows-amd64.zip.sha256
     - glob: ./combined/Fallout-Terminal-windows-arm64.zip
-    - glob: ./combined/Fallout-Terminal-windows-arm64.zip.sha256
     - glob: ./combined/Fallout-Terminal-linux-amd64.tar.gz
-    - glob: ./combined/Fallout-Terminal-linux-amd64.tar.gz.sha256
     - glob: ./combined/Fallout-Terminal-linux-arm64.tar.gz
-    - glob: ./combined/Fallout-Terminal-linux-arm64.tar.gz.sha256
+    - glob: ./combined/Fallout-Terminal-darwin-arm64.zip

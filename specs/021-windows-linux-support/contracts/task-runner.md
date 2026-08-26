@@ -1,88 +1,86 @@
-# Contract: Task Runner and Tool Bootstrap
+# Contract: Task Runner and Release Ownership
 
 ## Ownership boundary
 
-- Root `Taskfile.yml` is the only project workflow-alias graph and uses Task schema version `3`.
-- `cmd/build` and `internal/buildtool` remain the typed implementation of build order, target validation, staging, archives, and artifact verification.
-- The pinned Wails CLI may dispatch the root `build`, `package`, `run`, and `dev` tasks and may provide low-level generators/tools.
-- A Task reached from Wails cannot call the matching high-level Wails wrapper, preventing `wails3 build -> task build -> wails3 build` recursion.
-- Owned shell and PowerShell scripts remain implementation helpers, not a second discoverable task graph.
+- Root `Taskfile.yml` remains the only developer and CI workflow-alias graph.
+- `cmd/build` and `internal/buildtool` own typed targets, preparation order, staging, archives, local Docker aggregation, and network-free release checks.
+- GitHub Actions owns trigger, runner, dependency, temporary artifact, and permission coordination.
+- Repository-pinned GoReleaser is the sole GitHub Release publisher.
+- Root `Makefile` remains limited to isolated Go-tool bootstrap and non-mutating help.
 
-## Pinned Task tool
+## Retained package surface
 
-`tools/task/go.mod` owns exactly this tool:
+| Command | Behavior |
+|---|---|
+| `task package GOOS=windows GOARCH=amd64` | Build the Windows amd64 portable ZIP on a matching host. |
+| `task package GOOS=windows GOARCH=arm64` | Build the Windows arm64 portable ZIP on a matching host. |
+| `task package GOOS=linux GOARCH=amd64` | Build the Linux amd64 portable TAR.GZ on a matching host. |
+| `task package GOOS=linux GOARCH=arm64` | Build the Linux arm64 portable TAR.GZ on a matching host. |
+| `task package GOOS=darwin GOARCH=arm64` | Build the unsigned Darwin arm64 ZIP containing the application bundle on a matching host. |
+| `task package` | Preserve current-host developer package behavior; tagged releases do not use this implicit path. |
+| `task package:all [OUTPUT=<directory>]` | Preserve the optional local Darwin-plus-Docker aggregate; never used by CI or tags. |
+| `task release:publish` | CI-owned tagged-publication entrypoint; invoke pinned GoReleaser for the already validated five-archive inventory. |
+| `task --list` | Discover supported developer workflows and explicit package inputs. |
+
+`GOOS` and `GOARCH` must be supplied together. Unknown inputs and unsupported pairs fail rather than falling back to the host.
+
+The optional manual `release:macos:preflight` and `release:macos:signed` commands may remain for maintainer-initiated distribution outside automated tags. Neither CI workflow invokes them, and their DMG/signing output is not a tagged-release asset.
+
+## Quality surface
+
+The PR/main quality workflow invokes repository-owned tasks or their tested lower-level seams for:
+
+- Go tests;
+- Go vet;
+- Buf/protobuf formatting, linting, generation drift, generated-code compilation, and breaking-change checks;
+- locked frontend dependency installation;
+- Overseer and player-client production builds;
+- startup contracts;
+- exact Wails runtime/CLI/frontend pin consistency; and
+- deterministic Wails binding generation.
+
+These tasks publish no release asset and do not invoke a five-target package aggregate.
+Repository completion validation additionally runs pinned `task lint`; tagged-release jobs do not.
+
+## Removed aggregate and joined-release aliases
+
+After convergence, the Taskfile exposes none of these commands:
 
 ```text
-github.com/go-task/task/v3/cmd/task v3.53.1
+package:all:remote
+release:local
 ```
 
-It follows the same isolated-module rules as `tools/wails`, `tools/buf`, `tools/golangci-lint`, `tools/protoc-gen-go`, and `tools/protoc-gen-connect-go`: an explicit Go version, one tool directive, an exact module version, committed checksums, no dependency leakage into the root application module, and update/drift/license coverage.
+Their backing `cmd/build package-all` and `cmd/build release-candidate` actions are also removed. `package-all-docker` remains solely because `task package:all` retains it.
 
-## Make bootstrap
+Pushing a qualifying tag is the only automated release trigger. After repository-owned checks, the workflow invokes pinned Task's `release:publish` command; that command invokes pinned GoReleaser, which remains the sole GitHub Release publisher.
 
-The Makefile exposes one default bootstrap target and one non-mutating discovery target:
+## Tool ownership
 
-```text
-make tools
-make help
-```
-
-Behavior:
-
-1. Discover every immediate `tools/*/go.mod` in deterministic path order.
-2. Fail if none exist or if a discovered module is malformed.
-3. Enter each module and run `go install tool`, which installs every tool directive at that module’s selected version into Go’s configured binary directory.
-4. Fail nonzero if any module cannot be downloaded, authenticated, compiled, or installed.
-5. Report each module/tool without embedding a separate hard-coded inventory.
-
-The Makefile contains no application build, development, dependency, test, generation, package, release, or Spec Kit alias. `make help` lists the bootstrap targets and directs maintainers to `task --list` without installing anything. `make` and `make tools` have the same bootstrap effect. Tool installation may require network access; normal Task workflows use the installed/pinned tools and do not mutate tool modules.
-
-## Migrated Task surface
-
-| Previous Make command | Canonical Task command | Preserved inputs/behavior |
-|---|---|---|
-| `make help` | `make help`, then `task --list` | Bootstrap help remains available; Task lists all project workflows. |
-| `make dev` | `task dev` | `APP_ARGS`; complete development application. |
-| `make run` | `task run` | `APP_ARGS`; complete built application. |
-| `make prepare` | `task prepare` | Protobuf, player, bindings, Overseer assets in existing order. |
-| `make build` | `task build` | Current host by default; `GOOS`/`GOARCH` when explicitly supported. |
-| `make package` | `task package` | Existing macOS default plus the four explicit portable targets. |
-| — | `task package:all [OUTPUT=<directory>]` | On `darwin/arm64`, build the canonical native macOS package plus the complete four-target Windows/Linux Docker matrix; safely replace the owned default or recognized prior aggregate through backup/rollback; expose the Darwin bundle and four archives plus matching executable/resource payloads under `bin/<os>-<arch>/`; preserve actionable host/Docker prerequisite errors; do not claim native Windows/Linux launch evidence. |
-| — | `task package:all:remote [OUTPUT=<directory>]` | Dispatch the current clean pushed branch, wait for, verify, and download the complete native four-target matrix. |
-| `make deps` | `task deps` | Locked frontend and browser dependencies. |
-| `make deps-frontend` | `task deps:frontend` | Locked frontend workspace install. |
-| `make deps-browser` | `task deps:browser` | Locked browser-test install. |
-| `make speckit-install` | `task speckit:install` | Existing pinned Spec Kit/extension version variables. |
-| `make speckit-update-check` | `task speckit:update:check` | Read-only update check with existing pins. |
-| `make speckit-update-test` | `task speckit:update:test` | Network-free updater regressions. |
-| `make fmt` | `task fmt` | Go formatting. |
-| `make fmt-check` | `task fmt:check` | Non-mutating formatting gate. |
-| `make vet` | `task vet` | Go vet. |
-| `make lint` | `task lint` | Pinned golangci-lint. |
-| `make test` | `task test` | Go tests. |
-| `make test-race` | `task test:race` | Go race tests. |
-| `make proto-generate` | `task proto:generate` | Locked dependencies and reviewed revision sync. |
-| `make proto-check` | `task proto:check` | Format/lint/build/generation drift. |
-| `make proto-breaking` | `task proto:breaking` | Full compatibility fixtures. |
-| `make bindings-check` | `task bindings:check` | Deterministic Wails bindings. |
-| `make browser-test` | `task browser:test` | Locked browser dependencies, Chromium, journeys. |
-| `make check` | `task check` | Same principal quality-gate dependency set. |
-| `make release-preflight` | `task release:macos:preflight` | Optional macOS signing/notary prerequisites. |
-| `make release` | `task release:macos:signed` | Optional manually distributed signed/notarized macOS DMG. |
-
-Task dependencies must preserve the current one-time dependency semantics: for example, the combined dependency task installs both npm workspaces, protobuf tasks obtain frontend dependencies before generation/checking, browser acceptance obtains both workspaces, and the quality aggregate fails on any constituent gate.
+- `tools/task`, `tools/wails`, and `tools/goreleaser` remain exact isolated Go tool modules.
+- `tools/oras` is removed because GitHub Packages publication is removed.
+- Tool discovery and checks require GoReleaser and no longer require ORAS.
+- The root application module remains free of development-tool-only dependencies.
+- No global or floating Task, Wails, GoReleaser, or ORAS invocation is accepted.
 
 ## Wails compatibility
 
-- `go tool -modfile=tools/wails/go.mod wails3 build [GOOS=... GOARCH=...]` dispatches root `task build`.
-- `go tool -modfile=tools/wails/go.mod wails3 package [GOOS=... GOARCH=...]` dispatches root `task package`.
-- Direct `task build`/`task package` and Wails-dispatched equivalents reach the same Go plans and produce the same outputs.
-- The Taskfile accepts Wails’ `GOOS`, `GOARCH`, build-tag, and passthrough variables only through an allowlisted translation into `cmd/build`; unknown platform/architecture values fail.
-- Wails-generated platform Task assets may be incorporated only when pinned/reviewed and must not create a second source of product resource, signing, or archive truth.
+- `go tool -modfile=tools/wails/go.mod wails3 package GOOS=<os> GOARCH=<arch>` may dispatch the same root package task.
+- Direct Task and Wails-dispatched equivalents reach the same Go plan.
+- The Task package task never calls the high-level Wails package wrapper, preventing recursion.
+- Explicit `darwin/arm64` follows the same target-aware package path as `windows` and `linux`.
 
-## Cutover verification
+## Verification
 
-- Repository checks that previously prohibited Taskfiles are replaced with assertions for the root Taskfile, pinned Task module, recursion safety, and absence of parallel Make workflow targets.
-- CI and documentation contain no active `make <workflow>` examples after migration except the `make tools` bootstrap and non-mutating `make help` discovery.
-- Existing scripts that call `go run ./cmd/build` directly are either migrated to Task or explicitly retained as lower-level implementation tests; public maintainer guidance uses Task.
-- Task graph listing, dependency ordering, variable forwarding, and representative commands are checked on Windows, Linux, and the existing macOS host.
+Repository assertions cover:
+
+- Task schema version and pinned Task invocation;
+- paired `GOOS`/`GOARCH` validation and the five exact target pairs;
+- retained local `package:all` and `package-all-docker` wiring;
+- CI-owned `release:publish` wiring to the isolated pinned GoReleaser module;
+- absence of `package:all:remote`, `release:local`, `package-all`, and `release-candidate` remote/joined actions;
+- pinned GoReleaser presence and ORAS absence;
+- no CI reference to local Docker aggregation or manual signed-macOS commands;
+- no GoReleaser replacement or append configuration;
+- Wails dispatch without recursion; and
+- Make remaining limited to tool bootstrap and discovery help.

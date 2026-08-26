@@ -629,243 +629,868 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-26T19:12:58.179Z"
+    },
+    {
+      "step": "analyze",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T22:48:10.489Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T068",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T22:59:48.721Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T069",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:01:09.658Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T070",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:01:46.851Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T071",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:02:47.935Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T072",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:03:30.038Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T073",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:04:09.826Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T074",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:05:34.117Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T075",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:05:54.664Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T076",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:06:10.334Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T077",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:07:22.747Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T078",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:07:58.813Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T079",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:08:35.899Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T081",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:09:15.989Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T082",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:09:56.951Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T083",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:10:26.126Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T084",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:11:26.540Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T085",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:13:59.443Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T086",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:14:18.782Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T087",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:14:56.257Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T088",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:15:31.906Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T089",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:16:32.040Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T090",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:16:54.740Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T080",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:17:07.356Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T091",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:19:21.034Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T092",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:21:58.861Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T093",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:21:58.990Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T094",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:21:59.121Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T095",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:22:44.966Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T096",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:24:12.508Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T097",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:24:24.564Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T098",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:30:14.680Z"
     }
   ],
   "last_action": "living specs evaluated — skipped (not configured)",
   "coverage": {
     "FR-001": {
-      "title": "The product MUST support distributable desktop application targets for Windows on arm64, Windows on amd64, Linux on arm64, and Linux on amd64.",
+      "title": "The product MUST make governed portable archives available for Windows on arm64, Windows on amd64, Linux on arm64, Linux on amd64, and macOS on arm64.",
       "tasks": [
-        "T010",
-        "T013",
-        "T020",
-        "T021",
-        "T047"
+        "T068",
+        "T070",
+        "T072",
+        "T073",
+        "T074",
+        "T075",
+        "T076",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
       ]
     },
     "FR-002": {
       "title": "The product MUST document the minimum supported operating-system versions and required system runtime dependencies for each target.",
       "tasks": [
-        "T048",
-        "T050"
+        "T091",
+        "T094",
+        "T095",
+        "T098"
       ]
     },
     "FR-003": {
       "title": "Every target artifact MUST include the complete Overseer interface, player interface, bundled demo data, product identity, application icon, and required third-party notices.",
       "tasks": [
-        "T014",
-        "T020",
-        "T037",
-        "T040",
-        "T041"
+        "T069",
+        "T071",
+        "T072",
+        "T073",
+        "T074",
+        "T075",
+        "T098",
+        "T099"
       ]
     },
     "FR-004": {
-      "title": "A user MUST be able to launch each target artifact without installing the source repository, a compiler, or frontend build tools.",
+      "title": "A user MUST be able to unpack each target archive and locate its packaged executable and required resources without installing the source repository, a compiler, or frontend build tools.",
       "tasks": [
-        "T020",
-        "T022",
-        "T044",
-        "T047"
+        "T069",
+        "T071",
+        "T073",
+        "T075",
+        "T091",
+        "T094",
+        "T098",
+        "T099"
       ]
     },
     "FR-005": {
-      "title": "Every target MUST preserve the existing session authoring, terminal control, navigation, hacking, sound, local player connection, and configured public-access workflows.",
+      "title": "This feature MUST preserve existing application behavior without making session, control, player, dialog, lifecycle, or public-access journeys a platform-support or tagged-release acceptance requirement.",
       "tasks": [
-        "T027",
-        "T034",
-        "T044",
-        "T047"
+        "T077",
+        "T078",
+        "T079",
+        "T098"
       ]
     },
     "FR-006": {
-      "title": "Every target MUST provide working native open-file, save-file, and external-link interactions with JSON file selection behavior consistent across operating systems.",
+      "title": "Native UI, dialog, external-link, player, lifecycle, credential-store, tunnel, and signing checks MUST remain optional and non-gating, and unexecuted checks MUST be reported as `NOT RUN` rather than passing evidence.",
       "tasks": [
-        "T024",
-        "T029",
-        "T044"
+        "T077",
+        "T078",
+        "T079",
+        "T081",
+        "T089",
+        "T098"
       ]
     },
     "FR-007": {
-      "title": "Every target MUST keep user-owned session documents, private application settings, and read-only bundled resources in distinct locations appropriate to that operating system.",
+      "title": "Every archive MUST contain only packaged read-only application resources and MUST NOT contain user-owned session documents or private application settings.",
       "tasks": [
-        "T015",
-        "T017",
-        "T023",
-        "T028",
-        "T034"
+        "T072",
+        "T073",
+        "T075",
+        "T081",
+        "T089",
+        "T094",
+        "T098"
       ]
     },
     "FR-008": {
-      "title": "Every target MUST store public-access secrets only in an operating-system-protected credential service and MUST fail closed with a clear status when no secure service is available.",
+      "title": "Every archive and automated release output MUST contain zero public-access credentials, plaintext secret fallbacks, or secret-bearing verification records.",
       "tasks": [
-        "T025",
-        "T026",
-        "T030",
-        "T031",
-        "T032",
-        "T033",
-        "T035",
-        "T044"
+        "T069",
+        "T072",
+        "T073",
+        "T077",
+        "T081",
+        "T089",
+        "T098"
       ]
     },
     "FR-009": {
-      "title": "Every target MUST release owned listeners, public-access resources, and background activity when the application exits normally or startup fails.",
+      "title": "Archive eligibility and platform support MUST NOT require application startup, native interaction, or shutdown evidence.",
       "tasks": [
-        "T016",
-        "T019",
-        "T027",
-        "T034",
-        "T044"
+        "T069",
+        "T071",
+        "T081",
+        "T089",
+        "T098"
       ]
     },
     "FR-010": {
       "title": "Maintainers MUST have a documented packaging command for each supported target that runs on a matching operating-system host without requiring source changes between targets.",
       "tasks": [
-        "T010",
-        "T021",
-        "T051"
+        "T068",
+        "T070",
+        "T076",
+        "T093",
+        "T098"
       ]
     },
     "FR-011": {
       "title": "Each produced artifact MUST have a stable, unique name that identifies its operating system and processor architecture.",
       "tasks": [
-        "T014",
-        "T036",
-        "T040",
-        "T041"
+        "T068",
+        "T069",
+        "T070",
+        "T071",
+        "T073",
+        "T075",
+        "T098",
+        "T099"
       ]
     },
     "FR-012": {
-      "title": "The automated delivery workflow MUST build and report all four target combinations independently from a clean source revision.",
+      "title": "The automated delivery workflow MUST define exactly this five-target build matrix from one clean tagged source revision: Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64.",
       "tasks": [
-        "T039",
-        "T047"
+        "T068",
+        "T070",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
       ]
     },
     "FR-013": {
-      "title": "The delivery workflow MUST verify each artifact's declared target, required resource inventory, product metadata, and ability to reach an opened application window on a matching platform.",
+      "title": "Automated per-target archive eligibility validation MUST be limited to successful target compilation, non-empty archive creation, and presence of the executable and required resources; strict native UI, dialog, credential-store, player-journey, signing, and notarization checks MUST NOT gate hobby-project releases.",
       "tasks": [
-        "T022",
-        "T037",
-        "T039",
-        "T041",
-        "T044",
-        "T047"
+        "T069",
+        "T071",
+        "T077",
+        "T079",
+        "T081",
+        "T089",
+        "T098"
       ]
     },
     "FR-014": {
       "title": "A failed or unverifiable target MUST NOT be reported or published as a successful artifact.",
       "tasks": [
-        "T013",
-        "T038",
-        "T041",
-        "T042",
-        "T047"
+        "T069",
+        "T071",
+        "T081",
+        "T089",
+        "T098"
       ]
     },
     "FR-015": {
-      "title": "Existing macOS application behavior and its supported distribution MUST remain available without regression while Windows and Linux support is added.",
+      "title": "The supported macOS target MUST enter the same explicit target-specific unsigned build-and-portable-archive flow as every Windows and Linux target.",
       "tasks": [
-        "T009",
-        "T021",
-        "T045",
-        "T055"
+        "T072",
+        "T073",
+        "T074",
+        "T075",
+        "T076",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
       ]
     },
     "FR-016": {
       "title": "User-facing documentation MUST explain target selection, prerequisites, launch steps, data locations, credential-service expectations, and platform-specific troubleshooting.",
       "tasks": [
-        "T048",
-        "T049",
-        "T050",
-        "T051",
-        "T052"
+        "T091",
+        "T092",
+        "T093",
+        "T094",
+        "T095",
+        "T098"
       ]
     },
     "FR-017": {
-      "title": "Platform or architecture mismatches and missing runtime dependencies MUST produce actionable failure information rather than silent exit or partial startup.",
+      "title": "Documentation and archive diagnostics MUST provide actionable information for platform or architecture mismatches, missing archive contents, and unavailable runtime prerequisites.",
       "tasks": [
-        "T010",
-        "T012",
-        "T031",
-        "T041",
-        "T044",
-        "T050"
+        "T068",
+        "T069",
+        "T070",
+        "T071",
+        "T091",
+        "T094",
+        "T098"
       ]
     },
     "FR-018": {
-      "title": "Maintainers MUST have an additional aggregate packaging command that coordinates all four target-specific commands and reports failure unless every target package succeeds.",
+      "title": "The version-tag workflow MUST withhold GitHub Release publication unless all five required target archives succeed.",
       "tasks": [
-        "T038",
-        "T042",
-        "T043",
-        "T047",
-        "T051"
+        "T069",
+        "T071",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
       ]
     },
     "FR-019": {
-      "title": "Each target-specific packaging command MUST produce a portable runnable archive that requires no native installer.",
+      "title": "Each target-specific packaging command MUST produce a portable archive containing the target executable and required resources without requiring a native installer.",
       "tasks": [
-        "T014",
-        "T020",
-        "T036",
-        "T040"
+        "T068",
+        "T070",
+        "T072",
+        "T073",
+        "T074",
+        "T075",
+        "T076",
+        "T098"
       ]
     },
     "FR-020": {
       "title": "The repository MUST migrate its developer, verification, build, package, release, and Spec Kit command aliases from the root Makefile into a root Taskfile compatible with the pinned Wails task-based workflow.",
       "tasks": [
-        "T001",
-        "T004",
-        "T005",
-        "T007",
-        "T054"
+        "T076",
+        "T078",
+        "T083",
+        "T087",
+        "T093",
+        "T098"
       ]
     },
     "FR-021": {
-      "title": "Go Task MUST be version-pinned in its own isolated Go tool module under tools/ and MUST be installed through the same repository-owned bootstrap as every other Go development tool.",
+      "title": "Go Task MUST be version-pinned in its own isolated Go tool module under `tools/` and MUST be installed through the same repository-owned bootstrap as every other Go development tool.",
       "tasks": [
-        "T002",
-        "T003",
-        "T006",
-        "T007"
+        "T083",
+        "T088",
+        "T098"
       ]
     },
     "FR-022": {
-      "title": "The root Makefile MUST retain only one bootstrap responsibility: installing every Go tool declared by the isolated modules under tools/, including Go Task; it MUST NOT remain a parallel owner of application workflows.",
+      "title": "The root Makefile MUST retain only one bootstrap responsibility: installing every Go tool declared by the isolated modules under `tools/`, including Go Task; it MAY expose a non-mutating `help` target that points to Task discovery, but MUST NOT remain a parallel owner or proxy of application workflows.",
       "tasks": [
-        "T003",
-        "T005",
-        "T007",
-        "T054"
+        "T083",
+        "T088",
+        "T098"
       ]
     },
     "FR-023": {
       "title": "Existing maintainer workflows currently exposed through Make MUST have documented Task equivalents with preserved ordering, inputs, and failure behavior.",
       "tasks": [
-        "T004",
-        "T007",
-        "T048",
-        "T049",
-        "T051",
-        "T054"
+        "T076",
+        "T078",
+        "T083",
+        "T087",
+        "T093",
+        "T098"
       ]
     },
     "FR-024": {
-      "title": "Pin the accepted Wails Go runtime, isolated CLI, and frontend runtime together at beta.13.",
+      "title": "The accepted Wails Go runtime, isolated CLI tool, and frontend runtime MUST remain pinned exactly to the accepted `v3.0.0-beta.13` / `3.0.0-beta.13` baseline, with committed Go and npm checksums.",
       "tasks": [
-        "T053",
-        "T054"
+        "T077",
+        "T078",
+        "T079",
+        "T083",
+        "T098"
       ],
       "tests": [
         "internal/platform/startup_test.go"
       ]
     },
     "FR-029": {
-      "title": "A valid SemVer tag publishes one verified five-target release through pinned GoReleaser v2 to GitHub Releases and GitHub Packages, with no partial success.",
+      "title": "The macOS tagged-release path MUST NOT create or require a DMG, signature, notarization, stapling, or any macOS-specific publication path.",
       "tasks": [
-        "T060"
+        "T072",
+        "T074",
+        "T075",
+        "T076",
+        "T080",
+        "T081",
+        "T086",
+        "T089",
+        "T090",
+        "T093",
+        "T098",
+        "T099"
+      ]
+    },
+    "FR-025": {
+      "title": "Every supported target MUST be built from the tagged revision on a compatible runner by invoking the same explicit target-aware repository package entrypoint with that target's operating-system and processor-architecture inputs.",
+      "tasks": [
+        "T068",
+        "T070",
+        "T076",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "FR-026": {
+      "title": "The release workflow MUST NOT depend on Docker aggregate builds, native UI automation, credential-store integration tests, public-tunnel tests, GitHub Packages publication, signing, notarization, or rollback orchestration.",
+      "tasks": [
+        "T077",
+        "T079",
+        "T081",
+        "T083",
+        "T087",
+        "T088",
+        "T089",
+        "T090",
+        "T098"
+      ]
+    },
+    "FR-027": {
+      "title": "Pushing a semantic-version tag in the form vMAJOR.MINOR.PATCH, with an optional prerelease suffix, MUST trigger the complete supported-target build matrix and a single GitHub Release publication flow; other tags, pull requests, and ordinary branch pushes MUST NOT trigger that matrix.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "FR-028": {
+      "title": "The GitHub Release MUST contain exactly one uniquely named portable archive per supported target, and each archive MUST contain that target's executable and required runtime resources.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T073",
+        "T075",
+        "T081",
+        "T086",
+        "T089",
+        "T092",
+        "T093",
+        "T098",
+        "T099"
+      ]
+    },
+    "FR-030": {
+      "title": "If a qualifying tag already has a GitHub Release, the workflow MUST fail and MUST leave the existing release and all of its assets unchanged.",
+      "tasks": [
+        "T081",
+        "T086",
+        "T089",
+        "T093",
+        "T098"
+      ]
+    },
+    "FR-031": {
+      "title": "If publication creates a partial GitHub Release and then fails, the workflow MUST leave it unchanged, report instructions for a maintainer to delete it manually, refuse automated reruns while it exists, and allow the same tag to be rerun after its deletion.",
+      "tasks": [
+        "T081",
+        "T086",
+        "T089",
+        "T092",
+        "T093",
+        "T095",
+        "T098"
+      ]
+    },
+    "FR-032": {
+      "title": "A separate non-release quality workflow MUST run project quality checks for pull requests and pushes to the main branch, MUST NOT run the five-target release matrix, and MUST publish no release assets.",
+      "tasks": [
+        "T077",
+        "T078",
+        "T079",
+        "T098"
+      ]
+    },
+    "SC-001": {
+      "title": "A successful version-tag run produces exactly five uniquely identified portable archives: Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T081",
+        "T086",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "SC-002": {
+      "title": "Every published archive is non-empty and contains its target executable plus all required runtime resources.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T072",
+        "T073",
+        "T074",
+        "T075",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "SC-003": {
+      "title": "Archive inspection for every target requires zero native window, dialog, player, lifecycle, credential-store, tunnel, or signing execution steps.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T081",
+        "T089",
+        "T098"
+      ]
+    },
+    "SC-004": {
+      "title": "Every archive name identifies its operating system and processor architecture with zero collisions across the release.",
+      "tasks": [
+        "T068",
+        "T069",
+        "T070",
+        "T071",
+        "T081",
+        "T086",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "SC-005": {
+      "title": "Public-access credentials, plaintext secret fallbacks, and secret-bearing verification records are absent from all five archives and every automated release asset.",
+      "tasks": [
+        "T069",
+        "T072",
+        "T073",
+        "T077",
+        "T081",
+        "T089",
+        "T098"
+      ]
+    },
+    "SC-006": {
+      "title": "Every optional native or external-service check that is unavailable or unexecuted is reported as `NOT RUN` and changes zero archive-eligibility, platform-support, quality-workflow, or tagged-release outcomes.",
+      "tasks": [
+        "T077",
+        "T079",
+        "T081",
+        "T089",
+        "T098"
+      ]
+    },
+    "SC-007": {
+      "title": "A successful macOS target job executes zero signing, notarization, or stapling steps.",
+      "tasks": [
+        "T072",
+        "T074",
+        "T075",
+        "T076",
+        "T080",
+        "T081",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "SC-008": {
+      "title": "Using only the published guidance, a maintainer can identify the correct artifact, its prerequisites, and its user-data locations for any supported target in under five minutes.",
+      "tasks": [
+        "T091",
+        "T092",
+        "T093",
+        "T094",
+        "T095",
+        "T098"
+      ]
+    },
+    "SC-009": {
+      "title": "After one tool-bootstrap command, a maintainer can run every migrated repository workflow through the pinned Task binary, and automated inspection finds no application workflow remaining in the Makefile.",
+      "tasks": [
+        "T076",
+        "T078",
+        "T083",
+        "T087",
+        "T088",
+        "T093",
+        "T098"
+      ]
+    },
+    "SC-010": {
+      "title": "A controlled target-build failure prevents the tag's release from being published as complete and identifies the failed target.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T081",
+        "T089",
+        "T098"
+      ]
+    },
+    "SC-011": {
+      "title": "A successful version-tag workflow attaches the full supported-target archive set to one GitHub Release without publishing a duplicate raw executable, checksum sidecar, aggregate index, or package-registry copy.",
+      "tasks": [
+        "T069",
+        "T071",
+        "T081",
+        "T086",
+        "T088",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "SC-012": {
+      "title": "The release workflow contains zero strict native UI, dialog, secure-store, public-tunnel, signing, notarization, or rollback-orchestration gates.",
+      "tasks": [
+        "T077",
+        "T079",
+        "T081",
+        "T089",
+        "T090",
+        "T098"
+      ]
+    },
+    "SC-013": {
+      "title": "The macOS release asset is one non-empty portable archive whose stable name identifies macOS arm64 and whose contents include the packaged application executable and required resources under the same archive eligibility contract as Windows and Linux.",
+      "tasks": [
+        "T068",
+        "T069",
+        "T070",
+        "T071",
+        "T072",
+        "T073",
+        "T074",
+        "T075",
+        "T081",
+        "T086",
+        "T089",
+        "T098",
+        "T099"
+      ]
+    },
+    "SC-014": {
+      "title": "Re-running publication for a tag that already has a GitHub Release makes zero changes to that release or its assets and reports failure.",
+      "tasks": [
+        "T081",
+        "T086",
+        "T089",
+        "T093",
+        "T098"
+      ]
+    },
+    "SC-015": {
+      "title": "A controlled publication failure after partial release creation performs zero automated deletion or replacement actions, reports the manual deletion-and-rerun procedure, and permits the same tag to publish only after a maintainer deletes the partial release.",
+      "tasks": [
+        "T081",
+        "T086",
+        "T089",
+        "T092",
+        "T093",
+        "T095",
+        "T098"
+      ]
+    },
+    "SC-016": {
+      "title": "Every pull-request and main-branch quality run publishes zero release assets and invokes zero jobs from the five-target release matrix.",
+      "tasks": [
+        "T077",
+        "T078",
+        "T079",
+        "T098"
+      ]
+    },
+    "FR-033": {
+      "title": "The repository MUST retain `task package:all` and its Docker implementation as optional maintainer convenience that runs neither in CI nor as a platform-support, quality-workflow, feature-completion, or tagged-release gate.",
+      "tasks": [
+        "T083",
+        "T084",
+        "T085",
+        "T087",
+        "T089",
+        "T093",
+        "T098"
+      ]
+    },
+    "FR-034": {
+      "title": "The repository MUST remove `package:all:remote`, `release:local`, and their remote aggregation and joined-release implementations, tests, tool dependencies, and active documentation.",
+      "tasks": [
+        "T082",
+        "T083",
+        "T084",
+        "T087",
+        "T088",
+        "T090",
+        "T091",
+        "T093",
+        "T098"
+      ]
+    },
+    "FR-035": {
+      "title": "Tagged publication MUST enter through the CI-owned release:publish Task command, which MUST invoke repository-pinned GoReleaser as the sole GitHub Release publisher.",
+      "tasks": [
+        "T081",
+        "T083",
+        "T087",
+        "T089",
+        "T093",
+        "T098",
+        "T099"
       ]
     }
   },
@@ -887,7 +1512,7 @@
   "expectations": [
     "Local test execution is not required for this specification step."
   ],
-  "approach": "A pinned schema-v3 Taskfile replaces Make workflow aliases and delegates typed target, archive, and verification policy to cmd/build. Four matching native CI runners create and launch-check deterministic Windows/Linux archives, while explicit platform resource, path, lifecycle, and secure-store adapters preserve application behavior and macOS compatibility.",
+  "approach": "Define platform support as availability of five governed unsigned portable archives. Keep PR/main quality CI—including Go, Buf/protobuf, frontend, startup, Wails-pin, and binding checks—separate from the SemVer-tag native matrix. Every native target uses the same explicit package entrypoint; CI publication enters through release:publish, which invokes repository-pinned GoReleaser as the sole create-only publisher. Validate statically and locally, including task build and explicit Darwin packaging, then preserve one maintainer-approved live prerelease as acceptance evidence. Retain local Docker package:all outside CI and use conditional manual recovery diagnostics.",
   "decisions": [
     {
       "decision": "Use matching native OS/architecture runners and task package:all for aggregate orchestration",
@@ -938,18 +1563,154 @@
       "decision": "Upgrade all active Wails pins together to v3.0.0-beta.13 / 3.0.0-beta.13.",
       "why": "The official Go module proxy and npm registry both list beta.13 as the newest matching published beta on 2026-08-26.",
       "rejected": "Advancing only the Go runtime or only the frontend would violate the repository compatibility pin contract."
+    },
+    {
+      "decision": "Use one tag-only GitHub Actions workflow with SemVer and existing-release preflight",
+      "why": "It prevents invalid or duplicate releases before consuming five native runners and removes PR/main matrix duplication",
+      "rejected": "Separate platform workflows and workflow-dispatch release validation"
+    },
+    {
+      "decision": "Build all five targets on matching native runners through task package",
+      "why": "The existing Wails build boundary owns frontend, resource, and native host requirements without YAML duplication",
+      "rejected": "Cross-compilation or direct go build commands in workflow YAML"
+    },
+    {
+      "decision": "Publish darwin/arm64 as an unsigned portable ZIP containing the application bundle",
+      "why": "It preserves required macOS metadata and resources while using the same target-specific archive flow as Windows and Linux",
+      "rejected": "Raw Mach-O, DMG, signing, notarization, or darwin/amd64"
+    },
+    {
+      "decision": "Create the GitHub Release directly with GitHub CLI and exactly five archives",
+      "why": "One destination and create-only behavior satisfy the hobby-project and immutable-release requirements without extra tooling",
+      "rejected": "GoReleaser, third-party release actions, ORAS, GitHub Packages, or rollback orchestration"
+    },
+    {
+      "decision": "Remove superseded aggregate and multi-destination release machinery",
+      "why": "No retained workflow consumes it and complete cutover avoids maintaining two release architectures",
+      "rejected": "Leaving Docker aggregate, remote dispatch, local release candidate, and retired tools as undocumented legacy"
+    },
+    {
+      "decision": "Separate PR/main quality from tag releases",
+      "why": "Broader Go, frontend, startup, Wails pin, and binding checks remain valuable but must not gate hobby releases.",
+      "rejected": "Deleting quality CI or running those gates inside the tag workflow."
+    },
+    {
+      "decision": "Use one explicit package entrypoint on five matching native runners",
+      "why": "The existing Go build boundary owns target, frontend, binding, resource, and archive policy.",
+      "rejected": "Cross-compilation, raw go build commands, or local Docker release inputs."
+    },
+    {
+      "decision": "Package darwin/arm64 as an unsigned application-bundle ZIP",
+      "why": "ZIP preserves the runnable bundle while matching the common portable archive contract.",
+      "rejected": "DMG, raw Mach-O, signing, notarization, stapling, or darwin/amd64."
+    },
+    {
+      "decision": "Limit tag eligibility to compile, non-empty archive, executable, and resources",
+      "why": "This is the approved hobby-project release gate; richer native checks remain optional quality evidence.",
+      "rejected": "Checksum-heavy verification or native UI, credential, player, tunnel, and signing gates."
+    },
+    {
+      "decision": "Keep pinned GoReleaser as the create-only sole publisher",
+      "why": "Constitution v7 requires it; two existing-release refusal checks and no replacement option prevent automated reruns from modifying a release.",
+      "rejected": "GitHub CLI publication, draft reuse, replacement, or a second publisher."
+    },
+    {
+      "decision": "Publish exactly five archives to GitHub Releases only",
+      "why": "Each archive is the complete user unit and the exact inventory needs no sidecars or aggregate metadata.",
+      "rejected": "ORAS, GitHub Packages, checksum assets, indexes, raw executables, DMGs, and multi-destination rollback."
+    },
+    {
+      "decision": "Use manual recovery for partial GitHub Releases",
+      "why": "A maintainer can delete the partial release and rerun the tag without destructive rollback automation.",
+      "rejected": "Automatic deletion, append, replacement, or resume."
+    },
+    {
+      "decision": "Retain local Docker package:all but remove remote and joined-release implementations",
+      "why": "The local convenience remains useful and explicitly approved, but it has no CI or tagged-release consumer.",
+      "rejected": "Deleting all Docker aggregation or retaining dormant remote orchestration."
+    },
+    {
+      "decision": "Validate release contracts with static and network-free fixtures",
+      "why": "Triggers, inventory, archive presence, config, and recovery can be proven without native dispatch or external publication.",
+      "rejected": "workflow_dispatch release rehearsal or live test publication."
+    },
+    {
+      "decision": "Archive T001-T067 and begin delta tasks at T068",
+      "why": "This preserves implemented history while preventing old Companion completion events from checking off new work.",
+      "rejected": "Mixing history into the active list, deleting it, or reusing task IDs."
+    },
+    {
+      "decision": "Define platform support as governed archive availability",
+      "why": "Constitution v8 makes executable-and-resource archive production the support boundary while native runtime journeys remain optional and non-gating.",
+      "rejected": "Mandatory native launch, UI, dialog, credential-store, player, tunnel, lifecycle, or signing acceptance."
+    },
+    {
+      "decision": "Keep protobuf governance checks in the separate PR/main quality workflow",
+      "why": "Buf formatting, lint, generation drift, breaking checks, and generated-code checks preserve constitution requirements without gating tagged hobby releases.",
+      "rejected": "Dropping protobuf checks or moving them into the tag matrix."
+    },
+    {
+      "decision": "Use repository-pinned GoReleaser as the sole create-only GitHub Release publisher",
+      "why": "Two read-only existing-release refusals prevent append or replacement while exactly five prebuilt archives remain the only assets.",
+      "rejected": "GitHub CLI publication, draft reuse, asset replacement, append, ORAS, or a second publisher."
+    },
+    {
+      "decision": "Distinguish publication failure with no release from a partial release",
+      "why": "A read-only lookup can tell maintainers to rerun immediately when nothing was created or manually delete then rerun when a partial release exists.",
+      "rejected": "Unconditional deletion instructions or automated rollback."
+    },
+    {
+      "decision": "Relocate every Docker-retained aggregate dependency before deleting the remote coordinator",
+      "why": "Optional local package:all must remain functional after aggregate.go and joined-release code are removed.",
+      "rejected": "Leaving hidden Docker dependencies in aggregate.go or deleting local Docker convenience."
+    },
+    {
+      "decision": "Rewrite the portable release workflow before deleting the standalone macOS workflow",
+      "why": "The ordered cutover removes the reusable-workflow dependency first and cleans the stale scripts/proto-check.sh reference with deletion.",
+      "rejected": "Deleting the macOS workflow before its release caller and quality checks are replaced."
+    },
+    {
+      "decision": "Treat the Wails beta.13 versions as an exact accepted baseline",
+      "why": "The requirement is reproducible pin consistency, independent of whether a newer version is later published.",
+      "rejected": "A moving latest-published requirement."
+    },
+    {
+      "decision": "Constitution v8 supersedes earlier signed-macOS, GitHub CLI, checksum-asset, remote-aggregate, and mandatory-native-evidence choices",
+      "why": "The approved hobby-project release design uses five unsigned archives, pinned GoReleaser, local-only Docker convenience, and optional native evidence.",
+      "rejected": "Applying superseded constitution v6/v7 planning decisions to the active delta."
+    },
+    {
+      "decision": "Route tagged publication through the CI-owned release:publish Task command",
+      "why": "The workflow remains on the canonical Task graph while repository-pinned GoReleaser stays the sole GitHub Release publisher.",
+      "rejected": "Direct GoReleaser invocation from workflow YAML or any second publisher."
+    },
+    {
+      "decision": "Require task build and explicit darwin/arm64 packaging in local completion validation",
+      "why": "These commands exercise the project build and the exact macOS portable package entrypoint before any live tag is approved.",
+      "rejected": "Static contract checks as the only pre-publication acceptance evidence."
+    },
+    {
+      "decision": "Publish and preserve one real prerelease for final tagged-release acceptance",
+      "why": "A maintainer-approved unused SemVer prerelease after commit proves the real five-native-target workflow and exact GitHub Release inventory.",
+      "rejected": "Static-only acceptance or automated deletion of the successful evidence release."
+    },
+    {
+      "decision": "Limit FR-013 to per-target archive eligibility",
+      "why": "Compilation, non-empty archive creation, executable presence, and resource presence are distinct from SemVer preflight, exact release inventory, and existing-release safety.",
+      "rejected": "Using FR-013 to weaken run-level publication and immutability checks."
     }
   ],
   "step_summaries": {
     "plan": {
-      "summary": "Planned pinned Task migration plus native four-target Windows/Linux packaging, runtime adapters, deterministic archives, and aggregate CI verification.",
-      "key_finding": "Wails v3 is Task-backed, but production acceptance still needs matching native runners; Task should orchestrate while the existing Go build package owns typed policy."
+      "summary": "Constitution v8 plan aligns separate quality CI with a tag-only five-native-target release entered through release:publish and published solely by pinned GoReleaser.",
+      "key_finding": "Archive availability is the support boundary; final release acceptance adds one preserved maintainer-approved prerelease after static/local validation and commit."
     },
     "tasks": {
-      "summary": "64 dependency-ordered tasks across Setup, Foundational, four user-story phases, Polish, and Convergence; 58 complete and six pending after BUG-004 reopened T055/T060 for five-target tag-release evidence."
+      "summary": "32 unchecked delta tasks (T068–T099) cover shared foundations, four user stories, local/static completion checks, and one live prerelease acceptance.",
+      "key_finding": "T089 precedes T080, T085 precedes T090, T098 and a committed implementation precede maintainer-approved live acceptance T099."
     }
   },
-  "currentTask": "T067",
+  "currentTask": "T098",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1477,6 +2238,247 @@
         "specs/021-windows-linux-support/data-model.md",
         "specs/021-windows-linux-support/contracts/verification-matrix.md",
         "specs/021-windows-linux-support/bugs/BUG-004.md"
+      ]
+    },
+    "T068": {
+      "status": "DONE",
+      "did": "Added failing five-target parsing, host, archive naming, format, executable, and resource-path contracts",
+      "files": [
+        "internal/buildtool/target_test.go"
+      ]
+    },
+    "T069": {
+      "status": "DONE",
+      "did": "Added failing strict SemVer, minimal ZIP/TAR.GZ eligibility, exact inventory, cancellation, and forbidden-asset fixtures",
+      "files": [
+        "internal/buildtool/releasecheck_test.go"
+      ]
+    },
+    "T070": {
+      "status": "DONE",
+      "did": "Closed the target model over five explicit pairs with stable archive, executable, resource, and matching-host identity",
+      "files": [
+        "internal/buildtool/target.go"
+      ]
+    },
+    "T071": {
+      "status": "DONE",
+      "did": "Implemented pure strict-tag, minimal archive, and exact five-file inventory validators with cancellation checks",
+      "files": [
+        "internal/buildtool/releasecheck.go"
+      ]
+    },
+    "T072": {
+      "status": "DONE",
+      "did": "Added failing Darwin package-plan contracts for complete unsigned bundle staging, isolation, cleanup ownership, and forbidden secret/signing paths",
+      "files": [
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T073": {
+      "status": "DONE",
+      "did": "Added failing deterministic Darwin ZIP, bundle layout, executable mode, unsafe path, cancellation, and sensitive-file exclusion contracts",
+      "files": [
+        "internal/buildtool/archive_test.go"
+      ]
+    },
+    "T074": {
+      "status": "DONE",
+      "did": "Added explicit Darwin portable bundle staging and separated it from implicit developer build/package plans",
+      "files": [
+        "internal/buildtool/package.go",
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/buildtool_test.go"
+      ]
+    },
+    "T075": {
+      "status": "DONE",
+      "did": "Extended deterministic ZIP writing to intact Darwin bundles while retaining only local checksum sidecars",
+      "files": [
+        "internal/buildtool/archive.go"
+      ]
+    },
+    "T076": {
+      "status": "DONE",
+      "did": "Documented and verified the paired explicit Darwin package entrypoint while preserving implicit developer packaging",
+      "files": [
+        "Taskfile.yml",
+        "cmd/build/main.go"
+      ]
+    },
+    "T077": {
+      "status": "DONE",
+      "did": "Replaced stale duplicate-CI assertions with failing read-only PR/main quality workflow and locked quality-composition contracts",
+      "files": [
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T078": {
+      "status": "DONE",
+      "did": "Added a deterministic non-publishing CI quality Task composition covering Go, locked frontends, Wails, bindings, and Buf/protobuf checks",
+      "files": [
+        "Taskfile.yml",
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T079": {
+      "status": "DONE",
+      "did": "Cut over the sole PR/main workflow to a read-only locked quality composition with no matrix or publication path",
+      "files": [
+        ".github/workflows/wails-cross-platform.yml"
+      ]
+    },
+    "T081": {
+      "status": "DONE",
+      "did": "Added failing static contracts for tag-only five-runner coordination, minimal inspection, exact assets, create-only refusal/recovery, and sole GoReleaser publication",
+      "files": [
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T082": {
+      "status": "DONE",
+      "did": "Added failing CLI contracts for three network-free release checks, retained local Docker, removed actions, usage, cancellation, and safe fixtures",
+      "files": [
+        "cmd/build/main_test.go"
+      ]
+    },
+    "T083": {
+      "status": "DONE",
+      "did": "Added failing startup contracts for retained explicit/local packaging, CI-owned pinned GoReleaser publication, ORAS removal, and Make-only bootstrap",
+      "files": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T084": {
+      "status": "DONE",
+      "did": "Exposed strict tag, archive, and inventory checks in cmd/build and removed obsolete remote aggregate/release action dispatch",
+      "files": [
+        "cmd/build/main.go"
+      ]
+    },
+    "T085": {
+      "status": "DONE",
+      "did": "Isolated optional Docker aggregation behind local result, record, artifact, target, index, clone, and verification boundaries",
+      "files": [
+        "internal/buildtool/local_aggregate.go",
+        "internal/buildtool/docker.go",
+        "internal/buildtool/docker_test.go",
+        "internal/buildtool/release.go",
+        "internal/buildtool/release_test.go",
+        "cmd/build/main.go"
+      ]
+    },
+    "T086": {
+      "status": "DONE",
+      "did": "Narrowed GoReleaser v2 to five prebuilt archives with generated checksums disabled and create-only automatic prerelease publication",
+      "files": [
+        ".goreleaser.yaml"
+      ]
+    },
+    "T087": {
+      "status": "DONE",
+      "did": "Added CI-owned release:publish to pinned GoReleaser and removed remote aggregate and joined local release Task aliases",
+      "files": [
+        "Taskfile.yml",
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T088": {
+      "status": "DONE",
+      "did": "Removed the ORAS tool module and made tool checks require pinned GoReleaser while rejecting ORAS ownership/invocations",
+      "files": [
+        "tools/oras/go.mod",
+        "tools/oras/go.sum",
+        "scripts/tool-modules-check.sh",
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T089": {
+      "status": "DONE",
+      "did": "Replaced release CI with strict unused-tag preflight, exact five native packages, minimal inspection, all-five join, create-only Task/GoReleaser publication, and read-only recovery diagnosis",
+      "files": [
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T090": {
+      "status": "DONE",
+      "did": "Deleted remote GitHub Actions aggregation and joined DMG release implementations/tests while preserving local package-all-docker",
+      "files": [
+        "internal/buildtool/aggregate.go",
+        "internal/buildtool/aggregate_test.go",
+        "internal/buildtool/release.go",
+        "internal/buildtool/release_test.go"
+      ]
+    },
+    "T080": {
+      "status": "DONE",
+      "did": "Removed the superseded standalone macOS workflow and its protobuf-check reference while retaining manual signed-macOS Tasks",
+      "files": [
+        ".github/workflows/wails-macos.yml",
+        "scripts/proto-check.sh"
+      ]
+    },
+    "T091": {
+      "status": "DONE",
+      "did": "Added failing documentation contract tests for the five-archive release model, archive-availability support boundary, platform guidance, workflow split, local Docker boundary, and manual recovery.",
+      "files": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T092": {
+      "status": "DONE",
+      "did": "Updated the quickstart and release overview for the five exact archives, unsigned Darwin ZIP, quality/tag split, local-only Docker aggregation, and manual recovery.",
+      "files": [
+        "README.md"
+      ]
+    },
+    "T093": {
+      "status": "DONE",
+      "did": "Rewrote packaging guidance around the common five-target Task entrypoint, native tag workflow, pinned GoReleaser create-only publication, local Docker boundary, and manual recovery.",
+      "files": [
+        "docs/platform-packaging.md"
+      ]
+    },
+    "T094": {
+      "status": "DONE",
+      "did": "Updated platform support to define archive availability, prerequisites, launch guidance, data and credential locations, and actionable runtime troubleshooting.",
+      "files": [
+        "docs/platform-support.md"
+      ]
+    },
+    "T095": {
+      "status": "DONE",
+      "did": "Completed the under-five-minute distribution-guidance walkthrough and recorded passing user and maintainer paths for the v8 release model.",
+      "files": [
+        "specs/021-windows-linux-support/checklists/distribution-guidance.md"
+      ]
+    },
+    "T096": {
+      "status": "DONE",
+      "did": "Applied simplification and idiomatic Go reviews; reused the canonical portable target matrix in tests, renamed the stale aggregate reporter to its local-package role, verified diagnostics, error/cancellation handling, and immediate t.Cleanup ownership, then passed focused Go tests.",
+      "files": [
+        "internal/buildtool/releasecheck_test.go",
+        "internal/buildtool/archive_test.go",
+        "internal/buildtool/docker.go"
+      ]
+    },
+    "T097": {
+      "status": "DONE",
+      "did": "Re-audited the active specification checklist against constitution v8, settled clarifications, fresh delta tasks, and archived bug boundaries; found no unmet requirement and reopened no superseded bug.",
+      "files": [
+        "specs/021-windows-linux-support/checklists/requirements.md"
+      ]
+    },
+    "T098": {
+      "status": "DONE",
+      "did": "Completed the full local/static validation matrix, fixed stale startup assertions and a Darwin preflight regression found by validation, built and inspected the unsigned Darwin ZIP, recorded SC-001–SC-016 and FR-033–FR-035 evidence, and marked optional native journeys NOT RUN.",
+      "files": [
+        "specs/021-windows-linux-support/validation.md",
+        "internal/platform/startup_test.go",
+        "internal/buildtool/preflight.go",
+        "internal/buildtool/package_test.go",
+        "internal/buildtool/releasecheck.go",
+        "Taskfile.yml"
       ]
     }
   },

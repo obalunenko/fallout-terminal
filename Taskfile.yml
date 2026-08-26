@@ -48,7 +48,7 @@ tasks:
         fi
 
   package:
-    desc: Package macOS by default or an explicit matching GOOS/GOARCH target.
+    desc: Package macOS for development by default or one unsigned portable archive for an explicit matching GOOS/GOARCH target, including darwin/arm64.
     cmds:
       - |
         if [ -n "{{.GOOS}}" ] || [ -n "{{.GOARCH}}" ]; then
@@ -71,30 +71,10 @@ tasks:
           {{.GO}} run ./cmd/build package-all-docker
         fi
 
-  package:all:remote:
-    desc: Package the clean pushed branch on the complete native GitHub Actions matrix.
-    preconditions:
-      - sh: command -v gh >/dev/null 2>&1
-        msg: GitHub CLI is required; install gh and authenticate with `gh auth login`.
-      - sh: gh auth status >/dev/null 2>&1
-        msg: GitHub CLI authentication is required; run `gh auth login` and retry.
+  release:publish:
+    desc: Publish the prevalidated five-archive tag inventory through pinned GoReleaser.
     cmds:
-      - |
-        if [ -n "{{.OUTPUT}}" ]; then
-          {{.GO}} run ./cmd/build package-all --output "{{.OUTPUT}}"
-        else
-          {{.GO}} run ./cmd/build package-all
-        fi
-
-  release:local:
-    desc: Build and verify the exact unsigned files published by a tagged release.
-    cmds:
-      - |
-        if [ -n "{{.OUTPUT}}" ]; then
-          {{.GO}} run ./cmd/build release-candidate --output "{{.OUTPUT}}"
-        else
-          {{.GO}} run ./cmd/build release-candidate
-        fi
+      - 'go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml'
 
   deps:
     desc: Install all locked Node.js dependencies.
@@ -173,6 +153,59 @@ tasks:
     desc: Run the Go test suite with the race detector.
     cmds:
       - '{{.GO}} test -race ./...'
+
+  frontend:build:
+    desc: Install locked frontend dependencies and build both production interfaces.
+    cmds:
+      - '{{.NPM}} ci --prefix frontend'
+      - '{{.NPM}} run build:overseer --prefix frontend'
+      - '{{.NPM}} run build:client --prefix frontend'
+
+  startup:check:
+    desc: Run repository startup and workflow-surface contracts.
+    cmds:
+      - '{{.GO}} test ./internal/platform -run "Test(WailsV3|Taskfile|QualityWorkflow|PortableRelease|Distribution)"'
+
+  wails:pins:check:
+    desc: Verify the exact Wails v3.0.0-beta.13 and frontend 3.0.0-beta.13 pins.
+    cmds:
+      - scripts/wails-v3-contract-check.sh
+
+  proto:format:check:
+    desc: Check protobuf source formatting with pinned Buf.
+    cmds:
+      - 'go tool -modfile=tools/buf/go.mod buf format proto --diff --exit-code'
+
+  proto:lint:
+    desc: Lint protobuf contracts with pinned Buf.
+    cmds:
+      - 'go tool -modfile=tools/buf/go.mod buf lint proto'
+
+  proto:drift:check:
+    desc: Check deterministic protobuf generation drift.
+    cmds:
+      - scripts/proto-drift-test.sh
+
+  proto:generated:check:
+    desc: Verify generated Go and browser protobuf code compiles cleanly.
+    cmds:
+      - '{{.GO}} test ./internal/gen/...'
+      - '{{.NPM}} run build:client --prefix frontend'
+
+  ci:quality:
+    desc: Run deterministic, non-publishing pull-request and main quality checks.
+    cmds:
+      - task: test
+      - task: vet
+      - task: frontend:build
+      - task: startup:check
+      - task: wails:pins:check
+      - task: bindings:check
+      - task: proto:format:check
+      - task: proto:lint
+      - task: proto:drift:check
+      - task: proto:breaking
+      - task: proto:generated:check
 
   proto:generate:
     desc: Regenerate protobuf code and update the reviewed revision.
