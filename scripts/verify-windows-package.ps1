@@ -270,6 +270,32 @@ function Find-DescendantByProperty(
     return $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
 }
 
+function Wait-ForDescendantByProperty(
+    $Root,
+    $Property,
+    [object] $Value,
+    [System.Diagnostics.Process] $Process,
+    [int] $TimeoutSeconds
+) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            Fail "application exited before UI Automation exposed $Value (exit code $($Process.ExitCode))"
+        }
+        try {
+            $Element = Find-DescendantByProperty $Root $Property $Value
+            if ($null -ne $Element) {
+                return $Element
+            }
+        } catch {
+            # WebView2 may refresh its accessibility tree while the frontend starts.
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail "UI Automation element was not observed within $TimeoutSeconds seconds: $Value"
+}
+
 function Find-DescendantByNamePrefix($Root, [string] $Prefix) {
     $Elements = $Root.FindAll(
         [System.Windows.Automation.TreeScope]::Descendants,
@@ -667,7 +693,8 @@ try {
 
     $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
     Wait-ForPlayerListener $true 60
-    $OpenSessionButton = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName
+    $OpenSessionButton = Wait-ForDescendantByProperty $OverseerWindow `
+        ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName $ApplicationProcess 30
     Invoke-Element $OpenSessionButton 'Open Session button'
 
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
@@ -708,7 +735,8 @@ try {
     $ApplicationProcess = Start-Process @StartParameters
     $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
     Wait-ForPlayerListener $true 60
-    $OpenSessionButton = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName
+    $OpenSessionButton = Wait-ForDescendantByProperty $OverseerWindow `
+        ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName $ApplicationProcess 30
     Invoke-Element $OpenSessionButton 'Open Session button for saved copy'
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
     $FileNameInput = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148'
