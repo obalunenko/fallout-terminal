@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/goreleaser/goreleaser/v2.18.0/www/docs/static/schema.json
+version: 2
+
+project_name: fallout-terminal
+
+builds:
+  - id: preverified-portable-matrix
+    skip: true
+
+checksum:
+  disable: true
+
+release:
+  prerelease: auto
+  mode: keep-existing
+  replace_existing_artifacts: true
+  name_template: 'Fallout Terminal {{ .Tag }}'
+  extra_files:
+    - glob: ./combined/aggregate-index.json
+    - glob: ./combined/Fallout-Terminal-windows-amd64.zip
+    - glob: ./combined/Fallout-Terminal-windows-amd64.zip.sha256
+    - glob: ./combined/Fallout-Terminal-windows-arm64.zip
+    - glob: ./combined/Fallout-Terminal-windows-arm64.zip.sha256
+    - glob: ./combined/Fallout-Terminal-linux-amd64.tar.gz
+    - glob: ./combined/Fallout-Terminal-linux-amd64.tar.gz.sha256
+    - glob: ./combined/Fallout-Terminal-linux-arm64.tar.gz
+    - glob: ./combined/Fallout-Terminal-linux-arm64.tar.gz.sha256

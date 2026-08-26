@@ -91,7 +91,7 @@ export CGO_ENABLED=1
 export MACOSX_DEPLOYMENT_TARGET=13.0
 
 cd "$repository_root"
-go run ./cmd/build package
+go tool -modfile=tools/task/go.mod task package
 
 test -d "$app_path" || fail "Wails did not create the expected app: $app_path"
 test -x "$app_executable" || fail "app executable is missing: $app_executable"

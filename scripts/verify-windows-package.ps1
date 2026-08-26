@@ -1,0 +1,672 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string] $ArchivePath
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$WindowTitle = 'Fallout Terminal — Overseer Control'
+$OpenSessionButtonName = 'ОТКРЫТЬ СЕССИЮ'
+$DemoSessionName = 'Убежище 76 — День Возрождения'
+$DemoTerminalName = 'Терминал смотрителя — Убежище 76'
+$OwnedPrefix = 'Fallout Terminal Smoke '
+$OwnedRoot = $null
+$ApplicationProcess = $null
+$PlayerProbeProcess = $null
+
+function Fail([string] $Message) {
+    throw "verify-windows-package: $Message"
+}
+
+function Get-NativeArchitecture {
+    $Architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    switch ($Architecture) {
+        'X64' { return 'amd64' }
+        'Arm64' { return 'arm64' }
+        default { Fail "unsupported native architecture: $Architecture" }
+    }
+}
+
+function Get-SHA256([string] $Path) {
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+function Assert-ChecksumSidecar([string] $Archive, [string] $ExpectedArchiveName) {
+    $ChecksumPath = $Archive + '.sha256'
+    if (-not (Test-Path -LiteralPath $ChecksumPath -PathType Leaf)) {
+        Fail "checksum sidecar is missing: $ExpectedArchiveName.sha256"
+    }
+    $Digest = Get-SHA256 $Archive
+    $Expected = "$Digest  $ExpectedArchiveName`n"
+    $Actual = [System.IO.File]::ReadAllText($ChecksumPath)
+    if ($Actual -cne $Expected) {
+        Fail 'checksum sidecar is malformed or does not match the archive'
+    }
+}
+
+function Get-ZipUnixMode($Entry) {
+    return (($Entry.ExternalAttributes -shr 16) -band 0x0FFF)
+}
+
+function Assert-ZipContract([string] $Archive, [string] $ExpectedArchitecture) {
+    $ExpectedEntries = @(
+        'Fallout Terminal/Fallout Terminal.exe',
+        'Fallout Terminal/artifact-manifest.json',
+        'Fallout Terminal/resources/THIRD_PARTY_NOTICES.md',
+        'Fallout Terminal/resources/appicon.png',
+        'Fallout Terminal/resources/sessions/demo-players.json',
+        'Fallout Terminal/resources/sessions/demo.json'
+    )
+    $ArchiveReader = [System.IO.Compression.ZipFile]::OpenRead($Archive)
+    try {
+        $Entries = @($ArchiveReader.Entries)
+        if ($Entries.Count -ne $ExpectedEntries.Count) {
+            Fail "archive contains $($Entries.Count) entries; expected $($ExpectedEntries.Count)"
+        }
+        for ($Index = 0; $Index -lt $ExpectedEntries.Count; $Index++) {
+            $Entry = $Entries[$Index]
+            if ($Entry.FullName -cne $ExpectedEntries[$Index]) {
+                Fail "archive inventory/order differs at entry $Index"
+            }
+            if ([string]::IsNullOrEmpty($Entry.Name)) {
+                Fail "archive entry is not a regular file: $($Entry.FullName)"
+            }
+            if ($Entry.LastWriteTime.Year -ne 1980 -or $Entry.LastWriteTime.Month -ne 1 -or
+                $Entry.LastWriteTime.Day -ne 1 -or $Entry.LastWriteTime.Hour -ne 0 -or
+                $Entry.LastWriteTime.Minute -ne 0 -or $Entry.LastWriteTime.Second -ne 0) {
+                Fail "archive timestamp is not normalized: $($Entry.FullName)"
+            }
+            $Relative = $Entry.FullName.Substring('Fallout Terminal/'.Length)
+            $ExpectedMode = if ($Relative -eq 'Fallout Terminal.exe') { 0x1ED } else { 0x124 }
+            if ((Get-ZipUnixMode $Entry) -ne $ExpectedMode) {
+                Fail "archive mode is not normalized: $($Entry.FullName)"
+            }
+        }
+    } finally {
+        $ArchiveReader.Dispose()
+    }
+}
+
+function Assert-ManifestContract(
+    [string] $PackageRoot,
+    [string] $ExpectedArchitecture
+) {
+    $ManifestPath = Join-Path $PackageRoot 'artifact-manifest.json'
+    if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+        Fail 'artifact-manifest.json is missing'
+    }
+    $Manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ExpectedPaths = @(
+        'Fallout Terminal.exe',
+        'resources/THIRD_PARTY_NOTICES.md',
+        'resources/appicon.png',
+        'resources/sessions/demo-players.json',
+        'resources/sessions/demo.json'
+    )
+    if ($Manifest.schemaVersion -ne 1 -or $Manifest.product -cne 'Fallout Terminal') {
+        Fail 'artifact manifest schema/product identity is invalid'
+    }
+    if ($Manifest.sourceRevision -cnotmatch '^(?:[0-9a-f]{40}|[0-9a-f]{64})$') {
+        Fail 'artifact manifest source revision is invalid'
+    }
+    if ($Manifest.target.os -cne 'windows' -or $Manifest.target.arch -cne $ExpectedArchitecture) {
+        Fail 'artifact manifest target does not match the native runner'
+    }
+    if ($Manifest.runtime -cne 'WebView2') {
+        Fail 'artifact manifest runtime identity is invalid'
+    }
+    $Records = @($Manifest.files)
+    if ($Records.Count -ne $ExpectedPaths.Count) {
+        Fail 'artifact manifest inventory count is invalid'
+    }
+    for ($Index = 0; $Index -lt $ExpectedPaths.Count; $Index++) {
+        $Record = $Records[$Index]
+        $ExpectedPath = $ExpectedPaths[$Index]
+        if ($Record.path -cne $ExpectedPath) {
+            Fail "artifact manifest inventory/order differs at entry $Index"
+        }
+        $PayloadPath = Join-Path $PackageRoot ($ExpectedPath.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+        if (-not (Test-Path -LiteralPath $PayloadPath -PathType Leaf)) {
+            Fail "manifest-listed file is missing: $ExpectedPath"
+        }
+        $Payload = Get-Item -LiteralPath $PayloadPath
+        $ExpectedMode = if ($ExpectedPath -eq 'Fallout Terminal.exe') { '0755' } else { '0444' }
+        if ($Record.size -ne $Payload.Length -or $Record.mode -cne $ExpectedMode -or
+            $Record.sha256 -cne (Get-SHA256 $PayloadPath)) {
+            Fail "manifest metadata/hash mismatch: $ExpectedPath"
+        }
+    }
+    $ExtractedFiles = @(Get-ChildItem -LiteralPath $PackageRoot -Recurse -Force -File)
+    if ($ExtractedFiles.Count -ne ($ExpectedPaths.Count + 1)) {
+        Fail 'extracted package contains an unlisted file'
+    }
+}
+
+function Assert-PEIdentity([string] $Executable, [string] $ExpectedArchitecture) {
+    $Stream = [System.IO.File]::OpenRead($Executable)
+    $Reader = [System.IO.BinaryReader]::new($Stream)
+    try {
+        if ($Reader.ReadUInt16() -ne 0x5A4D) {
+            Fail 'Windows executable is missing the DOS/PE identity'
+        }
+        $Stream.Position = 0x3C
+        $PEOffset = $Reader.ReadUInt32()
+        if ($PEOffset -gt ($Stream.Length - 96)) {
+            Fail 'Windows executable has an invalid PE header offset'
+        }
+        $Stream.Position = $PEOffset
+        if ($Reader.ReadUInt32() -ne 0x00004550) {
+            Fail 'Windows executable has an invalid PE signature'
+        }
+        $Machine = $Reader.ReadUInt16()
+        $ExpectedMachine = if ($ExpectedArchitecture -eq 'amd64') { 0x8664 } else { 0xAA64 }
+        if ($Machine -ne $ExpectedMachine) {
+            Fail "PE machine does not match windows/$ExpectedArchitecture"
+        }
+        $Stream.Position = $PEOffset + 24
+        $OptionalMagic = $Reader.ReadUInt16()
+        if ($OptionalMagic -ne 0x20B) {
+            Fail 'Windows executable is not a PE32+ image'
+        }
+        $Stream.Position = $PEOffset + 24 + 68
+        if ($Reader.ReadUInt16() -ne 2) {
+            Fail 'Windows executable is not marked for the GUI subsystem'
+        }
+    } finally {
+        $Reader.Dispose()
+        $Stream.Dispose()
+    }
+
+    $Version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Executable)
+    if ($Version.ProductName -cne 'Fallout Terminal' -or
+        $Version.FileDescription -cne 'Fallout Terminal — Overseer Control' -or
+        $Version.OriginalFilename -cne 'Fallout Terminal.exe' -or
+        $Version.ProductVersion -notmatch '^1\.0\.0(?:\.0)?$') {
+        Fail 'Windows executable version/product metadata is invalid'
+    }
+}
+
+function Assert-WebView2Runtime {
+    $Roots = @()
+    if (-not [string]::IsNullOrEmpty(${env:ProgramFiles(x86)})) {
+        $Roots += (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\EdgeWebView\Application')
+    }
+    if (-not [string]::IsNullOrEmpty($env:ProgramFiles)) {
+        $Roots += (Join-Path $env:ProgramFiles 'Microsoft\EdgeWebView\Application')
+    }
+    if (-not [string]::IsNullOrEmpty($env:LOCALAPPDATA)) {
+        $Roots += (Join-Path $env:LOCALAPPDATA 'Microsoft\EdgeWebView\Application')
+    }
+    foreach ($Root in $Roots) {
+        if (Test-Path -LiteralPath $Root -PathType Container) {
+            $Runtime = Get-ChildItem -LiteralPath $Root -Filter 'msedgewebview2.exe' -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($null -ne $Runtime) {
+                return
+            }
+        }
+    }
+    Fail 'WebView2 Evergreen Runtime is unavailable; install the matching native WebView2 runtime'
+}
+
+function Wait-ForMainWindow(
+    [System.Diagnostics.Process] $Process,
+    [int] $TimeoutSeconds
+) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            Fail "application exited before the Overseer window appeared (exit code $($Process.ExitCode))"
+        }
+        if ($Process.MainWindowHandle -ne [IntPtr]::Zero) {
+            $Window = [System.Windows.Automation.AutomationElement]::FromHandle($Process.MainWindowHandle)
+            if ($null -ne $Window -and $Window.Current.Name -eq $WindowTitle) {
+                return $Window
+            }
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail "real Overseer window was not observed within $TimeoutSeconds seconds"
+}
+
+function Find-TopLevelWindow([string] $Name) {
+    $Root = [System.Windows.Automation.AutomationElement]::RootElement
+    $Windows = $Root.FindAll(
+        [System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.Condition]::TrueCondition
+    )
+    foreach ($Window in $Windows) {
+        try {
+            if ($Window.Current.Name -eq $Name -and -not $Window.Current.IsOffscreen) {
+                return $Window
+            }
+        } catch {
+            # A window may disappear while UI Automation enumerates it.
+        }
+    }
+    return $null
+}
+
+function Wait-ForTopLevelWindow([string] $Name, [int] $TimeoutSeconds) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $Window = Find-TopLevelWindow $Name
+        if ($null -ne $Window) {
+            return $Window
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail "native window was not observed: $Name"
+}
+
+function Find-DescendantByProperty(
+    $Root,
+    $Property,
+    [object] $Value
+) {
+    $Condition = [System.Windows.Automation.PropertyCondition]::new($Property, $Value)
+    return $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
+}
+
+function Invoke-Element($Element, [string] $Description) {
+    if ($null -eq $Element) {
+        Fail "UI Automation element is missing: $Description"
+    }
+    try {
+        $Pattern = $Element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        ([System.Windows.Automation.InvokePattern] $Pattern).Invoke()
+    } catch {
+        Fail "could not invoke $($Description): $($_.Exception.Message)"
+    }
+}
+
+function Wait-ForDemoEvidence(
+    [System.Diagnostics.Process] $Process,
+    [int] $TimeoutSeconds
+) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            Fail "application exited while loading the bundled demo (exit code $($Process.ExitCode))"
+        }
+        if ($Process.MainWindowHandle -ne [IntPtr]::Zero) {
+            try {
+                $Window = [System.Windows.Automation.AutomationElement]::FromHandle($Process.MainWindowHandle)
+                $Elements = $Window.FindAll(
+                    [System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition
+                )
+                foreach ($Element in $Elements) {
+                    $Name = $Element.Current.Name
+                    if ($Name -eq $DemoSessionName -or $Name -eq $DemoTerminalName) {
+                        return $Window
+                    }
+                }
+            } catch {
+                # WebView2 may refresh its accessibility tree while the session loads.
+            }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    Fail 'the reviewed bundled demo was not exposed by the Overseer accessibility tree'
+}
+
+function Wait-ForSecureStoreEvidence(
+    [System.Diagnostics.Process] $Process,
+    [int] $TimeoutSeconds
+) {
+    $AcceptedStates = @(
+        'НЕ СОХРАНЕН',
+        'НЕДОСТУПЕН',
+        'The secure credential store is unavailable; local access remains available.',
+        'Unlock the secure credential store and try again.',
+        'Allow secure credential store access and try again.'
+    )
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $Process.Refresh()
+        if ($Process.HasExited) {
+            Fail "application exited before secure-store state was exposed (exit code $($Process.ExitCode))"
+        }
+        try {
+            $Window = [System.Windows.Automation.AutomationElement]::FromHandle($Process.MainWindowHandle)
+            $Elements = $Window.FindAll(
+                [System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.Condition]::TrueCondition
+            )
+            foreach ($Element in $Elements) {
+                if ($AcceptedStates -ccontains $Element.Current.Name) {
+                    return
+                }
+            }
+        } catch {
+            # WebView2 may refresh its accessibility tree while status is rendered.
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    Fail 'Overseer did not expose a native secure-store presence or fail-closed state'
+}
+
+function Test-PlayerListener([bool] $ExpectedOpen) {
+    $Client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $Connection = $Client.ConnectAsync('127.0.0.1', 3690)
+        $Connected = $Connection.Wait(250) -and $Client.Connected
+        return $Connected -eq $ExpectedOpen
+    } catch {
+        return -not $ExpectedOpen
+    } finally {
+        $Client.Dispose()
+    }
+}
+
+function Wait-ForPlayerListener([bool] $ExpectedOpen, [int] $TimeoutSeconds) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        if (Test-PlayerListener $ExpectedOpen) {
+            return
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    $State = if ($ExpectedOpen) { 'reachable' } else { 'released' }
+    Fail "local player listener did not become $State on 127.0.0.1:3690"
+}
+
+function Get-DescendantProcessIds([int] $RootProcessId) {
+    $Result = [System.Collections.Generic.List[int]]::new()
+    $Frontier = [System.Collections.Generic.Queue[int]]::new()
+    $Frontier.Enqueue($RootProcessId)
+    while ($Frontier.Count -gt 0) {
+        $ParentId = $Frontier.Dequeue()
+        $Children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentId" -ErrorAction SilentlyContinue)
+        foreach ($Child in $Children) {
+            $ChildId = [int] $Child.ProcessId
+            $Result.Add($ChildId)
+            $Frontier.Enqueue($ChildId)
+        }
+    }
+    return @($Result)
+}
+
+function Wait-ForProcessIdsToExit([int[]] $ProcessIds, [int] $TimeoutSeconds) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        $Alive = @($ProcessIds | Where-Object { $null -ne (Get-Process -Id $_ -ErrorAction SilentlyContinue) })
+        if ($Alive.Count -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail 'an application-owned child process remained after shutdown'
+}
+
+function Quote-ProcessArgument([string] $Value) {
+    return '"' + $Value.Replace('"', '\"') + '"'
+}
+
+function Start-PlayerProbe([string] $RepositoryRoot, [string] $EvidencePath) {
+    $Node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -eq $Node) {
+        Fail 'Node.js is required for the native player-connection probe'
+    }
+    $ConnectModule = Join-Path $RepositoryRoot 'frontend\node_modules\@connectrpc\connect\dist\esm\index.js'
+    $TransportModule = Join-Path $RepositoryRoot 'frontend\node_modules\@connectrpc\connect-web\dist\esm\index.js'
+    $ServiceModule = Join-Path $RepositoryRoot 'frontend\client\gen\fallout\terminal\player\v1\player_pb.js'
+    foreach ($Module in @($ConnectModule, $TransportModule, $ServiceModule)) {
+        if (-not (Test-Path -LiteralPath $Module -PathType Leaf)) {
+            Fail 'generated player client dependencies are missing; run npm ci before native verification'
+        }
+    }
+
+    $ProbeScript = Join-Path $OwnedRoot 'player connection probe.mjs'
+    $ProbeSource = @'
+import { writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+
+const [connectPath, transportPath, servicePath, evidencePath] = process.argv.slice(2);
+const [{ createClient }, { createConnectTransport }, { PlayerService }] = await Promise.all([
+  import(pathToFileURL(connectPath).href),
+  import(pathToFileURL(transportPath).href),
+  import(pathToFileURL(servicePath).href),
+]);
+const controller = new AbortController();
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => controller.abort());
+const client = createClient(PlayerService, createConnectTransport({ baseUrl: "http://127.0.0.1:3690" }));
+const iterator = client.subscribe(
+  { clientInstanceId: "native-package-smoke" },
+  { signal: controller.signal },
+)[Symbol.asyncIterator]();
+const first = await iterator.next();
+if (first.done || first.value?.payload?.case !== "snapshot") {
+  throw new Error("player subscription did not return a complete synchronized snapshot");
+}
+await writeFile(evidencePath, "connected\n", { encoding: "utf8", mode: 0o600 });
+try {
+  while (!(await iterator.next()).done) {
+    // Keep the real subscription connected until the application is closed.
+  }
+} catch (error) {
+  if (!controller.signal.aborted) throw error;
+}
+'@
+    [System.IO.File]::WriteAllText($ProbeScript, $ProbeSource, [System.Text.UTF8Encoding]::new($false))
+    $ProbeOutput = Join-Path $OwnedRoot 'player-probe.stdout.log'
+    $ProbeError = Join-Path $OwnedRoot 'player-probe.stderr.log'
+    $Arguments = @($ProbeScript, $ConnectModule, $TransportModule, $ServiceModule, $EvidencePath) |
+        ForEach-Object { Quote-ProcessArgument $_ }
+    $script:PlayerProbeProcess = Start-Process -FilePath $Node.Source -ArgumentList ($Arguments -join ' ') `
+        -RedirectStandardOutput $ProbeOutput -RedirectStandardError $ProbeError -PassThru
+}
+
+function Wait-ForPlayerEvidence([string] $EvidencePath, [int] $TimeoutSeconds) {
+    $Deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $Deadline) {
+        if ((Test-Path -LiteralPath $EvidencePath -PathType Leaf) -and
+            (Get-Item -LiteralPath $EvidencePath).Length -gt 0) {
+            return
+        }
+        $PlayerProbeProcess.Refresh()
+        if ($PlayerProbeProcess.HasExited) {
+            Fail "local player probe exited before receiving synchronized state (exit code $($PlayerProbeProcess.ExitCode))"
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    Fail 'one local player did not receive a synchronized snapshot within 30 seconds'
+}
+
+function Remove-OwnedRoot {
+    if ([string]::IsNullOrEmpty($OwnedRoot) -or -not (Test-Path -LiteralPath $OwnedRoot)) {
+        return
+    }
+
+    $TemporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+    $Candidate = [System.IO.Path]::GetFullPath($OwnedRoot)
+    $Leaf = [System.IO.Path]::GetFileName($Candidate)
+    if (-not $Candidate.StartsWith($TemporaryRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        -not $Leaf.StartsWith($OwnedPrefix, [StringComparison]::Ordinal)) {
+        Fail "refusing to remove unexpected temporary path: $Candidate"
+    }
+
+    for ($Attempt = 0; $Attempt -lt 20; $Attempt++) {
+        try {
+            Remove-Item -LiteralPath $Candidate -Recurse -Force
+            return
+        } catch {
+            if ($Attempt -eq 19) {
+                throw
+            }
+            Start-Sleep -Milliseconds 250
+        }
+    }
+}
+
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+    Fail 'verification requires a native Windows host'
+}
+if ([System.IO.Path]::GetExtension($ArchivePath) -ne '.zip') {
+    Fail 'target archive must be a Windows ZIP file'
+}
+
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+$ResolvedArchive = (Resolve-Path -LiteralPath $ArchivePath).ProviderPath
+$ExpectedArchitecture = Get-NativeArchitecture
+$ExpectedArchiveName = "Fallout-Terminal-windows-$ExpectedArchitecture.zip"
+if ([System.IO.Path]::GetFileName($ResolvedArchive) -cne $ExpectedArchiveName) {
+    Fail "archive name must be $ExpectedArchiveName"
+}
+Assert-ChecksumSidecar $ResolvedArchive $ExpectedArchiveName
+Assert-ZipContract $ResolvedArchive $ExpectedArchitecture
+Assert-WebView2Runtime
+
+$RepositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$OwnedRoot = Join-Path ([System.IO.Path]::GetTempPath()) ($OwnedPrefix + [Guid]::NewGuid().ToString('N'))
+
+try {
+    $ExtractRoot = Join-Path $OwnedRoot 'extracted package'
+    $WorkingRoot = Join-Path $OwnedRoot 'unrelated working directory'
+    New-Item -ItemType Directory -Path $ExtractRoot | Out-Null
+    New-Item -ItemType Directory -Path $WorkingRoot | Out-Null
+
+    Expand-Archive -LiteralPath $ResolvedArchive -DestinationPath $ExtractRoot
+    $ArchiveChildren = @(Get-ChildItem -LiteralPath $ExtractRoot -Force)
+    if ($ArchiveChildren.Count -ne 1 -or
+        -not $ArchiveChildren[0].PSIsContainer -or
+        $ArchiveChildren[0].Name -ne 'Fallout Terminal') {
+        Fail 'archive must contain exactly one Fallout Terminal root directory'
+    }
+
+    $PayloadRoot = $ArchiveChildren[0].FullName
+    $Executable = Join-Path $PayloadRoot 'Fallout Terminal.exe'
+    $Resources = Join-Path $PayloadRoot 'resources'
+    $BundledDemo = Join-Path $Resources 'sessions\demo.json'
+    $BundledPlayers = Join-Path $Resources 'sessions\demo-players.json'
+    $ArtifactManifest = Join-Path $PayloadRoot 'artifact-manifest.json'
+    $RequiredFiles = @(
+        $Executable,
+        $ArtifactManifest,
+        (Join-Path $Resources 'appicon.png'),
+        (Join-Path $Resources 'THIRD_PARTY_NOTICES.md'),
+        $BundledDemo,
+        $BundledPlayers
+    )
+    foreach ($RequiredFile in $RequiredFiles) {
+        if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf) -or
+            (Get-Item -LiteralPath $RequiredFile).Length -le 0) {
+            Fail "required packaged file is missing or empty: $([System.IO.Path]::GetFileName($RequiredFile))"
+        }
+    }
+    Assert-ManifestContract $PayloadRoot $ExpectedArchitecture
+    Assert-PEIdentity $Executable $ExpectedArchitecture
+
+    $DemoDocument = Get-Content -LiteralPath $BundledDemo -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($DemoDocument.name -ne $DemoSessionName) {
+        Fail 'bundled demo identity does not match the reviewed session'
+    }
+    if (@($DemoDocument.terminals | Where-Object { $_.name -eq $DemoTerminalName }).Count -ne 1) {
+        Fail 'bundled demo does not contain the reviewed Overseer terminal'
+    }
+
+    # OpenSession requires a writable user document, so exercise the packaged
+    # demo through an owned copy while retaining its relative player config.
+    $DemoCopy = Join-Path $WorkingRoot 'bundled demo smoke.json'
+    Copy-Item -LiteralPath $BundledDemo -Destination $DemoCopy
+    Copy-Item -LiteralPath $BundledPlayers -Destination (Join-Path $WorkingRoot 'demo-players.json')
+
+    $StandardOutput = Join-Path $OwnedRoot 'application.stdout.log'
+    $StandardError = Join-Path $OwnedRoot 'application.stderr.log'
+    $StartParameters = @{
+        FilePath = $Executable
+        WorkingDirectory = $WorkingRoot
+        RedirectStandardOutput = $StandardOutput
+        RedirectStandardError = $StandardError
+        PassThru = $true
+    }
+    $ApplicationProcess = Start-Process @StartParameters
+
+    $OverseerWindow = Wait-ForMainWindow $ApplicationProcess 60
+    Wait-ForPlayerListener $true 60
+    Wait-ForSecureStoreEvidence $ApplicationProcess 30
+    $OpenSessionButton = Find-DescendantByProperty $OverseerWindow ([System.Windows.Automation.AutomationElement]::NameProperty) $OpenSessionButtonName
+    Invoke-Element $OpenSessionButton 'Open Session button'
+
+    $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
+    $FileNameInput = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148'
+    if ($null -eq $FileNameInput) {
+        Fail 'native Open dialog file-name input was not found'
+    }
+    $ValuePattern = $FileNameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    ([System.Windows.Automation.ValuePattern] $ValuePattern).SetValue($DemoCopy)
+
+    $OpenButton = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1'
+    Invoke-Element $OpenButton 'native Open dialog confirmation'
+
+    $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
+    $PlayerEvidence = Join-Path $OwnedRoot 'player connection.evidence'
+    Start-PlayerProbe $RepositoryRoot $PlayerEvidence
+    Wait-ForPlayerEvidence $PlayerEvidence 30
+    $ApplicationDescendants = @(Get-DescendantProcessIds $ApplicationProcess.Id)
+    $WindowPattern = $OverseerWindow.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+    ([System.Windows.Automation.WindowPattern] $WindowPattern).Close()
+
+    if (-not $ApplicationProcess.WaitForExit(15000)) {
+        Fail 'application did not exit cleanly after the Overseer window close request'
+    }
+    if ($ApplicationProcess.ExitCode -ne 0) {
+        Fail "application exited with code $($ApplicationProcess.ExitCode)"
+    }
+    $ApplicationProcess = $null
+
+    Wait-ForPlayerListener $false 15
+    if ($ApplicationDescendants.Count -gt 0) {
+        Wait-ForProcessIdsToExit $ApplicationDescendants 15
+    }
+    $CombinedLog = ([System.IO.File]::ReadAllText($StandardOutput) + "`n" + [System.IO.File]::ReadAllText($StandardError))
+    if (-not $CombinedLog.Contains('player server ready') -or
+        -not $CombinedLog.Contains('application shutdown completed')) {
+        Fail 'application logs do not confirm listener startup and complete resource release'
+    }
+
+    if ($null -ne $PlayerProbeProcess) {
+        $PlayerProbeProcess.Refresh()
+        if (-not $PlayerProbeProcess.HasExited) {
+            Stop-Process -Id $PlayerProbeProcess.Id -Force
+            [void] $PlayerProbeProcess.WaitForExit(5000)
+        }
+        $PlayerProbeProcess = $null
+    }
+
+    Write-Output 'verify-windows-package: PE/runtime identity, exact manifest/checksum, native window, bundled demo, player snapshot, secure store, and complete resource release passed'
+} finally {
+    if ($null -ne $PlayerProbeProcess) {
+        try {
+            $PlayerProbeProcess.Refresh()
+            if (-not $PlayerProbeProcess.HasExited) {
+                Stop-Process -Id $PlayerProbeProcess.Id -Force
+                [void] $PlayerProbeProcess.WaitForExit(5000)
+            }
+        } catch {
+            # Cleanup is best-effort after the primary failure.
+        }
+    }
+    if ($null -ne $ApplicationProcess) {
+        try {
+            $ApplicationProcess.Refresh()
+            if (-not $ApplicationProcess.HasExited) {
+                [void] $ApplicationProcess.CloseMainWindow()
+                if (-not $ApplicationProcess.WaitForExit(5000)) {
+                    Stop-Process -Id $ApplicationProcess.Id -Force
+                    [void] $ApplicationProcess.WaitForExit(5000)
+                }
+            }
+        } catch {
+            # Cleanup is best-effort after the primary failure.
+        }
+    }
+    Remove-OwnedRoot
+}

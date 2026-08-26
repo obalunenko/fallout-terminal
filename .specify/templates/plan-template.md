@@ -14,7 +14,7 @@
 
 **Language/Version**: Go 1.27; browser JavaScript modules with Node.js 20.19+ build/test tooling
 
-**Primary Dependencies**: Wails v3.0.0-beta.10, `github.com/coder/websocket` v1.8.15, Vite 8.1.5; Playwright 1.62.1 for browser journeys
+**Primary Dependencies**: Wails v3.0.0-beta.13, `github.com/coder/websocket` v1.8.15, Vite 8.1.5; Playwright 1.62.1 for browser journeys
 
 **Storage**: Versioned local JSON session and player-configuration files; ephemeral live, navigation, hacking, connection, and coordination state in process memory
 

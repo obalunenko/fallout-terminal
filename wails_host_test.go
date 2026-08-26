@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"testing/fstest"
@@ -33,8 +34,14 @@ func TestWailsV3ApplicationOptionsServeOnlyOverseerAssetsAndQuitWithLastWindow(t
 	options := wailsApplicationOptions(assets)
 	require.Equal(t, "Fallout Terminal", options.Name)
 	require.Equal(t, "Fallout Terminal — Overseer Control", options.Description)
+	require.Equal(t, "FalloutTerminalWindow", options.Windows.WndClass)
+	require.Equal(t, "fallout-terminal", options.Linux.ProgramName)
+	require.False(t, options.Windows.DisableQuitOnLastWindowClosed)
+	require.False(t, options.Linux.DisableQuitOnLastWindowClosed)
 	require.True(t, options.DisableDefaultSignalHandler, "signal.NotifyContext is the sole production signal owner")
 	require.True(t, options.Mac.ApplicationShouldTerminateAfterLastWindowClosed)
+	requirePNGIcon(t, options.Icon)
+	require.Equal(t, options.Icon, overseerWindowOptions().Linux.Icon, "Linux window and application identity must use the same icon")
 	require.NotNil(t, options.Assets.Handler)
 	require.Empty(t, options.Services, "services are registered only after core composition")
 
@@ -42,7 +49,9 @@ func TestWailsV3ApplicationOptionsServeOnlyOverseerAssetsAndQuitWithLastWindow(t
 	response := httptest.NewRecorder()
 	options.Assets.Handler.ServeHTTP(response, request)
 	require.Equal(t, 200, response.Code)
-	body, err := io.ReadAll(response.Result().Body)
+	result := response.Result()
+	t.Cleanup(func() { require.NoError(t, result.Body.Close()) })
+	body, err := io.ReadAll(result.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(body), "OVERSEER")
 	assert.NotContains(t, string(body), "characterSelect", "the private Wails asset host must not serve the public player application")
@@ -97,9 +106,11 @@ func TestOverseerWindowOptionsPreserveAcceptedSingleWindowContract(t *testing.T)
 	require.Equal(t, "/", options.URL)
 	require.Equal(t, application.NewRGB(11, 13, 10), options.BackgroundColour)
 	require.False(t, options.AllowSimpleEventEmit)
+	require.False(t, options.Windows.DisableIcon)
+	requirePNGIcon(t, options.Linux.Icon)
 }
 
-func TestOverseerWindowCloseExplicitlyRequestsApplicationQuit(t *testing.T) {
+func TestOverseerWindowCloseRegistersOnlyTheCurrentPlatformFallbackAndQuitsExactlyOnce(t *testing.T) {
 	t.Parallel()
 
 	window := &recordingOverseerWindowCloseRegistrar{}
@@ -107,15 +118,27 @@ func TestOverseerWindowCloseExplicitlyRequestsApplicationQuit(t *testing.T) {
 		entered: make(chan struct{}, 1),
 		release: make(chan struct{}),
 	}
+	t.Cleanup(quit.unblock)
 	registerOverseerWindowQuitOnClose(window, quit)
 
-	require.Equal(t, events.Common.WindowClosing, window.hookEventType)
-	require.NotNil(t, window.hookCallback)
-	require.Equal(t, events.Mac.WindowWillClose, window.nativeEventType)
-	require.NotNil(t, window.nativeCallback)
+	require.Equal(t, []events.WindowEventType{events.Common.WindowClosing}, window.hookEventTypes)
+	require.Len(t, window.hookCallbacks, 1)
+	require.NotNil(t, window.hookCallbacks[0])
+
+	firstCallback := window.hookCallbacks[0]
+	if runtime.GOOS == "darwin" {
+		require.Equal(t, []events.WindowEventType{events.Mac.WindowWillClose}, window.nativeEventTypes)
+		require.Len(t, window.nativeCallbacks, 1)
+		require.NotNil(t, window.nativeCallbacks[0])
+		firstCallback = window.nativeCallbacks[0]
+	} else {
+		require.Empty(t, window.nativeEventTypes, "Windows and Linux must not register a Darwin event fallback")
+		require.Empty(t, window.nativeCallbacks, "Windows and Linux use the portable closing hook only")
+	}
+
 	callbackDone := make(chan struct{})
 	go func() {
-		window.nativeCallback(&application.WindowEvent{})
+		firstCallback(&application.WindowEvent{})
 		close(callbackDone)
 	}()
 	require.Eventually(t, func() bool { return len(quit.entered) == 1 }, time.Second, time.Millisecond)
@@ -124,7 +147,7 @@ func TestOverseerWindowCloseExplicitlyRequestsApplicationQuit(t *testing.T) {
 		require.Fail(t, "native close returned before application termination completed")
 	default:
 	}
-	close(quit.release)
+	quit.unblock()
 	require.Eventually(t, func() bool {
 		select {
 		case <-callbackDone:
@@ -133,7 +156,10 @@ func TestOverseerWindowCloseExplicitlyRequestsApplicationQuit(t *testing.T) {
 			return false
 		}
 	}, time.Second, time.Millisecond)
-	window.hookCallback(&application.WindowEvent{})
+	window.hookCallbacks[0](&application.WindowEvent{})
+	if runtime.GOOS == "darwin" {
+		window.nativeCallbacks[0](&application.WindowEvent{})
+	}
 	require.Len(t, quit.entered, 1)
 }
 
@@ -302,19 +328,27 @@ func TestWailsEventSinkUsesInjectedManagerForExactTypedEventNames(t *testing.T) 
 
 type lifecycleContextKey struct{}
 
+func requirePNGIcon(t *testing.T, icon []byte) {
+	t.Helper()
+
+	pngSignature := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+	require.GreaterOrEqual(t, len(icon), len(pngSignature), "application icon must contain a complete PNG signature")
+	require.Equal(t, pngSignature, icon[:len(pngSignature)])
+}
+
 type recordingOverseerWindowCloseRegistrar struct {
-	hookEventType   events.WindowEventType
-	hookCallback    func(*application.WindowEvent)
-	nativeEventType events.WindowEventType
-	nativeCallback  func(*application.WindowEvent)
+	hookEventTypes   []events.WindowEventType
+	hookCallbacks    []func(*application.WindowEvent)
+	nativeEventTypes []events.WindowEventType
+	nativeCallbacks  []func(*application.WindowEvent)
 }
 
 func (registrar *recordingOverseerWindowCloseRegistrar) RegisterHook(
 	eventType events.WindowEventType,
 	callback func(*application.WindowEvent),
 ) func() {
-	registrar.hookEventType = eventType
-	registrar.hookCallback = callback
+	registrar.hookEventTypes = append(registrar.hookEventTypes, eventType)
+	registrar.hookCallbacks = append(registrar.hookCallbacks, callback)
 	return func() {}
 }
 
@@ -322,19 +356,24 @@ func (registrar *recordingOverseerWindowCloseRegistrar) OnWindowEvent(
 	eventType events.WindowEventType,
 	callback func(*application.WindowEvent),
 ) func() {
-	registrar.nativeEventType = eventType
-	registrar.nativeCallback = callback
+	registrar.nativeEventTypes = append(registrar.nativeEventTypes, eventType)
+	registrar.nativeCallbacks = append(registrar.nativeCallbacks, callback)
 	return func() {}
 }
 
 type blockingApplicationQuitter struct {
-	entered chan struct{}
-	release chan struct{}
+	entered     chan struct{}
+	release     chan struct{}
+	releaseOnce sync.Once
 }
 
 func (quitter *blockingApplicationQuitter) Quit() {
 	quitter.entered <- struct{}{}
 	<-quitter.release
+}
+
+func (quitter *blockingApplicationQuitter) unblock() {
+	quitter.releaseOnce.Do(func() { close(quitter.release) })
 }
 
 type recordingWailsEventEmitter struct {

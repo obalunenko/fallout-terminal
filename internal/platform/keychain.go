@@ -7,15 +7,16 @@ import (
 	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
 )
 
-const keychainServiceBase = "com.vaulttec.fallout-terminal"
+const credentialServiceBase = "com.vaulttec.fallout-terminal"
 
 var (
-	errCredentialNotFound        = errors.New("credential item not found")
-	errCredentialLocked          = errors.New("credential store locked")
-	errCredentialDenied          = errors.New("credential store access denied")
-	errCredentialUnavailable     = errors.New("credential store unavailable")
-	errCredentialUserCancelled   = errors.New("credential store interaction cancelled")
-	errCredentialContextRequired = errors.New("credential store context is required")
+	errCredentialNotFound         = errors.New("credential item not found")
+	errCredentialLocked           = errors.New("credential store locked")
+	errCredentialDenied           = errors.New("credential store access denied")
+	errCredentialUnavailable      = errors.New("credential store unavailable")
+	errCredentialUserCancelled    = errors.New("credential store interaction cancelled")
+	errCredentialContextRequired  = errors.New("credential store context is required")
+	errCredentialReferenceInvalid = errors.New("invalid secret reference")
 )
 
 type credentialBackend interface {
@@ -26,16 +27,27 @@ type credentialBackend interface {
 	Read(context.Context, string, string) ([]byte, error)
 }
 
-type KeychainSecretStore struct {
+// SecureCredentialStore adapts an operating-system credential provider to the
+// platform-neutral tunnel.SecretStore contract. KeychainSecretStore remains an
+// alias for source compatibility with the original Darwin-only implementation.
+type SecureCredentialStore struct {
 	service string
 	backend credentialBackend
 }
 
-func KeychainServiceName(production bool) string {
+// KeychainSecretStore is the compatibility name for SecureCredentialStore.
+type KeychainSecretStore = SecureCredentialStore
+
+// CredentialServiceName returns the stable native-store service namespace.
+func CredentialServiceName(production bool) string {
 	if production {
-		return keychainServiceBase + ".public-access"
+		return credentialServiceBase + ".public-access"
 	}
-	return keychainServiceBase + ".dev.public-access"
+	return credentialServiceBase + ".dev.public-access"
+}
+
+func KeychainServiceName(production bool) string {
+	return CredentialServiceName(production)
 }
 
 func KeychainServiceNameForSigning(production bool, _ string) string {
@@ -43,21 +55,31 @@ func KeychainServiceNameForSigning(production bool, _ string) string {
 }
 
 func NewKeychainSecretStore(production bool, backend credentialBackend) *KeychainSecretStore {
+	return newSecureCredentialStore(production, backend)
+}
+
+func newSecureCredentialStore(production bool, backend credentialBackend) *SecureCredentialStore {
 	if backend == nil {
 		backend = defaultCredentialBackend()
 	}
-	return &KeychainSecretStore{service: KeychainServiceName(production), backend: backend}
+	return &SecureCredentialStore{service: CredentialServiceName(production), backend: backend}
 }
 
 func NewPlatformKeychainSecretStore(production bool) tunnel.SecretStore {
-	return NewKeychainSecretStore(production, nil)
+	return NewPlatformSecureCredentialStore(production)
 }
 
-func (store *KeychainSecretStore) Presence(ctx context.Context, ref tunnel.SecretRef) (tunnel.SecretPresence, error) {
+// NewPlatformSecureCredentialStore selects the native credential provider for
+// the current operating system.
+func NewPlatformSecureCredentialStore(production bool) tunnel.SecretStore {
+	return newSecureCredentialStore(production, nil)
+}
+
+func (store *SecureCredentialStore) Presence(ctx context.Context, ref tunnel.SecretRef) (tunnel.SecretPresence, error) {
 	if err := credentialContextError(ctx); err != nil {
 		return tunnel.SecretUnknown, err
 	}
-	account, err := keychainAccount(ref)
+	account, err := credentialAccount(ref)
 	if err != nil {
 		return tunnel.SecretUnknown, err
 	}
@@ -74,11 +96,11 @@ func (store *KeychainSecretStore) Presence(ctx context.Context, ref tunnel.Secre
 	return tunnel.SecretAbsent, nil
 }
 
-func (store *KeychainSecretStore) Replace(ctx context.Context, ref tunnel.SecretRef, value []byte) error {
+func (store *SecureCredentialStore) Replace(ctx context.Context, ref tunnel.SecretRef, value []byte) error {
 	if err := credentialContextError(ctx); err != nil {
 		return err
 	}
-	account, err := keychainAccount(ref)
+	account, err := credentialAccount(ref)
 	if err != nil {
 		return err
 	}
@@ -97,11 +119,11 @@ func (store *KeychainSecretStore) Replace(ctx context.Context, ref tunnel.Secret
 	return nil
 }
 
-func (store *KeychainSecretStore) Delete(ctx context.Context, ref tunnel.SecretRef) error {
+func (store *SecureCredentialStore) Delete(ctx context.Context, ref tunnel.SecretRef) error {
 	if err := credentialContextError(ctx); err != nil {
 		return err
 	}
-	account, err := keychainAccount(ref)
+	account, err := credentialAccount(ref)
 	if err != nil {
 		return err
 	}
@@ -118,7 +140,7 @@ func (store *KeychainSecretStore) Delete(ctx context.Context, ref tunnel.SecretR
 	return nil
 }
 
-func (store *KeychainSecretStore) WithSecrets(ctx context.Context, refs []tunnel.SecretRef, callback func(*tunnel.SecretUse) error) error {
+func (store *SecureCredentialStore) WithSecrets(ctx context.Context, refs []tunnel.SecretRef, callback func(*tunnel.SecretUse) error) error {
 	if err := credentialContextError(ctx); err != nil {
 		return err
 	}
@@ -128,12 +150,13 @@ func (store *KeychainSecretStore) WithSecrets(ctx context.Context, refs []tunnel
 	use := &tunnel.SecretUse{}
 	defer use.Clear()
 	for _, ref := range refs {
-		account, err := keychainAccount(ref)
+		account, err := credentialAccount(ref)
 		if err != nil {
 			return err
 		}
 		value, err := store.backend.Read(ctx, store.service, account)
 		if err != nil {
+			clear(value)
 			return mapCredentialError(err)
 		}
 		switch ref {
@@ -155,15 +178,21 @@ func credentialContextError(ctx context.Context) error {
 	return ctx.Err()
 }
 
-func keychainAccount(ref tunnel.SecretRef) (string, error) {
-	if !ref.Valid() {
-		return "", errors.New("invalid secret reference")
+func credentialAccount(ref tunnel.SecretRef) (string, error) {
+	switch ref {
+	case tunnel.ProviderAccountToken:
+		return tunnel.ProviderAccountTokenAccount, nil
+	case tunnel.PlayerBasicAuthPassword:
+		return tunnel.PlayerPasswordAccount, nil
+	default:
+		return "", errCredentialReferenceInvalid
 	}
-	return ref.Account(), nil
 }
 
 func mapCredentialError(err error) error {
 	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return err
 	case errors.Is(err, errCredentialNotFound):
 		return tunnel.ErrSecretStoreUnavailable
 	case errors.Is(err, errCredentialLocked):
@@ -177,4 +206,4 @@ func mapCredentialError(err error) error {
 	}
 }
 
-var _ tunnel.SecretStore = (*KeychainSecretStore)(nil)
+var _ tunnel.SecretStore = (*SecureCredentialStore)(nil)

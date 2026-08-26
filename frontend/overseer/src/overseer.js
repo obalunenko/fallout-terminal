@@ -398,6 +398,18 @@ const publicAccessStateLabels = Object.freeze({
   error: 'ОШИБКА',
 });
 
+const secureCredentialStoreFailures = Object.freeze({
+  secret_store_locked: 'Unlock the secure credential store and try again.',
+  secret_store_denied: 'Allow secure credential store access and try again.',
+  secret_store_unavailable: 'The secure credential store is unavailable; local access remains available.',
+});
+
+function publicAccessFailureMessage(status) {
+  return secureCredentialStoreFailures[status.errorCategory]
+    || status.errorMessage
+    || 'ПУБЛИЧНЫЙ ДОСТУП НЕДОСТУПЕН';
+}
+
 function renderSecretPresence(element, presence) {
   element.dataset.presence = presence;
   element.textContent = presence === 'present'
@@ -428,7 +440,7 @@ function renderPublicAccess(snapshot) {
   publicAccessStatus.dataset.state = status.state || 'loading';
   publicAccessStatus.dataset.generation = String(Number(status.generation || 0));
   publicAccessStatus.dataset.settingsRevision = String(Number(status.settingsRevision || preferences.revision || 0));
-  const publicFailure = status.errorMessage || 'ПУБЛИЧНЫЙ ДОСТУП НЕДОСТУПЕН';
+  const publicFailure = publicAccessFailureMessage(status);
   publicAccessError.textContent = status.state === 'error'
     ? `${publicFailure} · ЛОКАЛЬНЫЙ РЕЖИМ ПРОДОЛЖАЕТ РАБОТАТЬ`
     : '';

@@ -3,6 +3,7 @@ __pycache__/
 # Node/Vite artifacts and local configuration
 node_modules/
 dist/
+/combined/
 !frontend/client/dist/
 frontend/client/dist/*
 !frontend/client/dist/.keep

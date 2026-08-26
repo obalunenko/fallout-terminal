@@ -1,0 +1,207 @@
+version: '3'
+
+vars:
+  GO: '{{default "go" .GO}}'
+  NPM: '{{default "npm" .NPM}}'
+  APP_ARGS: '{{default "" .APP_ARGS}}'
+  SPECKIT_INSTALL: scripts/install-speckit.sh
+  SPECKIT_UPDATE_CHECK: scripts/check-speckit-updates.py
+  SPECKIT_VERSION: '1.0.1'
+  SPECKIT_COMPANION_VERSION: '0.20.2'
+  SPECKIT_BROWNFIELD_VERSION: '1.0.0'
+  SPECKIT_BUGFIX_VERSION: '1.1.0'
+  SPECKIT_FEATURE_NUMBERING_VERSION: '1.0.0'
+
+tasks:
+  default:
+    desc: List available tasks.
+    cmds:
+      - task --list
+
+  dev:
+    desc: Build and run the complete application in development mode.
+    cmds:
+      - '{{.GO}} run ./cmd/build dev {{.APP_ARGS}}'
+
+  run:
+    desc: Build and run the application.
+    cmds:
+      - '{{.GO}} run ./cmd/build run {{.APP_ARGS}}'
+
+  prepare:
+    desc: Verify and build protobuf, client, bindings, and Overseer assets.
+    cmds:
+      - '{{.GO}} run ./cmd/build prepare'
+
+  build:
+    desc: Build the application for the current or explicit GOOS/GOARCH target.
+    cmds:
+      - |
+        if [ -n "{{.GOOS}}" ] || [ -n "{{.GOARCH}}" ]; then
+          if [ -z "{{.GOOS}}" ] || [ -z "{{.GOARCH}}" ]; then
+            echo 'GOOS and GOARCH must be provided together' >&2
+            exit 1
+          fi
+          {{.GO}} run ./cmd/build build --target "{{.GOOS}}/{{.GOARCH}}"
+        else
+          {{.GO}} run ./cmd/build build
+        fi
+
+  package:
+    desc: Package macOS by default or an explicit matching GOOS/GOARCH target.
+    cmds:
+      - |
+        if [ -n "{{.GOOS}}" ] || [ -n "{{.GOARCH}}" ]; then
+          if [ -z "{{.GOOS}}" ] || [ -z "{{.GOARCH}}" ]; then
+            echo 'GOOS and GOARCH must be provided together' >&2
+            exit 1
+          fi
+          {{.GO}} run ./cmd/build package --target "{{.GOOS}}/{{.GOARCH}}"
+        else
+          {{.GO}} run ./cmd/build package
+        fi
+
+  package:all:
+    desc: Package the current pushed branch on the complete native portable matrix.
+    preconditions:
+      - sh: command -v gh >/dev/null 2>&1
+        msg: GitHub CLI is required; install gh and authenticate with `gh auth login`.
+      - sh: gh auth status >/dev/null 2>&1
+        msg: GitHub CLI authentication is required; run `gh auth login` and retry.
+    cmds:
+      - |
+        if [ -n "{{.OUTPUT}}" ]; then
+          {{.GO}} run ./cmd/build package-all --output "{{.OUTPUT}}"
+        else
+          {{.GO}} run ./cmd/build package-all
+        fi
+
+  deps:
+    desc: Install all locked Node.js dependencies.
+    cmds:
+      - task: deps:frontend
+      - task: deps:browser
+
+  deps:frontend:
+    desc: Install locked client and Overseer workspace dependencies.
+    cmds:
+      - '{{.NPM}} ci --prefix frontend'
+
+  deps:browser:
+    desc: Install locked browser-test dependencies.
+    cmds:
+      - '{{.NPM}} ci --prefix tests/browser'
+
+  speckit:install:
+    desc: Install pinned Spec Kit and all project extensions.
+    env:
+      SPECKIT_VERSION: '{{.SPECKIT_VERSION}}'
+      SPECKIT_COMPANION_VERSION: '{{.SPECKIT_COMPANION_VERSION}}'
+      SPECKIT_BROWNFIELD_VERSION: '{{.SPECKIT_BROWNFIELD_VERSION}}'
+      SPECKIT_BUGFIX_VERSION: '{{.SPECKIT_BUGFIX_VERSION}}'
+      SPECKIT_FEATURE_NUMBERING_VERSION: '{{.SPECKIT_FEATURE_NUMBERING_VERSION}}'
+    cmds:
+      - '{{.SPECKIT_INSTALL}}'
+
+  speckit:update:check:
+    desc: Check for Spec Kit and Companion updates without installing them.
+    env:
+      SPECKIT_VERSION: '{{.SPECKIT_VERSION}}'
+      SPECKIT_COMPANION_VERSION: '{{.SPECKIT_COMPANION_VERSION}}'
+      SPECKIT_BROWNFIELD_VERSION: '{{.SPECKIT_BROWNFIELD_VERSION}}'
+      SPECKIT_BUGFIX_VERSION: '{{.SPECKIT_BUGFIX_VERSION}}'
+      SPECKIT_FEATURE_NUMBERING_VERSION: '{{.SPECKIT_FEATURE_NUMBERING_VERSION}}'
+    cmds:
+      - '{{.SPECKIT_UPDATE_CHECK}}'
+
+  speckit:update:test:
+    desc: Run the network-free Spec Kit update-checker regression tests.
+    cmds:
+      - python3 scripts/test_check_speckit_updates.py
+
+  fmt:
+    desc: Format all Go sources.
+    cmds:
+      - gofmt -w .
+
+  fmt:check:
+    desc: Fail when a Go source is not formatted.
+    cmds:
+      - |
+        unformatted="$(gofmt -l .)"
+        if [ -n "$unformatted" ]; then
+          printf 'Go files need formatting:\n%s\n' "$unformatted" >&2
+          exit 1
+        fi
+
+  vet:
+    desc: Run Go static analysis.
+    cmds:
+      - '{{.GO}} vet ./...'
+
+  lint:
+    desc: Run the pinned golangci-lint tool.
+    cmds:
+      - '{{.GO}} tool -modfile=tools/golangci-lint/go.mod golangci-lint run'
+
+  test:
+    desc: Run the Go test suite.
+    cmds:
+      - '{{.GO}} test ./...'
+
+  test:race:
+    desc: Run the Go test suite with the race detector.
+    cmds:
+      - '{{.GO}} test -race ./...'
+
+  proto:generate:
+    desc: Regenerate protobuf code and update the reviewed revision.
+    cmds:
+      - task: deps:frontend
+      - scripts/proto-generate.sh --sync-revision
+
+  proto:check:
+    desc: Verify protobuf formatting, generation, and generated clients.
+    cmds:
+      - task: deps:frontend
+      - scripts/proto-check.sh
+
+  proto:breaking:
+    desc: Verify protobuf compatibility and negative fixtures.
+    cmds:
+      - scripts/proto-breaking.sh --all-fixtures
+
+  bindings:check:
+    desc: Verify deterministic Wails bindings and their public surface.
+    cmds:
+      - scripts/wails-bindings-check.sh
+
+  browser:test:
+    desc: Install Chromium and run Playwright journeys.
+    cmds:
+      - task: deps:frontend
+      - task: deps:browser
+      - '{{.NPM}} exec --prefix tests/browser -- playwright install chromium'
+      - '{{.NPM}} test --prefix tests/browser'
+
+  check:
+    desc: Run the main local quality gates.
+    cmds:
+      - task: fmt:check
+      - task: vet
+      - task: lint
+      - task: test:race
+      - task: proto:check
+      - task: proto:breaking
+      - task: bindings:check
+      - task: speckit:update:test
+
+  release:preflight:
+    desc: Validate Developer ID and notarization prerequisites.
+    cmds:
+      - scripts/build-macos.sh --preflight
+
+  release:
+    desc: Build, sign, notarize, and verify the release DMG.
+    cmds:
+      - scripts/build-macos.sh

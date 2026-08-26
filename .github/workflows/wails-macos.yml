@@ -46,6 +46,7 @@ jobs:
             tools/golangci-lint/go.sum
             tools/protoc-gen-connect-go/go.sum
             tools/protoc-gen-go/go.sum
+            tools/task/go.sum
             tools/wails/go.sum
 
       - name: Set up Node.js
@@ -57,27 +58,13 @@ jobs:
             frontend/package-lock.json
 
       - name: Lint
-        run: |
-          set -euo pipefail
-          unformatted="$(gofmt -l .)"
-          if [[ -n "${unformatted}" ]]; then
-            printf 'Go files need formatting:\n%s\n' "${unformatted}" >&2
-            exit 1
-          fi
-          go vet ./...
-          go run -modfile=tools/golangci-lint/go.mod github.com/golangci/golangci-lint/v2/cmd/golangci-lint run
+        run: go tool -modfile=tools/task/go.mod task fmt:check vet lint
 
       - name: Test
-        run: go test ./...
+        run: go tool -modfile=tools/task/go.mod task test
 
       - name: Build protobuf
-        run: |
-          npm ci --prefix frontend
-          go tool -modfile=tools/buf/go.mod buf format proto --diff --exit-code
-          go tool -modfile=tools/buf/go.mod buf lint proto
-          go tool -modfile=tools/buf/go.mod buf build proto >/dev/null
-          scripts/proto-generate.sh
-          git diff --exit-code -- internal/gen frontend/client/gen
+        run: go tool -modfile=tools/task/go.mod task proto:check
 
       - name: Build application
-        run: go run ./cmd/build package
+        run: go tool -modfile=tools/task/go.mod task package

@@ -206,12 +206,12 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     registry_path = repo_root / ".specify/extensions/.registry"
     if not registry_path.is_file():
-        print("Missing Spec Kit extension registry; run make speckit-install first.", file=sys.stderr)
+        print("Missing Spec Kit extension registry; run task speckit:install first.", file=sys.stderr)
         return 1
 
     specify_bin = shutil.which("specify")
     if specify_bin is None:
-        print("Specify CLI is not on PATH; run make speckit-install first.", file=sys.stderr)
+        print("Specify CLI is not on PATH; run task speckit:install first.", file=sys.stderr)
         return 1
 
     pinned_cli = os.environ["SPECKIT_VERSION"].removeprefix("v")

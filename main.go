@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -141,7 +140,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 	}
 	packaged := isPackagedApplication()
 	publicSettings := tunnelservice.NewPublicAccessSettingsStore(publicAccessSettingsPath, nil, nil)
-	publicSecrets := platform.NewPlatformKeychainSecretStore(packaged)
+	publicSecrets := platform.NewPlatformSecureCredentialStore(packaged)
 	effectivePublicSettings, effectivePublicSecrets := publicAccessStoresForProfile(publicSettings, publicSecrets, packaged, os.LookupEnv)
 	var app *App
 	publicAccess, err := tunnelservice.NewPublicAccessManager(tunnelservice.ManagerConfig{
@@ -278,15 +277,6 @@ func publicAccessCompositionRoute() publicAccessRoute {
 	}
 }
 
-func isPackagedApplication() bool {
-	executable, err := os.Executable()
-	if err != nil {
-		return false
-	}
-	macOSDirectory := filepath.Dir(executable)
-	return filepath.Base(macOSDirectory) == "MacOS" && filepath.Base(filepath.Dir(macOSDirectory)) == "Contents"
-}
-
 func defaultApplicationConfig(locations platform.SessionLocations) *configv1.ApplicationConfig {
 	return &configv1.ApplicationConfig{
 		PlayerServer: &configv1.PlayerServerConfig{
@@ -364,27 +354,4 @@ func (router *coordinationEffectRouter) Enqueue(effect controlservice.Effect) {
 			app.updateHackState(effect.Live.Hack)
 		}
 	}
-}
-
-func applicationResourceRoot() string {
-	executable, err := os.Executable()
-	if err != nil {
-		executable = ""
-	}
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		workingDirectory = ""
-	}
-	return applicationResourceRootFor(executable, workingDirectory)
-}
-
-func applicationResourceRootFor(executable, workingDirectory string) string {
-	macOSDirectory := filepath.Dir(executable)
-	if filepath.Base(macOSDirectory) == "MacOS" && filepath.Base(filepath.Dir(macOSDirectory)) == "Contents" {
-		return filepath.Join(filepath.Dir(macOSDirectory), "Resources")
-	}
-	if workingDirectory != "" {
-		return workingDirectory
-	}
-	return filepath.Dir(executable)
 }

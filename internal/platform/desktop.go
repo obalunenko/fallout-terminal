@@ -14,6 +14,7 @@ import (
 var (
 	errDesktopNotReady        = errors.New("desktop runtime is not ready")
 	errDesktopContextRequired = errors.New("desktop context is required")
+	errExternalURLUnsupported = errors.New("external URL must be an absolute HTTP or HTTPS URL")
 )
 
 // Desktop is the narrow Wails-backed implementation used for native session
@@ -64,14 +65,10 @@ func (manager wailsV3DialogManager) OpenFile(_ context.Context, options OpenFile
 	if manager.manager == nil {
 		return "", errors.New("native dialog manager is unavailable")
 	}
-	filters := make([]application.FileFilter, 0, len(options.Filters))
-	for _, filter := range options.Filters {
-		filters = append(filters, application.FileFilter{DisplayName: filter.DisplayName, Pattern: wailsFileFilterPattern(filter.Pattern)})
-	}
 	dialog := manager.manager.OpenFileWithOptions(&application.OpenFileDialogOptions{
 		Title:           options.Title,
 		Directory:       options.DefaultDirectory,
-		Filters:         filters,
+		Filters:         wailsFileFilters(runtime.GOOS, options.Filters),
 		ResolvesAliases: options.ResolvesAliases,
 	})
 	return dialog.PromptForSingleSelection()
@@ -81,18 +78,25 @@ func (manager wailsV3DialogManager) SaveFile(_ context.Context, options SaveFile
 	if manager.manager == nil {
 		return "", errors.New("native dialog manager is unavailable")
 	}
-	filters := make([]application.FileFilter, 0, len(options.Filters))
-	for _, filter := range options.Filters {
-		filters = append(filters, application.FileFilter{DisplayName: filter.DisplayName, Pattern: wailsFileFilterPattern(filter.Pattern)})
-	}
 	dialog := manager.manager.SaveFileWithOptions(&application.SaveFileDialogOptions{
 		Title:                options.Title,
 		Directory:            options.DefaultDirectory,
 		Filename:             options.DefaultFilename,
-		Filters:              filters,
+		Filters:              wailsFileFilters(runtime.GOOS, options.Filters),
 		CanCreateDirectories: options.CanCreateDirectories,
 	})
 	return dialog.PromptForSingleSelection()
+}
+
+func wailsFileFilters(goos string, filters []FileFilter) []application.FileFilter {
+	nativeFilters := make([]application.FileFilter, 0, len(filters))
+	for _, filter := range filters {
+		nativeFilters = append(nativeFilters, application.FileFilter{
+			DisplayName: filter.DisplayName,
+			Pattern:     wailsFileFilterPattern(goos, filter.Pattern),
+		})
+	}
+	return nativeFilters
 }
 
 // Wails v3 beta passes filter patterns directly to
@@ -100,8 +104,8 @@ func (manager wailsV3DialogManager) SaveFile(_ context.Context, options SaveFile
 // extensions, while the cross-platform Wails contract documents glob patterns.
 // Normalize only the Darwin boundary so the native panel can select JSON files
 // without changing the platform-independent dialog contract.
-func wailsFileFilterPattern(pattern string) string {
-	if runtime.GOOS != "darwin" {
+func wailsFileFilterPattern(goos, pattern string) string {
+	if goos != "darwin" {
 		return pattern
 	}
 	parts := strings.Split(pattern, ";")
@@ -209,8 +213,12 @@ func (desktop *Desktop) OpenURL(rawURL string) error {
 		return err
 	}
 	parsed, err := url.ParseRequestURI(rawURL)
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return errors.New("external URL must be an absolute HTTP or HTTPS URL")
+	if err != nil || parsed.Hostname() == "" {
+		return errExternalURLUnsupported
+	}
+	parsed.Scheme = strings.ToLower(parsed.Scheme)
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return errExternalURLUnsupported
 	}
 	if desktop.browser == nil {
 		return errors.New("external browser manager is unavailable")
@@ -223,6 +231,9 @@ func (desktop *Desktop) context() (context.Context, error) {
 	defer desktop.mu.RUnlock()
 	if desktop.ctx == nil {
 		return nil, errDesktopNotReady
+	}
+	if err := desktop.ctx.Err(); err != nil {
+		return nil, err
 	}
 	return desktop.ctx, nil
 }

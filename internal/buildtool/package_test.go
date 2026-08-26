@@ -1,0 +1,320 @@
+package buildtool
+
+import (
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestPortablePackagePlanUsesTargetNativeCompilationAndIsolatedStaging(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		goos           string
+		goarch         string
+		executableName string
+		cgoEnabled     string
+		windowsGUI     bool
+	}{
+		{name: "Windows ARM64", goos: "windows", goarch: "arm64", executableName: applicationName + ".exe", cgoEnabled: "0", windowsGUI: true},
+		{name: "Windows AMD64", goos: "windows", goarch: "amd64", executableName: applicationName + ".exe", cgoEnabled: "0", windowsGUI: true},
+		{name: "Linux ARM64", goos: "linux", goarch: "arm64", executableName: applicationName, cgoEnabled: "1"},
+		{name: "Linux AMD64", goos: "linux", goarch: "amd64", executableName: applicationName, cgoEnabled: "1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			target := mustParseTarget(t, test.goos, test.goarch)
+			plan := mustPackagePlan(t, target)
+
+			wantTargetRoot := filepath.Join("build", "bin", test.goos+"-"+test.goarch)
+			assert.Equal(t, filepath.Join(wantTargetRoot, "stage"), plan.StageRoot())
+			assert.Equal(t, filepath.Join(wantTargetRoot, "stage", applicationName), plan.PayloadRoot())
+			assert.Equal(t, filepath.Join("build", "dist", target.ArchiveName()), plan.OutputPath())
+			assert.Equal(t, plan.OutputPath()+".sha256", plan.ChecksumPath())
+			assert.Equal(t, productionProfile, plan.ProductionProfile())
+
+			compile, _ := packageCompileStep(t, plan.Actions())
+			assert.Equal(t, test.goos, compile.Environment["GOOS"])
+			assert.Equal(t, test.goarch, compile.Environment["GOARCH"])
+			assert.Equal(t, test.cgoEnabled, compile.Environment["CGO_ENABLED"])
+			assert.Contains(t, compile.Arguments, filepath.Join(plan.PayloadRoot(), test.executableName))
+
+			invocation := strings.Join(compile.Arguments, " ")
+			if test.windowsGUI {
+				assert.Contains(t, invocation, "-H windowsgui")
+			} else {
+				assert.NotContains(t, invocation, "windowsgui")
+			}
+
+			if test.goos == goosLinux {
+				executable := filepath.Join(plan.PayloadRoot(), test.executableName)
+				modeStep, found := findPackageStep(plan.Actions(), func(step Step) bool {
+					return step.Operation == changeMode && step.Path == executable
+				})
+				require.True(t, found, "Linux package plan must make the native executable runnable")
+				assert.Equal(t, os.FileMode(0o755), modeStep.Mode)
+			}
+		})
+	}
+}
+
+func TestPortablePackagePlanIncludesExactRuntimeResourceInventory(t *testing.T) {
+	t.Parallel()
+
+	for _, target := range portableTestTargets(t) {
+		t.Run(target.String(), func(t *testing.T) {
+			t.Parallel()
+
+			plan := mustPackagePlan(t, target)
+			actions := plan.Actions()
+			_, compileIndex := packageCompileStep(t, actions)
+
+			type resource struct {
+				source string
+				mode   os.FileMode
+				index  int
+			}
+			got := make(map[string]resource)
+			for index, action := range actions {
+				if action.Operation != copyFile {
+					continue
+				}
+				relative, err := filepath.Rel(plan.PayloadRoot(), action.Destination)
+				if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+					continue
+				}
+				got[relative] = resource{source: action.Source, mode: action.Mode, index: index}
+			}
+
+			want := map[string]string{
+				filepath.Join("resources", "appicon.png"):                   filepath.Join("build", "appicon.png"),
+				filepath.Join("resources", "THIRD_PARTY_NOTICES.md"):        "THIRD_PARTY_NOTICES.md",
+				filepath.Join("resources", "sessions", "demo.json"):         filepath.Join("sessions", "demo.json"),
+				filepath.Join("resources", "sessions", "demo-players.json"): filepath.Join("sessions", "demo-players.json"),
+			}
+			require.Len(t, got, len(want), "portable payload must contain exactly the reviewed runtime resources")
+			for destination, source := range want {
+				copied, exists := got[destination]
+				require.Truef(t, exists, "missing portable resource %s", destination)
+				assert.Equal(t, source, copied.source)
+				assert.Equal(t, os.FileMode(0o444), copied.mode)
+				assert.Lessf(t, copied.index, compileIndex, "%s must be staged before compilation", destination)
+			}
+		})
+	}
+}
+
+func TestWindowsPackagePlanGeneratesPinnedBuildScopedMetadata(t *testing.T) {
+	t.Parallel()
+
+	for _, goarch := range []string{goarchARM64, goarchAMD64} {
+		t.Run(goarch, func(t *testing.T) {
+			t.Parallel()
+
+			target := mustParseTarget(t, goosWindows, goarch)
+			plan := mustPackagePlan(t, target)
+			actions := plan.Actions()
+			_, compileIndex := packageCompileStep(t, actions)
+
+			iconStep, iconIndex := requirePinnedWailsGenerateStep(t, actions, "icons")
+			assert.Contains(t, iconStep.Arguments, filepath.Join("build", "appicon.png"))
+
+			sysoStep, sysoIndex := requirePinnedWailsGenerateStep(t, actions, "syso")
+			assert.Less(t, iconIndex, sysoIndex)
+			assert.Less(t, sysoIndex, compileIndex)
+			assert.Equal(t, goarch, requiredFlagValue(t, sysoStep.Arguments, "-arch"))
+			assert.Equal(t, filepath.Join("build", "windows", "app.manifest"), requiredFlagValue(t, sysoStep.Arguments, "-manifest"))
+			assert.Equal(t, filepath.Join("build", "windows", "info.json"), requiredFlagValue(t, sysoStep.Arguments, "-info"))
+
+			iconPath := requiredFlagValue(t, sysoStep.Arguments, "-icon")
+			assert.Contains(t, iconStep.Arguments, iconPath)
+			assert.Equal(t, ".ico", filepath.Ext(iconPath))
+
+			sysoPath := requiredFlagValue(t, sysoStep.Arguments, "-out")
+			assert.Equal(t, ".syso", filepath.Ext(sysoPath))
+			assert.Contains(t, filepath.Base(sysoPath), goarch)
+			assert.Contains(t, plan.FailureCleanupPaths(), sysoPath)
+
+			_, cleanupIndex := requirePackageStep(t, actions, func(step Step) bool {
+				return step.Operation == removeTree && step.Path == sysoPath
+			}, "remove generated Windows metadata")
+			assert.Greater(t, cleanupIndex, compileIndex, "generated target metadata must not survive a successful build")
+		})
+	}
+}
+
+func TestPortablePackagePlanOutputsAreStableAndCollisionFree(t *testing.T) {
+	t.Parallel()
+
+	stageRoots := make(map[string]string)
+	outputs := make(map[string]string)
+	checksums := make(map[string]string)
+	for _, target := range portableTestTargets(t) {
+		plan := mustPackagePlan(t, target)
+		repeated := mustPackagePlan(t, target)
+
+		assert.Equal(t, plan.StageRoot(), repeated.StageRoot())
+		assert.Equal(t, plan.OutputPath(), repeated.OutputPath())
+		assert.Equal(t, plan.ChecksumPath(), repeated.ChecksumPath())
+
+		assert.NotContains(t, stageRoots, plan.StageRoot())
+		assert.NotContains(t, outputs, plan.OutputPath())
+		assert.NotContains(t, checksums, plan.ChecksumPath())
+		stageRoots[plan.StageRoot()] = target.String()
+		outputs[plan.OutputPath()] = target.String()
+		checksums[plan.ChecksumPath()] = target.String()
+	}
+
+	assert.Len(t, stageRoots, 4)
+	assert.Len(t, outputs, 4)
+	assert.Len(t, checksums, 4)
+}
+
+func TestPortablePackagePlanAccessorsDoNotExposeMutableState(t *testing.T) {
+	t.Parallel()
+
+	plan := mustPackagePlan(t, mustParseTarget(t, goosWindows, goarchAMD64))
+
+	environment := plan.Environment()
+	environment["GOOS"] = "mutated"
+	assert.Equal(t, goosWindows, plan.Environment()["GOOS"])
+
+	actions := plan.Actions()
+	require.NotEmpty(t, actions)
+	actions[0].Name = "mutated"
+	actions[0].Arguments = append(actions[0].Arguments, "--mutated")
+	actions[0].Environment = map[string]string{"MUTATED": "1"}
+	assert.NotEqual(t, "mutated", plan.Actions()[0].Name)
+	assert.NotContains(t, plan.Actions()[0].Arguments, "--mutated")
+	assert.NotContains(t, plan.Actions()[0].Environment, "MUTATED")
+
+	temporaryPaths := plan.TemporaryPaths()
+	require.NotEmpty(t, temporaryPaths)
+	temporaryPaths[0] = "mutated"
+	assert.NotEqual(t, "mutated", plan.TemporaryPaths()[0])
+
+	cleanupPaths := plan.FailureCleanupPaths()
+	require.NotEmpty(t, cleanupPaths)
+	cleanupPaths[0] = "mutated"
+	assert.NotEqual(t, "mutated", plan.FailureCleanupPaths()[0])
+}
+
+func TestPortablePackageFailureCleanupRemovesOnlyOwnedTargetOutputs(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	target := mustParseTarget(t, goosWindows, goarchAMD64)
+	plan := mustPackagePlan(t, target)
+
+	for _, relative := range plan.FailureCleanupPaths() {
+		if relative == plan.StageRoot() {
+			writePackageFixture(t, root, filepath.Join(relative, "owned.txt"))
+			continue
+		}
+		writePackageFixture(t, root, relative)
+	}
+
+	otherTarget := mustPackagePlan(t, mustParseTarget(t, goosLinux, goarchAMD64))
+	otherSentinel := filepath.Join(otherTarget.StageRoot(), "keep.txt")
+	writePackageFixture(t, root, otherSentinel)
+	sharedSentinel := filepath.Join("build", "dist", "keep.txt")
+	writePackageFixture(t, root, sharedSentinel)
+
+	require.NoError(t, plan.CleanupFailure(root))
+
+	for _, relative := range plan.FailureCleanupPaths() {
+		_, err := os.Stat(filepath.Join(root, relative))
+		assert.ErrorIsf(t, err, os.ErrNotExist, "owned package path still exists: %s", relative)
+	}
+	assert.FileExists(t, filepath.Join(root, otherSentinel))
+	assert.FileExists(t, filepath.Join(root, sharedSentinel))
+	assert.NotContains(t, plan.FailureCleanupPaths(), filepath.Join("build", "bin"))
+	assert.NotContains(t, plan.FailureCleanupPaths(), filepath.Join("build", "dist"))
+}
+
+func portableTestTargets(t *testing.T) []Target {
+	t.Helper()
+
+	return []Target{
+		mustParseTarget(t, goosWindows, goarchARM64),
+		mustParseTarget(t, goosWindows, goarchAMD64),
+		mustParseTarget(t, goosLinux, goarchARM64),
+		mustParseTarget(t, goosLinux, goarchAMD64),
+	}
+}
+
+func mustPackagePlan(t *testing.T, target Target) PackagePlan {
+	t.Helper()
+
+	plan, err := NewPackagePlan(target, NewHost(target.OS(), target.Arch()))
+	require.NoError(t, err)
+	return plan
+}
+
+func packageCompileStep(t *testing.T, actions []Step) (Step, int) {
+	t.Helper()
+
+	return requirePackageStep(t, actions, func(step Step) bool {
+		return step.Program == "go" && len(step.Arguments) > 0 && step.Arguments[0] == "build"
+	}, "compile portable application")
+}
+
+func findPackageStep(actions []Step, matches func(Step) bool) (Step, bool) {
+	for _, action := range actions {
+		if matches(action) {
+			return action, true
+		}
+	}
+	return Step{}, false
+}
+
+func requirePackageStep(t *testing.T, actions []Step, matches func(Step) bool, description string) (Step, int) {
+	t.Helper()
+
+	for index, action := range actions {
+		if matches(action) {
+			return action, index
+		}
+	}
+	require.FailNow(t, "package plan step is missing", description)
+	return Step{}, -1
+}
+
+func requirePinnedWailsGenerateStep(t *testing.T, actions []Step, generator string) (Step, int) {
+	t.Helper()
+
+	prefix := []string{"tool", "-modfile=tools/wails/go.mod", "wails3", "generate", generator}
+	return requirePackageStep(t, actions, func(step Step) bool {
+		return step.Program == "go" && len(step.Arguments) >= len(prefix) && slices.Equal(step.Arguments[:len(prefix)], prefix)
+	}, "pinned Wails "+generator+" generation")
+}
+
+func requiredFlagValue(t *testing.T, arguments []string, flag string) string {
+	t.Helper()
+
+	for index, argument := range arguments {
+		if argument == flag {
+			require.Less(t, index+1, len(arguments), "%s has no value", flag)
+			return arguments[index+1]
+		}
+	}
+	require.FailNow(t, "required flag is missing", flag)
+	return ""
+}
+
+func writePackageFixture(t *testing.T, root, relative string) {
+	t.Helper()
+
+	path := filepath.Join(root, relative)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+	require.NoError(t, os.WriteFile(path, []byte("fixture"), 0o600))
+}

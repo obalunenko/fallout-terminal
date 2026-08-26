@@ -1,0 +1,1300 @@
+{
+  "workflow": "companion",
+  "specName": "windows linux support",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-25T22:08:30.230Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T22:12:01.256Z"
+    },
+    {
+      "step": "clarify",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:15:39.202Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-25T22:16:23.213Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:25:06.214Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:34:26.639Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T22:35:17.682Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-25T22:37:55.719Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:43:04.076Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T22:43:26.393Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-25T22:43:43.969Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:44:58.433Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:46:05.322Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:46:37.277Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:50:23.643Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:53:40.487Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:54:16.182Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-25T22:55:41.343Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T22:58:11.310Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T22:59:42.421Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:00:50.287Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:03:35.911Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:06:32.032Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:08:46.620Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:11:26.510Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:11:35.335Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:12:02.998Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:13:42.390Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:14:01.910Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:14:17.416Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:15:48.374Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:16:51.248Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:28:49.000Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:30:43.776Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:32:17.306Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:32:52.703Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:33:18.912Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:33:56.041Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:35:05.698Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:35:45.776Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:37:31.652Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:39:20.691Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:42:50.847Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:50:13.744Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:50:59.822Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:52:08.517Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-25T23:54:03.090Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:58:15.033Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-25T23:58:55.908Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:00:13.881Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:07:42.858Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:10:57.284Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:13:00.561Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T00:14:13.174Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:15:33.998Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:19:29.557Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:23:37.969Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T00:26:41.852Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:28:28.961Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:30:22.302Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T050",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:30:40.519Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T051",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:31:01.861Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T052",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:31:43.833Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T053",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:39:24.372Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T054",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:41:30.785Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T055",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-08-26T00:42:52.164Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T00:42:52.239Z"
+    }
+  ],
+  "last_action": "living specs evaluated — skipped (not configured)",
+  "coverage": {
+    "FR-001": {
+      "title": "The product MUST support distributable desktop application targets for Windows on arm64, Windows on amd64, Linux on arm64, and Linux on amd64.",
+      "tasks": [
+        "T010",
+        "T013",
+        "T020",
+        "T021",
+        "T047"
+      ]
+    },
+    "FR-002": {
+      "title": "The product MUST document the minimum supported operating-system versions and required system runtime dependencies for each target.",
+      "tasks": [
+        "T048",
+        "T050"
+      ]
+    },
+    "FR-003": {
+      "title": "Every target artifact MUST include the complete Overseer interface, player interface, bundled demo data, product identity, application icon, and required third-party notices.",
+      "tasks": [
+        "T014",
+        "T020",
+        "T037",
+        "T040",
+        "T041"
+      ]
+    },
+    "FR-004": {
+      "title": "A user MUST be able to launch each target artifact without installing the source repository, a compiler, or frontend build tools.",
+      "tasks": [
+        "T020",
+        "T022",
+        "T044",
+        "T047"
+      ]
+    },
+    "FR-005": {
+      "title": "Every target MUST preserve the existing session authoring, terminal control, navigation, hacking, sound, local player connection, and configured public-access workflows.",
+      "tasks": [
+        "T027",
+        "T034",
+        "T044",
+        "T047"
+      ]
+    },
+    "FR-006": {
+      "title": "Every target MUST provide working native open-file, save-file, and external-link interactions with JSON file selection behavior consistent across operating systems.",
+      "tasks": [
+        "T024",
+        "T029",
+        "T044"
+      ]
+    },
+    "FR-007": {
+      "title": "Every target MUST keep user-owned session documents, private application settings, and read-only bundled resources in distinct locations appropriate to that operating system.",
+      "tasks": [
+        "T015",
+        "T017",
+        "T023",
+        "T028",
+        "T034"
+      ]
+    },
+    "FR-008": {
+      "title": "Every target MUST store public-access secrets only in an operating-system-protected credential service and MUST fail closed with a clear status when no secure service is available.",
+      "tasks": [
+        "T025",
+        "T026",
+        "T030",
+        "T031",
+        "T032",
+        "T033",
+        "T035",
+        "T044"
+      ]
+    },
+    "FR-009": {
+      "title": "Every target MUST release owned listeners, public-access resources, and background activity when the application exits normally or startup fails.",
+      "tasks": [
+        "T016",
+        "T019",
+        "T027",
+        "T034",
+        "T044"
+      ]
+    },
+    "FR-010": {
+      "title": "Maintainers MUST have a documented packaging command for each supported target that runs on a matching operating-system host without requiring source changes between targets.",
+      "tasks": [
+        "T010",
+        "T021",
+        "T051"
+      ]
+    },
+    "FR-011": {
+      "title": "Each produced artifact MUST have a stable, unique name that identifies its operating system and processor architecture.",
+      "tasks": [
+        "T014",
+        "T036",
+        "T040",
+        "T041"
+      ]
+    },
+    "FR-012": {
+      "title": "The automated delivery workflow MUST build and report all four target combinations independently from a clean source revision.",
+      "tasks": [
+        "T039",
+        "T047"
+      ]
+    },
+    "FR-013": {
+      "title": "The delivery workflow MUST verify each artifact's declared target, required resource inventory, product metadata, and ability to reach an opened application window on a matching platform.",
+      "tasks": [
+        "T022",
+        "T037",
+        "T039",
+        "T041",
+        "T044",
+        "T047"
+      ]
+    },
+    "FR-014": {
+      "title": "A failed or unverifiable target MUST NOT be reported or published as a successful artifact.",
+      "tasks": [
+        "T013",
+        "T038",
+        "T041",
+        "T042",
+        "T047"
+      ]
+    },
+    "FR-015": {
+      "title": "Existing macOS application behavior and its supported distribution MUST remain available without regression while Windows and Linux support is added.",
+      "tasks": [
+        "T009",
+        "T021",
+        "T045",
+        "T055"
+      ]
+    },
+    "FR-016": {
+      "title": "User-facing documentation MUST explain target selection, prerequisites, launch steps, data locations, credential-service expectations, and platform-specific troubleshooting.",
+      "tasks": [
+        "T048",
+        "T049",
+        "T050",
+        "T051",
+        "T052"
+      ]
+    },
+    "FR-017": {
+      "title": "Platform or architecture mismatches and missing runtime dependencies MUST produce actionable failure information rather than silent exit or partial startup.",
+      "tasks": [
+        "T010",
+        "T012",
+        "T031",
+        "T041",
+        "T044",
+        "T050"
+      ]
+    },
+    "FR-018": {
+      "title": "Maintainers MUST have an additional aggregate packaging command that coordinates all four target-specific commands and reports failure unless every target package succeeds.",
+      "tasks": [
+        "T038",
+        "T042",
+        "T043",
+        "T047",
+        "T051"
+      ]
+    },
+    "FR-019": {
+      "title": "Each target-specific packaging command MUST produce a portable runnable archive that requires no native installer.",
+      "tasks": [
+        "T014",
+        "T020",
+        "T036",
+        "T040"
+      ]
+    },
+    "FR-020": {
+      "title": "The repository MUST migrate its developer, verification, build, package, release, and Spec Kit command aliases from the root Makefile into a root Taskfile compatible with the pinned Wails task-based workflow.",
+      "tasks": [
+        "T001",
+        "T004",
+        "T005",
+        "T007",
+        "T054"
+      ]
+    },
+    "FR-021": {
+      "title": "Go Task MUST be version-pinned in its own isolated Go tool module under tools/ and MUST be installed through the same repository-owned bootstrap as every other Go development tool.",
+      "tasks": [
+        "T002",
+        "T003",
+        "T006",
+        "T007"
+      ]
+    },
+    "FR-022": {
+      "title": "The root Makefile MUST retain only one bootstrap responsibility: installing every Go tool declared by the isolated modules under tools/, including Go Task; it MUST NOT remain a parallel owner of application workflows.",
+      "tasks": [
+        "T003",
+        "T005",
+        "T007",
+        "T054"
+      ]
+    },
+    "FR-023": {
+      "title": "Existing maintainer workflows currently exposed through Make MUST have documented Task equivalents with preserved ordering, inputs, and failure behavior.",
+      "tasks": [
+        "T004",
+        "T007",
+        "T048",
+        "T049",
+        "T051",
+        "T054"
+      ]
+    },
+    "FR-024": {
+      "title": "Pin the accepted Wails Go runtime, isolated CLI, and frontend runtime together at beta.13.",
+      "tasks": [
+        "T053",
+        "T054"
+      ],
+      "tests": [
+        "internal/platform/startup_test.go"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 16,
+    "projectedTasks": 24,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "context": [
+    "area: repository build graph and platform packaging",
+    "area: operating-system storage, desktop integration, and credential security",
+    "area: automated delivery workflow and user documentation",
+    "constraint: support windows/linux on arm64/amd64",
+    "constraint: no local test execution requested"
+  ],
+  "intent": "Deliver complete, trustworthy Fallout Terminal desktop distributions for Windows and Linux on arm64 and amd64.",
+  "expectations": [
+    "Local test execution is not required for this specification step."
+  ],
+  "approach": "A pinned schema-v3 Taskfile replaces Make workflow aliases and delegates typed target, archive, and verification policy to cmd/build. Four matching native CI runners create and launch-check deterministic Windows/Linux archives, while explicit platform resource, path, lifecycle, and secure-store adapters preserve application behavior and macOS compatibility.",
+  "decisions": [
+    {
+      "decision": "Use matching native OS/architecture runners and task package:all for aggregate orchestration",
+      "why": "Native runners satisfy Linux CGO/runtime and real-window evidence while the aggregate command enforces complete-matrix success",
+      "rejected": "Local sequential cross-compilation or unrelated manual jobs"
+    },
+    {
+      "decision": "Migrate workflow aliases from Make to a pinned Taskfile while keeping detailed build policy in Go",
+      "why": "Wails v3 dispatches build/package through Task and Go retains typed, testable archive and security policy",
+      "rejected": "Parallel Make and Task graphs or YAML-only build policy"
+    },
+    {
+      "decision": "Pin github.com/go-task/task/v3/cmd/task v3.53.1 in tools/task and leave Make only as discovery-based all-tool installation",
+      "why": "The bootstrap avoids requiring Task to install itself and keeps every Go tool version isolated and complete",
+      "rejected": "Global/unpinned Task installation or a hard-coded partial tool list"
+    },
+    {
+      "decision": "Use the pinned Wails default native runtimes: WebView2 and GTK4/WebKitGTK 6.0",
+      "why": "These match the accepted runtime and current supported Windows 10/11 and Ubuntu 24.04+/Debian 13+ baselines",
+      "rejected": "Legacy GTK3 or bundling platform runtimes"
+    },
+    {
+      "decision": "Use compile-time production identity and executable-relative Windows/Linux resources",
+      "why": "This closes the current development-secret override gap and avoids current-working-directory dependence",
+      "rejected": "Executable path heuristics or mutable linker/runtime flags"
+    },
+    {
+      "decision": "Resolve writable storage through injectable OS-native directory providers",
+      "why": "Windows Known Folders and Linux XDG paths handle redirection and remain testable while preserving macOS locations",
+      "rejected": "Hard-coded home-relative or executable-relative writable paths"
+    },
+    {
+      "decision": "Implement native Windows Credential Manager and Linux Secret Service adapters",
+      "why": "Direct pinned adapters preserve bounded calls, precise fail-closed errors, and temporary secret clearing",
+      "rejected": "Generic string-based keyring wrappers or file/environment fallbacks"
+    },
+    {
+      "decision": "Emit deterministic ZIP/TAR.GZ archives with internal manifests and external SHA-256 sidecars",
+      "why": "Stable layouts plus PE/ELF inspection prove target identity, inventory, metadata, and reproducibility before upload",
+      "rejected": "Filename-only validation, installers, or committed target-specific generated objects"
+    },
+    {
+      "decision": "Amend the constitution before implementation and preserve macOS as a separate trust path",
+      "why": "Current governance both limits deployment to macOS arm64 and prohibits Taskfiles; the authorized feature must update those rules without weakening signed macOS release checks",
+      "rejected": "Implementing under standing violations or folding macOS into unsigned portable archives"
+    },
+    {
+      "decision": "Upgrade all active Wails pins together to v3.0.0-beta.13 / 3.0.0-beta.13.",
+      "why": "The official Go module proxy and npm registry both list beta.13 as the newest matching published beta on 2026-08-26.",
+      "rejected": "Advancing only the Go runtime or only the frontend would violate the repository compatibility pin contract."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned pinned Task migration plus native four-target Windows/Linux packaging, runtime adapters, deterministic archives, and aggregate CI verification.",
+      "key_finding": "Wails v3 is Task-backed, but production acceptance still needs matching native runners; Task should orchestrate while the existing Go build package owns typed policy."
+    },
+    "tasks": {
+      "summary": "55 dependency-ordered tasks across Setup, Foundational, four user-story phases, and Polish; explicit waves preserve test-first joins and CI-only native validation."
+    }
+  },
+  "currentTask": "T055",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Amended governance to v6.0.0 for Windows/Linux targets and the Task-first, Make-bootstrap-only orchestration cutover",
+      "files": [
+        ".specify/memory/constitution.md"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Replaced the Make workflow graph with a deterministic tools bootstrap that installs every immediate Go tool module and reports module-specific failures",
+      "files": [
+        "Makefile"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added isolated Go Task tool module pinned to github.com/go-task/task/v3/cmd/task v3.53.1 with resolved dependency checksums.",
+      "files": [
+        "tools/task/go.mod",
+        "tools/task/go.sum"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Created the schema-v3 Task graph with all migrated Make workflows, Wails-compatible build/package dispatch, and aggregate packaging surface",
+      "files": [
+        "Taskfile.yml"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Updated startup acceptance contracts for the pinned Task module, sole root Task workflow graph, Wails-safe Go dispatch, Make-only tool bootstrap, and Task-based macOS CI entrypoints",
+      "files": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Updated Wails v3 contract and cutover guards for a single schema-v3 root Taskfile, canonical Task dev/build/package dispatch, GOOS/GOARCH forwarding, recursion safety, Make-only tool bootstrap, and negative self-test fixtures.",
+      "files": [
+        "scripts/wails-v3-contract-check.sh",
+        "scripts/wails-v3-cutover-check.sh"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Extended isolated-tool policy checks with deterministic module discovery, Task v3.53.1 enforcement, Make-bootstrap validation, root-module drift detection, and fixture coverage",
+      "files": [
+        "scripts/tool-modules-check.sh"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added failing-first table-driven target contracts for the exact Windows/Linux portable matrix, alias/case/unsupported rejection, exact host matching, immutable value accessors, and the Darwin ARM64 default.",
+      "files": [
+        "internal/buildtool/target_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Refactored build-plan contracts for portable preparation, fixed cross-target ordering, isolated target compile environments, and exact legacy macOS resource/signature sequencing",
+      "files": [
+        "internal/buildtool/buildtool_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Implemented immutable canonical Target and Host values with strict portable parsing, the macOS default, target properties, runtime host discovery, and exact native-host validation.",
+      "files": [
+        "internal/buildtool/target.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Extended cmd/build with strict action-specific parsing for portable --target GOOS/GOARCH builds/packages, preserved default and application-argument behavior, and validated package-all ref/output options behind an explicit not-yet-wired aggregate boundary.",
+      "files": [
+        "cmd/build/main.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added target-aware shared build planning, portable Go-owned protobuf and native preflights, isolated target compile environments, and pre-execution native host validation while preserving macOS ordering",
+      "files": [
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/preflight.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added immutable portable PackagePlan values with native host validation, isolated target staging and stable outputs, copied production environments/actions, exact cleanup allowlists, and failed-attempt output cleanup.",
+      "files": [
+        "internal/buildtool/package.go",
+        "internal/buildtool/buildtool.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added failing Wails host contracts for stable Windows/Linux identities, application and Linux window icons, platform-specific close fallback registration, and exact-once quit behavior",
+      "files": [
+        "wails_host_test.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Added failing contracts for build-tagged package identity, macOS and executable-relative Windows/Linux resource roots, cwd independence, development checkout behavior, and fail-closed missing packaged resources",
+      "files": [
+        "production_resources_test.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added failing-first portable package-plan contracts for target-native executable/GUI/CGO settings, isolated stable paths, exact runtime resources, pinned Windows icon and syso metadata generation, immutable accessors, and target-owned cleanup safety.",
+      "files": [
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Replaced executable-path package heuristics with mutually exclusive production build profiles and fail-closed macOS, Windows, Linux, and development resource-root resolution",
+      "files": [
+        "build_profile_development.go",
+        "build_profile_production.go",
+        "resource_roots.go",
+        "main.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added reviewed Windows 10/11 as-invoker, DPI-aware application manifest and deterministic Fallout Terminal 1.0.0.0 version-info JSON for pinned Wails syso generation.",
+      "files": [
+        "build/windows/app.manifest",
+        "build/windows/info.json"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Split Darwin native close fallback behind build tags and added stable Windows/Linux Wails identities, embedded PNG application and Linux window icons, and portable exact-once close composition",
+      "files": [
+        "wails_host.go",
+        "wails_host_darwin.go",
+        "wails_host_other.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Composed target-native portable package actions with Windows GUI flags and pinned build-scoped icon/syso generation, Linux CGO/executable mode, exact resource staging, and failure cleanup integration.",
+      "files": [
+        "internal/buildtool/package.go",
+        "internal/buildtool/buildtool.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Wired Task package variables to the shared Go package plan, removed leaking macOS-only global compiler flags, and retained the no-variable macOS compatibility route.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added native Windows and Linux package smoke harnesses with safe spaced-path extraction, target/resource checks, real-window observation, bundled-demo loading, graceful close, and guarded cleanup.",
+      "files": [
+        "scripts/verify-windows-package.ps1",
+        "scripts/verify-linux-package.sh"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Added public-access manager contracts that preserve precise secure-store initialization failures across start attempts, recover after a healthy reinitialization, keep local access messaging, and never create a public endpoint while storage is unavailable.",
+      "files": [
+        "internal/tunnel/manager_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Expanded shared Windows Credential Manager and Linux Secret Service contracts for stable identities, presence, update/add replace, idempotent delete, scoped use, byte clearing, cancellation, and precise error mapping",
+      "files": [
+        "internal/platform/keychain_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Expanded desktop adapter contracts for portable JSON filters, native outcomes, safe external links, and application context lifetime.",
+      "files": [
+        "internal/platform/desktop_test.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Added failing cross-platform storage path contracts for native Windows roots, Linux XDG fallbacks, preserved Darwin paths, invalid and unavailable roots, and strict resource/data separation",
+      "files": [
+        "internal/platform/paths_test.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Added application lifecycle contracts for bounded exact-once cleanup after partial startup failure and normal close with connected players and active public access.",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Preserved precise secure-store initialization failures through blocked starts and healthy retries, with platform-neutral redacted secure credential store status wording.",
+      "files": [
+        "internal/tunnel/manager.go",
+        "internal/tunnel/model.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Made desktop dialogs portable across Wails targets, enforced safe HTTP(S) external links, and rejected native calls after context cancellation.",
+      "files": [
+        "internal/platform/desktop.go"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Generalized the native secure credential store type, service/account/error normalization and cancellation handling, narrowed unsupported targets, and promoted pinned wincred and godbus runtime dependencies while preserving Wails beta.13",
+      "files": [
+        "internal/platform/keychain.go",
+        "internal/platform/keychain_other.go",
+        "go.mod",
+        "go.sum"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Implemented injectable cross-platform storage path policy with preserved Darwin paths, Windows Known Folder discovery, Linux XDG roots and home fallbacks, and bundled-resource separation",
+      "files": [
+        "internal/platform/paths.go",
+        "internal/platform/paths_darwin.go",
+        "internal/platform/paths_windows.go",
+        "internal/platform/paths_linux.go"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Implemented the Windows Credential Manager backend with metadata-only presence, stable targets, native error categories, and cleared credential blobs.",
+      "files": [
+        "internal/platform/keychain_windows.go"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Implemented the Linux freedesktop Secret Service backend with bounded D-Bus operations, collection and prompt handling, scoped replace/read/delete semantics, fail-closed error mapping, and cleared secret buffers.",
+      "files": [
+        "internal/platform/keychain_linux.go"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Joined packaged resources and native storage with the platform-neutral secure credential store factory, and enforced bounded exact-once application cleanup without changing player/session contracts.",
+      "files": [
+        "main.go",
+        "app.go"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Extended secret-leak enforcement across Windows/Linux native credential providers and portable packages, and normalized Overseer secure-store failures without macOS-specific wording.",
+      "files": [
+        "scripts/secret-leak-check.sh",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "Added portable release workflow contracts for explicit native runner labels, fail-fast-disabled matrix execution, verification-before-upload, always-running complete aggregation, pinned Task use, and macOS trust separation.",
+      "files": [
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Added failing deterministic ZIP and TAR.GZ contracts for safe sorted exact inventories, normalized metadata, schema-v1 file manifests, and SHA-256 sidecars",
+      "files": [
+        "internal/buildtool/archive_test.go"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Added failing portable artifact verification contracts for binary identity, manifest metadata and inventory, checksums, modes, resources, corruption, and immutable verification evidence.",
+      "files": [
+        "internal/buildtool/verify_test.go"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Added failing aggregate orchestration contracts for correlated exact four-target/source-SHA joins, independent failure reporting, bounded remote cancellation, quarantined partial downloads, and atomic verified output exposure.",
+      "files": [
+        "internal/buildtool/aggregate_test.go"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "Implemented deterministic safe ZIP and TAR.GZ publication with schema-v1 manifests, SHA-256 sidecars, fail-closed atomic outputs, and joined portable package commands to staged archives with full source revision",
+      "files": [
+        "internal/buildtool/archive.go",
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/package.go"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Implemented safe portable artifact verification for checksums, archives, manifests, inventory, modes, and PE/ELF target identity.",
+      "files": [
+        "internal/buildtool/verify.go"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Implemented correlated GitHub CLI aggregate orchestration with exact four-target/source-SHA validation, independent target reporting, bounded remote cancellation, quarantined downloads, strict aggregate-index verification, atomic publication, and package-all CLI wiring.",
+      "files": [
+        "internal/buildtool/aggregate.go",
+        "cmd/build/main.go"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Completed package:all Task integration over the Go aggregate helper with required REF/optional OUTPUT, authenticated GitHub CLI preconditions, and complete-matrix error propagation.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "Migrated macOS CI, release builds, and reproducibility builds to the repository-pinned Task entrypoint while preserving all existing bundle, signing, notarization, DMG, Gatekeeper, and hash verification.",
+      "files": [
+        ".github/workflows/wails-macos.yml",
+        "scripts/build-macos.sh",
+        "scripts/reproducible-build-check.sh"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "Validated the union of shipped Darwin, Windows, and Linux runtime dependency graphs plus pinned Go Task tooling, with explicit wincred, godbus/dbus, Wails beta.13, Task, and complete license notices.",
+      "files": [
+        "scripts/dependency-license-check.sh",
+        "THIRD_PARTY_NOTICES.md"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Extended both native package harnesses with exact schema-v1 archive/checksum/metadata and PE/ELF/runtime validation, real synchronized player connection evidence, native secure-store evidence, and listener/child/process shutdown checks while preserving the reviewed demo/window flow.",
+      "files": [
+        "scripts/verify-windows-package.ps1",
+        "scripts/verify-linux-package.sh"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Added a clean-checkout four-target native runner matrix with exact source/correlation inputs, pinned Task packaging, native launch verification before upload, redacted fail-fast-disabled records, and an always-running complete aggregate gate with schema-v1 index.",
+      "files": [
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Added executable documentation contracts for the four portable targets and archive names, Make tool bootstrap, Task workflows, runtime prerequisites, launch/data/credential guidance, aggregate packaging, and actionable failure semantics.",
+      "files": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Replaced active Make workflow guidance with make tools bootstrap and Task commands, added the exact four-target portable archive/download table and launch summary, documented aggregate packaging, and linked the detailed platform and packaging guides while preserving product usage guidance.",
+      "files": [
+        "README.md"
+      ]
+    },
+    "T050": {
+      "status": "DONE",
+      "did": "Documented Windows and Linux runtime prerequisites, exact portable archive selection and native launch, OS-native data paths, protected credential stores, fail-closed public access, and actionable Russian troubleshooting.",
+      "files": [
+        "docs/platform-support.md"
+      ]
+    },
+    "T051": {
+      "status": "DONE",
+      "did": "Documented the complete Task and Wails-compatible command surface, matching-host portable packaging matrix, archive layouts, authenticated aggregate workflow and CI evidence, and fail-closed nonzero publication semantics.",
+      "files": [
+        "docs/platform-packaging.md"
+      ]
+    },
+    "T052": {
+      "status": "DONE",
+      "did": "Created and completed the five-minute distribution-guidance checklist covering target selection, prerequisites, portable launch, native data and credential locations, the single tool bootstrap, Task command migration, aggregate packaging, and fail-closed publication.",
+      "files": [
+        "specs/021-windows-linux-support/checklists/distribution-guidance.md"
+      ]
+    },
+    "T053": {
+      "status": "DONE",
+      "did": "Applied fresh-context simplification and Go-quality reviews. Removed derivable PackagePlan state; fixed exact Windows credential enumeration; bound Linux Secret Service connections to operation context; made archive creation cancellation-aware before publication; and made every aggregate wait failure attempt bounded remote cancellation. Confirmed coordinated Wails beta.13 and Task pins, secret clearing, cleanup ownership, formatting, and gopls diagnostics. No local tests were run.",
+      "files": [
+        "internal/buildtool/package.go",
+        "internal/buildtool/archive.go",
+        "internal/buildtool/archive_test.go",
+        "internal/buildtool/aggregate.go",
+        "internal/buildtool/aggregate_test.go",
+        "internal/buildtool/buildtool.go",
+        "internal/platform/keychain_windows.go",
+        "internal/platform/keychain_linux.go",
+        "go.mod",
+        "go.sum",
+        "tools/wails/go.mod",
+        "tools/wails/go.sum",
+        "frontend/overseer/package.json",
+        "frontend/package-lock.json"
+      ]
+    },
+    "T054": {
+      "status": "DONE",
+      "did": "Completed the active-command and dependency cutover audit. Replaced the last active non-bootstrap Make guidance in Spec Kit diagnostics, refreshed the reviewed schema-revision digest guard, and verified exact Wails beta.13 pins, tool isolation, Task-only orchestration, Make-only bootstrap ownership, deterministic bindings, YAML/shell/Python syntax, formatting, and absence of active v2/global/floating Wails surfaces. No local tests were run.",
+      "files": [
+        "scripts/check-speckit-updates.py",
+        "scripts/wails-v3-contract-check.sh",
+        "Taskfile.yml",
+        "Makefile",
+        "README.md",
+        "docs/platform-support.md",
+        "docs/platform-packaging.md",
+        "scripts/tool-modules-check.sh",
+        "scripts/wails-v3-cutover-check.sh",
+        ".github/workflows/wails-macos.yml",
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T055": {
+      "status": "DONE",
+      "did": "Recorded SC-001 through SC-009 with completed static evidence and honest native NOT RUN/PARTIAL status. The feature workflows are not present in the clean HEAD revision and GitHub CLI authentication is invalid, so no misleading old-revision dispatch was made. No local test suite was run as requested; validation documents the exact clean pushed-ref follow-up.",
+      "files": [
+        "specs/021-windows-linux-support/validation.md",
+        ".github/workflows/wails-portable.yml",
+        ".github/workflows/wails-macos.yml"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Task package dispatch",
+      "result": "PASS",
+      "command": "go tool -modfile=tools/task/go.mod task --list; task --dry package with and without GOOS/GOARCH",
+      "warnings": "Dry-run validation only; no local tests or builds were run."
+    },
+    {
+      "what": "Wails beta.13 coordinated pin",
+      "result": "PASS",
+      "command": "go list -m -versions github.com/wailsapp/wails/v3; npm view @wailsio/runtime versions --json; go mod tidy in root and tools/wails; Wails beta.13 bindings generation; gopls check",
+      "warnings": "No local test suite or application build was run."
+    }
+  ]
+}

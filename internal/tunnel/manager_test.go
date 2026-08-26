@@ -459,6 +459,105 @@ func TestPublicAccessManagerEnforcesThirtySecondBoundAndRedactsProviderFailure(t
 	assert.NotContains(t, failed.Error, "sensitive-marker")
 }
 
+func TestPublicAccessManagerPreservesSecureStoreInitializationFailureUntilAHealthyRetry(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		storeError   error
+		wantCategory tunnel.ErrorCategory
+	}{
+		{name: "locked", storeError: tunnel.ErrSecretStoreLocked, wantCategory: tunnel.ErrorSecretStoreLocked},
+		{name: "denied", storeError: tunnel.ErrSecretStoreDenied, wantCategory: tunnel.ErrorSecretStoreDenied},
+		{name: "cancelled", storeError: tunnel.ErrSecretStoreUserCancelled, wantCategory: tunnel.ErrorSecretStoreDenied},
+		{name: "unavailable", storeError: tunnel.ErrSecretStoreUnavailable, wantCategory: tunnel.ErrorSecretStoreUnavailable},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			preferences := tunnel.DefaultPublicAccessPreferences()
+			preferences.Revision = 7
+			secrets := testutil.NewFakeSecretStore()
+			secrets.PresenceErrors[tunnel.ProviderAccountToken] = test.storeError
+			secrets.PresenceErrors[tunnel.PlayerBasicAuthPassword] = test.storeError
+			service := testutil.NewFakeTunnelService(testutil.NewFakeTunnelEndpoint("https://public.example"))
+			ingresses := testutil.NewFakePublicIngressFactory()
+			manager, err := tunnel.NewPublicAccessManager(tunnel.ManagerConfig{
+				Settings: &memorySettings{preferences: preferences},
+				Secrets:  secrets,
+				Tunnel:   service,
+				Ingress:  ingresses,
+				UpstreamURL: "http://" +
+					tunnel.PlayerUpstreamAddress,
+			})
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+				defer cancel()
+				require.NoError(t, manager.Shutdown(ctx))
+			})
+
+			initialized := manager.Initialize(t.Context())
+			require.Equal(t, tunnel.LifecycleFailed, initialized.Status.State)
+			assert.Equal(t, test.wantCategory, initialized.Status.ErrorCategory)
+			assert.Equal(t, tunnel.SecretUnknown, initialized.ProviderTokenPresence)
+			assert.Equal(t, tunnel.SecretUnknown, initialized.PlayerPasswordPresence)
+			assert.Empty(t, initialized.Status.PublicURL)
+
+			blocked := manager.Start(t.Context(), initialized.Preferences.Revision)
+			require.False(t, blocked.OK)
+			assert.Equal(t, tunnel.LifecycleFailed, blocked.Snapshot.Status.State)
+			assert.Equal(t, test.wantCategory, blocked.Snapshot.Status.ErrorCategory,
+				"starting after initialization failure must not downgrade it to credential missing")
+			assert.NotEqual(t, tunnel.ErrorCredentialMissing, blocked.Snapshot.Status.ErrorCategory)
+			assert.Empty(t, blocked.Snapshot.Status.PublicURL)
+			assert.Zero(t, service.StartCalls())
+			assert.Zero(t, ingresses.StartCalls())
+
+			delete(secrets.PresenceErrors, tunnel.ProviderAccountToken)
+			delete(secrets.PresenceErrors, tunnel.PlayerBasicAuthPassword)
+			require.NoError(t, secrets.Replace(t.Context(), tunnel.ProviderAccountToken, []byte("synthetic-account-input")))
+			require.NoError(t, secrets.Replace(t.Context(), tunnel.PlayerBasicAuthPassword, []byte("synthetic-player-input")))
+
+			retried := manager.Initialize(t.Context())
+			require.Equal(t, tunnel.LifecycleDisabled, retried.Status.State)
+			assert.Equal(t, tunnel.SecretPresent, retried.ProviderTokenPresence)
+			assert.Equal(t, tunnel.SecretPresent, retried.PlayerPasswordPresence)
+			started := manager.Start(t.Context(), retried.Preferences.Revision)
+			require.True(t, started.OK, started.Error)
+			assert.Equal(t, tunnel.LifecycleReady, started.Snapshot.Status.State)
+			assert.Equal(t, 1, service.StartCalls())
+			require.True(t, manager.Stop(t.Context(), retried.Preferences.Revision).OK)
+		})
+	}
+}
+
+func TestSecureStoreUnavailableStatusKeepsLocalAccessMessageAndNoPublicEndpoint(t *testing.T) {
+	t.Parallel()
+
+	preferences := tunnel.DefaultPublicAccessPreferences()
+	preferences.Revision = 3
+	secrets := testutil.NewFakeSecretStore()
+	secrets.PresenceErrors[tunnel.ProviderAccountToken] = tunnel.ErrSecretStoreUnavailable
+	secrets.PresenceErrors[tunnel.PlayerBasicAuthPassword] = tunnel.ErrSecretStoreUnavailable
+	service := testutil.NewFakeTunnelService(testutil.NewFakeTunnelEndpoint("https://must-not-start.example"))
+	ingresses := testutil.NewFakePublicIngressFactory()
+	manager, err := tunnel.NewPublicAccessManager(tunnel.ManagerConfig{
+		Settings: &memorySettings{preferences: preferences}, Secrets: secrets,
+		Tunnel: service, Ingress: ingresses, UpstreamURL: "http://" + tunnel.PlayerUpstreamAddress,
+	})
+	require.NoError(t, err)
+
+	snapshot := manager.Initialize(t.Context())
+	require.Equal(t, tunnel.ErrorSecretStoreUnavailable, snapshot.Status.ErrorCategory)
+	assert.Contains(t, snapshot.Status.ErrorMessage, "local access remains available")
+	assert.Empty(t, snapshot.Status.PublicURL)
+	assert.Zero(t, service.StartCalls())
+	assert.Zero(t, ingresses.StartCalls())
+}
+
 func TestPublicAccessManagerUnexpectedDoneWithdrawsBeforeFailedPublication(t *testing.T) {
 	fixture := newManagerFixture(t)
 	require.True(t, fixture.manager.Start(t.Context(), 7).OK)

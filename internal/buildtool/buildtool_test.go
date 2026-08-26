@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildPlanHasOneOrderedOwnerAndNoTaskfileTool(t *testing.T) {
+func TestBuildPlanHasOneOrderedOwnerAndPortableToolInvocation(t *testing.T) {
 	steps, err := Plan("build", nil)
 	require.NoError(t, err)
 
@@ -29,31 +29,111 @@ func TestBuildPlanHasOneOrderedOwnerAndNoTaskfileTool(t *testing.T) {
 		assert.Falsef(t, strings.Contains(strings.ToLower(command), "taskfile") || strings.HasPrefix(command, "task ") || strings.Contains(command, " wails3 task"),
 			"step %q invokes a Taskfile tool: %q", want, command)
 	}
+	bindings := steps[3]
+	assert.Equal(t, "go", bindings.Program)
+	assert.Equal(t, []string{
+		"tool",
+		"-modfile=tools/wails/go.mod",
+		"wails3",
+		"generate",
+		"bindings",
+		"-clean",
+		"-d",
+		"frontend/overseer/bindings",
+		"./...",
+	}, bindings.Arguments, "the Wails generator must resolve through its portable repository-owned tool module")
 	got := steps[len(steps)-1].Arguments
 	assert.Equal(t, filepath.Join("build", "bin", applicationName), got[len(got)-2])
 }
 
-func TestPreparePlanInstallsLockedFrontendWorkspaceBeforeProtobufVerificationForEveryAction(t *testing.T) {
+func TestPreparationOrderIsLockedForEveryActionAndTarget(t *testing.T) {
+	wantOrder := []string{
+		"install locked frontend dependencies",
+		"verify protobuf and generated clients",
+		"build client frontend",
+		"generate Wails bindings",
+		"build Overseer frontend",
+	}
+
 	for _, action := range []string{"prepare", "build", "dev", "run", "package"} {
 		t.Run(action, func(t *testing.T) {
 			steps, err := Plan(action, nil)
 			require.NoError(t, err)
+			require.GreaterOrEqual(t, len(steps), len(wantOrder))
+			assert.Equal(t, wantOrder, stepNames(steps[:len(wantOrder)]))
+			assertPortablePreparation(t, steps[:len(wantOrder)])
 
-			positions := make(map[string]int, len(steps))
-			for index, step := range steps {
-				positions[step.Name] = index
-			}
-			installIndex, hasInstall := positions["install locked frontend dependencies"]
-			verifyIndex, hasVerify := positions["verify protobuf and generated clients"]
-			require.True(t, hasInstall)
-			require.True(t, hasVerify)
-			assert.Less(t, installIndex, verifyIndex)
-			assert.Equal(t, "npm", steps[installIndex].Program)
-			assert.Equal(t, []string{"ci", "--prefix", "frontend"}, steps[installIndex].Arguments)
-			assert.Equal(t, filepath.Join("scripts", "proto-check.sh"), steps[verifyIndex].Program)
-			assert.Empty(t, steps[verifyIndex].Arguments)
+			assert.Equal(t, "npm", steps[0].Program)
+			assert.Equal(t, []string{"ci", "--prefix", "frontend"}, steps[0].Arguments)
 		})
 	}
+
+	for _, target := range []Target{
+		mustParseTarget(t, "windows", "arm64"),
+		mustParseTarget(t, "windows", "amd64"),
+		mustParseTarget(t, "linux", "arm64"),
+		mustParseTarget(t, "linux", "amd64"),
+	} {
+		t.Run(target.String(), func(t *testing.T) {
+			steps, err := PlanForTarget("build", target, nil)
+			require.NoError(t, err)
+			require.GreaterOrEqual(t, len(steps), len(wantOrder))
+			assert.Equal(t, wantOrder, stepNames(steps[:len(wantOrder)]))
+			assertPortablePreparation(t, steps[:len(wantOrder)])
+			for _, step := range steps[:len(wantOrder)] {
+				assert.Empty(t, step.Environment, "target environment must not leak into preparation step %q", step.Name)
+			}
+		})
+	}
+}
+
+func TestBuildPlanTargetEnvironmentIsExplicitAndIsolated(t *testing.T) {
+	tests := []struct {
+		name        string
+		target      Target
+		environment map[string]string
+	}{
+		{
+			name:   "macOS compatibility",
+			target: DefaultTarget(),
+			environment: map[string]string{
+				"CGO_ENABLED":              "1",
+				"CGO_CFLAGS":               "-mmacosx-version-min=" + minimumMacOS,
+				"CGO_LDFLAGS":              "-mmacosx-version-min=" + minimumMacOS,
+				"GOARCH":                   "arm64",
+				"GOOS":                     "darwin",
+				"MACOSX_DEPLOYMENT_TARGET": minimumMacOS,
+			},
+		},
+		{name: "Windows ARM64", target: mustParseTarget(t, "windows", "arm64"), environment: map[string]string{"CGO_ENABLED": "0", "GOARCH": "arm64", "GOOS": "windows"}},
+		{name: "Windows AMD64", target: mustParseTarget(t, "windows", "amd64"), environment: map[string]string{"CGO_ENABLED": "0", "GOARCH": "amd64", "GOOS": "windows"}},
+		{name: "Linux ARM64", target: mustParseTarget(t, "linux", "arm64"), environment: map[string]string{"CGO_ENABLED": "1", "GOARCH": "arm64", "GOOS": "linux"}},
+		{name: "Linux AMD64", target: mustParseTarget(t, "linux", "amd64"), environment: map[string]string{"CGO_ENABLED": "1", "GOARCH": "amd64", "GOOS": "linux"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			steps, err := PlanForTarget("build", test.target, nil)
+			require.NoError(t, err)
+
+			compile := requireCompileStep(t, steps)
+			assert.Equal(t, test.environment, compile.Environment)
+
+			compile.Environment["GOOS"] = "mutated"
+			freshSteps, err := PlanForTarget("build", test.target, nil)
+			require.NoError(t, err)
+			assert.Equal(t, test.environment, requireCompileStep(t, freshSteps).Environment, "plans must not share mutable target environments")
+		})
+	}
+}
+
+func TestDefaultTargetBuildPlanPreservesLegacyCompatibility(t *testing.T) {
+	legacy, err := Plan("build", nil)
+	require.NoError(t, err)
+	targeted, err := PlanForTarget("build", DefaultTarget(), nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, legacy, targeted)
 }
 
 func TestDevelopmentPlansAssembleAndLaunchOwnedApplicationIdentity(t *testing.T) {
@@ -105,6 +185,25 @@ func TestDevelopmentPlansAssembleAndLaunchOwnedApplicationIdentity(t *testing.T)
 func TestPackagePlanCompletesResourcesBeforeFinalSignature(t *testing.T) {
 	steps, err := Plan("package", nil)
 	require.NoError(t, err)
+	assert.Equal(t, []string{
+		"install locked frontend dependencies",
+		"verify protobuf and generated clients",
+		"build client frontend",
+		"generate Wails bindings",
+		"build Overseer frontend",
+		"verify embedded dependency and license inventory",
+		"remove previous application bundle",
+		"create application executable directory",
+		"create bundled session directory",
+		"install application metadata",
+		"install application icon",
+		"install bundled demo player config",
+		"install bundled demo",
+		"install third-party notices",
+		"compile macOS arm64 application",
+		"make application executable",
+		"sign completed application bundle",
+	}, stepNames(steps), "the existing macOS package resource and signature order is a compatibility contract")
 
 	positions := make(map[string]int, len(steps))
 	for index, step := range steps {
@@ -114,6 +213,20 @@ func TestPackagePlanCompletesResourcesBeforeFinalSignature(t *testing.T) {
 		assert.Lessf(t, positions[resource], positions["sign completed application bundle"], "%s must precede final signature", resource)
 	}
 	assert.Less(t, positions["compile macOS arm64 application"], positions["sign completed application bundle"], "application compilation must precede final signature")
+
+	signature := steps[positions["sign completed application bundle"]]
+	assert.Equal(t, "/usr/bin/codesign", signature.Program)
+	assert.Equal(t, []string{
+		"--force",
+		"--deep",
+		"--options",
+		"runtime",
+		"--entitlements",
+		filepath.Join("build", "darwin", "entitlements.plist"),
+		"--sign",
+		"-",
+		filepath.Join("build", "bin", applicationName+".app"),
+	}, signature.Arguments)
 }
 
 func TestPackagePlanOwnsEmbeddedDependencyNoticesAndNoProviderExecutable(t *testing.T) {
@@ -194,4 +307,43 @@ func TestPackagePlanPreservesCanonicalFrontendAndOfflineResourceOwnership(t *tes
 func TestUnknownActionIsRejected(t *testing.T) {
 	_, err := Plan("task", nil)
 	require.Error(t, err)
+}
+
+func mustParseTarget(t *testing.T, goos, goarch string) Target {
+	t.Helper()
+
+	target, err := ParseTarget(goos, goarch)
+	require.NoError(t, err)
+	return target
+}
+
+func stepNames(steps []Step) []string {
+	names := make([]string, len(steps))
+	for index, step := range steps {
+		names[index] = step.Name
+	}
+	return names
+}
+
+func assertPortablePreparation(t *testing.T, steps []Step) {
+	t.Helper()
+
+	for _, step := range steps {
+		invocation := strings.Join(append([]string{step.Program}, step.Arguments...), " ")
+		assert.Falsef(t, filepath.IsAbs(step.Program), "preparation step %q uses an absolute host-specific program: %q", step.Name, invocation)
+		assert.NotContainsf(t, strings.ToLower(invocation), ".sh", "preparation step %q relies on a Unix shell script", step.Name)
+		assert.NotContainsf(t, strings.ToLower(invocation), ".ps1", "preparation step %q relies on a Windows shell script", step.Name)
+	}
+}
+
+func requireCompileStep(t *testing.T, steps []Step) Step {
+	t.Helper()
+
+	for _, step := range steps {
+		if step.Program == "go" && len(step.Arguments) > 0 && step.Arguments[0] == "build" {
+			return step
+		}
+	}
+	require.FailNow(t, "build plan has no Go compile step")
+	return Step{}
 }

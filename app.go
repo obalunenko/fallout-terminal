@@ -608,7 +608,7 @@ func (app *App) GetPublicAccess() PublicAccessSnapshot {
 }
 
 // SavePublicAccessSettings validates the complete proposed revision before
-// applying scoped Keychain changes and then the atomic non-secret file write.
+// applying scoped secure-store changes and then the atomic non-secret file write.
 func (app *App) SavePublicAccessSettings(payload SavePublicAccessSettingsPayload) (result PublicAccessCommandResult) {
 	defer func() {
 		app.recordOperation("public-access.settings", operationOutcome(result.OK, false), publicAccessLogFields(result.Snapshot))
@@ -1113,7 +1113,9 @@ func (app *App) Shutdown(ctx context.Context) error {
 	if app.log != nil {
 		app.log.WithField("phase", "stopping").Info("application shutdown started")
 	}
-	err := app.shutdownLocked(ctx, false)
+	cleanupContext, cancel := app.shutdownContext(ctx)
+	defer cancel(errApplicationCleanupComplete)
+	err := app.shutdownLocked(cleanupContext, false)
 	if err == nil && app.log != nil {
 		app.log.WithField("phase", "stopped").Info("application shutdown completed")
 	}
@@ -2242,11 +2244,15 @@ func (app *App) setPhase(phase string) {
 }
 
 func (app *App) freshShutdownContext() (context.Context, context.CancelCauseFunc) {
+	return app.shutdownContext(app.root)
+}
+
+func (app *App) shutdownContext(parent context.Context) (context.Context, context.CancelCauseFunc) {
 	timeout := app.deps.ShutdownTimeout
 	if timeout <= 0 {
 		timeout = wailsShutdownTimeout
 	}
-	return boundedCleanupContext(app.root, timeout, errApplicationCleanupTimeout)
+	return boundedCleanupContext(parent, timeout, errApplicationCleanupTimeout)
 }
 
 func boundedCleanupContext(parent context.Context, timeout time.Duration, timeoutCause error) (context.Context, context.CancelCauseFunc) {
