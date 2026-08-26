@@ -92,6 +92,7 @@ func TestPortableNativeSmokeCoversSessionPlayerURLAndCredentialParity(t *testing
 	assert.Contains(t, workflow, "python3-pyatspi")
 	assert.Contains(t, workflow, "x11-utils")
 	assert.Contains(t, workflow, "openbox")
+	assert.Contains(t, workflow, "GSK_RENDERER=cairo")
 	assert.Contains(t, workflow, "WEBKIT_DISABLE_DMABUF_RENDERER=1")
 	assert.Contains(t, workflow, "WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1")
 	assert.Contains(t, workflow, "_NET_SUPPORTING_WM_CHECK")
