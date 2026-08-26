@@ -1,15 +1,16 @@
 <!--
 Sync Impact Report
-- Version change: 6.0.4 -> 6.1.0
+- Version change: 7.0.0 -> 8.0.0
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Establish the root `.golangci.yml` and pinned `task lint` command as the repository-wide Go
-    lint baseline while retaining no numeric coverage threshold
-  - Distinguish the unsigned automated tagged release from the optional manual Developer ID,
-    notarization, stapling, and Gatekeeper workflow
+  - Redefine a platform support claim as availability of a governed unsigned portable archive
+    rather than mandatory native window, dialog, lifecycle, player, or secure-store acceptance
+  - Make matching-host native runtime and operating-system integration evidence optional for
+    platform support, feature completion, quality CI, and tagged releases
+  - Preserve honest reporting for any optional native evidence that is collected
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -32,12 +33,18 @@ player server. `frontend/` is the single npm workspace: `frontend/overseer/` own
 browser-JavaScript Overseer interface and private Wails bindings, while `frontend/client/` owns the
 separately built and embedded browser-JavaScript player interface and public generated contracts.
 `internal/` contains application services, domain logic, adapters, and platform integrations.
-Node.js is build, code-generation, and browser-test tooling, not an application runtime. Supported
-deployment profiles are macOS 13+ on Apple Silicon (`darwin/arm64`), Windows 10/11 on
+Node.js is build, code-generation, and browser-test tooling, not an application runtime. Portable
+distribution profiles are macOS 13+ on Apple Silicon (`darwin/arm64`), Windows 10/11 on
 `windows/amd64`, Windows 11 on ARM on `windows/arm64`, and the pinned Wails GTK4/WebKitGTK 6.0
-baseline (initially Ubuntu 24.04+ or Debian 13+) on `linux/amd64` and `linux/arm64`. New platform
-claims MUST be backed by matching native build, window-launch, resource, lifecycle, and secure-store
-evidence; cross-compilation alone is not production acceptance.
+baseline (initially Ubuntu 24.04+ or Debian 13+) on `linux/amd64` and `linux/arm64`. A platform
+support claim means that the governed target-aware package entrypoint produces the target's
+unsigned portable archive with its executable and required resources on the matching build host;
+it does not claim that every native UI or operating-system integration journey was executed for
+that revision. Matching-host window-launch, dialog, resource, lifecycle, player, and secure-store
+evidence MAY be collected by a separate quality workflow or documented manual checks, but it MUST
+NOT be required for a platform support claim, feature completion, quality CI, or an automated
+tagged release. When optional native evidence is collected, unavailable or unexecuted checks MUST
+be reported honestly and MUST NOT be presented as passing evidence.
 
 The Electron-to-Wails and Wails-v2-to-Wails-v3 migrations are complete. Their rollback and migration
 records MUST be preserved only as clearly labeled historical materials. Legacy Electron and Wails
@@ -464,23 +471,24 @@ Applicable commands MUST succeed before a change is considered complete:
   no unexplained working-tree drift; both generated bindings and protobuf generation remain
   deterministic and MUST NOT be edited manually.
 - `task build` succeeds after both `frontend/overseer/` and `frontend/client/` production builds
-  succeed; supported GOOS/GOARCH inputs MUST reach the same typed Go target plan.
+  succeed; accepted distribution GOOS/GOARCH inputs MUST reach the same typed Go target plan.
 - `task package` succeeds and produces the existing self-contained macOS Apple Silicon application
-  on its supported host. `task package GOOS=<os> GOARCH=<arch>` MUST produce the governed portable
-  archive for each accepted Windows/Linux target on its matching host.
-- `task package:all` MUST run on the supported `darwin/arm64` host, build the canonical native macOS
-  application through the same plan as `task package`, and build and statically verify the complete
-  four-target Windows/Linux matrix from the current checkout through architecture-matched Docker
-  containers. It MUST expose the `darwin/arm64` application bundle plus all four governed archives
-  and directly accessible Windows/Linux executable/resource payloads, fail atomically on any target
-  or Docker prerequisite error, and MUST NOT treat Docker cross-builds as native launch acceptance.
-- `task package:all:remote` MUST coordinate the four Windows/Linux matching-host native target jobs
-  for the current clean pushed branch and fail unless every verified archive belongs to the same
-  source revision.
-- Automated SemVer-tag releases publish the exact checksum-verified unsigned Darwin DMG and four
-  Windows/Linux archives only after the complete joined inventory passes. Developer ID signing,
-  hardened runtime, notarization, stapling, and Gatekeeper verification belong to the optional
-  manual macOS distribution workflow and are not automated tagged-release eligibility gates.
+  on its supported host. `task package GOOS=<os> GOARCH=<arch>` MUST produce the governed unsigned
+  portable archive for each accepted `windows/amd64`, `windows/arm64`, `linux/amd64`,
+  `linux/arm64`, and `darwin/arm64` target on its matching host.
+- `task package:all` MAY remain as an optional local maintainer convenience on the supported
+  `darwin/arm64` host. When retained, it MUST keep its local Docker outputs distinct from native
+  matching-host builds, but CI and tagged releases MUST NOT depend on it. No remote aggregate
+  command is constitutionally required.
+- Automated SemVer-tag releases MUST publish exactly one unsigned portable archive for each of the
+  five accepted targets to one GitHub Release only after every target compiles and each non-empty
+  archive contains its executable and required resources. The release MUST NOT publish raw
+  executables, checksum sidecars, aggregate indexes, DMGs, GitHub Packages copies, or signed or
+  notarized variants.
+- Repository-pinned GoReleaser in its isolated Go tool module MUST be the sole GitHub Release
+  publisher. Publication MUST be create-only: an existing release for the tag makes the workflow
+  fail without replacing, deleting, or appending assets. Automated multi-destination rollback is
+  prohibited because GitHub Releases are the only automated destination.
 
 Schema and RPC changes MUST additionally verify:
 
@@ -518,11 +526,16 @@ CI MUST invoke Buf and every other Go-based development command through its owni
 module from the pinned Task graph. It MUST enforce Buf formatting/linting, generation drift, and
 generated-code compilation when protobuf schemas are present, and MUST add the breaking-change gate
 when a protobuf baseline exists.
-The GitHub Actions workflow MUST continue to enforce its configured Go test, Go vet, frontend clean-
-build, player-client clean-build, startup-contract, exact Wails pin-consistency, clean Wails v3
-binding-generation, and unsigned arm64 packaging gates. Native-dialog, audio, public-tunnel,
-multi-browser, and signed-release checks MAY remain documented manual gates where reliable
-automation or credentials are unavailable; unavailable checks MUST be reported, not claimed.
+A separate non-release GitHub Actions quality workflow MUST run for pull requests and main-branch
+pushes and enforce the configured Go tests, Go vet, frontend clean builds, player-client clean
+build, startup contracts, exact Wails pin consistency, and clean Wails v3 binding generation. It
+MAY build the current-host application as a quality check but MUST NOT publish release assets.
+The five-target release matrix MUST run only after a qualifying SemVer tag passes preflight and
+MUST gate publication only on target compilation, non-empty archive creation, executable presence,
+and required-resource presence. Native UI, dialog, audio, credential-store, player-journey,
+public-tunnel, signing, notarization, stapling, Gatekeeper, and multi-browser checks MUST NOT gate
+tagged releases. Such checks MAY remain documented manual or separately dispatched quality checks;
+unavailable checks MUST be reported, not claimed.
 
 Reviews MUST verify production module boundaries, protobuf contract coverage, schema evolution,
 generated-file integrity, persistence compatibility, authoritative synchronization, privileged-
@@ -592,4 +605,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 6.1.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-26
+**Version**: 8.0.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27
