@@ -355,8 +355,11 @@ function Wait-ForSecureStoreEvidence(
                 [System.Windows.Automation.Condition]::TrueCondition
             )
             foreach ($Element in $Elements) {
-                if ($AcceptedStates -ccontains $Element.Current.Name) {
-                    return
+                $Name = $Element.Current.Name
+                foreach ($AcceptedState in $AcceptedStates) {
+                    if ($Name.Contains($AcceptedState, [StringComparison]::Ordinal)) {
+                        return
+                    }
                 }
             }
         } catch {

@@ -130,6 +130,9 @@ jobs:
             eval "$(printf "\n" | gnome-keyring-daemon --unlock --components=secrets)"
             export NO_AT_BRIDGE=0
             export WEBKIT_DISABLE_DMABUF_RENDERER=1
+            # GitHub-hosted Ubuntu denies bubblewrap user namespaces. Disable
+            # the WebKit child sandbox only inside this disposable CI smoke.
+            export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
             xvfb-run -a -s "-screen 0 1280x800x24" scripts/verify-linux-package.sh "$1"
           ' _ "build/dist/${{ matrix.archive }}"
 
