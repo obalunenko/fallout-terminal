@@ -337,6 +337,30 @@ function Invoke-Element($Element, [string] $Description) {
     }
 }
 
+function Set-ElementValue($Element, [string] $Value, [string] $Description) {
+    if ($null -eq $Element) {
+        Fail "UI Automation element is missing: $Description"
+    }
+    try {
+        $Pattern = $Element.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+        ([System.Windows.Automation.ValuePattern] $Pattern).SetValue($Value)
+    } catch {
+        Fail "could not set $($Description): $($_.Exception.Message)"
+    }
+}
+
+function Close-ElementWindow($Element, [string] $Description) {
+    if ($null -eq $Element) {
+        Fail "UI Automation window is missing: $Description"
+    }
+    try {
+        $Pattern = $Element.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+        ([System.Windows.Automation.WindowPattern] $Pattern).Close()
+    } catch {
+        Fail "could not close $($Description): $($_.Exception.Message)"
+    }
+}
+
 function Wait-ForDemoEvidence(
     [System.Diagnostics.Process] $Process,
     [int] $TimeoutSeconds
@@ -711,14 +735,17 @@ try {
     Invoke-Element $OpenSessionButton 'Open Session button'
 
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
-    $FileNameInput = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148'
+    $FileNameInput = Find-DescendantByProperty $OpenDialog `
+        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148' `
+        ([System.Windows.Automation.ControlType]::Edit)
     if ($null -eq $FileNameInput) {
         Fail 'native Open dialog file-name input was not found'
     }
-    $ValuePattern = $FileNameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-    ([System.Windows.Automation.ValuePattern] $ValuePattern).SetValue($DemoCopy)
+    Set-ElementValue $FileNameInput $DemoCopy 'native Open dialog file-name input'
 
-    $OpenButton = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1'
+    $OpenButton = Find-DescendantByProperty $OpenDialog `
+        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1' `
+        ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $OpenButton 'native Open dialog confirmation'
 
     $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
@@ -728,8 +755,7 @@ try {
     Invoke-Element $AddFolder 'session authoring action'
     Wait-ForOperationEvidence $StandardOutput $StandardError 'session.save' 60
 
-    $FirstWindowPattern = $OverseerWindow.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
-    ([System.Windows.Automation.WindowPattern] $FirstWindowPattern).Close()
+    Close-ElementWindow $OverseerWindow 'Overseer window after saving the session copy'
     if (-not $ApplicationProcess.WaitForExit(15000)) {
         Fail 'application did not exit after saving the session copy'
     }
@@ -755,13 +781,16 @@ try {
         $ApplicationProcess 30 ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $OpenSessionButton 'Open Session button for saved copy'
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
-    $FileNameInput = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148'
+    $FileNameInput = Find-DescendantByProperty $OpenDialog `
+        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148' `
+        ([System.Windows.Automation.ControlType]::Edit)
     if ($null -eq $FileNameInput) {
         Fail 'native Open dialog file-name input was not found while reopening the saved copy'
     }
-    $ValuePattern = $FileNameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-    ([System.Windows.Automation.ValuePattern] $ValuePattern).SetValue($DemoCopy)
-    $OpenButton = Find-DescendantByProperty $OpenDialog ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1'
+    Set-ElementValue $FileNameInput $DemoCopy 'native Open dialog file-name input for saved copy'
+    $OpenButton = Find-DescendantByProperty $OpenDialog `
+        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1' `
+        ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $OpenButton 'native Open dialog confirmation for saved copy'
     $OverseerWindow = Wait-ForDemoEvidence $ApplicationProcess 30
 
@@ -781,8 +810,7 @@ try {
         Fail 'player control action was not accepted and synchronized'
     }
     $ApplicationDescendants = @(Get-DescendantProcessIds $ApplicationProcess.Id)
-    $WindowPattern = $OverseerWindow.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
-    ([System.Windows.Automation.WindowPattern] $WindowPattern).Close()
+    Close-ElementWindow $OverseerWindow 'Overseer window after player synchronization'
 
     if (-not $ApplicationProcess.WaitForExit(15000)) {
         Fail 'application did not exit cleanly after the Overseer window close request'

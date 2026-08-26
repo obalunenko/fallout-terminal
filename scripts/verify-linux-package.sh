@@ -324,12 +324,16 @@ drive_demo_open() {
   xdotool key --clearmodifiers --window "${dialog_id}" ctrl+l
   sleep 0.2
   xdotool type --clearmodifiers --window "${dialog_id}" --delay 1 -- "${demo_path}"
+  xdotool key --clearmodifiers --window "${dialog_id}" Return
+  sleep 0.5
+  if xdotool search --onlyvisible --name '^Open Fallout Terminal Session$' >/dev/null 2>&1; then
+    python3 "${repository_root}/scripts/native-ui-smoke.py" invoke --name 'Open' --timeout 10 || return 1
+  fi
   local deadline=$((SECONDS + 10))
   while ((SECONDS <= deadline)); do
     process_is_alive || return 1
     xdotool search --onlyvisible --name '^Open Fallout Terminal Session$' >/dev/null 2>&1 || return 0
-    xdotool key --clearmodifiers --window "${dialog_id}" Return || return 1
-    sleep 0.5
+    sleep 0.2
   done
   return 1
 }
