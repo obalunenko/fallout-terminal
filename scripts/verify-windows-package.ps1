@@ -281,6 +281,22 @@ function Find-DescendantByProperty(
     return $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
 }
 
+function Find-ValueElementByAutomationId($Root, [string] $AutomationId) {
+    $Container = Find-DescendantByProperty $Root `
+        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) $AutomationId
+    if ($null -eq $Container) {
+        return $null
+    }
+    if ($Container.Current.IsValuePatternAvailable) {
+        return $Container
+    }
+    $Condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::IsValuePatternAvailableProperty,
+        $true
+    )
+    return $Container.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition)
+}
+
 function Wait-ForDescendantByProperty(
     $Root,
     $Property,
@@ -735,9 +751,7 @@ try {
     Invoke-Element $OpenSessionButton 'Open Session button'
 
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
-    $FileNameInput = Find-DescendantByProperty $OpenDialog `
-        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148' `
-        ([System.Windows.Automation.ControlType]::Edit)
+    $FileNameInput = Find-ValueElementByAutomationId $OpenDialog '1148'
     if ($null -eq $FileNameInput) {
         Fail 'native Open dialog file-name input was not found'
     }
@@ -781,9 +795,7 @@ try {
         $ApplicationProcess 30 ([System.Windows.Automation.ControlType]::Button)
     Invoke-Element $OpenSessionButton 'Open Session button for saved copy'
     $OpenDialog = Wait-ForTopLevelWindow 'Open Fallout Terminal Session' 15
-    $FileNameInput = Find-DescendantByProperty $OpenDialog `
-        ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) '1148' `
-        ([System.Windows.Automation.ControlType]::Edit)
+    $FileNameInput = Find-ValueElementByAutomationId $OpenDialog '1148'
     if ($null -eq $FileNameInput) {
         Fail 'native Open dialog file-name input was not found while reopening the saved copy'
     }
