@@ -3,7 +3,7 @@
   "specName": "windows linux support",
   "branch": "021-windows-linux-support",
   "currentStep": "implement",
-  "status": "implementing",
+  "status": "completed",
   "history": [
     {
       "step": "specify",
@@ -884,24 +884,37 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-08-26T23:30:14.680Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T099",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-26T23:53:03.948Z"
+    },
+    {
+      "step": "implement",
+      "substep": "bugfix-BUG-004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-26T23:54:12.157Z"
     }
   ],
-  "last_action": "living specs evaluated — skipped (not configured)",
+  "last_action": "all T068-T099 tasks complete; local/static gates and live v1.0.1-rc.1 acceptance passed",
   "coverage": {
     "FR-001": {
-      "title": "The product MUST make governed portable archives available for Windows on arm64, Windows on amd64, Linux on arm64, Linux on amd64, and macOS on arm64.",
+      "title": "Provide governed portable archives for all five targets",
       "tasks": [
         "T068",
         "T070",
-        "T072",
-        "T073",
-        "T074",
-        "T075",
-        "T076",
         "T081",
         "T089",
-        "T098",
         "T099"
+      ],
+      "tests": [
+        "internal/buildtool/target_test.go::TestTargetArchiveContractIsStableAndCollisionFree",
+        "internal/platform/portable_release_test.go::TestTaggedReleaseWorkflowCoordinatesExactlyFiveNativeArchives"
       ]
     },
     "FR-002": {
@@ -1216,19 +1229,18 @@
       ]
     },
     "FR-028": {
-      "title": "The GitHub Release MUST contain exactly one uniquely named portable archive per supported target, and each archive MUST contain that target's executable and required runtime resources.",
+      "title": "Publish exactly one eligible archive per supported target",
       "tasks": [
         "T069",
         "T071",
-        "T073",
-        "T075",
         "T081",
         "T086",
         "T089",
-        "T092",
-        "T093",
-        "T098",
         "T099"
+      ],
+      "tests": [
+        "internal/buildtool/releasecheck_test.go::TestInspectReleaseInventoryRequiresExactlyFiveNonEmptyArchives",
+        "internal/buildtool/releasecheck_test.go::TestInspectReleaseArchiveChecksOnlyMinimalEligibility"
       ]
     },
     "FR-030": {
@@ -1456,41 +1468,41 @@
       ]
     },
     "FR-033": {
-      "title": "The repository MUST retain `task package:all` and its Docker implementation as optional maintainer convenience that runs neither in CI nor as a platform-support, quality-workflow, feature-completion, or tagged-release gate.",
+      "title": "Retain optional local Docker packaging outside CI and releases",
       "tasks": [
-        "T083",
-        "T084",
         "T085",
-        "T087",
-        "T089",
-        "T093",
+        "T088",
+        "T090",
         "T098"
+      ],
+      "tests": [
+        "internal/platform/startup_test.go::TestLocalDockerAggregateIsRetainedOutsideAutomation"
       ]
     },
     "FR-034": {
-      "title": "The repository MUST remove `package:all:remote`, `release:local`, and their remote aggregation and joined-release implementations, tests, tool dependencies, and active documentation.",
+      "title": "Remove remote aggregation and joined-release surfaces",
       "tasks": [
-        "T082",
-        "T083",
         "T084",
-        "T087",
         "T088",
         "T090",
-        "T091",
-        "T093",
+        "T080",
+        "T094",
         "T098"
+      ],
+      "tests": [
+        "internal/platform/startup_test.go::TestObsoleteRemoteAggregateAndJoinedReleaseSurfaceIsRemoved"
       ]
     },
     "FR-035": {
-      "title": "Tagged publication MUST enter through the CI-owned release:publish Task command, which MUST invoke repository-pinned GoReleaser as the sole GitHub Release publisher.",
+      "title": "Publish only through release:publish and pinned GoReleaser",
       "tasks": [
-        "T081",
-        "T083",
+        "T086",
         "T087",
         "T089",
-        "T093",
-        "T098",
         "T099"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestTaggedReleaseUsesPinnedGoReleaserForExactlyFiveArchives"
       ]
     }
   },
@@ -1698,6 +1710,11 @@
       "decision": "Limit FR-013 to per-target archive eligibility",
       "why": "Compilation, non-empty archive creation, executable presence, and resource presence are distinct from SemVer preflight, exact release inventory, and existing-release safety.",
       "rejected": "Using FR-013 to weaken run-level publication and immutability checks."
+    },
+    {
+      "decision": "Preserve v1.0.1-rc.1 as the live acceptance prerelease",
+      "why": "The successful immutable release is required evidence for the real five-native-target workflow and exact inventory",
+      "rejected": "Deleting the successful release or moving the tag"
     }
   ],
   "step_summaries": {
@@ -1708,9 +1725,13 @@
     "tasks": {
       "summary": "32 unchecked delta tasks (T068–T099) cover shared foundations, four user stories, local/static completion checks, and one live prerelease acceptance.",
       "key_finding": "T089 precedes T080, T085 precedes T090, T098 and a committed implementation precede maintainer-approved live acceptance T099."
+    },
+    "implement": {
+      "summary": "Shipped and live-validated a create-only five-native-target portable release pipeline with separate PR/main quality CI, pinned GoReleaser publication, exact archive inspection, local-only Docker convenience, and updated guidance.",
+      "key_finding": "v1.0.1-rc.1 preserved exactly five eligible assets from successful native jobs at commit 69bd8896."
     }
   },
-  "currentTask": "T098",
+  "currentTask": "T099",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2480,6 +2501,13 @@
         "internal/buildtool/releasecheck.go",
         "Taskfile.yml"
       ]
+    },
+    "T099": {
+      "status": "DONE",
+      "did": "Committed and pushed the implementation, published approved tag v1.0.1-rc.1 at 69bd8896, observed all five native jobs and pinned-GoReleaser publication succeed, and independently verified the preserved prerelease exact five-asset inventory plus every archive executable/resource contract.",
+      "files": [
+        "specs/021-windows-linux-support/validation.md"
+      ]
     }
   },
   "verified": [
@@ -2494,7 +2522,36 @@
       "result": "PASS",
       "command": "go list -m -versions github.com/wailsapp/wails/v3; npm view @wailsio/runtime versions --json; go mod tidy in root and tools/wails; Wails beta.13 bindings generation; gopls check",
       "warnings": "No local test suite or application build was run."
+    },
+    {
+      "what": "Local and static implementation validation",
+      "command": "gofmt -l .; go vet ./...; task lint; go test ./...; task frontend:build; task ci:quality; task proto:check; task proto:breaking; Wails, secret, tool-module, GoReleaser, build, and Darwin package checks",
+      "result": "PASS",
+      "warnings": [
+        "macOS linker deployment-version warnings",
+        "Node experimental localStorage warning"
+      ]
+    },
+    {
+      "what": "Live five-target prerelease acceptance",
+      "command": "push v1.0.1-rc.1; monitor GitHub Actions run 33023975250",
+      "result": "PASS at 69bd8896eb4c5a776e6119f7803f278a95482910; all five package jobs and publish job succeeded",
+      "warnings": [
+        "GitHub actions/checkout, setup-go, setup-node, upload-artifact, and download-artifact emit Node 20 runtime deprecation annotations"
+      ]
+    },
+    {
+      "what": "Independent published archive inspection",
+      "command": "gh release download v1.0.1-rc.1; inspect-release-inventory; inspect-release-archive for all five targets",
+      "result": "PASS; exactly five non-empty assets and every executable/resource contract accepted"
     }
   ],
-  "telemetryInstanceId": "4e7c7789-e39f-4e0a-a2af-818817e90a98"
+  "telemetryInstanceId": "4e7c7789-e39f-4e0a-a2af-818817e90a98",
+  "concerns": [
+    {
+      "note": "GitHub warns that pinned first-party actions still declare the deprecated Node 20 runtime and are currently forced onto Node 24; the workflow passed, but action major-version upgrades should be tracked separately.",
+      "step": "implement",
+      "kind": "residual-risk"
+    }
+  ]
 }

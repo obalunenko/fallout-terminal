@@ -176,7 +176,7 @@ No setup task is required. The existing Go test structure, pinned Task/Wails/GoR
 
 **Wave 3 — live prerelease acceptance:**
 
-- [ ] **T099** [US3] With an explicitly maintainer-approved unused SemVer prerelease tag, push the committed implementation tag, wait for the real five-target workflow, verify the preserved GitHub prerelease exposes exactly the five non-empty governed archives with expected executable/resource contents and no extra assets, and record the tag, release URL, job results, and SC-001/SC-002/SC-004/SC-007/SC-011/SC-013 evidence; if publication fails, follow and record the existing no-release or manual partial-release recovery procedure without automated deletion · `specs/021-windows-linux-support/validation.md`
+- [x] **T099** [US3] With an explicitly maintainer-approved unused SemVer prerelease tag, push the committed implementation tag, wait for the real five-target workflow, verify the preserved GitHub prerelease exposes exactly the five non-empty governed archives with expected executable/resource contents and no extra assets, and record the tag, release URL, job results, and SC-001/SC-002/SC-004/SC-007/SC-011/SC-013 evidence; if publication fails, follow and record the existing no-release or manual partial-release recovery procedure without automated deletion · `specs/021-windows-linux-support/validation.md`
 
 ## Dependencies & Execution Order
 
