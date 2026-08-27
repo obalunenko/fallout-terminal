@@ -21,10 +21,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testLocations = Locations{
-	DocumentsDefault:   "/Users/test/Documents/Fallout Terminal/Sessions",
-	BundledDemo:        "/Applications/Fallout Terminal.app/Contents/Resources/sessions/demo.json",
-	ApplicationSupport: "/Users/test/Library/Application Support/com.vaulttec.fallout-terminal",
+var (
+	testCampaignsRoot = testAbsolutePath("Volumes", "Campaigns")
+	testLocations     = Locations{
+		DocumentsDefault:   testAbsolutePath("Users", "test", "Documents", "Fallout Terminal", "Sessions"),
+		BundledDemo:        testAbsolutePath("Applications", "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo.json"),
+		ApplicationSupport: testAbsolutePath("Users", "test", "Library", "Application Support", "com.vaulttec.fallout-terminal"),
+	}
+)
+
+func testAbsolutePath(elements ...string) string {
+	root := string(filepath.Separator)
+	if runtime.GOOS == "windows" {
+		root = `C:\`
+	}
+	return filepath.Join(append([]string{root}, elements...)...)
 }
 
 func TestCanceledSessionDialogsDoNotChangeStateOrFilesystem(t *testing.T) {
@@ -82,7 +93,7 @@ func TestCreateUsesDocumentsSuggestionAndActivatesChosenPathAfterWrite(t *testin
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/My Wasteland.json"
+	target := filepath.Join(testCampaignsRoot, "My Wasteland.json")
 	dialog := &testutil.FakeDialog{SaveResult: target}
 	service := NewService(NewStorage(fileSystem), dialog, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
@@ -112,7 +123,7 @@ func TestCreateAddsSingletonGroupForStarterTerminal(t *testing.T) {
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/grouped-new-session.json"
+	target := filepath.Join(testCampaignsRoot, "grouped-new-session.json")
 	service := NewService(
 		NewStorage(fileSystem),
 		&testutil.FakeDialog{SaveResult: target},
@@ -135,7 +146,7 @@ func TestCreateAddsSingletonGroupForStarterTerminal(t *testing.T) {
 func TestOpenNormalizesLegacyTerminalsIntoStableSingletonGroupsWithoutWriting(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/legacy-singletons.json"
+	target := filepath.Join(testCampaignsRoot, "legacy-singletons.json")
 	raw := []byte(`{
   "version": 1,
   "name": "Legacy terminals",
@@ -195,7 +206,7 @@ func TestOpenNormalizesLegacyTerminalsIntoStableSingletonGroupsWithoutWriting(t 
 func TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/ordered-groups.json"
+	target := filepath.Join(testCampaignsRoot, "ordered-groups.json")
 	canonical := domain.Session{
 		Version: 1,
 		Name:    "Ordered groups",
@@ -253,7 +264,7 @@ func TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships(t *testing.T
 func TestReplaceTerminalGroupsRepairsLegacyTransitionAndReopensExactCandidate(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/legacy-transition-repair.json"
+	target := filepath.Join(testCampaignsRoot, "legacy-transition-repair.json")
 	legacy := linkedSessionForTest()
 	fileSystem := testutil.NewFakeFileSystem()
 	fileSystem.SeedFile(target, mustEncodeSession(t, legacy))
@@ -321,7 +332,7 @@ func TestReplaceTerminalGroupsClassifiesAndRepairsExactAuthoredMultiLinkLegacyDo
 func testReplaceTerminalGroupsClassifiesAndRepairsMultiLinkLegacyDocument(t *testing.T, raw []byte) {
 	t.Helper()
 
-	target := "/Volumes/Campaigns/session-05-cold-storage.json"
+	target := filepath.Join(testCampaignsRoot, "session-05-cold-storage.json")
 	fileSystem := testutil.NewFakeFileSystem()
 	fileSystem.SeedFile(target, raw)
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
@@ -391,7 +402,7 @@ func testReplaceTerminalGroupsClassifiesAndRepairsMultiLinkLegacyDocument(t *tes
 func TestGenericSaveNormalizesTerminalLifecycleAndPreservesCanonicalMembership(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/terminal-lifecycle-groups.json"
+	target := filepath.Join(testCampaignsRoot, "terminal-lifecycle-groups.json")
 	canonical := domain.Session{
 		Version: 1,
 		Name:    "Terminal lifecycle",
@@ -460,7 +471,7 @@ func TestGenericSaveNormalizesTerminalLifecycleAndPreservesCanonicalMembership(t
 func TestStaleGenericSavePreservesLatestGroupsAcrossContractAndReopen(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/stale-groups-round-trip.json"
+	target := filepath.Join(testCampaignsRoot, "stale-groups-round-trip.json")
 	initial := terminalGroupMutationTestSession([]domain.TerminalGroup{
 		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
 	})
@@ -510,7 +521,7 @@ func TestStaleGenericSavePreservesLatestGroupsAcrossContractAndReopen(t *testing
 func TestLegacyDormantLinkSurvivesTerminalCreateAndDelete(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/legacy-dormant-link-lifecycle.json"
+	target := filepath.Join(testCampaignsRoot, "legacy-dormant-link-lifecycle.json")
 	legacy := linkedSessionForTest()
 	legacy.TerminalGroups = nil
 	fileSystem := testutil.NewFakeFileSystem()
@@ -586,7 +597,7 @@ func TestGenericSaveRejectsNewOrRetargetedCrossGroupTransitions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			target := "/Volumes/Campaigns/" + strings.ReplaceAll(test.name, " ", "-") + ".json"
+			target := filepath.Join(testCampaignsRoot, strings.ReplaceAll(test.name, " ", "-")+".json")
 			initial := linkedSessionForTest()
 			initial.Terminals = append(initial.Terminals, terminalForGroupTest("c", "Gamma"))
 			initial.TerminalGroups = []domain.TerminalGroup{
@@ -623,7 +634,7 @@ func TestGenericSaveRejectsNewOrRetargetedCrossGroupTransitions(t *testing.T) {
 func TestFailedCommandStateMutationRollsBackGroupedSessionAndRevision(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/grouped-command-state-rollback.json"
+	target := filepath.Join(testCampaignsRoot, "grouped-command-state-rollback.json")
 	initial := stateChangingSession("Grouped rollback")
 	initial.TerminalGroups = []domain.TerminalGroup{
 		{ID: "route", Name: "Route", TerminalIDs: []string{"t1", "t2"}},
@@ -653,7 +664,7 @@ func TestFailedCommandStateMutationRollsBackGroupedSessionAndRevision(t *testing
 }
 
 func TestCoalescedGenericSavesKeepNewestContentAndCanonicalGroups(t *testing.T) {
-	target := "/Volumes/Campaigns/coalesced-grouped-saves.json"
+	target := filepath.Join(testCampaignsRoot, "coalesced-grouped-saves.json")
 	canonicalGroups := []domain.TerminalGroup{
 		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b"}},
 		{ID: "gamma", Name: "Gamma", TerminalIDs: []string{"c"}},
@@ -755,7 +766,7 @@ func TestReplaceTerminalGroupsAppliesDissolutionAndMoveCandidatesAtomically(t *t
 			t.Parallel()
 
 			fileSystem := testutil.NewFakeFileSystem()
-			target := filepath.Join("/Volumes/Campaigns", strings.ReplaceAll(test.name, " ", "-")+".json")
+			target := filepath.Join(testCampaignsRoot, strings.ReplaceAll(test.name, " ", "-")+".json")
 			initial := terminalGroupMutationTestSession(test.initial)
 			initialData := mustEncodeSession(t, initial)
 			fileSystem.SeedFile(target, initialData)
@@ -804,7 +815,7 @@ func TestReplaceTerminalGroupsNoOpDoesNotAdvanceRevisionOrWrite(t *testing.T) {
 		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
 	}
 	initial := terminalGroupMutationTestSession(groups)
-	target := "/Volumes/Campaigns/group-no-op.json"
+	target := filepath.Join(testCampaignsRoot, "group-no-op.json")
 	fileSystem := testutil.NewFakeFileSystem()
 	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
 	service := NewService(
@@ -840,7 +851,7 @@ func TestReplaceTerminalGroupsRejectsStaleAndDuplicateSubmissionsWithoutWriting(
 		{ID: "front", Name: "Front", TerminalIDs: []string{"a", "b"}},
 		{ID: "back", Name: "Back", TerminalIDs: []string{"c"}},
 	}
-	target := "/Volumes/Campaigns/group-duplicate-submit.json"
+	target := filepath.Join(testCampaignsRoot, "group-duplicate-submit.json")
 	fileSystem := testutil.NewFakeFileSystem()
 	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
 	service := NewService(
@@ -892,7 +903,7 @@ func TestReplaceTerminalGroupsPersistenceFailureKeepsCanonicalSessionAndRevision
 		{ID: "left", Name: "Left", TerminalIDs: []string{"a"}},
 		{ID: "right", Name: "Right", TerminalIDs: []string{"b", "c"}},
 	}
-	target := "/Volumes/Campaigns/group-write-failure.json"
+	target := filepath.Join(testCampaignsRoot, "group-write-failure.json")
 	initialData := mustEncodeSession(t, initial)
 	store := &failingMutationStore{
 		path: target,
@@ -928,8 +939,8 @@ func TestInvalidOpenRetainsPreviousActiveSessionAndPath(t *testing.T) {
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	validPath := "/Volumes/Campaigns/valid.json"
-	invalidPath := "/Volumes/Campaigns/invalid.json"
+	validPath := filepath.Join(testCampaignsRoot, "valid.json")
+	invalidPath := filepath.Join(testCampaignsRoot, "invalid.json")
 	validData, err := domain.EncodeSession(validSession("safe"))
 	require.NoError(t, err)
 	fileSystem.SeedFile(validPath, validData)
@@ -959,7 +970,7 @@ func TestOpenAndSavePreserveUnknownFieldsAtExplicitPath(t *testing.T) {
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/forward-compatible.json"
+	target := filepath.Join(testCampaignsRoot, "forward-compatible.json")
 	raw := []byte(`{
   "version": 1,
   "name": "before",
@@ -1006,7 +1017,7 @@ func TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTarget
 
 	raw, err := os.ReadFile("../../sessions/demo.json")
 	require.NoError(t, err)
-	target := "/Volumes/Campaigns/demo-transition.json"
+	target := filepath.Join(testCampaignsRoot, "demo-transition.json")
 	fileSystem := testutil.NewFakeFileSystem()
 	fileSystem.SeedFile(target, raw)
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
@@ -1038,7 +1049,7 @@ func TestOpenAndSaveLegacyVersionOnePreservesOrdinaryContentWithoutAddingStateFi
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/legacy-ordinary.json"
+	target := filepath.Join(testCampaignsRoot, "legacy-ordinary.json")
 	raw := []byte(`{
   "version": 1,
   "name": "Legacy ordinary",
@@ -1096,7 +1107,7 @@ func TestAssociatePlayerConfigPersistsRelativeReferenceAndKeepsActiveSession(t *
 	t.Parallel()
 
 	fs := testutil.NewFakeFileSystem()
-	sessionPath := "/Campaigns/Chapter One/session.json"
+	sessionPath := testAbsolutePath("Campaigns", "Chapter One", "session.json")
 	data, err := domain.EncodeSession(validSession("chapter one"))
 	require.NoError(t, err)
 	fs.SeedFile(sessionPath, data)
@@ -1105,7 +1116,7 @@ func TestAssociatePlayerConfigPersistsRelativeReferenceAndKeepsActiveSession(t *
 	opened := service.Open(t.Context())
 	require.True(t, opened.OK, "Open() = %#v", opened)
 
-	configPath := "/Campaigns/Players/shared.json"
+	configPath := testAbsolutePath("Campaigns", "Players", "shared.json")
 	result := service.AssociatePlayerConfig(t.Context(), configPath)
 	require.True(t, result.OK, "AssociatePlayerConfig() = %#v", result)
 	require.NotNil(t, result.Session)
@@ -1161,7 +1172,7 @@ func TestCopyDemoRequiresExplicitDestinationAndActivatesWritableCopy(t *testing.
 	fileSystem.SeedFile(testLocations.BundledDemo, demoData)
 	bundledPlayerConfig := filepath.Join(filepath.Dir(testLocations.BundledDemo), demo.PlayerConfig)
 	fileSystem.SeedFile(bundledPlayerConfig, playerConfigData)
-	destination := "/Volumes/Campaigns/demo-copy.json"
+	destination := filepath.Join(testCampaignsRoot, "demo-copy.json")
 	dialog := &testutil.FakeDialog{SaveResult: destination}
 	service := NewService(NewStorage(fileSystem), dialog, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
@@ -1197,7 +1208,7 @@ func TestCopyDemoRequiresExplicitDestinationAndActivatesWritableCopy(t *testing.
 
 func TestTwentyQueuedRevisionsFinishAtNewestAcceptedSession(t *testing.T) {
 	store := newBlockingStore()
-	target := "/Volumes/Campaigns/ordered.json"
+	target := filepath.Join(testCampaignsRoot, "ordered.json")
 	store.seed(target, mustEncodeSession(t, validSession("initial")))
 	dialog := &testutil.FakeDialog{OpenResult: target}
 	service := NewService(store, dialog, testLocations)
@@ -1262,7 +1273,7 @@ func TestCommandStateMutationsAllocateMonotonicDocumentRevisions(t *testing.T) {
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/state-mutations.json"
+	target := filepath.Join(testCampaignsRoot, "state-mutations.json")
 	fileSystem.SeedFile(target, mustEncodeSession(t, stateChangingSession("chapter")))
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
@@ -1312,7 +1323,7 @@ func TestStaleFullSavePreservesCanonicalFrozenStateAndAppliesAuthoredEdits(t *te
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/stale-save.json"
+	target := filepath.Join(testCampaignsRoot, "stale-save.json")
 	fileSystem.SeedFile(target, mustEncodeSession(t, stateChangingSession("before")))
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
@@ -1355,7 +1366,7 @@ func TestFullSavePrunesFrozenStateWhenCommandIsDeleted(t *testing.T) {
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/delete-command.json"
+	target := filepath.Join(testCampaignsRoot, "delete-command.json")
 	fileSystem.SeedFile(target, mustEncodeSession(t, stateChangingSession("before")))
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
@@ -1382,7 +1393,7 @@ func TestTerminalCatalogReturnsDetachedCurrentSessionSnapshotsAndInvalidSaveIsAt
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/linked.json"
+	target := filepath.Join(testCampaignsRoot, "linked.json")
 	linked := linkedSessionForTest()
 	linked.TerminalGroups = []domain.TerminalGroup{
 		{ID: "linked", Name: "Linked", TerminalIDs: []string{"a", "b"}},
@@ -1478,7 +1489,7 @@ func TestLookupTerminalTransitionRequiresCurrentSameGroupEndpoints(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			target := filepath.Join("/Volumes/Campaigns", strings.ReplaceAll(test.name, " ", "-")+"-catalog.json")
+			target := filepath.Join(testCampaignsRoot, strings.ReplaceAll(test.name, " ", "-")+"-catalog.json")
 			fileSystem := testutil.NewFakeFileSystem()
 			fileSystem.SeedFile(target, mustEncodeSession(t, terminalTransitionCatalogSession(test.groups)))
 			service := NewService(
@@ -1513,7 +1524,7 @@ func TestLookupTerminalTransitionRequiresCurrentSameGroupEndpoints(t *testing.T)
 func TestLookupTerminalTransitionRejectsStaleRemovedLink(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/stale-terminal-link.json"
+	target := filepath.Join(testCampaignsRoot, "stale-terminal-link.json")
 	fileSystem := testutil.NewFakeFileSystem()
 	groups := []domain.TerminalGroup{
 		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
@@ -1544,7 +1555,7 @@ func TestLookupTerminalTransitionRejectsStaleRemovedLink(t *testing.T) {
 func TestLookupTerminalTransitionReturnsDeeplyDetachedTarget(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/detached-terminal-transition.json"
+	target := filepath.Join(testCampaignsRoot, "detached-terminal-transition.json")
 	fileSystem := testutil.NewFakeFileSystem()
 	groups := []domain.TerminalGroup{
 		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b", "c"}},
@@ -1585,7 +1596,7 @@ func TestStableIDAndFrozenStateRulesAcross100CompletedCommands(t *testing.T) {
 	t.Parallel()
 
 	fileSystem := testutil.NewFakeFileSystem()
-	target := "/Volumes/Campaigns/one-hundred-completed-commands.json"
+	target := filepath.Join(testCampaignsRoot, "one-hundred-completed-commands.json")
 	fileSystem.SeedFile(target, mustEncodeSession(t, stateChangingSessionWith100CompletedCommands()))
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
@@ -1676,7 +1687,7 @@ func TestStableIDAndFrozenStateRulesAcross100CompletedCommands(t *testing.T) {
 func TestFailedCommandStateMutationKeepsPriorDocumentAndRevision(t *testing.T) {
 	t.Parallel()
 
-	target := "/Volumes/Campaigns/failed-command-state.json"
+	target := filepath.Join(testCampaignsRoot, "failed-command-state.json")
 	initial := mustEncodeSession(t, stateChangingSession("safe"))
 	store := &failingMutationStore{path: target, data: initial, err: fmt.Errorf("injected atomic replacement failure")}
 	service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)

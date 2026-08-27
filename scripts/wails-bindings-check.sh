@@ -11,7 +11,7 @@ second="$temporary/second"
 
 generate() {
     destination=$1
-    GOCACHE=${GOCACHE:-/private/tmp/fallout-terminal-go-cache} \
+    GOCACHE=${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache} \
         go tool -modfile=tools/wails/go.mod wails3 generate bindings \
         -clean -d "$destination" ./... >/dev/null
 }

@@ -126,11 +126,11 @@ func (category ErrorCategory) SafeMessage() string {
 	case ErrorSettingsCorrupt:
 		return "Saved public-access settings were reset safely."
 	case ErrorSecretStoreLocked:
-		return "Unlock Keychain and try again."
+		return "Unlock the secure credential store and try again."
 	case ErrorSecretStoreDenied:
-		return "Allow Keychain access and try again."
+		return "Allow secure credential store access and try again."
 	case ErrorSecretStoreUnavailable:
-		return "Keychain is unavailable; local access remains available."
+		return "The secure credential store is unavailable; local access remains available."
 	case ErrorCredentialMissing:
 		return "Add the required credentials before starting public access."
 	case ErrorProviderAuthentication:

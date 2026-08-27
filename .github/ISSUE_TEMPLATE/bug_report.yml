@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible problem in Fallout Terminal
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Do not include credentials or security-sensitive details here; use the private process in SECURITY.md instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Provide the release version or commit SHA where the problem occurs.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - macOS 13 or later on Apple Silicon
+        - Windows 10 or 11 on amd64
+        - Windows 11 on arm64
+        - Linux on amd64
+        - Linux on arm64
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest deterministic sequence that reproduces the problem.
+      placeholder: |
+        1. Open...
+        2. Select...
+        3. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional evidence
+      description: Add redacted logs, screenshots, or sample session data if they are safe to share.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed credentials, passwords, tokens, and private campaign content.
+          required: true
+        - label: I checked that this is not a security-sensitive report requiring private disclosure.
+          required: true

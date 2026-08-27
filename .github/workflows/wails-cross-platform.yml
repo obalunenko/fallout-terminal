@@ -1,0 +1,60 @@
+name: Wails Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wails-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: 1.27.x
+  NODE_VERSION: 20.19.0
+
+jobs:
+  quality:
+    name: Repository quality contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out clean source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            tools/buf/go.sum
+            tools/golangci-lint/go.sum
+            tools/protoc-gen-connect-go/go.sum
+            tools/protoc-gen-go/go.sum
+            tools/task/go.sum
+            tools/wails/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
+
+      - name: Run locked repository quality composition
+        run: go tool -modfile=tools/task/go.mod task ci:quality

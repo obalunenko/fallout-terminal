@@ -24,6 +24,7 @@ scan_canary_file() {
   local leaked=0
 
   while IFS= read -r -d '' file; do
+    [[ "$file" == "$canary_file" ]] && continue
     if [[ "$file" = /* ]]; then
       relative="${file#"$scan_root"/}"
     else
@@ -153,15 +154,44 @@ check_development_override_scope() {
     "$repository_root/main.go" || fail 'root composition does not explicitly gate the development override from packaged production'
 }
 
+check_native_secure_store_scope() {
+  local provider
+  for provider in keychain_windows.go keychain_linux.go; do
+    provider="$repository_root/internal/platform/$provider"
+    [[ -f "$provider" ]] || { fail "native secure credential provider is missing: ${provider##*/}"; return 1; }
+    grep -Fq 'clear(' "$provider" || { fail "native credential provider does not clear temporary secret bytes: ${provider##*/}"; return 1; }
+    if grep -Eq 'os\.(Create|OpenFile|WriteFile)|os\.(Getenv|LookupEnv)' "$provider"; then
+      fail "native credential provider contains a file or environment fallback: ${provider##*/}"
+      return 1
+    fi
+  done
+
+  grep -Fq 'NewPlatformSecureCredentialStore(packaged)' "$repository_root/main.go" ||
+    fail 'root composition does not select the platform-native secure credential store'
+
+  local category
+  for category in secret_store_locked secret_store_denied secret_store_unavailable; do
+    grep -Fq "$category" "$repository_root/frontend/overseer/src/overseer.js" ||
+      { fail "Overseer is missing platform-neutral secure-store wording for $category"; return 1; }
+  done
+  if grep -Fiq 'Keychain' "$repository_root/frontend/overseer/src/overseer.js"; then
+    fail 'Overseer contains macOS-specific credential-store wording'
+    return 1
+  fi
+}
+
 check_tree() {
   local canary_file="${1:-}"
+  local scan_root="${2:-$repository_root}"
   check_public_contracts
   check_active_sources
   check_generated_password_scope
   check_development_override_scope
+  check_native_secure_store_scope
   if [[ -n "$canary_file" ]]; then
     [[ -s "$canary_file" ]] || { fail 'canary file is missing or empty'; return 1; }
-    scan_canary_file "$canary_file"
+    [[ -d "$scan_root" ]] || { fail 'canary scan root is missing or not a directory'; return 1; }
+    scan_canary_file "$canary_file" "$scan_root"
   fi
   printf 'Secret-bearing fields remain confined to narrow private inputs/results; no forbidden leak was detected.\n'
 }
@@ -175,12 +205,16 @@ self_test() {
     'protobuf/private-result.bin'
     'config/public-access.json'
     'Application Support/Fallout Terminal/public-access.json'
+    'Windows/Credentials/credential.bin'
+    'Secret Service/login/item.bin'
     'sessions/session-v1.json'
     'player-config/player-config-v1.json'
     'args/process.args'
     'fixtures/public-access.json'
     'frontend/local-storage.json'
     'package/Fallout Terminal.app/Contents/Resources/diagnostic.json'
+    'package/Fallout-Terminal-windows-amd64/resources/diagnostic.json'
+    'package/Fallout-Terminal-linux-arm64/resources/diagnostic.json'
   )
   fixture_root="$(mktemp -d)"
   trap 'rm -rf "$fixture_root"' RETURN
@@ -206,7 +240,7 @@ self_test() {
   done
 
   scan_canary_file "$canary_file" "$fixture_root/surfaces"
-  printf 'Secret leak detector self-test passed across errors, logs, events, protobuf, config, Application Support, session, player-config, args, fixtures, frontend, and packaged resources.\n'
+  printf 'Secret leak detector self-test passed across errors, logs, events, protobuf, config, native credential stores, session, player-config, args, fixtures, frontend, and packaged resources.\n'
 }
 
 case "${1:-}" in
@@ -214,13 +248,19 @@ case "${1:-}" in
     check_tree
     ;;
   --canary-file)
-    [[ "$#" == 2 ]] || { fail 'usage: secret-leak-check.sh --canary-file PATH'; exit 2; }
-    check_tree "$2"
+    if [[ "$#" == 2 ]]; then
+      check_tree "$2"
+    elif [[ "$#" == 4 && "$3" == --scan-root ]]; then
+      check_tree "$2" "$4"
+    else
+      fail 'usage: secret-leak-check.sh --canary-file PATH [--scan-root DIRECTORY]'
+      exit 2
+    fi
     ;;
   --self-test)
     self_test
     ;;
   *)
-    fail 'usage: secret-leak-check.sh [--canary-file PATH|--self-test]'
+    fail 'usage: secret-leak-check.sh [--canary-file PATH [--scan-root DIRECTORY]|--self-test]'
     ;;
 esac

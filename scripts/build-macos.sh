@@ -21,6 +21,7 @@ app_path="$repository_root/build/bin/Fallout Terminal.app"
 app_executable="$app_path/Contents/MacOS/Fallout Terminal"
 entitlements_path="$repository_root/build/darwin/entitlements.plist"
 dmg_path="$repository_root/build/bin/Fallout-Terminal-arm64.dmg"
+dmg_checksum_path="$dmg_path.sha256"
 volume_name="Fallout Terminal"
 
 preflight_only=false
@@ -41,7 +42,7 @@ test -f "$repository_root/cmd/build/main.go" || fail "repository Go build comman
 test -f "$entitlements_path" || fail "missing entitlements: $entitlements_path"
 /usr/bin/plutil -lint "$entitlements_path" >/dev/null || fail "invalid entitlements plist"
 
-for command_name in go npm xcrun security codesign spctl hdiutil ditto lipo shasum grep awk mktemp install mkdir ln rm; do
+for command_name in go npm xcrun security codesign spctl hdiutil ditto lipo shasum grep awk basename mktemp install mkdir ln rm; do
   require_command "$command_name"
 done
 
@@ -91,7 +92,7 @@ export CGO_ENABLED=1
 export MACOSX_DEPLOYMENT_TARGET=13.0
 
 cd "$repository_root"
-go run ./cmd/build package
+go tool -modfile=tools/task/go.mod task package
 
 test -d "$app_path" || fail "Wails did not create the expected app: $app_path"
 test -x "$app_executable" || fail "app executable is missing: $app_executable"
@@ -153,6 +154,9 @@ xcrun stapler validate "$unsigned_dmg"
 spctl --assess --type open --context context:primary-signature --verbose=4 "$unsigned_dmg"
 
 install -m 0644 "$unsigned_dmg" "$dmg_path"
+dmg_checksum=$(shasum -a 256 "$dmg_path" | awk '{print $1}')
+printf '%s  %s\n' "$dmg_checksum" "$(basename "$dmg_path")" >"$dmg_checksum_path"
+chmod 0644 "$dmg_checksum_path"
 
 printf '\nRelease artifacts verified:\n'
 printf '  App: %s\n' "$app_path"
@@ -162,4 +166,5 @@ lipo -archs "$app_executable"
 printf '  SHA-256 (app executable): '
 shasum -a 256 "$app_executable" | awk '{print $1}'
 printf '  SHA-256 (DMG): '
-shasum -a 256 "$dmg_path" | awk '{print $1}'
+printf '%s\n' "$dmg_checksum"
+printf '  SHA-256 sidecar: %s\n' "$dmg_checksum_path"

@@ -1,15 +1,16 @@
 <!--
 Sync Impact Report
-- Version change: 5.1.1 -> 5.2.0
-- Modified principles:
-  - Principle III (optional browser presentation client-streaming with portable unary fallback)
+- Version change: 7.0.0 -> 8.0.0
+- Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
-- Expanded guidance:
-  - Controller-local transient presentation remains non-canonical and must reconcile with
-    authoritative server updates
-  - Development workflow now recognizes constitution-authorized optional browser client streams
+- Modified guidance:
+  - Redefine a platform support claim as availability of a governed unsigned portable archive
+    rather than mandatory native window, dialog, lifecycle, player, or secure-store acceptance
+  - Make matching-host native runtime and operating-system integration evidence optional for
+    platform support, feature completion, quality CI, and tagged releases
+  - Preserve honest reporting for any optional native evidence that is collected
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -23,7 +24,7 @@ state uses the portable version-1 JSON session document; live terminal, navigati
 connection, startup, and tunnel state is owned by the running application.
 
 The production architecture is a Go 1.27 modular monolith whose sole accepted production desktop
-runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.10 implementation. Runtime, CLI,
+runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.13 implementation. Runtime, CLI,
 frontend, and generated-binding versions MUST remain mutually compatible and reproducibly pinned
 in their owning dependency graphs.
 
@@ -32,8 +33,18 @@ player server. `frontend/` is the single npm workspace: `frontend/overseer/` own
 browser-JavaScript Overseer interface and private Wails bindings, while `frontend/client/` owns the
 separately built and embedded browser-JavaScript player interface and public generated contracts.
 `internal/` contains application services, domain logic, adapters, and platform integrations.
-Node.js is build, code-generation, and browser-test tooling, not an application runtime. The
-supported deployment profile is macOS 13+ on Apple Silicon (`arm64`).
+Node.js is build, code-generation, and browser-test tooling, not an application runtime. Portable
+distribution profiles are macOS 13+ on Apple Silicon (`darwin/arm64`), Windows 10/11 on
+`windows/amd64`, Windows 11 on ARM on `windows/arm64`, and the pinned Wails GTK4/WebKitGTK 6.0
+baseline (initially Ubuntu 24.04+ or Debian 13+) on `linux/amd64` and `linux/arm64`. A platform
+support claim means that the governed target-aware package entrypoint produces the target's
+unsigned portable archive with its executable and required resources on the matching build host;
+it does not claim that every native UI or operating-system integration journey was executed for
+that revision. Matching-host window-launch, dialog, resource, lifecycle, player, and secure-store
+evidence MAY be collected by a separate quality workflow or documented manual checks, but it MUST
+NOT be required for a platform support claim, feature completion, quality CI, or an automated
+tagged release. When optional native evidence is collected, unavailable or unexecuted checks MUST
+be reported honestly and MUST NOT be presented as passing evidence.
 
 The Electron-to-Wails and Wails-v2-to-Wails-v3 migrations are complete. Their rollback and migration
 records MUST be preserved only as clearly labeled historical materials. Legacy Electron and Wails
@@ -244,10 +255,16 @@ temporary coexistence only within its bounded plan and MUST remove every superse
 dependency, configuration path, generated binding, and dual-runtime switch before cutover is
 accepted.
 
+The Make-to-Task migration is one such cutover. After parity is proven, the root `Taskfile.yml`
+MUST be the sole active developer, validation, build, package, release, and Spec Kit workflow graph.
+The root `Makefile` MUST expose only the bootstrap that installs all isolated Go tool modules and
+non-mutating help for discovering that bootstrap and the Task graph; it MUST NOT retain aliases
+that form or proxy a parallel workflow graph.
+
 ## Dependency Rules
 
 - Root composition and `internal/platform/` adapters MAY depend on the repository's exactly pinned
-  `github.com/wailsapp/wails/v3` v3.0.0-beta.10 runtime because they are the Wails v3 composition and
+  `github.com/wailsapp/wails/v3` v3.0.0-beta.13 runtime because they are the Wails v3 composition and
   platform boundaries. No other `internal/` package MAY import Wails.
 - Protobuf schema modules are upstream contract dependencies. Generated Go and ECMAScript outputs
   MUST depend only on pinned generators and runtimes and MUST be consumed through explicit boundary
@@ -350,10 +367,13 @@ Wails, protobuf and Connect generators, and any future Go-based command introduc
 development workflow. Operating-system tools and non-Go tools remain governed by their native
 installation and lock mechanisms.
 
-The dependency-free `cmd/build` command and `internal/buildtool` package are the sole owners of the
-application build and package graph and its protobuf -> player -> bindings -> Overseer -> native or
-package order. Direct `go run ./cmd/build dev|build|package` commands are canonical owned entrypoints
-and MUST continue to work without Make.
+The root `Taskfile.yml` is the canonical maintainer, CI, and Wails-compatible command graph. The
+dependency-free `cmd/build` command and `internal/buildtool` package remain the sole owners of typed
+application build, package, archive, and verification policy and its protobuf -> player -> bindings
+-> Overseer -> native or package order. Task tasks MUST delegate that detailed policy to Go rather
+than duplicating it in YAML. Wails-dispatched `build`, `package`, `run`, and `dev` tasks MUST reach
+the same Go plans as direct Task invocation and MUST NOT recurse back into their high-level Wails
+wrappers.
 
 - Each Go development tool MUST have one independent module at `tools/<tool>/`, containing its own
   `go.mod` and committed `go.sum`. A tool module MUST declare exactly one direct tool command with a
@@ -361,15 +381,16 @@ and MUST continue to work without Make.
 - Tool modules MUST pin exact module versions and an explicit Go language version. They MUST NOT
   use pseudo-install scripts, floating versions, `@latest`, or depend on whichever executable is
   first on `PATH`.
-- Repository commands MUST invoke a third-party tool through its owning module from the repository
-  root, using `go tool -modfile=tools/<tool>/go.mod <command> ...` directly or from the checked-in
-  standard-library-only `cmd/build` command. Taskfiles are prohibited. A root `Makefile` MAY exist
-  only as an optional thin convenience wrapper over `go run ./cmd/build ...` and existing
-  repository scripts. It MAY provide short aliases and sequentially compose already governed
-  quality gates, but MUST NOT duplicate compilation, generation, signing, packaging, or runtime-
-  lifecycle logic; introduce a second build graph, hidden dependencies, or a separate frontend or
-  player server; or own dependency versions. `make dev|build|package` MAY be documented aliases,
-  but the corresponding canonical Go commands MUST remain independently functional.
+- Repository tasks MUST invoke each third-party Go tool through its owning module from the
+  repository root, using `go tool -modfile=tools/<tool>/go.mod <command> ...`, or delegate to the
+  checked-in standard-library-only `cmd/build` command that does so. The root `Taskfile.yml` MUST
+  use Task schema version 3 and is the only workflow-alias graph. The Task command itself MUST be
+  pinned in `tools/task/` and installed with the other tools; automation MUST verify that the
+  invoked Task version matches that pin. The root `Makefile` MUST contain only one default `tools`
+  bootstrap that discovers every immediate `tools/*/go.mod` deterministically and runs
+  `go install tool` within each module. It MAY contain a non-mutating `help` target that describes
+  the bootstrap and directs maintainers to `task --list`. Make MUST NOT own or alias application, generation,
+  validation, build, package, release, or Spec Kit workflows.
 - First-party orchestration in `cmd/build` and `internal/buildtool` MAY live in the root application
   module because it is repository source rather than a separately versioned executable dependency;
   it MUST use only the Go standard library and invoke versioned third-party tools through their
@@ -389,11 +410,12 @@ and MUST continue to work without Make.
 - Each tool module MUST be tidied, reproducible, and verified independently. A tool-version change
   MUST update that module's `go.mod` and `go.sum`, compatibility research where applicable, every
   coupled runtime/frontend pin, and the generated or acceptance evidence affected by the change.
-- CI MUST verify the expected set of tool modules, exact direct tool declarations, committed sums,
+- CI MUST discover and verify every tool module, exact direct tool declarations, committed sums,
   zero `tool` directives and zero tool-only dependency entries in the root `go.mod`, no root module
   drift after tool resolution, and absence of global-install or unqualified Go-tool invocations in
-  active scripts and documentation. CI and release automation MAY invoke a canonical Go command or
-  a verified thin Make alias, but dependency and version ownership MUST NOT move to Make.
+  active scripts and documentation. CI and release automation MUST enter through the pinned Task
+  graph or an explicitly tested lower-level Go implementation seam; dependency and version
+  ownership MUST NOT move to Task or Make.
 
 This isolation prevents generator and build dependencies from polluting the product module, makes
 the invoked executable part of the repository's reviewed dependency graph, and lets tools evolve
@@ -403,9 +425,10 @@ independently without sacrificing deterministic local and CI behavior.
 
 Go code MUST use colocated tests and deterministic fakes at filesystem, dialog, process, provider,
 secure-store, random, network, clock, stream, and event boundaries. Concurrency-sensitive code MUST
-pass the race detector. Browser journeys use Playwright under `tests/browser/`. No numeric coverage
-threshold or repository-wide linter is currently defined; plans MUST choose verification
-proportionate to the affected behavior instead of inventing or claiming either gate.
+pass the race detector. Browser journeys use Playwright under `tests/browser/`. The root
+`.golangci.yml` defines the repository-wide Go lint baseline, and `task lint` MUST execute it through
+the pinned `tools/golangci-lint` module. No numeric coverage threshold is currently defined; plans
+MUST choose verification proportionate to the affected behavior instead of inventing one.
 
 Go tests MUST follow these conventions:
 
@@ -429,6 +452,7 @@ Applicable commands MUST succeed before a change is considered complete:
 
 - `gofmt -l .` produces no Go source paths.
 - `go vet ./...` succeeds.
+- `task lint` succeeds using the root `.golangci.yml` and pinned `tools/golangci-lint` module.
 - `go test ./...` succeeds.
 - `go test -race ./...` succeeds for changes affecting concurrent runtime, player, live, control,
   session, stream, startup, or tunnel behavior.
@@ -439,18 +463,32 @@ Applicable commands MUST succeed before a change is considered complete:
   ECMAScript, asset, or packaging changes.
 - `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` succeed for affected player
   journeys when the required local environment is available.
-- `go run ./cmd/build dev` is the canonical owned repository-root development entrypoint and passes
-  affected interactive Overseer/client journeys without a separately started frontend or player
-  server. A verified thin `make dev` alias MAY invoke it without changing ownership.
+- `task dev` is the canonical repository-root development entrypoint and passes affected
+  interactive Overseer/client journeys without a separately started frontend or player server. It
+  MUST delegate to the owned Go application plan and MUST NOT create a separate frontend or player
+  server.
 - `go tool -modfile=tools/wails/go.mod wails3 generate bindings -clean -d frontend/overseer/bindings ./...` succeeds and produces
   no unexplained working-tree drift; both generated bindings and protobuf generation remain
   deterministic and MUST NOT be edited manually.
-- `go run ./cmd/build build` succeeds after both `frontend/overseer/` and `frontend/client/`
-  production builds succeed.
-- `go run ./cmd/build package` succeeds and
-  produces a self-contained macOS Apple Silicon application for packaging-sensitive changes.
-- Release candidates pass signing, hardened-runtime, notarization, stapling, DMG, and Gatekeeper
-  checks when release credentials are available.
+- `task build` succeeds after both `frontend/overseer/` and `frontend/client/` production builds
+  succeed; accepted distribution GOOS/GOARCH inputs MUST reach the same typed Go target plan.
+- `task package` succeeds and produces the existing self-contained macOS Apple Silicon application
+  on its supported host. `task package GOOS=<os> GOARCH=<arch>` MUST produce the governed unsigned
+  portable archive for each accepted `windows/amd64`, `windows/arm64`, `linux/amd64`,
+  `linux/arm64`, and `darwin/arm64` target on its matching host.
+- `task package:all` MAY remain as an optional local maintainer convenience on the supported
+  `darwin/arm64` host. When retained, it MUST keep its local Docker outputs distinct from native
+  matching-host builds, but CI and tagged releases MUST NOT depend on it. No remote aggregate
+  command is constitutionally required.
+- Automated SemVer-tag releases MUST publish exactly one unsigned portable archive for each of the
+  five accepted targets to one GitHub Release only after every target compiles and each non-empty
+  archive contains its executable and required resources. The release MUST NOT publish raw
+  executables, checksum sidecars, aggregate indexes, DMGs, GitHub Packages copies, or signed or
+  notarized variants.
+- Repository-pinned GoReleaser in its isolated Go tool module MUST be the sole GitHub Release
+  publisher. Publication MUST be create-only: an existing release for the tag makes the workflow
+  fail without replacing, deleting, or appending assets. Automated multi-destination rollback is
+  prohibited because GitHub Releases are the only automated destination.
 
 Schema and RPC changes MUST additionally verify:
 
@@ -485,14 +523,19 @@ Public-access and secret-handling changes MUST additionally verify:
   deterministic fake MUST NOT be presented as evidence of a real public endpoint.
 
 CI MUST invoke Buf and every other Go-based development command through its owning `tools/<tool>`
-module. It MUST enforce Buf formatting/linting, generation drift, and generated-code compilation
-when protobuf schemas are present, and MUST add the breaking-change gate when a protobuf baseline
-exists.
-The GitHub Actions workflow MUST continue to enforce its configured Go test, Go vet, frontend clean-
-build, player-client clean-build, startup-contract, exact Wails pin-consistency, clean Wails v3
-binding-generation, and unsigned arm64 packaging gates. Native-dialog, audio, public-tunnel,
-multi-browser, and signed-release checks MAY remain documented manual gates where reliable
-automation or credentials are unavailable; unavailable checks MUST be reported, not claimed.
+module from the pinned Task graph. It MUST enforce Buf formatting/linting, generation drift, and
+generated-code compilation when protobuf schemas are present, and MUST add the breaking-change gate
+when a protobuf baseline exists.
+A separate non-release GitHub Actions quality workflow MUST run for pull requests and main-branch
+pushes and enforce the configured Go tests, Go vet, frontend clean builds, player-client clean
+build, startup contracts, exact Wails pin consistency, and clean Wails v3 binding generation. It
+MAY build the current-host application as a quality check but MUST NOT publish release assets.
+The five-target release matrix MUST run only after a qualifying SemVer tag passes preflight and
+MUST gate publication only on target compilation, non-empty archive creation, executable presence,
+and required-resource presence. Native UI, dialog, audio, credential-store, player-journey,
+public-tunnel, signing, notarization, stapling, Gatekeeper, and multi-browser checks MUST NOT gate
+tagged releases. Such checks MAY remain documented manual or separately dispatched quality checks;
+unavailable checks MUST be reported, not claimed.
 
 Reviews MUST verify production module boundaries, protobuf contract coverage, schema evolution,
 generated-file integrity, persistence compatibility, authoritative synchronization, privileged-
@@ -513,8 +556,10 @@ cutover cleanup, and owned-resource shutdown.
    identify its owner, expiry, parity criteria, immutable rollback reference, and removal gate.
    Public-access plans MUST also identify provider/runtime selection, secure-store ownership,
    secret lifetime, endpoint authentication ownership, local fallback, and shutdown obligations.
-5. Regenerate pinned Go and ECMAScript code deterministically through the isolated
-   `tools/<tool>` modules; never edit generated files or install a global Go tool.
+5. Run `make tools` only to bootstrap all isolated Go tool modules, then use the pinned Task graph
+   for repository workflows. Regenerate pinned Go and ECMAScript code deterministically through
+   the isolated `tools/<tool>` modules; never edit generated files or install an unpinned global Go
+   tool.
 6. Implement the smallest coherent vertical slice. Keep generated types at boundaries, domain logic
    transport-independent, canonical browser mutations unary by default, live updates
    server-streamed, and private capabilities outside the public player service. A browser
@@ -533,9 +578,9 @@ cutover cleanup, and owned-resource shutdown.
    becomes accepted production architecture.
 9. Update README, schema documentation, fixtures, compatibility specifications, and historical
    records when setup, operation, or governed behavior changes. Development, generation, CI,
-   packaging, and release commands MUST continue to resolve every Go tool through its checked-in
-   isolated module. Direct `go run ./cmd/build dev|build|package` commands MUST remain canonical;
-   any Make aliases MUST remain optional thin wrappers and MUST pass their ownership checks.
+   packaging, and release workflows MUST use the root Taskfile and continue to resolve every Go
+   tool through its checked-in isolated module. Make MUST remain limited to the all-tool bootstrap;
+   lower-level Go commands remain implementation seams, not a second documented workflow graph.
 
 ## Governance
 
@@ -557,7 +602,7 @@ secret-handling, provider-lifecycle, build-ownership, and cutover gates. Any vio
 listed in the plan's Complexity Tracking table with a concrete rationale, an owner, a bounded
 duration, and a rejected simpler alternative. Reviewers MUST reject unrecorded exceptions,
 manually edited generated files, schema-breaking field reuse, public capability or secret leakage,
-stored-secret readback, generic bridge dispatchers, Make-owned build graphs, and permanent dual
-protocols without an explicit compatibility requirement.
+stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
+workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 5.2.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-24
+**Version**: 8.0.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27

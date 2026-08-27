@@ -1161,6 +1161,117 @@ func TestApplicationShutdownIsReverseOrderedAndIdempotent(t *testing.T) {
 
 }
 
+func TestApplicationStartupFailureCleansBoundedResourcesExactlyOnce(t *testing.T) {
+	recorder := &callRecorder{}
+	player := &recordingPlayerServer{
+		recorder: recorder,
+		info:     domain.ServerInfo{IP: "127.0.0.1", Port: 3690, URL: "http://127.0.0.1:3690"},
+	}
+	sessions := &recordingSessionService{recorder: recorder}
+	publicAccess := &recordingPublicAccessCore{
+		recorder: recorder,
+		snapshot: tunnelservice.PublicAccessSnapshot{
+			Preferences: tunnelservice.DefaultPublicAccessPreferences(),
+			Status: tunnelservice.PublicAccessStatus{
+				State: tunnelservice.LifecycleReady, PublicURL: "https://public.example",
+			},
+		},
+	}
+	live := &recordingLiveService{}
+	coordination := &recordingBroadcastLifecycleService{}
+	const cleanupTimeout = 50 * time.Millisecond
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Live: live, Coordination: coordination,
+		Player: player, PublicAccess: publicAccess,
+		Events:          &recordingEventSink{recorder: recorder, err: errors.New("bridge unavailable")},
+		ShutdownTimeout: cleanupTimeout,
+	})
+
+	startedAt := time.Now()
+	err := app.Start(t.Context())
+	require.ErrorContains(t, err, "bridge unavailable")
+	require.NoError(t, app.Shutdown(t.Context()))
+
+	assert.Equal(t, []string{
+		"player:start", "public:initialize", "event:server-info",
+		"public:shutdown", "player:stop", "session:shutdown",
+	}, recorder.Calls())
+	assert.Equal(t, 1, publicAccess.shutdowns)
+	assert.Equal(t, 1, live.clearCalls)
+	assert.Equal(t, 1, coordination.shutdownCalls)
+	require.Len(t, publicAccess.shutdownContexts, 1)
+	require.Len(t, player.stopContexts, 1)
+	require.Len(t, sessions.shutdownContexts, 1)
+	requireCleanupContextBounded(t, publicAccess.shutdownContexts[0], startedAt, cleanupTimeout)
+	requireCleanupContextBounded(t, player.stopContexts[0], startedAt, cleanupTimeout)
+	requireCleanupContextBounded(t, sessions.shutdownContexts[0], startedAt, cleanupTimeout)
+}
+
+func TestApplicationNormalCloseCleansConnectedPlayersPublicAccessAndProcessesExactlyOnce(t *testing.T) {
+	recorder := &callRecorder{}
+	player := &recordingPlayerServer{
+		recorder: recorder,
+		info: domain.ServerInfo{
+			IP: "127.0.0.1", Port: 3690,
+			URL: "http://127.0.0.1:3690", LocalURL: "http://127.0.0.1:3690",
+		},
+	}
+	sessions := &recordingSessionService{recorder: recorder}
+	publicAccess := &recordingPublicAccessCore{
+		recorder: recorder,
+		snapshot: tunnelservice.PublicAccessSnapshot{
+			Preferences: tunnelservice.DefaultPublicAccessPreferences(),
+			Status: tunnelservice.PublicAccessStatus{
+				State: tunnelservice.LifecycleReady, PublicURL: "https://public.example",
+			},
+		},
+	}
+	live := &recordingLiveService{}
+	coordination := &recordingBroadcastLifecycleService{}
+	const cleanupTimeout = 50 * time.Millisecond
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Live: live, Coordination: coordination,
+		Player: player, PublicAccess: publicAccess,
+		Events: &recordingEventSink{recorder: recorder}, Desktop: &recordingDesktop{recorder: recorder},
+		ShutdownTimeout: cleanupTimeout,
+	})
+	require.NoError(t, app.Start(t.Context()))
+	t.Cleanup(func() {
+		cleanupContext, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+		defer cancel()
+		require.NoError(t, app.Shutdown(cleanupContext))
+	})
+	app.updateClientCount(2)
+	require.Equal(t, 2, app.GetRuntimeStatus().ClientCount)
+	recorder.Reset()
+
+	startedAt := time.Now()
+	require.NoError(t, app.Shutdown(t.Context()))
+	require.NoError(t, app.Shutdown(t.Context()))
+
+	assert.Equal(t, []string{
+		"public:shutdown", "player:stop", "session:shutdown", "desktop:close",
+	}, recorder.Calls())
+	assert.Equal(t, 1, publicAccess.shutdowns)
+	assert.Equal(t, 1, live.clearCalls)
+	assert.Equal(t, 1, coordination.shutdownCalls)
+	require.Len(t, publicAccess.shutdownContexts, 1)
+	require.Len(t, player.stopContexts, 1)
+	require.Len(t, sessions.shutdownContexts, 1)
+	requireCleanupContextBounded(t, publicAccess.shutdownContexts[0], startedAt, cleanupTimeout)
+	requireCleanupContextBounded(t, player.stopContexts[0], startedAt, cleanupTimeout)
+	requireCleanupContextBounded(t, sessions.shutdownContexts[0], startedAt, cleanupTimeout)
+}
+
+func requireCleanupContextBounded(t *testing.T, ctx context.Context, startedAt time.Time, timeout time.Duration) {
+	t.Helper()
+	require.NotNil(t, ctx)
+	deadline, ok := ctx.Deadline()
+	require.True(t, ok, "cleanup context must have a deadline")
+	assert.LessOrEqual(t, deadline.Sub(startedAt), timeout+250*time.Millisecond,
+		"cleanup context must be bounded by the configured shutdown timeout")
+}
+
 func TestApplicationPlayerStartFailureNeverReportsReady(t *testing.T) {
 	recorder := &callRecorder{}
 	app := NewAppWithDependencies(t.Context(), AppDependencies{
@@ -2801,14 +2912,16 @@ func (r *callRecorder) Reset() {
 }
 
 type recordingPlayerServer struct {
-	recorder *callRecorder
-	info     domain.ServerInfo
-	startErr error
+	recorder     *callRecorder
+	info         domain.ServerInfo
+	startErr     error
+	stopContexts []context.Context
 }
 
 type recordingSessionService struct {
-	recorder      *callRecorder
-	shutdownCalls int
+	recorder         *callRecorder
+	shutdownCalls    int
+	shutdownContexts []context.Context
 }
 
 type loggingSessionCommands struct {
@@ -2961,8 +3074,9 @@ func (service *recordingPlayerConfigCoordination) ClearPlayerConfig() (*domain.M
 	return domain.CloneMasterCoordinationState(state), nil
 }
 
-func (service *recordingSessionService) Shutdown(context.Context) error {
+func (service *recordingSessionService) Shutdown(ctx context.Context) error {
 	service.shutdownCalls++
+	service.shutdownContexts = append(service.shutdownContexts, ctx)
 	if service.recorder != nil {
 		service.recorder.Add("session:shutdown")
 	}
@@ -3354,7 +3468,8 @@ func (server *recordingPlayerServer) Start(context.Context) (domain.ServerInfo, 
 	return server.info, server.startErr
 }
 
-func (server *recordingPlayerServer) Stop(context.Context) error {
+func (server *recordingPlayerServer) Stop(ctx context.Context) error {
+	server.stopContexts = append(server.stopContexts, ctx)
 	server.recorder.Add("player:stop")
 	return nil
 }
@@ -3426,6 +3541,7 @@ type recordingPublicAccessCore struct {
 	stops              int
 	shutdowns          int
 	shutdownErrors     []error
+	shutdownContexts   []context.Context
 }
 
 type recordedPublicAccessMutation struct {
@@ -3478,9 +3594,10 @@ func (core *recordingPublicAccessCore) Reconfigure(_ context.Context, mutation t
 	return result
 }
 
-func (core *recordingPublicAccessCore) Shutdown(context.Context) error {
+func (core *recordingPublicAccessCore) Shutdown(ctx context.Context) error {
 	core.recorder.Add("public:shutdown")
 	core.shutdowns++
+	core.shutdownContexts = append(core.shutdownContexts, ctx)
 	if len(core.shutdownErrors) > 0 {
 		err := core.shutdownErrors[0]
 		core.shutdownErrors = core.shutdownErrors[1:]

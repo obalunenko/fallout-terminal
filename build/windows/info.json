@@ -1,0 +1,19 @@
+{
+  "fixed": {
+    "file_version": "1.0.0.0",
+    "product_version": "1.0.0.0",
+    "type": "app"
+  },
+  "info": {
+    "0409": {
+      "CompanyName": "Vault-Tec R&D",
+      "FileDescription": "Fallout Terminal — Overseer Control",
+      "FileVersion": "1.0.0.0",
+      "InternalName": "Fallout Terminal",
+      "LegalCopyright": "Copyright © 2026 Vault-Tec R&D",
+      "OriginalFilename": "Fallout Terminal.exe",
+      "ProductName": "Fallout Terminal",
+      "ProductVersion": "1.0.0.0"
+    }
+  }
+}

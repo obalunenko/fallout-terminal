@@ -170,7 +170,7 @@
   "terminalGroups": [
     {
       "id": "vault-76-route",
-      "name": "Маршрут Убежища 76",
+      "name": "Убежище 76",
       "terminalIds": [
         "t_demo1",
         "t_demo2"
