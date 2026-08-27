@@ -78,6 +78,69 @@ tasks:
     cmds:
       - 'go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml'
 
+  release:tag:
+    desc: Propose, confirm, create, and push the next release tag; set PRERELEASE (for example, rc.1) for a prerelease.
+    env:
+      PRERELEASE: '{{default "" .PRERELEASE}}'
+    vars:
+      RELEASE_TAG:
+        sh: |
+          module_path="$({{.GO}} list -m)"
+          module_major="${module_path##*/v}"
+          case "$module_major" in
+            ''|*[!0-9]*)
+              printf 'root module path must end in /vN: %s\n' "$module_path" >&2
+              exit 1
+              ;;
+          esac
+
+          current_tag="$(go tool -modfile=tools/svu/go.mod svu current)"
+          current_version="${current_tag#v}"
+          current_major="${current_version%%.*}"
+          case "$current_major" in
+            ''|*[!0-9]*)
+              printf 'svu returned an invalid current tag: %s\n' "$current_tag" >&2
+              exit 1
+              ;;
+          esac
+
+          if [ "$current_major" -gt "$module_major" ]; then
+            printf 'current tag major v%s exceeds module major v%s\n' "$current_major" "$module_major" >&2
+            exit 1
+          fi
+          if [ "$current_major" -lt "$module_major" ]; then
+            svu_command=major
+          else
+            svu_command=next
+          fi
+
+          if [ "$svu_command" = next ]; then
+            set -- next --always
+          else
+            set -- major
+          fi
+          if [ -n "$PRERELEASE" ]; then
+            set -- "$@" --prerelease "$PRERELEASE"
+          fi
+          release_tag="$(go tool -modfile=tools/svu/go.mod svu "$@")"
+          {{.GO}} run ./cmd/build validate-release-tag --tag "$release_tag" >/dev/null
+          printf '%s\n' "$release_tag"
+    prompt: 'Create and push release tag {{.RELEASE_TAG}} to origin?'
+    preconditions:
+      - sh: test -z "$(git status --porcelain)"
+        msg: The worktree must be clean before creating a release tag.
+      - sh: git remote get-url origin >/dev/null
+        msg: Git remote origin is not configured.
+      - sh: test -z "$(git tag --list '{{.RELEASE_TAG}}')"
+        msg: Release tag {{.RELEASE_TAG}} already exists locally.
+    cmds:
+      - |
+        git tag "{{.RELEASE_TAG}}"
+        if ! git push origin "refs/tags/{{.RELEASE_TAG}}"; then
+          git tag --delete "{{.RELEASE_TAG}}"
+          exit 1
+        fi
+
   deps:
     desc: Install all locked Node.js dependencies.
     cmds:

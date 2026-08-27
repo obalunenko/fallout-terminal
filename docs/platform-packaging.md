@@ -13,6 +13,7 @@ task run
 task prepare
 task build
 task package
+task release:tag
 task deps
 task fmt
 task vet
@@ -29,6 +30,24 @@ task check
 Manual macOS signing remains separate: `task release:macos:preflight` checks credentials and
 `task release:macos:signed` creates a Developer ID/notarized package. Automated portable release
 publication uses `task release:publish` and does not require signing credentials.
+
+Create a stable release tag from a clean, committed checkout with:
+
+```bash
+task release:tag
+```
+
+The task uses the pinned `svu` tool and Conventional Commit history to propose the next version,
+falling back to a patch increment when no commit requests a larger change. When the latest tag is
+from an older major line, it first advances to the root Go module's major. The candidate must pass
+the same strict release-tag validation as CI. Task then asks for confirmation before creating the
+local tag and pushing that exact tag to `origin`; a failed push removes the newly created local tag.
+
+Pass a SemVer prerelease identifier to propose a prerelease tag:
+
+```bash
+task release:tag PRERELEASE=rc.1
+```
 
 ## Package one target
 

@@ -213,6 +213,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 		"browser:test",
 		"check",
 		"release:macos:preflight",
+		"release:tag",
 		"release:publish",
 		"release:macos:signed",
 	} {
@@ -243,6 +244,25 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	releasePublish := taskfileTask(t, taskfile, "release:publish")
 	assert.Contains(t, releasePublish, "tools/goreleaser/go.mod")
 	assert.Contains(t, releasePublish, "goreleaser release")
+	releaseTag := taskfileTask(t, taskfile, "release:tag")
+	for _, required := range []string{
+		"tools/svu/go.mod",
+		"svu current",
+		"svu_command=next",
+		"svu_command=major",
+		"set -- next --always",
+		"set -- major",
+		`--prerelease "$PRERELEASE"`,
+		`svu "$@"`,
+		"validate-release-tag",
+		"git status --porcelain",
+		`git tag "{{.RELEASE_TAG}}"`,
+		`git push origin "refs/tags/{{.RELEASE_TAG}}"`,
+		`git tag --delete "{{.RELEASE_TAG}}"`,
+	} {
+		assert.Contains(t, releaseTag, required)
+	}
+	assert.Contains(t, releaseTag, "prompt:")
 
 	dev := taskfileTask(t, taskfile, "dev")
 	run := taskfileTask(t, taskfile, "run")
@@ -299,7 +319,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	assert.Equal(t, "help", matches[1][1])
 }
 
-func TestReleaseToolSurfaceUsesTaskAndPinnedGoReleaserOnly(t *testing.T) {
+func TestReleaseToolSurfaceUsesTaskAndPinnedReleaseTools(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
@@ -308,7 +328,7 @@ func TestReleaseToolSurfaceUsesTaskAndPinnedGoReleaserOnly(t *testing.T) {
 	releaseWorkflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
 	qualityWorkflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-cross-platform.yml"))
 
-	for _, taskName := range []string{"package", "package:all", "release:publish"} {
+	for _, taskName := range []string{"package", "package:all", "release:tag", "release:publish"} {
 		require.NotEmpty(t, taskfileTask(t, taskfile, taskName))
 	}
 	for _, removed := range []string{"package:all:remote", "release:local"} {
@@ -317,6 +337,7 @@ func TestReleaseToolSurfaceUsesTaskAndPinnedGoReleaserOnly(t *testing.T) {
 	assert.Contains(t, taskfileTask(t, taskfile, "package:all"), "package-all-docker")
 	assert.Contains(t, taskfileTask(t, taskfile, "release:publish"), "tools/goreleaser/go.mod")
 	assert.Contains(t, taskfileTask(t, taskfile, "release:publish"), "goreleaser release --clean --config .goreleaser.yaml")
+	assert.Contains(t, taskfileTask(t, taskfile, "release:tag"), "tools/svu/go.mod")
 
 	for _, removedAction := range []string{`case "package-all":`, `case "release-candidate":`} {
 		assert.NotContains(t, mainSource, removedAction)
@@ -324,6 +345,7 @@ func TestReleaseToolSurfaceUsesTaskAndPinnedGoReleaserOnly(t *testing.T) {
 	assert.Contains(t, mainSource, `case "package-all-docker":`)
 
 	assert.FileExists(t, filepath.Join(root, "tools", "goreleaser", "go.mod"))
+	assert.FileExists(t, filepath.Join(root, "tools", "svu", "go.mod"))
 	assert.NoFileExists(t, filepath.Join(root, "tools", "oras", "go.mod"))
 	for _, workflow := range []string{releaseWorkflow, qualityWorkflow} {
 		assert.NotContains(t, strings.ToLower(workflow), "package-all-docker")
@@ -541,6 +563,7 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 		"task deps", "task fmt", "task vet", "task lint", "task test",
 		"task proto:generate", "task proto:check", "task proto:breaking",
 		"task bindings:check", "task browser:test", "task check",
+		"task release:tag", "PRERELEASE=rc.1",
 		"task release:macos:preflight", "task release:publish", "task release:macos:signed",
 		"GOOS", "GOARCH",
 		"task package GOOS=windows GOARCH=amd64",
