@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package fallout.terminal.player.v1;
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1";
 
 message PublicHackWord {
   string id = 1;

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package fallout.terminal.config.v1;
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1;configv1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1;configv1";
 
 message PublicRequestLimits {
   uint32 uncompressed_message_bytes = 1;

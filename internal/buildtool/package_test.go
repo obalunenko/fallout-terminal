@@ -4,12 +4,114 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPortablePackagePlanSelectsReleaseAndLocalVersionRepresentations(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		canonical       string
+		numericCore     string
+		numericFourPart string
+		release         bool
+	}{
+		{
+			name:            "stable release",
+			input:           "2.4.6",
+			canonical:       "2.4.6",
+			numericCore:     "2.4.6",
+			numericFourPart: "2.4.6.0",
+			release:         true,
+		},
+		{
+			name:            "prerelease",
+			input:           "2.4.6-rc.2",
+			canonical:       "2.4.6-rc.2",
+			numericCore:     "2.4.6",
+			numericFourPart: "2.4.6.0",
+			release:         true,
+		},
+		{
+			name:            "local development",
+			canonical:       "development",
+			numericCore:     "0.0.0",
+			numericFourPart: "0.0.0.0",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("VERSION", test.input)
+
+			target := mustParseTarget(t, goosWindows, goarchAMD64)
+			plan := mustPackagePlan(t, target)
+			actions := plan.Actions()
+			compile, _ := packageCompileStep(t, actions)
+			compileInvocation := strings.Join(compile.Arguments, " ")
+			allActions := packageActionText(actions)
+
+			assert.NotContains(t, compileInvocation, "-buildvcs=false", "package builds must retain Go VCS metadata")
+			if test.release {
+				assert.Contains(
+					t,
+					compileInvocation,
+					"-X "+applicationModule+"/internal/version.value="+test.canonical,
+					"release packages must link the canonical application version",
+				)
+			} else {
+				assert.NotContains(
+					t,
+					compileInvocation,
+					applicationModule+"/internal/version.value=",
+					"local packages must use the version owner's development default",
+				)
+			}
+
+			for _, representation := range []string{test.canonical, test.numericCore, test.numericFourPart} {
+				assert.Containsf(t, allActions, representation, "package actions do not carry representation %q", representation)
+			}
+		})
+	}
+}
+
+func TestPortablePackagePlanRejectsMalformedExplicitReleaseVersion(t *testing.T) {
+	t.Setenv("VERSION", "v2.4.6")
+
+	target := mustParseTarget(t, goosLinux, goarchAMD64)
+	_, err := NewPackagePlan(target, NewHost(target.OS(), target.Arch()))
+	require.ErrorContains(t, err, "VERSION")
+}
+
+func TestRenderVersionTemplateIsDeterministicAndPreservesInput(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join("build", "windows", "info.json.tmpl")
+	destination := filepath.Join("build", "bin", "windows-amd64", "metadata", "info.json")
+	template := []byte("human={{VERSION}}\nnumeric={{NUMERIC_CORE}}\nfour={{NUMERIC_FOUR_PART}}\n")
+	writePackageFixtureContents(t, root, source, template)
+	version, err := ResolveBuildVersion("2.4.6-rc.2")
+	require.NoError(t, err)
+	step := versionTemplateStep("render fixture", source, destination, version)
+
+	require.NoError(t, execute(t.Context(), root, step))
+	first, err := os.ReadFile(filepath.Join(root, destination))
+	require.NoError(t, err)
+	require.Equal(t, "human=2.4.6-rc.2\nnumeric=2.4.6\nfour=2.4.6.0\n", string(first))
+
+	require.NoError(t, execute(t.Context(), root, step))
+	second, err := os.ReadFile(filepath.Join(root, destination))
+	require.NoError(t, err)
+	assert.Equal(t, first, second)
+
+	preserved, err := os.ReadFile(filepath.Join(root, source))
+	require.NoError(t, err)
+	assert.Equal(t, template, preserved)
+}
 
 func TestPortablePackagePlanUsesTargetNativeCompilationAndIsolatedStaging(t *testing.T) {
 	t.Parallel()
@@ -132,8 +234,26 @@ func TestWindowsPackagePlanGeneratesPinnedBuildScopedMetadata(t *testing.T) {
 			assert.Less(t, iconIndex, sysoIndex)
 			assert.Less(t, sysoIndex, compileIndex)
 			assert.Equal(t, goarch, requiredFlagValue(t, sysoStep.Arguments, "-arch"))
-			assert.Equal(t, filepath.Join("build", "windows", "app.manifest"), requiredFlagValue(t, sysoStep.Arguments, "-manifest"))
-			assert.Equal(t, filepath.Join("build", "windows", "info.json"), requiredFlagValue(t, sysoStep.Arguments, "-info"))
+			metadataRoot := filepath.Join("build", "bin", "windows-"+goarch, "metadata")
+			renderedManifest := filepath.Join(metadataRoot, "app.manifest")
+			renderedInfo := filepath.Join(metadataRoot, "info.json")
+			assert.Equal(t, renderedManifest, requiredFlagValue(t, sysoStep.Arguments, "-manifest"))
+			assert.Equal(t, renderedInfo, requiredFlagValue(t, sysoStep.Arguments, "-info"))
+
+			manifestRender, manifestRenderIndex := requirePackageStep(t, actions, func(step Step) bool {
+				return step.Source == filepath.Join("build", "windows", "app.manifest.tmpl") &&
+					step.Destination == renderedManifest
+			}, "render isolated Windows application manifest")
+			infoRender, infoRenderIndex := requirePackageStep(t, actions, func(step Step) bool {
+				return step.Source == filepath.Join("build", "windows", "info.json.tmpl") &&
+					step.Destination == renderedInfo
+			}, "render isolated Windows version information")
+			assert.Less(t, manifestRenderIndex, sysoIndex)
+			assert.Less(t, infoRenderIndex, sysoIndex)
+			assert.NotEqual(t, manifestRender.Source, manifestRender.Destination)
+			assert.NotEqual(t, infoRender.Source, infoRender.Destination)
+			assert.Contains(t, plan.FailureCleanupPaths(), metadataRoot)
+			assertPackageTemplatesAreReadOnlyInputs(t, actions)
 
 			iconPath := requiredFlagValue(t, sysoStep.Arguments, "-icon")
 			assert.Contains(t, iconStep.Arguments, iconPath)
@@ -198,8 +318,16 @@ func TestDarwinPortablePackagePlanStagesCompleteUnsignedApplicationBundle(t *tes
 	assert.Equal(t, "1", compile.Environment["CGO_ENABLED"])
 	assert.Contains(t, compile.Arguments, filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "MacOS", applicationName))
 
+	renderedInfoPlist := filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Info.plist")
+	metadata, metadataIndex := requirePackageStep(t, actions, func(step Step) bool {
+		return step.Source == filepath.Join("build", "darwin", "Info.plist.tmpl") &&
+			step.Destination == renderedInfoPlist
+	}, "render isolated Darwin application metadata")
+	assert.Less(t, metadataIndex, compileIndex)
+	assert.NotEqual(t, metadata.Source, metadata.Destination)
+	assertPackageTemplatesAreReadOnlyInputs(t, actions)
+
 	wantCopies := map[string]string{
-		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Info.plist"):                                 filepath.Join("build", "darwin", "Info.plist"),
 		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "THIRD_PARTY_NOTICES.md"):        "THIRD_PARTY_NOTICES.md",
 		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo.json"):         filepath.Join("sessions", "demo.json"),
 		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo-players.json"): filepath.Join("sessions", "demo-players.json"),
@@ -385,15 +513,45 @@ func requiredFlagValue(t *testing.T, arguments []string, flag string) string {
 func writePackageFixture(t *testing.T, root, relative string) {
 	t.Helper()
 
+	writePackageFixtureContents(t, root, relative, []byte("fixture"))
+}
+
+func writePackageFixtureContents(t *testing.T, root, relative string, contents []byte) {
+	t.Helper()
+
 	path := filepath.Join(root, relative)
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
-	require.NoError(t, os.WriteFile(path, []byte("fixture"), 0o600))
+	require.NoError(t, os.WriteFile(path, contents, 0o600))
 }
 
 func packageActionText(actions []Step) string {
 	var parts []string
 	for _, action := range actions {
 		parts = append(parts, action.Name, action.Program, strings.Join(action.Arguments, " "), action.Source, action.Destination, action.Path)
+		environmentKeys := make([]string, 0, len(action.Environment))
+		for key := range action.Environment {
+			environmentKeys = append(environmentKeys, key)
+		}
+		sort.Strings(environmentKeys)
+		for _, key := range environmentKeys {
+			parts = append(parts, key+"="+action.Environment[key])
+		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func assertPackageTemplatesAreReadOnlyInputs(t *testing.T, actions []Step) {
+	t.Helper()
+
+	templates := []string{
+		filepath.Join("build", "darwin", "Info.plist.tmpl"),
+		filepath.Join("build", "windows", "info.json.tmpl"),
+		filepath.Join("build", "windows", "app.manifest.tmpl"),
+	}
+	for _, action := range actions {
+		for _, template := range templates {
+			assert.NotEqualf(t, template, action.Destination, "package action %q overwrites a checked-in template", action.Name)
+			assert.NotEqualf(t, template, action.Path, "package action %q mutates a checked-in template", action.Name)
+		}
+	}
 }

@@ -6,7 +6,7 @@ import "fallout/terminal/persistence/v1/player_config.proto";
 import "fallout/terminal/persistence/v1/session.proto";
 import "fallout/terminal/private/v1/coordination.proto";
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1;privatev1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1";
 
 message CommandResult {
   bool ok = 1;

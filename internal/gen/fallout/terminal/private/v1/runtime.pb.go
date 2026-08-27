@@ -7,8 +7,8 @@
 package privatev1
 
 import (
-	v11 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
-	v1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
+	v11 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	v1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -485,7 +485,7 @@ const file_fallout_terminal_private_v1_runtime_proto_rawDesc = "" +
 	"\x12coordination_state\x18\x01 \x01(\v2..fallout.terminal.private.v1.CoordinationStateR\x11coordinationState\"s\n" +
 	"\x11SessionStateEvent\x12\x1a\n" +
 	"\brevision\x18\x01 \x01(\x04R\brevision\x12B\n" +
-	"\asession\x18\x02 \x01(\v2(.fallout.terminal.persistence.v1.SessionR\asessionB[ZYgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
+	"\asession\x18\x02 \x01(\v2(.fallout.terminal.persistence.v1.SessionR\asessionB^Z\\github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
 
 var (
 	file_fallout_terminal_private_v1_runtime_proto_rawDescOnce sync.Once

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/buildtool"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/buildtool"
 )
 
 func main() {
@@ -47,6 +47,8 @@ func (e *usageError) Error() string {
 type packageAllOptions struct {
 	output string
 }
+
+var inspectReleaseArchiveVersion = buildtool.InspectReleaseArchiveVersion
 
 func run(ctx context.Context, root string, arguments []string) error {
 	if len(arguments) == 0 {
@@ -95,21 +97,21 @@ func run(ctx context.Context, root string, arguments []string) error {
 		if err != nil {
 			return err
 		}
-		prerelease, err := buildtool.ValidateReleaseTag(tag)
+		version, err := buildtool.ParseReleaseTag(tag)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("==> valid release tag: %s prerelease=%t\n", tag, prerelease)
+		fmt.Println(version.Canonical)
 		return nil
 	case "inspect-release-archive":
-		target, archive, err := parseReleaseArchiveOptions(action, actionArguments)
+		target, archive, version, err := parseReleaseArchiveOptions(action, actionArguments)
 		if err != nil {
 			return err
 		}
-		if err := buildtool.InspectReleaseArchive(ctx, target, archive); err != nil {
+		if err := inspectReleaseArchiveVersion(ctx, target, archive, version); err != nil {
 			return err
 		}
-		fmt.Printf("==> eligible release archive: %s %s\n", target, archive)
+		fmt.Printf("==> verified release archive: %s %s version=%s\n", target, archive, version)
 		return nil
 	case "inspect-release-inventory":
 		directory, err := parseRequiredStringFlag(action, actionArguments, "directory")
@@ -148,31 +150,47 @@ func parseRequiredStringFlag(action string, arguments []string, name string) (st
 	return value, nil
 }
 
-func parseReleaseArchiveOptions(action string, arguments []string) (buildtool.Target, string, error) {
+func parseReleaseArchiveOptions(action string, arguments []string) (buildtool.Target, string, string, error) {
 	flags := flag.NewFlagSet(action, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	var rawTarget string
 	var archive string
+	var version string
 	flags.StringVar(&rawTarget, "target", "", "exact GOOS/GOARCH release target")
 	flags.StringVar(&archive, "archive", "", "release archive path")
+	flags.StringVar(&version, "version", "", "expected canonical release version")
 	if err := flags.Parse(arguments); err != nil {
-		return buildtool.Target{}, "", newUsageError(fmt.Sprintf("%s flags: %v", action, err))
+		return buildtool.Target{}, "", "", newUsageError(fmt.Sprintf("%s flags: %v", action, err))
 	}
 	if flags.NArg() != 0 {
-		return buildtool.Target{}, "", newUsageError(fmt.Sprintf("%s accepts only --target and --archive", action))
+		return buildtool.Target{}, "", "", newUsageError(fmt.Sprintf("%s accepts only --target, --archive, and --version", action))
+	}
+	versionProvided := false
+	flags.Visit(func(parsed *flag.Flag) {
+		versionProvided = versionProvided || parsed.Name == "version"
+	})
+	if !versionProvided {
+		return buildtool.Target{}, "", "", newUsageError("inspect-release-archive requires --version <canonical>")
+	}
+	if version == "" {
+		return buildtool.Target{}, "", "", newUsageError("--version must not be empty")
 	}
 	if rawTarget == "" || archive == "" {
-		return buildtool.Target{}, "", newUsageError("inspect-release-archive requires non-empty --target and --archive values")
+		return buildtool.Target{}, "", "", newUsageError("inspect-release-archive requires non-empty --target, --archive, and --version values")
 	}
 	goos, goarch, found := strings.Cut(rawTarget, "/")
 	if !found || strings.Contains(goarch, "/") {
-		return buildtool.Target{}, "", newUsageError(fmt.Sprintf("invalid --target %q (want GOOS/GOARCH)", rawTarget))
+		return buildtool.Target{}, "", "", newUsageError(fmt.Sprintf("invalid --target %q (want GOOS/GOARCH)", rawTarget))
 	}
 	target, err := buildtool.ParseTarget(goos, goarch)
 	if err != nil {
-		return buildtool.Target{}, "", newUsageError(err.Error())
+		return buildtool.Target{}, "", "", newUsageError(err.Error())
 	}
-	return target, archive, nil
+	resolved, err := buildtool.ResolveBuildVersion(version)
+	if err != nil || !resolved.IsRelease {
+		return buildtool.Target{}, "", "", newUsageError(fmt.Sprintf("invalid --version %q: %v", version, err))
+	}
+	return target, archive, resolved.Canonical, nil
 }
 
 func runPackageAllDocker(ctx context.Context, root string, options packageAllOptions) error {
@@ -290,7 +308,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-container --target GOOS/GOARCH")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build prepare")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all-docker [--output <directory>]")
-	fmt.Fprintln(os.Stderr, "  go run ./cmd/build validate-release-tag --tag <vMAJOR.MINOR.PATCH[-PRERELEASE]>")
-	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-archive --target GOOS/GOARCH --archive <path>")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build validate-release-tag --tag <v2.MINOR.PATCH[-PRERELEASE]>")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-archive --target GOOS/GOARCH --archive <path> --version <canonical>")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-inventory --directory <path>")
 }

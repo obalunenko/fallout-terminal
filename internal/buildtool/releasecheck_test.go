@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateReleaseTagUsesStrictSemVer(t *testing.T) {
+func TestValidateReleaseTagUsesStrictV2SemVer(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -24,19 +24,21 @@ func TestValidateReleaseTagUsesStrictSemVer(t *testing.T) {
 		prerelease bool
 		valid      bool
 	}{
-		{tag: "v1.2.3", valid: true},
-		{tag: "v0.0.0-rc.1", prerelease: true, valid: true},
-		{tag: "v1.2.3-beta.1", prerelease: true, valid: true},
+		{tag: "v2.0.0", valid: true},
+		{tag: "v2.1.3-beta.1", prerelease: true, valid: true},
+		{tag: "v0.0.0-rc.1"},
+		{tag: "v1.2.3"},
+		{tag: "v3.0.0"},
 		{tag: "1.2.3"},
 		{tag: "v01.2.3"},
-		{tag: "v1.02.3"},
-		{tag: "v1.2.03"},
-		{tag: "v1.2.3-01"},
-		{tag: "v1.2.3-"},
-		{tag: "v1.2.3+build.1"},
+		{tag: "v2.02.3"},
+		{tag: "v2.2.03"},
+		{tag: "v2.2.3-01"},
+		{tag: "v2.2.3-"},
+		{tag: "v2.2.3+build.1"},
 		{tag: "vnext"},
-		{tag: "V1.2.3"},
-		{tag: " v1.2.3"},
+		{tag: "V2.2.3"},
+		{tag: " v2.2.3"},
 	}
 
 	for _, test := range tests {
@@ -50,6 +52,134 @@ func TestValidateReleaseTagUsesStrictSemVer(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, test.prerelease, prerelease)
+		})
+	}
+}
+
+func TestParseReleaseTagDerivesCanonicalRepresentations(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		tag             string
+		canonical       string
+		numericCore     string
+		numericFourPart string
+		prerelease      bool
+		wantErr         bool
+	}{
+		{
+			name:            "stable",
+			tag:             "v2.0.0",
+			canonical:       "2.0.0",
+			numericCore:     "2.0.0",
+			numericFourPart: "2.0.0.0",
+		},
+		{
+			name:            "prerelease",
+			tag:             "v2.1.3-beta.1",
+			canonical:       "2.1.3-beta.1",
+			numericCore:     "2.1.3",
+			numericFourPart: "2.1.3.0",
+			prerelease:      true,
+		},
+		{name: "non-v2 major zero", tag: "v0.0.0-rc.1", wantErr: true},
+		{name: "non-v2 major one", tag: "v1.2.3", wantErr: true},
+		{name: "non-v2 major three", tag: "v3.0.0", wantErr: true},
+		{name: "missing prefix", tag: "2.0.0", wantErr: true},
+		{name: "leading-zero major", tag: "v02.0.0", wantErr: true},
+		{name: "leading-zero minor", tag: "v2.00.0", wantErr: true},
+		{name: "leading-zero patch", tag: "v2.0.00", wantErr: true},
+		{name: "leading-zero numeric prerelease", tag: "v2.0.0-rc.01", wantErr: true},
+		{name: "build metadata", tag: "v2.0.0+build.1", wantErr: true},
+		{name: "empty prerelease", tag: "v2.0.0-", wantErr: true},
+		{name: "surrounding whitespace", tag: " v2.0.0 ", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			version, err := ParseReleaseTag(test.tag)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.canonical, version.Canonical)
+			assert.Equal(t, test.numericCore, version.NumericCore)
+			assert.Equal(t, test.numericFourPart, version.NumericFourPart)
+			assert.Equal(t, test.prerelease, version.Prerelease)
+			assert.True(t, version.IsRelease)
+		})
+	}
+}
+
+func TestResolveBuildVersionSelectsStrictReleaseOrLocalMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name            string
+		input           string
+		canonical       string
+		numericCore     string
+		numericFourPart string
+		prerelease      bool
+		isRelease       bool
+		wantErr         bool
+	}{
+		{
+			name:            "empty local version",
+			canonical:       "development",
+			numericCore:     "0.0.0",
+			numericFourPart: "0.0.0.0",
+		},
+		{
+			name:            "stable release version",
+			input:           "2.0.0",
+			canonical:       "2.0.0",
+			numericCore:     "2.0.0",
+			numericFourPart: "2.0.0.0",
+			isRelease:       true,
+		},
+		{
+			name:            "prerelease version",
+			input:           "2.0.0-rc.1",
+			canonical:       "2.0.0-rc.1",
+			numericCore:     "2.0.0",
+			numericFourPart: "2.0.0.0",
+			prerelease:      true,
+			isRelease:       true,
+		},
+		{name: "explicit development is not release input", input: "development", wantErr: true},
+		{name: "tag prefix is forbidden", input: "v2.0.0", wantErr: true},
+		{name: "non-v2 major", input: "1.2.3", wantErr: true},
+		{name: "future major", input: "3.0.0", wantErr: true},
+		{name: "leading-zero major", input: "02.0.0", wantErr: true},
+		{name: "leading-zero minor", input: "2.00.0", wantErr: true},
+		{name: "leading-zero patch", input: "2.0.00", wantErr: true},
+		{name: "leading-zero numeric prerelease", input: "2.0.0-rc.01", wantErr: true},
+		{name: "build metadata", input: "2.0.0+build.1", wantErr: true},
+		{name: "missing patch", input: "2.0", wantErr: true},
+		{name: "empty prerelease", input: "2.0.0-", wantErr: true},
+		{name: "surrounding whitespace", input: " 2.0.0 ", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			version, err := ResolveBuildVersion(test.input)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.canonical, version.Canonical)
+			assert.Equal(t, test.numericCore, version.NumericCore)
+			assert.Equal(t, test.numericFourPart, version.NumericFourPart)
+			assert.Equal(t, test.prerelease, version.Prerelease)
+			assert.Equal(t, test.isRelease, version.IsRelease)
 		})
 	}
 }

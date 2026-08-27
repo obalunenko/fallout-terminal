@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	"github.com/obalunenko/Fallout-Terminal/internal/testutil"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,12 +74,14 @@ func TestCreateLoadSaveAndReusePlayerConfig(t *testing.T) {
 	loaded := service.LoadReferenced(sessionPath, reference)
 	require.Falsef(t, !loaded.OK || loaded.Config == nil || !cmp.Equal(loaded.Config.Roster, wantRoster),
 		"LoadReferenced() = %#v", loaded)
+	require.Equal(t, 1, loaded.Config.Version)
 	require.Equal(t, refreshedHandle.ContentDigest, loaded.ContentDigest)
 
 	dialog.OpenResult = target
 	opened := service.Open(t.Context())
 	require.Falsef(t, !opened.OK || opened.Config == nil || !cmp.Equal(opened.Config.Roster, wantRoster),
 		"Open() shared config = %#v", opened)
+	require.Equal(t, 1, opened.Config.Version)
 	require.Equal(t, refreshedHandle.ContentDigest, opened.ContentDigest)
 }
 
@@ -216,21 +218,44 @@ func TestPlayerConfigCancellationAndFailuresAreNonMutating(t *testing.T) {
 func TestPlayerConfigRejectsUnknownFieldsWithoutReplacingKnownFile(t *testing.T) {
 	t.Parallel()
 
-	fs := testutil.NewFakeFileSystem()
-	root := t.TempDir()
-	target := filepath.Join(root, "players.json")
-	unknown := []byte(`{"version":1,"name":"Players","roster":[],"futureCapability":true}`)
-	fs.SeedFile(target, unknown)
-	service := NewService(NewStorage(fs), &testutil.FakeDialog{OpenResult: target}, root)
+	tests := []struct {
+		name   string
+		source []byte
+	}{
+		{
+			name:   "top-level field",
+			source: []byte(`{"version":1,"name":"Players","roster":[],"futureCapability":true}`),
+		},
+		{
+			name: "nested roster field",
+			source: []byte(`{"version":1,"name":"Players","roster":[{` +
+				`"id":"mara","name":"Mara","intelligence":8,"hackerPerkAvailable":true,"futureCapability":{"keep":true}}]}`),
+		},
+	}
 
-	result := service.Open(t.Context())
-	require.False(t, result.OK)
-	require.False(t, result.Canceled)
-	require.Nil(t, result.Config)
-	require.Contains(t, result.Error, "not a valid version-1 player config")
-	stored, ok := fs.File(target)
-	require.True(t, ok)
-	require.Equal(t, unknown, stored)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := testutil.NewFakeFileSystem()
+			root := t.TempDir()
+			target := filepath.Join(root, "players.json")
+			fs.SeedFile(target, test.source)
+			service := NewService(NewStorage(fs), &testutil.FakeDialog{OpenResult: target}, root)
+
+			result := service.Open(t.Context())
+			require.False(t, result.OK)
+			require.False(t, result.Canceled)
+			require.Nil(t, result.Config)
+			require.Contains(t, result.Error, "not a valid version-1 player config")
+			require.Empty(t, fs.WriteCalls(), "rejected source must not be rewritten")
+			require.Empty(t, fs.RenameCalls(), "rejected source must not be replaced")
+			require.Empty(t, fs.RemoveCalls(), "rejected source must not be removed")
+			stored, ok := fs.File(target)
+			require.True(t, ok)
+			require.Equal(t, test.source, stored)
+		})
+	}
 }
 
 func TestCompleteCandidateSaveFailurePublishesNoSuccessfulConfig(t *testing.T) {

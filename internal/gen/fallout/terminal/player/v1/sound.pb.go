@@ -203,7 +203,7 @@ const file_fallout_terminal_player_v1_sound_proto_rawDesc = "" +
 	"\x15SOUND_CATEGORY_SINGLE\x10\x05\x12\x1b\n" +
 	"\x17SOUND_CATEGORY_MULTIPLE\x10\x06\x12\x18\n" +
 	"\x14SOUND_CATEGORY_ENTER\x10\a\x12\x1d\n" +
-	"\x19SOUND_CATEGORY_CHARSCROLL\x10\bBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
+	"\x19SOUND_CATEGORY_CHARSCROLL\x10\bB\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
 	file_fallout_terminal_player_v1_sound_proto_rawDescOnce sync.Once

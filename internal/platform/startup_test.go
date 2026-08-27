@@ -136,7 +136,7 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 			},
 		},
 		{".dockerignore", []string{".git", "**/node_modules", "build/dist", "**/.env*"}},
-		{"build/darwin/Info.plist", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns"}},
+		{"build/darwin/Info.plist.tmpl", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns", "{{VERSION}}", "{{NUMERIC_CORE}}"}},
 		{"build/darwin/Info.dev.plist", []string{"com.vaulttec.fallout-terminal", "13.0", "icon.icns"}},
 		{"build/darwin/entitlements.plist", []string{"com.apple.security.network.server"}},
 	}
@@ -165,6 +165,8 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 			}
 		})
 	}
+	assert.NoFileExists(t, filepath.Join(root, "build", "darwin", "Info.plist"))
+	assert.FileExists(t, filepath.Join(root, "build", "darwin", "Info.dev.plist"))
 
 	for _, path := range []string{
 		"Taskfile.yaml",
@@ -350,18 +352,20 @@ func TestGoPackageOutputDeploymentTargetAndFinalSignOrderAreExplicit(t *testing.
 		assert.Contains(t, buildSource, required)
 	}
 
-	metadata := readAcceptanceDocument(t, filepath.Join(root, "build", "darwin", "Info.plist"))
+	metadata := readAcceptanceDocument(t, filepath.Join(root, "build", "darwin", "Info.plist.tmpl"))
 	assert.Contains(t, metadata, "<key>LSMinimumSystemVersion</key>")
 	assert.Contains(t, metadata, "<string>13.0</string>")
 	assert.Contains(t, metadata, "<string>icon.icns</string>")
+	assert.Contains(t, metadata, "<string>{{VERSION}}</string>")
+	assert.Contains(t, metadata, "<string>{{NUMERIC_CORE}}</string>")
 
-	packageStart := strings.Index(buildSource, "func packageSteps() []Step {")
+	packageStart := strings.Index(buildSource, "func packageSteps(version ReleaseVersion) []Step {")
 	require.NotEqual(t, -1, packageStart)
 	packageEnd := strings.Index(buildSource[packageStart:], "\nfunc compileStep(")
 	require.NotEqual(t, -1, packageEnd)
 	packageSource := buildSource[packageStart : packageStart+packageEnd]
 	installDemo := strings.Index(packageSource, `Name: "install bundled demo"`)
-	compile := strings.Index(packageSource, `compileStep(DefaultTarget(), executable)`)
+	compile := strings.Index(packageSource, `versionedCompileStep(DefaultTarget(), executable, version)`)
 	sign := strings.Index(packageSource, `commandStep("sign completed application bundle"`)
 	require.NotEqual(t, -1, installDemo)
 	require.NotEqual(t, -1, compile)
@@ -464,6 +468,44 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 		} {
 			assert.Contains(t, document, required)
 		}
+	}
+
+	for _, guidance := range []struct {
+		name       string
+		document   string
+		majorMatch string
+	}{
+		{
+			name:       "README",
+			document:   readme,
+			majorMatch: "Major-версия release tag должна совпадать с major-версией корневого Go-модуля",
+		},
+		{
+			name:       "platform packaging guide",
+			document:   packaging,
+			majorMatch: "The tag major must match the root Go module major",
+		},
+	} {
+		t.Run(guidance.name+" release version contract", func(t *testing.T) {
+			t.Parallel()
+
+			normalized := strings.Join(strings.Fields(guidance.document), " ")
+			for _, required := range []string{
+				"v2.0.0",
+				"v2.0.0-rc.1",
+				"github.com/obalunenko/Fallout-Terminal/v2",
+				"VERSION=2.0.0",
+				"VERSION=2.0.0-rc.1",
+				"development",
+				guidance.majorMatch,
+			} {
+				assert.Contains(t, normalized, required)
+			}
+			assert.NotContains(t, normalized, "VERSION=v2.", "canonical VERSION must omit the tag's leading v")
+			lower := strings.ToLower(normalized)
+			assert.True(t, strings.Contains(lower, "local") || strings.Contains(lower, "локаль"),
+				"%s must identify development as local non-release behavior", guidance.name)
+		})
 	}
 
 	for _, required := range []string{

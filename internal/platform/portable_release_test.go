@@ -196,6 +196,45 @@ func TestPortableReleaseWorkflowIsTagOnlyCreateOnlyFiveTargetCoordination(t *tes
 	assert.GreaterOrEqual(t, strings.Count(workflow, "gh api --paginate"), 3, "preflight, pre-publish, and failure diagnosis must inspect all release states")
 }
 
+func TestPortableReleaseWorkflowPropagatesOneCanonicalVersionBeforeUpload(t *testing.T) {
+	t.Parallel()
+
+	workflow := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), ".github", "workflows", "wails-portable.yml"))
+	preflightStart := strings.Index(workflow, "\n  preflight:")
+	packageStart := strings.Index(workflow, "\n  package:")
+	publishStart := strings.Index(workflow, "\n  publish:")
+	require.GreaterOrEqual(t, preflightStart, 0)
+	require.Greater(t, packageStart, preflightStart)
+	require.Greater(t, publishStart, packageStart)
+
+	preflight := workflow[preflightStart:packageStart]
+	packageJob := workflow[packageStart:publishStart]
+	for _, required := range []string{
+		"outputs:",
+		"version: ${{ steps.release-version.outputs.version }}",
+		"id: release-version",
+		`test -n "$VERSION"`,
+		`echo "version=$VERSION" >> "$GITHUB_OUTPUT"`,
+	} {
+		assert.Contains(t, preflight, required)
+	}
+	assert.Equal(t, 1, strings.Count(preflight, `>> "$GITHUB_OUTPUT"`), "preflight must export VERSION exactly once")
+	assert.Equal(t, 1, strings.Count(workflow, "validate-release-tag"), "only preflight may derive VERSION from the tag")
+
+	assert.Contains(t, packageJob, "VERSION: ${{ needs.preflight.outputs.version }}")
+	assert.Equal(t, 5, strings.Count(packageJob, "target: "), "the shared VERSION must cover every native matrix target")
+	assert.Contains(t, packageJob, `task package GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} VERSION="$VERSION"`)
+	assert.Contains(t, packageJob, `inspect-release-archive --target "${{ matrix.target }}" --archive "build/dist/${{ matrix.archive }}" --version "$VERSION"`)
+	for _, forbidden := range []string{"GITHUB_REF_NAME", "github.ref_name", "validate-release-tag"} {
+		assert.NotContains(t, packageJob, forbidden, "package targets must consume preflight VERSION without re-deriving it")
+	}
+
+	verification := strings.Index(packageJob, "inspect-release-archive")
+	upload := strings.Index(packageJob, "actions/upload-artifact@v4")
+	require.GreaterOrEqual(t, verification, 0)
+	require.Greater(t, upload, verification, "packaged version verification must succeed before upload")
+}
+
 func TestGoReleaserPublishesOnlyFivePrebuiltArchives(t *testing.T) {
 	t.Parallel()
 

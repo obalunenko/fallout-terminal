@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	"github.com/obalunenko/Fallout-Terminal/internal/testutil"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -981,7 +981,19 @@ func TestOpenAndSavePreserveUnknownFieldsAtExplicitPath(t *testing.T) {
     "hackLevel": 0,
     "introText": "",
     "terminalNote": 42,
-    "root": {"id":"root","type":"folder","name":"ROOT","children":[],"nodeNote":[1,2]}
+    "root": {
+      "id": "root",
+      "type": "folder",
+      "name": "ROOT",
+      "nodeNote": [1,2],
+      "children": [{
+        "id": "status",
+        "type": "command",
+        "name": "STATUS",
+        "text": "All systems nominal.",
+        "commandNote": {"nested": ["keep"]}
+      }]
+    }
   }]
 }`)
 	fileSystem.SeedFile(target, raw)
@@ -992,6 +1004,11 @@ func TestOpenAndSavePreserveUnknownFieldsAtExplicitPath(t *testing.T) {
 	opened := service.Open(t.Context())
 	require.True(t, opened.OK, "Open() = %#v", opened)
 	require.NotNil(t, opened.Session)
+	assert.Equal(t, 1, opened.Session.Version)
+	assert.JSONEq(t, `{"keep":true}`, string(opened.Session.Extra["campaignNote"]))
+	assert.JSONEq(t, `42`, string(opened.Session.Terminals[0].Extra["terminalNote"]))
+	assert.JSONEq(t, `[1,2]`, string(opened.Session.Terminals[0].Root.Extra["nodeNote"]))
+	assert.JSONEq(t, `{"nested":["keep"]}`, string(opened.Session.Terminals[0].Root.Children[0].Extra["commandNote"]))
 	edited := *opened.Session
 	edited.Name = "after"
 	saved := service.Save(t.Context(), edited, 1)
@@ -1000,12 +1017,22 @@ func TestOpenAndSavePreserveUnknownFieldsAtExplicitPath(t *testing.T) {
 	assert.Equal(t, uint64(1), saved.RequestedRevision)
 	assert.Equal(t, uint64(1), saved.SavedRevision)
 	written := fileSystemFileData(t, fileSystem, target)
-	for _, field := range []string{"campaignNote", "terminalNote", "nodeNote"} {
+	for _, field := range []string{"campaignNote", "terminalNote", "nodeNote", "commandNote"} {
 		assert.Contains(t, string(written), `"`+field+`"`)
 	}
 	decoded, err := domain.DecodeSession(written)
 	require.NoError(t, err)
+	assert.Equal(t, 1, decoded.Version)
 	assert.Equal(t, "after", decoded.Name)
+	reopened := service.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, decoded, *reopened.Session)
+	assert.Equal(t, 1, reopened.Session.Version)
+	assert.JSONEq(t, `{"keep":true}`, string(reopened.Session.Extra["campaignNote"]))
+	assert.JSONEq(t, `42`, string(reopened.Session.Terminals[0].Extra["terminalNote"]))
+	assert.JSONEq(t, `[1,2]`, string(reopened.Session.Terminals[0].Root.Extra["nodeNote"]))
+	assert.JSONEq(t, `{"nested":["keep"]}`, string(reopened.Session.Terminals[0].Root.Children[0].Extra["commandNote"]))
 	for _, rename := range fileSystem.RenameCalls() {
 		assert.Equal(t, target, rename.NewPath)
 	}

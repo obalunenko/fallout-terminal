@@ -19,6 +19,7 @@ type PackagePlan struct {
 	payloadRoot        string
 	outputPath         string
 	checksumPath       string
+	version            ReleaseVersion
 	temporaryPaths     []string
 	actions            []Step
 	failureCleanupPath []string
@@ -28,10 +29,21 @@ type PackagePlan struct {
 // constructs the target-isolated paths used by later resource, archive, and
 // verification stages.
 func NewPackagePlan(target Target, host Host) (PackagePlan, error) {
+	version, err := ResolveBuildVersion(os.Getenv(packageVersionEnvironmentCanonical))
+	if err != nil {
+		return PackagePlan{}, fmt.Errorf("resolve package VERSION: %w", err)
+	}
+	return newPackagePlan(target, host, version)
+}
+
+func newPackagePlan(target Target, host Host, version ReleaseVersion) (PackagePlan, error) {
 	if !target.Portable() {
 		return PackagePlan{}, fmt.Errorf("portable package plan requires a supported release target, got %s", target)
 	}
 	if err := ValidateHost(target, host); err != nil {
+		return PackagePlan{}, err
+	}
+	if err := validatePackageVersion(version); err != nil {
 		return PackagePlan{}, err
 	}
 
@@ -42,7 +54,12 @@ func NewPackagePlan(target Target, host Host) (PackagePlan, error) {
 	checksumPath := outputPath + ".sha256"
 	temporaryPaths := []string{outputPath + ".partial", checksumPath + ".partial"}
 	if target.OS() == goosWindows {
-		temporaryPaths = append(temporaryPaths, windowsIconPath(target), windowsSysoPath(target))
+		temporaryPaths = append(
+			temporaryPaths,
+			windowsIconPath(target),
+			windowsSysoPath(target),
+			windowsMetadataRoot(target),
+		)
 	}
 
 	plan := PackagePlan{
@@ -52,6 +69,7 @@ func NewPackagePlan(target Target, host Host) (PackagePlan, error) {
 		payloadRoot:    payloadRoot,
 		outputPath:     outputPath,
 		checksumPath:   checksumPath,
+		version:        version,
 		temporaryPaths: append([]string(nil), temporaryPaths...),
 	}
 	plan.failureCleanupPath = append([]string{stageRoot, outputPath, checksumPath}, temporaryPaths...)
@@ -173,7 +191,21 @@ func portablePackageActions(plan PackagePlan) []Step {
 	if plan.target.OS() == goosWindows {
 		icon := windowsIconPath(plan.target)
 		syso := windowsSysoPath(plan.target)
+		manifest := windowsManifestPath(plan.target)
+		info := windowsInfoPath(plan.target)
 		actions = append(actions,
+			versionTemplateStep(
+				"render "+plan.target.String()+" application manifest",
+				filepath.Join("build", "windows", "app.manifest.tmpl"),
+				manifest,
+				plan.version,
+			),
+			versionTemplateStep(
+				"render "+plan.target.String()+" version information",
+				filepath.Join("build", "windows", "info.json.tmpl"),
+				info,
+				plan.version,
+			),
 			commandStep(
 				"generate "+plan.target.String()+" application icon",
 				"go", "tool", "-modfile=tools/wails/go.mod", "wails3", "generate", "icons",
@@ -186,14 +218,14 @@ func portablePackageActions(plan PackagePlan) []Step {
 				"go", "tool", "-modfile=tools/wails/go.mod", "wails3", "generate", "syso",
 				"-arch", plan.target.Arch(),
 				"-icon", icon,
-				"-manifest", filepath.Join("build", "windows", "app.manifest"),
-				"-info", filepath.Join("build", "windows", "info.json"),
+				"-manifest", manifest,
+				"-info", info,
 				"-out", syso,
 			),
 		)
 	}
 	executable := filepath.Join(plan.payloadRoot, plan.target.ExecutableName())
-	actions = append(actions, compileStep(plan.target, executable))
+	actions = append(actions, versionedCompileStep(plan.target, executable, plan.version))
 	if plan.target.OS() == goosLinux {
 		actions = append(actions, Step{Name: "make Linux application executable", Operation: changeMode, Path: executable, Mode: 0o755})
 	}
@@ -220,7 +252,12 @@ func darwinPortablePackageActions(plan PackagePlan) []Step {
 		Step{Name: "create portable application root", Operation: makeDirectory, Path: plan.payloadRoot, Mode: 0o755},
 		Step{Name: "create Darwin application executable directory", Operation: makeDirectory, Path: macOS, Mode: 0o755},
 		Step{Name: "create Darwin bundled session directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
-		Step{Name: "install Darwin application metadata", Operation: copyFile, Source: filepath.Join("build", "darwin", "Info.plist"), Destination: filepath.Join(contents, "Info.plist"), Mode: 0o644},
+		versionTemplateStep(
+			"render Darwin application metadata",
+			filepath.Join("build", "darwin", "Info.plist.tmpl"),
+			filepath.Join(contents, "Info.plist"),
+			plan.version,
+		),
 		commandStep(
 			"install Darwin application icon",
 			"go", "tool", "-modfile=tools/wails/go.mod", "wails3", "generate", "icons",
@@ -231,7 +268,7 @@ func darwinPortablePackageActions(plan PackagePlan) []Step {
 		Step{Name: "install Darwin third-party notices", Operation: copyFile, Source: "THIRD_PARTY_NOTICES.md", Destination: filepath.Join(resources, "THIRD_PARTY_NOTICES.md"), Mode: 0o444},
 		Step{Name: "install Darwin bundled demo player config", Operation: copyFile, Source: filepath.Join("sessions", "demo-players.json"), Destination: filepath.Join(resources, "sessions", "demo-players.json"), Mode: 0o444},
 		Step{Name: "install Darwin bundled demo", Operation: copyFile, Source: filepath.Join("sessions", "demo.json"), Destination: filepath.Join(resources, "sessions", "demo.json"), Mode: 0o444},
-		compileStep(plan.target, executable),
+		versionedCompileStep(plan.target, executable, plan.version),
 		Step{Name: "make Darwin application executable", Operation: changeMode, Path: executable, Mode: 0o755},
 	)
 	return actions
@@ -283,7 +320,8 @@ func ownedRemovalPath(root, resolved string) bool {
 	}
 	for _, target := range PortableTargets() {
 		stage := filepath.Join(cleanRoot, "build", "bin", target.OS()+"-"+target.Arch(), "stage")
-		if resolved == stage {
+		metadata := filepath.Join(cleanRoot, windowsMetadataRoot(target))
+		if resolved == stage || (target.OS() == goosWindows && resolved == metadata) {
 			return true
 		}
 	}

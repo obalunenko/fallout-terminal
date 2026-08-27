@@ -1,6 +1,7 @@
 package buildtool
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -8,6 +9,62 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateRootRequiresExactV2ApplicationModule(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		module  string
+		wantErr bool
+	}{
+		{
+			name:   "exact v2 module",
+			module: "module github.com/obalunenko/Fallout-Terminal/v2\n\ngo 1.27.0\n",
+		},
+		{
+			name:    "unsuffixed module",
+			module:  "module github.com/obalunenko/Fallout-Terminal\n\ngo 1.27.0\n",
+			wantErr: true,
+		},
+		{
+			name:    "substring major",
+			module:  "module github.com/obalunenko/Fallout-Terminal/v20\n\ngo 1.27.0\n",
+			wantErr: true,
+		},
+		{
+			name:    "identity only in comment",
+			module:  "module example.com/application\n\ngo 1.27.0\n\n// module github.com/obalunenko/Fallout-Terminal/v2\n",
+			wantErr: true,
+		},
+		{
+			name:    "v1 module",
+			module:  "module github.com/obalunenko/Fallout-Terminal/v1\n\ngo 1.27.0\n",
+			wantErr: true,
+		},
+		{
+			name:    "v3 module",
+			module:  "module github.com/obalunenko/Fallout-Terminal/v3\n\ngo 1.27.0\n",
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte(test.module), 0o600))
+
+			err := validateRoot(root)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
 
 func TestBuildPlanHasOneOrderedOwnerAndPortableToolInvocation(t *testing.T) {
 	steps, err := Plan("build", nil)
@@ -229,6 +286,86 @@ func TestPackagePlanCompletesResourcesBeforeFinalSignature(t *testing.T) {
 		"-",
 		filepath.Join("build", "bin", applicationName+".app"),
 	}, signature.Arguments)
+}
+
+func TestImplicitPackagePlanUsesOneVersionForMetadataAndExecutable(t *testing.T) {
+	tests := []struct {
+		name            string
+		input           string
+		canonical       string
+		numericCore     string
+		numericFourPart string
+		release         bool
+	}{
+		{
+			name:            "stable release",
+			input:           "2.4.6",
+			canonical:       "2.4.6",
+			numericCore:     "2.4.6",
+			numericFourPart: "2.4.6.0",
+			release:         true,
+		},
+		{
+			name:            "prerelease",
+			input:           "2.4.6-rc.2",
+			canonical:       "2.4.6-rc.2",
+			numericCore:     "2.4.6",
+			numericFourPart: "2.4.6.0",
+			release:         true,
+		},
+		{
+			name:            "local development",
+			canonical:       "development",
+			numericCore:     "0.0.0",
+			numericFourPart: "0.0.0.0",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv(packageVersionEnvironmentCanonical, test.input)
+
+			steps, err := Plan("package", nil)
+			require.NoError(t, err)
+
+			positions := make(map[string]int, len(steps))
+			for index, step := range steps {
+				positions[step.Name] = index
+			}
+			metadataIndex, found := positions["install application metadata"]
+			require.True(t, found)
+			metadata := steps[metadataIndex]
+			assert.Equal(t, renderTemplate, metadata.Operation)
+			assert.Equal(t, filepath.Join("build", "darwin", "Info.plist.tmpl"), metadata.Source)
+			assert.Equal(t,
+				filepath.Join("build", "bin", applicationName+".app", "Contents", "Info.plist"),
+				metadata.Destination,
+			)
+			assert.Equal(t, map[string]string{
+				packageVersionEnvironmentCanonical:       test.canonical,
+				packageVersionEnvironmentNumericCore:     test.numericCore,
+				packageVersionEnvironmentNumericFourPart: test.numericFourPart,
+			}, metadata.Environment)
+
+			compileIndex, found := positions["compile macOS arm64 application"]
+			require.True(t, found)
+			assert.Less(t, metadataIndex, compileIndex)
+			compile := steps[compileIndex]
+			arguments := strings.Join(compile.Arguments, " ")
+			linkerVersion := applicationModule + "/internal/version.value=" + test.canonical
+			if test.release {
+				assert.Contains(t, arguments, linkerVersion)
+			} else {
+				assert.NotContains(t, arguments, applicationModule+"/internal/version.value=")
+			}
+		})
+	}
+
+	t.Run("malformed release version", func(t *testing.T) {
+		t.Setenv(packageVersionEnvironmentCanonical, "v2.4.6")
+		_, err := Plan("package", nil)
+		require.ErrorContains(t, err, "resolve package VERSION")
+	})
 }
 
 func TestPackagePlanOwnsEmbeddedDependencyNoticesAndNoProviderExecutable(t *testing.T) {

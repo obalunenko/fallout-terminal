@@ -128,7 +128,7 @@ const file_fallout_terminal_config_v1_public_access_proto_rawDesc = "" +
 	"\x1bprovider_token_present_hint\x18\x05 \x01(\bR\x18providerTokenPresentHint\x12?\n" +
 	"\x1cplayer_password_present_hint\x18\x06 \x01(\bR\x19playerPasswordPresentHint\x12\x1a\n" +
 	"\brevision\x18\a \x01(\x04R\brevisionB\x12\n" +
-	"\x10_reserved_domainBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1;configv1b\x06proto3"
+	"\x10_reserved_domainB\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1;configv1b\x06proto3"
 
 var (
 	file_fallout_terminal_config_v1_public_access_proto_rawDescOnce sync.Once

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

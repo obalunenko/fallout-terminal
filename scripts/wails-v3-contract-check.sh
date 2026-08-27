@@ -197,15 +197,15 @@ scan_lifecycle_schema() {
   runtime_digest="$(shasum -a 256 "$runtime_schema" | awk '{print $1}')"
   revision_digest="$(shasum -a 256 "$scan_root/proto/schema-revision.txt" | awk '{print $1}')"
   baseline_digest="$(shasum -a 256 "$scan_root/proto/compatibility-baseline.binpb" | awk '{print $1}')"
-  [[ "$runtime_digest" == 4fd0b3ef31bd7ada1101ae36bfbd749acd36c53c4bc2da185d33dec4d4c669a9 ]] || {
+  [[ "$runtime_digest" == 6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54 ]] || {
     fail 'reviewed private runtime schema changed unexpectedly'
     return 1
   }
-  [[ "$revision_digest" == 4211c6a2f25e6ebf72aa2b28c2b564d45b9d5df077ffa62f55c25f9de2864522 ]] || {
+  [[ "$revision_digest" == bc1f1e0877773622d41658369e7e07e41437c51c19a9e8e2288310a8fc311bfc ]] || {
     fail 'reviewed schema revision record changed unexpectedly'
     return 1
   }
-  [[ "$baseline_digest" == 50b88cc9e08a189012925e1a97094d1e097b223e591aca8acb856ba0daf099f3 ]] || {
+  [[ "$baseline_digest" == 30054bd49c608bf2d4696e788775bf3dbbc0d7b4fdf69cc2f2cbd21a417ff44d ]] || {
     fail 'reviewed feature-007 compatibility baseline changed unexpectedly'
     return 1
   }

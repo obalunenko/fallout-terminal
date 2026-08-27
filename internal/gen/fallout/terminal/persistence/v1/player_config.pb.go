@@ -164,7 +164,7 @@ const file_fallout_terminal_persistence_v1_player_config_proto_rawDesc = "" +
 	"\fPlayerConfig\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12D\n" +
-	"\x06roster\x18\x03 \x03(\v2,.fallout.terminal.persistence.v1.RosterEntryR\x06rosterBcZagithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1;persistencev1b\x06proto3"
+	"\x06roster\x18\x03 \x03(\v2,.fallout.terminal.persistence.v1.RosterEntryR\x06rosterBfZdgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1;persistencev1b\x06proto3"
 
 var (
 	file_fallout_terminal_persistence_v1_player_config_proto_rawDescOnce sync.Once

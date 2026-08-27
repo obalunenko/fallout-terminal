@@ -21,6 +21,8 @@ const (
 	minimumMacOS    = "13.0"
 )
 
+const applicationModule = "github.com/obalunenko/Fallout-Terminal/v2"
+
 type operation uint8
 
 const (
@@ -30,6 +32,7 @@ const (
 	copyFile
 	changeMode
 	runPreflight
+	renderTemplate
 )
 
 // Step is one deterministic node in the repository build graph.
@@ -59,7 +62,7 @@ func Plan(action string, applicationArguments []string) ([]Step, error) {
 		steps := append(preparePlan(), developmentSteps()...)
 		return append(steps, commandStep("run development application", developmentExecutable(), applicationArguments...)), nil
 	case "package":
-		return append(preparePlan(), packageSteps()...), nil
+		return implicitPackagePlan()
 	default:
 		return nil, fmt.Errorf("unknown action %q (want dev, build, package, run, or prepare)", action)
 	}
@@ -92,7 +95,7 @@ func PlanForTarget(action string, target Target, applicationArguments []string) 
 			}
 			return plan.Actions(), nil
 		}
-		return append(preparePlan(), packageSteps()...), nil
+		return implicitPackagePlan()
 	default:
 		return nil, fmt.Errorf("unknown action %q (want dev, build, package, run, or prepare)", action)
 	}
@@ -159,7 +162,15 @@ func developmentExecutable() string {
 	return filepath.Join(developmentBundle(), "Contents", "MacOS", applicationName)
 }
 
-func packageSteps() []Step {
+func implicitPackagePlan() ([]Step, error) {
+	version, err := ResolveBuildVersion(os.Getenv(packageVersionEnvironmentCanonical))
+	if err != nil {
+		return nil, fmt.Errorf("resolve package VERSION: %w", err)
+	}
+	return append(preparePlan(), packageSteps(version)...), nil
+}
+
+func packageSteps(version ReleaseVersion) []Step {
 	app := filepath.Join("build", "bin", applicationName+".app")
 	contents := filepath.Join(app, "Contents")
 	macOS := filepath.Join(contents, "MacOS")
@@ -171,18 +182,35 @@ func packageSteps() []Step {
 		{Name: "remove previous application bundle", Operation: removeTree, Path: app},
 		{Name: "create application executable directory", Operation: makeDirectory, Path: macOS, Mode: 0o755},
 		{Name: "create bundled session directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
-		{Name: "install application metadata", Operation: copyFile, Source: filepath.Join("build", "darwin", "Info.plist"), Destination: filepath.Join(contents, "Info.plist"), Mode: 0o644},
+		versionTemplateStep(
+			"install application metadata",
+			filepath.Join("build", "darwin", "Info.plist.tmpl"),
+			filepath.Join(contents, "Info.plist"),
+			version,
+		),
 		commandStep("install application icon", "go", "tool", "-modfile=tools/wails/go.mod", "wails3", "generate", "icons", "-input", filepath.Join("build", "appicon.png"), "-macfilename", filepath.Join(resources, "icon.icns"), "-windowsfilename", filepath.Join(resources, "icon.ico")),
 		{Name: "install bundled demo player config", Operation: copyFile, Source: filepath.Join("sessions", "demo-players.json"), Destination: filepath.Join(resources, "sessions", "demo-players.json"), Mode: 0o444},
 		{Name: "install bundled demo", Operation: copyFile, Source: filepath.Join("sessions", "demo.json"), Destination: filepath.Join(resources, "sessions", "demo.json"), Mode: 0o444},
 		{Name: "install third-party notices", Operation: copyFile, Source: "THIRD_PARTY_NOTICES.md", Destination: filepath.Join(resources, "THIRD_PARTY_NOTICES.md"), Mode: 0o444},
-		compileStep(DefaultTarget(), executable),
+		versionedCompileStep(DefaultTarget(), executable, version),
 		{Name: "make application executable", Operation: changeMode, Path: executable, Mode: 0o755},
 		commandStep("sign completed application bundle", "/usr/bin/codesign", "--force", "--deep", "--options", "runtime", "--entitlements", filepath.Join("build", "darwin", "entitlements.plist"), "--sign", "-", app),
 	}
 }
 
 func compileStep(target Target, output string) Step {
+	return compileStepWithVersion(target, output, "")
+}
+
+func versionedCompileStep(target Target, output string, version ReleaseVersion) Step {
+	linkerVersion := ""
+	if version.IsRelease {
+		linkerVersion = version.Canonical
+	}
+	return compileStepWithVersion(target, output, linkerVersion)
+}
+
+func compileStepWithVersion(target Target, output, version string) Step {
 	name := "compile " + target.String() + " application"
 	if target == DefaultTarget() {
 		name = "compile macOS arm64 application"
@@ -191,7 +219,10 @@ func compileStep(target Target, output string) Step {
 	if target.OS() == goosWindows {
 		linkerFlags += " -H windowsgui"
 	}
-	step := commandStep(name, "go", "build", "-tags", strings.Join(target.BuildTags(), ","), "-trimpath", "-buildvcs=false", "-ldflags="+linkerFlags, "-o", output, ".")
+	if version != "" {
+		linkerFlags += " -X " + applicationModule + "/internal/version.value=" + version
+	}
+	step := commandStep(name, "go", "build", "-tags", strings.Join(target.BuildTags(), ","), "-trimpath", "-ldflags="+linkerFlags, "-o", output, ".")
 	step.Environment = compileEnvironment(target)
 	return step
 }
@@ -387,10 +418,17 @@ func validateRoot(root string) error {
 	if err != nil {
 		return fmt.Errorf("run from the repository root: %w", err)
 	}
-	if !strings.Contains(string(module), "module github.com/obalunenko/Fallout-Terminal") {
-		return errors.New("run from the Fallout-Terminal repository root")
+	for _, line := range strings.Split(string(module), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] != "module" {
+			continue
+		}
+		if len(fields) == 2 && fields[1] == applicationModule {
+			return nil
+		}
+		break
 	}
-	return nil
+	return errors.New("run from the Fallout-Terminal repository root")
 }
 
 func execute(ctx context.Context, root string, step Step) error {
@@ -428,6 +466,8 @@ func execute(ctx context.Context, root string, step Step) error {
 		return os.Chmod(target, step.Mode)
 	case runPreflight:
 		return executePreflight(ctx, root, step.preflight, step.target)
+	case renderTemplate:
+		return renderVersionTemplate(ctx, root, step)
 	default:
 		return fmt.Errorf("unsupported build operation %d", step.Operation)
 	}

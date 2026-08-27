@@ -16,23 +16,91 @@ import (
 	"strings"
 )
 
-var releaseTagPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
+const (
+	releaseMajorVersion     = "2"
+	developmentBuildVersion = "development"
+	maxReleaseExecutable    = 512 << 20
+	maxReleaseMetadata      = 1 << 20
+)
 
-// ValidateReleaseTag accepts the release workflow's strict SemVer subset and
-// reports whether the accepted version is a prerelease. Build metadata is not
-// accepted because a tag maps to one create-only GitHub Release identity.
-func ValidateReleaseTag(tag string) (bool, error) {
+var (
+	releaseTagPattern     = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
+	releaseVersionPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
+)
+
+// ReleaseVersion is the single validated identity used by executable and
+// platform metadata. Numeric fields are derived from Canonical and never act
+// as independent version inputs.
+type ReleaseVersion struct {
+	Canonical       string
+	NumericCore     string
+	NumericFourPart string
+	Prerelease      bool
+	IsRelease       bool
+}
+
+// ParseReleaseTag validates one strict v2 release tag and derives every
+// representation consumed by the package matrix.
+func ParseReleaseTag(tag string) (ReleaseVersion, error) {
 	matches := releaseTagPattern.FindStringSubmatch(tag)
 	if matches == nil {
-		return false, fmt.Errorf("invalid release tag %q (want vMAJOR.MINOR.PATCH with an optional SemVer prerelease suffix)", tag)
+		return ReleaseVersion{}, fmt.Errorf("invalid release tag %q (want v2.MINOR.PATCH with an optional SemVer prerelease suffix)", tag)
+	}
+	return releaseVersionFromMatches("release tag", tag, matches)
+}
+
+// ResolveBuildVersion validates a non-empty canonical release VERSION. Empty
+// input selects the explicit local development identity and zero-valued native
+// numeric representations.
+func ResolveBuildVersion(value string) (ReleaseVersion, error) {
+	if value == "" {
+		return ReleaseVersion{
+			Canonical:       developmentBuildVersion,
+			NumericCore:     "0.0.0",
+			NumericFourPart: "0.0.0.0",
+		}, nil
+	}
+	matches := releaseVersionPattern.FindStringSubmatch(value)
+	if matches == nil {
+		return ReleaseVersion{}, fmt.Errorf("invalid build VERSION %q (want 2.MINOR.PATCH with an optional SemVer prerelease suffix)", value)
+	}
+	return releaseVersionFromMatches("build VERSION", value, matches)
+}
+
+// ValidateReleaseTag accepts the release workflow's strict v2 SemVer subset
+// and reports whether the accepted version is a prerelease. Build metadata is
+// not accepted because a tag maps to one create-only GitHub Release identity.
+func ValidateReleaseTag(tag string) (bool, error) {
+	version, err := ParseReleaseTag(tag)
+	if err != nil {
+		return false, err
+	}
+	return version.Prerelease, nil
+}
+
+func releaseVersionFromMatches(kind, value string, matches []string) (ReleaseVersion, error) {
+	if matches[1] != releaseMajorVersion {
+		return ReleaseVersion{}, fmt.Errorf("invalid %s %q: release major must be %s", kind, value, releaseMajorVersion)
 	}
 	prerelease := matches[4]
 	for _, identifier := range strings.Split(prerelease, ".") {
 		if len(identifier) > 1 && identifier[0] == '0' && numericIdentifier(identifier) {
-			return false, fmt.Errorf("invalid release tag %q: numeric prerelease identifiers must not contain leading zeroes", tag)
+			return ReleaseVersion{}, fmt.Errorf("invalid %s %q: numeric prerelease identifiers must not contain leading zeroes", kind, value)
 		}
 	}
-	return prerelease != "", nil
+
+	numericCore := strings.Join(matches[1:4], ".")
+	canonical := numericCore
+	if prerelease != "" {
+		canonical += "-" + prerelease
+	}
+	return ReleaseVersion{
+		Canonical:       canonical,
+		NumericCore:     numericCore,
+		NumericFourPart: numericCore + ".0",
+		Prerelease:      prerelease != "",
+		IsRelease:       true,
+	}, nil
 }
 
 func numericIdentifier(value string) bool {
@@ -88,6 +156,244 @@ func InspectReleaseArchive(ctx context.Context, target Target, archivePath strin
 		}
 	}
 	return ctx.Err()
+}
+
+// InspectReleaseArchiveVersion verifies that one structurally eligible archive
+// reports the expected canonical release identity. Executables are run only on
+// an exact matching native host.
+func InspectReleaseArchiveVersion(
+	ctx context.Context,
+	target Target,
+	archivePath string,
+	expectedVersion string,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	expected, err := ResolveBuildVersion(expectedVersion)
+	if err != nil {
+		return fmt.Errorf("validate expected release version: %w", err)
+	}
+	if !expected.IsRelease {
+		return errors.New("expected release version is required")
+	}
+	if err := ValidateHost(target, RuntimeHost()); err != nil {
+		return fmt.Errorf("inspect packaged version on matching native host: %w", err)
+	}
+	return inspectReleaseArchiveVersion(ctx, target, archivePath, expected, probeNativeVersion)
+}
+
+func inspectReleaseArchiveVersion(
+	ctx context.Context,
+	target Target,
+	archivePath string,
+	expected ReleaseVersion,
+	probe nativeVersionProbe,
+) error {
+	if err := InspectReleaseArchive(ctx, target, archivePath); err != nil {
+		return err
+	}
+	if !expected.IsRelease {
+		return errors.New("archive inspection requires an expected release version")
+	}
+	if err := validatePackageVersion(expected); err != nil {
+		return fmt.Errorf("validate expected release version: %w", err)
+	}
+	if probe == nil {
+		return errors.New("native version probe is required")
+	}
+
+	executableEntry := path.Join(applicationName, target.ExecutablePath())
+	executable, err := readReleaseArchiveEntry(ctx, target.ArchiveFormat(), archivePath, executableEntry, maxReleaseExecutable)
+	if err != nil {
+		return fmt.Errorf("extract packaged executable version target: %w", err)
+	}
+	temporaryRoot, err := os.MkdirTemp("", "fallout-terminal-release-version-")
+	if err != nil {
+		return fmt.Errorf("create packaged version inspection directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(temporaryRoot) }()
+	executablePath := filepath.Join(temporaryRoot, target.ExecutableName())
+	if err := os.WriteFile(executablePath, executable, 0o700); err != nil {
+		return fmt.Errorf("write packaged executable version target: %w", err)
+	}
+	clear(executable)
+	if err := os.Chmod(executablePath, 0o700); err != nil {
+		return fmt.Errorf("make packaged executable version target runnable: %w", err)
+	}
+
+	evidence, err := probe(ctx, target, executablePath, []string{"--version"})
+	if err != nil {
+		return fmt.Errorf("probe packaged executable version: %w", err)
+	}
+	if err := validateNativeVersionEvidence(target, expected, evidence); err != nil {
+		return err
+	}
+	if target.OS() != goosDarwin {
+		return ctx.Err()
+	}
+
+	plistEntry := path.Join(applicationName, applicationName+".app", "Contents", "Info.plist")
+	plist, err := readReleaseArchiveEntry(ctx, target.ArchiveFormat(), archivePath, plistEntry, maxReleaseMetadata)
+	if err != nil {
+		return fmt.Errorf("read packaged Darwin metadata: %w", err)
+	}
+	if err := validateDarwinVersionMetadata(plist, expected); err != nil {
+		return err
+	}
+	return ctx.Err()
+}
+
+func readReleaseArchiveEntry(
+	ctx context.Context,
+	format ArchiveFormat,
+	archivePath string,
+	entryName string,
+	maximumSize int64,
+) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	switch format {
+	case ArchiveFormatZIP:
+		return readZIPReleaseArchiveEntry(ctx, archivePath, entryName, maximumSize)
+	case ArchiveFormatTarGzip:
+		return readTarGzipReleaseArchiveEntry(ctx, archivePath, entryName, maximumSize)
+	default:
+		return nil, fmt.Errorf("unsupported release archive format %q", format)
+	}
+}
+
+func readZIPReleaseArchiveEntry(
+	ctx context.Context,
+	archivePath string,
+	entryName string,
+	maximumSize int64,
+) ([]byte, error) {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range reader.File {
+		if file.Name != entryName {
+			continue
+		}
+		if file.FileInfo().IsDir() || !file.Mode().IsRegular() {
+			_ = reader.Close()
+			return nil, fmt.Errorf("archive entry %q is not a regular file", entryName)
+		}
+		if file.UncompressedSize64 > uint64(maximumSize) {
+			_ = reader.Close()
+			return nil, fmt.Errorf("archive entry %q exceeds %d bytes", entryName, maximumSize)
+		}
+		entry, err := file.Open()
+		if err != nil {
+			_ = reader.Close()
+			return nil, err
+		}
+		contents, readErr := readBoundedReleaseEntry(ctx, entry, maximumSize)
+		entryCloseErr := entry.Close()
+		archiveCloseErr := reader.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		if entryCloseErr != nil {
+			return nil, entryCloseErr
+		}
+		if archiveCloseErr != nil {
+			return nil, archiveCloseErr
+		}
+		return contents, nil
+	}
+	if err := reader.Close(); err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("archive entry %q is missing", entryName)
+}
+
+func readTarGzipReleaseArchiveEntry(
+	ctx context.Context,
+	archivePath string,
+	entryName string,
+	maximumSize int64,
+) ([]byte, error) {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return nil, err
+	}
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	tarReader := tar.NewReader(gzipReader)
+	for {
+		if err := ctx.Err(); err != nil {
+			_ = gzipReader.Close()
+			_ = file.Close()
+			return nil, err
+		}
+		header, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			_ = gzipReader.Close()
+			_ = file.Close()
+			return nil, err
+		}
+		if header.Name != entryName {
+			continue
+		}
+		if header.Typeflag != tar.TypeReg {
+			_ = gzipReader.Close()
+			_ = file.Close()
+			return nil, fmt.Errorf("archive entry %q is not a regular file", entryName)
+		}
+		if header.Size > maximumSize {
+			_ = gzipReader.Close()
+			_ = file.Close()
+			return nil, fmt.Errorf("archive entry %q exceeds %d bytes", entryName, maximumSize)
+		}
+		contents, readErr := readBoundedReleaseEntry(ctx, tarReader, maximumSize)
+		gzipCloseErr := gzipReader.Close()
+		fileCloseErr := file.Close()
+		if readErr != nil {
+			return nil, readErr
+		}
+		if gzipCloseErr != nil {
+			return nil, gzipCloseErr
+		}
+		if fileCloseErr != nil {
+			return nil, fileCloseErr
+		}
+		return contents, nil
+	}
+	gzipCloseErr := gzipReader.Close()
+	fileCloseErr := file.Close()
+	if gzipCloseErr != nil {
+		return nil, gzipCloseErr
+	}
+	if fileCloseErr != nil {
+		return nil, fileCloseErr
+	}
+	return nil, fmt.Errorf("archive entry %q is missing", entryName)
+}
+
+func readBoundedReleaseEntry(ctx context.Context, reader io.Reader, maximumSize int64) ([]byte, error) {
+	contents, err := io.ReadAll(io.LimitReader(reader, maximumSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(contents)) > maximumSize {
+		clear(contents)
+		return nil, fmt.Errorf("archive entry exceeds %d bytes", maximumSize)
+	}
+	if err := ctx.Err(); err != nil {
+		clear(contents)
+		return nil, err
+	}
+	return contents, nil
 }
 
 func inspectReleaseEntries(ctx context.Context, format ArchiveFormat, archivePath string) (map[string]int64, error) {

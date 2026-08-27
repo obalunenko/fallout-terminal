@@ -619,7 +619,7 @@ const file_fallout_terminal_player_v1_hacking_proto_rawDesc = "" +
 	"\vterminal_id\x18\x04 \x01(\tR\n" +
 	"terminalId\x12\x1d\n" +
 	"\n" +
-	"pattern_id\x18\x05 \x01(\tR\tpatternIdBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
+	"pattern_id\x18\x05 \x01(\tR\tpatternIdB\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
 	file_fallout_terminal_player_v1_hacking_proto_rawDescOnce sync.Once

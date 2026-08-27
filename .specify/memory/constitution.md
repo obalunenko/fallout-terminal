@@ -1,16 +1,17 @@
 <!--
 Sync Impact Report
-- Version change: 7.0.0 -> 8.0.0
+- Version change: 8.0.0 -> 8.1.0
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Redefine a platform support claim as availability of a governed unsigned portable archive
-    rather than mandatory native window, dialog, lifecycle, player, or secure-store acceptance
-  - Make matching-host native runtime and operating-system integration evidence optional for
-    platform support, feature completion, quality CI, and tagged releases
-  - Preserve honest reporting for any optional native evidence that is collected
+  - Permit deterministic tag-to-artifact release-identity verification as a tagged-release
+    publication gate alongside compilation, archive, executable, and required-resource checks
+  - Require the packaged executable and applicable native metadata to agree with the one canonical
+    version derived from the accepted tag before publication
+  - Preserve the prohibition on native UI, credential-store, player, tunnel, signing,
+    notarization, and multi-browser checks gating tagged releases
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -481,10 +482,12 @@ Applicable commands MUST succeed before a change is considered complete:
   matching-host builds, but CI and tagged releases MUST NOT depend on it. No remote aggregate
   command is constitutionally required.
 - Automated SemVer-tag releases MUST publish exactly one unsigned portable archive for each of the
-  five accepted targets to one GitHub Release only after every target compiles and each non-empty
-  archive contains its executable and required resources. The release MUST NOT publish raw
-  executables, checksum sidecars, aggregate indexes, DMGs, GitHub Packages copies, or signed or
-  notarized variants.
+  five accepted targets to one GitHub Release only after every target compiles, each non-empty
+  archive contains its executable and required resources, and deterministic inspection proves the
+  packaged executable plus applicable native platform metadata agree with the one canonical
+  version derived from the accepted tag. Release-identity inspection MUST remain non-interactive
+  and MUST NOT start application services. The release MUST NOT publish raw executables, checksum
+  sidecars, aggregate indexes, DMGs, GitHub Packages copies, or signed or notarized variants.
 - Repository-pinned GoReleaser in its isolated Go tool module MUST be the sole GitHub Release
   publisher. Publication MUST be create-only: an existing release for the tag makes the workflow
   fail without replacing, deleting, or appending assets. Automated multi-destination rollback is
@@ -532,10 +535,14 @@ build, startup contracts, exact Wails pin consistency, and clean Wails v3 bindin
 MAY build the current-host application as a quality check but MUST NOT publish release assets.
 The five-target release matrix MUST run only after a qualifying SemVer tag passes preflight and
 MUST gate publication only on target compilation, non-empty archive creation, executable presence,
-and required-resource presence. Native UI, dialog, audio, credential-store, player-journey,
-public-tunnel, signing, notarization, stapling, Gatekeeper, and multi-browser checks MUST NOT gate
-tagged releases. Such checks MAY remain documented manual or separately dispatched quality checks;
-unavailable checks MUST be reported, not claimed.
+required-resource presence, and deterministic release-identity verification. Release-identity
+verification MUST compare the packaged executable's non-interactive version report and applicable
+human-readable and numeric native metadata with representations derived from the one canonical
+version supplied by preflight; a missing, non-release, malformed, or mismatched value MUST block
+publication. Native UI, dialog, audio, credential-store, player-journey, public-tunnel, signing,
+notarization, stapling, Gatekeeper, and multi-browser checks MUST NOT gate tagged releases. Such
+checks MAY remain documented manual or separately dispatched quality checks; unavailable checks
+MUST be reported, not claimed.
 
 Reviews MUST verify production module boundaries, protobuf contract coverage, schema evolution,
 generated-file integrity, persistence compatibility, authoritative synchronization, privileged-
@@ -605,4 +612,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.0.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27
+**Version**: 8.1.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27

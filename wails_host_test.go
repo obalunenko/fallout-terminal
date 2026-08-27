@@ -14,10 +14,10 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
-	"github.com/obalunenko/Fallout-Terminal/internal/testutil"
-	tunnelservice "github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
+	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -79,7 +79,7 @@ func TestWailsSaveSessionBindingRetainsBothRealDemoTerminals(t *testing.T) {
 	bindings := application.NewBindings(nil, nil)
 	require.NoError(t, bindings.Add(application.NewService(newDesktopService(core))))
 	method := bindings.Get(&application.CallOptions{
-		MethodName: "github.com/obalunenko/Fallout-Terminal.desktopService.SaveSession",
+		MethodName: "github.com/obalunenko/Fallout-Terminal/v2.desktopService.SaveSession",
 	})
 	require.NotNil(t, method, "SaveSession binding must resolve")
 	result, err := method.Call(t.Context(), []json.RawMessage{json.RawMessage(raw)})

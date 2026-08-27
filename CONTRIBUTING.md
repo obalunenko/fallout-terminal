@@ -38,6 +38,43 @@ task deps
 Use `task --list` to see all supported repository workflows. Prefer these tasks and the
 repository-owned build command over ad hoc tool invocations.
 
+## V2 Module and Release Identity
+
+The root application module is exactly `github.com/obalunenko/Fallout-Terminal/v2`. Active
+application imports and generated Wails bindings must use that `/v2` identity. Modules under
+`tools/` are independently versioned development-tool owners and intentionally retain their
+unsuffixed `github.com/obalunenko/Fallout-Terminal/tools/...` identities.
+
+Release identity has one source of truth:
+
+- release tags are strict v2 semantic versions such as `v2.0.0` or `v2.0.0-rc.1`;
+- preflight removes only the leading `v` and produces one canonical value such as `2.0.0-rc.1`;
+- every native package job receives that value through `VERSION` without re-deriving it;
+- Go linker metadata and rendered Darwin or Windows metadata derive from the same value; and
+- packaged executables report only the canonical value plus one newline from `--version`, before
+  Wails or application services start.
+
+Do not add a hard-coded production version to source files or platform metadata. The checked-in
+`build/darwin/Info.plist.tmpl`, `build/windows/info.json.tmpl`, and
+`build/windows/app.manifest.tmpl` files are immutable templates; packaging renders target-owned
+copies under `build/bin/`. An empty local `VERSION` intentionally produces the non-release identity
+`development` with zero-valued native numeric fields.
+
+For release or packaging changes, exercise the governed flow on a matching native host:
+
+```bash
+VERSION="$(go run ./cmd/build validate-release-tag --tag v2.0.0-rc.1)"
+task package GOOS=darwin GOARCH=arm64 VERSION="$VERSION"
+go run ./cmd/build inspect-release-archive \
+  --target darwin/arm64 \
+  --archive build/dist/Fallout-Terminal-darwin-arm64.zip \
+  --version "$VERSION"
+```
+
+Use the target matching your host. Inspection must succeed before an archive is eligible for
+upload; `development`, missing, malformed, or mismatched versions must fail release inspection.
+Publication remains owned by the tag-only GitHub Actions workflow and the pinned GoReleaser tool.
+
 ## Choosing the Change Scope
 
 Small, local corrections can be implemented directly. A feature or architectural change should
@@ -162,6 +199,16 @@ secure-storage, native-window, or packaging changes require the applicable platf
 or smoke evidence described in the platform documentation. Cross-compilation alone is not native
 acceptance evidence.
 
+Release-identity changes should also run the focused contract suites before the full gate:
+
+```bash
+go test ./internal/buildtool ./internal/version ./cmd/build ./internal/platform
+```
+
+For package changes, record the matching-host package command, the executable `--version` output,
+the applicable native metadata values, and the archive-inspection result. Never claim an
+unavailable platform check as passing evidence.
+
 ## Commits and Review
 
 Recent project history uses concise Conventional Commit-style subjects:
@@ -180,8 +227,11 @@ Before requesting review, confirm that:
 - the change has a clear user-visible or maintenance purpose;
 - architecture and specification artifacts match the implementation;
 - generated code was produced by pinned tools and has no unexplained drift;
+- active application imports and generated bindings use the exact `/v2` module identity;
 - public/private and secret boundaries remain intact;
 - session compatibility is preserved or explicitly migrated;
+- package and release changes preserve the single canonical `VERSION` and pass matching-host
+  release inspection;
 - tests cover success, rejection, cancellation, and cleanup where relevant;
 - the applicable validation commands pass; and
 - documentation describes any changed setup, behavior, or platform requirements.

@@ -12,10 +12,10 @@ import (
 	"sync/atomic"
 
 	"connectrpc.com/connect"
-	"github.com/obalunenko/Fallout-Terminal/internal/control"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	playerv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
-	"github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1/playerv1connect"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1/playerv1connect"
 )
 
 // ConnectCoordinator is the narrow canonical seam used by the generated

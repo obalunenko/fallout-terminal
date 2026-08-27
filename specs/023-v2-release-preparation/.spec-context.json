@@ -1,0 +1,1054 @@
+{
+  "workflow": "speckit",
+  "specName": "V2 Release Preparation",
+  "branch": "023-v2-release-preparation",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T01:33:20.561Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T01:52:06.716Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T01:57:03.064Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T01:59:24.982Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T02:00:11.949Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T06:59:45.719Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T07:04:43.899Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T07:04:51.767Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T11:46:35.222Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T11:48:07.714Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T11:49:31.539Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T11:57:25.994Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:05:47.337Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:06:39.654Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:07:13.271Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:07:31.093Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:07:55.692Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:10:13.104Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:11:00.354Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:11:01.818Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:12:27.671Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:13:34.224Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:14:46.235Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:17:44.651Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:19:09.264Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:20:29.993Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:26:33.814Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:28:49.199Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:29:58.426Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:32:33.257Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:33:36.503Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:37:45.282Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:39:33.820Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:40:05.644Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:41:04.834Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:46:45.320Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:49:22.837Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:50:33.476Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:51:40.612Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:52:37.252Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T12:55:56.420Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T13:01:28.953Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T13:17:19.741Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T13:22:45.289Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T13:30:12.117Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T13:30:33.687Z"
+    }
+  ],
+  "telemetryInstanceId": "216c9789-022d-4591-acb6-7c9d23e27ef7",
+  "approach": "Cut the root application over atomically to the Go /v2 identity, derive one canonical VERSION from each accepted release tag, expose it through the exact --version contract, render immutable platform templates into isolated staging, and reject packaged-version mismatches before upload under Constitution 8.1.0. Local builds use development identity; rollback is pre-publication only and published releases fix forward.",
+  "decisions": [
+    {
+      "decision": "Use one atomic /v2 application-module cutover",
+      "why": "Go semantic import versioning requires the suffix and one identity avoids active fallback paths",
+      "rejected": "Keep the unsuffixed module or add a compatibility alias"
+    },
+    {
+      "decision": "Regenerate contracts with only go_package metadata changed",
+      "why": "The release changes language identity without changing protobuf or ConnectRPC behavior",
+      "rejected": "Rename protobuf v1 packages or edit generated files"
+    },
+    {
+      "decision": "Advance the reviewed descriptor baseline explicitly",
+      "why": "go_package is descriptor metadata and the negative fixtures must continue proving wire compatibility",
+      "rejected": "Keep the stale baseline or replace it without schema-diff review"
+    },
+    {
+      "decision": "Keep v2 tag policy in the existing Go preflight",
+      "why": "The dependency-free build tool already owns release validation before the package matrix",
+      "rejected": "Duplicate the major rule in workflow YAML or Task"
+    },
+    {
+      "decision": "Preserve version-1 persistence behavior and independent tool modules",
+      "why": "Application release major is separate from data-format and development-tool identities",
+      "rejected": "Mass-renumber v1 formats or migrate tools to the application major"
+    },
+    {
+      "decision": "Defer version embedding until BUG-001 patches the scope",
+      "why": "The current specification explicitly excludes platform and executable version metadata",
+      "rejected": "Implement the discovered requirement without artifact traceability"
+    },
+    {
+      "decision": "Supersede the BUG-001 version-embedding deferral and propagate one canonical release VERSION",
+      "why": "The patched scope now requires Go, Darwin, Windows, and packaged verification to agree with the triggering tag",
+      "rejected": "Keep hard-coded platform versions or derive each target version independently"
+    },
+    {
+      "decision": "Authorize deterministic release-identity verification under Constitution 8.1.0",
+      "why": "Tagged packages must prove executable and native metadata agree with the accepted tag before publication",
+      "rejected": "Keep the Constitution 8.0.0 minimal gate and leave BUG-001 partially resolved"
+    },
+    {
+      "decision": "Use development with zero-valued numeric metadata for empty local VERSION",
+      "why": "Local build and package commands remain usable without allowing non-release artifacts to pass tagged verification",
+      "rejected": "Require release SemVer for every local command or infer it from Git"
+    },
+    {
+      "decision": "Standardize executable inspection as --version with exact single-line stdout",
+      "why": "Every native runner needs a deterministic non-interactive contract that exits before runtime composition",
+      "rejected": "Use an unspecified request, a subcommand, or JSON output"
+    },
+    {
+      "decision": "Render checked-in platform templates into target-isolated staging paths",
+      "why": "Packaging must not mutate the worktree or share target metadata outputs",
+      "rejected": "Rewrite checked-in metadata temporarily or generate target files in shared paths"
+    },
+    {
+      "decision": "Roll back only before publication and fix complete published releases forward",
+      "why": "Atomic source identity and create-only release history prohibit dual identities and tag replacement",
+      "rejected": "Retain dual module identities or replace a complete published release"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned the atomic /v2 cutover plus BUG-001 tag-to-artifact version propagation and equality gates",
+      "key_finding": "One canonical semantic VERSION can preserve full prerelease identity while platform-restricted numeric fields derive deterministic native representations from the same value."
+    },
+    "tasks": {
+      "summary": "36 tasks across setup, shared v2 foundation, three independently testable user-story phases, exact release-version waves, and rollback-aware single-owner validation",
+      "key_finding": "Constitution 8.1.0 permits the narrow tag-to-artifact gate; exact local/report/template contracts and a corrected producer-consumer DAG remove the analysis blockers."
+    },
+    "implement": {
+      "summary": "Implemented one canonical tag-derived VERSION across Go linker flags, immutable Darwin/Windows metadata templates, all package paths, and pre-upload native inspection; retained v2 compatibility and completed rollback validation.",
+      "key_finding": "Development, stable, and prerelease Darwin packages proved exact executable/metadata behavior without template or archive-layout drift.",
+      "risks": "Windows/Linux native package execution remains delegated to the matching-host CI matrix."
+    }
+  },
+  "coverage": {
+    "FR-001": {
+      "title": "The governed application source identity MUST correspond to major version 2 before a v2 release is tagged.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T004"
+      ],
+      "tests": [
+        "internal/buildtool/buildtool_test.go",
+        "scripts/wails-v3-cutover-check.sh"
+      ]
+    },
+    "FR-002": {
+      "title": "Release preflight MUST accept strict stable and prerelease semantic versions whose major version is exactly 2.",
+      "tasks": [
+        "T005",
+        "T012",
+        "T019",
+        "T020"
+      ],
+      "tests": [
+        "internal/buildtool/releasecheck_test.go",
+        "cmd/build/main_test.go"
+      ]
+    },
+    "FR-003": {
+      "title": "Release preflight MUST reject every otherwise valid semantic version whose major version is not 2 before target packaging begins.",
+      "tasks": [
+        "T005",
+        "T012",
+        "T020"
+      ],
+      "tests": [
+        "internal/buildtool/releasecheck_test.go",
+        "cmd/build/main_test.go"
+      ]
+    },
+    "FR-004": {
+      "title": "Release preflight MUST continue rejecting malformed versions, leading-zero numeric components, leading-zero numeric prerelease identifiers, and build metadata.",
+      "tasks": [
+        "T005",
+        "T012"
+      ],
+      "tests": [
+        "internal/buildtool/releasecheck_test.go"
+      ]
+    },
+    "FR-005": {
+      "title": "Every active application package and generated application binding MUST resolve through the v2 source identity with no active fallback to the previous identity.",
+      "tasks": [
+        "T002",
+        "T004",
+        "T024",
+        "T025",
+        "T027",
+        "T033"
+      ],
+      "tests": [
+        "scripts/wails-v3-cutover-check.sh",
+        "scripts/wails-bindings-check.sh",
+        "internal/platform/assets_test.go",
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "FR-006": {
+      "title": "Regenerated contract artifacts MUST preserve existing protobuf package names, messages, field numbers, services, RPC directions, and wire behavior while recording the v2 language-package identity.",
+      "tasks": [
+        "T021",
+        "T024",
+        "T026",
+        "T032"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go",
+        "scripts/proto-check.sh",
+        "scripts/wails-v3-contract-check.sh"
+      ]
+    },
+    "FR-007": {
+      "title": "The reviewed compatibility baseline MUST advance explicitly for the language-package identity change and MUST continue rejecting the established breaking-change fixtures.",
+      "tasks": [
+        "T021",
+        "T026",
+        "T032"
+      ],
+      "tests": [
+        "scripts/proto-breaking.sh",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "FR-008": {
+      "title": "Session JSON and player-configuration JSON MUST remain at version 1 with no conversion, field-name change, or loss of compatible unknown data.",
+      "tasks": [
+        "T022",
+        "T034"
+      ],
+      "tests": [
+        "internal/session/service_test.go",
+        "internal/playerconfig/service_test.go"
+      ]
+    },
+    "FR-009": {
+      "title": "Independent development-tool modules MUST retain their existing module identities and isolated dependency ownership.",
+      "tasks": [
+        "T002",
+        "T029",
+        "T032"
+      ],
+      "tests": [
+        "scripts/tool-modules-check.sh"
+      ]
+    },
+    "FR-010": {
+      "title": "Active release documentation MUST use stable and prerelease v2 tag examples and MUST explain that accepted release-tag majors match the application module major.",
+      "tasks": [
+        "T028",
+        "T030",
+        "T031",
+        "T033"
+      ],
+      "tests": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "FR-011": {
+      "title": "Completed specifications and migration records MUST retain their original paths, targets, and evidence as historical records.",
+      "tasks": [
+        "T002",
+        "T028",
+        "T030",
+        "T031",
+        "T033"
+      ],
+      "tests": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "FR-012": {
+      "title": "The migration MUST introduce no new Overseer or player interaction, public capability, credential handling, network behavior, or runtime state.",
+      "tasks": [
+        "T007",
+        "T015",
+        "T021",
+        "T022",
+        "T023",
+        "T027",
+        "T034"
+      ],
+      "tests": [
+        "main_test.go",
+        "internal/platform/portable_release_test.go",
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "FR-013": {
+      "title": "Release preflight MUST derive one canonical application version from the accepted tag by removing only its leading v and MUST pass that value as the single VERSION input to every target package job.",
+      "tasks": [
+        "T005",
+        "T010",
+        "T012",
+        "T019",
+        "T020"
+      ],
+      "tests": [
+        "internal/buildtool/releasecheck_test.go",
+        "cmd/build/main_test.go",
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "FR-014": {
+      "title": "The Go build MUST embed the canonical release version, retain VCS metadata, and expose the exact pre-runtime executable --version contract.",
+      "tasks": [
+        "T006",
+        "T007",
+        "T008",
+        "T013",
+        "T015",
+        "T016",
+        "T035"
+      ],
+      "tests": [
+        "main_test.go",
+        "internal/version/version_test.go",
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "FR-015": {
+      "title": "Darwin and Windows package metadata MUST render from the canonical version using immutable checked-in templates and isolated staged outputs.",
+      "tasks": [
+        "T008",
+        "T009",
+        "T014",
+        "T016",
+        "T017",
+        "T018",
+        "T033",
+        "T035"
+      ],
+      "tests": [
+        "internal/buildtool/package_test.go",
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "FR-016": {
+      "title": "Numeric-only platform fields MUST derive their native numeric representation from the canonical version while human-readable metadata and executable reports retain the full semantic version.",
+      "tasks": [
+        "T005",
+        "T008",
+        "T009",
+        "T012",
+        "T014",
+        "T017",
+        "T018",
+        "T035"
+      ],
+      "tests": [
+        "internal/buildtool/package_test.go",
+        "internal/buildtool/releaseversion_test.go"
+      ]
+    },
+    "FR-017": {
+      "title": "Every target package job MUST verify before upload that executable and applicable platform metadata versions agree with the triggering tag.",
+      "tasks": [
+        "T009",
+        "T010",
+        "T011",
+        "T018",
+        "T019",
+        "T020",
+        "T035"
+      ],
+      "tests": [
+        "internal/buildtool/releaseversion_test.go",
+        "cmd/build/main_test.go",
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "FR-018": {
+      "title": "Malformed or mismatched release VERSION MUST fail before upload; empty local VERSION MUST produce development identity and cannot pass tagged inspection.",
+      "tasks": [
+        "T005",
+        "T006",
+        "T008",
+        "T009",
+        "T010",
+        "T012",
+        "T013",
+        "T016",
+        "T018",
+        "T019",
+        "T020",
+        "T033",
+        "T035"
+      ],
+      "tests": [
+        "internal/buildtool/releasecheck_test.go",
+        "internal/buildtool/package_test.go",
+        "internal/buildtool/releaseversion_test.go",
+        "cmd/build/main_test.go"
+      ]
+    }
+  },
+  "currentTask": "T036",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added exact root-module regression coverage for unsuffixed, substring, comment-only, and non-v2 identities.",
+      "files": [
+        "internal/buildtool/buildtool_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Extended active Go import cutover scanning with exclusions and self-test coverage.",
+      "files": [
+        "scripts/wails-v3-cutover-check.sh"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Locked root validation to the exact v2 module declaration and retained the canonical go.mod identity",
+      "files": [
+        "go.mod",
+        "internal/buildtool/buildtool.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Verified the atomic v2 cutover across the exact 54-file active import inventory and full Go suite",
+      "files": [
+        "go.mod",
+        "main.go",
+        "cmd/build/main.go",
+        "cmd/build/main_test.go",
+        "internal",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Defined the application version owner contract for development default, linker injection, and release classification",
+      "files": [
+        "internal/version/version_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Defined exact early --version stdout, stderr, exit, argument, and no-composition contracts",
+      "files": [
+        "main_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added failing static release-workflow assertions for one preflight VERSION, unchanged five-target propagation, pre-upload inspection, and no per-target derivation",
+      "files": [
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added red-first release version tables for tag normalization, platform numeric forms, strict VERSION validation, and local development mode.",
+      "files": [
+        "internal/buildtool/releasecheck_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added red package-plan contracts for version modes, linker/VCS policy, and isolated template rendering.",
+      "files": [
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Added red-first archive version fixtures for exact executable output and Darwin/Windows metadata equality.",
+      "files": [
+        "internal/buildtool/releaseversion_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Added red-first CLI tests for canonical tag stdout and required canonical --version archive-inspection flags with missing, empty, and invalid diagnostics",
+      "files": [
+        "cmd/build/main_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added the dependency-free linker-owned application version API with a development default.",
+      "files": [
+        "internal/version/version.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Implemented strict v2 tag/build version parsing with canonical, numeric, prerelease, and development representations.",
+      "files": [
+        "internal/buildtool/releasecheck.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Added exact early --version output and argument handling before Wails or service composition",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added deterministic target-isolated version template rendering and package-plan metadata paths.",
+      "files": [
+        "internal/buildtool/packageversion.go",
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/package.go",
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Converted Darwin and Windows production metadata into immutable renderer templates and zeroed local development metadata",
+      "files": [
+        "build/darwin/Info.plist.tmpl",
+        "build/darwin/Info.dev.plist",
+        "build/windows/info.json.tmpl",
+        "build/windows/app.manifest.tmpl"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Wired package VERSION selection into rendered metadata and release-only linker injection while retaining VCS build metadata.",
+      "files": [
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/package.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added strict native archive version verification for executable output and Darwin/Windows metadata evidence.",
+      "files": [
+        "internal/buildtool/releasecheck.go",
+        "internal/buildtool/packageversion.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Exposed canonical tag output and strict version-aware archive inspection through cmd/build",
+      "files": [
+        "cmd/build/main.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Exported one canonical preflight VERSION, propagated it unchanged through the five-target package matrix, and required version-aware inspection before artifact upload",
+      "files": [
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Strengthened version-1 session and player-config round trips, recursive session unknown-field retention, and strict player-config unknown-field rejection without file mutation",
+      "files": [
+        "internal/session/service_test.go",
+        "internal/playerconfig/service_test.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Asserted the sole v2 desktop binding, 35 methods, and all six facade events without duplicating existing behavior coverage",
+      "files": [
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Froze v2 protobuf identity and verified Go and browser descriptor contract parity",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Regenerated the clean Wails bindings and verified the exact v2 inventory, facade import, and absence of the unsuffixed tree",
+      "files": [
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/models.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/session/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/session/models.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js",
+        "frontend/overseer/bindings/github.com/wailsapp/wails/v3/internal/eventcreate.js",
+        "frontend/overseer/bindings/github.com/wailsapp/wails/v3/internal/eventdata.d.ts",
+        "frontend/overseer/src/desktop-api.js"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Verified all 13 v2 protobuf inputs regenerate the exact deterministic Go ConnectRPC and ES inventories without schema drift",
+      "files": [
+        "internal/gen/fallout/terminal/config/v1/config.pb.go",
+        "internal/gen/fallout/terminal/config/v1/public_access.pb.go",
+        "internal/gen/fallout/terminal/persistence/v1/player_config.pb.go",
+        "internal/gen/fallout/terminal/persistence/v1/session.pb.go",
+        "internal/gen/fallout/terminal/player/v1/hacking.pb.go",
+        "internal/gen/fallout/terminal/player/v1/navigation.pb.go",
+        "internal/gen/fallout/terminal/player/v1/player.pb.go",
+        "internal/gen/fallout/terminal/player/v1/playerv1connect/player.connect.go",
+        "internal/gen/fallout/terminal/player/v1/sound.pb.go",
+        "internal/gen/fallout/terminal/player/v1/terminal.pb.go",
+        "internal/gen/fallout/terminal/private/v1/coordination.pb.go",
+        "internal/gen/fallout/terminal/private/v1/desktop.pb.go",
+        "internal/gen/fallout/terminal/private/v1/public_access.pb.go",
+        "internal/gen/fallout/terminal/private/v1/runtime.pb.go",
+        "frontend/client/gen/fallout/terminal/player/v1/hacking_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/navigation_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/player_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/sound_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/terminal_pb.js"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Validated the exact v2 binding and private-model gate paths while preserving the 35-method, six-event, and secret-surface allowlists",
+      "files": [
+        "scripts/wails-bindings-check.sh",
+        "scripts/secret-leak-check.sh"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Validated the metadata-only schema revision and exact compatibility baseline while retaining all five breaking fixtures",
+      "files": [
+        "proto/schema-revision.txt",
+        "proto/compatibility-baseline.binpb",
+        "scripts/wails-v3-contract-check.sh"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Extended active-guidance tests for v2 stable/prerelease tags, module-major alignment, canonical VERSION mapping, local development identity, and Darwin template/dev plist ownership",
+      "files": [
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Enforced the root v2 identity and unchanged independent tool-module identities alongside existing isolated sums, exact pins, and owning invocations",
+      "files": [
+        "scripts/tool-modules-check.sh"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Updated active README release guidance for /v2 module/tag alignment, stable and prerelease canonical VERSION propagation, package verification, and local development identity",
+      "files": [
+        "README.md"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Documented canonical stable, prerelease, and development version representations plus native pre-upload inspection and mismatch recovery",
+      "files": [
+        "docs/platform-packaging.md"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Audited active application imports, metadata templates, release guidance, and workflow VERSION derivation; fixed the sole stale implicit-package reference to deleted Darwin production metadata",
+      "files": [
+        "internal/buildtool/buildtool.go"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Passed all protocol, Wails, tool-isolation, secret, and reproducibility gates after making implicit native packaging VERSION-aware",
+      "files": [
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/buildtool_test.go",
+        "internal/platform/startup_test.go"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Passed the full formatting, vet, lint, Go, race, protocol, binding, frontend, browser, and native build suite and recorded host constraints",
+      "files": [
+        "specs/023-v2-release-preparation/validation.md",
+        "main.go",
+        "main_test.go",
+        "internal/buildtool/packageversion.go"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Recorded native Darwin development, stable, and prerelease package version, metadata, rejection, layout, and immutable-template evidence",
+      "files": [
+        "specs/023-v2-release-preparation/validation.md"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Validated immutable pre-publication rollback and forward cutover as offline single-module single-Wails-namespace states",
+      "files": [
+        "specs/023-v2-release-preparation/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Cross-cutting generation, isolation, secret, and reproducibility gates",
+      "result": "pass",
+      "command": "scripts/proto-check.sh; scripts/proto-breaking.sh --all-fixtures; scripts/wails-bindings-check.sh; scripts/wails-v3-contract-check.sh; scripts/wails-v3-cutover-check.sh; scripts/tool-modules-check.sh; scripts/secret-leak-check.sh; scripts/reproducible-build-check.sh",
+      "warnings": "Node experimental localStorage and macOS linker deployment notices only"
+    },
+    {
+      "what": "Full repository verification suite",
+      "result": "pass",
+      "command": "task fmt:check; task vet; task lint; task test; task test:race; task proto:check; task proto:breaking; task bindings:check; task frontend:build; task browser:test; task build",
+      "warnings": "Sandbox cache warnings; first race run hit a transient existing tunnel 401/404 flake, clean rerun passed"
+    },
+    {
+      "what": "Native Darwin development, stable, and prerelease package identity",
+      "result": "pass",
+      "command": "task package GOOS=darwin GOARCH=arm64 with empty VERSION, VERSION=2.0.0, VERSION=2.0.0-rc.1; inspect-release-archive",
+      "warnings": "Non-release development artifact rejected as required; template hashes and seven-entry layout unchanged"
+    },
+    {
+      "what": "Immutable pre-publication rollback procedure",
+      "result": "pass",
+      "command": "git archive 3f2b6e584aee4c5279a3d54ae70aa44ee578a21a into isolated temporary tree; offline contract/tool/binding/cutover/proto checks",
+      "warnings": "Historical native GUI, signing, and publication operations intentionally not repeated"
+    },
+    {
+      "what": "Go quality and simplification review",
+      "result": "pass",
+      "command": "gopls check; golangci-lint; test cleanup scan; manual changed-code review; git diff --check",
+      "warnings": "No remaining findings"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "Windows and Linux packaged executable/native metadata equality is exercised by deterministic tests and enforced in the five-job workflow, but only Darwin arm64 could be packaged natively on this host.",
+      "step": "implement",
+      "kind": "host-constraint"
+    }
+  ],
+  "last_action": "Completed all 36 implementation tasks and final validation"
+}

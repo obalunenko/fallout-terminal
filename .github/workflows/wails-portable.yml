@@ -21,6 +21,8 @@ jobs:
     name: Validate unused release tag
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      version: ${{ steps.release-version.outputs.version }}
     steps:
       - name: Check out exact tagged source
         uses: actions/checkout@v4
@@ -36,7 +38,12 @@ jobs:
           cache-dependency-path: go.sum
 
       - name: Validate strict semantic release tag
-        run: go run ./cmd/build validate-release-tag --tag "$GITHUB_REF_NAME"
+        id: release-version
+        shell: bash
+        run: |
+          VERSION="$(go run ./cmd/build validate-release-tag --tag "$GITHUB_REF_NAME")"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Refuse an existing release and include drafts
         env:
@@ -54,6 +61,8 @@ jobs:
     needs: [preflight]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
     strategy:
       fail-fast: false
       matrix:
@@ -118,11 +127,11 @@ jobs:
 
       - name: Build one matching-native portable archive
         shell: bash
-        run: go tool -modfile=tools/task/go.mod task package GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}
+        run: go tool -modfile=tools/task/go.mod task package GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} VERSION="$VERSION"
 
       - name: Inspect minimal release eligibility
         shell: bash
-        run: go run ./cmd/build inspect-release-archive --target "${{ matrix.target }}" --archive "build/dist/${{ matrix.archive }}"
+        run: go run ./cmd/build inspect-release-archive --target "${{ matrix.target }}" --archive "build/dist/${{ matrix.archive }}" --version "$VERSION"
 
       - name: Upload one eligible archive
         uses: actions/upload-artifact@v4

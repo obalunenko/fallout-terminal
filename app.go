@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	controlservice "github.com/obalunenko/Fallout-Terminal/internal/control"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	playerconfigservice "github.com/obalunenko/Fallout-Terminal/internal/playerconfig"
-	sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
-	tunnelservice "github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
+	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
+	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	"github.com/obalunenko/logger"
 )
 

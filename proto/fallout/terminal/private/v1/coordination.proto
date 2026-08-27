@@ -5,7 +5,7 @@ package fallout.terminal.private.v1;
 import "fallout/terminal/player/v1/player.proto";
 import "fallout/terminal/player/v1/terminal.proto";
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1;privatev1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1";
 
 enum TerminalSwitchStatus {
   TERMINAL_SWITCH_STATUS_UNSPECIFIED = 0;

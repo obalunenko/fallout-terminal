@@ -3,8 +3,8 @@ package playerconfig
 import (
 	"fmt"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	persistencev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 )
 
 func PlayerConfigToProto(value domain.PlayerConfig) (*persistencev1.PlayerConfig, error) {

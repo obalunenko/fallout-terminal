@@ -2,6 +2,7 @@ package platform
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"io/fs"
@@ -13,18 +14,25 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	_ "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1"
-	_ "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
-	playerv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
-	privatev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1"
+	"github.com/google/go-cmp/cmp"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	_ "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
+	_ "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
+	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/testing/prototest"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
+
+var browserFileDescriptorPattern = regexp.MustCompile(`fileDesc\("([A-Za-z0-9+/=]+)"(?:, \[([^]]*)\])?\)`)
 
 func TestCanonicalFrontendWorkspaceLayout(t *testing.T) {
 	t.Parallel()
@@ -163,6 +171,170 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 	}
 }
 
+func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
+	t.Parallel()
+
+	type contractFile struct {
+		packageName string
+		goPackage   string
+		browserFile string
+	}
+
+	const module = "github.com/obalunenko/Fallout-Terminal/v2"
+	contract := func(area, alias, browserFile string) contractFile {
+		return contractFile{
+			packageName: "fallout.terminal." + area + ".v1",
+			goPackage:   module + "/internal/gen/fallout/terminal/" + area + "/v1;" + alias,
+			browserFile: browserFile,
+		}
+	}
+	contractFiles := map[string]contractFile{
+		"fallout/terminal/config/v1/config.proto":             contract("config", "configv1", ""),
+		"fallout/terminal/config/v1/public_access.proto":      contract("config", "configv1", ""),
+		"fallout/terminal/persistence/v1/player_config.proto": contract("persistence", "persistencev1", ""),
+		"fallout/terminal/persistence/v1/session.proto":       contract("persistence", "persistencev1", ""),
+		"fallout/terminal/player/v1/hacking.proto":            contract("player", "playerv1", "hacking_pb.js"),
+		"fallout/terminal/player/v1/navigation.proto":         contract("player", "playerv1", "navigation_pb.js"),
+		"fallout/terminal/player/v1/player.proto":             contract("player", "playerv1", "player_pb.js"),
+		"fallout/terminal/player/v1/sound.proto":              contract("player", "playerv1", "sound_pb.js"),
+		"fallout/terminal/player/v1/terminal.proto":           contract("player", "playerv1", "terminal_pb.js"),
+		"fallout/terminal/private/v1/coordination.proto":      contract("private", "privatev1", ""),
+		"fallout/terminal/private/v1/desktop.proto":           contract("private", "privatev1", ""),
+		"fallout/terminal/private/v1/public_access.proto":     contract("private", "privatev1", ""),
+		"fallout/terminal/private/v1/runtime.proto":           contract("private", "privatev1", ""),
+	}
+
+	descriptors := make(map[string]protoreflect.FileDescriptor)
+	protoregistry.GlobalFiles.RangeFiles(func(file protoreflect.FileDescriptor) bool {
+		if strings.HasPrefix(file.Path(), "fallout/terminal/") {
+			descriptors[file.Path()] = file
+		}
+		return true
+	})
+	require.Equal(t, sortedMapKeys(contractFiles), sortedMapKeys(descriptors),
+		"generated protobuf file inventory changed")
+
+	root := assetRepositoryRoot(t)
+	packagePattern := regexp.MustCompile(`(?m)^package ([^;]+);$`)
+	goPackagePattern := regexp.MustCompile(`(?m)^option go_package = "([^"]+)";$`)
+	descriptorHash := sha256.New()
+	wantBrowserFiles := make([]string, 0, 5)
+	for _, path := range sortedMapKeys(contractFiles) {
+		contract := contractFiles[path]
+		descriptor := descriptors[path]
+		require.Equal(t, protoreflect.FullName(contract.packageName), descriptor.Package(), path)
+
+		source, err := os.ReadFile(filepath.Join(root, "proto", filepath.FromSlash(path)))
+		require.NoError(t, err)
+		packageMatches := packagePattern.FindAllSubmatch(source, -1)
+		require.Len(t, packageMatches, 1, "%s must declare exactly one protobuf package", path)
+		require.Equal(t, contract.packageName, string(packageMatches[0][1]), path)
+		matches := goPackagePattern.FindAllSubmatch(source, -1)
+		require.Len(t, matches, 1, "%s must declare exactly one go_package option", path)
+		require.Equal(t, contract.goPackage, string(matches[0][1]), path)
+
+		canonical := protodesc.ToFileDescriptorProto(descriptor)
+		require.Equal(t, contract.goPackage, canonical.GetOptions().GetGoPackage(), path)
+		wantBrowserDependencies := make([]string, 0, len(canonical.Dependency))
+		for _, dependency := range canonical.Dependency {
+			wantBrowserDependencies = append(wantBrowserDependencies, browserDescriptorName(dependency))
+		}
+		canonical.Options.GoPackage = nil
+		canonical.SourceCodeInfo = nil
+		encoded, err := proto.MarshalOptions{Deterministic: true}.Marshal(canonical)
+		require.NoError(t, err)
+		descriptorHash.Write([]byte(path))
+		descriptorHash.Write([]byte{0})
+		descriptorHash.Write(encoded)
+
+		if contract.browserFile == "" {
+			continue
+		}
+		wantBrowserFiles = append(wantBrowserFiles, contract.browserFile)
+		browser, browserDependencies := readBrowserFileDescriptor(t, root, contract.browserFile)
+		require.Equal(t, path, browser.GetName(), contract.browserFile)
+		require.Equal(t, contract.packageName, browser.GetPackage(), contract.browserFile)
+		require.Equal(t, contract.goPackage, browser.GetOptions().GetGoPackage(), contract.browserFile)
+		require.Equal(t, wantBrowserDependencies, browserDependencies, contract.browserFile)
+		browserComparable := proto.Clone(canonical).(*descriptorpb.FileDescriptorProto)
+		normalizeBrowserDescriptor(browserComparable)
+		normalizeBrowserDescriptor(browser)
+		require.Empty(t, cmp.Diff(browserComparable, browser, protocmp.Transform()),
+			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
+	}
+
+	const stableDescriptorShape = "2143b5f60309f7ee4c6e8b2dde2d88b4a2b40be1804382e2d1dfd45ee6ff80bf"
+	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
+		"protobuf packages, fields, services, or RPC directions changed")
+	sort.Strings(wantBrowserFiles)
+	gotBrowserPaths, err := filepath.Glob(filepath.Join(root, "frontend", "client", "gen", "fallout", "terminal", "player", "v1", "*_pb.js"))
+	require.NoError(t, err)
+	gotBrowserFiles := make([]string, 0, len(gotBrowserPaths))
+	for _, path := range gotBrowserPaths {
+		gotBrowserFiles = append(gotBrowserFiles, filepath.Base(path))
+	}
+	require.Equal(t, wantBrowserFiles, gotBrowserFiles, "browser descriptor inventory changed")
+}
+
+func sortedMapKeys[T any](files map[string]T) []string {
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+func readBrowserFileDescriptor(t *testing.T, root, name string) (*descriptorpb.FileDescriptorProto, []string) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(root, "frontend", "client", "gen", "fallout", "terminal", "player", "v1", name))
+	require.NoError(t, err)
+	match := browserFileDescriptorPattern.FindSubmatch(raw)
+	require.Len(t, match, 3, "%s is missing its encoded file descriptor", name)
+	encoded, err := base64.RawStdEncoding.DecodeString(strings.TrimRight(string(match[1]), "="))
+	require.NoError(t, err)
+	descriptor := &descriptorpb.FileDescriptorProto{}
+	require.NoError(t, proto.Unmarshal(encoded, descriptor))
+	dependencies := make([]string, 0)
+	if rawDependencies := strings.TrimSpace(string(match[2])); rawDependencies != "" {
+		for _, dependency := range strings.Split(rawDependencies, ",") {
+			dependencies = append(dependencies, strings.TrimSpace(dependency))
+		}
+	}
+	return descriptor, dependencies
+}
+
+func browserDescriptorName(path string) string {
+	path = strings.TrimSuffix(path, ".proto")
+	return "file_" + strings.ReplaceAll(path, "/", "_")
+}
+
+func normalizeBrowserDescriptor(descriptor *descriptorpb.FileDescriptorProto) {
+	descriptor.Options.GoPackage = nil
+	descriptor.SourceCodeInfo = nil
+	descriptor.Dependency = nil
+	descriptor.PublicDependency = nil
+	descriptor.WeakDependency = nil
+	for _, message := range descriptor.MessageType {
+		normalizeMessageDescriptor(message)
+	}
+	for _, extension := range descriptor.Extension {
+		extension.JsonName = nil
+	}
+}
+
+func normalizeMessageDescriptor(message *descriptorpb.DescriptorProto) {
+	for _, field := range message.Field {
+		field.JsonName = nil
+	}
+	for _, extension := range message.Extension {
+		extension.JsonName = nil
+	}
+	for _, nested := range message.NestedType {
+		normalizeMessageDescriptor(nested)
+	}
+}
+
 func TestProtobufSchemaRevisionMatchesSources(t *testing.T) {
 	t.Parallel()
 
@@ -260,9 +432,9 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
-		"proto/fallout/terminal/private/v1/runtime.proto": "4fd0b3ef31bd7ada1101ae36bfbd749acd36c53c4bc2da185d33dec4d4c669a9",
-		"proto/schema-revision.txt":                       "4211c6a2f25e6ebf72aa2b28c2b564d45b9d5df077ffa62f55c25f9de2864522",
-		"proto/compatibility-baseline.binpb":              "50b88cc9e08a189012925e1a97094d1e097b223e591aca8acb856ba0daf099f3",
+		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
+		"proto/schema-revision.txt":                       "bc1f1e0877773622d41658369e7e07e41437c51c19a9e8e2288310a8fc311bfc",
+		"proto/compatibility-baseline.binpb":              "30054bd49c608bf2d4696e788775bf3dbbc0d7b4fdf69cc2f2cbd21a417ff44d",
 	}
 	for relative, want := range wantDigests {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))

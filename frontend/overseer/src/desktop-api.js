@@ -1,7 +1,7 @@
 'use strict';
 
 import { Clipboard, Events } from '@wailsio/runtime';
-import * as desktopService from '../bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js';
+import * as desktopService from '../bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js';
 
 const APP_METHODS = Object.freeze({
   getRuntimeStatus: desktopService.GetRuntimeStatus,

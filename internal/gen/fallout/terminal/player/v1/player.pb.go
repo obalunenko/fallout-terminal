@@ -1612,7 +1612,7 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"\x0fActivatePattern\x122.fallout.terminal.player.v1.ActivatePatternRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12o\n" +
 	"\x0fSetPresentation\x122.fallout.terminal.player.v1.SetPresentationRequest\x1a(.fallout.terminal.player.v1.ActionResult\x12\x85\x01\n" +
 	"\x12PresentationUplink\x125.fallout.terminal.player.v1.PresentationUplinkRequest\x1a6.fallout.terminal.player.v1.PresentationUplinkResponse(\x01\x12t\n" +
-	"\rSoundManifest\x120.fallout.terminal.player.v1.SoundManifestRequest\x1a1.fallout.terminal.player.v1.SoundManifestResponseBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
+	"\rSoundManifest\x120.fallout.terminal.player.v1.SoundManifestRequest\x1a1.fallout.terminal.player.v1.SoundManifestResponseB\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
 	file_fallout_terminal_player_v1_player_proto_rawDescOnce sync.Once

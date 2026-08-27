@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	"github.com/obalunenko/logger"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"

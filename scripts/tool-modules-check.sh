@@ -33,10 +33,19 @@ discover_tool_modules() {
 check_tool_module_contract() {
   local scan_root="$1"
   local module_file="$2"
+  local expected_module_prefix="$3"
   local relative_module="${module_file#"$scan_root"/}"
+  local directory="${relative_module#tools/}"
+  local actual_module
   local sum_file="${module_file%/go.mod}/go.sum"
   local tool_count
 
+  directory="${directory%/go.mod}"
+  actual_module="$(awk '$1 == "module" && NF == 2 { print $2 }' "$module_file")"
+  [[ "$actual_module" == "$expected_module_prefix/$directory" ]] || {
+    fail "$relative_module must retain independent identity $expected_module_prefix/$directory"
+    return 1
+  }
   [[ -s "$sum_file" ]] || { fail "missing or empty ${relative_module%/go.mod}/go.sum"; return 1; }
   grep -Eq '^go[[:space:]]+[0-9]+\.[0-9]+([.][0-9]+)?$' "$module_file" || {
     fail "$relative_module has no explicit Go version"
@@ -74,9 +83,16 @@ check_tool_pin() {
 
 check_root_module() {
   local scan_root="$1"
+  local expected_module="$2"
   local root_module="$scan_root/go.mod"
+  local actual_module
 
   [[ -f "$root_module" ]] || { fail 'root go.mod is missing'; return 1; }
+  actual_module="$(awk '$1 == "module" && NF == 2 { print $2 }' "$root_module")"
+  [[ "$actual_module" == "$expected_module" ]] || {
+    fail "root go.mod must declare $expected_module"
+    return 1
+  }
   if grep -En '^tool[[:space:]]*(\(|[^[:space:]])|github\.com/bufbuild/buf|github\.com/go-task/task/v3/cmd/task|github\.com/golangci/golangci-lint|github\.com/goreleaser/goreleaser|github\.com/wailsapp/wails/v3/cmd/wails3|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect/cmd/protoc-gen-connect-go|oras\.land/oras' "$root_module"; then
     fail 'root application go.mod contains a tool declaration or tool-only dependency'
     return 1
@@ -211,15 +227,17 @@ check_active_commands() {
 
 check_tree() {
   local scan_root="$1"
+  local expected_root_module="${2:-github.com/obalunenko/Fallout-Terminal/v2}"
+  local expected_tool_module_prefix="${3:-github.com/obalunenko/Fallout-Terminal/tools}"
   local module_file
 
 	discover_tool_modules "$scan_root" || return
 	if [[ -e "$scan_root/tools/oras" ]]; then
 		fail 'tools/oras must be absent; GitHub Packages publication is not supported'
 		return
-	fi
+  fi
   for module_file in "${tool_module_files[@]}"; do
-    check_tool_module_contract "$scan_root" "$module_file" || return
+    check_tool_module_contract "$scan_root" "$module_file" "$expected_tool_module_prefix" || return
   done
   check_tool_pin "$scan_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.13 || return
   check_tool_pin "$scan_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.53.1 || return
@@ -228,7 +246,7 @@ check_tree() {
   check_tool_pin "$scan_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.11 || return
   check_tool_pin "$scan_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.20.0 || return
 	check_tool_pin "$scan_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0 || return
-  check_root_module "$scan_root" || return
+  check_root_module "$scan_root" "$expected_root_module" || return
   check_make_bootstrap "$scan_root" || return
   check_active_commands "$scan_root" || return
   check_tool_resolution_preserves_root "$scan_root" || return
@@ -240,10 +258,11 @@ write_fixture_module() {
   local command_package="$3"
   local parent_module="$4"
   local version="$5"
+  local module_identity="${6:-example.test/tools/$directory}"
 
   mkdir -p "$scan_root/tools/$directory"
-  printf 'module example.test/tools/%s\n\ngo 1.27.0\n\ntool %s\n\nrequire %s %s\n' \
-    "$directory" "$command_package" "$parent_module" "$version" >"$scan_root/tools/$directory/go.mod"
+  printf 'module %s\n\ngo 1.27.0\n\ntool %s\n\nrequire %s %s\n' \
+    "$module_identity" "$command_package" "$parent_module" "$version" >"$scan_root/tools/$directory/go.mod"
   printf '%s %s/go.mod h1:fixture\n' "$parent_module" "$version" >"$scan_root/tools/$directory/go.sum"
 }
 
@@ -284,6 +303,10 @@ write_fixture_go() {
   chmod +x "$scan_root/bin/go"
 }
 
+check_fixture_tree() {
+  check_tree "$1" example.test/app example.test/tools
+}
+
 self_test() {
   local fixture_root
   local tool_check_go
@@ -305,21 +328,34 @@ self_test() {
   write_fixture_module "$fixture_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.11
   write_fixture_module "$fixture_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.20.0
   write_fixture_module "$fixture_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0
-  check_tree "$fixture_root"
+  check_fixture_tree "$fixture_root"
+
+  printf 'module example.test/v2\n\ngo 1.27.0\n' >"$fixture_root/go.mod"
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
+    fail 'self-test accepted an unexpected root module identity'
+  fi
+  printf 'module example.test/app\n\ngo 1.27.0\n' >"$fixture_root/go.mod"
+
+  write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 \
+    github.com/wailsapp/wails/v3 v3.0.0-beta.13 example.test/v2/tools/wails
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
+    fail 'self-test accepted a tool module migrated with the root v2 identity'
+  fi
+  write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.13
 
   printf '\ntool github.com/bufbuild/buf/cmd/buf\n' >>"$fixture_root/go.mod"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a root tool declaration'
   fi
   printf 'module example.test/app\n\ngo 1.27.0\n' >"$fixture_root/go.mod"
 
   printf 'go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run\n' >"$fixture_root/docs/commands.md"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted an unpinned golangci-lint invocation'
   fi
 
   printf 'go install github.com/go-task/task/v3/cmd/task@latest\n' >"$fixture_root/docs/commands.md"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a global tool installation'
   fi
 
@@ -327,38 +363,38 @@ self_test() {
   printf 'go run -modfile=tools/golangci-lint/go.mod github.com/golangci/golangci-lint/v2/cmd/golangci-lint run\n' >>"$fixture_root/docs/commands.md"
 
   write_fixture_module "$fixture_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.53.0
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted the wrong Task version'
   fi
   write_fixture_module "$fixture_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.53.1
 
   write_fixture_module "$fixture_root" future example.test/future/cmd/future example.test/future v1.0.0
-  check_tree "$fixture_root"
+  check_fixture_tree "$fixture_root"
   : >"$fixture_root/tools/future/go.sum"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted an empty sum for a discovered tool module'
   fi
   write_fixture_module "$fixture_root" future example.test/future/cmd/future example.test/future v1.0.0
   printf '\ntool example.test/second-tool\n' >>"$fixture_root/tools/future/go.mod"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted multiple tools in a discovered module'
   fi
   rm -rf "$fixture_root/tools/future"
 
   printf '\ncheck:\n\t@true\n' >>"$fixture_root/Makefile"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted an additional Make workflow target'
   fi
   write_fixture_makefile "$fixture_root"
 
   printf '.DEFAULT_GOAL := tools\n.PHONY: tools\ntools:\n\t@true\n' >"$fixture_root/Makefile"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a Make bootstrap without module discovery'
   fi
   write_fixture_makefile "$fixture_root"
 
   : >"$fixture_root/.mutate-root-module"
-  if check_tree "$fixture_root" >/dev/null 2>&1; then
+  if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted root-module drift during tool resolution'
   fi
   rm -f "$fixture_root/.mutate-root-module"
