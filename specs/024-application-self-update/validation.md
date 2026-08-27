@@ -28,7 +28,7 @@ directly with `npm test` and produced the result above.
 | SC-003 | PASS | Provider, manager, application, and browser failure tests cover offline, timeout, rate-limit, malformed-release, and unavailable-service behavior without blocking startup. |
 | SC-004 | PASS (automated) | Build, provider, and staging tests exercise the exact five-target inventory and exact target selection/rejection. The reduced live-acceptance scope requires a native journey only on Darwin ARM64. |
 | SC-005 | PASS | Digest, completeness, ambiguity, compatibility, extraction, and staging tests reject unsafe artifacts before replacement. |
-| SC-006 | NOT RUN | The minimum live journey is a real Darwin ARM64 tagged-prerelease download, replacement, relaunch at the offered version, and subsequent no-repeat check. It requires a spare tag and an installed prior version; no qualifying release was published for this validation. |
+| SC-006 | PASS (manual, screenshot evidence) | A Darwin ARM64 run shows `2.1.0-autoupdate01` offering `2.1.0-autoupdate02`, the accepted update reaching ready-to-restart, and the relaunched application reporting `2.1.0-autoupdate02` with no repeated offer visible. |
 | SC-007 | PASS (automated) | Helper and recovery tests inject promotion and relaunch failures and verify retention or restoration. Additional manual physical failure injection is outside the reduced live-acceptance scope. |
 | SC-008 | PASS (automated) | Recovery tests verify representative user-data isolation across success and failure paths. An additional manual cross-version credentials/preferences comparison is outside the reduced live-acceptance scope. |
 | SC-009 | PASS (contract) | Release/build checks enforce exactly one archive for each of the five targets and require valid GitHub SHA-256 digest metadata, with no checksum sidecars or extra assets. Publication from the schema-v2 self-update implementation was **NOT RUN**. |
@@ -57,8 +57,29 @@ acceptance.
 
 ## Minimum live tagged prerelease journey
 
-The single required live update/relaunch journey on Darwin ARM64 was **NOT RUN** because no qualifying
-spare tag containing the self-update implementation was published. Windows AMD64, Windows ARM64,
-Linux AMD64, and Linux ARM64 runtime journeys are outside the reduced live-acceptance scope; the
-release must still publish the exact five governed archives, and deterministic release/provider,
-verification, staging, helper, recovery, UI, and browser suites continue to cover those paths.
+The user completed the Darwin ARM64 acceptance journey on 2026-08-27. The captured sequence shows:
+
+1. [`sc-006-update-offer.png`](./evidence/sc-006-update-offer.png): the installed
+   `v2.1.0-autoupdate01` application offers `v2.1.0-autoupdate02` before downloading; the UI renders
+   both versions without the conventional `v` tag prefix.
+2. [`sc-006-update-ready.png`](./evidence/sc-006-update-ready.png): the accepted update finishes
+   preparation and requests the separate restart decision.
+3. [`sc-006-updated-version.png`](./evidence/sc-006-updated-version.png): after restart, the
+   application reports version `2.1.0-autoupdate02`; the ready local interface has no repeated update
+   offer visible.
+
+Local Git refs confirm the exact tags `v2.1.0-autoupdate01` and `v2.1.0-autoupdate02`; both point to
+source revision `e58884465b8df190968493a0c50323353db0c641`, which also appears in the captured release
+notes. A text runtime log was not retained, but the screenshots and tag refs preserve the release
+identity, ready-to-restart boundary, and post-relaunch version required for this reduced live
+acceptance. Windows AMD64, Windows ARM64, Linux AMD64, and Linux ARM64 runtime journeys remain
+outside its scope; deterministic release/provider, verification, staging, helper, recovery, UI, and
+browser suites continue to cover those paths.
+
+### Screenshot checksums
+
+| Evidence | SHA-256 |
+|---|---|
+| `sc-006-update-offer.png` | `69c1c93c215466a259cd7c4eeb2ced9060014c6561d053fbf3b88abd24fb9813` |
+| `sc-006-update-ready.png` | `c9ca24d61b921a654fc48c924be9d740cf81a937c75f247248e353312f1116ba` |
+| `sc-006-updated-version.png` | `732b8ca73f0c7a104428abb2ab55c20dbd1d7bb489c4b2b5e1e7f1d80e8bf112` |

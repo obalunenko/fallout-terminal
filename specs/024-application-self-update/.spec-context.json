@@ -436,7 +436,7 @@
     }
   ],
   "telemetryInstanceId": "9026baa6-d72a-4d73-8ee0-8f417cfb195f",
-  "last_action": "living specs evaluated — skipped (not configured)",
+  "last_action": "all 44 tasks done — SC-006 screenshots and exact prerelease tags recorded",
   "coverage": {
     "FR-001": {
       "title": "Every packaged production launch MUST initiate exactly one update check after the application can present Overseer-facing status.",
@@ -707,6 +707,9 @@
     },
     "tasks": {
       "summary": "44 dependency-ordered tasks across Setup, Foundational, three user-story phases, and Polish with explicit test-first waves"
+    },
+    "implement": {
+      "summary": "Implemented and validated application self-update; all 44 tasks are complete and SC-006 has manual Darwin ARM64 screenshot evidence."
     }
   },
   "currentTask": "T044",
@@ -1089,5 +1092,30 @@
         "specs/024-application-self-update/validation.md"
       ]
     }
-  }
+  },
+  "verified": [
+    {
+      "what": "Manual application self-update acceptance",
+      "command": "User-reported manual verification",
+      "result": "PASS — user confirmed automatic updating works on 2026-08-27",
+      "warnings": [
+        "Exact tag, installed/offered versions, and run logs were not captured"
+      ]
+    },
+    {
+      "what": "SC-006 Darwin ARM64 screenshot-backed self-update journey",
+      "command": "Manual acceptance captured in three PNG screenshots",
+      "result": "PASS — 2.1.0-autoupdate01 offered and prepared 2.1.0-autoupdate02; the relaunched application reports 2.1.0-autoupdate02 without a repeated offer visible",
+      "warnings": [
+        "Exact Git tag spelling and a text runtime log were not retained"
+      ]
+    },
+    {
+      "what": "SC-006 local tagged prerelease identity",
+      "command": "git tag --list *autoupdate* with refname and objectname",
+      "result": "PASS — v2.1.0-autoupdate01 and v2.1.0-autoupdate02 both resolve to e58884465b8df190968493a0c50323353db0c641, matching the screenshot release notes",
+      "warnings": []
+    }
+  ],
+  "concerns": null
 }
