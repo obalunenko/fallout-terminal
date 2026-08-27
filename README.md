@@ -41,6 +41,7 @@ task dev                   # разработка
 task build                 # сборка для текущей ОС
 task package               # пакет для текущей ОС
 task package:all           # опциональная локальная матрица через macOS и Docker
+task release:tag           # предложить, подтвердить и отправить следующий release tag
 task release:macos:preflight # проверить prerequisites ручного подписанного macOS-релиза
 task release:macos:signed  # собрать ручной Developer ID/notarized macOS-релиз
 task test                  # Go-тесты
@@ -51,6 +52,10 @@ task speckit:update:check  # проверить обновления Spec Kit и
 ```
 
 `make tools` — единственная изменяющая состояние Make-команда: она обнаруживает каждый `tools/*/go.mod` и устанавливает закреплённые Go-инструменты. `make help` показывает эти bootstrap-команды и направляет к `task --list`; все операции разработки, проверки и упаковки выполняются через корневой `Taskfile.yml`. Полный каталог команд и правила Wails-совместимой упаковки приведены в [руководстве по сборке и выпуску](docs/platform-packaging.md).
+
+`task release:tag` вычисляет следующий стабильный SemVer с помощью закреплённого `svu`, показывает
+его для подтверждения и отправляет тег в `origin`. Для prerelease укажите идентификатор, например
+`task release:tag PRERELEASE=rc.1`.
 
 ### Spec Kit и расширения
 
