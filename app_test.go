@@ -27,6 +27,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type maskedCommandExecutionError struct {
+	cause error
+}
+
+func (err maskedCommandExecutionError) Error() string {
+	return "opaque control failure"
+}
+
+func (err maskedCommandExecutionError) Unwrap() error {
+	return err.cause
+}
+
+func TestCommandExecutionMasterErrorUsesStructuredIdentity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "stale", err: maskedCommandExecutionError{cause: controlservice.ErrCommandExecutionStale}, want: "command execution request is no longer pending"},
+		{name: "persistence", err: maskedCommandExecutionError{cause: controlservice.ErrCommandExecutionPersistence}, want: "command execution could not be persisted"},
+		{name: "other", err: errors.New("stale wording without identity"), want: "command execution could not be resolved"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, commandExecutionMasterError(test.err))
+		})
+	}
+}
+
 func TestApplicationStartsPlayerBeforePublishingReady(t *testing.T) {
 	recorder := &callRecorder{}
 	player := &recordingPlayerServer{
@@ -1554,6 +1586,7 @@ func TestCoordinationBridgeRejectsInvalidOrFailedCommandsWithoutPartialState(t *
 	invalidPayloads := []CharacterCreatePayload{
 		{Name: "   ", Intelligence: 5, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: strings.Repeat("x", 81), Intelligence: 5, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
+		{Name: strings.Repeat("é", 81), Intelligence: 5, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: "Boone", Intelligence: 0, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: "Boone", Intelligence: 11, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: "Boone", Intelligence: 5, HackerPerkAvailable: nil, ExpectedRevision: 9},
@@ -1808,6 +1841,7 @@ func TestCoordinationBridgeRejectsInvalidCompleteRosterMutationsBeforeCoordinato
 		app.UpdateCharacter(CharacterUpdatePayload{Name: "Mara", Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "   ", Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: strings.Repeat("x", 81), Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
+		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: strings.Repeat("é", 81), Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "Mara", Intelligence: 0, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "Mara", Intelligence: 11, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "Mara", Intelligence: 8, ExpectedRevision: 20}),

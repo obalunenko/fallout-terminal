@@ -73,7 +73,11 @@ func TestCanceledSessionDialogsDoNotChangeStateOrFilesystem(t *testing.T) {
 			fileSystem := testutil.NewFakeFileSystem()
 			dialog := &testutil.FakeDialog{}
 			service := NewService(NewStorage(fileSystem), dialog, testLocations)
-			t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+				defer cancel()
+				require.NoError(t, service.Shutdown(ctx))
+			})
 
 			result := test.invoke(t.Context(), service)
 			assert.False(t, result.OK)

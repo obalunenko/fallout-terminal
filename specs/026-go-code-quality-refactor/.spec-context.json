@@ -1,0 +1,771 @@
+{
+  "workflow": "companion",
+  "specName": "go code quality refactor",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T18:58:17.189Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T19:00:17.845Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:02:19.128Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:02:19.314Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T19:02:52.687Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T19:02:52.882Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:03:50.945Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T19:03:51.522Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T19:04:07.476Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:04:14.645Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:05:02.078Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:05:02.498Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:05:33.992Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:05:34.364Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:07:45.842Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:07:46.236Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:07:46.628Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:09:35.872Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:09:36.253Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:09:36.663Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:10:22.108Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:11:13.821Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:12:09.860Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:13:35.730Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:15:45.258Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:17:27.873Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:17:28.238Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:17:28.611Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:18:22.534Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:19:23.677Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:20:21.168Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:20:53.430Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T19:21:41.303Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T19:21:41.507Z"
+    }
+  ],
+  "telemetryInstanceId": "88eadbe1-f7a9-4062-9eec-9a4edee3ded2",
+  "unattended": true,
+  "last_action": "BUG-001 fixed — 25/25 tasks complete; fresh-cache task test and task test:race pass without linker warnings",
+  "coverage": {
+    "FR-001": {
+      "title": "The system MUST return fully detached public live-state projections, including every nested terminal-transition value, while preserving nil and empty-value semantics.",
+      "tasks": [
+        "T002",
+        "T004",
+        "T006",
+        "T009",
+        "T010",
+        "T011"
+      ],
+      "tests": [
+        "internal/domain/model_test.go::TestCloneContentNodeDeeplyDetachesNestedValues",
+        "internal/live/service_test.go::TestSetSnapshotIsDetachedAndSecretFree"
+      ]
+    },
+    "FR-002": {
+      "title": "The system MUST expose stable structured identities for known control-command failure categories and MUST classify wrapped failures without inspecting human-readable message text.",
+      "tasks": [
+        "T007",
+        "T012",
+        "T013"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestCommandExecutionResolutionRejectsStaleAndDuplicateRequestIDs",
+        "internal/control/service_test.go::TestApproveCommandExecutionPersistenceFailureClearsPendingWithoutSuccess",
+        "app_test.go::TestCommandExecutionMasterErrorUsesStructuredIdentity"
+      ]
+    },
+    "FR-003": {
+      "title": "Tunnel start, stop, and reconfiguration operations MUST handle repeated in-flight state changes with bounded call-stack growth while preserving cancellation, ownership, buffered mutation, and final-state behavior.",
+      "tasks": [
+        "T008",
+        "T014"
+      ],
+      "tests": [
+        "internal/tunnel/manager_test.go::TestPublicAccessManagerConcurrentReconfigureConvergesWithoutEndpointOverlapAcross100Schedules"
+      ]
+    },
+    "FR-004": {
+      "title": "Player-action dispatch MUST retain atomic validation, mutation, persistence, revision, and response behavior when decomposed into cohesive phases.",
+      "tasks": [
+        "T015",
+        "T016"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestAcceptedMutationPublishesOnePreassembledUpdatePerSessionBeforeReturn",
+        "internal/control/service_test.go::TestLinkedCommandCreatesOneReplaySafePendingAndResolvesAtomically"
+      ]
+    },
+    "FR-005": {
+      "title": "Terminal activation paths MUST share their common state-transition behavior while preserving route-specific navigation and failure semantics.",
+      "tasks": [
+        "T015",
+        "T016"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestLinkedCommandCreatesOneReplaySafePendingAndResolvesAtomically",
+        "internal/control/service_test.go::TestRootBackReturnRejectsWithoutMutationThenApprovesOneLIFOPoint"
+      ]
+    },
+    "FR-006": {
+      "title": "Character value constraints MUST have one canonical domain definition reused at application and control boundaries, while each boundary MUST retain its required presence and trust checks.",
+      "tasks": [
+        "T003",
+        "T005",
+        "T017",
+        "T019"
+      ],
+      "tests": [
+        "internal/domain/validate_test.go::TestValidateCharacterValues",
+        "app_test.go::TestCoordinationBridgeRejectsInvalidOrFailedCommandsWithoutPartialState",
+        "internal/control/service_test.go::TestAddCharacterGuardsRunBeforeIDAllocationOrPersistence"
+      ]
+    },
+    "FR-007": {
+      "title": "New-session, open-session, and demo-copy commands MUST share common orchestration while preserving each command's labels, inputs, side effects, and errors.",
+      "tasks": [
+        "T018",
+        "T020"
+      ],
+      "tests": [
+        "internal/session/service_test.go::TestCanceledSessionDialogsDoNotChangeStateOrFilesystem",
+        "app_test.go::TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors"
+      ]
+    },
+    "FR-008": {
+      "title": "Extracted-update manifest validation MUST be separated into focused validation stages while preserving every existing rejection rule and diagnostic category.",
+      "tasks": [
+        "T021",
+        "T022"
+      ],
+      "tests": [
+        "internal/update/staging_test.go::TestValidateExtractedManifestRejectsEachValidationStage",
+        "internal/update/staging_test.go::TestPrepareApplicationUnitValidatesManifestBeforeAdjacentStaging"
+      ]
+    },
+    "FR-009": {
+      "title": "Cohesive source concerns MAY be moved into feature-focused files within their existing packages, but package ownership, exported interfaces, initialization behavior, and generated files MUST remain unchanged.",
+      "tasks": [
+        "T004",
+        "T012",
+        "T022",
+        "T023"
+      ],
+      "tests": [
+        "internal/domain/model_test.go::TestCloneContentNodeDeeplyDetachesNestedValues",
+        "internal/update/staging_test.go::TestValidateExtractedManifestRejectsEachValidationStage"
+      ]
+    },
+    "FR-010": {
+      "title": "Refactoring MUST preserve all established user-visible behavior, persisted data compatibility, public/private boundaries, and concurrency guarantees.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T007",
+        "T008",
+        "T014",
+        "T015",
+        "T017",
+        "T018",
+        "T021",
+        "T024"
+      ],
+      "tests": [
+        "app_test.go",
+        "internal/control/service_test.go",
+        "internal/tunnel/manager_test.go",
+        "internal/update/staging_test.go"
+      ]
+    },
+    "FR-011": {
+      "title": "All changed Go code MUST follow the repository's Go quality and simplification guidance, including clarity, minimal interfaces, explicit error context, dependency discipline, and removal of redundant state or helpers.",
+      "tasks": [
+        "T004",
+        "T005",
+        "T009",
+        "T010",
+        "T011",
+        "T016",
+        "T019",
+        "T020",
+        "T022",
+        "T023"
+      ],
+      "tests": [
+        "task lint",
+        "gopls check"
+      ]
+    },
+    "FR-012": {
+      "title": "Every changed Go test MUST register test-owned resource cleanup immediately with test cleanup hooks; cleanup requiring a context MUST use a cancellation-independent bounded context, while lexical cleanup MAY continue to use function-scoped deferral.",
+      "tasks": [
+        "T003",
+        "T017",
+        "T021",
+        "T023"
+      ],
+      "tests": [
+        "internal/session/service_test.go::TestCanceledSessionDialogsDoNotChangeStateOrFilesystem"
+      ]
+    },
+    "FR-013": {
+      "title": "The completed change MUST pass formatting, static analysis, unit tests, and race-enabled tests applicable to the affected runtime paths.",
+      "tasks": [
+        "T001",
+        "T024"
+      ],
+      "tests": [
+        "go test ./...",
+        "go test -race ./..."
+      ]
+    },
+    "FR-014": {
+      "title": "Repository-wide macOS Go validation uses the governed deployment environment without linker target-version warnings.",
+      "tasks": [
+        "T024",
+        "T025"
+      ],
+      "tests": [
+        "task test",
+        "task test:race"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 15,
+    "projectedTasks": 21,
+    "scopeSignal": "larger",
+    "verdict": "oversized"
+  },
+  "intent": "Simplify and harden the Go codebase while preserving runtime behavior, contracts, and concurrency guarantees.",
+  "context": [
+    "area: application, control, domain, live, session, tunnel, and update packages",
+    "constraint: Google Go Style Guide plus repository Go quality and simplification skills",
+    "constraint: test-owned cleanup uses t.Cleanup with cancellation-independent bounded cleanup contexts"
+  ],
+  "expectations": [
+    "No new user-facing features, routes, commands, or intentional message redesign.",
+    "No schema, RPC, generated-file, persistence-format, or package-boundary changes.",
+    "No arbitrary file splitting that does not create a cohesive feature grouping."
+  ],
+  "step_summaries": {
+    "specify": {
+      "summary": "Specified a behavior-preserving Go quality refactor across runtime, control, and application concerns.",
+      "key_finding": "Detached projections, typed error identity, and iterative lifecycle coordination are the highest-risk requirements."
+    },
+    "plan": {
+      "summary": "Designed a package-preserving refactor with explicit copy, error, lifecycle, transaction, validation, and manifest invariants.",
+      "key_finding": "The domain already contains the complete content-node copier, making service-local copies unnecessary."
+    },
+    "tasks": {
+      "summary": "Generated 24 tasks across foundational work, four user stories, and final verification.",
+      "key_finding": "Regression-first waves isolate the detached-copy, error, lifecycle, transaction, character, session, and manifest risks."
+    },
+    "implement": {
+      "summary": "Completed all 25 tasks, including the BUG-001 verification correction and canonical macOS validation guidance.",
+      "key_finding": "Fresh-cache Task unit and race suites apply the macOS 13 deployment environment and emit no linker target-version warnings.",
+      "risks": "No known validation warnings remain."
+    }
+  },
+  "approach": "Add focused regressions, centralize domain copy and validation rules, convert recursive lifecycle waits to loops, and extract transaction-local orchestration helpers without changing package or contract ownership.",
+  "decisions": [
+    {
+      "decision": "Use the domain package as canonical content-node copy owner.",
+      "why": "It already has the complete copy semantics and prevents service-specific field omissions.",
+      "rejected": "Keep independent service copy helpers."
+    },
+    {
+      "decision": "Use sentinel error identities with wrapping for control failure classification.",
+      "why": "errors.Is provides stable machine classification without changing transport contracts.",
+      "rejected": "Parse human-readable error strings or add schema codes."
+    },
+    {
+      "decision": "Represent lifecycle retries as lock-releasing loops.",
+      "why": "Loops preserve the state machine while bounding call-stack growth.",
+      "rejected": "Recursive re-entry or a new coordinator goroutine."
+    },
+    {
+      "decision": "Keep player-action decomposition inside one existing commit boundary.",
+      "why": "Helpers reduce branching while preserving transaction and effect ordering.",
+      "rejected": "New service interfaces or separate commits."
+    },
+    {
+      "decision": "Preserve exact invalid-durable-state diagnostics with an identity-carrying wrapper.",
+      "why": "Application classification needs a stable persistence identity while control tests and maintainers retain the more specific diagnostic.",
+      "rejected": "Replace every persistence diagnostic with one generic error string."
+    },
+    {
+      "decision": "Use interface method expressions for shared session command orchestration.",
+      "why": "They preserve the three distinct callbacks without closure boilerplate or a new command enum.",
+      "rejected": "Keep three duplicated facade bodies or introduce a command registry."
+    }
+  ],
+  "currentTask": "T024",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Confirmed the affected Go packages were green before production edits.",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added regression coverage for complete detached content-node copies and collection semantics.",
+      "files": [
+        "internal/domain/model_test.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added table-driven coverage for canonical character name and intelligence rules.",
+      "files": [
+        "internal/domain/validate_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Exported the complete domain content-node copier and reused it inside domain projections.",
+      "files": [
+        "internal/domain/model.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added canonical domain validation for character names and intelligence.",
+      "files": [
+        "internal/domain/validate.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Extended live projection coverage to mutate terminal transitions and raw nested values.",
+      "files": [
+        "internal/live/service_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added stale and persistence error identity assertions through wrapping.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Strengthened concurrent reconfiguration stress coverage to join 32 callers per schedule.",
+      "files": [
+        "internal/tunnel/manager_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Replaced the incomplete live copier with the canonical domain content-node copy.",
+      "files": [
+        "internal/live/service.go",
+        "internal/live/service_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Removed the duplicate session content-node copier in favor of the domain operation.",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Removed the duplicate control content-node copier in favor of the domain operation.",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added stable stale and persistence identities while preserving existing control diagnostics.",
+      "files": [
+        "internal/control/errors.go",
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Replaced application message parsing with errors.Is classification and opaque-message regression coverage.",
+      "files": [
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Converted stop and reconfiguration wait re-entry to lock-releasing loops with unchanged ownership and cancellation behavior.",
+      "files": [
+        "internal/tunnel/manager.go",
+        "internal/tunnel/manager_test.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Strengthened linked and return navigation assertions for route-specific depth behavior.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Extracted transaction-local action preparation, terminal navigation setup, and accepted-result construction while retaining one commit.",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Extended application boundary cases for multi-byte character name limits while retaining required pointer checks.",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Confirmed distinct create, open, and demo-copy cancellation contracts and bounded the touched session test cleanup.",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Reused canonical domain character name and intelligence validation at application and control boundaries.",
+      "files": [
+        "app.go",
+        "internal/control/service.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Consolidated create, open, and demo-copy facade orchestration using command-specific interface method expressions.",
+      "files": [
+        "app.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Added stage-specific manifest rejection coverage for identity, shape, records, ordering, and evidence.",
+      "files": [
+        "internal/update/staging_test.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Separated manifest loading, identity, package shape, and file evidence validation without changing rejection diagnostics.",
+      "files": [
+        "internal/update/staging.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Completed Go quality and simplification review; formatter, diff checks, and gopls diagnostics were clean, with no additional safe simplifications identified.",
+      "files": [
+        "AGENTS.md",
+        ".agents/skills/go-code-quality-review/SKILL.md",
+        ".agents/skills/code-simplification-review/SKILL.md",
+        "app.go",
+        "internal/control/errors.go",
+        "internal/control/service.go",
+        "internal/domain/model.go",
+        "internal/domain/validate.go",
+        "internal/live/service.go",
+        "internal/session/service.go",
+        "internal/tunnel/manager.go",
+        "internal/update/staging.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Passed formatter, vet, configured lint, complete unit tests, and complete race tests; only known macOS linker-version warnings remained.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Go formatting",
+      "command": "task fmt:check",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "Go vet",
+      "command": "go vet ./...",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "Configured Go lint",
+      "command": "task lint",
+      "result": "passed with 0 issues",
+      "warnings": []
+    },
+    {
+      "what": "Complete Go unit suite",
+      "command": "go test ./...",
+      "result": "passed",
+      "warnings": [
+        "macOS linker reported objects built for newer deployment versions; tests passed"
+      ]
+    },
+    {
+      "what": "Complete Go race suite",
+      "command": "go test -race ./...",
+      "result": "passed",
+      "warnings": [
+        "macOS linker reported objects built for newer deployment versions; race tests passed"
+      ]
+    },
+    {
+      "what": "Warning-free complete Go unit suite",
+      "command": "env GOCACHE=/private/tmp/fallout-terminal-warning-fix-unit-cache task test",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "Warning-free complete Go race suite",
+      "command": "env GOCACHE=/private/tmp/fallout-terminal-warning-fix-race-cache task test:race",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "Canonical Go vet",
+      "command": "env GOCACHE=/private/tmp/fallout-terminal-warning-fix-vet-cache task vet",
+      "result": "passed",
+      "warnings": []
+    }
+  ]
+}

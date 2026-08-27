@@ -148,7 +148,7 @@
     }
   ],
   "telemetryInstanceId": "8d954cdc-2813-4427-9ab5-f837a7bd8689",
-  "last_action": "all 8 tasks complete; Node 26.8.1 builds, 175 browser tests, focused contracts, and task ci:quality pass locally",
+  "last_action": "BUG-001 fixed — 10/10 tasks complete; task frontend:build passes on Node.js 26.8.1 without EBADENGINE warnings",
   "coverage": {
     "FR-001": {
       "title": "Every project-owned JavaScript package declares Node.js 26.8.1 minimum",
@@ -238,6 +238,18 @@
         "internal/platform/portable_release_test.go::TestPortableReleaseWorkflowCoversRequiredTargets",
         "tests/browser/*.spec.mjs"
       ]
+    },
+    "FR-010": {
+      "title": "Local Task-managed npm workflows select and validate Node.js 26.8.1 or newer before npm runs.",
+      "tasks": [
+        "T009",
+        "T010"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces",
+        "task node:check",
+        "task frontend:build"
+      ]
     }
   },
   "size": "normal",
@@ -305,11 +317,9 @@
       "summary": "Eight tasks across setup, foundational policy, two P1 user stories, and one final validation phase."
     },
     "implement": {
-      "summary": "Upgraded all active project Node surfaces and GitHub workflows to Node 26.8.1, refreshed maintained official actions, and passed local full validation",
-      "key_finding": "Node v26.8.1 works without dependency or application code changes",
-      "risks": [
-        "GitHub-hosted matrix evidence awaits push/tag"
-      ]
+      "summary": "Completed all 10 tasks, including BUG-001 local runtime selection, preflight, documentation, and regression coverage.",
+      "key_finding": "The repeated EBADENGINE output came from an ungoverned Node.js 26.7.0 shell; .nvmrc and node:check now make the required runtime explicit before npm runs.",
+      "risks": "No known Node.js engine warnings remain in canonical Task workflows."
     }
   },
   "currentTask": "T008",
@@ -417,6 +427,24 @@
       "what": "Legacy reference and diff audit",
       "command": "rg active Node 20/action v4-v5 selectors; git diff --check",
       "result": "No active legacy selectors outside negative assertions; diff check passed",
+      "warnings": []
+    },
+    {
+      "what": "Warning-free local frontend build",
+      "command": "task frontend:build",
+      "result": "passed under Node.js 26.8.1; both Vite applications built",
+      "warnings": []
+    },
+    {
+      "what": "Local Node runtime policy regression",
+      "command": "go test ./internal/platform -run ^TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces$ -count=1",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "Older Node runtime preflight rejection",
+      "command": "task node:check NODE_MINIMUM_VERSION=99.0.0",
+      "result": "expected failure before npm with actionable nvm use guidance",
       "warnings": []
     }
   ],

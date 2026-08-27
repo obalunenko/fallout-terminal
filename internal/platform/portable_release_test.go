@@ -102,6 +102,9 @@ func TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces(t *testing.T) {
 	frontendLock := readAcceptanceDocument(t, filepath.Join(root, "frontend", "package-lock.json"))
 	browserLock := readAcceptanceDocument(t, filepath.Join(root, "tests", "browser", "package-lock.json"))
 	readme := readAcceptanceDocument(t, filepath.Join(root, "README.md"))
+	contributing := readAcceptanceDocument(t, filepath.Join(root, "CONTRIBUTING.md"))
+	taskfile := readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+	nvmVersion := strings.TrimSpace(readAcceptanceDocument(t, filepath.Join(root, ".nvmrc")))
 
 	for name, workflow := range map[string]string{
 		"quality":  qualityWorkflow,
@@ -138,6 +141,19 @@ func TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces(t *testing.T) {
 	assert.NotContains(t, browserLock, `"node": ">=20.19.0"`)
 	assert.Contains(t, readme, "Node.js 26.8.1+ и npm;")
 	assert.NotContains(t, readme, "Node.js 20.19+ и npm;")
+	assert.Equal(t, "26.8.1", nvmVersion)
+	assert.Contains(t, contributing, "Node.js 26.8.1+ and npm")
+	assert.Contains(t, contributing, "nvm use")
+	assert.NotContains(t, contributing, "Node.js 20.19+ and npm")
+	for _, required := range []string{
+		`NODE: '{{default "node" .NODE}}'`,
+		"NODE_MINIMUM_VERSION: '26.8.1'",
+		"node:check:",
+		"task: node:check",
+		`Run "nvm use" from the repository root.`,
+	} {
+		assert.Contains(t, taskfile, required)
+	}
 }
 
 func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {

@@ -127,25 +127,49 @@ func validateExtractedManifest(ctx context.Context, root string, candidate Updat
 		return fmt.Errorf("validate extracted root: %w", err)
 	}
 
+	manifest, err := loadExtractedArtifactManifest(root)
+	if err != nil {
+		return err
+	}
+	if err := validateExtractedManifestIdentity(manifest, candidate); err != nil {
+		return err
+	}
+
+	actual, err := inspectExtractedApplicationFiles(ctx, root, candidate.Artifact.Target.OS == "windows")
+	if err != nil {
+		return err
+	}
+	required := requiredExtractedApplicationFiles(candidate.Artifact.Target)
+	if err := validateExtractedApplicationShape(manifest, actual, required, candidate.Artifact.Target.OS == "windows"); err != nil {
+		return err
+	}
+	return validateExtractedManifestFiles(manifest.Files, actual, candidate.Artifact.Target.OS == "windows")
+}
+
+func loadExtractedArtifactManifest(root string) (extractedArtifactManifest, error) {
 	manifestPath := filepath.Join(root, artifactManifest)
 	manifestInfo, err := os.Lstat(manifestPath)
 	if err != nil || !manifestInfo.Mode().IsRegular() || manifestInfo.Mode().Perm() != 0o444 || manifestInfo.Size() > 1<<20 {
-		return errors.New("artifact manifest is unavailable")
+		return extractedArtifactManifest{}, errors.New("artifact manifest is unavailable")
 	}
 	contents, err := os.ReadFile(manifestPath)
 	if err != nil {
-		return errors.New("read artifact manifest")
+		return extractedArtifactManifest{}, errors.New("read artifact manifest")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	var manifest extractedArtifactManifest
 	if err := decoder.Decode(&manifest); err != nil {
-		return errors.New("decode artifact manifest")
+		return extractedArtifactManifest{}, errors.New("decode artifact manifest")
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return errors.New("decode artifact manifest")
+		return extractedArtifactManifest{}, errors.New("decode artifact manifest")
 	}
+	return manifest, nil
+}
+
+func validateExtractedManifestIdentity(manifest extractedArtifactManifest, candidate UpdateCandidate) error {
 	if manifest.SchemaVersion != 2 || manifest.Product != applicationName ||
 		manifest.Version != candidate.Version ||
 		manifest.Target.OS != candidate.Artifact.Target.OS ||
@@ -154,18 +178,21 @@ func validateExtractedManifest(ctx context.Context, root string, candidate Updat
 		!validSourceRevision(manifest.SourceRevision) {
 		return errors.New("artifact manifest identity does not match the selected release")
 	}
+	return nil
+}
 
-	actual, err := inspectExtractedApplicationFiles(ctx, root, candidate.Artifact.Target.OS == "windows")
-	if err != nil {
-		return err
-	}
-	required := requiredExtractedApplicationFiles(candidate.Artifact.Target)
+func validateExtractedApplicationShape(
+	manifest extractedArtifactManifest,
+	actual map[string]extractedApplicationFile,
+	required map[string]string,
+	foldCase bool,
+) error {
 	if len(manifest.Files) != len(actual) || len(actual) != len(required) {
 		return errors.New("artifact manifest inventory does not match the extracted package")
 	}
 	for path, mode := range required {
 		key := path
-		if candidate.Artifact.Target.OS == "windows" {
+		if foldCase {
 			key = strings.ToLower(key)
 		}
 		file, ok := actual[key]
@@ -173,19 +200,27 @@ func validateExtractedManifest(ctx context.Context, root string, candidate Updat
 			return errors.New("artifact package shape does not match the release contract")
 		}
 	}
-	seen := make(map[string]struct{}, len(manifest.Files))
+	return nil
+}
+
+func validateExtractedManifestFiles(
+	files []extractedArtifactManifestFile,
+	actual map[string]extractedApplicationFile,
+	foldCase bool,
+) error {
+	seen := make(map[string]struct{}, len(files))
 	previous := ""
-	for _, record := range manifest.Files {
+	for _, record := range files {
 		if record.Path == "" || strings.ContainsAny(record.Path, "\\\x00") ||
 			record.Path != filepath.ToSlash(filepath.Clean(record.Path)) ||
 			record.Path == "." || record.Path == ".." || strings.HasPrefix(record.Path, "../") ||
 			filepath.IsAbs(record.Path) || record.Size < 0 || !validManifestMode(record.Mode) ||
 			!validLowerHex(record.SHA256, sha256.Size) ||
-			candidate.Artifact.Target.OS == "windows" && strings.Contains(record.Path, ":") {
+			foldCase && strings.Contains(record.Path, ":") {
 			return errors.New("artifact manifest contains an invalid file record")
 		}
 		key := record.Path
-		if candidate.Artifact.Target.OS == "windows" {
+		if foldCase {
 			key = strings.ToLower(key)
 		}
 		if _, duplicate := seen[key]; duplicate || previous != "" && record.Path < previous {

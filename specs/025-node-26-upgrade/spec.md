@@ -3,6 +3,8 @@
 **Created**: 2026-08-27
 **Status**: Draft
 
+**Bugfix**: 2026-08-27 — BUG-001 governs local Node.js selection and validates it before npm workflows.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Use One Current Node.js Runtime (Priority: P1)
@@ -19,6 +21,7 @@ As a maintainer, I can install dependencies, build both frontend applications, a
 2. **Given** the locked dependencies are installed with Node.js 26.8.1, **When** the maintainer builds the player and Overseer frontends, **Then** both builds complete successfully.
 3. **Given** the browser-test dependencies are installed with Node.js 26.8.1, **When** the maintainer runs the browser tests, **Then** the suite completes without a project-runtime incompatibility.
 4. **Given** any project-owned JavaScript package declaration, **When** its supported runtime is inspected, **Then** it identifies Node.js 26.8.1 as the minimum supported version.
+5. **Given** a maintainer invokes a repository Task under an older Node.js runtime, **When** the Task would execute npm, **Then** it stops before dependency installation with one actionable version-selection error instead of repeated engine warnings.
 
 ---
 
@@ -59,6 +62,7 @@ As a release maintainer, I can trust that pull-request quality checks and every 
 - **FR-007**: Upgradeable automation components used by the quality and portable-release workflows MUST NOT depend on a deprecated Node.js 20 internal runtime.
 - **FR-008**: The completed upgrade MUST leave no active project-owned runtime declaration selecting Node.js 20.19.0.
 - **FR-009**: Application behavior, frontend dependency versions, and the supported release-target inventory MUST remain unchanged unless a compatibility change is required to run successfully on Node.js 26.8.1.
+- **FR-010**: The repository MUST provide a local Node.js 26.8.1 selector and MUST validate the executing runtime before Task-managed npm installation, build, or browser-test commands.
 
 ## Success Criteria
 
@@ -72,6 +76,7 @@ As a release maintainer, I can trust that pull-request quality checks and every 
 - **SC-006**: Automated inspection finds zero active project-owned references to Node.js 20.19.0.
 - **SC-007**: Quality and release runs report zero deprecated-Node.js-20 warnings attributable to automation components for which a maintained nondeprecated revision exists.
 - **SC-008**: Existing application acceptance tests report zero behavior regressions caused by the runtime upgrade.
+- **SC-009**: `task frontend:build` under Node.js 26.8.1 completes without `EBADENGINE` output, while an older runtime is rejected before npm executes.
 
 ## Assumptions
 

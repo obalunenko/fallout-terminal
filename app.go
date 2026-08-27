@@ -1271,51 +1271,26 @@ func nativeApplicationUpdateCommandResult(result updateservice.CommandResult) Ap
 
 // NewSession opens the native destination dialog and creates a validated
 // starter session.
-func (app *App) NewSession() (result sessionservice.SessionResult) {
-	defer func() {
-		app.recordOperation("session.create", operationOutcome(result.OK, result.Canceled), nil)
-	}()
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	commands, ok := app.deps.Sessions.(sessionCommands)
-	if !ok {
-		return sessionservice.SessionResult{Error: "session service is unavailable"}
-	}
-	commandResult := commands.Create(app.contextSnapshot())
-	app.captureSessionStatus(commands)
-	if commandResult.OK {
-		app.resetSessionStateOrdering()
-	}
-	app.resetPlayerConfigForSession(commandResult)
-	return routeSessionOperationResult(commandResult)
+func (app *App) NewSession() sessionservice.SessionResult {
+	return app.runSessionCommand("session.create", sessionCommands.Create)
 }
 
 // OpenSession opens and validates an existing version-1 session.
-func (app *App) OpenSession() (result sessionservice.SessionResult) {
-	defer func() {
-		app.recordOperation("session.open", operationOutcome(result.OK, result.Canceled), nil)
-	}()
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	commands, ok := app.deps.Sessions.(sessionCommands)
-	if !ok {
-		return sessionservice.SessionResult{Error: "session service is unavailable"}
-	}
-	commandResult := commands.Open(app.contextSnapshot())
-	app.captureSessionStatus(commands)
-	if commandResult.OK {
-		app.resetSessionStateOrdering()
-	}
-	app.resetPlayerConfigForSession(commandResult)
-	return routeSessionOperationResult(commandResult)
+func (app *App) OpenSession() sessionservice.SessionResult {
+	return app.runSessionCommand("session.open", sessionCommands.Open)
 }
 
 // CopyDemo creates an explicit writable copy of the bundled demo.
-func (app *App) CopyDemo() (result sessionservice.SessionResult) {
+func (app *App) CopyDemo() sessionservice.SessionResult {
+	return app.runSessionCommand("session.copy-demo", sessionCommands.CopyDemo)
+}
+
+func (app *App) runSessionCommand(
+	operation string,
+	command func(sessionCommands, context.Context) sessionservice.SessionResult,
+) (result sessionservice.SessionResult) {
 	defer func() {
-		app.recordOperation("session.copy-demo", operationOutcome(result.OK, result.Canceled), nil)
+		app.recordOperation(operation, operationOutcome(result.OK, result.Canceled), nil)
 	}()
 	app.coordinationCommandMu.Lock()
 	defer app.coordinationCommandMu.Unlock()
@@ -1324,7 +1299,7 @@ func (app *App) CopyDemo() (result sessionservice.SessionResult) {
 	if !ok {
 		return sessionservice.SessionResult{Error: "session service is unavailable"}
 	}
-	commandResult := commands.CopyDemo(app.contextSnapshot())
+	commandResult := command(commands, app.contextSnapshot())
 	app.captureSessionStatus(commands)
 	if commandResult.OK {
 		app.resetSessionStateOrdering()
@@ -1587,16 +1562,13 @@ func (app *App) resetPlayerConfigForSession(result sessionservice.SessionResult)
 // AddCharacter validates the complete trusted player profile before entering
 // the coordinator and publishes only its detached authoritative projection.
 func (app *App) AddCharacter(payload CharacterCreatePayload) CoordinationCommandResult {
-	if payload.Intelligence < 1 || payload.Intelligence > 10 {
-		return app.coordinationFailure("character intelligence must be between 1 and 10")
+	if err := domain.ValidateCharacterIntelligence(payload.Intelligence); err != nil {
+		return app.coordinationFailure(err.Error())
 	}
 	payload = routeAddCharacterRequest(payload)
-	payload.Name = strings.TrimSpace(payload.Name)
-	if payload.Name == "" {
-		return app.coordinationFailure("character name must not be blank")
-	}
-	if len([]rune(payload.Name)) > 80 {
-		return app.coordinationFailure("character name must be at most 80 characters")
+	name, err := domain.ValidateCharacterName(payload.Name)
+	if err != nil {
+		return app.coordinationFailure(err.Error())
 	}
 	if payload.HackerPerkAvailable == nil {
 		return app.coordinationFailure("character Hacker perk availability is required")
@@ -1605,7 +1577,7 @@ func (app *App) AddCharacter(payload CharacterCreatePayload) CoordinationCommand
 		return app.coordinationFailure("coordination service is unavailable")
 	}
 	state, err := app.deps.Coordination.AddCharacter(domain.CharacterCreatePayload{
-		Name:                payload.Name,
+		Name:                name,
 		Intelligence:        payload.Intelligence,
 		HackerPerkAvailable: *payload.HackerPerkAvailable,
 		ExpectedRevision:    payload.ExpectedRevision,
@@ -1616,14 +1588,14 @@ func (app *App) AddCharacter(payload CharacterCreatePayload) CoordinationCommand
 // UpdateCharacter validates a complete trusted player profile before entering
 // the coordinator transaction.
 func (app *App) UpdateCharacter(payload CharacterUpdatePayload) CoordinationCommandResult {
-	if payload.Intelligence < 1 || payload.Intelligence > 10 {
-		return app.coordinationFailure("character intelligence must be between 1 and 10")
+	if err := domain.ValidateCharacterIntelligence(payload.Intelligence); err != nil {
+		return app.coordinationFailure(err.Error())
 	}
 	payload = routeUpdateCharacterRequest(payload)
 	if strings.TrimSpace(string(payload.CharacterID)) == "" {
 		return app.coordinationFailure("character ID must not be blank")
 	}
-	name, err := validatedCoordinationDisplayName(payload.Name, "character name")
+	name, err := domain.ValidateCharacterName(payload.Name)
 	if err != nil {
 		return app.coordinationFailure(err.Error())
 	}
@@ -1965,11 +1937,10 @@ func (app *App) commandExecutionFailure(message string, state *domain.MasterCoor
 }
 
 func commandExecutionMasterError(err error) string {
-	message := err.Error()
 	switch {
-	case strings.Contains(message, "stale"):
+	case errors.Is(err, controlservice.ErrCommandExecutionStale):
 		return "command execution request is no longer pending"
-	case strings.Contains(message, "persist"), strings.Contains(message, "durable state"):
+	case errors.Is(err, controlservice.ErrCommandExecutionPersistence):
 		return "command execution could not be persisted"
 	default:
 		return "command execution could not be resolved"

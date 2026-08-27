@@ -1010,7 +1010,7 @@ func clonePublicLiveState(state *PublicLiveState) *PublicLiveState {
 		return nil
 	}
 	clone := *state
-	clone.Tree = cloneContentNode(state.Tree)
+	clone.Tree = CloneContentNode(state.Tree)
 	clone.Nav.Path = append([]string(nil), state.Nav.Path...)
 	clone.Nav.ViewEntryID = cloneString(state.Nav.ViewEntryID)
 	clone.Nav.CommandNodeID = cloneString(state.Nav.CommandNodeID)
@@ -1034,7 +1034,8 @@ func clonePublicLiveState(state *PublicLiveState) *PublicLiveState {
 	return &clone
 }
 
-func cloneContentNode(node ContentNode) ContentNode {
+// CloneContentNode returns a deeply detached copy of authored terminal content.
+func CloneContentNode(node ContentNode) ContentNode {
 	clone := node
 	if node.StateChange != nil {
 		stateChange := *node.StateChange
@@ -1048,7 +1049,7 @@ func cloneContentNode(node ContentNode) ContentNode {
 	if node.Children != nil {
 		clone.Children = make([]ContentNode, len(node.Children))
 		for index := range node.Children {
-			clone.Children[index] = cloneContentNode(node.Children[index])
+			clone.Children[index] = CloneContentNode(node.Children[index])
 		}
 	}
 	return clone
@@ -1093,7 +1094,7 @@ func cloneLiveTerminalRuntime(runtime *TerminalRuntime) *TerminalRuntime {
 		return nil
 	}
 	clone := *runtime
-	clone.Tree = cloneContentNode(runtime.Tree)
+	clone.Tree = CloneContentNode(runtime.Tree)
 	if runtime.CommandStates != nil {
 		clone.CommandStates = make(map[string]CommandExecutionState, len(runtime.CommandStates))
 		maps.Copy(clone.CommandStates, runtime.CommandStates)
@@ -1146,7 +1147,7 @@ func CloneSession(session Session) Session {
 		for index, terminal := range session.Terminals {
 			clone.Terminals[index] = terminal
 			clone.Terminals[index].Extra = cloneRawMessages(terminal.Extra)
-			clone.Terminals[index].Root = cloneContentNode(terminal.Root)
+			clone.Terminals[index].Root = CloneContentNode(terminal.Root)
 			if terminal.CommandStates != nil {
 				clone.Terminals[index].CommandStates = make(map[string]CommandExecutionState, len(terminal.CommandStates))
 				maps.Copy(clone.Terminals[index].CommandStates, terminal.CommandStates)

@@ -1,19 +1,65 @@
 ---
 name: go-code-quality-review
-description: Use when reviewing written or modified Go code in any repository — checking idiomatic style, error handling, concurrency safety, common Go pitfalls, dependency hygiene, comment quality, unit-test quality, and consistent logging with github.com/obalunenko/logger. Makes no assumptions about a specific architecture or directory layout.
+description: Use when creating, modifying, simplifying, or reviewing Go code. Applies the Google Go Style Guide together with repository instructions, and checks idiom, errors, concurrency, dependencies, comments, tests, and logging without assuming a particular architecture.
 ---
 
 # Go Code Quality Review
 
 ## Overview
 
-A structured review checklist for Go code quality that applies to any Go project. It prescribes `github.com/obalunenko/logger` for Go logging but otherwise excludes project-specific rules (architecture layers, error libraries, directory layout) — check those separately against the target project's own instruction files (AGENTS.md, CLAUDE.md, or similar) and lint config when they exist.
+A practical guide for writing and improving readable, idiomatic Go. Apply it while creating or modifying code, during behavior-preserving simplification, and when reviewing a change.
+
+Use the current [Google Go Style documentation](https://google.github.io/styleguide/go/) as the style baseline:
+
+1. The [core guide](https://google.github.io/styleguide/go/guide) is canonical and takes precedence within the Google documents.
+2. [Style decisions](https://google.github.io/styleguide/go/decisions) are normative, more detailed, and subordinate to the core guide.
+3. [Best practices](https://google.github.io/styleguide/go/best-practices) are advisory. Apply them when they improve the code in context.
+
+When network access is available, consult the current relevant section rather than relying on a remembered or copied rule. The guidance evolves. Do not copy the entire guide into the review or treat it as an exhaustive checklist.
+
+Repository instructions, accepted task requirements, configured formatters and linters, and established APIs still apply. Where Google guidance intentionally leaves a choice, prefer local consistency. Do not use a style preference to justify unrelated churn.
+
+## Core Standard
+
+Judge Go code using the guide's priorities, in order:
+
+1. **Clarity**: purpose and rationale are apparent to a reader.
+2. **Simplicity**: the code uses the simplest mechanism that meets its behavioral and performance needs.
+3. **Concision**: important details are prominent and repetition or ceremony does not obscure them.
+4. **Maintainability**: assumptions, APIs, dependencies, errors, tests, and extension points support safe future changes.
+5. **Consistency**: when the higher priorities do not decide the issue, match nearby and project-wide Go conventions.
+
+Always format Go source with `gofmt`. Use `MixedCaps` or `mixedCaps` for identifiers. Go has no fixed line-length limit: when a line is hard to read, improve the surrounding names or structure instead of wrapping solely to meet a column count.
+
+Prefer the least mechanism that solves the problem: core language constructs first, then the standard library, then an existing project dependency, and only then a new dependency or abstraction.
+
+## Operating Modes
+
+### Creating or modifying code
+
+- Read the target package, repository instructions, Go version, lint configuration, and relevant tests before choosing a design.
+- Make values, decisions, ownership, cancellation, and error paths easy to follow from top to bottom.
+- Choose names for their use in context. Avoid stutter, redundant type words, vague utility package names, and inconsistent initialism casing.
+- Introduce an interface, helper, dependency, goroutine, or configuration option only when the problem requires it or it makes the code clearer for current callers.
+- Add comments that explain rationale, constraints, or surprising behavior. Prefer self-explanatory names and structure for what the code does.
+
+### Simplifying code
+
+- Preserve observable behavior and public contracts unless the user asks for a behavior change.
+- Remove needless abstraction, repeated code, redundant state, hidden control flow, and unnecessary dependencies when the result is clearer.
+- Prefer readable explicit code over clever compact code. Do not optimize for fewer lines.
+- Keep simplification scoped to the changed code and directly adjacent issues. Avoid repository-wide style cleanup unless requested.
+
+### Reviewing code
+
+- Review the requested diff or changed files. Do not nitpick stable pre-existing code unless it directly affects the change.
+- Separate correctness, safety, and maintainability findings from subjective style preferences.
+- For a style finding, identify the concrete readability or maintenance cost and link the relevant Google Go Style section when useful. Do not invoke the guide as authority without explaining the effect in context.
+- Treat advisory best practices as suggestions unless a repository rule or correctness concern makes them required.
 
 ## Scope
 
-Review **recently written or modified code only**. Do not nitpick stable pre-existing code unless it directly interacts with the change.
-
-Before starting: identify the changed files and line ranges (`git diff` or the task description) and keep that scope throughout. If a Go LSP (gopls) is available, pull diagnostics first — compiler and vet findings beat manual spotting.
+Before reviewing or simplifying, identify the changed files and line ranges (`git diff` or the task description) and keep that scope throughout. Before writing, inspect the smallest surrounding area needed to understand local contracts and conventions. If `gopls` is available, use its diagnostics; compiler, formatter, vet, and configured linter findings take priority over manual style observations.
 
 ## Step 1: Error Handling
 
@@ -25,7 +71,9 @@ Before starting: identify the changed files and line ranges (`git diff` or the t
 
 ## Step 2: Logging Hygiene
 
-- Use `github.com/obalunenko/logger` for Go application and library logging. Flag direct use of `fmt.Print*`, the standard-library `log` package, or another concrete logging library outside compatibility adapters and tests.
+In Fallout Terminal, use `github.com/obalunenko/logger` for Go application and library logging and apply the rules below. In another repository, follow that repository's logging convention instead.
+
+- Flag direct use of `fmt.Print*`, the standard-library `log` package, or another concrete logging library outside compatibility adapters and tests.
 - Thread `context.Context` through logging paths and use the package's context-aware API: `logger.Info(ctx, "message")`, `logger.WithField(ctx, "key", value).Info("message")`, or `logger.WithFields(ctx, logger.Fields{"key": value}).Info("message")`.
 - Attach errors structurally with `logger.WithError(ctx, err).Error("operation failed")`; do not interpolate errors into messages or log an error that is also returned.
 - Initialize the logger once at the application entry point with `logger.Init`; do not reinitialize it in packages or request paths.
@@ -33,13 +81,13 @@ Before starting: identify the changed files and line ranges (`git diff` or the t
 
 ## Step 3: Idiomatic Go
 
-- `any` instead of `interface{}`
-- Named return values only when they meaningfully improve clarity (e.g., with deferred closes)
-- No stuttering: `club.ClubID` → `club.ID`; package name is part of the identifier
-- Related constant sequences grouped with `iota`
-- No unnecessary abstractions — no helpers or interfaces created for a single use site
-- Interfaces defined at the **consumer** side, kept small (1–3 methods preferred)
-- Functions stay focused: flag anything past ~100 lines / ~50 statements as a split candidate; lines past ~140 chars as a readability concern (defer to the project's lint config when it sets different limits)
+- Prefer modern language forms supported by the module's declared Go version, such as `any` instead of `interface{}`.
+- Use named results only when the names improve the meaning of the signature or make a deferred operation clearer.
+- Avoid stutter: package names are part of identifiers, so prefer `club.ID` to `club.ClubID`.
+- Use `iota` for related incremental constants when it makes their relationship clearer, not merely because constants are adjacent.
+- Avoid unnecessary abstractions. Define interfaces where they are consumed and keep them limited to the behavior the consumer needs.
+- Keep functions focused, but judge readability from responsibility and control flow rather than a fixed line or statement count.
+- Do not enforce a fixed source line length. Refactor an unwieldy expression when that improves clarity; do not split a line solely to satisfy a column limit.
 
 ## Step 4: Concurrency Safety
 
@@ -77,15 +125,15 @@ Flag imports of deprecated packages in favor of maintained replacements:
 
 ## Step 7: Comment Quality
 
-- Comments only where truly needed — self-explanatory code gets none (the default)
-- Comments explain **WHY** (non-obvious reason, constraint, gotcha), never **HOW** (step-by-step narration of the body)
-- No restating the name/signature in prose; no doc comment retelling the function's control flow
+- Prefer self-explanatory code over comments that add no information.
+- Comments usually explain **why**: a non-obvious reason, constraint, tradeoff, or gotcha. Comments may explain what when the behavior cannot be made clear through naming and structure alone.
+- Do not narrate control flow or merely restate the name or signature. Write required API documentation so it stands on its own.
 - No leaking another layer's implementation details (e.g., storage mechanics in an API contract's comments)
 - Comment language follows the target project's convention
 
 ## Step 8: Test Quality (when the change includes tests)
 
-- Table-driven structure; error paths and edge cases covered, not just the happy path
+- Use table-driven structure when several cases share meaningful setup and assertions; do not force unrelated scenarios into one table. Cover relevant error paths and edge cases, not just the happy path.
 - Deterministic: no un-injected `time.Now()`, no real network/DB/filesystem I/O in unit tests
 - Register cleanup for every test-owned resource immediately after acquisition with `t.Cleanup`
 - Do not use `defer` for test-lifetime resource cleanup; use `t.Cleanup` so cleanup is owned by the correct test or subtest and still runs after `Fatal`/`FailNow`
@@ -116,3 +164,4 @@ Before posting the review:
 2. Confirm nothing flagged is untouched pre-existing code
 3. Confirm suggested fixes are valid Go
 4. Re-scan the changed code once more for concurrency and error-handling misses — these are the two categories reviews miss most
+5. Confirm each style claim matches the current relevant Google Go Style document and is not merely a personal preference

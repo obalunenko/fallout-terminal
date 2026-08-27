@@ -119,6 +119,45 @@ func TestValidatePlayerConfigRejectsOutOfRangeIntelligence(t *testing.T) {
 	}
 }
 
+func TestValidateCharacterValues(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		value     string
+		want      string
+		wantError string
+	}{
+		{name: "trims name", value: "  Mara  ", want: "Mara"},
+		{name: "blank name", value: " \t ", wantError: "must not be blank"},
+		{name: "maximum name", value: strings.Repeat("é", MaxCharacterNameRunes), want: strings.Repeat("é", MaxCharacterNameRunes)},
+		{name: "long name", value: strings.Repeat("é", MaxCharacterNameRunes+1), wantError: "must be at most 80 characters"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := ValidateCharacterName(test.value)
+			if test.wantError != "" {
+				require.ErrorContains(t, err, test.wantError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, test.want, got)
+		})
+	}
+
+	for _, intelligence := range []int{0, 1, 10, 11} {
+		t.Run(fmt.Sprintf("intelligence %d", intelligence), func(t *testing.T) {
+			t.Parallel()
+			err := ValidateCharacterIntelligence(intelligence)
+			if intelligence >= 1 && intelligence <= 10 {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, "must be between 1 and 10")
+		})
+	}
+}
+
 func TestValidateSessionAcceptsStateChangingCommandStateByStableID(t *testing.T) {
 	t.Parallel()
 

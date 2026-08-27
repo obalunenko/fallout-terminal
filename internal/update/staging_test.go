@@ -66,6 +66,68 @@ func TestPrepareApplicationUnitRejectsManifestIdentityBeforeStaging(t *testing.T
 	assert.Equal(t, filepath.Base(installedUnit), entries[0].Name())
 }
 
+func TestValidateExtractedManifestRejectsEachValidationStage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mutate    func(*extractedArtifactManifest)
+		wantError string
+	}{
+		{
+			name: "identity",
+			mutate: func(manifest *extractedArtifactManifest) {
+				manifest.Product = "Other Product"
+			},
+			wantError: "manifest identity",
+		},
+		{
+			name: "inventory shape",
+			mutate: func(manifest *extractedArtifactManifest) {
+				manifest.Files = manifest.Files[:len(manifest.Files)-1]
+			},
+			wantError: "manifest inventory",
+		},
+		{
+			name: "invalid record",
+			mutate: func(manifest *extractedArtifactManifest) {
+				manifest.Files[0].Path = "../escape"
+			},
+			wantError: "invalid file record",
+		},
+		{
+			name: "unsorted records",
+			mutate: func(manifest *extractedArtifactManifest) {
+				first := manifest.Files[0]
+				manifest.Files[0] = manifest.Files[len(manifest.Files)-1]
+				manifest.Files[len(manifest.Files)-1] = first
+			},
+			wantError: "duplicated or unsorted",
+		},
+		{
+			name: "file evidence",
+			mutate: func(manifest *extractedArtifactManifest) {
+				manifest.Files[0].SHA256 = strings.Repeat("0", sha256.Size*2)
+			},
+			wantError: "file evidence",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			root := filepath.Join(t.TempDir(), "Fallout Terminal")
+			writeExtractedApplicationFixture(t, root, "2.5.0")
+			rewriteExtractedManifest(t, root, test.mutate)
+			err := validateExtractedManifest(t.Context(), root, UpdateCandidate{
+				Version: "2.5.0", Artifact: ReleaseAsset{Target: Target{OS: "linux", Arch: "amd64"}},
+			})
+			require.ErrorContains(t, err, test.wantError)
+		})
+	}
+}
+
 func TestSelectReplacementUnitForPortableTargets(t *testing.T) {
 	t.Parallel()
 
@@ -394,6 +456,22 @@ func writeExtractedApplicationFixture(t *testing.T, root, version string) {
 	contents, err := json.Marshal(manifest)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(root, artifactManifest), contents, 0o444))
+}
+
+func rewriteExtractedManifest(t *testing.T, root string, mutate func(*extractedArtifactManifest)) {
+	t.Helper()
+
+	path := filepath.Join(root, artifactManifest)
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var manifest extractedArtifactManifest
+	require.NoError(t, json.Unmarshal(contents, &manifest))
+	mutate(&manifest)
+	contents, err = json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NoError(t, os.Chmod(path, 0o644))
+	require.NoError(t, os.WriteFile(path, contents, 0o444))
+	require.NoError(t, os.Chmod(path, 0o444))
 }
 
 func assertSafeSiblingPath(t *testing.T, path, installed, attemptID string) {

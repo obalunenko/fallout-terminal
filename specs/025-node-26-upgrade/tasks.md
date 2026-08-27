@@ -1,5 +1,7 @@
 # Tasks: Node.js 26 Upgrade
 
+**Bugfix**: 2026-08-27 — BUG-001 adds local runtime selection, preflight, and active contributor guidance.
+
 **Input**: [spec.md](./spec.md), [plan.md](./plan.md), [research.md](./research.md), and [data-model.md](./data-model.md)
 
 **Tests**: Required by the specification and Constitution 8.1.0. Extend the existing static workflow acceptance owner first, then validate the exact NVM-managed runtime through clean installs, builds, browser tests, repository quality, and normal GitHub workflow evidence.
@@ -58,6 +60,18 @@
 **Purpose**: Validate the complete cutover and collect evidence against every Success Criterion.
 
 - [x] **T008** Run diff/legacy-reference checks, focused platform tests, the full pinned repository quality composition, and verify the next GitHub quality and governed five-target release runs as available without creating a bypass path · `README.md`, `internal/platform/portable_release_test.go`, `.github/workflows/wails-cross-platform.yml`, `.github/workflows/wails-portable.yml`
+
+## Phase 6: BUG-001 Local Runtime Guard
+
+**Wave 1:**
+
+- [x] **T009** Add failing runtime-policy assertions for the NVM selector, contributor requirement, and Task preflight ordering (BUG-001, FR-010, SC-009) · `internal/platform/portable_release_test.go`
+
+**⟶ Wait for T009, then:**
+
+**Wave 2:**
+
+- [x] **T010** Add the Node.js 26.8.1 NVM selector and Task preflight, route npm workflows through it, and correct active contributor and agent setup (BUG-001, FR-010, SC-009) · `.nvmrc`, `Taskfile.yml`, `CONTRIBUTING.md`, `AGENTS.md`
 
 ## Dependencies & Execution Order
 

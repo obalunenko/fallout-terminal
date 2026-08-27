@@ -1,5 +1,7 @@
 # Implementation Plan: Node.js 26 Upgrade
 
+**Bugfix**: 2026-08-27 — BUG-001 adds local runtime selection and an early Task preflight.
+
 **Feature**: [spec.md](./spec.md)
 **Research**: [research.md](./research.md)
 **Configuration Model**: [data-model.md](./data-model.md)
@@ -54,8 +56,9 @@ No constitutional violation or complexity exception is required.
 2. Update all four project-owned package engine declarations to `>=26.8.1` and the active maintainer prerequisite to Node.js 26.8.1.
 3. With Node.js 26.8.1 and npm 11.19.0, regenerate the frontend and browser-test lockfiles without changing dependency versions; review that only project-owned engine metadata changes.
 4. Update both workflows to select `NODE_VERSION: 26.8.1` and replace every affected official action reference with the exact researched release.
-5. Run focused static contracts first, then clean dependency installation, both frontend builds, browser tests, and the repository quality composition. Inspect the final diff for historical evidence preservation and absence of active Node.js 20.19.0 references.
-6. After the change reaches GitHub, collect one successful quality run and one normal governed five-target tagged release run as final cross-runner evidence; do not add a release-only test path or bypass existing publication gates.
+5. Add `.nvmrc`, validate Node.js 26.8.1 or newer before Task-managed npm commands, and keep active contributor setup aligned with the same minimum.
+6. Run focused static contracts first, then clean dependency installation, both frontend builds, browser tests, and the repository quality composition. Inspect the final diff for historical evidence preservation and absence of active Node.js 20.19.0 references.
+7. After the change reaches GitHub, collect one successful quality run and one normal governed five-target tagged release run as final cross-runner evidence; do not add a release-only test path or bypass existing publication gates.
 
 ## Verification Plan
 
@@ -68,6 +71,7 @@ No constitutional violation or complexity exception is required.
 ### JavaScript toolchain
 
 - Confirm the executing runtime reports Node.js 26.8.1 and npm 11.19.0.
+- Confirm `task frontend:build` performs its Node.js preflight before npm, emits no `EBADENGINE` output on Node.js 26.8.1, and gives one actionable failure on an older runtime.
 - Run clean locked installation for `frontend/`, then build the Overseer and player client.
 - Run clean locked installation for `tests/browser/`, then execute the complete browser-test suite.
 

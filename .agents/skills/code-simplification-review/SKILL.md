@@ -15,6 +15,8 @@ Best run in a fresh context — a subagent or a separate agent session, when the
 
 Review **the changed code only** — `git diff` against upstream/main plus working-tree changes, or the target the user names. Do not refactor stable surrounding code; use it as the reference the new code must fit.
 
+For Go code, also apply `.agents/skills/go-code-quality-review/SKILL.md`, including its Google Go Style hierarchy and its rule against fixed line-length limits. Use that guidance to choose the clearer, simpler form while preserving behavior.
+
 ## The Four Angles
 
 Review the diff through each angle; each finding names file:line, the cost (what is duplicated, wasted, or harder to maintain), and the concrete simpler form.

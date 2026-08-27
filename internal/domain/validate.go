@@ -102,6 +102,26 @@ func ValidateSoundCategory(value string) (SoundCategory, error) {
 	}
 }
 
+// ValidateCharacterName returns the normalized player-facing character name.
+func ValidateCharacterName(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", fmt.Errorf("character name must not be blank")
+	}
+	if utf8.RuneCountInString(value) > MaxCharacterNameRunes {
+		return "", fmt.Errorf("character name must be at most %d characters", MaxCharacterNameRunes)
+	}
+	return value, nil
+}
+
+// ValidateCharacterIntelligence validates the player-facing intelligence range.
+func ValidateCharacterIntelligence(value int) error {
+	if value < 1 || value > 10 {
+		return fmt.Errorf("character intelligence must be between 1 and 10")
+	}
+	return nil
+}
+
 func publicFieldLimit(field PublicField) int {
 	switch field {
 	case PublicFieldRecognitionHandle:
