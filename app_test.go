@@ -22,9 +22,42 @@ import (
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type maskedCommandExecutionError struct {
+	cause error
+}
+
+func (err maskedCommandExecutionError) Error() string {
+	return "opaque control failure"
+}
+
+func (err maskedCommandExecutionError) Unwrap() error {
+	return err.cause
+}
+
+func TestCommandExecutionMasterErrorUsesStructuredIdentity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "stale", err: maskedCommandExecutionError{cause: controlservice.ErrCommandExecutionStale}, want: "command execution request is no longer pending"},
+		{name: "persistence", err: maskedCommandExecutionError{cause: controlservice.ErrCommandExecutionPersistence}, want: "command execution could not be persisted"},
+		{name: "other", err: errors.New("stale wording without identity"), want: "command execution could not be resolved"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, commandExecutionMasterError(test.err))
+		})
+	}
+}
 
 func TestApplicationStartsPlayerBeforePublishingReady(t *testing.T) {
 	recorder := &callRecorder{}
@@ -58,6 +91,116 @@ func TestApplicationStartsPlayerBeforePublishingReady(t *testing.T) {
 	require.Falsef(t, status.ServerInfo == nil || status.ServerInfo.Port != 3690 || status.StartupError != "",
 		"runtime status = %#v", status)
 
+}
+
+func TestApplicationUpdateEventFirstGetterArmsOneBoundedCheckAfterReadiness(t *testing.T) {
+	recorder := &callRecorder{}
+	events := &recordingEventSink{recorder: recorder}
+	checker := newApplicationUpdateCheckProbe(t, recorder, errors.New("provider unavailable"))
+	manager, err := updateservice.NewManager(updateservice.ManagerConfig{
+		InstalledVersion: "2.4.0",
+		Packaged:         true,
+		Check:            checker.Check,
+		Publish: func(snapshot updateservice.UpdateSnapshot) {
+			_ = events.Emit(applicationUpdateStatusEvent, nativeApplicationUpdateSnapshot(snapshot))
+		},
+		IDs: func() string { return "startup-check" },
+	})
+	require.NoError(t, err)
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Player: &recordingPlayerServer{recorder: recorder, info: domain.ServerInfo{
+			IP: "127.0.0.1", Port: 3690, URL: "http://127.0.0.1:3690",
+		}},
+		Events:  events,
+		Desktop: &recordingDesktop{recorder: recorder},
+		Updates: manager,
+	})
+
+	beforeReady := app.GetApplicationUpdateStatus()
+	assert.Contains(t, []string{
+		string(updateservice.UpdateStateIdle), string(updateservice.UpdateStateDisabled),
+	}, beforeReady.State)
+	assert.Never(t, checker.Started, 25*time.Millisecond, time.Millisecond,
+		"the native getter armed discovery before the local runtime was ready")
+	assert.NotContains(t, recorder.Calls(), "event:"+applicationUpdateStatusEvent)
+
+	require.NoError(t, app.Start(t.Context()))
+	t.Cleanup(func() {
+		cleanupContext, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+		defer cancel()
+		require.NoError(t, app.Shutdown(cleanupContext))
+	})
+	require.Equal(t, "ready-local", app.lifecyclePhase())
+	require.Empty(t, app.GetRuntimeStatus().StartupError)
+
+	getterStarted := time.Now()
+	first := app.GetApplicationUpdateStatus()
+	assert.Less(t, time.Since(getterStarted), 100*time.Millisecond,
+		"the status getter waited for release discovery")
+	assert.Contains(t, []string{
+		string(updateservice.UpdateStateIdle), string(updateservice.UpdateStateChecking),
+	}, first.State)
+
+	checkContext := checker.WaitForStart(t)
+	deadline, bounded := checkContext.Deadline()
+	require.True(t, bounded, "the background release check must have a deadline")
+	assert.WithinRange(t, deadline, time.Now(), time.Now().Add(5*time.Minute))
+
+	for range 8 {
+		app.GetApplicationUpdateStatus()
+	}
+	assert.Equal(t, 1, countRecordedCall(recorder.Calls(), "update:check"))
+	calls := recorder.Calls()
+	readyIndex := slices.Index(calls, "desktop:ready")
+	checkIndex := slices.Index(calls, "update:check")
+	require.NotEqual(t, -1, readyIndex, calls)
+	require.NotEqual(t, -1, checkIndex, calls)
+	assert.Greater(t, checkIndex, readyIndex, calls)
+
+	checker.Release()
+	require.Eventually(t, func() bool {
+		return manager.Snapshot().State == updateservice.UpdateStateFailed
+	}, time.Second, time.Millisecond)
+	status := app.GetRuntimeStatus()
+	assert.Empty(t, status.StartupError)
+	assert.NotNil(t, status.ServerInfo)
+	assert.Equal(t, "ready-local", app.lifecyclePhase())
+	assert.Equal(t, 1, countRecordedCall(recorder.Calls(), "update:check"))
+	assert.Equal(t, 0, countRecordedCall(recorder.Calls(), "player:stop"))
+}
+
+func TestApplicationDevelopmentUpdateHandshakeNeverStartsProductionDiscovery(t *testing.T) {
+	recorder := &callRecorder{}
+	checker := newApplicationUpdateCheckProbe(t, recorder, errors.New("must not run"))
+	manager, err := updateservice.NewManager(updateservice.ManagerConfig{
+		InstalledVersion: "development",
+		Packaged:         true,
+		Check:            checker.Check,
+		IDs:              func() string { return "development-check" },
+	})
+	require.NoError(t, err)
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Player: &recordingPlayerServer{recorder: recorder, info: domain.ServerInfo{
+			IP: "127.0.0.1", Port: 3690, URL: "http://127.0.0.1:3690",
+		}},
+		Events:  &recordingEventSink{recorder: recorder},
+		Desktop: &recordingDesktop{recorder: recorder},
+		Updates: manager,
+	})
+
+	require.NoError(t, app.Start(t.Context()))
+	t.Cleanup(func() {
+		cleanupContext, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+		defer cancel()
+		require.NoError(t, app.Shutdown(cleanupContext))
+	})
+	for range 8 {
+		assert.Equal(t, string(updateservice.UpdateStateDisabled), app.GetApplicationUpdateStatus().State)
+	}
+	assert.Never(t, checker.Started, 25*time.Millisecond, time.Millisecond)
+	assert.Equal(t, 0, countRecordedCall(recorder.Calls(), "update:check"))
+	assert.Empty(t, app.GetRuntimeStatus().StartupError)
+	assert.Equal(t, "ready-local", app.lifecyclePhase())
 }
 
 func TestApplicationLifecycleEmitsStructuredOperationalLogs(t *testing.T) {
@@ -1443,6 +1586,7 @@ func TestCoordinationBridgeRejectsInvalidOrFailedCommandsWithoutPartialState(t *
 	invalidPayloads := []CharacterCreatePayload{
 		{Name: "   ", Intelligence: 5, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: strings.Repeat("x", 81), Intelligence: 5, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
+		{Name: strings.Repeat("é", 81), Intelligence: 5, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: "Boone", Intelligence: 0, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: "Boone", Intelligence: 11, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 9},
 		{Name: "Boone", Intelligence: 5, HackerPerkAvailable: nil, ExpectedRevision: 9},
@@ -1697,6 +1841,7 @@ func TestCoordinationBridgeRejectsInvalidCompleteRosterMutationsBeforeCoordinato
 		app.UpdateCharacter(CharacterUpdatePayload{Name: "Mara", Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "   ", Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: strings.Repeat("x", 81), Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
+		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: strings.Repeat("é", 81), Intelligence: 8, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "Mara", Intelligence: 0, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "Mara", Intelligence: 11, HackerPerkAvailable: &hackerAvailable, ExpectedRevision: 20}),
 		app.UpdateCharacter(CharacterUpdatePayload{CharacterID: "character-1", Name: "Mara", Intelligence: 8, ExpectedRevision: 20}),
@@ -2849,6 +2994,63 @@ func TestPlayerCallbacksEmitAndRetainDetachedPublicStatus(t *testing.T) {
 type callRecorder struct {
 	mu    sync.Mutex
 	calls []string
+}
+
+type applicationUpdateCheckProbe struct {
+	recorder    *callRecorder
+	started     chan context.Context
+	release     chan struct{}
+	releaseOnce sync.Once
+	err         error
+}
+
+func newApplicationUpdateCheckProbe(
+	t *testing.T,
+	recorder *callRecorder,
+	err error,
+) *applicationUpdateCheckProbe {
+	t.Helper()
+	probe := &applicationUpdateCheckProbe{
+		recorder: recorder,
+		started:  make(chan context.Context, 1),
+		release:  make(chan struct{}),
+		err:      err,
+	}
+	t.Cleanup(probe.Release)
+	return probe
+}
+
+func (probe *applicationUpdateCheckProbe) Check(ctx context.Context) (*updateservice.UpdateCandidate, error) {
+	probe.recorder.Add("update:check")
+	probe.started <- ctx
+	select {
+	case <-probe.release:
+		return nil, probe.err
+	case <-ctx.Done():
+		return nil, context.Cause(ctx)
+	}
+}
+
+func (probe *applicationUpdateCheckProbe) Started() bool {
+	return countRecordedCall(probe.recorder.Calls(), "update:check") > 0
+}
+
+func (probe *applicationUpdateCheckProbe) WaitForStart(t *testing.T) context.Context {
+	t.Helper()
+	var started context.Context
+	require.Eventually(t, func() bool {
+		select {
+		case started = <-probe.started:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond, "application update check did not start")
+	return started
+}
+
+func (probe *applicationUpdateCheckProbe) Release() {
+	probe.releaseOnce.Do(func() { close(probe.release) })
 }
 
 func countRecordedCall(calls []string, want string) int {

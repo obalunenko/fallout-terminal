@@ -5,7 +5,6 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"strconv"
@@ -61,7 +60,7 @@ func (service *Service) Set(terminalID, terminalName string, tree domain.Content
 	state := &domain.LiveState{
 		TerminalID:   terminalID,
 		TerminalName: terminalName,
-		Tree:         cloneNode(tree),
+		Tree:         domain.CloneContentNode(tree),
 		HackLevel:    hackLevel,
 		IntroText:    introText,
 		Nav:          nav.Default(),
@@ -83,7 +82,7 @@ func (service *Service) Update(tree domain.ContentNode, introText *string) (*dom
 		return nil, false
 	}
 
-	service.live.Tree = cloneNode(tree)
+	service.live.Tree = domain.CloneContentNode(tree)
 	if introText != nil {
 		service.live.IntroText = *introText
 	}
@@ -135,7 +134,7 @@ func (service *Service) CreateRuntime(target domain.TerminalTarget) (*domain.Ter
 func (service *Service) createRuntimeLocked(target domain.TerminalTarget) (*domain.TerminalRuntime, *domain.PublicLiveState) {
 	state := &domain.TerminalRuntime{
 		TerminalID: target.TerminalID, TerminalName: target.TerminalName,
-		Tree: cloneNode(target.Tree), HackLevel: target.HackLevel, IntroText: target.IntroText,
+		Tree: domain.CloneContentNode(target.Tree), HackLevel: target.HackLevel, IntroText: target.IntroText,
 		Nav: nav.Default(), Lifecycle: domain.TerminalLifecycleActive,
 		CommandStates: cloneCommandStates(target.CommandStates),
 	}
@@ -167,7 +166,7 @@ func (service *Service) UpdateRuntime(state *domain.TerminalRuntime, target doma
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	state.TerminalName = target.TerminalName
-	state.Tree = cloneNode(target.Tree)
+	state.Tree = domain.CloneContentNode(target.Tree)
 	state.CommandStates = cloneCommandStates(target.CommandStates)
 	state.IntroText = target.IntroText
 	if state.Hack == nil {
@@ -210,7 +209,7 @@ func (service *Service) ReactivateRuntime(state *domain.TerminalRuntime, target 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	state.TerminalName = target.TerminalName
-	state.Tree = cloneNode(target.Tree)
+	state.Tree = domain.CloneContentNode(target.Tree)
 	state.CommandStates = cloneCommandStates(target.CommandStates)
 	state.IntroText = target.IntroText
 	if state.Hack == nil {
@@ -559,7 +558,7 @@ func publicLiveState(state *domain.LiveState) *domain.PublicLiveState {
 	return &domain.PublicLiveState{
 		TerminalID:   state.TerminalID,
 		TerminalName: state.TerminalName,
-		Tree:         cloneNode(state.Tree),
+		Tree:         domain.CloneContentNode(state.Tree),
 		HackLevel:    state.HackLevel,
 		IntroText:    state.IntroText,
 		Nav:          cloneNav(state.Nav),
@@ -581,22 +580,8 @@ func cloneNav(state domain.NavState) domain.NavState {
 	return clone
 }
 
-func cloneNode(node domain.ContentNode) domain.ContentNode {
-	clone := node
-	if node.StateChange != nil {
-		stateChange := *node.StateChange
-		clone.StateChange = &stateChange
-	}
-	clone.Children = make([]domain.ContentNode, len(node.Children))
-	for index := range node.Children {
-		clone.Children[index] = cloneNode(node.Children[index])
-	}
-	clone.Extra = cloneRawMap(node.Extra)
-	return clone
-}
-
 func effectiveTree(node domain.ContentNode, states map[string]domain.CommandExecutionState) domain.ContentNode {
-	clone := cloneNode(node)
+	clone := domain.CloneContentNode(node)
 	applyEffectiveCommandStates(&clone, states)
 	return clone
 }
@@ -629,15 +614,4 @@ func cloneCommandExecution(presentation *domain.CommandExecutionPresentation) *d
 	}
 	clone := *presentation
 	return &clone
-}
-
-func cloneRawMap(values map[string]json.RawMessage) map[string]json.RawMessage {
-	if values == nil {
-		return nil
-	}
-	clone := make(map[string]json.RawMessage, len(values))
-	for key, value := range values {
-		clone[key] = append(json.RawMessage(nil), value...)
-	}
-	return clone
 }

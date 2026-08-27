@@ -18,11 +18,37 @@ import (
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
+
+func TestApplicationUpdateRecoveryFailureDoesNotInitializeUpdateInfrastructure(t *testing.T) {
+	t.Parallel()
+
+	failure := updateservice.UpdateFailure{
+		Stage:          updateservice.FailureStageRecovery,
+		Message:        "The previous application update did not finish applying.",
+		RecoveryAction: "Continue using the installed application and try again later.",
+	}
+	manager, err := newApplicationUpdateManager(
+		nil,
+		true,
+		"2.4.0",
+		"/private/application-update-recovery.json",
+		&failure,
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, updateservice.UpdateSnapshot{
+		Revision:         1,
+		State:            updateservice.UpdateStateFailed,
+		InstalledVersion: "2.4.0",
+		Failure:          failure,
+	}, manager.Status(t.Context()))
+}
 
 func TestWailsV3ApplicationOptionsServeOnlyOverseerAssetsAndQuitWithLastWindow(t *testing.T) {
 	t.Parallel()
@@ -188,6 +214,51 @@ func TestWailsLifecycleStartupClassifiesApplicationFailuresAsStatusVisible(t *te
 	}
 }
 
+func TestWailsLifecycleUpdateCheckFailureNeverChangesLocalStartupStatus(t *testing.T) {
+	recorder := &callRecorder{}
+	checker := newApplicationUpdateCheckProbe(t, recorder, errors.New("release endpoint unavailable"))
+	manager, err := updateservice.NewManager(updateservice.ManagerConfig{
+		InstalledVersion: "2.4.0",
+		Packaged:         true,
+		Check:            checker.Check,
+		IDs:              func() string { return "wails-startup-check" },
+	})
+	require.NoError(t, err)
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Player: &recordingPlayerServer{recorder: recorder, info: domain.ServerInfo{
+			IP: "127.0.0.1", Port: 3690, URL: "http://127.0.0.1:3690",
+		}},
+		Events:  &recordingEventSink{recorder: recorder},
+		Desktop: &recordingDesktop{recorder: recorder},
+		Updates: manager,
+	})
+	service := newWailsLifecycleService(t.Context(), app, nil)
+
+	require.NoError(t, service.ServiceStartup(t.Context(), application.ServiceOptions{}))
+	t.Cleanup(func() {
+		require.NoError(t, service.ServiceShutdown())
+	})
+	assert.Never(t, checker.Started, 25*time.Millisecond, time.Millisecond,
+		"Wails startup itself must not arm an external update check")
+	require.Equal(t, "ready-local", app.lifecyclePhase())
+	require.Empty(t, app.GetRuntimeStatus().StartupError)
+
+	started := time.Now()
+	newDesktopService(app).GetApplicationUpdateStatus()
+	assert.Less(t, time.Since(started), 100*time.Millisecond)
+	checker.WaitForStart(t)
+	checker.Release()
+	require.Eventually(t, func() bool {
+		return manager.Snapshot().State == updateservice.UpdateStateFailed
+	}, time.Second, time.Millisecond)
+
+	status := app.GetRuntimeStatus()
+	assert.Empty(t, status.StartupError)
+	assert.NotNil(t, status.ServerInfo)
+	assert.Equal(t, "ready-local", app.lifecyclePhase())
+	assert.Equal(t, 0, countRecordedCall(recorder.Calls(), "player:stop"))
+}
+
 func TestWailsLifecycleRecordsAbsorbedStartupFailureExactlyOnce(t *testing.T) {
 	t.Parallel()
 
@@ -314,15 +385,20 @@ func TestWailsEventSinkUsesInjectedManagerForExactTypedEventNames(t *testing.T) 
 		{clientCountEvent, 4},
 		{hackStateEvent, &domain.PublicHackState{AttemptsLeft: 2}},
 		{coordinationStateEvent, &domain.MasterCoordinationState{Revision: 7}},
+		{sessionStateEvent, SessionStateEvent{Revision: 8}},
+		{publicAccessStatusEvent, PublicAccessSnapshot{Status: PublicAccessStatus{State: "disabled"}}},
+		{applicationUpdateStatusEvent, ApplicationUpdateSnapshot{Revision: 9, State: "checking"}},
 	}
 	for _, payload := range payloads {
 		require.NoError(t, sink.Emit(payload.name, payload.payload))
 	}
-	require.Equal(t, []string{"server-info", "client-count", "hack-state", "coordination-state"}, emitter.names)
-	require.Equal(t, payloads[0].payload, emitter.payloads[0])
-	require.Equal(t, payloads[1].payload, emitter.payloads[1])
-	require.Equal(t, payloads[2].payload, emitter.payloads[2])
-	require.Equal(t, payloads[3].payload, emitter.payloads[3])
+	require.Equal(t, []string{
+		"server-info", "client-count", "hack-state", "coordination-state", "session-state",
+		"public-access-status", "application-update-status",
+	}, emitter.names)
+	for index := range payloads {
+		require.Equal(t, payloads[index].payload, emitter.payloads[index])
+	}
 	require.Error(t, newWailsEventSink(nil).Emit(serverInfoEvent, domain.ServerInfo{}))
 }
 

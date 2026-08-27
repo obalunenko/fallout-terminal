@@ -451,111 +451,113 @@ func (manager *PublicAccessManager) Stop(ctx context.Context, expectedRevision u
 	if ctx == nil {
 		return PublicAccessResult{Error: errPublicAccessContextRequired.Error(), Snapshot: manager.Snapshot()}
 	}
-	manager.mu.Lock()
-	if manager.reconfigure != nil {
-		operation := manager.reconfigure
-		manager.mu.Unlock()
-		select {
-		case <-operation.done:
-			return manager.Stop(ctx, expectedRevision)
-		case <-ctx.Done():
-			return PublicAccessResult{Error: ErrorShutdownTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
-		}
-	}
-	if manager.cleanup != nil {
-		cleanup := manager.cleanup
-		manager.mu.Unlock()
-		select {
-		case <-cleanup.done:
-			return manager.Stop(ctx, expectedRevision)
-		case <-ctx.Done():
-			return PublicAccessResult{Error: ErrorShutdownTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
-		}
-	}
-	if expectedRevision != manager.preferences.Revision {
-		result := manager.conflictResultLocked()
-		manager.mu.Unlock()
-		return result
-	}
-	if manager.stop != nil && manager.status.State == LifecycleStopping {
-		operation := manager.stop
-		manager.mu.Unlock()
-		select {
-		case <-operation.done:
-			return operation.result
-		case <-ctx.Done():
-			return PublicAccessResult{Error: ErrorShutdownTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
-		}
-	}
-	if manager.status.State == LifecycleDisabled && manager.endpoint == nil && manager.ingress == nil {
-		result := manager.resultLocked(true)
-		manager.mu.Unlock()
-		return result
-	}
-
-	manager.status.Generation++
-	generation := manager.status.Generation
-	if manager.start != nil && manager.start.cancel != nil {
-		manager.start.cancel(errPublicAccessStopped)
-	}
-	pendingStart := manager.pendingStart
-	endpoint := manager.endpoint
-	ingress := manager.ingress
-	if ingress != nil {
-		ingress.Deny()
-	}
-	manager.status = PublicAccessStatus{State: LifecycleStopping, Generation: generation, SettingsRevision: manager.preferences.Revision}
-	operation := &stopOperation{done: make(chan struct{})}
-	manager.stop = operation
-	stopping := manager.snapshotLocked()
-	manager.mu.Unlock()
-	manager.emit(stopping)
-
-	closeErr := error(nil)
-	if pendingStart != nil {
-		select {
-		case <-pendingStart.settled:
-		case <-ctx.Done():
-			closeErr = context.DeadlineExceeded
-		}
-	}
-	if closeErr == nil && endpoint == nil && ingress == nil {
+	for {
 		manager.mu.Lock()
-		endpoint = manager.endpoint
-		ingress = manager.ingress
+		if manager.reconfigure != nil {
+			operation := manager.reconfigure
+			manager.mu.Unlock()
+			select {
+			case <-operation.done:
+				continue
+			case <-ctx.Done():
+				return PublicAccessResult{Error: ErrorShutdownTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
+			}
+		}
+		if manager.cleanup != nil {
+			cleanup := manager.cleanup
+			manager.mu.Unlock()
+			select {
+			case <-cleanup.done:
+				continue
+			case <-ctx.Done():
+				return PublicAccessResult{Error: ErrorShutdownTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
+			}
+		}
+		if expectedRevision != manager.preferences.Revision {
+			result := manager.conflictResultLocked()
+			manager.mu.Unlock()
+			return result
+		}
+		if manager.stop != nil && manager.status.State == LifecycleStopping {
+			operation := manager.stop
+			manager.mu.Unlock()
+			select {
+			case <-operation.done:
+				return operation.result
+			case <-ctx.Done():
+				return PublicAccessResult{Error: ErrorShutdownTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
+			}
+		}
+		if manager.status.State == LifecycleDisabled && manager.endpoint == nil && manager.ingress == nil {
+			result := manager.resultLocked(true)
+			manager.mu.Unlock()
+			return result
+		}
+
+		manager.status.Generation++
+		generation := manager.status.Generation
+		if manager.start != nil && manager.start.cancel != nil {
+			manager.start.cancel(errPublicAccessStopped)
+		}
+		pendingStart := manager.pendingStart
+		endpoint := manager.endpoint
+		ingress := manager.ingress
 		if ingress != nil {
 			ingress.Deny()
 		}
+		manager.status = PublicAccessStatus{State: LifecycleStopping, Generation: generation, SettingsRevision: manager.preferences.Revision}
+		operation := &stopOperation{done: make(chan struct{})}
+		manager.stop = operation
+		stopping := manager.snapshotLocked()
 		manager.mu.Unlock()
-	}
-	if closeErr == nil && (endpoint != nil || ingress != nil) {
-		closeErr = closePublicAccessRuntime(ctx, endpoint, ingress)
-	}
-	manager.mu.Lock()
-	if closeErr != nil {
-		category, message := redactedPublicAccessFailure(closeErr)
-		if errors.Is(closeErr, context.DeadlineExceeded) || errors.Is(closeErr, context.Canceled) {
-			category = ErrorShutdownTimeout
+		manager.emit(stopping)
+
+		closeErr := error(nil)
+		if pendingStart != nil {
+			select {
+			case <-pendingStart.settled:
+			case <-ctx.Done():
+				closeErr = context.DeadlineExceeded
+			}
 		}
-		manager.status = failedStatus(manager.status, category)
-		manager.status.ErrorMessage = message
-		operation.result = manager.resultLocked(false)
-	} else {
-		if manager.endpoint == endpoint {
-			manager.endpoint = nil
+		if closeErr == nil && endpoint == nil && ingress == nil {
+			manager.mu.Lock()
+			endpoint = manager.endpoint
+			ingress = manager.ingress
+			if ingress != nil {
+				ingress.Deny()
+			}
+			manager.mu.Unlock()
 		}
-		if manager.ingress == ingress {
-			manager.ingress = nil
+		if closeErr == nil && (endpoint != nil || ingress != nil) {
+			closeErr = closePublicAccessRuntime(ctx, endpoint, ingress)
 		}
-		manager.status = PublicAccessStatus{State: LifecycleDisabled, Generation: generation, SettingsRevision: manager.preferences.Revision}
-		operation.result = manager.resultLocked(true)
+		manager.mu.Lock()
+		if closeErr != nil {
+			category, message := redactedPublicAccessFailure(closeErr)
+			if errors.Is(closeErr, context.DeadlineExceeded) || errors.Is(closeErr, context.Canceled) {
+				category = ErrorShutdownTimeout
+			}
+			manager.status = failedStatus(manager.status, category)
+			manager.status.ErrorMessage = message
+			operation.result = manager.resultLocked(false)
+		} else {
+			if manager.endpoint == endpoint {
+				manager.endpoint = nil
+			}
+			if manager.ingress == ingress {
+				manager.ingress = nil
+			}
+			manager.status = PublicAccessStatus{State: LifecycleDisabled, Generation: generation, SettingsRevision: manager.preferences.Revision}
+			operation.result = manager.resultLocked(true)
+		}
+		result := operation.result
+		manager.stop = nil
+		close(operation.done)
+		manager.mu.Unlock()
+		manager.emit(result.Snapshot)
+		return result
 	}
-	result := operation.result
-	manager.stop = nil
-	close(operation.done)
-	manager.mu.Unlock()
-	manager.emit(result.Snapshot)
-	return result
 }
 
 // Reconfigure performs one protected stop/change/restart transaction. It
@@ -586,154 +588,156 @@ func (manager *PublicAccessManager) Reconfigure(ctx context.Context, mutation Pu
 		return manager.mutationFailure(ErrorValidation)
 	}
 
-	manager.mu.Lock()
-	if manager.reconfigure != nil {
-		operation := manager.reconfigure
-		manager.mu.Unlock()
-		select {
-		case <-operation.done:
-			if operation.expectedRevision == owned.ExpectedRevision {
-				return operation.result
-			}
-			return manager.Reconfigure(ctx, owned)
-		case <-ctx.Done():
-			return PublicAccessResult{Error: ErrorTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
-		}
-	}
-	if manager.cleanup != nil {
-		cleanup := manager.cleanup
-		manager.mu.Unlock()
-		select {
-		case <-cleanup.done:
-			return manager.Reconfigure(ctx, owned)
-		case <-ctx.Done():
-			return PublicAccessResult{Error: ErrorTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
-		}
-	}
-	if owned.ExpectedRevision != manager.preferences.Revision {
-		result := manager.conflictResultLocked()
-		manager.mu.Unlock()
-		return result
-	}
-	if manager.stop != nil {
-		operation := manager.stop
-		manager.mu.Unlock()
-		select {
-		case <-operation.done:
-			return manager.Reconfigure(ctx, owned)
-		case <-ctx.Done():
-			return PublicAccessResult{Error: ErrorTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
-		}
-	}
-
-	manager.status.Generation++
-	generation := manager.status.Generation
-	wasActive := manager.status.State == LifecycleStarting || manager.status.State == LifecycleReady ||
-		manager.endpoint != nil || manager.ingress != nil || manager.pendingStart != nil
-	if manager.start != nil && manager.start.cancel != nil {
-		manager.start.cancel(errPublicAccessReconfigured)
-	}
-	pendingStart := manager.pendingStart
-	endpoint := manager.endpoint
-	ingress := manager.ingress
-	if ingress != nil {
-		ingress.Deny()
-	}
-	operation := &reconfigureOperation{done: make(chan struct{}), expectedRevision: owned.ExpectedRevision, generation: generation}
-	manager.reconfigure = operation
-	manager.status = PublicAccessStatus{State: LifecycleStopping, Generation: generation, SettingsRevision: manager.preferences.Revision}
-	stopping := manager.snapshotLocked()
-	manager.mu.Unlock()
-	manager.emit(stopping)
-
-	if pendingStart != nil {
-		select {
-		case <-pendingStart.settled:
-		case <-ctx.Done():
-			return manager.finishReconfigureFailure(operation, ErrorTimeout)
-		}
-	}
-	if endpoint == nil && ingress == nil {
+	for {
 		manager.mu.Lock()
-		endpoint = manager.endpoint
-		ingress = manager.ingress
+		if manager.reconfigure != nil {
+			operation := manager.reconfigure
+			manager.mu.Unlock()
+			select {
+			case <-operation.done:
+				if operation.expectedRevision == owned.ExpectedRevision {
+					return operation.result
+				}
+				continue
+			case <-ctx.Done():
+				return PublicAccessResult{Error: ErrorTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
+			}
+		}
+		if manager.cleanup != nil {
+			cleanup := manager.cleanup
+			manager.mu.Unlock()
+			select {
+			case <-cleanup.done:
+				continue
+			case <-ctx.Done():
+				return PublicAccessResult{Error: ErrorTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
+			}
+		}
+		if owned.ExpectedRevision != manager.preferences.Revision {
+			result := manager.conflictResultLocked()
+			manager.mu.Unlock()
+			return result
+		}
+		if manager.stop != nil {
+			operation := manager.stop
+			manager.mu.Unlock()
+			select {
+			case <-operation.done:
+				continue
+			case <-ctx.Done():
+				return PublicAccessResult{Error: ErrorTimeout.SafeMessage(), Snapshot: manager.Snapshot()}
+			}
+		}
+
+		manager.status.Generation++
+		generation := manager.status.Generation
+		wasActive := manager.status.State == LifecycleStarting || manager.status.State == LifecycleReady ||
+			manager.endpoint != nil || manager.ingress != nil || manager.pendingStart != nil
+		if manager.start != nil && manager.start.cancel != nil {
+			manager.start.cancel(errPublicAccessReconfigured)
+		}
+		pendingStart := manager.pendingStart
+		endpoint := manager.endpoint
+		ingress := manager.ingress
 		if ingress != nil {
 			ingress.Deny()
 		}
+		operation := &reconfigureOperation{done: make(chan struct{}), expectedRevision: owned.ExpectedRevision, generation: generation}
+		manager.reconfigure = operation
+		manager.status = PublicAccessStatus{State: LifecycleStopping, Generation: generation, SettingsRevision: manager.preferences.Revision}
+		stopping := manager.snapshotLocked()
 		manager.mu.Unlock()
-	}
-	if endpoint != nil || ingress != nil {
-		if err := closePublicAccessRuntime(ctx, endpoint, ingress); err != nil {
-			category, _ := redactedPublicAccessFailure(err)
-			return manager.finishReconfigureFailure(operation, category)
+		manager.emit(stopping)
+
+		if pendingStart != nil {
+			select {
+			case <-pendingStart.settled:
+			case <-ctx.Done():
+				return manager.finishReconfigureFailure(operation, ErrorTimeout)
+			}
+		}
+		if endpoint == nil && ingress == nil {
+			manager.mu.Lock()
+			endpoint = manager.endpoint
+			ingress = manager.ingress
+			if ingress != nil {
+				ingress.Deny()
+			}
+			manager.mu.Unlock()
+		}
+		if endpoint != nil || ingress != nil {
+			if err := closePublicAccessRuntime(ctx, endpoint, ingress); err != nil {
+				category, _ := redactedPublicAccessFailure(err)
+				return manager.finishReconfigureFailure(operation, category)
+			}
+			manager.mu.Lock()
+			if manager.endpoint == endpoint {
+				manager.endpoint = nil
+			}
+			if manager.ingress == ingress {
+				manager.ingress = nil
+			}
+			manager.mu.Unlock()
+		}
+
+		proposed := owned.Preferences
+		proposed.Version = PublicAccessSettingsVersion
+		proposed.Revision = owned.ExpectedRevision + 1
+		proposed.ProviderTokenPresentHint = false
+		proposed.PlayerPasswordPresentHint = false
+		normalized, err := proposed.Normalized()
+		if err != nil {
+			return manager.finishReconfigureFailure(operation, ErrorValidation)
+		}
+		if err := applySecretMutation(ctx, manager.secrets, ProviderAccountToken, owned.ProviderToken); err != nil {
+			manager.reconcilePresence(ctx)
+			return manager.finishReconfigureFailure(operation, secretErrorCategory(err))
+		}
+		if err := applySecretMutation(ctx, manager.secrets, PlayerBasicAuthPassword, owned.PlayerPassword); err != nil {
+			manager.reconcilePresence(ctx)
+			return manager.finishReconfigureFailure(operation, secretErrorCategory(err))
+		}
+		provider, providerErr := manager.secrets.Presence(ctx, ProviderAccountToken)
+		password, passwordErr := manager.secrets.Presence(ctx, PlayerBasicAuthPassword)
+		if providerErr != nil || passwordErr != nil {
+			manager.setPresence(provider, password)
+			return manager.finishReconfigureFailure(operation, secretErrorCategory(errors.Join(providerErr, passwordErr)))
+		}
+		normalized.ProviderTokenPresentHint = provider == SecretPresent
+		normalized.PlayerPasswordPresentHint = password == SecretPresent
+		if err := savePublicAccessMutation(manager.settings, normalized, owned.PersistVisibleOverrides); err != nil {
+			manager.setPresence(provider, password)
+			return manager.finishReconfigureFailure(operation, ErrorSettingsCorrupt)
+		}
+
+		manager.mu.Lock()
+		if manager.reconfigure != operation || manager.status.Generation != operation.generation {
+			result := manager.resultLocked(false)
+			manager.completeReconfigureLocked(operation, result)
+			manager.mu.Unlock()
+			return result
+		}
+		manager.preferences = normalized
+		manager.provider = provider
+		manager.password = password
+		manager.status = PublicAccessStatus{State: LifecycleDisabled, Generation: generation, SettingsRevision: normalized.Revision}
+		disabled := manager.snapshotLocked()
+		manager.mu.Unlock()
+		manager.emit(disabled)
+
+		if wasActive && provider == SecretPresent && password == SecretPresent {
+			result := manager.startPublicAccess(ctx, normalized.Revision, operation)
+			manager.mu.Lock()
+			manager.completeReconfigureLocked(operation, result)
+			manager.mu.Unlock()
+			return result
 		}
 		manager.mu.Lock()
-		if manager.endpoint == endpoint {
-			manager.endpoint = nil
-		}
-		if manager.ingress == ingress {
-			manager.ingress = nil
-		}
-		manager.mu.Unlock()
-	}
-
-	proposed := owned.Preferences
-	proposed.Version = PublicAccessSettingsVersion
-	proposed.Revision = owned.ExpectedRevision + 1
-	proposed.ProviderTokenPresentHint = false
-	proposed.PlayerPasswordPresentHint = false
-	normalized, err := proposed.Normalized()
-	if err != nil {
-		return manager.finishReconfigureFailure(operation, ErrorValidation)
-	}
-	if err := applySecretMutation(ctx, manager.secrets, ProviderAccountToken, owned.ProviderToken); err != nil {
-		manager.reconcilePresence(ctx)
-		return manager.finishReconfigureFailure(operation, secretErrorCategory(err))
-	}
-	if err := applySecretMutation(ctx, manager.secrets, PlayerBasicAuthPassword, owned.PlayerPassword); err != nil {
-		manager.reconcilePresence(ctx)
-		return manager.finishReconfigureFailure(operation, secretErrorCategory(err))
-	}
-	provider, providerErr := manager.secrets.Presence(ctx, ProviderAccountToken)
-	password, passwordErr := manager.secrets.Presence(ctx, PlayerBasicAuthPassword)
-	if providerErr != nil || passwordErr != nil {
-		manager.setPresence(provider, password)
-		return manager.finishReconfigureFailure(operation, secretErrorCategory(errors.Join(providerErr, passwordErr)))
-	}
-	normalized.ProviderTokenPresentHint = provider == SecretPresent
-	normalized.PlayerPasswordPresentHint = password == SecretPresent
-	if err := savePublicAccessMutation(manager.settings, normalized, owned.PersistVisibleOverrides); err != nil {
-		manager.setPresence(provider, password)
-		return manager.finishReconfigureFailure(operation, ErrorSettingsCorrupt)
-	}
-
-	manager.mu.Lock()
-	if manager.reconfigure != operation || manager.status.Generation != operation.generation {
-		result := manager.resultLocked(false)
+		result := manager.resultLocked(true)
 		manager.completeReconfigureLocked(operation, result)
 		manager.mu.Unlock()
 		return result
 	}
-	manager.preferences = normalized
-	manager.provider = provider
-	manager.password = password
-	manager.status = PublicAccessStatus{State: LifecycleDisabled, Generation: generation, SettingsRevision: normalized.Revision}
-	disabled := manager.snapshotLocked()
-	manager.mu.Unlock()
-	manager.emit(disabled)
-
-	if wasActive && provider == SecretPresent && password == SecretPresent {
-		result := manager.startPublicAccess(ctx, normalized.Revision, operation)
-		manager.mu.Lock()
-		manager.completeReconfigureLocked(operation, result)
-		manager.mu.Unlock()
-		return result
-	}
-	manager.mu.Lock()
-	result := manager.resultLocked(true)
-	manager.completeReconfigureLocked(operation, result)
-	manager.mu.Unlock()
-	return result
 }
 
 type mutationAwarePublicAccessSettings interface {

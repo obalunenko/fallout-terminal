@@ -23,6 +23,8 @@ import (
 
 const verificationSourceRevision = "0123456789abcdef0123456789abcdef01234567"
 
+const verificationVersion = "2.0.0"
+
 type verificationFile struct {
 	contents []byte
 	mode     os.FileMode
@@ -31,6 +33,7 @@ type verificationFile struct {
 type verificationManifest struct {
 	SchemaVersion  int                        `json:"schemaVersion"`
 	Product        string                     `json:"product"`
+	Version        string                     `json:"version"`
 	SourceRevision string                     `json:"sourceRevision"`
 	Target         verificationManifestTarget `json:"target"`
 	Runtime        string                     `json:"runtime"`
@@ -432,8 +435,9 @@ func newVerificationFixture(t *testing.T, target Target) *verificationFixture {
 			"resources/sessions/demo-players.json": {contents: []byte(`{"version":1,"name":"players"}`), mode: 0o444},
 		},
 		manifest: verificationManifest{
-			SchemaVersion:  1,
+			SchemaVersion:  artifactManifestVersion,
 			Product:        applicationName,
+			Version:        verificationVersion,
 			SourceRevision: verificationSourceRevision,
 			Target:         verificationManifestTarget{OS: target.OS(), Arch: target.Arch()},
 			Runtime:        target.NativeRuntime(),

@@ -23,7 +23,7 @@ import (
 
 const (
 	artifactManifestFilename = "artifact-manifest.json"
-	artifactManifestVersion  = 1
+	artifactManifestVersion  = 2
 )
 
 var normalizedArchiveTime = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -41,11 +41,12 @@ type ArchiveResult struct {
 	SHA256       string
 }
 
-// ArtifactManifest is the stable schema-v1 identity and file inventory stored
+// ArtifactManifest is the stable schema-v2 identity and file inventory stored
 // inside every portable archive.
 type ArtifactManifest struct {
 	SchemaVersion  int                    `json:"schemaVersion"`
 	Product        string                 `json:"product"`
+	Version        string                 `json:"version"`
 	SourceRevision string                 `json:"sourceRevision"`
 	Target         ArtifactTarget         `json:"target"`
 	Runtime        string                 `json:"runtime"`
@@ -79,6 +80,7 @@ func WritePortableArchive(
 	ctx context.Context,
 	outputDirectory string,
 	target Target,
+	version ReleaseVersion,
 	sourceRevision string,
 	files []ArchiveFile,
 ) (ArchiveResult, error) {
@@ -94,11 +96,14 @@ func WritePortableArchive(
 	if outputDirectory == "" {
 		return ArchiveResult{}, errors.New("archive output directory is empty")
 	}
+	if err := validatePackageVersion(version); err != nil {
+		return ArchiveResult{}, err
+	}
 	if err := validateSourceRevision(sourceRevision); err != nil {
 		return ArchiveResult{}, err
 	}
 
-	prepared, manifest, err := prepareArchiveFiles(ctx, target, sourceRevision, files)
+	prepared, manifest, err := prepareArchiveFiles(ctx, target, version, sourceRevision, files)
 	if err != nil {
 		return ArchiveResult{}, err
 	}
@@ -124,6 +129,7 @@ func WritePortableArchive(
 func prepareArchiveFiles(
 	ctx context.Context,
 	target Target,
+	version ReleaseVersion,
 	sourceRevision string,
 	files []ArchiveFile,
 ) ([]preparedArchiveFile, ArtifactManifest, error) {
@@ -162,6 +168,7 @@ func prepareArchiveFiles(
 	manifest := ArtifactManifest{
 		SchemaVersion:  artifactManifestVersion,
 		Product:        applicationName,
+		Version:        version.Canonical,
 		SourceRevision: sourceRevision,
 		Target:         ArtifactTarget{OS: target.OS(), Arch: target.Arch()},
 		Runtime:        target.NativeRuntime(),

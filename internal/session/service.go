@@ -1017,30 +1017,10 @@ func cloneSession(session domain.Session) domain.Session {
 	for index, terminal := range session.Terminals {
 		copy.Terminals[index] = terminal
 		copy.Terminals[index].Extra = cloneExtra(terminal.Extra)
-		copy.Terminals[index].Root = cloneNode(terminal.Root)
+		copy.Terminals[index].Root = domain.CloneContentNode(terminal.Root)
 		if terminal.CommandStates != nil {
 			copy.Terminals[index].CommandStates = make(map[string]domain.CommandExecutionState, len(terminal.CommandStates))
 			maps.Copy(copy.Terminals[index].CommandStates, terminal.CommandStates)
-		}
-	}
-	return copy
-}
-
-func cloneNode(node domain.ContentNode) domain.ContentNode {
-	copy := node
-	copy.Extra = cloneExtra(node.Extra)
-	if node.StateChange != nil {
-		stateChange := *node.StateChange
-		copy.StateChange = &stateChange
-	}
-	if node.TerminalTransition != nil {
-		transition := *node.TerminalTransition
-		copy.TerminalTransition = &transition
-	}
-	if node.Children != nil {
-		copy.Children = make([]domain.ContentNode, len(node.Children))
-		for index := range node.Children {
-			copy.Children[index] = cloneNode(node.Children[index])
 		}
 	}
 	return copy

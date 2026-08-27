@@ -1628,6 +1628,7 @@ func TestApproveCommandExecutionPersistenceFailureClearsPendingWithoutSuccess(t 
 
 		state, mutation, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
 		require.Error(t, err, "failure attempt %d", attempt)
+		require.ErrorIs(t, err, ErrCommandExecutionPersistence, "failure attempt %d", attempt)
 		require.NotContains(t, err.Error(), "private disk path", "failure attempt %d", attempt)
 		require.Nil(t, mutation, "failure attempt %d", attempt)
 		require.NotNil(t, state, "failure attempt %d", attempt)
@@ -1691,6 +1692,8 @@ func TestCommandExecutionResolutionRejectsStaleAndDuplicateRequestIDs(t *testing
 
 	staleState, staleMutation, staleErr := fixture.service.ResolveCommandExecution(t.Context(), "stale-server-request", domain.CommandExecutionApprove)
 	require.Error(t, staleErr)
+	require.ErrorIs(t, staleErr, ErrCommandExecutionStale)
+	require.ErrorIs(t, fmt.Errorf("application boundary: %w", staleErr), ErrCommandExecutionStale)
 	require.Nil(t, staleMutation)
 	require.Equal(t, before, staleState)
 	require.Equal(t, before, fixture.service.Snapshot())
@@ -3206,7 +3209,7 @@ func (lifecycle *recordingTerminalLifecycle) CreateRuntime(target domain.Termina
 	lifecycle.mu.Unlock()
 	runtime := testTerminalRuntime(target.TerminalID)
 	runtime.TerminalName = target.TerminalName
-	runtime.Tree = cloneContentNode(target.Tree)
+	runtime.Tree = domain.CloneContentNode(target.Tree)
 	runtime.HackLevel = target.HackLevel
 	runtime.IntroText = target.IntroText
 	runtime.Hack.GenerationID = "generation-" + target.TerminalID
@@ -3220,7 +3223,7 @@ func (lifecycle *recordingTerminalLifecycle) UpdateRuntime(runtime *domain.Termi
 	lifecycle.updates++
 	lifecycle.mu.Unlock()
 	runtime.TerminalName = target.TerminalName
-	runtime.Tree = cloneContentNode(target.Tree)
+	runtime.Tree = domain.CloneContentNode(target.Tree)
 	runtime.HackLevel = target.HackLevel
 	runtime.IntroText = target.IntroText
 	runtime.Nav = nav.Revalidate(runtime.Nav, runtime.Tree)
@@ -3532,6 +3535,7 @@ func TestLinkedCommandCreatesOneReplaySafePendingAndResolvesAtomically(t *testin
 	require.NotNil(t, first)
 	assert.Equal(t, domain.TerminalNavigationForward, first.Direction)
 	assert.Equal(t, "terminal-b", first.TargetTerminalID)
+	assert.Zero(t, first.RouteDepth)
 	assert.Equal(t, 0, runtime.Calls(), "linked command must not reach ordinary gameplay")
 	handle := domain.RecognitionHandle(fixture.controllerToken)
 	reconnected, err := fixture.service.AttachSubscription("linked-reconnect", &handle)
@@ -4085,6 +4089,7 @@ func TestRootBackReturnRejectsWithoutMutationThenApprovesOneLIFOPoint(t *testing
 		require.NotNil(t, pending)
 		assert.Equal(t, domain.TerminalNavigationReturn, pending.Direction)
 		assert.Equal(t, fixture.terminalID, pending.TargetTerminalID)
+		assert.Equal(t, uint32(1), pending.RouteDepth)
 		return pending
 	}
 

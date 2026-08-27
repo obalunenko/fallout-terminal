@@ -1,0 +1,1121 @@
+{
+  "workflow": "companion",
+  "specName": "application self update",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T00:51:58.669Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T01:01:09.802Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T14:16:39.376Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:25:34.091Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:27:54.704Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T14:28:52.877Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T14:31:39.098Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:34:15.467Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T14:34:30.259Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T14:34:42.990Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:35:41.277Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:37:30.210Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:38:28.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:41:46.735Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:42:07.430Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:45:52.439Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:46:41.227Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:47:45.075Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:50:52.072Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:51:12.017Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:52:00.243Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:55:16.081Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:56:49.768Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:56:50.338Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T14:59:32.029Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:00:34.552Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:01:47.186Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:04:12.713Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:06:14.509Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:07:53.546Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:08:33.524Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:12:20.143Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:12:52.815Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:14:12.279Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:18:05.210Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:18:34.047Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:20:01.187Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:22:27.710Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:23:07.874Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:25:29.936Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:29:51.055Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:30:10.604Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:33:17.234Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:34:08.917Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:34:28.006Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:37:49.870Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:39:07.066Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:42:47.987Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:43:15.123Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:44:39.345Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:45:53.662Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:48:30.091Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T15:57:39.497Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T16:00:26.707Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T16:00:26.924Z"
+    }
+  ],
+  "telemetryInstanceId": "9026baa6-d72a-4d73-8ee0-8f417cfb195f",
+  "last_action": "all 44 tasks done — SC-006 screenshots and exact prerelease tags recorded",
+  "coverage": {
+    "FR-001": {
+      "title": "Every packaged production launch MUST initiate exactly one update check after the application can present Overseer-facing status.",
+      "tasks": [
+        "T013",
+        "T018"
+      ]
+    },
+    "FR-002": {
+      "title": "The startup update check MUST run without blocking normal application readiness or local operation.",
+      "tasks": [
+        "T013",
+        "T016",
+        "T018"
+      ]
+    },
+    "FR-003": {
+      "title": "The application MUST compare the installed application version with published release versions using semantic-version precedence.",
+      "tasks": [
+        "T012",
+        "T015"
+      ]
+    },
+    "FR-004": {
+      "title": "The application MUST offer only a strictly newer release that is eligible for the installed release channel, running platform, and running architecture.",
+      "tasks": [
+        "T012",
+        "T015"
+      ]
+    },
+    "FR-005": {
+      "title": "When an eligible update exists, the application MUST present the Overseer with the installed version, available version, release notes when supplied, and a choice to update now or continue without updating.",
+      "tasks": [
+        "T014",
+        "T017",
+        "T019"
+      ]
+    },
+    "FR-006": {
+      "title": "The application MUST NOT download, stage, replace, or restart for an update until the Overseer explicitly accepts the offered update.",
+      "tasks": [
+        "T014",
+        "T016",
+        "T021"
+      ]
+    },
+    "FR-007": {
+      "title": "Deferring or dismissing an update MUST leave the current application fully usable and MUST suppress another prompt for the same release during that application run.",
+      "tasks": [
+        "T014",
+        "T016",
+        "T019"
+      ]
+    },
+    "FR-008": {
+      "title": "The update flow MUST select exactly one artifact that matches the running platform and architecture and MUST reject missing or ambiguous matches.",
+      "tasks": [
+        "T012",
+        "T015"
+      ]
+    },
+    "FR-009": {
+      "title": "The application MUST verify every downloaded update against publisher-provided integrity or authenticity evidence before staging it.",
+      "tasks": [
+        "T012",
+        "T015",
+        "T024",
+        "T028"
+      ]
+    },
+    "FR-010": {
+      "title": "Missing, malformed, or mismatched verification evidence MUST prevent the update from being staged or applied.",
+      "tasks": [
+        "T012",
+        "T015",
+        "T024",
+        "T028"
+      ]
+    },
+    "FR-011": {
+      "title": "The update flow MUST accept only a replacement unit compatible with the installed application's platform-specific package layout.",
+      "tasks": [
+        "T023",
+        "T026"
+      ]
+    },
+    "FR-012": {
+      "title": "The application MUST report checking, downloading, verifying, staging, ready-to-restart, and failed states to the Overseer without exposing sensitive values.",
+      "tasks": [
+        "T024",
+        "T027",
+        "T030",
+        "T037"
+      ]
+    },
+    "FR-013": {
+      "title": "A prepared update MUST require a separate Overseer decision before the application restarts to apply it.",
+      "tasks": [
+        "T024",
+        "T028",
+        "T030"
+      ]
+    },
+    "FR-014": {
+      "title": "Applying an update MUST use the application's normal ordered shutdown so owned resources are released before replacement begins.",
+      "tasks": [
+        "T027",
+        "T029"
+      ]
+    },
+    "FR-015": {
+      "title": "A successfully applied update MUST relaunch the application at the accepted newer version.",
+      "tasks": [
+        "T023",
+        "T027",
+        "T029"
+      ]
+    },
+    "FR-016": {
+      "title": "If replacement or relaunch fails, the update process MUST retain or restore the last working installation and MUST NOT report success.",
+      "tasks": [
+        "T023",
+        "T027",
+        "T033",
+        "T036"
+      ]
+    },
+    "FR-017": {
+      "title": "Update discovery, download, verification, staging, replacement, and relaunch failures MUST NOT corrupt or modify sessions, player configurations, credentials, preferences, or other user-owned data.",
+      "tasks": [
+        "T023",
+        "T033",
+        "T036"
+      ]
+    },
+    "FR-018": {
+      "title": "Failure to check for or prepare an update MUST NOT cause application startup to fail or disable local operation.",
+      "tasks": [
+        "T013",
+        "T018",
+        "T035",
+        "T038"
+      ]
+    },
+    "FR-019": {
+      "title": "The application MUST prevent concurrent update checks or installations from creating competing state or replacement attempts.",
+      "tasks": [
+        "T004",
+        "T006",
+        "T016",
+        "T028"
+      ]
+    },
+    "FR-020": {
+      "title": "Unversioned development builds MUST NOT perform a production update check or present a production update prompt.",
+      "tasks": [
+        "T004",
+        "T016",
+        "T018"
+      ]
+    },
+    "FR-021": {
+      "title": "Every governed release for a supported target MUST embed its exact release version in the packaged application.",
+      "tasks": [
+        "T022",
+        "T025"
+      ]
+    },
+    "FR-022": {
+      "title": "Every governed release MUST publish the compatible target artifacts and their verification evidence as one complete release before any installed application can discover it.",
+      "tasks": [
+        "T012",
+        "T015",
+        "T022",
+        "T025"
+      ]
+    },
+    "FR-023": {
+      "title": "Release publication MUST withhold an update from discovery when any required supported-target artifact or verification record is absent or invalid.",
+      "tasks": [
+        "T012",
+        "T015",
+        "T034"
+      ]
+    },
+    "FR-024": {
+      "title": "The update feature MUST support the existing governed targets: Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64.",
+      "tasks": [
+        "T012",
+        "T022",
+        "T023",
+        "T025",
+        "T026"
+      ]
+    },
+    "FR-025": {
+      "title": "Update diagnostics MUST identify the failed stage and provide an actionable next step while excluding credentials, authorization values, and user document contents.",
+      "tasks": [
+        "T033",
+        "T037",
+        "T038"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 14,
+    "projectedTasks": 24,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "context": [
+    "reference: official Wails v3 self-update tutorial and updater guide",
+    "area: application startup and Overseer host lifecycle",
+    "area: five-target portable packaging and tagged release publication",
+    "constraint: test-owned Go resources use immediate t.Cleanup registration with uncancelled bounded cleanup contexts when needed"
+  ],
+  "intent": "Let the Overseer discover and safely apply a trusted newer Fallout Terminal release during application startup without making updates an availability dependency.",
+  "expectations": [
+    "No new update account, license service, or private update backend.",
+    "No installer-based update flow.",
+    "No unattended forced-update policy.",
+    "No downgrade support.",
+    "No background update service while the application is closed."
+  ],
+  "approach": "Use the pinned Wails updater headlessly for discovery, transfer, extraction, and GitHub asset-digest verification behind a launch-scoped application manager and private revisioned bridge. After verification, validate manifest v2 and use a temporary helper to atomically replace and recover the complete portable application unit through normal ordered shutdown.",
+  "decisions": [
+    {
+      "decision": "Use pinned Wails updater headlessly behind an application-owned manager",
+      "why": "It supplies proven discovery, transfer, extraction, progress, and verification while preserving separate offer and restart consent",
+      "rejected": "CheckAndInstall with the built-in updater window"
+    },
+    {
+      "decision": "Use GitHub release asset SHA-256 metadata as verification evidence",
+      "why": "It fails closed through Wails verification while preserving the constitutionally required exact five-archive inventory",
+      "rejected": "Publish checksum sidecars or a signed aggregate manifest"
+    },
+    {
+      "decision": "Replace complete portable units with an application-owned temporary helper",
+      "why": "Current archives contain resource trees that the Wails executable-only restart target cannot replace safely",
+      "rejected": "Bare executable updater assets or a private Wails fork"
+    },
+    {
+      "decision": "Advance artifact manifest to schema v2 with canonical version",
+      "why": "The staged tree must prove target, structure, and equality with the accepted release without executing downloaded code",
+      "rejected": "Trust only the tag or run the staged executable before restart approval"
+    },
+    {
+      "decision": "Start one check from an event-first update-status handshake",
+      "why": "The frontend can present status before discovery emits and snapshot revisions close startup races",
+      "rejected": "Emit the first update event at the end of App.Start"
+    },
+    {
+      "decision": "Expose three private desktop methods and one named update event",
+      "why": "Explicit protobuf-governed decisions preserve the narrow privileged boundary and make stale attempts rejectable",
+      "rejected": "Direct framework events, a generic dispatcher, or a public RPC"
+    },
+    {
+      "decision": "Keep deferment and prepared state launch-scoped with only a recovery journal persisted",
+      "why": "This matches one-run suppression and preserves actionable post-shutdown recovery without a permanent skip policy",
+      "rejected": "Persist skipped versions or abandoned stages indefinitely"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned a consent-driven five-target self-update path with private UI contracts and recoverable complete-package replacement",
+      "key_finding": "The governed archives are complete portable trees, so Wails can verify and extract them but an application-owned helper must replace the whole unit while GitHub asset digests preserve the exact five-asset release contract"
+    },
+    "tasks": {
+      "summary": "44 dependency-ordered tasks across Setup, Foundational, three user-story phases, and Polish with explicit test-first waves"
+    },
+    "implement": {
+      "summary": "Implemented and validated application self-update; all 44 tasks are complete and SC-006 has manual Darwin ARM64 screenshot evidence."
+    }
+  },
+  "currentTask": "T044",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Defined private application update protobuf contract",
+      "files": [
+        "proto/fallout/terminal/private/v1/update.proto"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Defined framework-independent update model",
+      "files": [
+        "internal/update/model.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Regenerated private Go update bindings, advanced the reviewed schema revision and compatibility baseline, and verified deterministic isolated generation with no private ECMAScript output.",
+      "files": [
+        "internal/gen/fallout/terminal/private/v1/update.pb.go",
+        "proto/schema-revision.txt",
+        "proto/compatibility-baseline.binpb"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added contract-driving manager tests for packaged/development gating, asynchronous one-shot check arming, detached revisioned snapshots, stale attempt rejection, and serialized duplicate accept operations; focused test currently fails only because T006 manager symbols are intentionally not implemented yet.",
+      "files": [
+        "internal/update/manager_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added contract-driving protobuf/native update round-trip coverage for all states, failure stages, decisions, optional presence, safe failures, and exact transparent desktop-service forwards.",
+      "files": [
+        "app_contract_test.go",
+        "desktop_service_test.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Implemented framework-independent update manager with one-shot asynchronous check arming, detached revisioned snapshots, safe failures, and serialized stale-aware offer/restart guards.",
+      "files": [
+        "internal/update/manager.go",
+        "internal/update/model.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added narrow native application-update DTOs and complete private protobuf/native mappings for snapshots, optional fields, failure stages, consent decisions, and command results.",
+      "files": [
+        "app.go",
+        "app_contract.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Injected the transport-neutral update manager boundary, exposed the three validated core update commands, and added exact transparent desktop-service forwards with authoritative snapshots on rejection.",
+      "files": [
+        "app.go",
+        "desktop_service.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Advanced the private desktop binding inventories to the exact 38-method allowlist and seven named events while preserving player-client privacy; shell generation and focused Go inventories pass, and the browser inventory remains pending the T017 facade listener and T020 fixture exports.",
+      "files": [
+        "scripts/wails-bindings-check.sh",
+        "tests/browser/desktop-api.spec.mjs",
+        "app_contract_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Registered the typed application update status event and added a headless root adapter over the pinned Wails updater while preserving existing lifecycle-first desktop-service registration.",
+      "files": [
+        "wails_host.go",
+        "wails_updater.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Regenerated deterministic Wails bindings for exactly 38 desktop methods and seven typed events; reviewed the generated-only five-file delta and verified the Overseer build and binding contract.",
+      "files": [
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/index.js",
+        "frontend/overseer/bindings/github.com/wailsapp/wails/v3/internal/eventcreate.js",
+        "frontend/overseer/bindings/github.com/wailsapp/wails/v3/internal/eventdata.d.ts"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added test-first desktop facade and Playwright discovery contracts for update revision reconciliation, one-off offers, defer behavior, safe focus, Escape, silent builds, and local-control availability.",
+      "files": [
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/application-update.spec.mjs"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added lifecycle contract tests for readiness-gated event-first update status, one bounded asynchronous check, development disablement, and nonfatal update failures.",
+      "files": [
+        "app_test.go",
+        "wails_host_test.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added deterministic TLS-backed provider contract tests for semantic channel ordering, exact five-asset completeness, GitHub SHA-256 injection, exact runtime targeting, draft and malformed release rejection, and cancellation propagation.",
+      "files": [
+        "wails_updater_test.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Bounded launch-scoped update discovery with a capped configurable timeout, safe check-stage failure projection, and explicit one-run defer suppression while retaining one-shot concurrent behavior.",
+      "files": [
+        "internal/update/manager.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Added the application-update facade with explicit generated bindings, frozen normalized snapshots, monotonic revision reconciliation across event/getter/commands, event-first subscription, idempotent disposal, and validated offer/restart decisions.",
+      "files": [
+        "frontend/overseer/src/desktop-api.js"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Implemented the governed GitHub Releases provider with strict canonical SemVer/channel selection, exact five-archive validation, runtime asset matching, GitHub SHA-256 verification injection, cancellation-safe discovery, and protected artifact streaming.",
+      "files": [
+        "wails_updater.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Extended the deterministic desktop binding fixture with a disabled default update snapshot, monotonic revision retention, deferred getter resolution, offer and restart decision bindings, event compatibility, and accept-only download accounting.",
+      "files": [
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added a persistent nonblocking update status surface and an accessible versioned offer dialog with bounded plain-text release notes, safe defer focus, explicit decisions, Escape handling, focus restoration, and per-attempt prompt suppression.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Composed packaged-only headless Wails discovery behind the post-readiness status handshake, mapped validated releases to safe internal candidates, kept updater events Go-local, and published only authored snapshots without affecting local startup.",
+      "files": [
+        "main.go",
+        "app.go",
+        "wails_host.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Made the focused discovery suites pass across the provider, manager race checks, application lifecycle, Wails bridge, desktop facade, and accessible offer UI; verified the player client contains no update surface.",
+      "files": [
+        "wails_updater_test.go",
+        "app_test.go",
+        "wails_host_test.go",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/application-update.spec.mjs"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Added failing deterministic staging and replacement-helper contract tests for portable and macOS unit selection, safe same-volume staging with sync and cleanup, bounded parent exit, promotion, relaunch, and backup restoration.",
+      "files": [
+        "internal/update/staging_test.go",
+        "internal/update/helper_test.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added five-target red coverage for deterministic artifact-manifest schema v2 generation, canonical version identity, exact target/package inventory, and manifest-aware matching-native release inspection.",
+      "files": [
+        "internal/buildtool/archive_test.go",
+        "internal/buildtool/releasecheck_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Added red manager and Playwright contracts for consent-gated preparation, monotonic progress and stage ordering, verification/manifest failure gates, retained ready state, postpone/reopen, single restart handoff, and continued local UI availability.",
+      "files": [
+        "internal/update/manager_test.go",
+        "tests/browser/application-update.spec.mjs"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Advanced artifact-manifest.json to deterministic schema v2 with the validated PackagePlan canonical version; matching-native release inspection now verifies schema, canonical release version equality, target/runtime, exact inventory, modes, sizes, and SHA-256 digests before probing native metadata while preserving development package verification and the five-archive release inventory.",
+      "files": [
+        "internal/buildtool/archive.go",
+        "internal/buildtool/package.go",
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/releasecheck.go",
+        "internal/buildtool/verify.go",
+        "internal/buildtool/releasecheck_test.go",
+        "internal/buildtool/releaseversion_test.go",
+        "internal/buildtool/verify_test.go"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Implemented safe platform application-unit resolution, extracted-tree and launch-path validation, exact governed-target package selection, and attempt-owned same-volume sibling copy/sync/cleanup staging.",
+      "files": [
+        "internal/update/staging.go",
+        "internal/platform/paths.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Implemented the copied replacement helper with a validated private environment handoff, bounded parent wait, safe recovery records, deterministic backup/promote/relaunch/restore behavior, and compile-safe Unix/Windows process adapters.",
+      "files": [
+        "internal/update/helper.go",
+        "internal/update/helper_unix.go",
+        "internal/update/helper_windows.go"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Extended the deterministic desktop fixture with controlled update progress emission, one-shot preparation failure injection, staged snapshot retention, and exact restart handoff accounting.",
+      "files": [
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Implemented consent-gated preparation with ordered monotonic progress, candidate-bound prepared-unit retention, stage-aware failures, restart postponement, and exactly-once apply handoff.",
+      "files": [
+        "internal/update/manager.go"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Rendered nonmodal preparation progress and an accessible restart dialog with postpone, reopen, safe focus, Escape, and duplicate-action protection",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Dispatched private helper mode before normal startup, composed packaged-only Wails download/verification/staging and copied-helper restart dependencies, persisted applying recovery before launch, and routed restart approval through the normal host quit lifecycle.",
+      "files": [
+        "main.go",
+        "wails_updater.go",
+        "wails_host.go",
+        "internal/update/staging.go",
+        "internal/update/helper.go"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Closed the trusted-apply checkpoint with race-enabled root, build-tool, manager, staging, helper, updater and lifecycle tests; verified deterministic Wails bindings, clean frontend builds, and all 20 focused update/facade browser journeys.",
+      "files": [
+        "internal/buildtool",
+        "internal/update",
+        "app_test.go",
+        "wails_host_test.go",
+        "wails_updater_test.go",
+        "tests/browser/application-update.spec.mjs",
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Added deterministic Playwright journeys for offline discovery, interrupted download, verify/stage/apply failures, actionable recovery guidance, stale-event suppression, and uninterrupted local controls; focused run kept 8 existing journeys green and produced 6 expected T038 reds.",
+      "files": [
+        "tests/browser/application-update.spec.mjs"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Added deterministic provider and release security coverage for canonical all-asset digests, ambiguous or incomplete inventories, redacted updater URLs/tokens/paths, exact five-archive publication, and update canary leak surfaces.",
+      "files": [
+        "wails_updater_test.go",
+        "internal/platform/portable_release_test.go",
+        "scripts/secret-leak-check.sh"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Added deterministic manager/helper failure and recovery tests for bounded checks, cancellation, disk space, read-only installs, stale journals, backup cleanup, restored relaunch, and user-data isolation; focused race suite now exposes four intended Phase 5 gaps.",
+      "files": [
+        "internal/update/manager_test.go",
+        "internal/update/helper_test.go"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Rendered durable localized nonfatal update failures with recovery guidance, guarded stale revisions, and preserved command-result failure snapshots without exposing provider details",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Added safe failure classification and actionable staging guidance, sanitized backend adapter errors, reported post-apply cleanup failures, and classified restored relaunch failures as recovery.",
+      "files": [
+        "wails_updater.go",
+        "internal/update/manager.go",
+        "internal/update/helper.go"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Implemented safe next-launch application update recovery journal consumption, version-confirmed applied cleanup, stale/failed recovery diagnostics, private path policy, and provider-free startup integration.",
+      "files": [
+        "internal/update/recovery.go",
+        "internal/update/recovery_test.go",
+        "internal/platform/paths.go",
+        "internal/platform/paths_test.go",
+        "main.go",
+        "wails_host.go",
+        "wails_host_test.go"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "Closed the failure matrix with race-enabled manager/helper/recovery/root tests, provider and portable-release security contracts, all 14 update recovery browser journeys, and both updater-aware secret-leak scans.",
+      "files": [
+        "internal/update",
+        "wails_updater_test.go",
+        "internal/platform/portable_release_test.go",
+        "tests/browser/application-update.spec.mjs",
+        "scripts/secret-leak-check.sh"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "Documented packaged-only self-update eligibility, strict five-asset GitHub digest discovery, consent and postpone behavior, writable portable replacement, helper recovery and failure guidance, and post-publication forward-fix policy without claiming unrun release validation.",
+      "files": [
+        "README.md",
+        "docs/platform-packaging.md"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Added static update accessibility, separate restart consent, backend privilege boundary, frontend GitHub exclusion, and private player-surface assertions; registered update.proto in the generated contract inventory.",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Advanced reviewed private-update schema, schema-revision, compatibility-baseline, and descriptor digests; made the Wails binding gate compare checked-in output to two deterministic generations; preserved exactly 38 methods, seven events, and no private player contract output.",
+      "files": [
+        "scripts/wails-v3-contract-check.sh",
+        "scripts/wails-bindings-check.sh",
+        "proto/schema-revision.txt",
+        "proto/compatibility-baseline.binpb",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Passed formatting, vet, pinned golangci-lint, full Go race suite, protobuf format/lint/generation/breaking checks, deterministic 38-method/seven-event Wails bindings, clean frontend builds, startup contracts, 175 Playwright journeys with two external ngrok cases skipped, gopls diagnostics, and updater-aware secret scanning.",
+      "files": [
+        "Taskfile.yml",
+        ".github/workflows/wails-cross-platform.yml"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Recorded passing Darwin ARM64 development-package evidence and explicitly marked the real five-target tagged prerelease update/relaunch journey and unavailable native hosts as NOT RUN.",
+      "files": [
+        "specs/024-application-self-update/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Manual application self-update acceptance",
+      "command": "User-reported manual verification",
+      "result": "PASS — user confirmed automatic updating works on 2026-08-27",
+      "warnings": [
+        "Exact tag, installed/offered versions, and run logs were not captured"
+      ]
+    },
+    {
+      "what": "SC-006 Darwin ARM64 screenshot-backed self-update journey",
+      "command": "Manual acceptance captured in three PNG screenshots",
+      "result": "PASS — 2.1.0-autoupdate01 offered and prepared 2.1.0-autoupdate02; the relaunched application reports 2.1.0-autoupdate02 without a repeated offer visible",
+      "warnings": [
+        "Exact Git tag spelling and a text runtime log were not retained"
+      ]
+    },
+    {
+      "what": "SC-006 local tagged prerelease identity",
+      "command": "git tag --list *autoupdate* with refname and objectname",
+      "result": "PASS — v2.1.0-autoupdate01 and v2.1.0-autoupdate02 both resolve to e58884465b8df190968493a0c50323353db0c641, matching the screenshot release notes",
+      "warnings": []
+    }
+  ],
+  "concerns": null
+}

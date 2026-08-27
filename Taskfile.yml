@@ -2,8 +2,10 @@ version: '3'
 
 vars:
   GO: '{{default "go" .GO}}'
+  NODE: '{{default "node" .NODE}}'
   NPM: '{{default "npm" .NPM}}'
   APP_ARGS: '{{default "" .APP_ARGS}}'
+  NODE_MINIMUM_VERSION: '26.8.1'
   MACOS_MINIMUM_VERSION: '13.0'
   DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}} CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} CGO_LDFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}{{end}}'
   SPECKIT_INSTALL: scripts/install-speckit.sh
@@ -147,14 +149,39 @@ tasks:
       - task: deps:frontend
       - task: deps:browser
 
+  node:check:
+    desc: Verify the executing Node.js runtime satisfies the project minimum.
+    run: once
+    silent: true
+    cmds:
+      - |
+        {{.NODE}} -e '
+          const minimumText = "{{.NODE_MINIMUM_VERSION}}";
+          const minimum = minimumText.split(".").map(Number);
+          const current = process.versions.node.split(".").slice(0, 3).map(Number);
+          let comparison = 0;
+          for (let index = 0; index < minimum.length; index += 1) {
+            if (current[index] !== minimum[index]) {
+              comparison = current[index] - minimum[index];
+              break;
+            }
+          }
+          if (comparison < 0) {
+            console.error(`Node.js ${minimumText} or newer is required; found ${process.version}. Run "nvm use" from the repository root.`);
+            process.exit(1);
+          }
+        '
+
   deps:frontend:
     desc: Install locked client and Overseer workspace dependencies.
     cmds:
+      - task: node:check
       - '{{.NPM}} ci --prefix frontend'
 
   deps:browser:
     desc: Install locked browser-test dependencies.
     cmds:
+      - task: node:check
       - '{{.NPM}} ci --prefix tests/browser'
 
   speckit:install:
@@ -222,7 +249,7 @@ tasks:
   frontend:build:
     desc: Install locked frontend dependencies and build both production interfaces.
     cmds:
-      - '{{.NPM}} ci --prefix frontend'
+      - task: deps:frontend
       - '{{.NPM}} run build:overseer --prefix frontend'
       - '{{.NPM}} run build:client --prefix frontend'
 
@@ -254,6 +281,7 @@ tasks:
   proto:generated:check:
     desc: Verify generated Go and browser protobuf code compiles cleanly.
     cmds:
+      - task: node:check
       - '{{.GO}} test ./internal/gen/...'
       - '{{.NPM}} run build:client --prefix frontend'
 

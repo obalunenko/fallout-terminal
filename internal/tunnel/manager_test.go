@@ -640,17 +640,23 @@ func TestPublicAccessManagerConcurrentReconfigureConvergesWithoutEndpointOverlap
 			},
 		}
 		start := make(chan struct{})
-		results := make(chan tunnel.PublicAccessResult, 4)
-		for range 4 {
+		const callers = 32
+		results := make(chan tunnel.PublicAccessResult, callers)
+		for range callers {
 			go func() {
 				<-start
 				results <- manager.Reconfigure(t.Context(), mutation)
 			}()
 		}
 		close(start)
-		for range 4 {
-			<-results
+		successful := 0
+		for range callers {
+			result := <-results
+			if result.OK {
+				successful++
+			}
 		}
+		assert.GreaterOrEqualf(t, successful, 1, "schedule %d", schedule)
 
 		snapshot := manager.Snapshot()
 		require.Equalf(t, tunnel.LifecycleReady, snapshot.Status.State, "schedule %d snapshot = %#v", schedule, snapshot)

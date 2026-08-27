@@ -21,6 +21,18 @@ func (service *desktopService) GetRuntimeStatus() RuntimeStatus {
 	return service.core.GetRuntimeStatus()
 }
 
+func (service *desktopService) GetApplicationUpdateStatus() ApplicationUpdateSnapshot {
+	return service.core.GetApplicationUpdateStatus()
+}
+
+func (service *desktopService) ResolveApplicationUpdateOffer(payload ApplicationUpdateOfferDecisionPayload) ApplicationUpdateCommandResult {
+	return service.core.ResolveApplicationUpdateOffer(payload)
+}
+
+func (service *desktopService) ResolveApplicationUpdateRestart(payload ApplicationUpdateRestartDecisionPayload) ApplicationUpdateCommandResult {
+	return service.core.ResolveApplicationUpdateRestart(payload)
+}
+
 func (service *desktopService) NewSession() sessionservice.SessionResult {
 	return service.core.NewSession()
 }

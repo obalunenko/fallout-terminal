@@ -76,13 +76,19 @@ func TestControllerPresentationRevalidatesAfterNavigationAndContentChanges(t *te
 func TestSetSnapshotIsDetachedAndSecretFree(t *testing.T) {
 	service := New(&constantRandom{}, fixedWords{})
 	tree := testTree()
+	command := &tree.Children[0].Children[1]
+	command.TerminalTransition = &domain.TerminalTransitionConfig{TargetTerminalID: "terminal-2"}
+	command.Extra = map[string]json.RawMessage{"future": json.RawMessage(`{"enabled":true}`)}
 
 	first := service.Set("terminal-1", "Overseer", tree, 1, "WELCOME")
 	require.Falsef(t, first == nil || first.Hack == nil,
 		"Set() = %#v, want live terminal with puzzle", first)
 
 	tree.Name = "MUTATED INPUT"
+	tree.Children[0].Children[1].TerminalTransition.TargetTerminalID = "mutated-input"
 	first.Tree.Name = "MUTATED RESULT"
+	first.Tree.Children[0].Children[1].TerminalTransition.TargetTerminalID = "mutated-result"
+	first.Tree.Children[0].Children[1].Extra["future"][0] = '['
 	first.Nav.Path[0] = "mutated"
 	first.Hack.Log = append(first.Hack.Log, "private mutation")
 
@@ -91,6 +97,10 @@ func TestSetSnapshotIsDetachedAndSecretFree(t *testing.T) {
 		"Snapshot() returned nil")
 	require.Falsef(t, snapshot.Tree.Name != "ROOT" || !cmp.Equal(snapshot.Nav.Path, []string{"root"}) || len(snapshot.Hack.Log) != 0,
 		"canonical state was mutated through a boundary: %#v", snapshot)
+	projectedCommand := snapshot.Tree.Children[0].Children[1]
+	require.NotNil(t, projectedCommand.TerminalTransition)
+	assert.Equal(t, "terminal-2", projectedCommand.TerminalTransition.TargetTerminalID)
+	assert.Equal(t, json.RawMessage(`{"enabled":true}`), projectedCommand.Extra["future"])
 
 	raw, err := json.Marshal(snapshot)
 	if err != nil {
@@ -576,7 +586,7 @@ func cloneRuntimeForLifecycleTest(state *domain.TerminalRuntime) *domain.Termina
 		return nil
 	}
 	clone := *state
-	clone.Tree = cloneNode(state.Tree)
+	clone.Tree = domain.CloneContentNode(state.Tree)
 	clone.Nav = cloneNav(state.Nav)
 	clone.Hack = cloneHackForLifecycleTest(state.Hack)
 	return &clone
@@ -960,7 +970,7 @@ func cloneTerminalRuntimeForTest(runtime *domain.TerminalRuntime) *domain.Termin
 		return nil
 	}
 	clone := *runtime
-	clone.Tree = cloneNode(runtime.Tree)
+	clone.Tree = domain.CloneContentNode(runtime.Tree)
 	clone.Nav = cloneNav(runtime.Nav)
 	if runtime.CommandExecution != nil {
 		presentation := *runtime.CommandExecution

@@ -77,6 +77,52 @@ executable `Fallout Terminal` and resources, and the Darwin ZIP contains the com
 non-empty archive, executable, and required resources. Runtime GUI, dialog, credential, player,
 tunnel, and signing journeys are useful optional evidence, but are not release eligibility gates.
 
+## Runtime self-update contract
+
+Self-update is enabled only for a versioned application running from a packaged portable layout.
+Development, unversioned, and unpackaged runs do not initialize the update provider or make a
+production update request. An eligible packaged run checks once, in the background, after the
+Overseer interface can present status; failure never prevents local startup or session use.
+
+Discovery uses the public GitHub Releases API and accepts only a strictly newer eligible v2 release.
+Its asset inventory must be exactly the five archives listed above, with no missing, duplicate,
+empty, or extra asset. Every asset must have GitHub state `uploaded` and a valid
+`sha256:<64 hex digits>` digest. The running target must match exactly one asset. GitHub's digest
+metadata verifies the bytes after consent; no checksum sidecar, updater manifest, installer, DMG,
+raw executable, or additional release asset is part of the contract. Stable installations see only
+stable releases; prerelease installations may see a newer prerelease or the next stable release.
+
+The Overseer controls two separate consent boundaries:
+
+1. An available release can be accepted or deferred. Deferring performs no download and suppresses
+   the offer only for the current run.
+2. After download, digest verification, manifest/package validation, and staging complete, restart
+   can be approved or postponed. Postponing keeps the staged unit ready, leaves the application
+   usable, and allows the restart prompt to be reopened without another download.
+
+Staging and replacement require a fully extracted portable installation in a writable location.
+The application must be able to create and rename sibling paths on the same volume as the installed
+unit. Running from an archive, a read-only mount, or a system-owned directory without sufficient
+permissions cannot be updated in place. Move or re-extract the package to a user-writable location,
+or correct the directory permissions, and retry on a later launch. Windows and Linux replace the
+complete portable directory; macOS replaces the complete `.app` bundle. Session files, player
+configurations, credentials, preferences, Documents, and application-support data stay outside that
+replacement boundary.
+
+On restart approval, the application copies a temporary helper outside the installed unit, records
+non-sensitive recovery state, and performs the normal ordered shutdown. The helper waits for the
+parent to exit, renames the installed unit to a sibling backup, promotes the staged unit, and
+relaunches it. If promotion or relaunch fails, it restores and relaunches the last working unit when
+possible; the next launch reports a sanitized failure stage and recovery action. Attempt-owned
+staging, backup, and helper remnants are cleaned up best-effort. Update errors must never include
+credentials, provider authorization, user-document content, or local paths in the Overseer contract.
+
+For check, download, verification, disk-space, permission, or package-shape failures, continue using
+the installed application, correct the reported condition, and retry on a later launch. Do not edit
+or replace assets on a published release. Before publication, a source rollback is allowed; after a
+self-update-capable release is published, every correction uses a new, higher strict v2 forward-fix
+tag and a newly governed five-archive release.
+
 ## Release version identity
 
 The application module is `github.com/obalunenko/Fallout-Terminal/v2`. The tag major must match the

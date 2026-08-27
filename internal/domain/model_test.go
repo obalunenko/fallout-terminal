@@ -153,6 +153,38 @@ func TestTerminalTransitionRoundTripTreatsConfigAsKnownAndDetachesClone(t *testi
 	assert.Equal(t, "b", session.Terminals[0].Root.Children[0].TerminalTransition.TargetTerminalID)
 }
 
+func TestCloneContentNodeDeeplyDetachesNestedValues(t *testing.T) {
+	t.Parallel()
+
+	node := ContentNode{
+		ID:    "root",
+		Type:  NodeFolder,
+		Name:  "ROOT",
+		Extra: map[string]json.RawMessage{"future": json.RawMessage(`{"enabled":true}`)},
+		Children: []ContentNode{{
+			ID:                 "command",
+			Type:               NodeCommand,
+			StateChange:        &StateChangeConfig{CompletedName: "Done", ConfirmationText: "Proceed?"},
+			TerminalTransition: &TerminalTransitionConfig{TargetTerminalID: "terminal-b"},
+			Children:           []ContentNode{},
+		}},
+	}
+
+	clone := CloneContentNode(node)
+	clone.Extra["future"][0] = '['
+	clone.Children[0].StateChange.CompletedName = "Changed"
+	clone.Children[0].TerminalTransition.TargetTerminalID = "terminal-c"
+	clone.Children = append(clone.Children, ContentNode{ID: "other"})
+
+	assert.Equal(t, json.RawMessage(`{"enabled":true}`), node.Extra["future"])
+	assert.Equal(t, "Done", node.Children[0].StateChange.CompletedName)
+	assert.Equal(t, "terminal-b", node.Children[0].TerminalTransition.TargetTerminalID)
+	assert.Len(t, node.Children, 1)
+	assert.NotNil(t, clone.Children[0].Children)
+	assert.Empty(t, clone.Children[0].Children)
+	assert.Nil(t, CloneContentNode(ContentNode{}).Children)
+}
+
 func TestCommandBehaviorDiscriminatesOrdinaryStateChangeTransitionAndInvalid(t *testing.T) {
 	t.Parallel()
 

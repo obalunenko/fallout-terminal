@@ -368,7 +368,14 @@ func writePlannedPortableArchive(ctx context.Context, root string, plan PackageP
 	if err != nil {
 		return fmt.Errorf("resolve %s archive output: %w", plan.target, err)
 	}
-	result, err := WritePortableArchive(ctx, filepath.Dir(archivePath), plan.target, sourceRevision, files)
+	result, err := WritePortableArchive(
+		ctx,
+		filepath.Dir(archivePath),
+		plan.target,
+		plan.Version(),
+		sourceRevision,
+		files,
+	)
 	if err != nil {
 		return fmt.Errorf("write %s portable archive: %w", plan.target, err)
 	}

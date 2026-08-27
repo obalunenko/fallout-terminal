@@ -24,9 +24,16 @@ changes project-wide structure or policy.
 Install the versions documented in the README and dependency manifests:
 
 - Go 1.27.x
-- Node.js 20.19+ and npm
+- Node.js 26.8.1+ and npm
 - Native Wails build dependencies for your operating system
 - Python 3.11+ and `uv` when working with Spec Kit
+
+The repository includes `.nvmrc`. NVM users should select the reviewed runtime before running
+project tasks:
+
+```bash
+nvm use
+```
 
 Bootstrap the pinned Go tools and locked Node.js dependencies from the repository root:
 

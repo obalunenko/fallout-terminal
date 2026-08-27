@@ -15,21 +15,23 @@ import * as domain$0 from "../../../../obalunenko/Fallout-Terminal/v2/internal/d
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
-        "coordination-state": $$createType1,
-        "hack-state": $$createType3,
-        "public-access-status": $$createType4,
-        "server-info": $$createType5,
-        "session-state": $$createType6,
+        "application-update-status": $$createType0,
+        "coordination-state": $$createType2,
+        "hack-state": $$createType4,
+        "public-access-status": $$createType5,
+        "server-info": $$createType6,
+        "session-state": $$createType7,
     }));
 }
 
 // Private type creation functions
-const $$createType0 = domain$0.MasterCoordinationState.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = domain$0.PublicHackState.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = main$0.PublicAccessSnapshot.createFrom;
-const $$createType5 = domain$0.ServerInfo.createFrom;
-const $$createType6 = main$0.SessionStateEvent.createFrom;
+const $$createType0 = main$0.ApplicationUpdateSnapshot.createFrom;
+const $$createType1 = domain$0.MasterCoordinationState.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);
+const $$createType3 = domain$0.PublicHackState.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = main$0.PublicAccessSnapshot.createFrom;
+const $$createType6 = domain$0.ServerInfo.createFrom;
+const $$createType7 = main$0.SessionStateEvent.createFrom;
 
 configure();

@@ -6,7 +6,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -609,12 +608,12 @@ func (service *Service) CurrentLiveForSession(sessionID domain.LogicalSessionID)
 // is active. All transaction guards run before stable-ID allocation or disk
 // persistence so stale and retried requests cannot create duplicate players.
 func (service *Service) AddCharacter(payload domain.CharacterCreatePayload) (*domain.MasterCoordinationState, error) {
-	name, err := validatedCoordinationName(payload.Name, "character name")
+	name, err := domain.ValidateCharacterName(payload.Name)
 	if err != nil {
 		return service.Snapshot(), err
 	}
-	if payload.Intelligence < 1 || payload.Intelligence > 10 {
-		return service.Snapshot(), fmt.Errorf("character intelligence must be between 1 and 10")
+	if err := domain.ValidateCharacterIntelligence(payload.Intelligence); err != nil {
+		return service.Snapshot(), err
 	}
 
 	var state *domain.MasterCoordinationState
@@ -704,15 +703,15 @@ func (service *Service) UpdateCharacter(payload domain.CharacterUpdatePayload) (
 			updateErr = fmt.Errorf("character %q does not exist", payload.CharacterID)
 			return transition{}
 		}
-		name, err := validatedCoordinationName(payload.Name, "character name")
+		name, err := domain.ValidateCharacterName(payload.Name)
 		if err != nil {
 			state = masterSnapshot(runtime)
 			updateErr = err
 			return transition{}
 		}
-		if payload.Intelligence < 1 || payload.Intelligence > 10 {
+		if err := domain.ValidateCharacterIntelligence(payload.Intelligence); err != nil {
 			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("character intelligence must be between 1 and 10")
+			updateErr = err
 			return transition{}
 		}
 		if character.Name == name &&
@@ -1222,7 +1221,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		terminal := activeTerminalRuntime(broadcast)
 		if !currentPendingCommandExecution(pending, broadcast, terminal, requestID) {
 			state = masterSnapshot(runtime)
-			resolveErr = fmt.Errorf("command execution decision is stale")
+			resolveErr = ErrCommandExecutionStale
 			return transition{}
 		}
 		authored, current := selectedAuthoredCommand(terminal, domain.RuntimeCommand{
@@ -1234,7 +1233,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			commandApprovalMode(terminal, authored) != pending.Mode ||
 			commandConfirmationText(authored) != pending.ConfirmationText {
 			state = masterSnapshot(runtime)
-			resolveErr = fmt.Errorf("command execution decision is stale")
+			resolveErr = ErrCommandExecutionStale
 			return transition{}
 		}
 
@@ -1268,21 +1267,21 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		}
 
 		if service.commandStateStore == nil {
-			resolveErr = fmt.Errorf("command execution could not be persisted")
+			resolveErr = ErrCommandExecutionPersistence
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
 		durable, err := service.commandStateStore.ExecuteCommandState(ctx, pending.TerminalID, pending.CommandID)
 		if err != nil {
-			resolveErr = fmt.Errorf("command execution could not be persisted")
+			resolveErr = ErrCommandExecutionPersistence
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
 		durableTerminal := terminalByStableID(&durable.Session, pending.TerminalID)
 		if durableTerminal == nil {
-			resolveErr = fmt.Errorf("command execution returned an invalid durable state")
+			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
 		if _, completed := durableTerminal.CommandStates[pending.CommandID]; !completed {
-			resolveErr = fmt.Errorf("command execution returned an invalid durable state")
+			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
 
@@ -1958,6 +1957,153 @@ func (service *Service) SelectCharacter(selection CharacterSelection) domain.Act
 	return outcome
 }
 
+type preparedPlayerAction struct {
+	sessionID   domain.LogicalSessionID
+	session     *domain.LogicalSession
+	fingerprint string
+	terminal    *domain.TerminalRuntime
+}
+
+func (service *Service) preparePlayerAction(
+	runtime *domain.ProcessRuntime,
+	connectionID domain.ConnectionID,
+	command domain.RuntimeCommand,
+) (preparedPlayerAction, domain.ActionResult, transition, bool) {
+	sessionID, session := sessionForConnection(runtime, connectionID)
+	if session == nil {
+		result := rejectedAction(command.RequestID, domain.ActionReasonInvalidSession, runtime.Revision)
+		return preparedPlayerAction{}, result, transition{effects: []Effect{playerActionResultEffect(connectionID, "", result)}}, false
+	}
+	if command.RequestID == "" {
+		result := rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
+		return preparedPlayerAction{}, result, transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, result)}}, false
+	}
+
+	fingerprint := playerActionFingerprint(command)
+	if cached, exists := service.requestResult(runtime, sessionID, command.RequestID); exists {
+		if cached.Fingerprint == fingerprint {
+			return preparedPlayerAction{}, cached.Result, transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, cached.Result)}}, false
+		}
+		result := rejectedAction(command.RequestID, domain.ActionReasonDuplicate, runtime.Revision)
+		return preparedPlayerAction{}, result, transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, result)}}, false
+	}
+	reject := func(reason domain.ActionReason) (preparedPlayerAction, domain.ActionResult, transition, bool) {
+		result := rejectedAction(command.RequestID, reason, runtime.Revision)
+		return preparedPlayerAction{}, result, service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, result), false
+	}
+	if !validRuntimeCommand(command) {
+		return reject(domain.ActionReasonInvalidAction)
+	}
+	if runtime.Broadcast == nil || runtime.Broadcast.ID != command.BroadcastID {
+		return reject(domain.ActionReasonStaleBroadcast)
+	}
+	if _, assigned := runtime.Broadcast.AssignmentsBySession[sessionID]; !assigned {
+		return reject(domain.ActionReasonUnassigned)
+	}
+	if runtime.Broadcast.ControllerSessionID == nil || *runtime.Broadcast.ControllerSessionID != sessionID {
+		return reject(domain.ActionReasonNotController)
+	}
+	if len(session.ConnectionIDs) == 0 {
+		return reject(domain.ActionReasonControllerDisconnected)
+	}
+	if runtime.Broadcast.ActiveTerminalID == nil || *runtime.Broadcast.ActiveTerminalID != command.TerminalID {
+		return reject(domain.ActionReasonStaleTerminal)
+	}
+	terminal := runtime.Broadcast.TerminalRuntimes[command.TerminalID]
+	if terminal == nil || terminal.Lifecycle != domain.TerminalLifecycleActive {
+		return reject(domain.ActionReasonStaleTerminal)
+	}
+	if runtime.PendingCommandExecution != nil || runtime.PendingTerminalNavigation != nil {
+		return reject(domain.ActionReasonConflict)
+	}
+	return preparedPlayerAction{
+		sessionID: sessionID, session: session, fingerprint: fingerprint, terminal: terminal,
+	}, domain.ActionResult{}, transition{}, true
+}
+
+func (service *Service) beginTerminalReturn(
+	runtime *domain.ProcessRuntime,
+	sessionID domain.LogicalSessionID,
+	terminal *domain.TerminalRuntime,
+	returnPoint domain.TerminalReturnPoint,
+) {
+	runtime.PendingTerminalNavigation = &domain.PendingTerminalNavigation{
+		RequestID: service.nextID(), BroadcastID: runtime.Broadcast.ID, ControllerSessionID: sessionID,
+		Direction:        domain.TerminalNavigationReturn,
+		SourceTerminalID: terminal.TerminalID, SourceTerminalName: terminal.TerminalName,
+		CommandID: returnPoint.CommandID, CommandName: returnPoint.CommandName,
+		TargetTerminalID: returnPoint.TerminalID, TargetTerminalName: returnPoint.TerminalName,
+		ReturnPoint: returnPoint,
+	}
+	runtime.TerminalNavigationNotice = nil
+}
+
+func (service *Service) beginTerminalTransition(
+	runtime *domain.ProcessRuntime,
+	sessionID domain.LogicalSessionID,
+	terminal *domain.TerminalRuntime,
+	authored domain.ContentNode,
+	target domain.TerminalTransitionTarget,
+) {
+	folderID := "root"
+	ancestors := []string(nil)
+	if len(terminal.Nav.Path) != 0 {
+		folderID = terminal.Nav.Path[len(terminal.Nav.Path)-1]
+		ancestors = append([]string(nil), terminal.Nav.Path[:len(terminal.Nav.Path)-1]...)
+	}
+	runtime.PendingTerminalNavigation = &domain.PendingTerminalNavigation{
+		RequestID: service.nextID(), BroadcastID: runtime.Broadcast.ID, ControllerSessionID: sessionID,
+		Direction:        domain.TerminalNavigationForward,
+		SourceTerminalID: terminal.TerminalID, SourceTerminalName: terminal.TerminalName,
+		CommandID: authored.ID, CommandName: authored.Name,
+		TargetTerminalID: target.Target.TerminalID, TargetTerminalName: target.Target.TerminalName,
+		ReturnPoint: domain.TerminalReturnPoint{
+			TerminalID: terminal.TerminalID, TerminalName: terminal.TerminalName,
+			FolderID: folderID, AncestorFolderIDs: ancestors,
+			CommandID: authored.ID, CommandName: authored.Name,
+			Origin: domain.TerminalReturnAuthored,
+		},
+	}
+	runtime.TerminalNavigationNotice = nil
+}
+
+func (service *Service) acceptedPlayerAction(
+	runtime *domain.ProcessRuntime,
+	connectionID domain.ConnectionID,
+	sessionID domain.LogicalSessionID,
+	command domain.RuntimeCommand,
+	fingerprint string,
+	effects []Effect,
+) (domain.ActionResult, transition) {
+	result := domain.ActionResult{
+		RequestID: command.RequestID, Accepted: true, Reason: domain.ActionReasonAccepted,
+		Revision: runtime.Revision + 1,
+	}
+	return result, service.commitPlayerActionResult(runtime, connectionID, sessionID, command.RequestID, fingerprint, result, effects)
+}
+
+func (service *Service) commitPlayerActionResult(
+	runtime *domain.ProcessRuntime,
+	connectionID domain.ConnectionID,
+	sessionID domain.LogicalSessionID,
+	requestID domain.RequestID,
+	fingerprint string,
+	result domain.ActionResult,
+	effects []Effect,
+) transition {
+	service.storeRequestResult(runtime, sessionID, requestID, domain.RequestResultRecord{Fingerprint: fingerprint, Result: result})
+	effects = append(effects, playerActionResultEffect(connectionID, sessionID, result))
+	return transition{accepted: true, effects: effects}
+}
+
+func (service *Service) playerActionStateEffects(runtime *domain.ProcessRuntime) []Effect {
+	effects := stateEffects(runtime)
+	if projection := service.projectActiveTerminal(runtime); projection != nil {
+		effects = append(effects, Effect{Live: projection})
+	}
+	return effects
+}
+
 // DispatchPlayerAction resolves the sending connection and processes one
 // shared navigation or hacking command. Every failed precondition returns
 // before the gameplay boundary is invoked. Accepted canonical effects are
@@ -1965,81 +2111,26 @@ func (service *Service) SelectCharacter(selection CharacterSelection) domain.Act
 func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, command domain.RuntimeCommand) domain.ActionResult {
 	var outcome domain.ActionResult
 	service.commit(func(runtime *domain.ProcessRuntime) transition {
-		sessionID, session := sessionForConnection(runtime, connectionID)
-		if session == nil {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidSession, runtime.Revision)
-			return transition{effects: []Effect{playerActionResultEffect(connectionID, "", outcome)}}
+		prepared, rejected, stop, ok := service.preparePlayerAction(runtime, connectionID, command)
+		if !ok {
+			outcome = rejected
+			return stop
 		}
-		if command.RequestID == "" {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
-			return transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, outcome)}}
-		}
-
-		fingerprint := playerActionFingerprint(command)
-		if cached, exists := service.requestResult(runtime, sessionID, command.RequestID); exists {
-			if cached.Fingerprint == fingerprint {
-				outcome = cached.Result
-				return transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, outcome)}}
-			}
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonDuplicate, runtime.Revision)
-			return transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, outcome)}}
-		}
-		if !validRuntimeCommand(command) {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		if runtime.Broadcast == nil || runtime.Broadcast.ID != command.BroadcastID {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonStaleBroadcast, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		if _, assigned := runtime.Broadcast.AssignmentsBySession[sessionID]; !assigned {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonUnassigned, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		if runtime.Broadcast.ControllerSessionID == nil || *runtime.Broadcast.ControllerSessionID != sessionID {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonNotController, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		if len(session.ConnectionIDs) == 0 {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonControllerDisconnected, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		if runtime.Broadcast.ActiveTerminalID == nil || *runtime.Broadcast.ActiveTerminalID != command.TerminalID {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonStaleTerminal, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		terminal := runtime.Broadcast.TerminalRuntimes[command.TerminalID]
-		if terminal == nil || terminal.Lifecycle != domain.TerminalLifecycleActive {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonStaleTerminal, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
-		if runtime.PendingCommandExecution != nil || runtime.PendingTerminalNavigation != nil {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonConflict, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-		}
+		sessionID := prepared.sessionID
+		session := prepared.session
+		fingerprint := prepared.fingerprint
+		terminal := prepared.terminal
 		if rootReturnRequested(terminal, command, runtime.Broadcast.Route) {
 			top := cloneTerminalReturnPoint(runtime.Broadcast.Route[len(runtime.Broadcast.Route)-1])
 			if !service.validTerminalReturnPoint(terminal.TerminalID, top) {
 				outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
 				return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
 			}
-			runtime.PendingTerminalNavigation = &domain.PendingTerminalNavigation{
-				RequestID: service.nextID(), BroadcastID: runtime.Broadcast.ID, ControllerSessionID: sessionID,
-				Direction:        domain.TerminalNavigationReturn,
-				SourceTerminalID: terminal.TerminalID, SourceTerminalName: terminal.TerminalName,
-				CommandID: top.CommandID, CommandName: top.CommandName,
-				TargetTerminalID: top.TerminalID, TargetTerminalName: top.TerminalName,
-				ReturnPoint: top,
-			}
-			runtime.TerminalNavigationNotice = nil
-			outcome = domain.ActionResult{RequestID: command.RequestID, Accepted: true, Reason: domain.ActionReasonAccepted, Revision: runtime.Revision + 1}
-			service.storeRequestResult(runtime, sessionID, command.RequestID, domain.RequestResultRecord{Fingerprint: fingerprint, Result: outcome})
-			effects := stateEffects(runtime)
-			if projection := service.projectActiveTerminal(runtime); projection != nil {
-				effects = append(effects, Effect{Live: projection})
-			}
-			effects = append(effects, playerActionResultEffect(connectionID, sessionID, outcome))
-			return transition{accepted: true, effects: effects}
+			service.beginTerminalReturn(runtime, sessionID, terminal, top)
+			outcome, stop = service.acceptedPlayerAction(
+				runtime, connectionID, sessionID, command, fingerprint, service.playerActionStateEffects(runtime),
+			)
+			return stop
 		}
 		authored, commandSelected := selectedAuthoredCommand(terminal, command)
 		if command.Kind == domain.RuntimeCommandNavigate && command.Action == "command" && !commandSelected {
@@ -2063,37 +2154,15 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 					CommandID: authored.ID, TargetTerminalID: &targetID,
 				}
 				outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision+1)
-				service.storeRequestResult(runtime, sessionID, command.RequestID, domain.RequestResultRecord{Fingerprint: fingerprint, Result: outcome})
-				return transition{accepted: true, effects: append(stateEffects(runtime), playerActionResultEffect(connectionID, sessionID, outcome))}
+				return service.commitPlayerActionResult(
+					runtime, connectionID, sessionID, command.RequestID, fingerprint, outcome, stateEffects(runtime),
+				)
 			}
-			folderID := "root"
-			ancestors := []string(nil)
-			if len(terminal.Nav.Path) != 0 {
-				folderID = terminal.Nav.Path[len(terminal.Nav.Path)-1]
-				ancestors = append([]string(nil), terminal.Nav.Path[:len(terminal.Nav.Path)-1]...)
-			}
-			runtime.PendingTerminalNavigation = &domain.PendingTerminalNavigation{
-				RequestID: service.nextID(), BroadcastID: runtime.Broadcast.ID, ControllerSessionID: sessionID,
-				Direction:        domain.TerminalNavigationForward,
-				SourceTerminalID: terminal.TerminalID, SourceTerminalName: terminal.TerminalName,
-				CommandID: authored.ID, CommandName: authored.Name,
-				TargetTerminalID: lookup.Target.TerminalID, TargetTerminalName: lookup.Target.TerminalName,
-				ReturnPoint: domain.TerminalReturnPoint{
-					TerminalID: terminal.TerminalID, TerminalName: terminal.TerminalName,
-					FolderID: folderID, AncestorFolderIDs: ancestors,
-					CommandID: authored.ID, CommandName: authored.Name,
-					Origin: domain.TerminalReturnAuthored,
-				},
-			}
-			runtime.TerminalNavigationNotice = nil
-			outcome = domain.ActionResult{RequestID: command.RequestID, Accepted: true, Reason: domain.ActionReasonAccepted, Revision: runtime.Revision + 1}
-			service.storeRequestResult(runtime, sessionID, command.RequestID, domain.RequestResultRecord{Fingerprint: fingerprint, Result: outcome})
-			effects := stateEffects(runtime)
-			if projection := service.projectActiveTerminal(runtime); projection != nil {
-				effects = append(effects, Effect{Live: projection})
-			}
-			effects = append(effects, playerActionResultEffect(connectionID, sessionID, outcome))
-			return transition{accepted: true, effects: effects}
+			service.beginTerminalTransition(runtime, sessionID, terminal, *authored, lookup)
+			outcome, stop = service.acceptedPlayerAction(
+				runtime, connectionID, sessionID, command, fingerprint, service.playerActionStateEffects(runtime),
+			)
+			return stop
 		}
 		if commandSelected {
 			mode := commandApprovalMode(terminal, authored)
@@ -2108,19 +2177,10 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 				Phase: domain.CommandExecutionPhasePending, CommandID: authored.ID,
 			}
 			session.Notice = nil
-			outcome = domain.ActionResult{
-				RequestID: command.RequestID, Accepted: true, Reason: domain.ActionReasonAccepted,
-				Revision: runtime.Revision + 1,
-			}
-			service.storeRequestResult(runtime, sessionID, command.RequestID, domain.RequestResultRecord{
-				Fingerprint: fingerprint, Result: outcome,
-			})
-			effects := stateEffects(runtime)
-			if projection := service.projectActiveTerminal(runtime); projection != nil {
-				effects = append(effects, Effect{Live: projection})
-			}
-			effects = append(effects, playerActionResultEffect(connectionID, sessionID, outcome))
-			return transition{accepted: true, effects: effects}
+			outcome, stop = service.acceptedPlayerAction(
+				runtime, connectionID, sessionID, command, fingerprint, service.playerActionStateEffects(runtime),
+			)
+			return stop
 		}
 		if service.actions == nil {
 			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
@@ -2134,26 +2194,13 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
 			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
 		}
-		outcome = domain.ActionResult{
-			RequestID: command.RequestID,
-			Accepted:  true,
-			Reason:    domain.ActionReasonAccepted,
-			Revision:  runtime.Revision + 1,
-		}
-		service.storeRequestResult(runtime, sessionID, command.RequestID, domain.RequestResultRecord{
-			Fingerprint: fingerprint,
-			Result:      outcome,
-		})
 		if command.Kind != domain.RuntimeCommandPresentation {
 			session.Notice = nil
 		}
-		return transition{
-			accepted: true,
-			effects: []Effect{
-				{Live: projection},
-				playerActionResultEffect(connectionID, sessionID, outcome),
-			},
-		}
+		outcome, stop = service.acceptedPlayerAction(
+			runtime, connectionID, sessionID, command, fingerprint, []Effect{{Live: projection}},
+		)
+		return stop
 	})
 	return outcome
 }
@@ -3275,7 +3322,7 @@ func cloneTerminalTarget(target *domain.TerminalTarget) *domain.TerminalTarget {
 		return nil
 	}
 	clone := *target
-	clone.Tree = cloneContentNode(target.Tree)
+	clone.Tree = domain.CloneContentNode(target.Tree)
 	clone.CommandStates = cloneCommandStates(target.CommandStates)
 	return &clone
 }
@@ -3285,7 +3332,7 @@ func cloneTerminalRuntime(runtime *domain.TerminalRuntime) *domain.TerminalRunti
 		return nil
 	}
 	clone := *runtime
-	clone.Tree = cloneContentNode(runtime.Tree)
+	clone.Tree = domain.CloneContentNode(runtime.Tree)
 	clone.CommandStates = cloneCommandStates(runtime.CommandStates)
 	if runtime.CommandExecution != nil {
 		execution := *runtime.CommandExecution
@@ -3301,7 +3348,7 @@ func clonePublicLiveState(state *domain.PublicLiveState) *domain.PublicLiveState
 		return nil
 	}
 	clone := *state
-	clone.Tree = cloneContentNode(state.Tree)
+	clone.Tree = domain.CloneContentNode(state.Tree)
 	clone.Nav = cloneNavState(state.Nav)
 	clone.Hack = clonePublicHackState(state.Hack)
 	if state.CommandExecution != nil {
@@ -3321,31 +3368,6 @@ func clonePublicLiveState(state *domain.PublicLiveState) *domain.PublicLiveState
 		clone.TerminalNavigation = &navigation
 	}
 	return &clone
-}
-
-func cloneContentNode(node domain.ContentNode) domain.ContentNode {
-	clone := node
-	if node.StateChange != nil {
-		value := *node.StateChange
-		clone.StateChange = &value
-	}
-	if node.TerminalTransition != nil {
-		value := *node.TerminalTransition
-		clone.TerminalTransition = &value
-	}
-	if node.Children != nil {
-		clone.Children = make([]domain.ContentNode, len(node.Children))
-		for index := range node.Children {
-			clone.Children[index] = cloneContentNode(node.Children[index])
-		}
-	}
-	if node.Extra != nil {
-		clone.Extra = make(map[string]json.RawMessage, len(node.Extra))
-		for key, value := range node.Extra {
-			clone.Extra[key] = append([]byte(nil), value...)
-		}
-	}
-	return clone
 }
 
 func cloneNavState(state domain.NavState) domain.NavState {

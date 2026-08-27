@@ -2,6 +2,7 @@ package buildtool
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -54,7 +55,7 @@ func TestInspectReleaseArchiveVersionAcceptsExactTargetEvidence(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			archivePath := writeVersionArchiveFixture(t, test.target, test.plist)
+			archivePath := writeVersionArchiveFixture(t, test.target, test.expected, test.plist)
 			probe := func(ctx context.Context, target Target, executablePath string, arguments []string) (NativeVersionEvidence, error) {
 				require.NoError(t, ctx.Err())
 				assert.Equal(t, test.target, target)
@@ -93,7 +94,7 @@ func TestInspectReleaseArchiveVersionRejectsInexactExecutableReport(t *testing.T
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			archivePath := writeVersionArchiveFixture(t, target, nil)
+			archivePath := writeVersionArchiveFixture(t, target, expected, nil)
 			probe := func(_ context.Context, _ Target, _ string, arguments []string) (NativeVersionEvidence, error) {
 				assert.Equal(t, []string{"--version"}, arguments)
 				return NativeVersionEvidence{
@@ -132,7 +133,7 @@ func TestInspectReleaseArchiveVersionRejectsDarwinMetadataMismatch(t *testing.T)
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			archivePath := writeVersionArchiveFixture(t, target, []byte(test.plist))
+			archivePath := writeVersionArchiveFixture(t, target, expected, []byte(test.plist))
 			probe := func(_ context.Context, _ Target, _ string, arguments []string) (NativeVersionEvidence, error) {
 				assert.Equal(t, []string{"--version"}, arguments)
 				return NativeVersionEvidence{ExecutableOutput: "2.0.0-rc.1\n"}, nil
@@ -173,7 +174,7 @@ func TestInspectReleaseArchiveVersionRejectsWindowsMetadataMismatch(t *testing.T
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			archivePath := writeVersionArchiveFixture(t, target, nil)
+			archivePath := writeVersionArchiveFixture(t, target, expected, nil)
 			evidence := valid
 			test.mutate(&evidence)
 			probe := func(_ context.Context, _ Target, _ string, arguments []string) (NativeVersionEvidence, error) {
@@ -196,18 +197,47 @@ func releaseVersionFixture(canonical, numericCore, numericFourPart string) Relea
 	}
 }
 
-func writeVersionArchiveFixture(t *testing.T, target Target, plist []byte) string {
+func writeVersionArchiveFixture(
+	t *testing.T,
+	target Target,
+	version ReleaseVersion,
+	plist []byte,
+) string {
 	t.Helper()
 
-	root := t.TempDir()
-	archivePath := filepath.Join(root, target.ArchiveName())
-	entries := releaseArchiveEntries(target)
-	entries[path.Join(applicationName, target.ExecutablePath())] = []byte("native executable fixture")
+	payload := map[string][]byte{
+		target.ExecutablePath(): []byte("native executable fixture"),
+	}
+	for _, resource := range target.RequiredResourcePaths() {
+		if resource != artifactManifestFilename {
+			payload[resource] = []byte("resource fixture for " + resource)
+		}
+	}
 	if target.OS() == goosDarwin {
 		require.NotEmpty(t, plist)
-		entries[path.Join(applicationName, "Fallout Terminal.app/Contents/Info.plist")] = plist
+		payload["Fallout Terminal.app/Contents/Info.plist"] = plist
 	}
-	writeReleaseArchiveFixture(t, archivePath, target.ArchiveFormat(), entries)
+	manifest := testManifestDocument{
+		SchemaVersion:  artifactManifestVersion,
+		Product:        applicationName,
+		Version:        version.Canonical,
+		SourceRevision: archiveTestRevision,
+		Target:         testManifestTarget{OS: target.OS(), Arch: target.Arch()},
+		Runtime:        target.NativeRuntime(),
+		Files:          expectedManifestFiles(target, payload),
+	}
+	manifestContents, err := json.MarshalIndent(manifest, "", "  ")
+	require.NoError(t, err)
+	manifestContents = append(manifestContents, '\n')
+
+	entries := make(map[string][]byte, len(payload)+1)
+	for relative, contents := range payload {
+		entries[path.Join(applicationName, relative)] = contents
+	}
+	entries[path.Join(applicationName, artifactManifestFilename)] = manifestContents
+	root := t.TempDir()
+	archivePath := filepath.Join(root, target.ArchiveName())
+	writeReleaseArchiveFixtureWithTargetModes(t, archivePath, target, entries)
 	return archivePath
 }
 

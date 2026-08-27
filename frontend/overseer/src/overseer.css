@@ -106,6 +106,142 @@ button {
 
 .main { flex: 1 1 auto; display: flex; min-height: 0; }
 
+/* ── Application update ───────────────────────────────── */
+.application-update-status-panel {
+  position: fixed;
+  z-index: 30;
+  inset: auto 16px 16px auto;
+  width: min(440px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #6fae55;
+  background: rgba(13, 15, 9, .97);
+  box-shadow: 0 0 22px rgba(111, 174, 85, .22);
+}
+.application-update-status-panel[hidden] { display: none; }
+.application-update-status-copy { flex: 1 1 auto; min-width: 0; }
+.application-update-status {
+  color: #d8ffb8;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.application-update-error {
+  margin-top: 5px;
+  color: #ff9a7a;
+  line-height: 1.35;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.application-update-error[hidden],
+.application-update-progress[hidden] { display: none; }
+.application-update-progress {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  accent-color: #6fae55;
+}
+.application-update-status-panel > .btn { flex: 0 0 auto; }
+
+.application-update-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid #d0a63a;
+  background: #0d0f09;
+  color: #b9ffb0;
+  box-shadow: 0 0 0 1px #3b3217, 0 0 36px rgba(208, 166, 58, .28);
+}
+.application-update-dialog[hidden] { display: none; }
+.application-update-dialog::backdrop { background: rgba(2, 4, 2, .84); }
+.application-update-dialog-panel { padding: clamp(20px, 4vw, 32px); }
+.application-update-dialog-title {
+  margin: 0;
+  color: #ffe08a;
+  font-size: clamp(20px, 4vw, 26px);
+  font-weight: normal;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(208, 166, 58, .3);
+}
+.application-update-dialog-description {
+  margin: 12px 0 18px;
+  color: #9fe89a;
+  line-height: 1.45;
+}
+.application-update-versions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.application-update-versions > div {
+  padding: 10px 12px;
+  border: 1px solid #2a3520;
+  background: #10140c;
+}
+.application-update-versions dt,
+.application-update-release h3 {
+  margin: 0 0 5px;
+  color: #6f9a5f;
+  font-size: 11px;
+  font-weight: normal;
+  letter-spacing: 1px;
+}
+.application-update-versions dd {
+  margin: 0;
+  color: #ffe08a;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.application-update-release {
+  margin-bottom: 18px;
+}
+.application-update-release-notes {
+  max-height: min(240px, 35dvh);
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid #2a3520;
+  background: #080a07;
+  color: #b9ffb0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.application-update-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.application-update-actions .btn {
+  min-width: 0;
+  min-height: 48px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.application-update-dialog :is(button, [tabindex]):focus-visible {
+  outline: 2px solid #ffe08a;
+  outline-offset: 3px;
+}
+.application-update-restart-dialog {
+  width: min(540px, calc(100vw - 32px));
+}
+.application-update-status-panel[data-state="downloading"] .application-update-progress,
+.application-update-status-panel[data-state="verifying"] .application-update-progress,
+.application-update-status-panel[data-state="staging"] .application-update-progress {
+  color: #ffe08a;
+}
+.application-update-status-panel[data-state="failed"] {
+  border-color: #b64b35;
+  box-shadow: 0 0 22px rgba(182, 75, 53, .24);
+}
+.application-update-status-panel[data-state="failed"] .application-update-status {
+  color: #ffb39d;
+}
+
 .panel-hdr {
   padding: 8px 12px;
   font-size: 12px;
@@ -1457,6 +1593,21 @@ button {
 }
 
 @media (max-width: 620px), (max-height: 560px) {
+  .application-update-status-panel {
+    inset: auto 10px 10px;
+    width: auto;
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .application-update-status-panel > .btn { width: 100%; }
+  .application-update-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+  .application-update-dialog-panel { padding: 16px; }
+  .application-update-versions,
+  .application-update-actions { grid-template-columns: 1fr; }
+  .application-update-actions .btn { min-height: 40px; }
   .terminal-group-header {
     align-items: flex-start;
   }

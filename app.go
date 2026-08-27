@@ -17,6 +17,7 @@ import (
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/obalunenko/logger"
 )
 
@@ -198,6 +199,16 @@ type PublicAccessCore interface {
 	Shutdown(context.Context) error
 }
 
+// ApplicationUpdateService is the transport-neutral update boundary exposed
+// through the narrow desktop facade. Provider and replacement details remain
+// owned by internal/update and its composition adapters.
+type ApplicationUpdateService interface {
+	Snapshot() updateservice.UpdateSnapshot
+	Status(context.Context) updateservice.UpdateSnapshot
+	ResolveOffer(context.Context, string, updateservice.OfferDecision) updateservice.CommandResult
+	ResolveRestart(context.Context, string, updateservice.RestartDecision) updateservice.CommandResult
+}
+
 // AppDependencies contains constructed services. Construction acquires no
 // external resources; Start owns acquisition in contract order.
 type AppDependencies struct {
@@ -212,6 +223,7 @@ type AppDependencies struct {
 	PublicSettings  PublicAccessSettingsStore
 	PublicSecrets   tunnelservice.SecretStore
 	PublicAccess    PublicAccessCore
+	Updates         ApplicationUpdateService
 	PasswordEntropy io.Reader
 	Logger          logger.Logger
 	StartupTimeout  time.Duration
@@ -235,6 +247,41 @@ type RuntimeStatus struct {
 type CommandResult struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+}
+
+// ApplicationUpdateSnapshot is the narrow, non-sensitive update projection
+// exposed to the Overseer. Provider metadata, verification evidence, local
+// paths, and helper state remain behind the native boundary.
+type ApplicationUpdateSnapshot struct {
+	Revision         uint64  `json:"revision"`
+	AttemptID        string  `json:"attemptId,omitempty"`
+	State            string  `json:"state"`
+	InstalledVersion string  `json:"installedVersion"`
+	AvailableVersion string  `json:"availableVersion,omitempty"`
+	ReleaseNotes     string  `json:"releaseNotes,omitempty"`
+	BytesDownloaded  uint64  `json:"bytesDownloaded"`
+	DownloadSize     *uint64 `json:"downloadSize,omitempty"`
+	FailedStage      string  `json:"failedStage,omitempty"`
+	ErrorMessage     string  `json:"errorMessage,omitempty"`
+	RecoveryAction   string  `json:"recoveryAction,omitempty"`
+}
+
+type ApplicationUpdateOfferDecisionPayload struct {
+	AttemptID string `json:"attemptId"`
+	Decision  string `json:"decision"`
+}
+
+type ApplicationUpdateRestartDecisionPayload struct {
+	AttemptID string `json:"attemptId"`
+	Decision  string `json:"decision"`
+}
+
+// ApplicationUpdateCommandResult includes the authoritative snapshot for
+// both accepted and rejected decisions.
+type ApplicationUpdateCommandResult struct {
+	OK       bool                      `json:"ok"`
+	Error    string                    `json:"error,omitempty"`
+	Snapshot ApplicationUpdateSnapshot `json:"snapshot"`
 }
 
 // SessionStateResult returns the canonical durable document and its
@@ -1151,53 +1198,99 @@ func (app *App) GetRuntimeStatus() RuntimeStatus {
 	return routeRuntimeStatus(status)
 }
 
+// GetApplicationUpdateStatus returns immediately and lets the manager arm its
+// launch-scoped check only after the frontend has installed its event listener.
+func (app *App) GetApplicationUpdateStatus() ApplicationUpdateSnapshot {
+	if app.deps.Updates == nil {
+		return ApplicationUpdateSnapshot{State: string(updateservice.UpdateStateDisabled)}
+	}
+	app.mu.RLock()
+	ready := app.desktopReady && app.phase == "ready-local"
+	app.mu.RUnlock()
+	if !ready {
+		return nativeApplicationUpdateSnapshot(app.deps.Updates.Snapshot())
+	}
+	return nativeApplicationUpdateSnapshot(app.deps.Updates.Status(app.contextSnapshot()))
+}
+
+// publishApplicationUpdateSnapshot is the only update-state event boundary.
+// The manager retains the authoritative state; the core only converts its
+// detached, safe projection after local startup has completed.
+func (app *App) publishApplicationUpdateSnapshot(snapshot updateservice.UpdateSnapshot) {
+	app.emitEvent(applicationUpdateStatusEvent, nativeApplicationUpdateSnapshot(snapshot))
+}
+
+// ResolveApplicationUpdateOffer validates the authored decision vocabulary
+// before forwarding it to the application-owned manager.
+func (app *App) ResolveApplicationUpdateOffer(payload ApplicationUpdateOfferDecisionPayload) ApplicationUpdateCommandResult {
+	routed, err := routeApplicationUpdateOfferDecisionRequest(payload)
+	if err != nil {
+		return app.applicationUpdateFailure(err.Error())
+	}
+	if app.deps.Updates == nil {
+		return app.applicationUpdateFailure("Application update service is unavailable.")
+	}
+	return nativeApplicationUpdateCommandResult(app.deps.Updates.ResolveOffer(
+		app.contextSnapshot(), routed.AttemptID, updateservice.OfferDecision(routed.Decision),
+	))
+}
+
+// ResolveApplicationUpdateRestart forwards only validated restart decisions.
+func (app *App) ResolveApplicationUpdateRestart(payload ApplicationUpdateRestartDecisionPayload) ApplicationUpdateCommandResult {
+	routed, err := routeApplicationUpdateRestartDecisionRequest(payload)
+	if err != nil {
+		return app.applicationUpdateFailure(err.Error())
+	}
+	if app.deps.Updates == nil {
+		return app.applicationUpdateFailure("Application update service is unavailable.")
+	}
+	return nativeApplicationUpdateCommandResult(app.deps.Updates.ResolveRestart(
+		app.contextSnapshot(), routed.AttemptID, updateservice.RestartDecision(routed.Decision),
+	))
+}
+
+func (app *App) applicationUpdateFailure(message string) ApplicationUpdateCommandResult {
+	snapshot := ApplicationUpdateSnapshot{State: string(updateservice.UpdateStateDisabled)}
+	if app.deps.Updates != nil {
+		snapshot = nativeApplicationUpdateSnapshot(app.deps.Updates.Snapshot())
+	}
+	return ApplicationUpdateCommandResult{Error: message, Snapshot: snapshot}
+}
+
+func nativeApplicationUpdateSnapshot(snapshot updateservice.UpdateSnapshot) ApplicationUpdateSnapshot {
+	return applicationUpdateSnapshotFromPrivate(applicationUpdateSnapshotToPrivate(snapshot))
+}
+
+func nativeApplicationUpdateCommandResult(result updateservice.CommandResult) ApplicationUpdateCommandResult {
+	return ApplicationUpdateCommandResult{
+		OK:       result.OK,
+		Error:    result.Error,
+		Snapshot: nativeApplicationUpdateSnapshot(result.Snapshot),
+	}
+}
+
 // NewSession opens the native destination dialog and creates a validated
 // starter session.
-func (app *App) NewSession() (result sessionservice.SessionResult) {
-	defer func() {
-		app.recordOperation("session.create", operationOutcome(result.OK, result.Canceled), nil)
-	}()
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	commands, ok := app.deps.Sessions.(sessionCommands)
-	if !ok {
-		return sessionservice.SessionResult{Error: "session service is unavailable"}
-	}
-	commandResult := commands.Create(app.contextSnapshot())
-	app.captureSessionStatus(commands)
-	if commandResult.OK {
-		app.resetSessionStateOrdering()
-	}
-	app.resetPlayerConfigForSession(commandResult)
-	return routeSessionOperationResult(commandResult)
+func (app *App) NewSession() sessionservice.SessionResult {
+	return app.runSessionCommand("session.create", sessionCommands.Create)
 }
 
 // OpenSession opens and validates an existing version-1 session.
-func (app *App) OpenSession() (result sessionservice.SessionResult) {
-	defer func() {
-		app.recordOperation("session.open", operationOutcome(result.OK, result.Canceled), nil)
-	}()
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	commands, ok := app.deps.Sessions.(sessionCommands)
-	if !ok {
-		return sessionservice.SessionResult{Error: "session service is unavailable"}
-	}
-	commandResult := commands.Open(app.contextSnapshot())
-	app.captureSessionStatus(commands)
-	if commandResult.OK {
-		app.resetSessionStateOrdering()
-	}
-	app.resetPlayerConfigForSession(commandResult)
-	return routeSessionOperationResult(commandResult)
+func (app *App) OpenSession() sessionservice.SessionResult {
+	return app.runSessionCommand("session.open", sessionCommands.Open)
 }
 
 // CopyDemo creates an explicit writable copy of the bundled demo.
-func (app *App) CopyDemo() (result sessionservice.SessionResult) {
+func (app *App) CopyDemo() sessionservice.SessionResult {
+	return app.runSessionCommand("session.copy-demo", sessionCommands.CopyDemo)
+}
+
+func (app *App) runSessionCommand(
+	operation string,
+	command func(sessionCommands, context.Context) sessionservice.SessionResult,
+) (result sessionservice.SessionResult) {
 	defer func() {
-		app.recordOperation("session.copy-demo", operationOutcome(result.OK, result.Canceled), nil)
+		app.recordOperation(operation, operationOutcome(result.OK, result.Canceled), nil)
 	}()
 	app.coordinationCommandMu.Lock()
 	defer app.coordinationCommandMu.Unlock()
@@ -1206,7 +1299,7 @@ func (app *App) CopyDemo() (result sessionservice.SessionResult) {
 	if !ok {
 		return sessionservice.SessionResult{Error: "session service is unavailable"}
 	}
-	commandResult := commands.CopyDemo(app.contextSnapshot())
+	commandResult := command(commands, app.contextSnapshot())
 	app.captureSessionStatus(commands)
 	if commandResult.OK {
 		app.resetSessionStateOrdering()
@@ -1469,16 +1562,13 @@ func (app *App) resetPlayerConfigForSession(result sessionservice.SessionResult)
 // AddCharacter validates the complete trusted player profile before entering
 // the coordinator and publishes only its detached authoritative projection.
 func (app *App) AddCharacter(payload CharacterCreatePayload) CoordinationCommandResult {
-	if payload.Intelligence < 1 || payload.Intelligence > 10 {
-		return app.coordinationFailure("character intelligence must be between 1 and 10")
+	if err := domain.ValidateCharacterIntelligence(payload.Intelligence); err != nil {
+		return app.coordinationFailure(err.Error())
 	}
 	payload = routeAddCharacterRequest(payload)
-	payload.Name = strings.TrimSpace(payload.Name)
-	if payload.Name == "" {
-		return app.coordinationFailure("character name must not be blank")
-	}
-	if len([]rune(payload.Name)) > 80 {
-		return app.coordinationFailure("character name must be at most 80 characters")
+	name, err := domain.ValidateCharacterName(payload.Name)
+	if err != nil {
+		return app.coordinationFailure(err.Error())
 	}
 	if payload.HackerPerkAvailable == nil {
 		return app.coordinationFailure("character Hacker perk availability is required")
@@ -1487,7 +1577,7 @@ func (app *App) AddCharacter(payload CharacterCreatePayload) CoordinationCommand
 		return app.coordinationFailure("coordination service is unavailable")
 	}
 	state, err := app.deps.Coordination.AddCharacter(domain.CharacterCreatePayload{
-		Name:                payload.Name,
+		Name:                name,
 		Intelligence:        payload.Intelligence,
 		HackerPerkAvailable: *payload.HackerPerkAvailable,
 		ExpectedRevision:    payload.ExpectedRevision,
@@ -1498,14 +1588,14 @@ func (app *App) AddCharacter(payload CharacterCreatePayload) CoordinationCommand
 // UpdateCharacter validates a complete trusted player profile before entering
 // the coordinator transaction.
 func (app *App) UpdateCharacter(payload CharacterUpdatePayload) CoordinationCommandResult {
-	if payload.Intelligence < 1 || payload.Intelligence > 10 {
-		return app.coordinationFailure("character intelligence must be between 1 and 10")
+	if err := domain.ValidateCharacterIntelligence(payload.Intelligence); err != nil {
+		return app.coordinationFailure(err.Error())
 	}
 	payload = routeUpdateCharacterRequest(payload)
 	if strings.TrimSpace(string(payload.CharacterID)) == "" {
 		return app.coordinationFailure("character ID must not be blank")
 	}
-	name, err := validatedCoordinationDisplayName(payload.Name, "character name")
+	name, err := domain.ValidateCharacterName(payload.Name)
 	if err != nil {
 		return app.coordinationFailure(err.Error())
 	}
@@ -1847,11 +1937,10 @@ func (app *App) commandExecutionFailure(message string, state *domain.MasterCoor
 }
 
 func commandExecutionMasterError(err error) string {
-	message := err.Error()
 	switch {
-	case strings.Contains(message, "stale"):
+	case errors.Is(err, controlservice.ErrCommandExecutionStale):
 		return "command execution request is no longer pending"
-	case strings.Contains(message, "persist"), strings.Contains(message, "durable state"):
+	case errors.Is(err, controlservice.ErrCommandExecutionPersistence):
 		return "command execution could not be persisted"
 	default:
 		return "command execution could not be resolved"

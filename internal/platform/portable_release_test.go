@@ -93,6 +93,69 @@ func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
 	assert.NotContains(t, bindingsCheck, "/private/tmp")
 }
 
+func TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	qualityWorkflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-cross-platform.yml"))
+	portableWorkflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
+	frontendLock := readAcceptanceDocument(t, filepath.Join(root, "frontend", "package-lock.json"))
+	browserLock := readAcceptanceDocument(t, filepath.Join(root, "tests", "browser", "package-lock.json"))
+	readme := readAcceptanceDocument(t, filepath.Join(root, "README.md"))
+	contributing := readAcceptanceDocument(t, filepath.Join(root, "CONTRIBUTING.md"))
+	taskfile := readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+	nvmVersion := strings.TrimSpace(readAcceptanceDocument(t, filepath.Join(root, ".nvmrc")))
+
+	for name, workflow := range map[string]string{
+		"quality":  qualityWorkflow,
+		"portable": portableWorkflow,
+	} {
+		assert.Contains(t, workflow, "NODE_VERSION: 26.8.1", name)
+		assert.NotContains(t, workflow, "NODE_VERSION: 20.19.0", name)
+	}
+
+	for action, expectedCount := range map[string]int{
+		"actions/checkout@v7.0.1":          4,
+		"actions/setup-go@v7.0.0":          4,
+		"actions/setup-node@v7.0.0":        2,
+		"actions/upload-artifact@v7.0.1":   1,
+		"actions/download-artifact@v8.0.1": 1,
+	} {
+		assert.Equal(t, expectedCount, strings.Count(qualityWorkflow+portableWorkflow, action), action)
+	}
+
+	for _, relativePath := range []string{
+		"frontend/package.json",
+		"frontend/client/package.json",
+		"frontend/overseer/package.json",
+		"tests/browser/package.json",
+	} {
+		manifest := readAcceptanceDocument(t, filepath.Join(root, filepath.FromSlash(relativePath)))
+		assert.Contains(t, manifest, `"node": ">=26.8.1"`, relativePath)
+		assert.NotContains(t, manifest, `"node": ">=20.19.0"`, relativePath)
+	}
+
+	assert.Equal(t, 3, strings.Count(frontendLock, `"node": ">=26.8.1"`))
+	assert.NotContains(t, frontendLock, `"node": ">=20.19.0"`)
+	assert.Equal(t, 1, strings.Count(browserLock, `"node": ">=26.8.1"`))
+	assert.NotContains(t, browserLock, `"node": ">=20.19.0"`)
+	assert.Contains(t, readme, "Node.js 26.8.1+ и npm;")
+	assert.NotContains(t, readme, "Node.js 20.19+ и npm;")
+	assert.Equal(t, "26.8.1", nvmVersion)
+	assert.Contains(t, contributing, "Node.js 26.8.1+ and npm")
+	assert.Contains(t, contributing, "nvm use")
+	assert.NotContains(t, contributing, "Node.js 20.19+ and npm")
+	for _, required := range []string{
+		`NODE: '{{default "node" .NODE}}'`,
+		"NODE_MINIMUM_VERSION: '26.8.1'",
+		"node:check:",
+		"task: node:check",
+		`Run "nvm use" from the repository root.`,
+	} {
+		assert.Contains(t, taskfile, required)
+	}
+}
+
 func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {
 	t.Parallel()
 
@@ -230,7 +293,7 @@ func TestPortableReleaseWorkflowPropagatesOneCanonicalVersionBeforeUpload(t *tes
 	}
 
 	verification := strings.Index(packageJob, "inspect-release-archive")
-	upload := strings.Index(packageJob, "actions/upload-artifact@v4")
+	upload := strings.Index(packageJob, "actions/upload-artifact@v7.0.1")
 	require.GreaterOrEqual(t, verification, 0)
 	require.Greater(t, upload, verification, "packaged version verification must succeed before upload")
 }
@@ -257,4 +320,46 @@ func TestGoReleaserPublishesOnlyFivePrebuiltArchives(t *testing.T) {
 	for _, forbidden := range []string{"keep-existing", "replace_existing_artifacts", ".sha256", ".dmg", "aggregate-index", "publisher"} {
 		assert.NotContains(t, strings.ToLower(config), strings.ToLower(forbidden))
 	}
+}
+
+func TestPortablePublicationInventoryIsExactlyTheGovernedFiveArchives(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
+	config := readAcceptanceDocument(t, filepath.Join(root, ".goreleaser.yaml"))
+	want := []string{
+		"Fallout-Terminal-windows-amd64.zip",
+		"Fallout-Terminal-windows-arm64.zip",
+		"Fallout-Terminal-linux-amd64.tar.gz",
+		"Fallout-Terminal-linux-arm64.tar.gz",
+		"Fallout-Terminal-darwin-arm64.zip",
+	}
+
+	workflowArchives := acceptanceValuesWithPrefix(workflow, "archive:")
+	publishedGlobs := acceptanceValuesWithPrefix(config, "- glob: ./combined/")
+	assert.ElementsMatch(t, want, workflowArchives)
+	assert.ElementsMatch(t, want, publishedGlobs)
+	assert.Len(t, workflowArchives, len(want), "the package matrix must contain no duplicate or extra archive")
+	assert.Len(t, publishedGlobs, len(want), "GoReleaser must publish no duplicate or extra archive")
+
+	assert.Equal(t, 1, strings.Count(workflow, "inspect-release-inventory --directory combined"))
+	assert.Equal(t, 1, strings.Count(workflow, "go tool -modfile=tools/task/go.mod task release:publish"))
+	assert.Equal(t, 1, strings.Count(workflow, "uses: actions/download-artifact@v8.0.1"))
+	for _, forbidden := range []string{
+		".sha256", "SHA256SUMS", "aggregate-index", "verification.json", ".dmg",
+	} {
+		assert.NotContains(t, strings.ToLower(workflow+"\n"+config), strings.ToLower(forbidden))
+	}
+}
+
+func acceptanceValuesWithPrefix(document, prefix string) []string {
+	values := make([]string, 0)
+	for _, line := range strings.Split(document, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, prefix) {
+			values = append(values, strings.TrimSpace(strings.TrimPrefix(line, prefix)))
+		}
+	}
+	return values
 }

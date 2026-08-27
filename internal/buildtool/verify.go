@@ -394,6 +394,13 @@ func verifyArtifactManifest(expected Target, files map[string]inspectedArtifactF
 	if manifest.Product != applicationName {
 		return ArtifactManifest{}, fmt.Errorf("manifest product is %q, want %q", manifest.Product, applicationName)
 	}
+	version, err := resolveManifestVersion(manifest.Version)
+	if err != nil {
+		return ArtifactManifest{}, fmt.Errorf("manifest version: %w", err)
+	}
+	if err := validatePackageVersion(version); err != nil {
+		return ArtifactManifest{}, fmt.Errorf("manifest version: %w", err)
+	}
 	if err := validateSourceRevision(manifest.SourceRevision); err != nil {
 		return ArtifactManifest{}, fmt.Errorf("manifest sourceRevision: %w", err)
 	}
