@@ -117,6 +117,22 @@ func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {
 	}
 }
 
+func TestPortableReleaseBrowserFixtureUsesPortableGoCache(t *testing.T) {
+	t.Parallel()
+
+	config := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), "tests", "browser", "playwright.config.mjs"))
+	for _, required := range []string{
+		"import { tmpdir } from 'node:os';",
+		"import { join } from 'node:path';",
+		"process.env.GOCACHE || join(tmpdir(), 'fallout-browser-fixture-cache')",
+		"GOCACHE: browserFixtureGoCache",
+	} {
+		assert.Contains(t, config, required)
+	}
+	assert.NotContains(t, config, "/private/tmp")
+	assert.NotContains(t, config, "GOCACHE=")
+}
+
 func TestPortableReleaseWorkflowIsTagOnlyCreateOnlyFiveTargetCoordination(t *testing.T) {
 	t.Parallel()
 
