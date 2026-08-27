@@ -200,10 +200,20 @@ self_test() {
   local fixture_root canary_file surface
   local -a surfaces=(
     'errors/start-error.txt'
+    'application-update/errors/check.txt'
+    'application-update/errors/download.txt'
+    'application-update/errors/verify.txt'
+    'application-update/errors/stage.txt'
+    'application-update/errors/apply.txt'
     'logs/application.log'
+    'application-update/logs/helper.log'
     'events/public-access-status.json'
+    'application-update/events/application-update-status.json'
     'protobuf/private-result.bin'
+    'application-update/protobuf/update-command-result.bin'
     'config/public-access.json'
+    'application-update/recovery/update-recovery.json'
+    'application-update/environment/helper.env'
     'Application Support/Fallout Terminal/public-access.json'
     'Windows/Credentials/credential.bin'
     'Secret Service/login/item.bin'
@@ -221,12 +231,15 @@ self_test() {
   canary_file="$fixture_root/.canaries"
   mkdir -p "$fixture_root/surfaces"
   {
+    printf 'https://updates.example.invalid/archive.zip?token=github_pat_'
     LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 96 || true
     printf '\n'
+    printf 'github_pat_'
     LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 112 || true
     printf '\n'
+    printf '/Users/update-canary-account/Downloads/'
     LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 128 || true
-    printf '\n'
+    printf '/Fallout-Terminal.zip\n'
   } >"$canary_file"
 
   for surface in "${surfaces[@]}"; do
@@ -240,7 +253,7 @@ self_test() {
   done
 
   scan_canary_file "$canary_file" "$fixture_root/surfaces"
-  printf 'Secret leak detector self-test passed across errors, logs, events, protobuf, config, native credential stores, session, player-config, args, fixtures, frontend, and packaged resources.\n'
+  printf 'Secret leak detector self-test passed across update URLs, tokens, paths, errors, logs, events, protobuf, recovery, helper environment, config, native credential stores, session, player-config, args, fixtures, frontend, and packaged resources.\n'
 }
 
 case "${1:-}" in

@@ -145,6 +145,20 @@ const generatedPasswordDialog = document.getElementById('generatedPasswordDialog
 const generatedPasswordValue = document.getElementById('generatedPasswordValue');
 const btnCopyGeneratedPassword = document.getElementById('btnCopyGeneratedPassword');
 const btnDismissGeneratedPassword = document.getElementById('btnDismissGeneratedPassword');
+const applicationUpdateStatusPanel = document.getElementById('applicationUpdateStatusPanel');
+const applicationUpdateStatus = document.getElementById('applicationUpdateStatus');
+const applicationUpdateError = document.getElementById('applicationUpdateError');
+const applicationUpdateProgress = document.getElementById('applicationUpdateProgress');
+const btnShowApplicationUpdate = document.getElementById('btnShowApplicationUpdate');
+const applicationUpdateDialog = document.getElementById('applicationUpdateDialog');
+const applicationUpdateInstalledVersion = document.getElementById('applicationUpdateInstalledVersion');
+const applicationUpdateAvailableVersion = document.getElementById('applicationUpdateAvailableVersion');
+const applicationUpdateReleaseNotes = document.getElementById('applicationUpdateReleaseNotes');
+const btnAcceptApplicationUpdate = document.getElementById('btnAcceptApplicationUpdate');
+const btnDeferApplicationUpdate = document.getElementById('btnDeferApplicationUpdate');
+const applicationUpdateRestartDialog = document.getElementById('applicationUpdateRestartDialog');
+const btnRestartApplicationUpdate = document.getElementById('btnRestartApplicationUpdate');
+const btnPostponeApplicationUpdate = document.getElementById('btnPostponeApplicationUpdate');
 
 let serverUrl = null;
 let serverUrlTitle = '';
@@ -176,6 +190,17 @@ let terminalGroupDraft = null;
 let pendingTerminalGroupImpact = null;
 let terminalGroupSubmitting = false;
 let terminalGroupDialogOpener = null;
+let applicationUpdateSnapshot = null;
+let applicationUpdateDialogAttemptID = '';
+let applicationUpdateDialogOpener = null;
+let applicationUpdateCommandPending = false;
+let applicationUpdateRestartDialogAttemptID = '';
+let applicationUpdateRestartDialogOpener = null;
+let applicationUpdateRestartCommandPending = false;
+let latestRenderedApplicationUpdateRevision = -1;
+const promptedApplicationUpdateRevisions = new Set();
+const promptedApplicationUpdateRestartRevisions = new Set();
+const suppressedApplicationUpdateAttempts = new Set();
 
 const commandStateActions = document.createElement('div');
 commandStateActions.className = 'settings-row command-state-terminal-actions';
@@ -376,6 +401,331 @@ if (typeof desktopAPI.onSessionState === 'function') {
   });
 }
 void desktopAPI.getRuntimeStatus().then(renderStartupPresentation);
+
+// ── Application update: nonblocking status and explicit offer ──
+const applicationUpdateStatusLabels = Object.freeze({
+  checking: 'ПРОВЕРКА ОБНОВЛЕНИЙ…',
+  available: 'ДОСТУПНО ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ',
+  deferred: 'ОБНОВЛЕНИЕ ОТЛОЖЕНО ДО СЛЕДУЮЩЕГО ЗАПУСКА',
+  downloading: 'ЗАГРУЗКА ОБНОВЛЕНИЯ…',
+  verifying: 'ПРОВЕРКА ЗАГРУЖЕННОГО ОБНОВЛЕНИЯ…',
+  staging: 'ПОДГОТОВКА ОБНОВЛЕНИЯ…',
+  'ready-to-restart': 'ОБНОВЛЕНИЕ ГОТОВО К ПЕРЕЗАПУСКУ',
+  applying: 'ПРИМЕНЕНИЕ ОБНОВЛЕНИЯ…',
+  failed: 'НЕ УДАЛОСЬ ПОДГОТОВИТЬ ОБНОВЛЕНИЕ',
+});
+const applicationUpdateFailureStageLabels = Object.freeze({
+  check: 'ПРОВЕРКА ОБНОВЛЕНИЙ',
+  download: 'ЗАГРУЗКА ОБНОВЛЕНИЯ',
+  verify: 'ПРОВЕРКА ЗАГРУЖЕННОГО ОБНОВЛЕНИЯ',
+  stage: 'ПОДГОТОВКА ОБНОВЛЕНИЯ',
+  apply: 'ПРИМЕНЕНИЕ ОБНОВЛЕНИЯ',
+  relaunch: 'ПЕРЕЗАПУСК ОБНОВЛЁННОГО ПРИЛОЖЕНИЯ',
+  recovery: 'ВОССТАНОВЛЕНИЕ РАБОЧЕЙ ВЕРСИИ',
+});
+const MAX_APPLICATION_UPDATE_TEXT = 16_384;
+
+function boundedApplicationUpdateText(value, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  if (value.length <= MAX_APPLICATION_UPDATE_TEXT) return value;
+  return `${value.slice(0, MAX_APPLICATION_UPDATE_TEXT)}\n\n[Описание выпуска сокращено]`;
+}
+
+function applicationUpdatePromptKey(snapshot) {
+  return `${snapshot.attemptId}:${snapshot.revision}`;
+}
+
+function applicationUpdateFailureText(snapshot) {
+  const stage = applicationUpdateFailureStageLabels[snapshot.failedStage]
+    || 'ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ';
+  const message = boundedApplicationUpdateText(
+    snapshot.errorMessage,
+    'Операция обновления не завершена.',
+  );
+  const recoveryAction = boundedApplicationUpdateText(
+    snapshot.recoveryAction,
+    'Продолжайте работу и повторите попытку при следующем запуске.',
+  );
+  return `ЭТАП: ${stage}.\n${message}\n${recoveryAction}`;
+}
+
+function restoreApplicationUpdateFocus() {
+  const opener = applicationUpdateDialogOpener;
+  applicationUpdateDialogOpener = null;
+  if (opener?.isConnected && typeof opener.focus === 'function') opener.focus();
+}
+
+function closeApplicationUpdateDialog() {
+  applicationUpdateDialogAttemptID = '';
+  if (applicationUpdateDialog.open) applicationUpdateDialog.close();
+  applicationUpdateDialog.hidden = true;
+  queueMicrotask(restoreApplicationUpdateFocus);
+}
+
+function restoreApplicationUpdateRestartFocus() {
+  const opener = applicationUpdateRestartDialogOpener;
+  applicationUpdateRestartDialogOpener = null;
+  if (opener?.isConnected && typeof opener.focus === 'function') opener.focus();
+}
+
+function closeApplicationUpdateRestartDialog() {
+  applicationUpdateRestartDialogAttemptID = '';
+  if (applicationUpdateRestartDialog.open) applicationUpdateRestartDialog.close();
+  applicationUpdateRestartDialog.hidden = true;
+  queueMicrotask(restoreApplicationUpdateRestartFocus);
+}
+
+function renderApplicationUpdateOffer(snapshot) {
+  applicationUpdateInstalledVersion.textContent = boundedApplicationUpdateText(snapshot.installedVersion, '—');
+  applicationUpdateAvailableVersion.textContent = boundedApplicationUpdateText(snapshot.availableVersion, '—');
+  applicationUpdateReleaseNotes.textContent = boundedApplicationUpdateText(
+    snapshot.releaseNotes,
+    'Для этого выпуска описание не предоставлено.',
+  );
+}
+
+function showApplicationUpdateOffer(snapshot, { automatic = false } = {}) {
+  if (!snapshot?.attemptId || snapshot.state !== 'available') return;
+  if (suppressedApplicationUpdateAttempts.has(snapshot.attemptId)) return;
+
+  renderApplicationUpdateOffer(snapshot);
+  if (applicationUpdateDialog.open) {
+    applicationUpdateDialogAttemptID = snapshot.attemptId;
+    return;
+  }
+  if (automatic && document.querySelector('dialog[open]')) {
+    btnShowApplicationUpdate.hidden = false;
+    return;
+  }
+
+  const key = applicationUpdatePromptKey(snapshot);
+  if (automatic && promptedApplicationUpdateRevisions.has(key)) return;
+  promptedApplicationUpdateRevisions.add(key);
+  applicationUpdateDialogAttemptID = snapshot.attemptId;
+  applicationUpdateDialogOpener = document.activeElement;
+  applicationUpdateDialog.hidden = false;
+  applicationUpdateDialog.showModal();
+  btnShowApplicationUpdate.hidden = true;
+  btnDeferApplicationUpdate.focus();
+}
+
+function showApplicationUpdateRestart(snapshot, { automatic = false } = {}) {
+  if (!snapshot?.attemptId || snapshot.state !== 'ready-to-restart') return;
+  if (applicationUpdateRestartDialog.open) {
+    applicationUpdateRestartDialogAttemptID = snapshot.attemptId;
+    return;
+  }
+  if (automatic && document.querySelector('dialog[open]')) {
+    btnShowApplicationUpdate.hidden = false;
+    return;
+  }
+
+  const key = applicationUpdatePromptKey(snapshot);
+  if (automatic && promptedApplicationUpdateRestartRevisions.has(key)) return;
+  promptedApplicationUpdateRestartRevisions.add(key);
+  applicationUpdateRestartDialogAttemptID = snapshot.attemptId;
+  applicationUpdateRestartDialogOpener = document.activeElement;
+  applicationUpdateRestartDialog.hidden = false;
+  applicationUpdateRestartDialog.showModal();
+  btnShowApplicationUpdate.hidden = true;
+  btnPostponeApplicationUpdate.focus();
+}
+
+function renderApplicationUpdateProgress(snapshot, stateName) {
+  const progressVisible = stateName === 'downloading'
+    || stateName === 'verifying'
+    || stateName === 'staging';
+  applicationUpdateProgress.hidden = !progressVisible;
+  applicationUpdateProgress.removeAttribute('max');
+  applicationUpdateProgress.removeAttribute('value');
+  if (!progressVisible) return;
+
+  if (stateName === 'downloading'
+    && Number.isSafeInteger(snapshot.downloadSize)
+    && snapshot.downloadSize > 0) {
+    const downloaded = Number.isSafeInteger(snapshot.bytesDownloaded)
+      ? Math.max(0, Math.min(snapshot.bytesDownloaded, snapshot.downloadSize))
+      : 0;
+    applicationUpdateProgress.max = snapshot.downloadSize;
+    applicationUpdateProgress.value = downloaded;
+    applicationUpdateProgress.setAttribute(
+      'aria-label',
+      `Загрузка обновления: ${downloaded} из ${snapshot.downloadSize} байт`,
+    );
+    return;
+  }
+
+  applicationUpdateProgress.setAttribute(
+    'aria-label',
+    stateName === 'verifying'
+      ? 'Проверка загруженного обновления'
+      : stateName === 'staging'
+        ? 'Подготовка обновления к перезапуску'
+        : 'Загрузка обновления',
+  );
+}
+
+function renderApplicationUpdateSnapshot(snapshot, { prompt = true } = {}) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+  const revision = Number(snapshot.revision);
+  if (!Number.isSafeInteger(revision) || revision < 0) return;
+  if (revision < latestRenderedApplicationUpdateRevision) return;
+  if (revision === latestRenderedApplicationUpdateRevision
+    && applicationUpdateSnapshot
+    && (snapshot.attemptId !== applicationUpdateSnapshot.attemptId
+      || snapshot.state !== applicationUpdateSnapshot.state)) return;
+  latestRenderedApplicationUpdateRevision = revision;
+  applicationUpdateSnapshot = snapshot;
+  const stateName = typeof snapshot.state === 'string' ? snapshot.state : '';
+  const silent = stateName === '' || stateName === 'disabled' || stateName === 'idle' || stateName === 'current';
+  const attemptSuppressed = suppressedApplicationUpdateAttempts.has(snapshot.attemptId);
+
+  applicationUpdateStatusPanel.hidden = silent;
+  applicationUpdateStatusPanel.dataset.state = stateName;
+  applicationUpdateStatus.textContent = applicationUpdateStatusLabels[stateName] || '';
+  renderApplicationUpdateProgress(snapshot, stateName);
+  applicationUpdateError.textContent = stateName === 'failed'
+    ? applicationUpdateFailureText(snapshot)
+    : '';
+  applicationUpdateError.hidden = !applicationUpdateError.textContent;
+  const offerCanOpen = stateName === 'available' && !attemptSuppressed;
+  const restartCanOpen = stateName === 'ready-to-restart';
+  btnShowApplicationUpdate.hidden = (!offerCanOpen && !restartCanOpen)
+    || applicationUpdateDialog.open
+    || applicationUpdateRestartDialog.open;
+  btnShowApplicationUpdate.setAttribute(
+    'aria-controls',
+    restartCanOpen ? 'applicationUpdateRestartDialog' : 'applicationUpdateDialog',
+  );
+
+  if (!offerCanOpen && applicationUpdateDialog.open) closeApplicationUpdateDialog();
+  if (!restartCanOpen && applicationUpdateRestartDialog.open) closeApplicationUpdateRestartDialog();
+
+  if (offerCanOpen) {
+    renderApplicationUpdateOffer(snapshot);
+    if (prompt) showApplicationUpdateOffer(snapshot, { automatic: true });
+  } else if (restartCanOpen && prompt) {
+    showApplicationUpdateRestart(snapshot, { automatic: true });
+  }
+}
+
+function setApplicationUpdateDecisionPending(pending) {
+  applicationUpdateCommandPending = pending;
+  btnAcceptApplicationUpdate.disabled = pending;
+  btnDeferApplicationUpdate.disabled = pending;
+  applicationUpdateDialog.setAttribute('aria-busy', String(pending));
+}
+
+async function resolveApplicationUpdateOffer(decision) {
+  if (applicationUpdateCommandPending) return;
+  const snapshot = applicationUpdateSnapshot;
+  if (!snapshot?.attemptId || snapshot.attemptId !== applicationUpdateDialogAttemptID) return;
+
+  setApplicationUpdateDecisionPending(true);
+  const result = await desktopAPI.resolveApplicationUpdateOffer({
+    attemptId: snapshot.attemptId,
+    decision,
+  });
+  setApplicationUpdateDecisionPending(false);
+
+  if (result?.ok !== true) {
+    renderApplicationUpdateSnapshot(result?.snapshot || snapshot, { prompt: false });
+    applicationUpdateError.textContent = boundedApplicationUpdateText(
+      result?.error,
+      'Не удалось сохранить решение об обновлении.',
+    );
+    applicationUpdateError.hidden = false;
+    btnDeferApplicationUpdate.focus();
+    return;
+  }
+
+  suppressedApplicationUpdateAttempts.add(snapshot.attemptId);
+  closeApplicationUpdateDialog();
+  const resultSnapshot = result?.snapshot;
+  if (resultSnapshot
+    && (resultSnapshot.revision > snapshot.revision
+      || resultSnapshot.state !== snapshot.state)) {
+    renderApplicationUpdateSnapshot(resultSnapshot, { prompt: false });
+    return;
+  }
+  if (decision === 'defer') {
+    renderApplicationUpdateSnapshot({ ...snapshot, state: 'deferred' }, { prompt: false });
+    return;
+  }
+  applicationUpdateStatus.textContent = 'ПОДГОТОВКА ОБНОВЛЕНИЯ ЗАПРОШЕНА…';
+}
+
+function setApplicationUpdateRestartPending(pending) {
+  applicationUpdateRestartCommandPending = pending;
+  btnRestartApplicationUpdate.disabled = pending;
+  btnPostponeApplicationUpdate.disabled = pending;
+  applicationUpdateRestartDialog.setAttribute('aria-busy', String(pending));
+}
+
+async function resolveApplicationUpdateRestart(decision) {
+  if (applicationUpdateRestartCommandPending) return;
+  const snapshot = applicationUpdateSnapshot;
+  if (!snapshot?.attemptId || snapshot.attemptId !== applicationUpdateRestartDialogAttemptID) return;
+
+  setApplicationUpdateRestartPending(true);
+  const result = await desktopAPI.resolveApplicationUpdateRestart({
+    attemptId: snapshot.attemptId,
+    decision,
+  });
+  setApplicationUpdateRestartPending(false);
+
+  if (result?.ok !== true) {
+    renderApplicationUpdateSnapshot(result?.snapshot || snapshot, { prompt: false });
+    applicationUpdateError.textContent = boundedApplicationUpdateText(
+      result?.error,
+      'Не удалось сохранить решение о перезапуске.',
+    );
+    applicationUpdateError.hidden = false;
+    btnPostponeApplicationUpdate.focus();
+    return;
+  }
+
+  closeApplicationUpdateRestartDialog();
+  renderApplicationUpdateSnapshot(result?.snapshot || snapshot, { prompt: false });
+}
+
+btnShowApplicationUpdate.addEventListener('click', () => {
+  if (applicationUpdateSnapshot?.state === 'ready-to-restart') {
+    showApplicationUpdateRestart(applicationUpdateSnapshot);
+    return;
+  }
+  showApplicationUpdateOffer(applicationUpdateSnapshot);
+});
+btnAcceptApplicationUpdate.addEventListener('click', () => {
+  void resolveApplicationUpdateOffer('accept');
+});
+btnDeferApplicationUpdate.addEventListener('click', () => {
+  void resolveApplicationUpdateOffer('defer');
+});
+applicationUpdateDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  void resolveApplicationUpdateOffer('defer');
+});
+applicationUpdateDialog.addEventListener('close', () => {
+  applicationUpdateDialog.hidden = true;
+});
+btnRestartApplicationUpdate.addEventListener('click', () => {
+  void resolveApplicationUpdateRestart('restart');
+});
+btnPostponeApplicationUpdate.addEventListener('click', () => {
+  void resolveApplicationUpdateRestart('postpone');
+});
+applicationUpdateRestartDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  void resolveApplicationUpdateRestart('postpone');
+});
+applicationUpdateRestartDialog.addEventListener('close', () => {
+  applicationUpdateRestartDialog.hidden = true;
+});
+if (typeof desktopAPI.onApplicationUpdateStatus === 'function') {
+  desktopAPI.onApplicationUpdateStatus(renderApplicationUpdateSnapshot);
+}
+
 serverUrlEl.addEventListener('click', async () => {
   const requestedUrl = serverUrl;
   if (!requestedUrl) return;

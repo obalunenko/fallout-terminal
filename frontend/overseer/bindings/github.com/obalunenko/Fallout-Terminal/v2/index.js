@@ -6,6 +6,10 @@ export {
 };
 
 export {
+    ApplicationUpdateCommandResult,
+    ApplicationUpdateOfferDecisionPayload,
+    ApplicationUpdateRestartDecisionPayload,
+    ApplicationUpdateSnapshot,
     AssignmentPayload,
     CharacterCreatePayload,
     CharacterDeletePayload,

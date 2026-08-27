@@ -17,6 +17,7 @@ import (
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/obalunenko/logger"
 )
 
@@ -198,6 +199,16 @@ type PublicAccessCore interface {
 	Shutdown(context.Context) error
 }
 
+// ApplicationUpdateService is the transport-neutral update boundary exposed
+// through the narrow desktop facade. Provider and replacement details remain
+// owned by internal/update and its composition adapters.
+type ApplicationUpdateService interface {
+	Snapshot() updateservice.UpdateSnapshot
+	Status(context.Context) updateservice.UpdateSnapshot
+	ResolveOffer(context.Context, string, updateservice.OfferDecision) updateservice.CommandResult
+	ResolveRestart(context.Context, string, updateservice.RestartDecision) updateservice.CommandResult
+}
+
 // AppDependencies contains constructed services. Construction acquires no
 // external resources; Start owns acquisition in contract order.
 type AppDependencies struct {
@@ -212,6 +223,7 @@ type AppDependencies struct {
 	PublicSettings  PublicAccessSettingsStore
 	PublicSecrets   tunnelservice.SecretStore
 	PublicAccess    PublicAccessCore
+	Updates         ApplicationUpdateService
 	PasswordEntropy io.Reader
 	Logger          logger.Logger
 	StartupTimeout  time.Duration
@@ -235,6 +247,41 @@ type RuntimeStatus struct {
 type CommandResult struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+}
+
+// ApplicationUpdateSnapshot is the narrow, non-sensitive update projection
+// exposed to the Overseer. Provider metadata, verification evidence, local
+// paths, and helper state remain behind the native boundary.
+type ApplicationUpdateSnapshot struct {
+	Revision         uint64  `json:"revision"`
+	AttemptID        string  `json:"attemptId,omitempty"`
+	State            string  `json:"state"`
+	InstalledVersion string  `json:"installedVersion"`
+	AvailableVersion string  `json:"availableVersion,omitempty"`
+	ReleaseNotes     string  `json:"releaseNotes,omitempty"`
+	BytesDownloaded  uint64  `json:"bytesDownloaded"`
+	DownloadSize     *uint64 `json:"downloadSize,omitempty"`
+	FailedStage      string  `json:"failedStage,omitempty"`
+	ErrorMessage     string  `json:"errorMessage,omitempty"`
+	RecoveryAction   string  `json:"recoveryAction,omitempty"`
+}
+
+type ApplicationUpdateOfferDecisionPayload struct {
+	AttemptID string `json:"attemptId"`
+	Decision  string `json:"decision"`
+}
+
+type ApplicationUpdateRestartDecisionPayload struct {
+	AttemptID string `json:"attemptId"`
+	Decision  string `json:"decision"`
+}
+
+// ApplicationUpdateCommandResult includes the authoritative snapshot for
+// both accepted and rejected decisions.
+type ApplicationUpdateCommandResult struct {
+	OK       bool                      `json:"ok"`
+	Error    string                    `json:"error,omitempty"`
+	Snapshot ApplicationUpdateSnapshot `json:"snapshot"`
 }
 
 // SessionStateResult returns the canonical durable document and its
@@ -1149,6 +1196,77 @@ func (app *App) GetRuntimeStatus() RuntimeStatus {
 		CoordinationState: domain.CloneMasterCoordinationState(app.coordinationState),
 	}
 	return routeRuntimeStatus(status)
+}
+
+// GetApplicationUpdateStatus returns immediately and lets the manager arm its
+// launch-scoped check only after the frontend has installed its event listener.
+func (app *App) GetApplicationUpdateStatus() ApplicationUpdateSnapshot {
+	if app.deps.Updates == nil {
+		return ApplicationUpdateSnapshot{State: string(updateservice.UpdateStateDisabled)}
+	}
+	app.mu.RLock()
+	ready := app.desktopReady && app.phase == "ready-local"
+	app.mu.RUnlock()
+	if !ready {
+		return nativeApplicationUpdateSnapshot(app.deps.Updates.Snapshot())
+	}
+	return nativeApplicationUpdateSnapshot(app.deps.Updates.Status(app.contextSnapshot()))
+}
+
+// publishApplicationUpdateSnapshot is the only update-state event boundary.
+// The manager retains the authoritative state; the core only converts its
+// detached, safe projection after local startup has completed.
+func (app *App) publishApplicationUpdateSnapshot(snapshot updateservice.UpdateSnapshot) {
+	app.emitEvent(applicationUpdateStatusEvent, nativeApplicationUpdateSnapshot(snapshot))
+}
+
+// ResolveApplicationUpdateOffer validates the authored decision vocabulary
+// before forwarding it to the application-owned manager.
+func (app *App) ResolveApplicationUpdateOffer(payload ApplicationUpdateOfferDecisionPayload) ApplicationUpdateCommandResult {
+	routed, err := routeApplicationUpdateOfferDecisionRequest(payload)
+	if err != nil {
+		return app.applicationUpdateFailure(err.Error())
+	}
+	if app.deps.Updates == nil {
+		return app.applicationUpdateFailure("Application update service is unavailable.")
+	}
+	return nativeApplicationUpdateCommandResult(app.deps.Updates.ResolveOffer(
+		app.contextSnapshot(), routed.AttemptID, updateservice.OfferDecision(routed.Decision),
+	))
+}
+
+// ResolveApplicationUpdateRestart forwards only validated restart decisions.
+func (app *App) ResolveApplicationUpdateRestart(payload ApplicationUpdateRestartDecisionPayload) ApplicationUpdateCommandResult {
+	routed, err := routeApplicationUpdateRestartDecisionRequest(payload)
+	if err != nil {
+		return app.applicationUpdateFailure(err.Error())
+	}
+	if app.deps.Updates == nil {
+		return app.applicationUpdateFailure("Application update service is unavailable.")
+	}
+	return nativeApplicationUpdateCommandResult(app.deps.Updates.ResolveRestart(
+		app.contextSnapshot(), routed.AttemptID, updateservice.RestartDecision(routed.Decision),
+	))
+}
+
+func (app *App) applicationUpdateFailure(message string) ApplicationUpdateCommandResult {
+	snapshot := ApplicationUpdateSnapshot{State: string(updateservice.UpdateStateDisabled)}
+	if app.deps.Updates != nil {
+		snapshot = nativeApplicationUpdateSnapshot(app.deps.Updates.Snapshot())
+	}
+	return ApplicationUpdateCommandResult{Error: message, Snapshot: snapshot}
+}
+
+func nativeApplicationUpdateSnapshot(snapshot updateservice.UpdateSnapshot) ApplicationUpdateSnapshot {
+	return applicationUpdateSnapshotFromPrivate(applicationUpdateSnapshotToPrivate(snapshot))
+}
+
+func nativeApplicationUpdateCommandResult(result updateservice.CommandResult) ApplicationUpdateCommandResult {
+	return ApplicationUpdateCommandResult{
+		OK:       result.OK,
+		Error:    result.Error,
+		Snapshot: nativeApplicationUpdateSnapshot(result.Snapshot),
+	}
 }
 
 // NewSession opens the native destination dialog and creates a validated

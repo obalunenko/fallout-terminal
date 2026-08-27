@@ -14,12 +14,228 @@ import (
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/testing/prototest"
 )
+
+func TestApplicationUpdateSnapshotProtoNativeRoundTripEveryState(t *testing.T) {
+	t.Parallel()
+
+	states := []struct {
+		model    updateservice.UpdateState
+		semantic privatev1.ApplicationUpdateState
+		native   string
+	}{
+		{updateservice.UpdateStateDisabled, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DISABLED, "disabled"},
+		{updateservice.UpdateStateIdle, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_IDLE, "idle"},
+		{updateservice.UpdateStateChecking, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_CHECKING, "checking"},
+		{updateservice.UpdateStateCurrent, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_CURRENT, "current"},
+		{updateservice.UpdateStateAvailable, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_AVAILABLE, "available"},
+		{updateservice.UpdateStateDeferred, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DEFERRED, "deferred"},
+		{updateservice.UpdateStateDownloading, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DOWNLOADING, "downloading"},
+		{updateservice.UpdateStateVerifying, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_VERIFYING, "verifying"},
+		{updateservice.UpdateStateStaging, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_STAGING, "staging"},
+		{updateservice.UpdateStateReadyToRestart, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_READY_TO_RESTART, "ready-to-restart"},
+		{updateservice.UpdateStateApplying, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_APPLYING, "applying"},
+		{updateservice.UpdateStateFailed, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_FAILED, "failed"},
+	}
+
+	for _, test := range states {
+		t.Run(test.native, func(t *testing.T) {
+			t.Parallel()
+
+			snapshot := updateservice.UpdateSnapshot{
+				Revision:         19,
+				AttemptID:        "attempt-19",
+				State:            test.model,
+				InstalledVersion: "2.18.0",
+				AvailableVersion: "2.19.0",
+				ReleaseNotes:     "Safe release notes",
+				Progress: updateservice.UpdateProgress{
+					BytesDownloaded:   1024,
+					DownloadSize:      2048,
+					DownloadSizeKnown: true,
+				},
+			}
+
+			semantic := applicationUpdateSnapshotToPrivate(snapshot)
+			require.Equal(t, test.semantic, semantic.GetState())
+			require.Equal(t, privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_UNSPECIFIED, applicationUpdateStateToPrivate("unknown"))
+			require.Empty(t, applicationUpdateStateFromPrivate(privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_UNSPECIFIED))
+
+			native := applicationUpdateSnapshotFromPrivate(semantic)
+			require.Equal(t, ApplicationUpdateSnapshot{
+				Revision:         19,
+				AttemptID:        "attempt-19",
+				State:            test.native,
+				InstalledVersion: "2.18.0",
+				AvailableVersion: "2.19.0",
+				ReleaseNotes:     "Safe release notes",
+				BytesDownloaded:  1024,
+				DownloadSize:     applicationUpdateUint64Pointer(2048),
+			}, native)
+		})
+	}
+}
+
+func TestApplicationUpdateSnapshotRoundTripPreservesOptionalPresenceAndSafeFailure(t *testing.T) {
+	t.Parallel()
+
+	snapshot := updateservice.UpdateSnapshot{
+		Revision:         27,
+		AttemptID:        "attempt-27",
+		State:            updateservice.UpdateStateFailed,
+		InstalledVersion: "2.18.0",
+		AvailableVersion: "2.19.0",
+		ReleaseNotes:     "Security and reliability fixes.",
+		Progress: updateservice.UpdateProgress{
+			BytesDownloaded:   4096,
+			DownloadSize:      8192,
+			DownloadSizeKnown: true,
+		},
+		Failure: updateservice.UpdateFailure{
+			Stage:          updateservice.FailureStageVerify,
+			Message:        "The downloaded update could not be verified.",
+			RecoveryAction: "Keep working and try the update again.",
+		},
+	}
+
+	semantic := applicationUpdateSnapshotToPrivate(snapshot)
+	fields := semantic.ProtoReflect().Descriptor().Fields()
+	for _, field := range []protoreflect.Name{"attempt_id", "available_version", "release_notes", "download_size", "error_message", "recovery_action"} {
+		require.True(t, semantic.ProtoReflect().Has(fields.ByName(field)), "%s must retain protobuf presence", field)
+	}
+	require.Equal(t, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_VERIFY, semantic.GetFailedStage())
+
+	native := applicationUpdateSnapshotFromPrivate(semantic)
+	require.Equal(t, "verify", native.FailedStage)
+	require.Equal(t, "The downloaded update could not be verified.", native.ErrorMessage)
+	require.Equal(t, "Keep working and try the update again.", native.RecoveryAction)
+	require.NotNil(t, native.DownloadSize)
+	require.Equal(t, uint64(8192), *native.DownloadSize)
+
+	raw, err := json.Marshal(native)
+	require.NoError(t, err)
+	var exposed map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &exposed))
+	require.ElementsMatch(t, []string{
+		"revision", "attemptId", "state", "installedVersion", "availableVersion", "releaseNotes",
+		"bytesDownloaded", "downloadSize", "failedStage", "errorMessage", "recoveryAction",
+	}, applicationUpdateMapKeys(exposed))
+	for _, forbidden := range []string{"providerUrl", "assetId", "digest", "path", "helper", "credential", "authorization", "rawResponse", "userContent"} {
+		require.NotContains(t, exposed, forbidden)
+	}
+}
+
+func TestApplicationUpdateSnapshotRoundTripOmitsEveryAbsentOptionalField(t *testing.T) {
+	t.Parallel()
+
+	semantic := applicationUpdateSnapshotToPrivate(updateservice.UpdateSnapshot{
+		Revision:         1,
+		State:            updateservice.UpdateStateIdle,
+		InstalledVersion: "2.18.0",
+	})
+	fields := semantic.ProtoReflect().Descriptor().Fields()
+	for _, field := range []protoreflect.Name{"attempt_id", "available_version", "release_notes", "download_size", "error_message", "recovery_action"} {
+		require.False(t, semantic.ProtoReflect().Has(fields.ByName(field)), "%s must remain absent", field)
+	}
+
+	native := applicationUpdateSnapshotFromPrivate(semantic)
+	require.Nil(t, native.DownloadSize)
+	raw, err := json.Marshal(native)
+	require.NoError(t, err)
+	var exposed map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &exposed))
+	for _, absent := range []string{"attemptId", "availableVersion", "releaseNotes", "downloadSize", "failedStage", "errorMessage", "recoveryAction"} {
+		require.NotContains(t, exposed, absent)
+	}
+}
+
+func TestApplicationUpdateFailureStagesRoundTripExactly(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		model    updateservice.FailureStage
+		semantic privatev1.ApplicationUpdateFailureStage
+		native   string
+	}{
+		{updateservice.FailureStageCheck, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_CHECK, "check"},
+		{updateservice.FailureStageDownload, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_DOWNLOAD, "download"},
+		{updateservice.FailureStageVerify, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_VERIFY, "verify"},
+		{updateservice.FailureStageStage, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_STAGE, "stage"},
+		{updateservice.FailureStageApply, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_APPLY, "apply"},
+		{updateservice.FailureStageRelaunch, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_RELAUNCH, "relaunch"},
+		{updateservice.FailureStageRecovery, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_RECOVERY, "recovery"},
+	}
+	for _, test := range tests {
+		t.Run(test.native, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, test.semantic, applicationUpdateFailureStageToPrivate(test.model))
+			require.Equal(t, test.native, applicationUpdateFailureStageFromPrivate(test.semantic))
+		})
+	}
+	require.Equal(t, privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_UNSPECIFIED, applicationUpdateFailureStageToPrivate("unknown"))
+	require.Empty(t, applicationUpdateFailureStageFromPrivate(privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_UNSPECIFIED))
+}
+
+func TestApplicationUpdateDecisionRequestsRoundTripEveryAllowedDecision(t *testing.T) {
+	t.Parallel()
+
+	for _, decision := range []string{"accept", "defer"} {
+		t.Run("offer "+decision, func(t *testing.T) {
+			t.Parallel()
+			payload := ApplicationUpdateOfferDecisionPayload{AttemptID: "attempt-offer", Decision: decision}
+			routed, err := routeApplicationUpdateOfferDecisionRequest(payload)
+			require.NoError(t, err)
+			require.Equal(t, payload, routed)
+		})
+	}
+	for _, decision := range []string{"restart", "postpone"} {
+		t.Run("restart "+decision, func(t *testing.T) {
+			t.Parallel()
+			payload := ApplicationUpdateRestartDecisionPayload{AttemptID: "attempt-restart", Decision: decision}
+			routed, err := routeApplicationUpdateRestartDecisionRequest(payload)
+			require.NoError(t, err)
+			require.Equal(t, payload, routed)
+		})
+	}
+
+	_, err := routeApplicationUpdateOfferDecisionRequest(ApplicationUpdateOfferDecisionPayload{AttemptID: "attempt", Decision: "download"})
+	require.ErrorContains(t, err, "unsupported application update offer decision")
+	_, err = routeApplicationUpdateRestartDecisionRequest(ApplicationUpdateRestartDecisionPayload{AttemptID: "attempt", Decision: "apply"})
+	require.ErrorContains(t, err, "unsupported application update restart decision")
+}
+
+func TestApplicationUpdateCommandResultProtoNativeRoundTripPreservesOptionalError(t *testing.T) {
+	t.Parallel()
+
+	snapshot := ApplicationUpdateSnapshot{Revision: 31, State: "failed", InstalledVersion: "2.18.0", FailedStage: "check", ErrorMessage: "Update service is unavailable."}
+	result := ApplicationUpdateCommandResult{OK: false, Error: "The update request could not be completed.", Snapshot: snapshot}
+	semantic := applicationUpdateCommandResultToPrivate(result)
+	require.True(t, semantic.ProtoReflect().Has(semantic.ProtoReflect().Descriptor().Fields().ByName("error")))
+	require.Equal(t, result, applicationUpdateCommandResultFromPrivate(semantic))
+
+	withoutError := ApplicationUpdateCommandResult{OK: true, Snapshot: ApplicationUpdateSnapshot{Revision: 32, State: "deferred", InstalledVersion: "2.18.0"}}
+	semantic = applicationUpdateCommandResultToPrivate(withoutError)
+	require.False(t, semantic.ProtoReflect().Has(semantic.ProtoReflect().Descriptor().Fields().ByName("error")))
+	require.Equal(t, withoutError, applicationUpdateCommandResultFromPrivate(semantic))
+}
+
+func applicationUpdateUint64Pointer(value uint64) *uint64 {
+	return &value
+}
+
+func applicationUpdateMapKeys[V any](values map[string]V) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	return keys
+}
 
 func TestPublicAccessDescriptorsAreExactAndSecretSurfacesStayNarrow(t *testing.T) {
 	t.Parallel()
@@ -542,7 +758,7 @@ func TestPrivateStatusResultAndEventAdaptersRoundTripEveryNativeSemantic(t *test
 
 func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.T) {
 	requiredMethods := []string{
-		"GetRuntimeStatus", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
+		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
 		"RequestTerminalActivation", "UpdateLiveTerminal", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState", "ResetTerminalCommandStates",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
 		"StartBroadcast", "EndBroadcast", "OpenURL", "GetPublicAccess", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
@@ -552,7 +768,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 35)
+	require.Len(t, actualMethods, 38)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -564,7 +780,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 		require.NotContains(t, actualMethods, forbidden)
 	}
 
-	require.Equal(t, []string{"server-info", "client-count", "hack-state", "coordination-state", "session-state", "public-access-status"}, []string{serverInfoEvent, clientCountEvent, hackStateEvent, coordinationStateEvent, sessionStateEvent, publicAccessStatusEvent})
+	require.Equal(t, []string{"server-info", "client-count", "hack-state", "coordination-state", "session-state", "public-access-status", "application-update-status"}, []string{serverInfoEvent, clientCountEvent, hackStateEvent, coordinationStateEvent, sessionStateEvent, publicAccessStatusEvent, applicationUpdateStatusEvent})
 }
 
 func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
@@ -596,7 +812,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 35)
+	require.Len(t, forwarded, 38)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

@@ -24,7 +24,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const archiveTestRevision = "0123456789abcdef0123456789abcdef01234567"
+const (
+	archiveTestRevision = "0123456789abcdef0123456789abcdef01234567"
+	archiveTestVersion  = "2.4.6-rc.2"
+)
 
 var archiveTestTime = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 
@@ -50,6 +53,7 @@ type testObservedArchiveEntry struct {
 type testManifestDocument struct {
 	SchemaVersion  int                      `json:"schemaVersion"`
 	Product        string                   `json:"product"`
+	Version        string                   `json:"version"`
 	SourceRevision string                   `json:"sourceRevision"`
 	Target         testManifestTarget       `json:"target"`
 	Runtime        string                   `json:"runtime"`
@@ -71,32 +75,24 @@ type testManifestFileRecord struct {
 func TestWritePortableArchiveIsDeterministic(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name   string
-		target Target
-	}{
-		{name: "Windows ZIP", target: mustParseTarget(t, goosWindows, goarchAMD64)},
-		{name: "Linux TAR.GZ", target: mustParseTarget(t, goosLinux, goarchARM64)},
-		{name: "Darwin ZIP", target: mustParseTarget(t, goosDarwin, goarchARM64)},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, target := range PortableTargets() {
+		t.Run(target.String(), func(t *testing.T) {
 			t.Parallel()
 
 			root := t.TempDir()
-			fixture := newArchiveTestFixture(t, root, test.target)
+			fixture := newArchiveTestFixture(t, root, target)
 			firstOutput := filepath.Join(root, "first output")
 			secondOutput := filepath.Join(root, "second output")
+			version := archiveTestReleaseVersion(t)
 
-			first, err := WritePortableArchive(t.Context(), firstOutput, test.target, archiveTestRevision, fixture.files)
+			first, err := WritePortableArchive(t.Context(), firstOutput, target, version, archiveTestRevision, fixture.files)
 			require.NoError(t, err)
-			second, err := WritePortableArchive(t.Context(), secondOutput, test.target, archiveTestRevision, fixture.files)
+			second, err := WritePortableArchive(t.Context(), secondOutput, target, version, archiveTestRevision, fixture.files)
 			require.NoError(t, err)
 
-			assert.Equal(t, filepath.Join(firstOutput, test.target.ArchiveName()), first.ArchivePath)
+			assert.Equal(t, filepath.Join(firstOutput, target.ArchiveName()), first.ArchivePath)
 			assert.Equal(t, first.ArchivePath+".sha256", first.ChecksumPath)
-			assert.Equal(t, filepath.Join(secondOutput, test.target.ArchiveName()), second.ArchivePath)
+			assert.Equal(t, filepath.Join(secondOutput, target.ArchiveName()), second.ArchivePath)
 			assert.Equal(t, second.ArchivePath+".sha256", second.ChecksumPath)
 
 			firstBytes := readArchiveTestFile(t, first.ArchivePath)
@@ -107,8 +103,8 @@ func TestWritePortableArchiveIsDeterministic(t *testing.T) {
 			assertArchiveChecksumSidecar(t, first)
 			assertArchiveChecksumSidecar(t, second)
 
-			observed := readObservedArchive(t, test.target.ArchiveFormat(), firstBytes)
-			assertDeterministicArchiveEntries(t, test.target, fixture, observed)
+			observed := readObservedArchive(t, target.ArchiveFormat(), firstBytes)
+			assertDeterministicArchiveEntries(t, target, fixture, observed)
 		})
 	}
 }
@@ -121,12 +117,29 @@ func TestWritePortableArchiveRejectsCanceledContextBeforePublication(t *testing.
 	fixture := newArchiveTestFixture(t, root, target)
 	output := filepath.Join(root, "canceled output")
 	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
 	cancel()
 
-	_, err := WritePortableArchive(ctx, output, target, archiveTestRevision, fixture.files)
+	_, err := WritePortableArchive(ctx, output, target, archiveTestReleaseVersion(t), archiveTestRevision, fixture.files)
 	require.ErrorIs(t, err, context.Canceled)
 	assert.NoFileExists(t, filepath.Join(output, target.ArchiveName()))
 	assert.NoFileExists(t, filepath.Join(output, target.ArchiveName()+".sha256"))
+}
+
+func TestWritePortableArchiveRejectsInconsistentCanonicalVersion(t *testing.T) {
+	t.Parallel()
+
+	target := mustParseTarget(t, goosLinux, goarchAMD64)
+	root := t.TempDir()
+	fixture := newArchiveTestFixture(t, root, target)
+	version := archiveTestReleaseVersion(t)
+	version.Canonical = "2.4.7"
+
+	_, err := WritePortableArchive(
+		t.Context(), filepath.Join(root, "invalid-version"), target,
+		version, archiveTestRevision, fixture.files,
+	)
+	require.ErrorContains(t, err, "inconsistent package version")
 }
 
 func TestWritePortableArchiveRejectsUnsafePathsAndTypes(t *testing.T) {
@@ -197,7 +210,9 @@ func TestWritePortableArchiveRejectsUnsafePathsAndTypes(t *testing.T) {
 			test.mutate(t, root, &fixture)
 			output := filepath.Join(root, "rejected output")
 
-			_, err := WritePortableArchive(t.Context(), output, target, archiveTestRevision, fixture.files)
+			_, err := WritePortableArchive(
+				t.Context(), output, target, archiveTestReleaseVersion(t), archiveTestRevision, fixture.files,
+			)
 			require.ErrorContains(t, err, test.wantError)
 			assert.NoFileExists(t, filepath.Join(output, target.ArchiveName()))
 			assert.NoFileExists(t, filepath.Join(output, target.ArchiveName()+".sha256"))
@@ -238,7 +253,10 @@ func TestWritePortableArchiveRequiresExactInventory(t *testing.T) {
 			fixture := newArchiveTestFixture(t, root, target)
 			test.mutate(&fixture)
 
-			_, err := WritePortableArchive(t.Context(), filepath.Join(root, "output"), target, archiveTestRevision, fixture.files)
+			_, err := WritePortableArchive(
+				t.Context(), filepath.Join(root, "output"), target,
+				archiveTestReleaseVersion(t), archiveTestRevision, fixture.files,
+			)
 			require.ErrorContains(t, err, "exact payload inventory")
 		})
 	}
@@ -253,7 +271,10 @@ func TestWritePortableArchiveExcludesUserOwnedAndSecretBearingFiles(t *testing.T
 
 			root := t.TempDir()
 			fixture := newArchiveTestFixture(t, root, target)
-			result, err := WritePortableArchive(t.Context(), filepath.Join(root, "output"), target, archiveTestRevision, fixture.files)
+			result, err := WritePortableArchive(
+				t.Context(), filepath.Join(root, "output"), target,
+				archiveTestReleaseVersion(t), archiveTestRevision, fixture.files,
+			)
 			require.NoError(t, err)
 
 			observed := readObservedArchive(t, target.ArchiveFormat(), readArchiveTestFile(t, result.ArchivePath))
@@ -276,14 +297,20 @@ func TestWritePortableDarwinArchiveRejectsUnsafePathsAndCancellation(t *testing.
 	root := t.TempDir()
 	fixture := newArchiveTestFixture(t, root, target)
 	fixture.files[0].Path = "../Fallout Terminal.app/Contents/MacOS/Fallout Terminal"
-	_, err := WritePortableArchive(t.Context(), filepath.Join(root, "unsafe"), target, archiveTestRevision, fixture.files)
+	_, err := WritePortableArchive(
+		t.Context(), filepath.Join(root, "unsafe"), target,
+		archiveTestReleaseVersion(t), archiveTestRevision, fixture.files,
+	)
 	require.ErrorContains(t, err, "parent traversal")
 
 	fixture = newArchiveTestFixture(t, root, target)
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	cancel()
-	_, err = WritePortableArchive(ctx, filepath.Join(root, "canceled"), target, archiveTestRevision, fixture.files)
+	_, err = WritePortableArchive(
+		ctx, filepath.Join(root, "canceled"), target,
+		archiveTestReleaseVersion(t), archiveTestRevision, fixture.files,
+	)
 	require.ErrorIs(t, err, context.Canceled)
 }
 
@@ -314,8 +341,9 @@ func assertDeterministicArchiveEntries(
 	manifestEntry := entries[manifestPath]
 	assert.Equal(t, fs.FileMode(0o444), manifestEntry.mode.Perm())
 	manifest := decodeArchiveManifest(t, manifestEntry.contents)
-	assert.Equal(t, 1, manifest.SchemaVersion)
+	assert.Equal(t, 2, manifest.SchemaVersion)
 	assert.Equal(t, applicationName, manifest.Product)
+	assert.Equal(t, archiveTestVersion, manifest.Version)
 	assert.Equal(t, archiveTestRevision, manifest.SourceRevision)
 	assert.Equal(t, testManifestTarget{OS: target.OS(), Arch: target.Arch()}, manifest.Target)
 	assert.Equal(t, target.NativeRuntime(), manifest.Runtime)
@@ -360,6 +388,14 @@ func newArchiveTestFixture(t *testing.T, root string, target Target) archiveTest
 		files = append(files, ArchiveFile{Path: archivePath, SourcePath: source})
 	}
 	return archiveTestFixture{files: files, contents: contents}
+}
+
+func archiveTestReleaseVersion(t *testing.T) ReleaseVersion {
+	t.Helper()
+
+	version, err := ResolveBuildVersion(archiveTestVersion)
+	require.NoError(t, err)
+	return version
 }
 
 func expectedArchivePaths(target Target) []string {

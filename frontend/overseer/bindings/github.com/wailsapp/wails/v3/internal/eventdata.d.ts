@@ -15,6 +15,7 @@ import type * as domain$0 from "../../../../obalunenko/Fallout-Terminal/v2/inter
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "application-update-status": main$0.ApplicationUpdateSnapshot;
             "client-count": number;
             "coordination-state": domain$0.MasterCoordinationState | null;
             "hack-state": domain$0.PublicHackState | null;

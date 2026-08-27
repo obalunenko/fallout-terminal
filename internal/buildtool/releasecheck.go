@@ -67,6 +67,21 @@ func ResolveBuildVersion(value string) (ReleaseVersion, error) {
 	return releaseVersionFromMatches("build VERSION", value, matches)
 }
 
+func resolveManifestVersion(value string) (ReleaseVersion, error) {
+	input := value
+	if value == developmentBuildVersion {
+		input = ""
+	}
+	version, err := ResolveBuildVersion(input)
+	if err != nil {
+		return ReleaseVersion{}, err
+	}
+	if version.Canonical != value {
+		return ReleaseVersion{}, fmt.Errorf("non-canonical manifest version %q", value)
+	}
+	return version, nil
+}
+
 // ValidateReleaseTag accepts the release workflow's strict v2 SemVer subset
 // and reports whether the accepted version is a prerelease. Build metadata is
 // not accepted because a tag maps to one create-only GitHub Release identity.
@@ -198,6 +213,21 @@ func inspectReleaseArchiveVersion(
 	}
 	if err := validatePackageVersion(expected); err != nil {
 		return fmt.Errorf("validate expected release version: %w", err)
+	}
+	files, err := inspectArtifactArchive(ctx, archivePath, target)
+	if err != nil {
+		return fmt.Errorf("inspect release artifact manifest: %w", err)
+	}
+	manifest, err := verifyArtifactManifest(target, files)
+	if err != nil {
+		return fmt.Errorf("verify release artifact manifest: %w", err)
+	}
+	manifestVersion, err := resolveManifestVersion(manifest.Version)
+	if err != nil || !manifestVersion.IsRelease {
+		return fmt.Errorf("manifest version %q is not a canonical release version", manifest.Version)
+	}
+	if manifestVersion != expected {
+		return fmt.Errorf("manifest version is %q, want %q", manifest.Version, expected.Canonical)
 	}
 	if probe == nil {
 		return errors.New("native version probe is required")

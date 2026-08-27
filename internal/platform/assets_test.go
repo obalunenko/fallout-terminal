@@ -202,6 +202,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 		"fallout/terminal/private/v1/desktop.proto":           contract("private", "privatev1", ""),
 		"fallout/terminal/private/v1/public_access.proto":     contract("private", "privatev1", ""),
 		"fallout/terminal/private/v1/runtime.proto":           contract("private", "privatev1", ""),
+		"fallout/terminal/private/v1/update.proto":            contract("private", "privatev1", ""),
 	}
 
 	descriptors := make(map[string]protoreflect.FileDescriptor)
@@ -263,7 +264,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
 	}
 
-	const stableDescriptorShape = "2143b5f60309f7ee4c6e8b2dde2d88b4a2b40be1804382e2d1dfd45ee6ff80bf"
+	const stableDescriptorShape = "c67aeab7ab4e245ef42987e5b1348082304c0d4395aeaebbd9b3765d710e4e02"
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
@@ -433,8 +434,8 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
-		"proto/schema-revision.txt":                       "bc1f1e0877773622d41658369e7e07e41437c51c19a9e8e2288310a8fc311bfc",
-		"proto/compatibility-baseline.binpb":              "30054bd49c608bf2d4696e788775bf3dbbc0d7b4fdf69cc2f2cbd21a417ff44d",
+		"proto/schema-revision.txt":                       "4dbbf2c119511e08aa10374ef97948518460b95bd687568bedfaf001bd4e8212",
+		"proto/compatibility-baseline.binpb":              "b0004a0b4dbfabd1b6cce0c183b7b42a3f104261b1c047fc5d2ebe40932be3a7",
 	}
 	for relative, want := range wantDigests {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
@@ -506,6 +507,112 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 	assert.Contains(t, javascript, "generatePlayerPassword")
 	assert.Contains(t, javascript, "public-access-status")
 	assert.Contains(t, read("frontend/overseer/src/desktop-api.js"), "Clipboard.SetText")
+}
+
+func TestApplicationUpdateAssetsAreAccessibleAndKeepProviderDetailsBackendOnly(t *testing.T) {
+	t.Parallel()
+
+	root := assetRepositoryRoot(t)
+	read := func(relative string) string {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+		require.NoError(t, err)
+		return string(raw)
+	}
+
+	html := read("frontend/overseer/src/index.html")
+	for _, fragment := range []string{
+		`id="applicationUpdateStatusPanel" aria-label="Обновление приложения"`,
+		`id="applicationUpdateStatus" role="status" aria-live="polite" aria-atomic="true"`,
+		`id="applicationUpdateError" role="alert" aria-live="assertive" aria-atomic="true"`,
+		`id="applicationUpdateProgress" aria-label="Подготовка обновления приложения"`,
+		`id="applicationUpdateDialog" aria-modal="true" aria-labelledby="applicationUpdateDialogTitle" aria-describedby="applicationUpdateDialogDescription applicationUpdateReleaseNotes"`,
+		`id="applicationUpdateRestartDialog" aria-modal="true" aria-labelledby="applicationUpdateRestartDialogTitle" aria-describedby="applicationUpdateRestartDialogDescription"`,
+		`id="btnAcceptApplicationUpdate" type="button"`,
+		`id="btnDeferApplicationUpdate" type="button"`,
+		`id="btnRestartApplicationUpdate" type="button"`,
+		`id="btnPostponeApplicationUpdate" type="button"`,
+	} {
+		assert.Contains(t, html, fragment,
+			"Overseer update markup is missing accessible contract %q", fragment)
+	}
+	assert.Equal(t, 1, strings.Count(html, `id="applicationUpdateDialog"`),
+		"the update offer must have one dialog")
+	assert.Equal(t, 1, strings.Count(html, `id="applicationUpdateRestartDialog"`),
+		"restart consent must use one separate dialog")
+
+	overseer := read("frontend/overseer/src/overseer.js")
+	for _, fragment := range []string{
+		"applicationUpdateDialog.showModal()",
+		"applicationUpdateRestartDialog.showModal()",
+		"btnDeferApplicationUpdate.focus()",
+		"btnPostponeApplicationUpdate.focus()",
+		"void resolveApplicationUpdateOffer('defer')",
+		"void resolveApplicationUpdateRestart('postpone')",
+		"void resolveApplicationUpdateRestart('restart')",
+	} {
+		assert.Contains(t, overseer, fragment,
+			"Overseer update flow is missing keyboard-safe consent behavior %q", fragment)
+	}
+
+	facade := read("frontend/overseer/src/desktop-api.js")
+	for _, fragment := range []string{
+		"getApplicationUpdateStatus: desktopService.GetApplicationUpdateStatus",
+		"resolveApplicationUpdateOffer: desktopService.ResolveApplicationUpdateOffer",
+		"resolveApplicationUpdateRestart: desktopService.ResolveApplicationUpdateRestart",
+		"Events.On('application-update-status'",
+	} {
+		assert.Contains(t, facade, fragment,
+			"Overseer update facade is missing the private desktop boundary %q", fragment)
+	}
+
+	backend := read("wails_updater.go") + "\n" + read("internal/update/model.go") + "\n" + read("internal/update/helper.go")
+	for _, fragment := range []string{
+		"applicationGitHubAPIBaseURL",
+		"applicationGitHubProvider",
+		"DownloadURL",
+		"PreparedApplicationUnit",
+		"InstalledUnit",
+		"StagedUnit",
+		"LaunchRelativePath",
+	} {
+		assert.Contains(t, backend, fragment,
+			"application update backend is missing privileged implementation detail %q", fragment)
+	}
+
+	frontend := html + "\n" + read("frontend/overseer/src/overseer.css") + "\n" + overseer + "\n" + facade
+	for _, forbidden := range []string{
+		"https://api.github.com",
+		"api.github.com/repos/",
+		"browser_download_url",
+		"github.asset.",
+		"applicationGitHubProvider",
+		"DownloadURL",
+		"PreparedApplicationUnit",
+		"InstalledUnit",
+		"StagedUnit",
+		"LaunchRelativePath",
+		"application-update-recovery.json",
+		"Authorization: Bearer",
+		"fetch(",
+		"XMLHttpRequest",
+	} {
+		assert.NotContains(t, frontend, forbidden,
+			"frontend update assets expose backend-only provider/helper capability %q", forbidden)
+	}
+
+	player := read("frontend/client/index.html") + "\n" + read("frontend/client/client.js")
+	for _, forbidden := range []string{
+		"application-update-status",
+		"GetApplicationUpdateStatus",
+		"ResolveApplicationUpdateOffer",
+		"ResolveApplicationUpdateRestart",
+		"applicationUpdateDialog",
+		"applicationUpdateRestartDialog",
+	} {
+		assert.NotContains(t, player, forbidden,
+			"player frontend exposes private application-update capability %q", forbidden)
+	}
 }
 
 func TestOverseerAssetManifestSupportsCleanCheckoutAndBuiltOutput(t *testing.T) {

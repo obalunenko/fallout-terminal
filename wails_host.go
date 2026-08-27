@@ -2,16 +2,23 @@ package main
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	_ "embed"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/fs"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/platform"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/obalunenko/logger"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/updater"
 )
 
 const wailsShutdownTimeout = 5 * time.Second
@@ -39,10 +46,127 @@ func init() {
 	application.RegisterEvent[*domain.MasterCoordinationState](coordinationStateEvent)
 	application.RegisterEvent[SessionStateEvent](sessionStateEvent)
 	application.RegisterEvent[PublicAccessSnapshot](publicAccessStatusEvent)
+	application.RegisterEvent[ApplicationUpdateSnapshot](applicationUpdateStatusEvent)
 }
 
 func newWailsApplication(overseerAssets fs.FS) *application.App {
 	return application.New(wailsApplicationOptions(overseerAssets))
+}
+
+// newApplicationUpdateManager composes discovery only for a versioned,
+// packaged release. Development and unpackaged builds never construct the
+// provider or initialise Wails' updater, so their status handshake cannot
+// reach the network.
+func newApplicationUpdateManager(
+	host *application.App,
+	packaged bool,
+	installedVersion string,
+	recoveryPath string,
+	initialFailure *updateservice.UpdateFailure,
+	publish updateservice.PublishFunc,
+) (*updateservice.Manager, error) {
+	config := updateservice.ManagerConfig{
+		InstalledVersion: installedVersion,
+		Packaged:         packaged,
+		Publish:          publish,
+		InitialFailure:   initialFailure,
+	}
+	if !packaged || installedVersion == "" || installedVersion == "development" {
+		return updateservice.NewManager(config)
+	}
+	if initialFailure != nil {
+		// Recovery status must remain visible even when update infrastructure is
+		// unavailable. A previous apply outcome never requires provider or
+		// installation discovery during this launch.
+		return updateservice.NewManager(config)
+	}
+	if host == nil || host.Updater == nil {
+		return nil, errors.New("application update host is unavailable")
+	}
+	provider, err := newApplicationGitHubProvider(applicationGitHubProviderConfig{})
+	if err != nil {
+		return nil, err
+	}
+	updaterEvents := newApplicationUpdaterHost(host)
+	host.Updater = updater.New(updaterEvents)
+	adapter, err := newHeadlessWailsUpdater(host, installedVersion, provider)
+	if err != nil {
+		return nil, fmt.Errorf("initialize headless updater: %w", err)
+	}
+	adapter.events = updaterEvents
+	installedUnit, installedLaunchRelativePath, err := platform.InstalledApplicationUnit()
+	if err != nil {
+		return nil, fmt.Errorf("resolve installed application unit: %w", err)
+	}
+	attemptID := newApplicationUpdateAttemptID()
+	config.Check = func(ctx context.Context) (*updateservice.UpdateCandidate, error) {
+		release, checkErr := adapter.Check(ctx)
+		if checkErr != nil {
+			return nil, checkErr
+		}
+		return applicationUpdateCandidateFromWails(release)
+	}
+	config.Prepare = func(
+		ctx context.Context,
+		candidate updateservice.UpdateCandidate,
+		report func(updateservice.UpdateState, updateservice.UpdateProgress),
+	) (updateservice.PreparedApplicationUnit, error) {
+		return adapter.PrepareApplicationUpdate(
+			ctx, candidate, attemptID, installedUnit, installedLaunchRelativePath, report,
+		)
+	}
+	config.Restart = func(ctx context.Context, prepared updateservice.PreparedApplicationUnit) error {
+		request := updateservice.HelperRequestForPrepared(prepared, os.Getpid(), 0, recoveryPath)
+		if err := updateservice.LaunchCopiedReplacementHelper(ctx, request); err != nil {
+			return err
+		}
+		host.Quit()
+		return nil
+	}
+	config.IDs = func() string { return attemptID }
+	return updateservice.NewManager(config)
+}
+
+func applicationUpdateCandidateFromWails(release *updater.Release) (*updateservice.UpdateCandidate, error) {
+	if release == nil {
+		return nil, nil
+	}
+	channel := updateservice.Channel(release.Channel)
+	if !channel.Valid() || release.Version == "" || release.Verification == nil ||
+		release.Verification.DigestAlgo != "sha256" || len(release.Verification.Digest) != 32 {
+		return nil, errors.New("application update release metadata is invalid")
+	}
+	assetID, idOK := release.Metadata["github.asset.id"].(int64)
+	downloadURL, urlOK := release.Metadata["github.asset.url"].(string)
+	if !idOK || assetID <= 0 || !urlOK || downloadURL == "" || release.Artifact.Filename == "" ||
+		release.Artifact.Size <= 0 || release.Artifact.Platform == "" || release.Artifact.Arch == "" {
+		return nil, errors.New("application update release metadata is invalid")
+	}
+	var digest [32]byte
+	copy(digest[:], release.Verification.Digest)
+	return &updateservice.UpdateCandidate{
+		Version:      release.Version,
+		Channel:      channel,
+		Name:         release.Name,
+		ReleaseNotes: release.Notes,
+		PublishedAt:  release.PublishedAt,
+		Artifact: updateservice.ReleaseAsset{
+			ID: assetID, Name: release.Artifact.Filename, State: "uploaded", Size: release.Artifact.Size,
+			DigestAlgorithm: "sha256", Digest: digest, DownloadURL: downloadURL,
+			Target: updateservice.Target{OS: release.Artifact.Platform, Arch: release.Artifact.Arch},
+		},
+	}, nil
+}
+
+func newApplicationUpdateAttemptID() string {
+	var value [16]byte
+	if _, err := cryptorand.Read(value[:]); err == nil {
+		return hex.EncodeToString(value[:])
+	}
+	// Discovery is launch scoped and asks for one identifier. A time-derived
+	// fallback preserves an opaque nonempty correlation value if system entropy
+	// is temporarily unavailable without preventing the local app from starting.
+	return fmt.Sprintf("attempt-%x", time.Now().UnixNano())
 }
 
 func wailsApplicationOptions(overseerAssets fs.FS) application.Options {
@@ -146,6 +270,74 @@ func (sink *wailsEventSink) Emit(name string, payload any) error {
 	}
 	sink.events.Emit(name, payload)
 	return nil
+}
+
+// applicationUpdaterHost keeps Wails updater lifecycle payloads inside Go.
+// Release objects contain backend-only verification and download metadata, so
+// they must not be forwarded through the general Wails event bridge. Authored
+// update snapshots are published separately by App.
+type applicationUpdaterHost struct {
+	application *application.App
+
+	mu        sync.RWMutex
+	nextID    uint64
+	listeners map[string]map[uint64]func(any)
+}
+
+func newApplicationUpdaterHost(host *application.App) *applicationUpdaterHost {
+	return &applicationUpdaterHost{
+		application: host,
+		listeners:   make(map[string]map[uint64]func(any)),
+	}
+}
+
+func (host *applicationUpdaterHost) Emit(name string, data ...any) bool {
+	host.mu.RLock()
+	callbacks := make([]func(any), 0, len(host.listeners[name]))
+	for _, callback := range host.listeners[name] {
+		callbacks = append(callbacks, callback)
+	}
+	host.mu.RUnlock()
+	var payload any
+	if len(data) == 1 {
+		payload = data[0]
+	} else if len(data) > 1 {
+		payload = append([]any(nil), data...)
+	}
+	for _, callback := range callbacks {
+		callback(payload)
+	}
+	return len(callbacks) > 0
+}
+
+func (host *applicationUpdaterHost) OnEvent(name string, callback func(any)) func() {
+	if callback == nil {
+		return func() {}
+	}
+	host.mu.Lock()
+	host.nextID++
+	id := host.nextID
+	if host.listeners[name] == nil {
+		host.listeners[name] = make(map[uint64]func(any))
+	}
+	host.listeners[name][id] = callback
+	host.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			host.mu.Lock()
+			delete(host.listeners[name], id)
+			host.mu.Unlock()
+		})
+	}
+}
+
+func (*applicationUpdaterHost) OpenWindow(updater.WindowOptions) updater.WindowHandle { return nil }
+
+func (host *applicationUpdaterHost) Quit() {
+	if host.application != nil {
+		host.application.Quit()
+	}
 }
 
 // wailsLifecycleService adapts framework lifecycle callbacks to the unbound
