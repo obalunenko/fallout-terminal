@@ -52,6 +52,21 @@ func TestPublicAccessSettingsPathUsesApplicationSupportWithoutSideEffects(t *tes
 	require.Error(t, err)
 }
 
+func TestApplicationUpdateRecoveryPathUsesApplicationSupportWithoutSideEffects(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	applicationSupport := filepath.Join(root, "Application Support")
+	path, err := ApplicationUpdateRecoveryPath(applicationSupport)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(applicationSupport, applicationUpdateRecoveryFilename), path)
+	_, err = os.Stat(applicationSupport)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+
+	_, err = ApplicationUpdateRecoveryPath("relative/application-support")
+	require.Error(t, err)
+}
+
 func TestSessionLocationsForNativeProfiles(t *testing.T) {
 	t.Parallel()
 

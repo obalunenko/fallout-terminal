@@ -187,26 +187,33 @@ scan_root_module() {
 scan_lifecycle_schema() {
   local scan_root="$1"
   local runtime_schema="$scan_root/proto/fallout/terminal/private/v1/runtime.proto"
+  local update_schema="$scan_root/proto/fallout/terminal/private/v1/update.proto"
 
   [[ -f "$runtime_schema" ]] || fail 'private runtime schema is missing'
+  [[ -f "$update_schema" ]] || fail 'private update schema is missing'
   if grep -En '(LifecyclePhase|lifecycle_phase|lifecyclePhase|^[[:space:]]*(optional[[:space:]]+)?(string|int32|int64|uint32|uint64|[A-Za-z_][A-Za-z0-9_.]*)[[:space:]]+phase[[:space:]]*=)' "$runtime_schema"; then
     fail 'private runtime schema contains a serialized lifecycle phase'
   fi
 
-  local runtime_digest revision_digest baseline_digest
+  local runtime_digest update_digest revision_digest baseline_digest
   runtime_digest="$(shasum -a 256 "$runtime_schema" | awk '{print $1}')"
+  update_digest="$(shasum -a 256 "$update_schema" | awk '{print $1}')"
   revision_digest="$(shasum -a 256 "$scan_root/proto/schema-revision.txt" | awk '{print $1}')"
   baseline_digest="$(shasum -a 256 "$scan_root/proto/compatibility-baseline.binpb" | awk '{print $1}')"
   [[ "$runtime_digest" == 6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54 ]] || {
     fail 'reviewed private runtime schema changed unexpectedly'
     return 1
   }
-  [[ "$revision_digest" == bc1f1e0877773622d41658369e7e07e41437c51c19a9e8e2288310a8fc311bfc ]] || {
+  [[ "$update_digest" == 986f396f79f16f1a666f0fe22dfcad75533e8ab29ca6c8e91f4090141520c420 ]] || {
+    fail 'reviewed private update schema changed unexpectedly'
+    return 1
+  }
+  [[ "$revision_digest" == 4dbbf2c119511e08aa10374ef97948518460b95bd687568bedfaf001bd4e8212 ]] || {
     fail 'reviewed schema revision record changed unexpectedly'
     return 1
   }
-  [[ "$baseline_digest" == 30054bd49c608bf2d4696e788775bf3dbbc0d7b4fdf69cc2f2cbd21a417ff44d ]] || {
-    fail 'reviewed feature-007 compatibility baseline changed unexpectedly'
+  [[ "$baseline_digest" == b0004a0b4dbfabd1b6cce0c183b7b42a3f104261b1c047fc5d2ebe40932be3a7 ]] || {
+    fail 'reviewed compatibility baseline changed unexpectedly'
     return 1
   }
 }
@@ -242,6 +249,7 @@ self_test() {
     '    cmds:' \
     '      - go run ./cmd/build package --target "{{.GOOS}}/{{.GOARCH}}"' >"$fixture_root/Taskfile.yml"
   cp "$repository_root/proto/fallout/terminal/private/v1/runtime.proto" "$fixture_root/proto/fallout/terminal/private/v1/runtime.proto"
+  cp "$repository_root/proto/fallout/terminal/private/v1/update.proto" "$fixture_root/proto/fallout/terminal/private/v1/update.proto"
   cp "$repository_root/proto/schema-revision.txt" "$fixture_root/proto/schema-revision.txt"
   cp "$repository_root/proto/compatibility-baseline.binpb" "$fixture_root/proto/compatibility-baseline.binpb"
   printf 'task dev\n' >"$fixture_root/docs/commands.md"

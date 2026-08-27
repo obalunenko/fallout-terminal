@@ -9,11 +9,296 @@ import (
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 )
 
 // The private protobuf graph governs trusted desktop semantics only. These
 // adapters are invoked inside App while Wails continues carrying the existing
 // native DTOs; no protobuf bytes, ProtoJSON, or generic envelope crosses Wails.
+
+func applicationUpdateSnapshotToPrivate(snapshot updateservice.UpdateSnapshot) *privatev1.ApplicationUpdateSnapshot {
+	semantic := &privatev1.ApplicationUpdateSnapshot{
+		Revision:         snapshot.Revision,
+		State:            applicationUpdateStateToPrivate(snapshot.State),
+		InstalledVersion: snapshot.InstalledVersion,
+		BytesDownloaded:  snapshot.Progress.BytesDownloaded,
+		FailedStage:      applicationUpdateFailureStageToPrivate(snapshot.Failure.Stage),
+	}
+	if snapshot.AttemptID != "" {
+		semantic.AttemptId = &snapshot.AttemptID
+	}
+	if snapshot.AvailableVersion != "" {
+		semantic.AvailableVersion = &snapshot.AvailableVersion
+	}
+	if snapshot.ReleaseNotes != "" {
+		semantic.ReleaseNotes = &snapshot.ReleaseNotes
+	}
+	if snapshot.Progress.DownloadSizeKnown {
+		semantic.DownloadSize = &snapshot.Progress.DownloadSize
+	}
+	if snapshot.Failure.Message != "" {
+		semantic.ErrorMessage = &snapshot.Failure.Message
+	}
+	if snapshot.Failure.RecoveryAction != "" {
+		semantic.RecoveryAction = &snapshot.Failure.RecoveryAction
+	}
+
+	return semantic
+}
+
+func applicationUpdateSnapshotFromPrivate(snapshot *privatev1.ApplicationUpdateSnapshot) ApplicationUpdateSnapshot {
+	if snapshot == nil {
+		return ApplicationUpdateSnapshot{}
+	}
+
+	native := ApplicationUpdateSnapshot{
+		Revision:         snapshot.GetRevision(),
+		AttemptID:        snapshot.GetAttemptId(),
+		State:            applicationUpdateStateFromPrivate(snapshot.GetState()),
+		InstalledVersion: snapshot.GetInstalledVersion(),
+		AvailableVersion: snapshot.GetAvailableVersion(),
+		ReleaseNotes:     snapshot.GetReleaseNotes(),
+		BytesDownloaded:  snapshot.GetBytesDownloaded(),
+		FailedStage:      applicationUpdateFailureStageFromPrivate(snapshot.GetFailedStage()),
+		ErrorMessage:     snapshot.GetErrorMessage(),
+		RecoveryAction:   snapshot.GetRecoveryAction(),
+	}
+	if snapshot.DownloadSize != nil {
+		downloadSize := snapshot.GetDownloadSize()
+		native.DownloadSize = &downloadSize
+	}
+
+	return native
+}
+
+func routeApplicationUpdateOfferDecisionRequest(payload ApplicationUpdateOfferDecisionPayload) (ApplicationUpdateOfferDecisionPayload, error) {
+	decision := applicationUpdateOfferDecisionToPrivate(payload.Decision)
+	if decision == privatev1.ApplicationUpdateOfferDecision_APPLICATION_UPDATE_OFFER_DECISION_UNSPECIFIED {
+		return ApplicationUpdateOfferDecisionPayload{}, fmt.Errorf("unsupported application update offer decision")
+	}
+	semantic := &privatev1.ResolveApplicationUpdateOfferRequest{AttemptId: payload.AttemptID, Decision: decision}
+
+	return ApplicationUpdateOfferDecisionPayload{
+		AttemptID: semantic.GetAttemptId(),
+		Decision:  applicationUpdateOfferDecisionFromPrivate(semantic.GetDecision()),
+	}, nil
+}
+
+func routeApplicationUpdateRestartDecisionRequest(payload ApplicationUpdateRestartDecisionPayload) (ApplicationUpdateRestartDecisionPayload, error) {
+	decision := applicationUpdateRestartDecisionToPrivate(payload.Decision)
+	if decision == privatev1.ApplicationUpdateRestartDecision_APPLICATION_UPDATE_RESTART_DECISION_UNSPECIFIED {
+		return ApplicationUpdateRestartDecisionPayload{}, fmt.Errorf("unsupported application update restart decision")
+	}
+	semantic := &privatev1.ResolveApplicationUpdateRestartRequest{AttemptId: payload.AttemptID, Decision: decision}
+
+	return ApplicationUpdateRestartDecisionPayload{
+		AttemptID: semantic.GetAttemptId(),
+		Decision:  applicationUpdateRestartDecisionFromPrivate(semantic.GetDecision()),
+	}, nil
+}
+
+func applicationUpdateCommandResultToPrivate(result ApplicationUpdateCommandResult) *privatev1.ApplicationUpdateCommandResult {
+	semantic := &privatev1.ApplicationUpdateCommandResult{
+		Ok:       result.OK,
+		Snapshot: applicationUpdateNativeSnapshotToPrivate(result.Snapshot),
+	}
+	if result.Error != "" {
+		semantic.Error = &result.Error
+	}
+
+	return semantic
+}
+
+func applicationUpdateCommandResultFromPrivate(result *privatev1.ApplicationUpdateCommandResult) ApplicationUpdateCommandResult {
+	if result == nil {
+		return ApplicationUpdateCommandResult{}
+	}
+
+	return ApplicationUpdateCommandResult{
+		OK:       result.GetOk(),
+		Error:    result.GetError(),
+		Snapshot: applicationUpdateSnapshotFromPrivate(result.GetSnapshot()),
+	}
+}
+
+func applicationUpdateNativeSnapshotToPrivate(snapshot ApplicationUpdateSnapshot) *privatev1.ApplicationUpdateSnapshot {
+	semantic := &privatev1.ApplicationUpdateSnapshot{
+		Revision:         snapshot.Revision,
+		State:            applicationUpdateStateToPrivate(updateservice.UpdateState(snapshot.State)),
+		InstalledVersion: snapshot.InstalledVersion,
+		BytesDownloaded:  snapshot.BytesDownloaded,
+		FailedStage:      applicationUpdateFailureStageToPrivate(updateservice.FailureStage(snapshot.FailedStage)),
+	}
+	if snapshot.AttemptID != "" {
+		semantic.AttemptId = &snapshot.AttemptID
+	}
+	if snapshot.AvailableVersion != "" {
+		semantic.AvailableVersion = &snapshot.AvailableVersion
+	}
+	if snapshot.ReleaseNotes != "" {
+		semantic.ReleaseNotes = &snapshot.ReleaseNotes
+	}
+	if snapshot.DownloadSize != nil {
+		downloadSize := *snapshot.DownloadSize
+		semantic.DownloadSize = &downloadSize
+	}
+	if snapshot.ErrorMessage != "" {
+		semantic.ErrorMessage = &snapshot.ErrorMessage
+	}
+	if snapshot.RecoveryAction != "" {
+		semantic.RecoveryAction = &snapshot.RecoveryAction
+	}
+
+	return semantic
+}
+
+func applicationUpdateStateToPrivate(state updateservice.UpdateState) privatev1.ApplicationUpdateState {
+	switch state {
+	case updateservice.UpdateStateDisabled:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DISABLED
+	case updateservice.UpdateStateIdle:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_IDLE
+	case updateservice.UpdateStateChecking:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_CHECKING
+	case updateservice.UpdateStateCurrent:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_CURRENT
+	case updateservice.UpdateStateAvailable:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_AVAILABLE
+	case updateservice.UpdateStateDeferred:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DEFERRED
+	case updateservice.UpdateStateDownloading:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DOWNLOADING
+	case updateservice.UpdateStateVerifying:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_VERIFYING
+	case updateservice.UpdateStateStaging:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_STAGING
+	case updateservice.UpdateStateReadyToRestart:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_READY_TO_RESTART
+	case updateservice.UpdateStateApplying:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_APPLYING
+	case updateservice.UpdateStateFailed:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_FAILED
+	default:
+		return privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_UNSPECIFIED
+	}
+}
+
+func applicationUpdateStateFromPrivate(state privatev1.ApplicationUpdateState) string {
+	switch state {
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DISABLED:
+		return string(updateservice.UpdateStateDisabled)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_IDLE:
+		return string(updateservice.UpdateStateIdle)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_CHECKING:
+		return string(updateservice.UpdateStateChecking)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_CURRENT:
+		return string(updateservice.UpdateStateCurrent)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_AVAILABLE:
+		return string(updateservice.UpdateStateAvailable)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DEFERRED:
+		return string(updateservice.UpdateStateDeferred)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_DOWNLOADING:
+		return string(updateservice.UpdateStateDownloading)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_VERIFYING:
+		return string(updateservice.UpdateStateVerifying)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_STAGING:
+		return string(updateservice.UpdateStateStaging)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_READY_TO_RESTART:
+		return string(updateservice.UpdateStateReadyToRestart)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_APPLYING:
+		return string(updateservice.UpdateStateApplying)
+	case privatev1.ApplicationUpdateState_APPLICATION_UPDATE_STATE_FAILED:
+		return string(updateservice.UpdateStateFailed)
+	default:
+		return ""
+	}
+}
+
+func applicationUpdateFailureStageToPrivate(stage updateservice.FailureStage) privatev1.ApplicationUpdateFailureStage {
+	switch stage {
+	case updateservice.FailureStageCheck:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_CHECK
+	case updateservice.FailureStageDownload:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_DOWNLOAD
+	case updateservice.FailureStageVerify:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_VERIFY
+	case updateservice.FailureStageStage:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_STAGE
+	case updateservice.FailureStageApply:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_APPLY
+	case updateservice.FailureStageRelaunch:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_RELAUNCH
+	case updateservice.FailureStageRecovery:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_RECOVERY
+	default:
+		return privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_UNSPECIFIED
+	}
+}
+
+func applicationUpdateFailureStageFromPrivate(stage privatev1.ApplicationUpdateFailureStage) string {
+	switch stage {
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_CHECK:
+		return string(updateservice.FailureStageCheck)
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_DOWNLOAD:
+		return string(updateservice.FailureStageDownload)
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_VERIFY:
+		return string(updateservice.FailureStageVerify)
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_STAGE:
+		return string(updateservice.FailureStageStage)
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_APPLY:
+		return string(updateservice.FailureStageApply)
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_RELAUNCH:
+		return string(updateservice.FailureStageRelaunch)
+	case privatev1.ApplicationUpdateFailureStage_APPLICATION_UPDATE_FAILURE_STAGE_RECOVERY:
+		return string(updateservice.FailureStageRecovery)
+	default:
+		return ""
+	}
+}
+
+func applicationUpdateOfferDecisionFromPrivate(decision privatev1.ApplicationUpdateOfferDecision) string {
+	switch decision {
+	case privatev1.ApplicationUpdateOfferDecision_APPLICATION_UPDATE_OFFER_DECISION_ACCEPT:
+		return "accept"
+	case privatev1.ApplicationUpdateOfferDecision_APPLICATION_UPDATE_OFFER_DECISION_DEFER:
+		return "defer"
+	default:
+		return ""
+	}
+}
+
+func applicationUpdateOfferDecisionToPrivate(decision string) privatev1.ApplicationUpdateOfferDecision {
+	switch decision {
+	case "accept":
+		return privatev1.ApplicationUpdateOfferDecision_APPLICATION_UPDATE_OFFER_DECISION_ACCEPT
+	case "defer":
+		return privatev1.ApplicationUpdateOfferDecision_APPLICATION_UPDATE_OFFER_DECISION_DEFER
+	default:
+		return privatev1.ApplicationUpdateOfferDecision_APPLICATION_UPDATE_OFFER_DECISION_UNSPECIFIED
+	}
+}
+
+func applicationUpdateRestartDecisionFromPrivate(decision privatev1.ApplicationUpdateRestartDecision) string {
+	switch decision {
+	case privatev1.ApplicationUpdateRestartDecision_APPLICATION_UPDATE_RESTART_DECISION_RESTART:
+		return "restart"
+	case privatev1.ApplicationUpdateRestartDecision_APPLICATION_UPDATE_RESTART_DECISION_POSTPONE:
+		return "postpone"
+	default:
+		return ""
+	}
+}
+
+func applicationUpdateRestartDecisionToPrivate(decision string) privatev1.ApplicationUpdateRestartDecision {
+	switch decision {
+	case "restart":
+		return privatev1.ApplicationUpdateRestartDecision_APPLICATION_UPDATE_RESTART_DECISION_RESTART
+	case "postpone":
+		return privatev1.ApplicationUpdateRestartDecision_APPLICATION_UPDATE_RESTART_DECISION_POSTPONE
+	default:
+		return privatev1.ApplicationUpdateRestartDecision_APPLICATION_UPDATE_RESTART_DECISION_UNSPECIFIED
+	}
+}
 
 func routeSavePublicAccessSettingsRequest(payload SavePublicAccessSettingsPayload) (SavePublicAccessSettingsPayload, error) {
 	if payload.ReplacementProviderToken != "" && payload.DeleteProviderToken {

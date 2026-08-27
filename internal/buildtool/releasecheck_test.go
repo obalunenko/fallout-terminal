@@ -6,15 +6,21 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const releaseManifestTestVersion = "2.7.1"
 
 func TestValidateReleaseTagUsesStrictV2SemVer(t *testing.T) {
 	t.Parallel()
@@ -250,6 +256,98 @@ func TestInspectReleaseArchiveRejectsIneligibleArchives(t *testing.T) {
 	}
 }
 
+func TestInspectReleaseArchiveVersionAcceptsMatchingManifestV2AcrossPortableTargets(t *testing.T) {
+	t.Parallel()
+
+	expected, err := ResolveBuildVersion(releaseManifestTestVersion)
+	require.NoError(t, err)
+	for _, target := range PortableTargets() {
+		t.Run(target.String(), func(t *testing.T) {
+			t.Parallel()
+
+			archivePath := writeManifestV2ReleaseFixture(t, target, expected, nil, nil)
+			probe := func(
+				ctx context.Context,
+				gotTarget Target,
+				_ string,
+				arguments []string,
+			) (NativeVersionEvidence, error) {
+				require.NoError(t, ctx.Err())
+				assert.Equal(t, target, gotTarget)
+				assert.Equal(t, []string{"--version"}, arguments)
+				return matchingNativeVersionEvidence(target, expected), nil
+			}
+
+			require.NoError(t, inspectReleaseArchiveVersion(t.Context(), target, archivePath, expected, probe))
+		})
+	}
+}
+
+func TestInspectReleaseArchiveVersionRejectsManifestOrPackageDisagreement(t *testing.T) {
+	t.Parallel()
+
+	target := mustParseTarget(t, goosLinux, goarchAMD64)
+	expected, err := ResolveBuildVersion(releaseManifestTestVersion)
+	require.NoError(t, err)
+	tests := []struct {
+		name           string
+		mutateManifest func(*testManifestDocument)
+		mutatePackage  func(map[string][]byte)
+	}{
+		{
+			name: "schema v1",
+			mutateManifest: func(manifest *testManifestDocument) {
+				manifest.SchemaVersion = 1
+			},
+		},
+		{
+			name: "canonical version mismatch",
+			mutateManifest: func(manifest *testManifestDocument) {
+				manifest.Version = "2.7.2"
+			},
+		},
+		{
+			name: "development version",
+			mutateManifest: func(manifest *testManifestDocument) {
+				manifest.Version = developmentBuildVersion
+			},
+		},
+		{
+			name: "target mismatch",
+			mutateManifest: func(manifest *testManifestDocument) {
+				manifest.Target.Arch = goarchARM64
+			},
+		},
+		{
+			name: "manifest inventory digest mismatch",
+			mutateManifest: func(manifest *testManifestDocument) {
+				manifest.Files[0].SHA256 = strings.Repeat("0", 64)
+			},
+		},
+		{
+			name: "unlisted package entry",
+			mutatePackage: func(entries map[string][]byte) {
+				entries["unexpected-provider-binary"] = []byte("must not ship")
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			archivePath := writeManifestV2ReleaseFixture(
+				t, target, expected, test.mutateManifest, test.mutatePackage,
+			)
+			probe := func(_ context.Context, _ Target, _ string, _ []string) (NativeVersionEvidence, error) {
+				return matchingNativeVersionEvidence(target, expected), nil
+			}
+
+			require.Error(t, inspectReleaseArchiveVersion(t.Context(), target, archivePath, expected, probe))
+		})
+	}
+}
+
 func TestReleaseChecksHonorCancellation(t *testing.T) {
 	t.Parallel()
 
@@ -338,6 +436,129 @@ func releaseArchiveEntries(target Target) map[string][]byte {
 		entries[path.Join(applicationName, resource)] = []byte("resource")
 	}
 	return entries
+}
+
+func writeManifestV2ReleaseFixture(
+	t *testing.T,
+	target Target,
+	version ReleaseVersion,
+	mutateManifest func(*testManifestDocument),
+	mutatePackage func(map[string][]byte),
+) string {
+	t.Helper()
+
+	payload := map[string][]byte{
+		target.ExecutablePath(): []byte("native executable fixture for " + target.String()),
+	}
+	for _, resource := range target.RequiredResourcePaths() {
+		if resource == artifactManifestFilename {
+			continue
+		}
+		payload[resource] = []byte("resource fixture for " + resource)
+	}
+	if target.OS() == goosDarwin {
+		payload["Fallout Terminal.app/Contents/Info.plist"] = darwinVersionPlist(
+			version.Canonical, version.NumericCore,
+		)
+	}
+
+	manifest := testManifestDocument{
+		SchemaVersion:  2,
+		Product:        applicationName,
+		Version:        version.Canonical,
+		SourceRevision: archiveTestRevision,
+		Target:         testManifestTarget{OS: target.OS(), Arch: target.Arch()},
+		Runtime:        target.NativeRuntime(),
+		Files:          expectedManifestFiles(target, payload),
+	}
+	if mutateManifest != nil {
+		mutateManifest(&manifest)
+	}
+	manifestContents, err := json.MarshalIndent(manifest, "", "  ")
+	require.NoError(t, err)
+	manifestContents = append(manifestContents, '\n')
+	if mutatePackage != nil {
+		mutatePackage(payload)
+	}
+
+	entries := make(map[string][]byte, len(payload)+1)
+	for relative, contents := range payload {
+		entries[path.Join(applicationName, relative)] = contents
+	}
+	entries[path.Join(applicationName, artifactManifestFilename)] = manifestContents
+	root := t.TempDir()
+	archivePath := filepath.Join(root, target.ArchiveName())
+	writeReleaseArchiveFixtureWithTargetModes(t, archivePath, target, entries)
+	return archivePath
+}
+
+func matchingNativeVersionEvidence(target Target, version ReleaseVersion) NativeVersionEvidence {
+	evidence := NativeVersionEvidence{ExecutableOutput: version.Canonical + "\n"}
+	if target.OS() == goosWindows {
+		evidence.FileVersion = version.Canonical
+		evidence.ProductVersion = version.Canonical
+		evidence.FixedFileVersion = version.NumericFourPart
+		evidence.FixedProductVersion = version.NumericFourPart
+		evidence.AssemblyVersion = version.NumericFourPart
+	}
+	return evidence
+}
+
+func writeReleaseArchiveFixtureWithTargetModes(
+	t *testing.T,
+	archivePath string,
+	target Target,
+	entries map[string][]byte,
+) {
+	t.Helper()
+
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var contents bytes.Buffer
+	switch target.ArchiveFormat() {
+	case ArchiveFormatZIP:
+		writer := zip.NewWriter(&contents)
+		for _, name := range names {
+			value := entries[name]
+			header := &zip.FileHeader{Name: name, Method: zip.Deflate}
+			header.SetMode(releaseArchiveFixtureMode(target, name))
+			entry, err := writer.CreateHeader(header)
+			require.NoError(t, err)
+			_, err = entry.Write(value)
+			require.NoError(t, err)
+		}
+		require.NoError(t, writer.Close())
+	case ArchiveFormatTarGzip:
+		gzipWriter := gzip.NewWriter(&contents)
+		tarWriter := tar.NewWriter(gzipWriter)
+		for _, name := range names {
+			value := entries[name]
+			header := &tar.Header{
+				Name: name,
+				Mode: int64(releaseArchiveFixtureMode(target, name).Perm()),
+				Size: int64(len(value)),
+			}
+			require.NoError(t, tarWriter.WriteHeader(header))
+			_, err := io.Copy(tarWriter, bytes.NewReader(value))
+			require.NoError(t, err)
+		}
+		require.NoError(t, tarWriter.Close())
+		require.NoError(t, gzipWriter.Close())
+	default:
+		require.FailNow(t, "unsupported archive fixture format", string(target.ArchiveFormat()))
+	}
+	require.NoError(t, os.WriteFile(archivePath, contents.Bytes(), 0o600))
+}
+
+func releaseArchiveFixtureMode(target Target, name string) fs.FileMode {
+	relative := strings.TrimPrefix(name, applicationName+"/")
+	if relative == target.ExecutablePath() {
+		return 0o755
+	}
+	return 0o444
 }
 
 func writeReleaseArchiveFixture(t *testing.T, archivePath string, format ArchiveFormat, entries map[string][]byte) {

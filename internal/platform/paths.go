@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	documentsDirectoryName   = "Documents"
-	sessionsDirectoryName    = "Sessions"
-	applicationSupportName   = "Application Support"
-	applicationIdentifier    = "com.vaulttec.fallout-terminal"
-	productDirectoryName     = "Fallout Terminal"
-	bundledSessionsDirectory = "sessions"
-	bundledDemoFilename      = "demo.json"
-	publicAccessFilename     = "public-access.json"
+	documentsDirectoryName            = "Documents"
+	sessionsDirectoryName             = "Sessions"
+	applicationSupportName            = "Application Support"
+	applicationIdentifier             = "com.vaulttec.fallout-terminal"
+	productDirectoryName              = "Fallout Terminal"
+	bundledSessionsDirectory          = "sessions"
+	bundledDemoFilename               = "demo.json"
+	publicAccessFilename              = "public-access.json"
+	applicationUpdateRecoveryFilename = "application-update-recovery.json"
 )
 
 // SessionLocations separates user-owned session documents, the immutable
@@ -65,6 +66,83 @@ func PublicAccessSettingsPath(applicationSupportDirectory string) (string, error
 		return "", err
 	}
 	return filepath.Join(directory, publicAccessFilename), nil
+}
+
+// ApplicationUpdateRecoveryPath resolves the private non-user recovery
+// journal. It has no filesystem side effects and remains separate from session
+// documents and bundled application resources.
+func ApplicationUpdateRecoveryPath(applicationSupportDirectory string) (string, error) {
+	directory, err := cleanAbsolutePath("application support directory", applicationSupportDirectory)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(directory, applicationUpdateRecoveryFilename), nil
+}
+
+// InstalledApplicationUnit resolves the complete package unit containing the
+// running executable and the executable path relative to that unit. It has no
+// filesystem side effects.
+func InstalledApplicationUnit() (unit, launchRelativePath string, err error) {
+	executablePath, err := os.Executable()
+	if err != nil {
+		return "", "", fmt.Errorf("resolve application executable: %w", err)
+	}
+	return installedApplicationUnitFor(runtime.GOOS, executablePath)
+}
+
+func installedApplicationUnitFor(goos, executablePath string) (unit, launchRelativePath string, err error) {
+	executablePath, err = cleanAbsolutePath("application executable", executablePath)
+	if err != nil {
+		return "", "", err
+	}
+	resolvedExecutable, err := filepath.EvalSymlinks(executablePath)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve application executable links: %w", err)
+	}
+	info, err := os.Lstat(resolvedExecutable)
+	if err != nil {
+		return "", "", fmt.Errorf("inspect application executable: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", "", fmt.Errorf("application executable must be a regular file")
+	}
+
+	switch goos {
+	case "windows":
+		if filepath.Base(resolvedExecutable) != productDirectoryName+".exe" {
+			return "", "", fmt.Errorf("unexpected Windows application executable")
+		}
+		unit = filepath.Dir(resolvedExecutable)
+		launchRelativePath = productDirectoryName + ".exe"
+	case "linux":
+		if filepath.Base(resolvedExecutable) != productDirectoryName {
+			return "", "", fmt.Errorf("unexpected Linux application executable")
+		}
+		unit = filepath.Dir(resolvedExecutable)
+		launchRelativePath = productDirectoryName
+	case "darwin":
+		macOSDirectory := filepath.Dir(resolvedExecutable)
+		contentsDirectory := filepath.Dir(macOSDirectory)
+		unit = filepath.Dir(contentsDirectory)
+		if filepath.Base(resolvedExecutable) != productDirectoryName ||
+			filepath.Base(macOSDirectory) != "MacOS" ||
+			filepath.Base(contentsDirectory) != "Contents" ||
+			filepath.Ext(unit) != ".app" {
+			return "", "", fmt.Errorf("application executable is outside a supported macOS bundle")
+		}
+		launchRelativePath = filepath.Join("Contents", "MacOS", productDirectoryName)
+	default:
+		return "", "", fmt.Errorf("unsupported operating system %q", goos)
+	}
+
+	unitInfo, err := os.Lstat(unit)
+	if err != nil {
+		return "", "", fmt.Errorf("inspect installed application unit: %w", err)
+	}
+	if unitInfo.Mode()&os.ModeSymlink != 0 || !unitInfo.IsDir() || filepath.Dir(unit) == unit {
+		return "", "", fmt.Errorf("installed application unit must be a non-root directory and not a symbolic link")
+	}
+	return unit, launchRelativePath, nil
 }
 
 // DefaultSessionLocations resolves locations for the current user beneath

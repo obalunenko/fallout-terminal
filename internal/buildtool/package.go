@@ -107,6 +107,12 @@ func (p PackagePlan) ChecksumPath() string {
 	return p.checksumPath
 }
 
+// Version returns the validated canonical package identity shared by the
+// executable, native metadata, and artifact manifest.
+func (p PackagePlan) Version() ReleaseVersion {
+	return p.version
+}
+
 // TemporaryPaths returns the owned unpublished outputs for this attempt.
 func (p PackagePlan) TemporaryPaths() []string {
 	return append([]string(nil), p.temporaryPaths...)

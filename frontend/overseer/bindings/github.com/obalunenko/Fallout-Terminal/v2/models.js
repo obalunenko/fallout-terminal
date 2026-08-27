@@ -11,6 +11,229 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as domain$0 from "./internal/domain/models.js";
 
 /**
+ * ApplicationUpdateCommandResult includes the authoritative snapshot for
+ * both accepted and rejected decisions.
+ */
+export class ApplicationUpdateCommandResult {
+    /**
+     * Creates a new ApplicationUpdateCommandResult instance.
+     * @param {Partial<ApplicationUpdateCommandResult>} [$$source = {}] - The source object to create the ApplicationUpdateCommandResult.
+     */
+    constructor($$source = {}) {
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error"] = undefined;
+        }
+        if (!("snapshot" in $$source)) {
+            /**
+             * @member
+             * @type {ApplicationUpdateSnapshot}
+             */
+            this["snapshot"] = (new ApplicationUpdateSnapshot());
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ApplicationUpdateCommandResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ApplicationUpdateCommandResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("snapshot" in $$parsedSource) {
+            $$parsedSource["snapshot"] = $$createField2_0($$parsedSource["snapshot"]);
+        }
+        return new ApplicationUpdateCommandResult(/** @type {Partial<ApplicationUpdateCommandResult>} */($$parsedSource));
+    }
+}
+
+export class ApplicationUpdateOfferDecisionPayload {
+    /**
+     * Creates a new ApplicationUpdateOfferDecisionPayload instance.
+     * @param {Partial<ApplicationUpdateOfferDecisionPayload>} [$$source = {}] - The source object to create the ApplicationUpdateOfferDecisionPayload.
+     */
+    constructor($$source = {}) {
+        if (!("attemptId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["attemptId"] = "";
+        }
+        if (!("decision" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["decision"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ApplicationUpdateOfferDecisionPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ApplicationUpdateOfferDecisionPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ApplicationUpdateOfferDecisionPayload(/** @type {Partial<ApplicationUpdateOfferDecisionPayload>} */($$parsedSource));
+    }
+}
+
+export class ApplicationUpdateRestartDecisionPayload {
+    /**
+     * Creates a new ApplicationUpdateRestartDecisionPayload instance.
+     * @param {Partial<ApplicationUpdateRestartDecisionPayload>} [$$source = {}] - The source object to create the ApplicationUpdateRestartDecisionPayload.
+     */
+    constructor($$source = {}) {
+        if (!("attemptId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["attemptId"] = "";
+        }
+        if (!("decision" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["decision"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ApplicationUpdateRestartDecisionPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ApplicationUpdateRestartDecisionPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ApplicationUpdateRestartDecisionPayload(/** @type {Partial<ApplicationUpdateRestartDecisionPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * ApplicationUpdateSnapshot is the narrow, non-sensitive update projection
+ * exposed to the Overseer. Provider metadata, verification evidence, local
+ * paths, and helper state remain behind the native boundary.
+ */
+export class ApplicationUpdateSnapshot {
+    /**
+     * Creates a new ApplicationUpdateSnapshot instance.
+     * @param {Partial<ApplicationUpdateSnapshot>} [$$source = {}] - The source object to create the ApplicationUpdateSnapshot.
+     */
+    constructor($$source = {}) {
+        if (!("revision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["revision"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["attemptId"] = undefined;
+        }
+        if (!("state" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["state"] = "";
+        }
+        if (!("installedVersion" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["installedVersion"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["availableVersion"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["releaseNotes"] = undefined;
+        }
+        if (!("bytesDownloaded" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["bytesDownloaded"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["downloadSize"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["failedStage"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["errorMessage"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["recoveryAction"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ApplicationUpdateSnapshot instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ApplicationUpdateSnapshot}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ApplicationUpdateSnapshot(/** @type {Partial<ApplicationUpdateSnapshot>} */($$parsedSource));
+    }
+}
+
+/**
  * AssignmentPayload assigns one available character to one unassigned
  * logical session.
  */
@@ -319,7 +542,7 @@ export class CoordinationCommandResult {
      * @returns {CoordinationCommandResult}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType1;
+        const $$createField2_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
@@ -616,8 +839,8 @@ export class PlayerConfigCommandResult {
      * @returns {PlayerConfigCommandResult}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType3;
-        const $$createField5_0 = $$createType1;
+        const $$createField3_0 = $$createType4;
+        const $$createField5_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playerConfig" in $$parsedSource) {
             $$parsedSource["playerConfig"] = $$createField3_0($$parsedSource["playerConfig"]);
@@ -694,7 +917,7 @@ export class PublicAccessCommandResult {
      * @returns {PublicAccessCommandResult}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType4;
+        const $$createField2_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("snapshot" in $$parsedSource) {
             $$parsedSource["snapshot"] = $$createField2_0($$parsedSource["snapshot"]);
@@ -820,8 +1043,8 @@ export class PublicAccessSnapshot {
      * @returns {PublicAccessSnapshot}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType5;
-        const $$createField3_0 = $$createType6;
+        const $$createField0_0 = $$createType6;
+        const $$createField3_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("preferences" in $$parsedSource) {
             $$parsedSource["preferences"] = $$createField0_0($$parsedSource["preferences"]);
@@ -1008,7 +1231,7 @@ export class ResolveCommandExecutionResult {
      * @returns {ResolveCommandExecutionResult}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType1;
+        const $$createField2_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
@@ -1058,7 +1281,7 @@ export class ResolveTerminalNavigationResult {
      * @returns {ResolveTerminalNavigationResult}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType1;
+        const $$createField2_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
@@ -1143,9 +1366,9 @@ export class RuntimeStatus {
      * @returns {RuntimeStatus}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType8;
-        const $$createField2_0 = $$createType10;
-        const $$createField7_0 = $$createType1;
+        const $$createField0_0 = $$createType9;
+        const $$createField2_0 = $$createType11;
+        const $$createField7_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serverInfo" in $$parsedSource) {
             $$parsedSource["serverInfo"] = $$createField0_0($$parsedSource["serverInfo"]);
@@ -1376,7 +1599,7 @@ export class TerminalGroupReplacementPayload {
      * @returns {TerminalGroupReplacementPayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType12;
+        const $$createField0_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terminalGroups" in $$parsedSource) {
             $$parsedSource["terminalGroups"] = $$createField0_0($$parsedSource["terminalGroups"]);
@@ -1440,7 +1663,7 @@ export class TerminalGroupReplacementResult {
      * @returns {TerminalGroupReplacementResult}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType1;
+        const $$createField4_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("coordinationState" in $$parsedSource) {
             $$parsedSource["coordinationState"] = $$createField4_0($$parsedSource["coordinationState"]);
@@ -1540,7 +1763,7 @@ export class TerminalSwitchCommandResult {
      * @returns {TerminalSwitchCommandResult}
      */
     static createFrom($$source = {}) {
-        const $$createField4_0 = $$createType1;
+        const $$createField4_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField4_0($$parsedSource["state"]);
@@ -1589,16 +1812,17 @@ export class TerminalSwitchDecisionPayload {
 }
 
 // Private type creation functions
-const $$createType0 = domain$0.MasterCoordinationState.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = domain$0.PlayerConfigMetadata.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = PublicAccessSnapshot.createFrom;
-const $$createType5 = PublicAccessPreferences.createFrom;
-const $$createType6 = PublicAccessStatus.createFrom;
-const $$createType7 = domain$0.ServerInfo.createFrom;
-const $$createType8 = $Create.Nullable($$createType7);
-const $$createType9 = domain$0.PublicHackState.createFrom;
-const $$createType10 = $Create.Nullable($$createType9);
-const $$createType11 = domain$0.TerminalGroup.createFrom;
-const $$createType12 = $Create.Array($$createType11);
+const $$createType0 = ApplicationUpdateSnapshot.createFrom;
+const $$createType1 = domain$0.MasterCoordinationState.createFrom;
+const $$createType2 = $Create.Nullable($$createType1);
+const $$createType3 = domain$0.PlayerConfigMetadata.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = PublicAccessSnapshot.createFrom;
+const $$createType6 = PublicAccessPreferences.createFrom;
+const $$createType7 = PublicAccessStatus.createFrom;
+const $$createType8 = domain$0.ServerInfo.createFrom;
+const $$createType9 = $Create.Nullable($$createType8);
+const $$createType10 = domain$0.PublicHackState.createFrom;
+const $$createType11 = $Create.Nullable($$createType10);
+const $$createType12 = domain$0.TerminalGroup.createFrom;
+const $$createType13 = $Create.Array($$createType12);

@@ -54,6 +54,22 @@ function stateChangingAuthoringSession() {
   };
 }
 
+function disabledApplicationUpdate() {
+  return {
+    revision: 0,
+    attemptId: '',
+    state: 'disabled',
+    installedVersion: 'development',
+    availableVersion: '',
+    releaseNotes: '',
+    bytesDownloaded: 0,
+    downloadSize: null,
+    failedStage: '',
+    errorMessage: '',
+    recoveryAction: '',
+  };
+}
+
 const state = globalThis.__desktopFixtureState ??= {
   calls: [],
   listeners: new Map(),
@@ -62,7 +78,13 @@ const state = globalThis.__desktopFixtureState ??= {
     serverInfo: { url: 'http://127.0.0.1:3690', localUrl: '', tunnel: false, port: 3690 },
     clientCount: 1,
     hackState: null,
-    coordinationState: null,
+    coordinationState: {
+      revision: 1,
+      roster: [],
+      sessions: [],
+      broadcast: null,
+      playerConfig: { name: 'Fixture players', filePath: 'fixture-players.json' },
+    },
   },
   statusPromise: null,
   resolveStatus: null,
@@ -74,6 +96,12 @@ const state = globalThis.__desktopFixtureState ??= {
   },
   publicAccessPromise: null,
   resolvePublicAccess: null,
+  applicationUpdate: disabledApplicationUpdate(),
+  applicationUpdatePromise: null,
+  resolveApplicationUpdate: null,
+  applicationUpdateDownloads: 0,
+  applicationUpdatePreparationFailure: null,
+  applicationUpdateRestartHandoffs: 0,
   savePublicAccessPromise: null,
   resolveSavePublicAccess: null,
   pendingSavePublicAccess: null,
@@ -87,6 +115,11 @@ if (!state.authoringSession) state.authoringSession = stateChangingAuthoringSess
 if (!Number.isSafeInteger(state.authoringRevision)) state.authoringRevision = 1;
 if (!(state.terminalActionNextResults instanceof Map)) state.terminalActionNextResults = new Map();
 if (!(state.terminalActionDeferred instanceof Map)) state.terminalActionDeferred = new Map();
+if (!state.applicationUpdate || typeof state.applicationUpdate !== 'object') {
+  state.applicationUpdate = disabledApplicationUpdate();
+}
+if (!Number.isSafeInteger(state.applicationUpdateDownloads)) state.applicationUpdateDownloads = 0;
+if (!Number.isSafeInteger(state.applicationUpdateRestartHandoffs)) state.applicationUpdateRestartHandoffs = 0;
 try {
   const durableAuthoring = JSON.parse(globalThis.localStorage?.getItem('fallout-fixture-authoring-session') ?? 'null');
   if (durableAuthoring?.session && Number.isSafeInteger(durableAuthoring.revision)) {
@@ -224,6 +257,23 @@ function emitFixtureEvent(name, data) {
   for (const callback of state.listeners.get(name) ?? []) callback({ data: structuredClone(data) });
 }
 
+function retainApplicationUpdate(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return;
+  const revision = Number(snapshot.revision);
+  const currentRevision = Number(state.applicationUpdate?.revision);
+  if (!Number.isSafeInteger(revision) || revision < 0) return;
+  if (Number.isSafeInteger(currentRevision) && revision < currentRevision) return;
+  state.applicationUpdate = structuredClone(snapshot);
+}
+
+function applicationUpdateSnapshot() {
+  return structuredClone(state.applicationUpdate);
+}
+
+function applicationUpdateResult(ok, error = '') {
+  return { ok, error, snapshot: applicationUpdateSnapshot() };
+}
+
 function authoringSessionResult() {
   return {
     ok: true,
@@ -246,6 +296,7 @@ globalThis.__desktopFixture = {
 	if (name === 'public-access-status' && data?.preferences && data?.status) {
 	  state.publicAccess = structuredClone(data);
 	}
+	if (name === 'application-update-status') retainApplicationUpdate(data);
     for (const callback of state.listeners.get(name) ?? []) callback({ data });
   },
   setNextTerminalActionResult(method, result) {
@@ -279,6 +330,35 @@ globalThis.__desktopFixture = {
     state.resolvePublicAccess = null;
     state.publicAccessPromise = null;
   },
+  deferApplicationUpdate() {
+    if (state.applicationUpdatePromise) return;
+    state.applicationUpdatePromise = new Promise(resolve => { state.resolveApplicationUpdate = resolve; });
+  },
+  resolveApplicationUpdate(snapshot = state.applicationUpdate) {
+    const resolved = structuredClone(snapshot);
+    retainApplicationUpdate(resolved);
+    state.resolveApplicationUpdate?.(resolved);
+    state.resolveApplicationUpdate = null;
+    state.applicationUpdatePromise = null;
+  },
+  emitApplicationUpdateProgress(snapshot) {
+    retainApplicationUpdate(snapshot);
+    emitFixtureEvent('application-update-status', applicationUpdateSnapshot());
+  },
+  failNextApplicationUpdatePreparation(failure = {}) {
+    state.applicationUpdatePreparationFailure = {
+      failedStage: typeof failure.failedStage === 'string' ? failure.failedStage : 'download',
+      errorMessage: typeof failure.errorMessage === 'string'
+        ? failure.errorMessage
+        : 'Не удалось подготовить обновление.',
+      recoveryAction: typeof failure.recoveryAction === 'string'
+        ? failure.recoveryAction
+        : 'Продолжайте работу и повторите попытку позже.',
+    };
+  },
+  applicationUpdateSnapshot,
+  applicationUpdateDownloadCount() { return state.applicationUpdateDownloads; },
+  applicationUpdateRestartHandoffCount() { return state.applicationUpdateRestartHandoffs; },
   releaseCount(name) { return state.releases.get(name) ?? 0; },
   takeClipboardText() {
     const value = state.clipboardText;
@@ -364,6 +444,68 @@ export function GetRuntimeStatus() {
     }));
   }
   return state.statusPromise ?? Promise.resolve(state.status);
+}
+
+export function GetApplicationUpdateStatus() {
+  state.calls.push({ method: 'GetApplicationUpdateStatus', args: [] });
+  return state.applicationUpdatePromise ?? Promise.resolve(applicationUpdateSnapshot());
+}
+
+export function ResolveApplicationUpdateOffer(payload) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method: 'ResolveApplicationUpdateOffer', args: [retained] });
+  if (retained.attemptId !== state.applicationUpdate.attemptId
+    || state.applicationUpdate.state !== 'available') {
+    return Promise.resolve(applicationUpdateResult(false, 'Application update offer is no longer available'));
+  }
+  if (retained.decision !== 'accept' && retained.decision !== 'defer') {
+    return Promise.resolve(applicationUpdateResult(false, 'Application update offer decision is invalid'));
+  }
+
+  if (retained.decision === 'accept') {
+    // Preparation is controlled explicitly by emitApplicationUpdateProgress.
+    // Keeping the offered revision here mirrors an in-flight command and lets
+    // tests choose every externally observable progress revision.
+    state.applicationUpdateDownloads += 1;
+  } else {
+    retainApplicationUpdate({
+      ...state.applicationUpdate,
+      revision: state.applicationUpdate.revision + 1,
+      state: 'deferred',
+    });
+  }
+  if (retained.decision === 'accept' && state.applicationUpdatePreparationFailure) {
+    const failure = state.applicationUpdatePreparationFailure;
+    state.applicationUpdatePreparationFailure = null;
+    retainApplicationUpdate({
+      ...state.applicationUpdate,
+      revision: state.applicationUpdate.revision + 1,
+      state: 'failed',
+      ...failure,
+    });
+  }
+  return Promise.resolve(applicationUpdateResult(true));
+}
+
+export function ResolveApplicationUpdateRestart(payload) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method: 'ResolveApplicationUpdateRestart', args: [retained] });
+  if (retained.attemptId !== state.applicationUpdate.attemptId
+    || state.applicationUpdate.state !== 'ready-to-restart') {
+    return Promise.resolve(applicationUpdateResult(false, 'Application update is not ready to restart'));
+  }
+  if (retained.decision !== 'restart' && retained.decision !== 'postpone') {
+    return Promise.resolve(applicationUpdateResult(false, 'Application update restart decision is invalid'));
+  }
+  if (retained.decision === 'restart') {
+    state.applicationUpdateRestartHandoffs += 1;
+    retainApplicationUpdate({
+      ...state.applicationUpdate,
+      revision: state.applicationUpdate.revision + 1,
+      state: 'applying',
+    });
+  }
+  return Promise.resolve(applicationUpdateResult(true));
 }
 
 function snapshot() {

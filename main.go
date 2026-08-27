@@ -24,6 +24,7 @@ import (
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/version"
 	"github.com/obalunenko/logger"
 )
@@ -44,6 +45,12 @@ var clientSource embed.FS
 var errApplicationProcessComplete = errors.New("application process complete")
 
 func main() {
+	if handled, err := updateservice.RunReplacementHelperFromEnvironment(context.Background(), os.LookupEnv); handled {
+		if err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	exitCode := runMain(os.Args[1:], os.Stdout, os.Stderr, runApplication)
 	if exitCode != 0 {
 		os.Exit(exitCode)
@@ -165,6 +172,18 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		return nil, fmt.Errorf("construct player server: %w", err)
 	}
 	packaged := isPackagedApplication()
+	applicationUpdateRecoveryPath, err := platform.ApplicationUpdateRecoveryPath(locations.ApplicationSupport)
+	if err != nil {
+		return nil, fmt.Errorf("resolve application update recovery path: %w", err)
+	}
+	var applicationUpdateRecovery updateservice.RecoveryOutcome
+	if packaged {
+		applicationUpdateRecovery = updateservice.ConsumeApplicationUpdateRecovery(
+			ctx,
+			applicationUpdateRecoveryPath,
+			version.Current(),
+		)
+	}
 	publicSettings := tunnelservice.NewPublicAccessSettingsStore(publicAccessSettingsPath, nil, nil)
 	publicSecrets := platform.NewPlatformSecureCredentialStore(packaged)
 	effectivePublicSettings, effectivePublicSecrets := publicAccessStoresForProfile(publicSettings, publicSecrets, packaged, os.LookupEnv)
@@ -184,6 +203,21 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 	if err != nil {
 		return nil, fmt.Errorf("construct embedded public access: %w", err)
 	}
+	updates, err := newApplicationUpdateManager(
+		host,
+		packaged,
+		version.Current(),
+		applicationUpdateRecoveryPath,
+		applicationUpdateRecovery.Failure,
+		func(snapshot updateservice.UpdateSnapshot) {
+			if app != nil {
+				app.publishApplicationUpdateSnapshot(snapshot)
+			}
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("construct application update service: %w", err)
+	}
 	app = NewAppWithDependencies(ctx, AppDependencies{
 		Sessions:        sessions,
 		PlayerConfigs:   playerConfigs,
@@ -196,6 +230,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		PublicSettings:  effectivePublicSettings,
 		PublicSecrets:   effectivePublicSecrets,
 		PublicAccess:    publicAccess,
+		Updates:         updates,
 		Logger:          logger.FromContext(ctx),
 		StartupTimeout:  time.Duration(runtimeConfig.Startup.TimeoutMilliseconds) * time.Millisecond,
 		ShutdownTimeout: time.Duration(runtimeConfig.Shutdown.TimeoutMilliseconds) * time.Millisecond,

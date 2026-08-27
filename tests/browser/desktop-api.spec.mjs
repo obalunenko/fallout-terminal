@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 35 methods and six named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 38 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -24,6 +24,7 @@ test('desktop facade retains one v2 service with 35 methods and six named events
       desktopAPI.onCoordinationState(() => {}),
       desktopAPI.onSessionState(() => {}),
       desktopAPI.onPublicAccessStatus(() => {}),
+      desktopAPI.onApplicationUpdateStatus(() => {}),
     ];
     releases.forEach(release => release());
 
@@ -38,8 +39,48 @@ test('desktop facade retains one v2 service with 35 methods and six named events
   expect(contract.servicePaths).toEqual([
     '/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js',
   ]);
-  expect(contract.methods).toHaveLength(35);
+  expect(contract.methods).toEqual([
+    'AddCharacter',
+    'AssignCharacter',
+    'CopyDemo',
+    'DeleteCharacter',
+    'EndBroadcast',
+    'ForceHackSuccess',
+    'GeneratePlayerPassword',
+    'GetApplicationUpdateStatus',
+    'GetPublicAccess',
+    'GetRuntimeStatus',
+    'LoadReferencedPlayerConfig',
+    'MoveCharacter',
+    'NewPlayerConfig',
+    'NewSession',
+    'OpenPlayerConfig',
+    'OpenSession',
+    'OpenURL',
+    'ReleaseCharacter',
+    'RenameLogicalSession',
+    'ReplaceTerminalGroups',
+    'RequestTerminalActivation',
+    'RequestTerminalClear',
+    'ResetCommandState',
+    'ResetFailedHack',
+    'ResetTerminalCommandStates',
+    'ResolveApplicationUpdateOffer',
+    'ResolveApplicationUpdateRestart',
+    'ResolveCommandExecution',
+    'ResolveTerminalNavigation',
+    'ResolveTerminalSwitch',
+    'SavePublicAccessSettings',
+    'SaveSession',
+    'SetActiveController',
+    'StartBroadcast',
+    'StartPublicAccess',
+    'StopPublicAccess',
+    'UpdateCharacter',
+    'UpdateLiveTerminal',
+  ]);
   expect(contract.events).toEqual([
+    'application-update-status',
     'client-count',
     'coordination-state',
     'hack-state',
@@ -373,5 +414,67 @@ test('public-access event beats an equal or older snapshot and disposal releases
     providerTokenPresence: 'unknown',
     status: expect.objectContaining({ generation: 4, settingsRevision: 3 }),
   }));
+  expect(result.releaseCount).toBe(1);
+});
+
+test('application update listener precedes its getter and the greatest revision wins', async ({ page }) => {
+  const result = await page.evaluate(async () => {
+    __desktopFixture.deferApplicationUpdate();
+    const observed = [];
+    const release = desktopAPI.onApplicationUpdateStatus(snapshot => observed.push(snapshot));
+
+    __desktopFixture.emit('application-update-status', {
+      revision: 5,
+      attemptId: 'attempt-newer-event',
+      state: 'available',
+      installedVersion: '2.0.0',
+      availableVersion: '2.1.0',
+      releaseNotes: 'Newer event notes',
+      bytesDownloaded: 0,
+      downloadSize: 4096,
+      failedStage: '',
+      errorMessage: '',
+      recoveryAction: '',
+    });
+    __desktopFixture.resolveApplicationUpdate({
+      revision: 4,
+      attemptId: 'attempt-older-getter',
+      state: 'checking',
+      installedVersion: '2.0.0',
+      bytesDownloaded: 0,
+      failedStage: '',
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    release();
+    release();
+
+    return {
+      observed,
+      frozen: observed.map(snapshot => Object.isFrozen(snapshot)),
+      releaseCount: __desktopFixture.releaseCount('application-update-status'),
+      timeline: __desktopFixture.timeline
+        .map(entry => entry.method)
+        .filter(method => method === 'event:on:application-update-status'
+          || method === 'GetApplicationUpdateStatus'),
+    };
+  });
+
+  expect(result.timeline).toEqual([
+    'event:on:application-update-status',
+    'GetApplicationUpdateStatus',
+  ]);
+  expect(result.observed).toEqual([expect.objectContaining({
+    revision: 5,
+    attemptId: 'attempt-newer-event',
+    state: 'available',
+    installedVersion: '2.0.0',
+    availableVersion: '2.1.0',
+    releaseNotes: 'Newer event notes',
+    bytesDownloaded: 0,
+    downloadSize: 4096,
+  })]);
+  expect(result.frozen).toEqual([true]);
   expect(result.releaseCount).toBe(1);
 });

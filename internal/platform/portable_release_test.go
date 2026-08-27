@@ -258,3 +258,45 @@ func TestGoReleaserPublishesOnlyFivePrebuiltArchives(t *testing.T) {
 		assert.NotContains(t, strings.ToLower(config), strings.ToLower(forbidden))
 	}
 }
+
+func TestPortablePublicationInventoryIsExactlyTheGovernedFiveArchives(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-portable.yml"))
+	config := readAcceptanceDocument(t, filepath.Join(root, ".goreleaser.yaml"))
+	want := []string{
+		"Fallout-Terminal-windows-amd64.zip",
+		"Fallout-Terminal-windows-arm64.zip",
+		"Fallout-Terminal-linux-amd64.tar.gz",
+		"Fallout-Terminal-linux-arm64.tar.gz",
+		"Fallout-Terminal-darwin-arm64.zip",
+	}
+
+	workflowArchives := acceptanceValuesWithPrefix(workflow, "archive:")
+	publishedGlobs := acceptanceValuesWithPrefix(config, "- glob: ./combined/")
+	assert.ElementsMatch(t, want, workflowArchives)
+	assert.ElementsMatch(t, want, publishedGlobs)
+	assert.Len(t, workflowArchives, len(want), "the package matrix must contain no duplicate or extra archive")
+	assert.Len(t, publishedGlobs, len(want), "GoReleaser must publish no duplicate or extra archive")
+
+	assert.Equal(t, 1, strings.Count(workflow, "inspect-release-inventory --directory combined"))
+	assert.Equal(t, 1, strings.Count(workflow, "go tool -modfile=tools/task/go.mod task release:publish"))
+	assert.Equal(t, 1, strings.Count(workflow, "uses: actions/download-artifact@v4"))
+	for _, forbidden := range []string{
+		".sha256", "SHA256SUMS", "aggregate-index", "verification.json", ".dmg",
+	} {
+		assert.NotContains(t, strings.ToLower(workflow+"\n"+config), strings.ToLower(forbidden))
+	}
+}
+
+func acceptanceValuesWithPrefix(document, prefix string) []string {
+	values := make([]string, 0)
+	for _, line := range strings.Split(document, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, prefix) {
+			values = append(values, strings.TrimSpace(strings.TrimPrefix(line, prefix)))
+		}
+	}
+	return values
+}

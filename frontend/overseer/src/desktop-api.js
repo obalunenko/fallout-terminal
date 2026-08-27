@@ -5,6 +5,7 @@ import * as desktopService from '../bindings/github.com/obalunenko/Fallout-Termi
 
 const APP_METHODS = Object.freeze({
   getRuntimeStatus: desktopService.GetRuntimeStatus,
+  getApplicationUpdateStatus: desktopService.GetApplicationUpdateStatus,
   newSession: desktopService.NewSession,
   openSession: desktopService.OpenSession,
   saveSession: desktopService.SaveSession,
@@ -21,6 +22,8 @@ const APP_METHODS = Object.freeze({
   resetFailedHack: desktopService.ResetFailedHack,
   resetCommandState: desktopService.ResetCommandState,
   resetTerminalCommandStates: desktopService.ResetTerminalCommandStates,
+  resolveApplicationUpdateOffer: desktopService.ResolveApplicationUpdateOffer,
+  resolveApplicationUpdateRestart: desktopService.ResolveApplicationUpdateRestart,
   replaceTerminalGroups: desktopService.ReplaceTerminalGroups,
   addCharacter: desktopService.AddCharacter,
   updateCharacter: desktopService.UpdateCharacter,
@@ -276,6 +279,101 @@ function normalizeSessionStateEvent(event) {
   });
 }
 
+const APPLICATION_UPDATE_STATES = new Set([
+  'disabled',
+  'idle',
+  'checking',
+  'current',
+  'available',
+  'deferred',
+  'downloading',
+  'verifying',
+  'staging',
+  'ready-to-restart',
+  'applying',
+  'failed',
+]);
+const APPLICATION_UPDATE_FAILURE_STAGES = new Set([
+  'check',
+  'download',
+  'verify',
+  'stage',
+  'apply',
+  'relaunch',
+  'recovery',
+]);
+const APPLICATION_UPDATE_OFFER_DECISIONS = new Set(['accept', 'defer']);
+const APPLICATION_UPDATE_RESTART_DECISIONS = new Set(['restart', 'postpone']);
+
+function optionalString(value) {
+  return typeof value === 'string' ? value : '';
+}
+
+function nonnegativeSafeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+function optionalNonnegativeSafeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function normalizeApplicationUpdateSnapshot(snapshot) {
+  const value = snapshot && typeof snapshot === 'object' ? snapshot : {};
+  const rawState = optionalString(value.state);
+  const state = APPLICATION_UPDATE_STATES.has(rawState) ? rawState : '';
+  const rawFailedStage = optionalString(value.failedStage);
+  return Object.freeze({
+    revision: nonnegativeSafeInteger(value.revision),
+    attemptId: optionalString(value.attemptId),
+    state,
+    installedVersion: optionalString(value.installedVersion),
+    availableVersion: optionalString(value.availableVersion),
+    releaseNotes: optionalString(value.releaseNotes),
+    bytesDownloaded: nonnegativeSafeInteger(value.bytesDownloaded),
+    downloadSize: optionalNonnegativeSafeInteger(value.downloadSize),
+    failedStage: APPLICATION_UPDATE_FAILURE_STAGES.has(rawFailedStage) ? rawFailedStage : '',
+    errorMessage: optionalString(value.errorMessage),
+    recoveryAction: optionalString(value.recoveryAction),
+  });
+}
+
+let latestApplicationUpdateSnapshot = null;
+
+function retainLatestApplicationUpdateSnapshot(snapshot) {
+  const candidate = normalizeApplicationUpdateSnapshot(snapshot);
+  if (!latestApplicationUpdateSnapshot
+    || candidate.revision > latestApplicationUpdateSnapshot.revision) {
+    latestApplicationUpdateSnapshot = candidate;
+  }
+  return latestApplicationUpdateSnapshot;
+}
+
+function normalizeApplicationUpdateCommandResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  let error = typeof value.error === 'string' ? value.error : '';
+  if (ok) error = '';
+  if (!ok && !error) error = 'Application update command failed';
+  return Object.freeze({
+    ok,
+    error,
+    snapshot: retainLatestApplicationUpdateSnapshot(value.snapshot),
+  });
+}
+
+function applicationUpdateCommand(binding, payload) {
+  return command(binding, payload).then(normalizeApplicationUpdateCommandResult);
+}
+
+function normalizeApplicationUpdateDecisionPayload(payload, decisions) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  const decision = optionalString(value.decision);
+  return {
+    attemptId: optionalString(value.attemptId),
+    decision: decisions.has(decision) ? decision : '',
+  };
+}
+
 function monotonicRevision(value) {
   const revision = Number(value?.revision);
   return Number.isSafeInteger(revision) && revision >= 0 ? revision : 0;
@@ -502,6 +600,36 @@ const desktopAPI = {
     subscriptions.add(unsubscribe);
     return unsubscribe;
   },
+  onApplicationUpdateStatus: (callback) => {
+    if (typeof callback !== 'function') {
+      throw new TypeError('application-update-status listener must be a function');
+    }
+    let active = true;
+    let released = false;
+    let latestDeliveredRevision = -1;
+    const deliver = (value) => {
+      if (!active) return;
+      const snapshot = retainLatestApplicationUpdateSnapshot(value);
+      if (snapshot.revision <= latestDeliveredRevision) return;
+      latestDeliveredRevision = snapshot.revision;
+      callback(snapshot);
+    };
+    const releaseRuntime = Events.On('application-update-status', (event) => {
+      deliver(unwrapEvent(event));
+    });
+    void command(APP_METHODS.getApplicationUpdateStatus).then(deliver);
+    const unsubscribe = () => {
+      if (!active) return;
+      active = false;
+      subscriptions.delete(unsubscribe);
+      if (!released) {
+        released = true;
+        releaseRuntime();
+      }
+    };
+    subscriptions.add(unsubscribe);
+    return unsubscribe;
+  },
   getRuntimeStatus: () => {
     beginStatusSnapshotWhenReady();
     return runtimeStatusPromise ?? command(APP_METHODS.getRuntimeStatus);
@@ -585,6 +713,14 @@ const desktopAPI = {
   stopPublicAccess: (request) => publicAccessCommand(APP_METHODS.stopPublicAccess, {
     expectedRevision: Number.isSafeInteger(request?.expectedRevision) ? request.expectedRevision : 0,
   }),
+  resolveApplicationUpdateOffer: (payload) => applicationUpdateCommand(
+    APP_METHODS.resolveApplicationUpdateOffer,
+    normalizeApplicationUpdateDecisionPayload(payload, APPLICATION_UPDATE_OFFER_DECISIONS),
+  ),
+  resolveApplicationUpdateRestart: (payload) => applicationUpdateCommand(
+    APP_METHODS.resolveApplicationUpdateRestart,
+    normalizeApplicationUpdateDecisionPayload(payload, APPLICATION_UPDATE_RESTART_DECISIONS),
+  ),
 };
 
 Object.defineProperty(desktopAPI, DISPOSE, {

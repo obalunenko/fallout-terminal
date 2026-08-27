@@ -69,3 +69,73 @@ func TestDesktopServiceReplaceTerminalGroupsIsTransparentTrustedForward(t *testi
 	require.True(t, ok)
 	require.Equal(t, "service", receiver.Name)
 }
+
+func TestDesktopServiceApplicationUpdateMethodsAreTransparentCoreForwards(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		parameter string
+		result    string
+	}{
+		{name: "GetApplicationUpdateStatus", result: "ApplicationUpdateSnapshot"},
+		{name: "ResolveApplicationUpdateOffer", parameter: "ApplicationUpdateOfferDecisionPayload", result: "ApplicationUpdateCommandResult"},
+		{name: "ResolveApplicationUpdateRestart", parameter: "ApplicationUpdateRestartDecisionPayload", result: "ApplicationUpdateCommandResult"},
+	}
+
+	file, err := parser.ParseFile(token.NewFileSet(), "desktop_service.go", nil, 0)
+	require.NoError(t, err)
+	methods := make(map[string]*ast.FuncDecl)
+	for _, declaration := range file.Decls {
+		method, ok := declaration.(*ast.FuncDecl)
+		if ok && method.Recv != nil {
+			methods[method.Name.Name] = method
+		}
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			method := methods[test.name]
+			require.NotNil(t, method, "desktop allowlist must expose %s", test.name)
+			if test.parameter == "" {
+				require.Empty(t, method.Type.Params.List)
+			} else {
+				require.Len(t, method.Type.Params.List, 1)
+				require.Len(t, method.Type.Params.List[0].Names, 1)
+				require.Equal(t, "payload", method.Type.Params.List[0].Names[0].Name)
+				parameter, ok := method.Type.Params.List[0].Type.(*ast.Ident)
+				require.True(t, ok)
+				require.Equal(t, test.parameter, parameter.Name)
+			}
+			require.Len(t, method.Type.Results.List, 1)
+			result, ok := method.Type.Results.List[0].Type.(*ast.Ident)
+			require.True(t, ok)
+			require.Equal(t, test.result, result.Name)
+
+			require.Len(t, method.Body.List, 1, "%s must remain a transparent forward", test.name)
+			returned, ok := method.Body.List[0].(*ast.ReturnStmt)
+			require.True(t, ok)
+			require.Len(t, returned.Results, 1)
+			call, ok := returned.Results[0].(*ast.CallExpr)
+			require.True(t, ok)
+			selector, ok := call.Fun.(*ast.SelectorExpr)
+			require.True(t, ok)
+			require.Equal(t, test.name, selector.Sel.Name)
+			core, ok := selector.X.(*ast.SelectorExpr)
+			require.True(t, ok)
+			service, ok := core.X.(*ast.Ident)
+			require.True(t, ok)
+			require.Equal(t, "service", service.Name)
+			require.Equal(t, "core", core.Sel.Name)
+			if test.parameter == "" {
+				require.Empty(t, call.Args)
+			} else {
+				require.Len(t, call.Args, 1)
+				argument, ok := call.Args[0].(*ast.Ident)
+				require.True(t, ok)
+				require.Equal(t, "payload", argument.Name)
+			}
+		})
+	}
+}

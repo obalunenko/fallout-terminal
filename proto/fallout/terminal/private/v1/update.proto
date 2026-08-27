@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package fallout.terminal.private.v1;
+
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1";
+
+enum ApplicationUpdateState {
+  APPLICATION_UPDATE_STATE_UNSPECIFIED = 0;
+  APPLICATION_UPDATE_STATE_DISABLED = 1;
+  APPLICATION_UPDATE_STATE_IDLE = 2;
+  APPLICATION_UPDATE_STATE_CHECKING = 3;
+  APPLICATION_UPDATE_STATE_CURRENT = 4;
+  APPLICATION_UPDATE_STATE_AVAILABLE = 5;
+  APPLICATION_UPDATE_STATE_DEFERRED = 6;
+  APPLICATION_UPDATE_STATE_DOWNLOADING = 7;
+  APPLICATION_UPDATE_STATE_VERIFYING = 8;
+  APPLICATION_UPDATE_STATE_STAGING = 9;
+  APPLICATION_UPDATE_STATE_READY_TO_RESTART = 10;
+  APPLICATION_UPDATE_STATE_APPLYING = 11;
+  APPLICATION_UPDATE_STATE_FAILED = 12;
+}
+
+enum ApplicationUpdateFailureStage {
+  APPLICATION_UPDATE_FAILURE_STAGE_UNSPECIFIED = 0;
+  APPLICATION_UPDATE_FAILURE_STAGE_CHECK = 1;
+  APPLICATION_UPDATE_FAILURE_STAGE_DOWNLOAD = 2;
+  APPLICATION_UPDATE_FAILURE_STAGE_VERIFY = 3;
+  APPLICATION_UPDATE_FAILURE_STAGE_STAGE = 4;
+  APPLICATION_UPDATE_FAILURE_STAGE_APPLY = 5;
+  APPLICATION_UPDATE_FAILURE_STAGE_RELAUNCH = 6;
+  APPLICATION_UPDATE_FAILURE_STAGE_RECOVERY = 7;
+}
+
+enum ApplicationUpdateOfferDecision {
+  APPLICATION_UPDATE_OFFER_DECISION_UNSPECIFIED = 0;
+  APPLICATION_UPDATE_OFFER_DECISION_ACCEPT = 1;
+  APPLICATION_UPDATE_OFFER_DECISION_DEFER = 2;
+}
+
+enum ApplicationUpdateRestartDecision {
+  APPLICATION_UPDATE_RESTART_DECISION_UNSPECIFIED = 0;
+  APPLICATION_UPDATE_RESTART_DECISION_RESTART = 1;
+  APPLICATION_UPDATE_RESTART_DECISION_POSTPONE = 2;
+}
+
+message ApplicationUpdateSnapshot {
+  uint64 revision = 1;
+  optional string attempt_id = 2;
+  ApplicationUpdateState state = 3;
+  string installed_version = 4;
+  optional string available_version = 5;
+  optional string release_notes = 6;
+  uint64 bytes_downloaded = 7;
+  optional uint64 download_size = 8;
+  ApplicationUpdateFailureStage failed_stage = 9;
+  optional string error_message = 10;
+  optional string recovery_action = 11;
+}
+
+message ApplicationUpdateStatusEvent {
+  ApplicationUpdateSnapshot snapshot = 1;
+}
+
+message ResolveApplicationUpdateOfferRequest {
+  string attempt_id = 1;
+  ApplicationUpdateOfferDecision decision = 2;
+}
+
+message ResolveApplicationUpdateRestartRequest {
+  string attempt_id = 1;
+  ApplicationUpdateRestartDecision decision = 2;
+}
+
+message ApplicationUpdateCommandResult {
+  bool ok = 1;
+  optional string error = 2;
+  ApplicationUpdateSnapshot snapshot = 3;
+}
