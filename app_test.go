@@ -1988,6 +1988,44 @@ func TestCoordinationStatusReplaysDisconnectedControllerWithoutChangingClaimOrRo
 	assertDisconnectedControllerSnapshot(t, app.GetRuntimeStatus().CoordinationState, controllerID, characterID)
 }
 
+func TestCoordinationPublicationObservesAcceptedDetachedStateAfterFrontendEvent(t *testing.T) {
+	t.Parallel()
+	recorder := &callRecorder{}
+	observer := &mutatingCoordinationObserver{recorder: recorder}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Events: events, CoordinationObserver: observer,
+	})
+	state := commandApprovalState(5, "request-current", domain.CommandApprovalModeOrdinary)
+
+	app.publishCoordinationState(state)
+	app.publishCoordinationState(commandApprovalState(4, "request-regressing", domain.CommandApprovalModeOrdinary))
+
+	require.Equal(t, []string{"event:coordination-state", "observer:coordination-state"}, recorder.Calls())
+	require.Len(t, observer.states, 1)
+	require.Equal(t, uint64(999), observer.states[0].Revision, "the observer owns its detached mutable copy")
+	require.Equal(t, uint64(5), app.GetRuntimeStatus().CoordinationState.Revision)
+	records := events.Records()
+	require.Len(t, records, 1)
+	published, ok := records[0].Payload.(*domain.MasterCoordinationState)
+	require.True(t, ok)
+	require.Equal(t, uint64(5), published.Revision)
+}
+
+type mutatingCoordinationObserver struct {
+	recorder *callRecorder
+	states   []*domain.MasterCoordinationState
+}
+
+func (observer *mutatingCoordinationObserver) observeCoordinationState(state *domain.MasterCoordinationState) {
+	observer.recorder.Add("observer:coordination-state")
+	state.Revision = 999
+	if state.PendingCommandExecution != nil {
+		state.PendingCommandExecution.CommandName = "mutated observer"
+	}
+	observer.states = append(observer.states, state)
+}
+
 func assertDisconnectedControllerSnapshot(t *testing.T, state *domain.MasterCoordinationState, sessionID domain.LogicalSessionID, characterID domain.CharacterID) {
 	t.Helper()
 	require.Falsef(t, state == nil || state.Broadcast == nil || state.Broadcast.ControllerSessionID == nil || *state.Broadcast.ControllerSessionID != sessionID,

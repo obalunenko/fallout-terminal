@@ -1,7 +1,6 @@
 ---
 name: "speckit-converge"
 description: "Assess the current codebase against the feature's spec, plan, and tasks, then append any remaining unbuilt work as new tasks to tasks.md so implement can complete it."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
 metadata:
   author: "github-spec-kit"
   source: "templates/commands/converge.md"
@@ -204,8 +203,14 @@ Append to the **end** of `tasks.md`, per the append contract:
 
 1. Scan all existing task IDs; let `M` be the maximum. Determine the next phase number `N`
    (highest existing phase + 1).
-2. Write a single new section header `## Phase N: Convergence`.
-3. Emit one checklist item per actionable finding, ordered CRITICAL/HIGH first, assigning
+2. Write a single new section header `## Phase N: Convergence`, followed by a local dependency declaration:
+
+   ```markdown
+   **Depends on:** all prior phases.
+   ```
+
+3. Build a self-contained local wave DAG for the new phase. Put every appended task in exactly one named `**Wave K — …:**` block. Tasks in a wave must be independent; insert an `**⟶ Wait …**` line before a later wave that depends on the preceding wave. Serialize tasks that edit the same file unless their edits are demonstrably independent. This local DAG extends the existing global dependency and wave sections without rewriting them, preserving the append-only contract.
+4. Emit one checklist item per actionable finding, ordered CRITICAL/HIGH first, assigning
    zero-padded IDs `T{M+1:03d}, T{M+2:03d}, …`:
 
    ```markdown
@@ -219,7 +224,7 @@ Append to the **end** of `tasks.md`, per the append contract:
 
    Constitution-violation tasks MUST be emitted first and described as
    `CRITICAL`.
-4. Never reuse or renumber existing IDs. If a prior Convergence phase exists, add a new,
+5. Never reuse or renumber existing IDs. If a prior Convergence phase exists, add a new,
    separately-numbered one below it — do not touch the old one.
 
 **If there are no actionable findings** (`converged` outcome):

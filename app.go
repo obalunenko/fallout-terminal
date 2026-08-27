@@ -209,25 +209,32 @@ type ApplicationUpdateService interface {
 	ResolveRestart(context.Context, string, updateservice.RestartDecision) updateservice.CommandResult
 }
 
+// coordinationStateObserver receives accepted private coordination snapshots
+// for root-owned side effects that are not part of the frontend event bridge.
+type coordinationStateObserver interface {
+	observeCoordinationState(*domain.MasterCoordinationState)
+}
+
 // AppDependencies contains constructed services. Construction acquires no
 // external resources; Start owns acquisition in contract order.
 type AppDependencies struct {
-	Sessions        SessionService
-	PlayerConfigs   PlayerConfigService
-	Live            LiveService
-	Coordination    CoordinationService
-	Player          PlayerServer
-	Desktop         DesktopRuntime
-	Browser         Browser
-	Events          EventSink
-	PublicSettings  PublicAccessSettingsStore
-	PublicSecrets   tunnelservice.SecretStore
-	PublicAccess    PublicAccessCore
-	Updates         ApplicationUpdateService
-	PasswordEntropy io.Reader
-	Logger          logger.Logger
-	StartupTimeout  time.Duration
-	ShutdownTimeout time.Duration
+	Sessions             SessionService
+	PlayerConfigs        PlayerConfigService
+	Live                 LiveService
+	Coordination         CoordinationService
+	Player               PlayerServer
+	Desktop              DesktopRuntime
+	Browser              Browser
+	Events               EventSink
+	PublicSettings       PublicAccessSettingsStore
+	PublicSecrets        tunnelservice.SecretStore
+	PublicAccess         PublicAccessCore
+	Updates              ApplicationUpdateService
+	CoordinationObserver coordinationStateObserver
+	PasswordEntropy      io.Reader
+	Logger               logger.Logger
+	StartupTimeout       time.Duration
+	ShutdownTimeout      time.Duration
 }
 
 // RuntimeStatus is the synchronous startup/status snapshot used to avoid
@@ -2432,6 +2439,9 @@ func (app *App) publishCoordinationState(state *domain.MasterCoordinationState) 
 	app.mu.Unlock()
 	if app.deps.Events != nil {
 		app.emitEvent(coordinationStateEvent, routeCoordinationEvent(domain.CloneMasterCoordinationState(clone)))
+	}
+	if app.deps.CoordinationObserver != nil {
+		app.deps.CoordinationObserver.observeCoordinationState(domain.CloneMasterCoordinationState(clone))
 	}
 }
 

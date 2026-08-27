@@ -9,6 +9,7 @@ this reviewed file unchanged in its resources directory.
 ## Reviewed shipped runtime module inventory
 
 - connectrpc.com/connect@v1.20.0 — Apache-2.0; Copyright 2021-2026 The Connect Authors
+- git.sr.ht/~jackmordaunt/go-toast/v2@v2.0.3 — MIT; Copyright (c) 2023 Jack Mordaunt
 - github.com/adrg/xdg@v0.5.3 — MIT; Copyright (c) 2014 Adrian-George Bostan
 - github.com/danieljoos/wincred@v1.2.3 — MIT; Copyright (c) 2014 Daniel Joos
 - github.com/go-ole/go-ole@v1.3.0 — MIT; Copyright (c) 2013-2017 Yasuhiro Matsumoto

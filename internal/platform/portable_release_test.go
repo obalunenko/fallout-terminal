@@ -165,7 +165,7 @@ func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {
 		`DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env`,
 		"MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}}",
 		"CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}",
-		"CGO_LDFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}",
+		`CGO_LDFLAGS="-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} -Wl,-no_warn_duplicate_libraries"`,
 	} {
 		assert.Contains(t, taskfile, required)
 	}

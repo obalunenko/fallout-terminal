@@ -463,6 +463,52 @@ func TestWailsEventSinkUsesInjectedManagerForExactTypedEventNames(t *testing.T) 
 	require.Error(t, newWailsEventSink(nil).Emit(serverInfoEvent, domain.ServerInfo{}))
 }
 
+func TestWailsServicesRegisterApprovalNotificationsBeforeCoreLifecycle(t *testing.T) {
+	t.Parallel()
+	host := &recordingWailsServiceRegistrar{}
+	notifications := newApprovalNotificationService(t.Context(), &fakeApprovalNativeNotifier{})
+	core := NewAppWithDependencies(t.Context(), AppDependencies{CoordinationObserver: notifications})
+
+	registerWailsServices(t.Context(), host, core)
+
+	require.Len(t, host.services, 3)
+	_, notificationOK := host.services[0].Instance().(*approvalNotificationService)
+	_, lifecycleOK := host.services[1].Instance().(*wailsLifecycleService)
+	_, desktopOK := host.services[2].Instance().(*desktopService)
+	require.True(t, notificationOK)
+	require.True(t, lifecycleOK)
+	require.True(t, desktopOK)
+}
+
+func TestApprovalNotificationLifecycleFailuresDoNotAbortWailsStartup(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name string
+		fake *fakeApprovalNativeNotifier
+	}{
+		{name: "startup failure", fake: &fakeApprovalNativeNotifier{startupErr: errors.New("unavailable")}},
+		{name: "category failure", fake: &fakeApprovalNativeNotifier{categoryErr: errors.New("unsupported")}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := newApprovalNotificationService(t.Context(), test.fake)
+			require.NoError(t, service.ServiceStartup(t.Context(), application.ServiceOptions{}))
+			require.NoError(t, service.ServiceShutdown())
+			require.Eventually(t, func() bool { return test.fake.snapshot().shutdownCalls == 1 }, time.Second, time.Millisecond)
+		})
+	}
+}
+
+type recordingWailsServiceRegistrar struct {
+	services []application.Service
+}
+
+func (host *recordingWailsServiceRegistrar) RegisterService(service application.Service) {
+	host.services = append(host.services, service)
+}
+
+func (*recordingWailsServiceRegistrar) Quit() {}
+
 type lifecycleContextKey struct{}
 
 func requirePNGIcon(t *testing.T, icon []byte) {

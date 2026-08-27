@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	wailsnotifications "github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
@@ -219,23 +220,26 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 	if err != nil {
 		return nil, fmt.Errorf("construct application update service: %w", err)
 	}
+	approvalNotifications := newApprovalNotificationService(ctx, wailsnotifications.New())
 	app = NewAppWithDependencies(ctx, AppDependencies{
-		Sessions:        sessions,
-		PlayerConfigs:   playerConfigs,
-		Live:            live,
-		Coordination:    coordination,
-		Player:          player,
-		Desktop:         desktop,
-		Browser:         desktop,
-		Events:          events,
-		PublicSettings:  effectivePublicSettings,
-		PublicSecrets:   effectivePublicSecrets,
-		PublicAccess:    publicAccess,
-		Updates:         updates,
-		Logger:          logger.FromContext(ctx),
-		StartupTimeout:  time.Duration(runtimeConfig.Startup.TimeoutMilliseconds) * time.Millisecond,
-		ShutdownTimeout: time.Duration(runtimeConfig.Shutdown.TimeoutMilliseconds) * time.Millisecond,
+		Sessions:             sessions,
+		PlayerConfigs:        playerConfigs,
+		Live:                 live,
+		Coordination:         coordination,
+		Player:               player,
+		Desktop:              desktop,
+		Browser:              desktop,
+		Events:               events,
+		PublicSettings:       effectivePublicSettings,
+		PublicSecrets:        effectivePublicSecrets,
+		PublicAccess:         publicAccess,
+		Updates:              updates,
+		CoordinationObserver: approvalNotifications,
+		Logger:               logger.FromContext(ctx),
+		StartupTimeout:       time.Duration(runtimeConfig.Startup.TimeoutMilliseconds) * time.Millisecond,
+		ShutdownTimeout:      time.Duration(runtimeConfig.Shutdown.TimeoutMilliseconds) * time.Millisecond,
 	})
+	approvalNotifications.bind(app)
 	effectRouter.Bind(player, app)
 	return app, nil
 }

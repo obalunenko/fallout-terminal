@@ -463,6 +463,11 @@ func (service *wailsLifecycleService) ServiceShutdown() error {
 }
 
 func registerWailsServices(ctx context.Context, host wailsServiceRegistrar, core *App) {
+	if core != nil {
+		if notifications, ok := core.deps.CoordinationObserver.(*approvalNotificationService); ok {
+			host.RegisterService(application.NewService(notifications))
+		}
+	}
 	host.RegisterService(application.NewService(newWailsLifecycleService(ctx, core, host.Quit)))
 	host.RegisterService(application.NewService(newDesktopService(core)))
 }
