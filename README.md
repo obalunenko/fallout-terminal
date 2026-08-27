@@ -160,6 +160,23 @@ unsigned-приложение для macOS 13+ на Apple Silicon; первый 
 Privacy & Security. Требования WebView2, GTK4, WebKitGTK 6.0, защищённых хранилищ, расположение
 данных и устранение неполадок описаны в [docs/platform-support.md](docs/platform-support.md).
 
+Версию распакованного приложения можно проверить без запуска окна или внутренних сервисов:
+
+```text
+# Windows PowerShell
+& '.\Fallout Terminal.exe' --version
+
+# Linux
+./Fallout\ Terminal --version
+
+# macOS
+'./Fallout Terminal.app/Contents/MacOS/Fallout Terminal' --version
+```
+
+Официальный пакет выводит ровно каноническую версию тега без ведущей `v` и перевод строки:
+например, тег `v2.0.0-rc.1` даёт `2.0.0-rc.1`. Локальная сборка без release `VERSION` сообщает
+`development` и не является пакетом тегированного релиза.
+
 ### Первый запуск на macOS
 
 Текущий portable-релиз не подписан и не нотарифицирован Apple. Поэтому Gatekeeper может показать
@@ -202,8 +219,17 @@ SemVer `tag` текущей major-линии — например, `v2.0.0` ил
 package jobs и create-only публикацию через закреплённый GoReleaser. Публикуются ровно пять
 указанных архивов; checksum-sidecars, installers и
 package registry не входят в контракт. Major-версия release tag должна совпадать с major-версией
-корневого Go-модуля; текущий preflight принимает только `v2`. Существующий draft или release для
-тега приводит к отказу.
+корневого Go-модуля `github.com/obalunenko/Fallout-Terminal/v2`; текущий preflight принимает только
+`v2`. Preflight удаляет у принятого raw tag только ведущую `v`: `v2.0.0` становится единственным
+каноническим `VERSION=2.0.0`, а `v2.0.0-rc.1` — `VERSION=2.0.0-rc.1`. Один и тот же `VERSION`
+передаётся без повторного вычисления во все пять package jobs, в Go linker flags и генерируемые
+platform metadata; каждый архив проверяется на совпадение с тегом до upload. Существующий draft или
+release для тега приводит к отказу.
+
+Обычные локальные `task build` и `task package` не требуют release `VERSION`. Если `VERSION` не
+задан, executable и human-readable metadata явно используют non-release identity `development`, а
+numeric-only metadata — нулевое представление. Такой локальный артефакт нельзя принять как пакет
+тегированного релиза.
 
 При сбое до создания release исправьте причину и перезапустите тот же тег. Если GitHub успел создать
 частичный release, maintainer должен удалить его вручную перед повторным запуском. Подробный контракт,
@@ -228,6 +254,10 @@ task proto:breaking
 task bindings:check
 task browser:test
 ```
+
+Изменения сборки, упаковки или release metadata дополнительно должны проверять каноническую версию
+на соответствующем нативном хосте; команды и ожидаемые platform-представления приведены в
+[руководстве по сборке и выпуску](docs/platform-packaging.md#release-version-identity).
 
 ## Структура проекта
 

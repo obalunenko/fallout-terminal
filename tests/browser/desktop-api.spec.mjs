@@ -5,6 +5,50 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
+test('desktop facade retains one v2 service with 35 methods and six named events', async ({ page }) => {
+  const contract = await page.evaluate(async () => {
+    const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
+    const servicePaths = Object.keys(imports)
+      .filter(path => path.endsWith('/desktopservice.js'))
+      .sort();
+    const bindings = await import(servicePaths[0]);
+    const methods = Object.entries(bindings)
+      .filter(([, value]) => typeof value === 'function')
+      .map(([name]) => name)
+      .sort();
+
+    const releases = [
+      desktopAPI.onServerInfo(() => {}),
+      desktopAPI.onClientCount(() => {}),
+      desktopAPI.onHackState(() => {}),
+      desktopAPI.onCoordinationState(() => {}),
+      desktopAPI.onSessionState(() => {}),
+      desktopAPI.onPublicAccessStatus(() => {}),
+    ];
+    releases.forEach(release => release());
+
+    const events = [...new Set(__desktopFixture.calls
+      .map(call => call.method)
+      .filter(method => method.startsWith('event:on:'))
+      .map(method => method.slice('event:on:'.length)))]
+      .sort();
+    return { servicePaths, methods, events };
+  });
+
+  expect(contract.servicePaths).toEqual([
+    '/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js',
+  ]);
+  expect(contract.methods).toHaveLength(35);
+  expect(contract.events).toEqual([
+    'client-count',
+    'coordination-state',
+    'hack-state',
+    'public-access-status',
+    'server-info',
+    'session-state',
+  ]);
+});
+
 test('generated desktop service calls remain explicit and normalized behind the facade', async ({ page }) => {
   const results = await page.evaluate(async () => ({
     open: await desktopAPI.openSession(),

@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/signal"
@@ -23,6 +24,7 @@ import (
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/version"
 	"github.com/obalunenko/logger"
 )
 
@@ -42,6 +44,30 @@ var clientSource embed.FS
 var errApplicationProcessComplete = errors.New("application process complete")
 
 func main() {
+	exitCode := runMain(os.Args[1:], os.Stdout, os.Stderr, runApplication)
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
+}
+
+func runMain(arguments []string, stdout, stderr io.Writer, startApplication func()) int {
+	if len(arguments) == 0 || arguments[0] != "--version" {
+		startApplication()
+		return 0
+	}
+	if len(arguments) != 1 {
+		if _, err := fmt.Fprintln(stderr, "usage: Fallout Terminal --version"); err != nil {
+			return 1
+		}
+		return 2
+	}
+	if _, err := fmt.Fprintln(stdout, version.Current()); err != nil {
+		return 1
+	}
+	return 0
+}
+
+func runApplication() {
 	signalContext, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	rootContext, cancelRoot := context.WithCancelCause(signalContext)
 	defer stopSignals()

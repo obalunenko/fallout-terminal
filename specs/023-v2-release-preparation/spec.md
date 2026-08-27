@@ -8,6 +8,11 @@
 
 **Input**: User description: "Prepare the Go module and governed release process for a v2.0.0 release, update the affected specification and active documentation, and reject release tags whose major version does not match v2."
 
+**Bugfix**: 2026-08-27 — BUG-001 added one tag-derived application version for Go linker
+metadata, generated platform metadata, and packaged-version equality verification. Post-analysis
+remediation defines the exact executable report, local non-release identity, and
+constitution-authorized release gate.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Publish a Valid V2 Release (Priority: P1)
@@ -29,6 +34,8 @@ future-major tags and confirm that only strict v2 tags can enter the release mat
 2. **Given** the repository is prepared for major version 2, **When** a maintainer validates `v2.0.0-rc.1`, **Then** the tag is accepted and identified as a prerelease candidate.
 3. **Given** an otherwise valid tag whose major version is not 2, **When** release preflight runs, **Then** it fails before any target package job starts.
 4. **Given** a malformed v2 tag, a numeric prerelease identifier with a leading zero, or build metadata, **When** release preflight runs, **Then** it is rejected with an actionable format error.
+5. **Given** an accepted stable or prerelease v2 tag, **When** every target package is built and inspected, **Then** its embedded application version and applicable platform metadata derive from that one tag and agree with it before upload.
+6. **Given** a maintainer builds or packages locally without a release `VERSION`, **When** the executable and applicable metadata are inspected, **Then** they identify the artifact as `development` with zero-valued native numeric representations and cannot pass tagged-release verification.
 
 ---
 
@@ -82,6 +89,16 @@ records.
 - What happens when older source imports are present only in completed historical records or repository URLs?
 - What happens when an independent development-tool module intentionally retains its existing module identity?
 - How is version-1 session and player-configuration compatibility distinguished from application major version 2?
+- How is an accepted tag normalized into one canonical application version without retaining the
+  leading `v`?
+- How does a prerelease such as `v2.0.0-rc.1` retain its full identity when a platform also requires
+  a numeric four-component version field?
+- What happens when release packaging receives no version, receives a malformed version, or
+  produces an executable or platform metadata value that disagrees with the triggering tag?
+- What exact command reports an executable version, and what output and lifecycle behavior make it
+  safe for package automation?
+- How does ordinary local packaging remain usable without allowing a `development` artifact to
+  masquerade as a tagged release?
 
 ## Requirements *(mandatory)*
 
@@ -99,6 +116,12 @@ records.
 - **FR-010**: Active release documentation MUST use stable and prerelease v2 tag examples and MUST explain that accepted release-tag majors match the application module major.
 - **FR-011**: Completed specifications and migration records MUST retain their original paths, targets, and evidence as historical records.
 - **FR-012**: The migration MUST introduce no new Overseer or player interaction, public capability, credential handling, network behavior, or runtime state.
+- **FR-013**: Release preflight MUST derive one canonical application version from the accepted tag by removing only its leading `v` and MUST pass that value as the single `VERSION` input to every target package job.
+- **FR-014**: The Go build MUST embed the canonical application version through linker flags, retain useful VCS build metadata, and expose the embedded value through `<executable> --version`; that command MUST accept no additional arguments, write only the version plus one newline to standard output, write nothing to standard error, exit successfully, and do so before Wails or application services start.
+- **FR-015**: Darwin and Windows package metadata MUST be generated from the canonical application version during packaging and MUST NOT retain a checked-in production release version such as `1.0.0` or `1.0.0.0` as an independent source of truth.
+- **FR-016**: When a platform field accepts only numeric components, it MUST derive `MAJOR.MINOR.PATCH` or `MAJOR.MINOR.PATCH.0` from the canonical version as required by that native format, while an accompanying human-readable metadata value and the executable report retain the complete stable or prerelease semantic version.
+- **FR-017**: Every target package job MUST verify before upload that the packaged executable reports the canonical version and that every applicable human-readable and numeric platform metadata value agrees with the triggering tag under FR-016.
+- **FR-018**: A non-empty release `VERSION` MUST be a strict canonical v2 semantic version without a leading `v`; a malformed or mismatched value MUST fail packaging or package verification before upload. Local builds and packages without `VERSION` MUST embed the explicit human-readable identity `development`, MUST use `0.0.0` or `0.0.0.0` where native metadata requires numeric components, and MUST NOT pass inspection against an expected tagged-release version.
 
 ### Impacted Application Surfaces *(mandatory)*
 
@@ -110,7 +133,7 @@ records.
 - **Overseer UI (`frontend/overseer/src/`)**: The generated desktop-binding location is affected; the visible interface and desktop operation allowlist are not.
 - **Player UI (`frontend/client/`)**: Generated contract metadata is affected; browser behavior, presentation, audio, and public service consumption are not.
 - **Tests and fixtures (`internal/**/*_test.go`, `tests/browser/`, `internal/testutil/`)**: Import paths, binding locations, release-tag fixtures, compatibility digests, and browser import maps are affected.
-- **Build and packaging (`go.mod`, `frontend/`, `build/`, `scripts/`)**: The application module identity, release preflight, generated paths, compatibility baseline, and active release guidance are affected; supported targets and archive inventory are not.
+- **Build and packaging (`go.mod`, `frontend/`, `build/`, `scripts/`)**: The application module identity, release preflight, canonical `VERSION` propagation, linker metadata, generated platform metadata, packaged-version inspection, generated paths, compatibility baseline, and active release guidance are affected; supported targets and archive inventory are not.
 
 ### State and Contract Requirements *(include when applicable)*
 
@@ -120,6 +143,12 @@ records.
 - **Reconnect and multi-tab behavior**: Unchanged; reconnecting clients receive the same authoritative state and retain the same recognition rules.
 - **HTTP/static contract**: Unchanged; no route, method, response, or origin-policy change is introduced.
 - **Runtime-state lifecycle**: Unchanged; the migration creates no new runtime state and changes no shutdown or persistence boundary.
+- **Release version contract**: The raw tag retains its leading `v`; the canonical application
+  version removes only that prefix. The canonical version is the sole input to Go and platform
+  metadata. `<executable> --version` prints only that version plus one newline and exits before
+  runtime composition. Local builds and packages with no release `VERSION` use `development` with
+  zero-valued numeric metadata. Version reporting adds no Overseer, player, bridge, RPC, HTTP, or
+  persistent-state surface.
 
 ### Security and Privacy Requirements *(include when applicable)*
 
@@ -133,7 +162,7 @@ records.
 - **Race testing**: The repository race suite MUST pass because imports and generated identities cross concurrent runtime packages even though concurrency behavior is unchanged.
 - **Browser tests**: The desktop facade and complete browser journey suite MUST resolve the v2 generated-binding location without behavior regressions.
 - **Interactive verification**: No new interactive journey is required; existing Overseer and player behavior is unchanged.
-- **Packaging/release verification**: Static release preflight MUST accept only v2 stable/prerelease tags, reject other majors before packaging, and preserve the existing five-archive publication contract.
+- **Packaging/release verification**: Static release preflight MUST accept only v2 stable/prerelease tags, reject other majors before packaging, pass one canonical `VERSION` into every target job, reject missing or mismatched packaged versions before upload, and preserve the existing five-archive publication contract.
 
 The repository-wide Go lint baseline is defined by `.golangci.yml` and executed with `task lint`.
 No numeric coverage threshold is currently defined; verification uses the existing repository-wide
@@ -149,6 +178,8 @@ quality, generation, compatibility, frontend-build, and browser gates.
 - **SC-004**: Representative version-1 sessions and player configurations complete open, save, and reopen checks with unchanged business content and established version values.
 - **SC-005**: All repository Go, lint, race, frontend-build, compatibility, binding, and affected browser checks pass with zero new warnings treated as failures.
 - **SC-006**: Active release documentation contains zero stable or prerelease examples whose major version differs from the accepted application module major.
+- **SC-007**: All five packages produced for an accepted tag return exactly the tag's canonical semantic version plus one newline from `<executable> --version`, and every Darwin or Windows human-readable and numeric metadata value matches its defined representation, with zero mismatches reaching artifact upload.
+- **SC-008**: Active production metadata contains zero independently hard-coded release versions, and the release workflow supplies exactly one canonical `VERSION` value to all five package jobs.
 
 ## Assumptions
 
@@ -157,11 +188,17 @@ quality, generation, compatibility, frontend-build, and browser gates.
 - Version-1 session and player-configuration numbers are persistence-contract versions independent of the application release major.
 - Development-tool modules are independently owned and are not versioned by the root application's release tag.
 - Existing generated protocol and desktop contracts are behaviorally accepted and require identity regeneration rather than functional redesign.
+- The canonical application version for tag `v2.0.0-rc.1` is `2.0.0-rc.1`; numeric-only
+  platform fields use `2.0.0.0` while human-readable metadata preserves `2.0.0-rc.1`.
+- Local builds and packages with no release `VERSION` use human-readable and executable identity
+  `development`; numeric-only Darwin and Windows fields use `0.0.0` or `0.0.0.0` as required.
 
 ## Out of Scope
 
 - Application self-update discovery, download, replacement, or relaunch behavior.
-- Embedding the application release version in platform metadata or the running executable.
+- ~~Embedding the application release version in platform metadata or the running executable.~~
+  Superseded by BUG-001 because published platform metadata and executables must identify the same
+  release version as the triggering tag.
 - Checksums, signing, notarization, installers, or changes to the five-archive release inventory.
 - A future major-version-3 migration or support for publishing multiple application majors from one source revision.
 - Session, player-configuration, protobuf wire-package, RPC, gameplay, authority, or security migrations.

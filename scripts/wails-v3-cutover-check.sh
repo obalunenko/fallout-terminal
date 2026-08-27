@@ -89,6 +89,11 @@ scan_tree() {
     -exec grep -EnH 'github\.com/wailsapp/wails/v2|WAILS_V2|USE_WAILS_V2|legacyWails|dual.?runtime' {} + || true)"
   [[ -z "${matches}" ]] || { printf '%s\n' "${matches}" >&2; fail 'active Go source contains v2 or dual-runtime code'; return 1; }
 
+  matches="$(find "${root}" \( -path '*/.git' -o -path '*/node_modules' -o -path '*/specs' -o -path '*/tools' \) -prune -o -type f -name '*.go' \
+    -exec grep -EnH '^[[:space:]]*(import[[:space:]]+)?([._[:alnum:]]+[[:space:]]+)?"github\.com/obalunenko/Fallout-Terminal([^"]*)"' {} + 2>/dev/null | \
+    grep -Ev '"github\.com/obalunenko/Fallout-Terminal/v2(/[^"]*)?"' || true)"
+  [[ -z "${matches}" ]] || { printf '%s\n' "${matches}" >&2; fail 'active Go source contains an unsuffixed application import'; return 1; }
+
   if grep -En 'github\.com/wailsapp/wails/v2' "${root}/go.mod" "${root}/go.sum"; then
     fail 'application module still resolves Wails v2'
     return 1
@@ -119,7 +124,8 @@ self_test() {
   trap 'rm -rf "${fixture}"' RETURN
   mkdir -p "${fixture}/build/darwin" "${fixture}/frontend/overseer/src" "${fixture}/frontend/overseer/bindings" "${fixture}/frontend/overseer/dist" \
     "${fixture}/internal/app" "${fixture}/scripts" "${fixture}/.github/workflows" \
-    "${fixture}/specs/001-wails-v2-migration" "${fixture}/docs"
+    "${fixture}/specs/001-wails-v2-migration" "${fixture}/specs/099-completed" \
+    "${fixture}/tools/helper" "${fixture}/docs"
   printf 'module example.test/app\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.13\n' >"${fixture}/go.mod"
   : >"${fixture}/go.sum"
   printf 'tools:\n\t@go install tool\nhelp:\n\t@printf '\''Run task --list.\\n'\''\n' >"${fixture}/Makefile"
@@ -135,7 +141,9 @@ self_test() {
     '  package:' \
     '    cmds:' \
     '      - go run ./cmd/build package --target "{{.GOOS}}/{{.GOARCH}}"' >"${fixture}/Taskfile.yml"
-  printf 'package main\nimport _ "github.com/wailsapp/wails/v3/pkg/application"\n' >"${fixture}/main.go"
+  printf 'package main\nimport (\n\t_ "github.com/obalunenko/Fallout-Terminal/v2/internal/domain"\n\t_ "github.com/wailsapp/wails/v3/pkg/application"\n)\nconst repository = "https://github.com/obalunenko/Fallout-Terminal"\n' >"${fixture}/main.go"
+  printf 'package main\nimport _ "github.com/obalunenko/Fallout-Terminal/internal/toolfixture"\n' >"${fixture}/tools/helper/main.go"
+  printf 'package history\nimport _ "github.com/obalunenko/Fallout-Terminal/internal/history"\n' >"${fixture}/specs/099-completed/example.go"
   printf 'export const ready = true;\n' >"${fixture}/frontend/overseer/src/app.js"
   printf 'export const generated = true;\n' >"${fixture}/frontend/overseer/bindings/service.js"
   printf '<!doctype html>\n' >"${fixture}/frontend/overseer/dist/index.html"
@@ -146,6 +154,10 @@ self_test() {
 
   printf 'package app\nimport _ "github.com/wailsapp/wails/v2"\n' >"${fixture}/internal/app/app.go"
   if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted an active v2 Go import'; return 1; fi
+  printf 'package app\n' >"${fixture}/internal/app/app.go"
+
+  printf 'package app\nimport _ "github.com/obalunenko/Fallout-Terminal/internal/domain"\n' >"${fixture}/internal/app/app.go"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted an unsuffixed active application import'; return 1; fi
   printf 'package app\n' >"${fixture}/internal/app/app.go"
 
   printf '{}\n' >"${fixture}/wails.json"

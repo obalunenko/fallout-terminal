@@ -58,6 +58,67 @@ executable `Fallout Terminal` and resources, and the Darwin ZIP contains the com
 non-empty archive, executable, and required resources. Runtime GUI, dialog, credential, player,
 tunnel, and signing journeys are useful optional evidence, but are not release eligibility gates.
 
+## Release version identity
+
+The application module is `github.com/obalunenko/Fallout-Terminal/v2`. The tag major must match the
+root Go module major, so release preflight accepts strict stable or prerelease v2 tags and rejects
+other majors, build metadata, leading-zero numeric components, and malformed prerelease identifiers.
+
+Preflight preserves the raw tag as the GitHub release identity and removes only its leading `v` to
+produce the canonical build value. Thus `v2.0.0` produces `VERSION=2.0.0`, while
+`v2.0.0-rc.1` produces `VERSION=2.0.0-rc.1`. A canonical `VERSION` never contains a leading `v`.
+Preflight exports that value once; every native package job passes it unchanged to the common
+packager and to release inspection. The same value is linker-injected into the Go executable and
+renders the target-isolated Darwin or Windows metadata. Checked-in `.tmpl` files remain immutable
+inputs and are not independent version authorities.
+
+Numeric-only native fields are derived from that canonical value; they are never separately set:
+
+| Mode | Executable and human-readable metadata | Darwin numeric core | Windows four-part numeric |
+|---|---|---|---|
+| Stable tag `v2.0.0` | `2.0.0` | `2.0.0` | `2.0.0.0` |
+| Prerelease tag `v2.0.0-rc.1` | `2.0.0-rc.1` | `2.0.0` | `2.0.0.0` |
+| Local package with empty `VERSION` | `development` | `0.0.0` | `0.0.0.0` |
+
+On Darwin, the human-readable value is `CFBundleShortVersionString` and the numeric core is
+`CFBundleVersion`. On Windows, string `FileVersion` and `ProductVersion` retain the full canonical
+stable or prerelease value; fixed file/product versions and the manifest assembly version use the
+four-part numeric value. Linux has no additional platform version field. Empty `VERSION` is an
+explicit local non-release mode: it keeps `task build` and `task package` usable, but a
+`development` package cannot pass tagged-release inspection.
+
+## Inspect every package before upload
+
+Each matrix job packages and inspects its archive on the matching native host before its upload
+step can run. The workflow uses the canonical preflight output for both operations:
+
+```bash
+VERSION="$(go run ./cmd/build validate-release-tag --tag v2.0.0-rc.1)"
+task package GOOS=darwin GOARCH=arm64 VERSION="$VERSION"
+go run ./cmd/build inspect-release-archive \
+  --target darwin/arm64 \
+  --archive build/dist/Fallout-Terminal-darwin-arm64.zip \
+  --version "$VERSION"
+```
+
+Use the corresponding target and archive name for each of the other four native jobs. Inspection
+extracts the package, runs its executable with `--version`, and requires exactly the canonical value
+plus one newline on standard output, no standard-error output, and a successful exit before Wails
+or application services start. Darwin inspection also compares both plist version values; Windows
+inspection compares both string values, both fixed versions, and the assembly version. A missing,
+malformed, `development`, or mismatched value fails the target job before upload.
+
+If inspection reports a mismatch, do not edit a staged plist, Windows resource, checked-in
+template, or archive by hand, and do not upload the rejected archive manually. Re-run tag preflight,
+confirm that its canonical output is the exact non-empty `VERSION` passed to that target, rebuild
+the target from the tagged commit on its matching native host, and rerun the same inspection command.
+If a correction requires a source change after a complete release exists, preserve the published
+tag and release and use a new strict v2 forward-fix tag.
+
+Version inspection adds no file to an archive and no release asset. The five archive names, their
+internal executable/resource inventory, the flat upload inventory, create-only publication, and the
+partial-release recovery procedure below remain unchanged.
+
 ## Optional local aggregate
 
 On an Apple Silicon Mac, `task package:all` can create a local developer convenience output from
