@@ -93,13 +93,14 @@ func runApplication() {
 		logger.WithError(rootContext, err).Fatal("prepare player assets")
 	}
 
-	host := newWailsApplication(overseerAssets)
+	windowActivation := &overseerWindowActivation{}
+	host := newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)
 	core, err := composeApplication(rootContext, host, clientAssets)
 	if err != nil {
 		logger.WithError(rootContext, err).Fatal("compose application")
 	}
 	registerWailsServices(rootContext, host, core)
-	newOverseerWindow(host)
+	windowActivation.bind(newOverseerWindow(host))
 	if err := host.Run(); err != nil {
 		logger.WithField(rootContext, "operation", "application.run").Fatal("application host stopped with an error")
 	}
