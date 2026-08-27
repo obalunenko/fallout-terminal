@@ -89,6 +89,30 @@ func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
 	}
 }
 
+func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {
+	t.Parallel()
+
+	taskfile := readAcceptanceDocument(t, filepath.Join(repositoryRoot(t), "Taskfile.yml"))
+	for _, required := range []string{
+		"MACOS_MINIMUM_VERSION: '13.0'",
+		`DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env`,
+		"MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}}",
+		"CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}",
+		"CGO_LDFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}",
+	} {
+		assert.Contains(t, taskfile, required)
+	}
+
+	for taskName, command := range map[string]string{
+		"startup:check": "test ./internal/platform",
+		"test":          "test ./...",
+		"test:race":     "test -race ./...",
+		"vet":           "vet ./...",
+	} {
+		assert.Contains(t, taskfileTask(t, taskfile, taskName), "{{.DARWIN_CGO_ENV}} {{.GO}} "+command)
+	}
+}
+
 func TestPortableReleaseWorkflowIsTagOnlyCreateOnlyFiveTargetCoordination(t *testing.T) {
 	t.Parallel()
 
