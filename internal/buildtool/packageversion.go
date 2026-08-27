@@ -302,11 +302,11 @@ func windowsAssemblyVersion(raw []byte) (string, error) {
 				continue
 			}
 			const marker = `version="`
-			versionStart := strings.Index(element, marker)
-			if versionStart < 0 {
+			_, after, ok := strings.Cut(element, marker)
+			if !ok {
 				return "", fmt.Errorf("windows application assembly identity has no version")
 			}
-			version := element[versionStart+len(marker):]
+			version := after
 			versionEnd := strings.IndexByte(version, '"')
 			if versionEnd < 0 || versionEnd == 0 {
 				return "", fmt.Errorf("windows application assembly identity has an invalid version")

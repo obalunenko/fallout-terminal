@@ -16,8 +16,9 @@
 
 ## Go validation
 
+- Before every commit containing Go source changes, run `go fix ./...` from the repository root, following the [official Go modernization guidance](https://go.dev/blog/gofix). Run it before final formatting and validation, review every generated edit, and keep only intentional modernization changes.
 - On macOS, use `task vet`, `task test`, and `task test:race` for repository-wide validation. These targets apply the project's macOS 13 deployment target and matching CGO flags, preventing linker target-version warnings.
-- An equivalent direct Go command on macOS must set `MACOSX_DEPLOYMENT_TARGET=13.0`, `CGO_CFLAGS=-mmacosx-version-min=13.0`, and `CGO_LDFLAGS=-mmacosx-version-min=13.0`.
+- An equivalent direct Go command on macOS must set `MACOSX_DEPLOYMENT_TARGET=13.0`, `CGO_CFLAGS=-mmacosx-version-min=13.0`, and `CGO_LDFLAGS="-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries"`.
 
 ## Node.js validation
 

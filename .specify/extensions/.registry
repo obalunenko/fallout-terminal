@@ -31,7 +31,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-27T13:51:29.303782+00:00"
+      "installed_at": "2026-08-27T23:07:22.029773+00:00"
     },
     "brownfield": {
       "version": "1.0.0",
@@ -48,7 +48,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-27T13:51:32.262725+00:00"
+      "installed_at": "2026-08-27T23:07:24.400656+00:00"
     },
     "bugfix": {
       "version": "1.1.0",
@@ -65,7 +65,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-27T13:51:34.766225+00:00"
+      "installed_at": "2026-08-27T23:07:26.559418+00:00"
     },
     "feature-numbering": {
       "version": "1.0.0",
@@ -79,7 +79,7 @@
         ]
       },
       "registered_skills": [],
-      "installed_at": "2026-08-27T13:51:34.901384+00:00"
+      "installed_at": "2026-08-27T23:07:26.694360+00:00"
     }
   }
 }

@@ -59,7 +59,6 @@ func TestConsumeApplicationUpdateRecovery(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "metadata", "application-update-recovery.json")
@@ -101,7 +100,6 @@ func TestConsumeApplicationUpdateRecoveryIgnoresInvalidRecordsWithoutCleanup(t *
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "application-update-recovery.json")

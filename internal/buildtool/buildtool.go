@@ -21,7 +21,16 @@ const (
 	minimumMacOS    = "13.0"
 )
 
-const applicationModule = "github.com/obalunenko/Fallout-Terminal/v2"
+const (
+	applicationModule                 = "github.com/obalunenko/Fallout-Terminal/v2"
+	macOSNoWarnDuplicateLibrariesFlag = "-Wl,-no_warn_duplicate_libraries"
+)
+
+// macOSCGOLinkerFlags keeps the supported deployment target while silencing
+// ld's harmless duplicate-library warning when Wails CGO packages each link Objective-C.
+func macOSCGOLinkerFlags(deploymentTarget string) string {
+	return "-mmacosx-version-min=" + deploymentTarget + " " + macOSNoWarnDuplicateLibrariesFlag
+}
 
 type operation uint8
 
@@ -238,7 +247,7 @@ func compileEnvironment(target Target) map[string]string {
 	}
 	if target == DefaultTarget() {
 		environment["CGO_CFLAGS"] = "-mmacosx-version-min=" + minimumMacOS
-		environment["CGO_LDFLAGS"] = "-mmacosx-version-min=" + minimumMacOS
+		environment["CGO_LDFLAGS"] = macOSCGOLinkerFlags(minimumMacOS)
 		environment["MACOSX_DEPLOYMENT_TARGET"] = minimumMacOS
 	}
 	return environment
@@ -425,7 +434,7 @@ func validateRoot(root string) error {
 	if err != nil {
 		return fmt.Errorf("run from the repository root: %w", err)
 	}
-	for _, line := range strings.Split(string(module), "\n") {
+	for line := range strings.SplitSeq(string(module), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 0 || fields[0] != "module" {
 			continue

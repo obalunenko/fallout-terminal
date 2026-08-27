@@ -244,9 +244,9 @@ func copyDarwinBundle(ctx context.Context, source string, destination string) er
 	if err != nil {
 		return err
 	}
-	for index := len(directories) - 1; index >= 0; index-- {
-		if err := os.Chmod(directories[index].path, directories[index].mode); err != nil {
-			return fmt.Errorf("preserve application bundle directory mode %q: %w", directories[index].path, err)
+	for _, directory := range slices.Backward(directories) {
+		if err := os.Chmod(directory.path, directory.mode); err != nil {
+			return fmt.Errorf("preserve application bundle directory mode %q: %w", directory.path, err)
 		}
 	}
 	return nil

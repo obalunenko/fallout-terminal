@@ -1,0 +1,906 @@
+{
+  "workflow": "companion",
+  "specName": "interactive approval notifications",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T21:31:47.336Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T21:34:59.134Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T21:36:16.458Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T21:40:34.690Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T21:42:16.228Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T21:42:56.017Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T21:49:54.414Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T21:50:58.559Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T21:52:16.355Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T21:53:44.884Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:00.804Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:01.166Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:01.546Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:01.916Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:02.289Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:02.667Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:03.042Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:03.415Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:03.792Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:04.159Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:04.531Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:04.912Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:05.286Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:00:05.644Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:03:36.343Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T22:03:36.512Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:34:34.174Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:34:34.548Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:34:34.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:55:56.362Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:56:56.995Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T22:57:53.729Z"
+    }
+  ],
+  "coverage": {
+    "FR-001": {
+      "title": "The application MUST issue an interactive system notification whenever a new player command becomes the current pending approval request.",
+      "tasks": [
+        "T007",
+        "T008",
+        "T009",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationDeliveryContract",
+        "app_test.go::TestCoordinationPublicationObservesAcceptedDetachedStateAfterFrontendEvent"
+      ]
+    },
+    "FR-002": {
+      "title": "Notification coverage MUST include every existing player command approval mode, including terminal navigation commands that use the separate navigation approval state.",
+      "tasks": [
+        "T007",
+        "T008",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationDeliveryContract"
+      ]
+    },
+    "FR-003": {
+      "title": "Each notification MUST identify the requested command and present the confirmation message already used by the in-app approval prompt.",
+      "tasks": [
+        "T007",
+        "T008",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationContentEdgeCases"
+      ]
+    },
+    "FR-004": {
+      "title": "Each notification MUST expose no private session or player data beyond the command information already available in the in-app approval prompt.",
+      "tasks": [
+        "T007",
+        "T008",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationContentEdgeCases",
+        "approval_notifications_test.go::TestApprovalNotificationAmbiguousPendingStateFailsClosed"
+      ]
+    },
+    "FR-005": {
+      "title": "Each interactive approval notification MUST offer actions to approve and reject the request.",
+      "tasks": [
+        "T007",
+        "T008",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationDeliveryContract"
+      ]
+    },
+    "FR-006": {
+      "title": "A notification action MUST resolve the exact request represented by that notification through the same authoritative validation and decision rules as the corresponding in-app action.",
+      "tasks": [
+        "T010",
+        "T011",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationResponsesRouteOnlyCurrentTrustedAction"
+      ]
+    },
+    "FR-007": {
+      "title": "Only the current pending request MUST be eligible for a notification decision; stale, repeated, malformed, or mismatched responses MUST NOT affect another request or repeat a command effect.",
+      "tasks": [
+        "T005",
+        "T010",
+        "T011",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationRejectsOldLaunchResponseForRestoredRequest"
+      ]
+    },
+    "FR-008": {
+      "title": "The application MUST emit at most one newly delivered notification for each unique pending request, including across repeated state updates.",
+      "tasks": [
+        "T004",
+        "T007",
+        "T008",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationDeliveryContract"
+      ]
+    },
+    "FR-009": {
+      "title": "The existing in-app approval prompt MUST remain available and synchronized with decisions made from system notifications.",
+      "tasks": [
+        "T002",
+        "T004",
+        "T009",
+        "T015"
+      ],
+      "tests": [
+        "app_test.go::TestCoordinationPublicationObservesAcceptedDetachedStateAfterFrontendEvent"
+      ]
+    },
+    "FR-010": {
+      "title": "Resolution through either surface MUST prevent a second effective decision for the same request.",
+      "tasks": [
+        "T002",
+        "T010",
+        "T011",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationInAppResolutionWinsWhileNativeDecisionIsPending"
+      ]
+    },
+    "FR-011": {
+      "title": "A resolved request's notification MUST become non-actionable and MUST be removed or updated where the operating system permits.",
+      "tasks": [
+        "T007",
+        "T008",
+        "T012",
+        "T013",
+        "T014",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationFailuresRemainNonfatal"
+      ]
+    },
+    "FR-012": {
+      "title": "The application MUST follow the operating system's notification authorization process, respect denial or revocation, and avoid repeated unsolicited permission prompts.",
+      "tasks": [
+        "T003",
+        "T005",
+        "T006",
+        "T012",
+        "T013",
+        "T014",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationRevokedDeliveryFailsClosed"
+      ]
+    },
+    "FR-013": {
+      "title": "Notification denial, unsupported notification behavior, delivery failure, or response failure MUST NOT cancel, approve, reject, or otherwise alter the pending command by itself.",
+      "tasks": [
+        "T003",
+        "T005",
+        "T006",
+        "T012",
+        "T013",
+        "T014",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationRevokedDeliveryFailsClosed"
+      ]
+    },
+    "FR-014": {
+      "title": "When a notification action fails, the application MUST avoid reporting a successful decision and MUST preserve the existing in-app path to the authoritative request state.",
+      "tasks": [
+        "T010",
+        "T011",
+        "T012",
+        "T013",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationDecisionFailurePreservesCurrentRequestForRetry"
+      ]
+    },
+    "FR-015": {
+      "title": "Notification responses MUST remain confined to the trusted Overseer application boundary and MUST NOT add any player-facing or remote approval capability.",
+      "tasks": [
+        "T003",
+        "T005",
+        "T006",
+        "T009",
+        "T010",
+        "T011",
+        "T015"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsServicesRegisterApprovalNotificationsBeforeCoreLifecycle"
+      ]
+    },
+    "FR-016": {
+      "title": "After broadcast end, terminal switch, request replacement, or application shutdown invalidates a request, any later response from its notification MUST be rejected as stale.",
+      "tasks": [
+        "T002",
+        "T004",
+        "T005",
+        "T007",
+        "T008",
+        "T010",
+        "T011",
+        "T012",
+        "T013",
+        "T015"
+      ],
+      "tests": [
+        "approval_notifications_test.go::TestApprovalNotificationRejectsOldLaunchResponseForRestoredRequest",
+        "approval_notifications_test.go::TestApprovalNotificationShutdownDiscardsQueuedNativeWork"
+      ]
+    }
+  },
+  "size": "normal",
+  "classification": {
+    "projectedFiles": 8,
+    "projectedTasks": 10,
+    "scopeSignal": "none",
+    "verdict": "normal"
+  },
+  "context": [
+    "area: existing universal command approval in internal/control, app.go, and frontend/overseer/src/overseer.js",
+    "dependency: native interactive notification authorization, delivery, actions, responses, and platform-specific cleanup behavior",
+    "constraint: preserve the existing in-app approval flow and trusted Overseer-only decision boundary",
+    "constraint: apply repository Go quality and macOS validation rules during implementation"
+  ],
+  "intent": "Let the Overseer notice and safely approve or reject every pending player command from a system notification while retaining the current in-app flow.",
+  "expectations": [
+    "Changing command execution, persistence, player presentation, or terminal navigation semantics.",
+    "Replacing or removing the existing in-app approval prompt.",
+    "Adding notification preferences, custom sounds, attachments, scheduling, or text replies.",
+    "Adding approval controls to player-facing web surfaces or remote APIs."
+  ],
+  "approach": "Observe accepted authoritative coordination states in a nonblocking root adapter, present one best-effort native notification per pending request, and route validated actions through the existing App decision methods. Keep notification lifecycle failures isolated so the unchanged in-app approval path always remains authoritative and usable.",
+  "decisions": [
+    {
+      "decision": "Wrap the pinned Wails notification service in a nonfatal root lifecycle adapter.",
+      "why": "Direct service startup can fail on unavailable native notification environments and must not abort the application.",
+      "rejected": "Register the Wails notification service directly or add another notification dependency."
+    },
+    {
+      "decision": "Observe accepted App coordination publication and reuse existing App decision methods.",
+      "why": "This keeps notifications synchronized with the in-app prompt and preserves server-authoritative validation, persistence, and events.",
+      "rejected": "Watch frontend events, call control directly, or move notification behavior into domain packages."
+    },
+    {
+      "decision": "Correlate callbacks with one private in-memory current-request record.",
+      "why": "Old, delayed, malformed, repeated, and replacement-request callbacks must be inert before they reach App validation.",
+      "rejected": "Trust callback UserInfo or persist handled notification IDs."
+    },
+    {
+      "decision": "Check and request notification authorization once per launch outside application locks.",
+      "why": "The Overseer window and in-app approval path must not wait on user consent, and denial must not cause prompt loops.",
+      "rejected": "Block Wails startup or request permission for every command."
+    },
+    {
+      "decision": "Treat native notification removal as advisory and stale validation as mandatory.",
+      "why": "The pinned Windows backend cannot remove delivered toasts, so correctness cannot depend on visual cleanup.",
+      "rejected": "Assume removal or update-by-ID works consistently on every platform."
+    },
+    {
+      "decision": "Use deterministic fake-driven race coverage as completion evidence and matching-host native journeys as supplemental checks.",
+      "why": "System notification centers and authorization prompts are not deterministic CI resources, while the constitution requires unavailable native checks to be reported honestly.",
+      "rejected": "Gate feature completion on live notification tests for every target or omit native smoke guidance."
+    },
+    {
+      "decision": "Observe accepted coordination snapshots through one unexported App dependency after frontend event publication.",
+      "why": "This preserves current event ordering and keeps notification behavior out of the frontend binding surface.",
+      "rejected": "Polling App state or registering the native Wails service directly."
+    },
+    {
+      "decision": "Wrap the pinned Wails notification service in an application-owned best-effort lifecycle with asynchronous authorization.",
+      "why": "Native startup or consent failures must never abort Wails startup or block the in-app approval path.",
+      "rejected": "Returning native lifecycle errors to Wails or waiting for consent during startup/shutdown."
+    },
+    {
+      "decision": "Correlate callbacks only with the in-memory current record and route decisions through existing App methods.",
+      "why": "The existing App/control locks remain the sole authority and stale or attacker-controlled callback metadata cannot select a request.",
+      "rejected": "Parsing notification IDs or trusting callback UserInfo."
+    },
+    {
+      "decision": "Embed a cryptographically random per-launch correlation value in each native notification ID",
+      "why": "The callback exposes the notification ID reliably, and matching it rejects an old-process toast even when the restored request reuses its kind and server request ID",
+      "rejected": "Trust callback UserInfo or correlate only by kind and request ID"
+    },
+    {
+      "decision": "Revalidate generation and stopped state after acquiring nativeMu, with an explicit shutdown-cleanup allowance",
+      "why": "Queued send and remove work then becomes inert across shutdown while the shutdown-owned removal remains serialized before native ServiceShutdown",
+      "rejected": "Wait synchronously for all native work during ServiceShutdown"
+    },
+    {
+      "decision": "Recheck authorization once after a notification send failure and disable delivery when denial or an authorization error is observed",
+      "why": "This detects runtime revocation without reopening consent or affecting the authoritative in-app request",
+      "rejected": "Infer revocation from error text or retry permission and delivery on every later request"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned a nonfatal root notification adapter that mirrors authoritative approval state and safely reuses existing decisions.",
+      "key_finding": "The native Wails service must be wrapped because direct startup failure would otherwise abort the application, and Windows cleanup cannot be the safety boundary."
+    },
+    "tasks": {
+      "summary": "15 tasks across setup, foundational, three user-story phases, and final documentation/validation, with tests before each implementation wave."
+    },
+    "specify": {
+      "summary": "Implemented root-only interactive Wails notifications for command and terminal-navigation approvals with trusted App routing and nonfatal fallback."
+    },
+    "implement": {
+      "summary": "Closed T019-T021 with launch-scoped response correlation, shutdown-safe native operation ordering, and runtime revocation fallback."
+    }
+  },
+  "currentTask": "T021",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added deterministic fake native notifier, decision target, callback recorder, and fixtures.",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added detached accepted-state observer tests, including revision rejection and mutation isolation.",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added notification lifecycle registration and nonfatal startup/category failure tests.",
+      "files": [
+        "wails_host_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added the narrow coordination observer dependency and detached post-event publication.",
+      "files": [
+        "app.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added the root-only native notification interface, lifecycle model, state, and logging boundary.",
+      "files": [
+        "approval_notifications.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Registered approval notifications before the core lifecycle with reverse Wails shutdown ordering.",
+      "files": [
+        "wails_host.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added delivery/content/privacy/deduplication/replacement/clear contract tests.",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Implemented request reduction, stable IDs, bounded content, asynchronous delivery, deduplication, and cleanup.",
+      "files": [
+        "approval_notifications.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Composed, injected, and bound the native approval adapter before host startup.",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added trusted response, stale/malformed callback, and 100-response concurrency tests.",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Implemented validated response claiming and exact App decision routing outside adapter locks.",
+      "files": [
+        "approval_notifications.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added notification authorization, native failure, cleanup, shutdown, and fallback tests.",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Completed asynchronous authorization, generation guards, sanitized failure logging, and nonblocking shutdown.",
+      "files": [
+        "approval_notifications.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Documented platform notification prerequisites, degradation, fallback, and manual smoke reporting.",
+      "files": [
+        "docs/platform-support.md"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Validated notification behavior and repository quality, binding, frontend, build, package, dependency, and race gates; native approve/reject smoke was NOT RUN.",
+      "files": [
+        "approval_notifications.go",
+        "approval_notifications_test.go",
+        "app.go",
+        "app_test.go",
+        "wails_host.go",
+        "wails_host_test.go",
+        "main.go",
+        "go.mod",
+        "go.sum",
+        "THIRD_PARTY_NOTICES.md",
+        "docs/platform-support.md"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added simultaneous in-app/native decision and decision-failure retry coverage",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Added controlled authorization, revocation, shutdown, and late-callback coverage",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added notification content bounds, fallback, privacy, and fail-closed pending-state coverage",
+      "files": [
+        "approval_notifications_test.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added cryptographically random launch-scoped notification IDs and restart correlation coverage",
+      "files": [
+        "approval_notifications.go",
+        "approval_notifications_test.go",
+        "contracts/approval-notification.md",
+        "data-model.md"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Generation-guarded queued native cleanup and delivery against shutdown with deterministic ordering tests",
+      "files": [
+        "approval_notifications.go",
+        "approval_notifications_test.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Disabled native delivery after a failed send reveals revoked or failed authorization and covered later-request fallback",
+      "files": [
+        "approval_notifications.go",
+        "approval_notifications_test.go"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Go static analysis",
+      "command": "task vet",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Go unit and integration tests",
+      "command": "task test",
+      "result": "PASS",
+      "warnings": [
+        "macOS linker reported the pre-existing duplicate -lobjc warning"
+      ]
+    },
+    {
+      "what": "Go race suite including 100 concurrent notification responses",
+      "command": "task test:race",
+      "result": "PASS",
+      "warnings": [
+        "macOS linker reported the pre-existing duplicate -lobjc warning"
+      ]
+    },
+    {
+      "what": "Go lint",
+      "command": "task lint",
+      "result": "PASS: 0 issues",
+      "warnings": []
+    },
+    {
+      "what": "Frontend production builds",
+      "command": "task frontend:build",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Wails frontend binding surface",
+      "command": "task bindings:check",
+      "result": "PASS: 38 accepted methods and seven events; notification lifecycle remains unbound",
+      "warnings": []
+    },
+    {
+      "what": "Native application build",
+      "command": "task build",
+      "result": "PASS",
+      "warnings": [
+        "Node emitted an experimental localStorage warning",
+        "macOS linker reported the pre-existing duplicate -lobjc warning"
+      ]
+    },
+    {
+      "what": "Native application package and dependency inventory",
+      "command": "task package",
+      "result": "PASS",
+      "warnings": [
+        "Node emitted an experimental localStorage warning",
+        "macOS linker reported the pre-existing duplicate -lobjc warning"
+      ]
+    },
+    {
+      "what": "Matching-host interactive notification approve/reject smoke",
+      "command": "manual packaged application check",
+      "result": "NOT RUN",
+      "warnings": [
+        "No interactive packaged notification session was launched during this automated run"
+      ]
+    },
+    {
+      "what": "Packaged macOS native approval notification smoke",
+      "command": "manual packaged Fallout Terminal.app interaction",
+      "result": "PASS: system notifications appeared and notification approval actions resolved successfully",
+      "warnings": []
+    },
+    {
+      "what": "Packaged macOS native rejection notification smoke",
+      "command": "manual packaged Fallout Terminal.app interaction",
+      "result": "PASS: notification rejection action resolved successfully without executing the requested action",
+      "warnings": []
+    },
+    {
+      "what": "Completed packaged macOS interactive notification approve/reject smoke",
+      "command": "manual packaged Fallout Terminal.app interaction",
+      "result": "PASS: notifications appeared and both native approve and reject actions behaved correctly",
+      "warnings": []
+    },
+    {
+      "what": "Convergence notification tests",
+      "command": "focused go test runs for T016-T018",
+      "result": "PASS",
+      "warnings": [
+        "macOS linker reported the pre-existing duplicate -lobjc warning"
+      ]
+    },
+    {
+      "what": "Post-convergence Go suite",
+      "command": "task test && task test:race && task vet && task lint && task fmt:check",
+      "result": "PASS: tests and race suite pass; lint reports 0 issues",
+      "warnings": [
+        "macOS linker reported the pre-existing duplicate -lobjc warning"
+      ]
+    },
+    {
+      "what": "Go formatting",
+      "command": "task fmt:check",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Go unit and integration tests after T019-T021",
+      "command": "task test",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Go race suite after T019-T021",
+      "command": "task test:race",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Go lint after T019-T021",
+      "command": "task lint",
+      "result": "PASS: 0 issues",
+      "warnings": []
+    },
+    {
+      "what": "Native application build after T019-T021",
+      "command": "task build",
+      "result": "PASS: build/bin/Fallout Terminal produced",
+      "warnings": [
+        "Node experimental localStorage warning",
+        "Wails missing Go build-cache entries",
+        "sandbox denied a Go module stat-cache write after the artifact was produced"
+      ]
+    }
+  ],
+  "concerns": [
+    {
+      "note": "Packaging initially exposed Wails notifications' Windows go-toast backend as missing from module checksums and reviewed notices; go.mod, go.sum, and THIRD_PARTY_NOTICES.md now pin and cover v2.0.3, and package validation passes.",
+      "step": "implement"
+    },
+    {
+      "note": "Companion rejected T016-T018 journal entries because convergence appended tasks after the feature was already status=completed; write-context.py intentionally blocks per-task events for shipped specs, so tasks.md markers remain unchecked rather than being edited manually.",
+      "step": "implement"
+    },
+    {
+      "note": "The sandbox blocked the default Go cache and a module stat-cache write during ad hoc and build validation; repository Task gates passed, and task build produced the binary despite its final nonfatal cache warning.",
+      "step": "implement"
+    }
+  ],
+  "last_action": "T019-T021 complete; fmt, vet, test, race, lint, and native build pass",
+  "reopens": [
+    {
+      "step": "implement",
+      "reason": "convergence-tasks",
+      "tasks": [
+        "T016",
+        "T017",
+        "T018"
+      ],
+      "fromStatus": "completed",
+      "toStatus": "implementing",
+      "by": "extension",
+      "at": "2026-08-27T22:34:24.128Z"
+    },
+    {
+      "step": "implement",
+      "reason": "convergence-tasks",
+      "tasks": [
+        "T019",
+        "T020",
+        "T021"
+      ],
+      "fromStatus": "completed",
+      "toStatus": "implementing",
+      "by": "extension",
+      "at": "2026-08-27T22:52:44.734Z"
+    }
+  ]
+}

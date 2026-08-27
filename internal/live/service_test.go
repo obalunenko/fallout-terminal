@@ -17,12 +17,12 @@ import (
 )
 
 func TestControllerPresentationIsRuntimeOwnedAndProjected(t *testing.T) {
-	runtimeType := reflect.TypeOf(domain.TerminalRuntime{})
+	runtimeType := reflect.TypeFor[domain.TerminalRuntime]()
 	runtimeField, ok := runtimeType.FieldByName("Presentation")
 	require.True(t, ok, "TerminalRuntime must own controller presentation")
 	require.Equal(t, "ControllerTerminalPresentation", runtimeField.Type.Name())
 
-	publicType := reflect.TypeOf(domain.PublicLiveState{})
+	publicType := reflect.TypeFor[domain.PublicLiveState]()
 	publicField, ok := publicType.FieldByName("Presentation")
 	require.True(t, ok, "PublicLiveState must project controller presentation")
 	require.Equal(t, runtimeField.Type, publicField.Type)

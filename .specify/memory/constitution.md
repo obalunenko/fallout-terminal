@@ -1,19 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.0 -> 8.1.1
+- Version change: 8.1.1 -> 8.1.2
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Assign framework-independent application-update orchestration to `internal/update/`, canonical
-    embedded release identity to `internal/version/`, and Wails/provider update adapters to root
-    composition
-- Updated templates:
-  - Align the plan template with Node.js 26.8.1+
-  - Remove the obsolete local-release alias from templates in favor of the governed
-    `task package` and optional `task package:all` entrypoints
-  - Add application-update, release-identity, buildtool, and generated-contract ownership paths
+  - Advance the sole accepted Wails v3 runtime, isolated CLI, frontend runtime, and generated-binding
+    baseline from v3.0.0-beta.13 to mutually compatible v3.0.0-beta.15 pins
+- Updated templates: None
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -27,7 +22,7 @@ state uses the portable version-1 JSON session document; live terminal, navigati
 connection, startup, and tunnel state is owned by the running application.
 
 The production architecture is a Go 1.27 modular monolith whose sole accepted production desktop
-runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.13 implementation. Runtime, CLI,
+runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.15 implementation. Runtime, CLI,
 frontend, and generated-binding versions MUST remain mutually compatible and reproducibly pinned
 in their owning dependency graphs.
 
@@ -272,7 +267,7 @@ that form or proxy a parallel workflow graph.
 ## Dependency Rules
 
 - Root composition and `internal/platform/` adapters MAY depend on the repository's exactly pinned
-  `github.com/wailsapp/wails/v3` v3.0.0-beta.13 runtime because they are the Wails v3 composition and
+  `github.com/wailsapp/wails/v3` v3.0.0-beta.15 runtime because they are the Wails v3 composition and
   platform boundaries. No other `internal/` package MAY import Wails.
 - Protobuf schema modules are upstream contract dependencies. Generated Go and ECMAScript outputs
   MUST depend only on pinned generators and runtimes and MUST be consumed through explicit boundary
@@ -624,4 +619,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.1.1 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27
+**Version**: 8.1.2 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-28

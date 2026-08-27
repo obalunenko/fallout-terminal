@@ -428,8 +428,7 @@ func (service *Service) ReplaceTerminalGroups(
 			candidate.ExpectedSessionRevision,
 		)
 		if err != nil {
-			var rejection *TerminalGroupStoreRejection
-			if errors.As(err, &rejection) {
+			if rejection, ok := errors.AsType[*TerminalGroupStoreRejection](err); ok {
 				mutation = &TerminalGroupMutation{
 					Changed:  durable.Changed,
 					Revision: durable.Revision,

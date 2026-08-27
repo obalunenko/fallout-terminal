@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -391,12 +392,10 @@ func validateLaunchRelativePath(path string) error {
 	if path == "" || filepath.IsAbs(path) || filepath.Clean(path) != path || path == "." {
 		return errors.New("replacement helper request has an invalid launch path")
 	}
-	for _, component := range strings.FieldsFunc(path, func(r rune) bool {
+	if slices.Contains(strings.FieldsFunc(path, func(r rune) bool {
 		return r == '/' || r == '\\'
-	}) {
-		if component == ".." {
-			return errors.New("replacement helper request has a traversing launch path")
-		}
+	}), "..") {
+		return errors.New("replacement helper request has a traversing launch path")
 	}
 	return nil
 }

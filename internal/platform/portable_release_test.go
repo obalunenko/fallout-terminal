@@ -86,7 +86,7 @@ func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
 	} {
 		assert.Contains(t, composition, required)
 	}
-	for _, pin := range []string{"v3.0.0-beta.13", "3.0.0-beta.13"} {
+	for _, pin := range []string{"v3.0.0-beta.15", "3.0.0-beta.15"} {
 		assert.Contains(t, composition, pin)
 	}
 	assert.Contains(t, bindingsCheck, `GOCACHE=${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache}`)
@@ -165,7 +165,7 @@ func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {
 		`DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env`,
 		"MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}}",
 		"CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}",
-		"CGO_LDFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}",
+		`CGO_LDFLAGS="-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} -Wl,-no_warn_duplicate_libraries"`,
 	} {
 		assert.Contains(t, taskfile, required)
 	}
@@ -355,10 +355,10 @@ func TestPortablePublicationInventoryIsExactlyTheGovernedFiveArchives(t *testing
 
 func acceptanceValuesWithPrefix(document, prefix string) []string {
 	values := make([]string, 0)
-	for _, line := range strings.Split(document, "\n") {
+	for line := range strings.SplitSeq(document, "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, prefix) {
-			values = append(values, strings.TrimSpace(strings.TrimPrefix(line, prefix)))
+		if after, ok := strings.CutPrefix(line, prefix); ok {
+			values = append(values, strings.TrimSpace(after))
 		}
 	}
 	return values

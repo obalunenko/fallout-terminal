@@ -126,7 +126,7 @@ self_test() {
     "${fixture}/internal/app" "${fixture}/scripts" "${fixture}/.github/workflows" \
     "${fixture}/specs/001-wails-v2-migration" "${fixture}/specs/099-completed" \
     "${fixture}/tools/helper" "${fixture}/docs"
-  printf 'module example.test/app\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.13\n' >"${fixture}/go.mod"
+  printf 'module example.test/app\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.15\n' >"${fixture}/go.mod"
   : >"${fixture}/go.sum"
   printf 'tools:\n\t@go install tool\nhelp:\n\t@printf '\''Run task --list.\\n'\''\n' >"${fixture}/Makefile"
   printf '%s\n' \

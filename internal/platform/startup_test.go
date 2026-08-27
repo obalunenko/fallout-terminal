@@ -27,7 +27,7 @@ func TestWailsV3GoToolsAreIsolatedFromApplicationModule(t *testing.T) {
 			name:          "Wails CLI",
 			directory:     "wails",
 			tool:          "github.com/wailsapp/wails/v3/cmd/wails3",
-			parentRequire: "github.com/wailsapp/wails/v3 v3.0.0-beta.13",
+			parentRequire: "github.com/wailsapp/wails/v3 v3.0.0-beta.15",
 		},
 		{
 			name:          "Go Task",
@@ -102,7 +102,7 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 
 	root := repositoryRoot(t)
 	applicationModule := readAcceptanceDocument(t, filepath.Join(root, "go.mod"))
-	assert.Equal(t, 1, strings.Count(applicationModule, "github.com/wailsapp/wails/v3 v3.0.0-beta.13"))
+	assert.Equal(t, 1, strings.Count(applicationModule, "github.com/wailsapp/wails/v3 v3.0.0-beta.15"))
 
 	packageRaw, err := os.ReadFile(filepath.Join(root, "frontend", "overseer", "package.json"))
 	require.NoError(t, err)
@@ -110,11 +110,11 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 		Dependencies map[string]string `json:"dependencies"`
 	}
 	require.NoError(t, json.Unmarshal(packageRaw, &packageConfig))
-	assert.Equal(t, "3.0.0-beta.13", packageConfig.Dependencies["@wailsio/runtime"])
+	assert.Equal(t, "3.0.0-beta.15", packageConfig.Dependencies["@wailsio/runtime"])
 
 	lock := readAcceptanceDocument(t, filepath.Join(root, "frontend", "package-lock.json"))
-	assert.Contains(t, lock, `"@wailsio/runtime": "3.0.0-beta.13"`)
-	assert.Contains(t, lock, `runtime-3.0.0-beta.13.tgz`)
+	assert.Contains(t, lock, `"@wailsio/runtime": "3.0.0-beta.15"`)
+	assert.Contains(t, lock, `runtime-3.0.0-beta.15.tgz`)
 
 	files := []struct {
 		path   string
@@ -408,7 +408,7 @@ func TestReproducibleBuildHashesPackagedExecutableAndUsesQuietToolEnvironments(t
 	assert.Contains(t, protoCheck, `if [[ "$(go env GOOS)" == darwin ]]; then
   export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
   export CGO_CFLAGS="${CGO_CFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
-  export CGO_LDFLAGS="${CGO_LDFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
+  export CGO_LDFLAGS="${CGO_LDFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -Wl,-no_warn_duplicate_libraries}"
 fi`)
 
 	protoGenerate := readAcceptanceDocument(t, filepath.Join(root, "scripts", "proto-generate.sh"))

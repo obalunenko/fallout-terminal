@@ -156,7 +156,7 @@ func TestBuildPlanTargetEnvironmentIsExplicitAndIsolated(t *testing.T) {
 			environment: map[string]string{
 				"CGO_ENABLED":              "1",
 				"CGO_CFLAGS":               "-mmacosx-version-min=" + minimumMacOS,
-				"CGO_LDFLAGS":              "-mmacosx-version-min=" + minimumMacOS,
+				"CGO_LDFLAGS":              macOSCGOLinkerFlags(minimumMacOS),
 				"GOARCH":                   "arm64",
 				"GOOS":                     "darwin",
 				"MACOSX_DEPLOYMENT_TARGET": minimumMacOS,
@@ -402,7 +402,7 @@ func TestPackagePlanOwnsEmbeddedDependencyNoticesAndNoProviderExecutable(t *test
 	assert.Equal(t, "1", compile.Environment["CGO_ENABLED"])
 	assert.Equal(t, minimumMacOS, compile.Environment["MACOSX_DEPLOYMENT_TARGET"])
 	assert.Equal(t, "-mmacosx-version-min="+minimumMacOS, compile.Environment["CGO_CFLAGS"])
-	assert.Equal(t, "-mmacosx-version-min="+minimumMacOS, compile.Environment["CGO_LDFLAGS"])
+	assert.Equal(t, macOSCGOLinkerFlags(minimumMacOS), compile.Environment["CGO_LDFLAGS"])
 }
 
 func TestPackagePlanPreservesCanonicalFrontendAndOfflineResourceOwnership(t *testing.T) {

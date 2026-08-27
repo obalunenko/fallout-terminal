@@ -398,8 +398,8 @@ func parseApplicationSemanticVersion(value string, requireTag bool) (application
 			return applicationSemanticVersion{}, errors.New("semantic version tag must start with v")
 		}
 		value = strings.TrimPrefix(value, "v")
-	} else if strings.HasPrefix(value, "v") {
-		value = strings.TrimPrefix(value, "v")
+	} else if after, ok := strings.CutPrefix(value, "v"); ok {
+		value = after
 	}
 	if value == "" || strings.Contains(value, "+") {
 		return applicationSemanticVersion{}, errors.New("semantic version is not canonical")

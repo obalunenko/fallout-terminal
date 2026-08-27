@@ -298,7 +298,7 @@ func readBrowserFileDescriptor(t *testing.T, root, name string) (*descriptorpb.F
 	require.NoError(t, proto.Unmarshal(encoded, descriptor))
 	dependencies := make([]string, 0)
 	if rawDependencies := strings.TrimSpace(string(match[2])); rawDependencies != "" {
-		for _, dependency := range strings.Split(rawDependencies, ",") {
+		for dependency := range strings.SplitSeq(rawDependencies, ",") {
 			dependencies = append(dependencies, strings.TrimSpace(dependency))
 		}
 	}
