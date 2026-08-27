@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -492,9 +493,7 @@ func (fixture *verificationFixture) write(t *testing.T) {
 			manifestContents = append(manifestContents, '\n')
 		}
 		archiveFiles := make(map[string]verificationFile, len(fixture.files)+1)
-		for path, file := range fixture.files {
-			archiveFiles[path] = file
-		}
+		maps.Copy(archiveFiles, fixture.files)
 		if !fixture.omitManifest {
 			archiveFiles["artifact-manifest.json"] = verificationFile{contents: manifestContents, mode: 0o444}
 		}

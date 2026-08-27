@@ -98,7 +98,7 @@ func releaseVersionFromMatches(kind, value string, matches []string) (ReleaseVer
 		return ReleaseVersion{}, fmt.Errorf("invalid %s %q: release major must be %s", kind, value, releaseMajorVersion)
 	}
 	prerelease := matches[4]
-	for _, identifier := range strings.Split(prerelease, ".") {
+	for identifier := range strings.SplitSeq(prerelease, ".") {
 		if len(identifier) > 1 && identifier[0] == '0' && numericIdentifier(identifier) {
 			return ReleaseVersion{}, fmt.Errorf("invalid %s %q: numeric prerelease identifiers must not contain leading zeroes", kind, value)
 		}

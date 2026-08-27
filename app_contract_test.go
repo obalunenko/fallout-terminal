@@ -76,7 +76,7 @@ func TestApplicationUpdateSnapshotProtoNativeRoundTripEveryState(t *testing.T) {
 				AvailableVersion: "2.19.0",
 				ReleaseNotes:     "Safe release notes",
 				BytesDownloaded:  1024,
-				DownloadSize:     applicationUpdateUint64Pointer(2048),
+				DownloadSize:     new(uint64(2048)),
 			}, native)
 		})
 	}
@@ -223,10 +223,6 @@ func TestApplicationUpdateCommandResultProtoNativeRoundTripPreservesOptionalErro
 	semantic = applicationUpdateCommandResultToPrivate(withoutError)
 	require.False(t, semantic.ProtoReflect().Has(semantic.ProtoReflect().Descriptor().Fields().ByName("error")))
 	require.Equal(t, withoutError, applicationUpdateCommandResultFromPrivate(semantic))
-}
-
-func applicationUpdateUint64Pointer(value uint64) *uint64 {
-	return &value
 }
 
 func applicationUpdateMapKeys[V any](values map[string]V) []string {

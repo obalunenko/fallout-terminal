@@ -800,9 +800,7 @@ func TestTerminalGroupReplacementPublishesCanonicalSessionBeforeCoordinationAndR
 		},
 	}
 	coordination := &recordingTerminalGroupCoordinationService{
-		recordingCoordinationService: recordingCoordinationService{
-			state: &domain.MasterCoordinationState{Revision: 21},
-		},
+		state:            &domain.MasterCoordinationState{Revision: 21},
 		recorder:         recorder,
 		replacementState: canonicalState,
 		mutation: &controlservice.TerminalGroupMutation{
@@ -1112,10 +1110,10 @@ func TestTerminalGroupReplacementStaleFailureReturnsLatestProjectionsWithoutPubl
 	})
 	canonicalState := &domain.MasterCoordinationState{Revision: 32}
 	coordination := &recordingTerminalGroupCoordinationService{
-		recordingCoordinationService: recordingCoordinationService{state: canonicalState},
-		recorder:                     recorder,
-		replacementState:             canonicalState,
-		err:                          errors.New("coordination revision changed; review the latest group state"),
+		state:            canonicalState,
+		recorder:         recorder,
+		replacementState: canonicalState,
+		err:              errors.New("coordination revision changed; review the latest group state"),
 	}
 	sessions := &loggingSessionCommands{active: sessionservice.ActiveSession{
 		Path: "/Campaigns/latest-grouped.json", Session: &canonicalSession,
@@ -1160,8 +1158,8 @@ func TestTerminalGroupReplacementUsesCanonicalStoreRejectionProjection(t *testin
 	})
 	canonicalState := &domain.MasterCoordinationState{Revision: 44}
 	coordination := &recordingTerminalGroupCoordinationService{
-		recordingCoordinationService: recordingCoordinationService{state: canonicalState},
-		replacementState:             canonicalState,
+		state:            canonicalState,
+		replacementState: canonicalState,
 		mutation: &controlservice.TerminalGroupMutation{
 			Revision: 19,
 			Session:  canonicalSession,

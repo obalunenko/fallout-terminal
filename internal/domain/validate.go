@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -281,10 +282,8 @@ func EnsureTerminalGroups(session Session) Session {
 // TerminalGroupFor returns a detached ordered group containing terminalID.
 func TerminalGroupFor(session Session, terminalID string) (TerminalGroupSnapshot, bool) {
 	for _, group := range session.TerminalGroups {
-		for _, memberID := range group.TerminalIDs {
-			if memberID == terminalID {
-				return TerminalGroupSnapshot{ID: group.ID, Name: group.Name, TerminalIDs: append([]string(nil), group.TerminalIDs...)}, true
-			}
+		if slices.Contains(group.TerminalIDs, terminalID) {
+			return TerminalGroupSnapshot{ID: group.ID, Name: group.Name, TerminalIDs: append([]string(nil), group.TerminalIDs...)}, true
 		}
 	}
 	return TerminalGroupSnapshot{}, false

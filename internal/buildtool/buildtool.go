@@ -434,7 +434,7 @@ func validateRoot(root string) error {
 	if err != nil {
 		return fmt.Errorf("run from the repository root: %w", err)
 	}
-	for _, line := range strings.Split(string(module), "\n") {
+	for line := range strings.SplitSeq(string(module), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 0 || fields[0] != "module" {
 			continue

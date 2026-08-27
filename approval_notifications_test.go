@@ -409,11 +409,9 @@ func TestApprovalNotificationIgnoresMalformedStaleAndRepeatedResponses(t *testin
 	}}
 	var responses sync.WaitGroup
 	for range 100 {
-		responses.Add(1)
-		go func() {
-			defer responses.Done()
+		responses.Go(func() {
 			fake.respond(response)
-		}()
+		})
 	}
 	responses.Wait()
 	require.Len(t, target.snapshot(), 1)

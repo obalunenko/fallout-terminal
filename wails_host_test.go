@@ -184,11 +184,9 @@ func TestOverseerWindowActivationCoalescesLaunchesUntilWindowBinding(t *testing.
 	activation := &overseerWindowActivation{}
 	var launches sync.WaitGroup
 	for range 64 {
-		launches.Add(1)
-		go func() {
-			defer launches.Done()
+		launches.Go(func() {
 			activation.handleSecondInstanceLaunch(application.SecondInstanceData{})
-		}()
+		})
 	}
 	launches.Wait()
 

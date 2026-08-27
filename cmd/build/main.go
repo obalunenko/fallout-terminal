@@ -25,8 +25,7 @@ func main() {
 	defer stop()
 
 	if err := run(ctx, root, os.Args[1:]); err != nil {
-		var commandUsageError *usageError
-		if errors.As(err, &commandUsageError) {
+		if commandUsageError, ok := errors.AsType[*usageError](err); ok {
 			fmt.Fprintf(os.Stderr, "build: %v\n", commandUsageError)
 			usage()
 			os.Exit(2)

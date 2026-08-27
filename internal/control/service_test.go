@@ -25,14 +25,14 @@ import (
 )
 
 func TestControllerPresentationCommandCarriesSemanticContext(t *testing.T) {
-	commandType := reflect.TypeOf(domain.RuntimeCommand{})
+	commandType := reflect.TypeFor[domain.RuntimeCommand]()
 	field, ok := commandType.FieldByName("Presentation")
 	require.True(t, ok, "RuntimeCommand must expose Presentation")
 	require.NotEqual(t, reflect.Invalid, field.Type.Kind())
 	_, ok = field.Type.FieldByName("ContextKey")
 	require.True(t, ok, "presentation command must carry the semantic context precondition")
 
-	runtimeType := reflect.TypeOf(domain.TerminalRuntime{})
+	runtimeType := reflect.TypeFor[domain.TerminalRuntime]()
 	_, ok = runtimeType.FieldByName("Presentation")
 	require.True(t, ok, "coordinator-owned runtime must retain presentation across reassignment")
 }
@@ -86,7 +86,7 @@ func TestControllerPresentationAuthorizationReassignmentAndProjection(t *testing
 }
 
 func TestControllerPresentationAndReassignmentShareCommitOrderAcross100Interleavings(t *testing.T) {
-	for trial := 0; trial < 100; trial++ {
+	for trial := range 100 {
 		t.Run(fmt.Sprintf("trial-%03d", trial), func(t *testing.T) {
 			fixture := newUS2Fixture(t, live.New(nil, nil))
 			projection, _, ok := fixture.service.CurrentLiveForSession(fixture.controllerSession)
