@@ -16,15 +16,20 @@ import (
 	"strings"
 )
 
+const releaseMajorVersion = "2"
+
 var releaseTagPattern = regexp.MustCompile(`^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$`)
 
-// ValidateReleaseTag accepts the release workflow's strict SemVer subset and
-// reports whether the accepted version is a prerelease. Build metadata is not
-// accepted because a tag maps to one create-only GitHub Release identity.
+// ValidateReleaseTag accepts the release workflow's strict v2 SemVer subset
+// and reports whether the accepted version is a prerelease. Build metadata is
+// not accepted because a tag maps to one create-only GitHub Release identity.
 func ValidateReleaseTag(tag string) (bool, error) {
 	matches := releaseTagPattern.FindStringSubmatch(tag)
 	if matches == nil {
-		return false, fmt.Errorf("invalid release tag %q (want vMAJOR.MINOR.PATCH with an optional SemVer prerelease suffix)", tag)
+		return false, fmt.Errorf("invalid release tag %q (want v2.MINOR.PATCH with an optional SemVer prerelease suffix)", tag)
+	}
+	if matches[1] != releaseMajorVersion {
+		return false, fmt.Errorf("invalid release tag %q: release major must be v%s", tag, releaseMajorVersion)
 	}
 	prerelease := matches[4]
 	for _, identifier := range strings.Split(prerelease, ".") {

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/buildtool"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/buildtool"
 )
 
 func main() {
@@ -290,7 +290,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-container --target GOOS/GOARCH")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build prepare")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-all-docker [--output <directory>]")
-	fmt.Fprintln(os.Stderr, "  go run ./cmd/build validate-release-tag --tag <vMAJOR.MINOR.PATCH[-PRERELEASE]>")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build validate-release-tag --tag <v2.MINOR.PATCH[-PRERELEASE]>")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-archive --target GOOS/GOARCH --archive <path>")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build inspect-release-inventory --directory <path>")
 }

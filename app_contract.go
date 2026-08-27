@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	persistencev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
-	playerv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
-	privatev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1"
-	sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
-	tunnelservice "github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
+	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
+	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
+	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 )
 
 // The private protobuf graph governs trusted desktop semantics only. These

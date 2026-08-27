@@ -3,7 +3,7 @@ package nav
 import (
 	"testing"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 

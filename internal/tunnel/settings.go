@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	configv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1"
+	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 )
 
 var ErrSettingsRecovered = errors.New("saved public-access settings were reset safely")

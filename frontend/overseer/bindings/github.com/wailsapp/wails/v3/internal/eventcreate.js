@@ -8,10 +8,10 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as main$0 from "../../../../obalunenko/Fallout-Terminal/models.js";
+import * as main$0 from "../../../../obalunenko/Fallout-Terminal/v2/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as domain$0 from "../../../../obalunenko/Fallout-Terminal/internal/domain/models.js";
+import * as domain$0 from "../../../../obalunenko/Fallout-Terminal/v2/internal/domain/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {

@@ -13,8 +13,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/platform"
-	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/platform"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 )
 
 const smokeTimeout = 30 * time.Second

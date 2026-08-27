@@ -7,10 +7,10 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as main$0 from "../../../../obalunenko/Fallout-Terminal/models.js";
+import type * as main$0 from "../../../../obalunenko/Fallout-Terminal/v2/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as domain$0 from "../../../../obalunenko/Fallout-Terminal/internal/domain/models.js";
+import type * as domain$0 from "../../../../obalunenko/Fallout-Terminal/v2/internal/domain/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {

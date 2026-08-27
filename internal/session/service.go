@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 )
 
 // SaveState is the user-visible persistence state of the active session.

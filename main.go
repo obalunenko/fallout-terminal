@@ -14,15 +14,15 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	controlservice "github.com/obalunenko/Fallout-Terminal/internal/control"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	configv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1"
-	liveservice "github.com/obalunenko/Fallout-Terminal/internal/live"
-	"github.com/obalunenko/Fallout-Terminal/internal/platform"
-	playerserver "github.com/obalunenko/Fallout-Terminal/internal/player"
-	playerconfigservice "github.com/obalunenko/Fallout-Terminal/internal/playerconfig"
-	sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
-	tunnelservice "github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
+	liveservice "github.com/obalunenko/Fallout-Terminal/v2/internal/live"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/platform"
+	playerserver "github.com/obalunenko/Fallout-Terminal/v2/internal/player"
+	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
+	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
+	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	"github.com/obalunenko/logger"
 )
 

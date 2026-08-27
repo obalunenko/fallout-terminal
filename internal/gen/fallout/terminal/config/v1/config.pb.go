@@ -676,7 +676,7 @@ const file_fallout_terminal_config_v1_config_proto_rawDesc = "" +
 	"\abrowser\x18\x04 \x01(\v2/.fallout.terminal.config.v1.BrowserClientConfigR\abrowser\x12<\n" +
 	"\x05paths\x18\x05 \x01(\v2&.fallout.terminal.config.v1.PathConfigR\x05paths\x12C\n" +
 	"\astartup\x18\a \x01(\v2).fallout.terminal.config.v1.StartupConfigR\astartup\x12F\n" +
-	"\bshutdown\x18\b \x01(\v2*.fallout.terminal.config.v1.ShutdownConfigR\bshutdownJ\x04\b\x01\x10\x02J\x04\b\x06\x10\aR\x0etunnel_enabledR\x06tunnelBYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1;configv1b\x06proto3"
+	"\bshutdown\x18\b \x01(\v2*.fallout.terminal.config.v1.ShutdownConfigR\bshutdownJ\x04\b\x01\x10\x02J\x04\b\x06\x10\aR\x0etunnel_enabledR\x06tunnelB\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1;configv1b\x06proto3"
 
 var (
 	file_fallout_terminal_config_v1_config_proto_rawDescOnce sync.Once

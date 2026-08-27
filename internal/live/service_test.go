@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	"github.com/obalunenko/Fallout-Terminal/internal/nav"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/nav"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

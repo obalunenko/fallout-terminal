@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/buildtool"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/buildtool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +19,7 @@ func TestRunExposesNetworkFreeReleaseCheckActions(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	require.NoError(t, run(t.Context(), root, []string{"validate-release-tag", "--tag", "v1.2.3-beta.1"}))
+	require.NoError(t, run(t.Context(), root, []string{"validate-release-tag", "--tag", "v2.0.0-rc.1"}))
 
 	target, err := buildtool.ParseTarget("windows", "amd64")
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestReleaseCheckActionsReportUsageAndCancellation(t *testing.T) {
 
 	tests := [][]string{
 		{"validate-release-tag"},
-		{"validate-release-tag", "--tag", "v1.2.3", "extra"},
+		{"validate-release-tag", "--tag", "v2.0.0", "extra"},
 		{"inspect-release-archive", "--target", "windows/amd64"},
 		{"inspect-release-inventory"},
 	}

@@ -7,7 +7,7 @@
 package privatev1
 
 import (
-	v1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1"
+	v1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -906,7 +906,7 @@ const file_fallout_terminal_private_v1_public_access_proto_rawDesc = "" +
 	"\x121\n" +
 	"-PUBLIC_ACCESS_ERROR_CATEGORY_PROVIDER_FAILURE\x10\v\x121\n" +
 	"-PUBLIC_ACCESS_ERROR_CATEGORY_SHUTDOWN_TIMEOUT\x10\f\x12)\n" +
-	"%PUBLIC_ACCESS_ERROR_CATEGORY_CONFLICT\x10\rB[ZYgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
+	"%PUBLIC_ACCESS_ERROR_CATEGORY_CONFLICT\x10\rB^Z\\github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
 
 var (
 	file_fallout_terminal_private_v1_public_access_proto_rawDescOnce sync.Once

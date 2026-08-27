@@ -387,7 +387,7 @@ func validateRoot(root string) error {
 	if err != nil {
 		return fmt.Errorf("run from the repository root: %w", err)
 	}
-	if !strings.Contains(string(module), "module github.com/obalunenko/Fallout-Terminal") {
+	if !strings.Contains(string(module), "module github.com/obalunenko/Fallout-Terminal/v2") {
 		return errors.New("run from the Fallout-Terminal repository root")
 	}
 	return nil

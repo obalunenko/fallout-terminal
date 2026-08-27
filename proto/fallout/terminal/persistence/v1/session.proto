@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package fallout.terminal.persistence.v1;
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1;persistencev1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1;persistencev1";
 
 message FolderContent {
   repeated ContentNode children = 1;

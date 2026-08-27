@@ -197,10 +197,13 @@ task package GOOS=darwin GOARCH=arm64
 хосте, Windows/Linux через Docker. Можно задать `OUTPUT=build/portable`. Это только удобство для
 разработчика: команда никогда не запускается в CI и её каталог не используется для публикации.
 
-События `pull requests` и push в `main` запускают только read-only quality workflow. Push строгого SemVer `tag`
-вида `v1.2.3` или `v1.2.3-beta.1` запускает пять нативных package jobs и create-only публикацию через
-закреплённый GoReleaser. Публикуются ровно пять указанных архивов; checksum-sidecars, installers и
-package registry не входят в контракт. Существующий draft или release для тега приводит к отказу.
+События `pull requests` и push в `main` запускают только read-only quality workflow. Push строгого
+SemVer `tag` текущей major-линии — например, `v2.0.0` или `v2.0.0-rc.1` — запускает пять нативных
+package jobs и create-only публикацию через закреплённый GoReleaser. Публикуются ровно пять
+указанных архивов; checksum-sidecars, installers и
+package registry не входят в контракт. Major-версия release tag должна совпадать с major-версией
+корневого Go-модуля; текущий preflight принимает только `v2`. Существующий draft или release для
+тега приводит к отказу.
 
 При сбое до создания release исправьте причину и перезапустите тот же тег. Если GitHub успел создать
 частичный release, maintainer должен удалить его вручную перед повторным запуском. Подробный контракт,

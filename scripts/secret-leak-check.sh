@@ -97,7 +97,7 @@ check_generated_password_scope() {
   while IFS= read -r file; do
     [[ -n "$file" ]] || continue
     case "$file" in
-      app.go|app_contract.go|internal/tunnel/secret.go|proto/fallout/terminal/private/v1/public_access.proto|internal/gen/fallout/terminal/private/v1/public_access.pb.go|frontend/overseer/src/desktop-api.js|frontend/overseer/src/overseer.js|frontend/overseer/src/index.html|frontend/overseer/src/overseer.css|frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/models.js)
+      app.go|app_contract.go|internal/tunnel/secret.go|proto/fallout/terminal/private/v1/public_access.proto|internal/gen/fallout/terminal/private/v1/public_access.pb.go|frontend/overseer/src/desktop-api.js|frontend/overseer/src/overseer.js|frontend/overseer/src/index.html|frontend/overseer/src/overseer.css|frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js)
         ;;
       *)
         unexpected="${unexpected}${file}"$'\n'

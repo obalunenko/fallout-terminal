@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/control"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	"github.com/obalunenko/logger"
 )
 

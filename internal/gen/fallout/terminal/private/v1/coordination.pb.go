@@ -7,7 +7,7 @@
 package privatev1
 
 import (
-	v1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
+	v1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1178,7 +1178,7 @@ const file_fallout_terminal_private_v1_coordination_proto_rawDesc = "" +
 	"0TERMINAL_NAVIGATION_NOTICE_REASON_TARGET_MISSING\x10\x01\x121\n" +
 	"-TERMINAL_NAVIGATION_NOTICE_REASON_SELF_TARGET\x10\x02\x123\n" +
 	"/TERMINAL_NAVIGATION_NOTICE_REASON_COMMAND_STALE\x10\x03\x124\n" +
-	"0TERMINAL_NAVIGATION_NOTICE_REASON_TARGET_CHANGED\x10\x04B[ZYgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
+	"0TERMINAL_NAVIGATION_NOTICE_REASON_TARGET_CHANGED\x10\x04B^Z\\github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
 
 var (
 	file_fallout_terminal_private_v1_coordination_proto_rawDescOnce sync.Once

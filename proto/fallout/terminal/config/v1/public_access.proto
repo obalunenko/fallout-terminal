@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package fallout.terminal.config.v1;
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1;configv1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1;configv1";
 
 // PublicAccessPreferences is the version-1, secret-free Application Support contract.
 // Presence hints are non-authoritative and must be reconciled with secure-store metadata.

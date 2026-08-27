@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	"github.com/obalunenko/Fallout-Terminal/internal/testutil"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

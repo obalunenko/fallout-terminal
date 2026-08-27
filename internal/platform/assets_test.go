@@ -13,11 +13,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	_ "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/config/v1"
-	_ "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
-	playerv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
-	privatev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	_ "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
+	_ "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
+	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -260,9 +260,9 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
-		"proto/fallout/terminal/private/v1/runtime.proto": "4fd0b3ef31bd7ada1101ae36bfbd749acd36c53c4bc2da185d33dec4d4c669a9",
-		"proto/schema-revision.txt":                       "4211c6a2f25e6ebf72aa2b28c2b564d45b9d5df077ffa62f55c25f9de2864522",
-		"proto/compatibility-baseline.binpb":              "50b88cc9e08a189012925e1a97094d1e097b223e591aca8acb856ba0daf099f3",
+		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
+		"proto/schema-revision.txt":                       "bc1f1e0877773622d41658369e7e07e41437c51c19a9e8e2288310a8fc311bfc",
+		"proto/compatibility-baseline.binpb":              "30054bd49c608bf2d4696e788775bf3dbbc0d7b4fdf69cc2f2cbd21a417ff44d",
 	}
 	for relative, want := range wantDigests {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))

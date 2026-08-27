@@ -1,0 +1,17 @@
+{
+  "workflow": "speckit",
+  "specName": "V2 Release Preparation",
+  "branch": "023-v2-release-preparation",
+  "currentStep": "specify",
+  "status": "specified",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T01:33:20.561Z"
+    }
+  ],
+  "telemetryInstanceId": "216c9789-022d-4591-acb6-7c9d23e27ef7"
+}

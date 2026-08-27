@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/windows"
 )

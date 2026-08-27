@@ -734,7 +734,7 @@ const file_fallout_terminal_persistence_v1_session_proto_rawDesc = "" +
 	"\rplayer_config\x18\x03 \x01(\tH\x00R\fplayerConfig\x88\x01\x01\x12G\n" +
 	"\tterminals\x18\x04 \x03(\v2).fallout.terminal.persistence.v1.TerminalR\tterminals\x12W\n" +
 	"\x0fterminal_groups\x18\x05 \x03(\v2..fallout.terminal.persistence.v1.TerminalGroupR\x0eterminalGroupsB\x10\n" +
-	"\x0e_player_configBcZagithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1;persistencev1b\x06proto3"
+	"\x0e_player_configBfZdgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1;persistencev1b\x06proto3"
 
 var (
 	file_fallout_terminal_persistence_v1_session_proto_rawDescOnce sync.Once

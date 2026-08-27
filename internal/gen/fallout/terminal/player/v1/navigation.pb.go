@@ -486,7 +486,7 @@ const file_fallout_terminal_player_v1_navigation_proto_rawDesc = "" +
 	"\x0eNavigationMode\x12\x1f\n" +
 	"\x1bNAVIGATION_MODE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14NAVIGATION_MODE_LIST\x10\x01\x12\x19\n" +
-	"\x15NAVIGATION_MODE_ENTRY\x10\x02BYZWgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
+	"\x15NAVIGATION_MODE_ENTRY\x10\x02B\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
 	file_fallout_terminal_player_v1_navigation_proto_rawDescOnce sync.Once

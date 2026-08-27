@@ -14,9 +14,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	"github.com/obalunenko/Fallout-Terminal/internal/hack"
-	"github.com/obalunenko/Fallout-Terminal/internal/nav"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/hack"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/nav"
 )
 
 // Service serializes every canonical live-state transition. Values returned

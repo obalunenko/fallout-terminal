@@ -7,7 +7,7 @@ import "fallout/terminal/player/v1/navigation.proto";
 import "fallout/terminal/player/v1/sound.proto";
 import "fallout/terminal/player/v1/terminal.proto";
 
-option go_package = "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1;playerv1";
+option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1";
 
 enum PlayerRole {
   PLAYER_ROLE_UNSPECIFIED = 0;

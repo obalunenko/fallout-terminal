@@ -21,11 +21,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/control"
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	"github.com/obalunenko/Fallout-Terminal/internal/live"
-	"github.com/obalunenko/Fallout-Terminal/internal/player"
-	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/player"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 )
 
 const (
@@ -1249,7 +1249,7 @@ func run(ctx context.Context) error {
 	mux.HandleFunc("GET /__fixture/desktop-api", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(response, `<!doctype html><meta charset="utf-8">
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>
 <script type="module" src="/__fixture/desktop-api.js"></script>`)
 	})
 	mux.HandleFunc("GET /__fixture/player-management", func(response http.ResponseWriter, _ *http.Request) {
@@ -1259,7 +1259,7 @@ func run(ctx context.Context) error {
 			return
 		}
 		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
 		page = strings.Replace(page, `class="start-screen" id="startScreen"`, `class="start-screen" id="startScreen" style="display:none"`, 1)
 		page = strings.Replace(page, `id="mainLayout" style="display:none"`, `id="mainLayout" style="display:flex"`, 1)
 		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
@@ -1342,7 +1342,7 @@ func run(ctx context.Context) error {
 		}
 		page := string(raw)
 		page = strings.Replace(page, `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
 		page = strings.Replace(page, `class="start-screen" id="startScreen"`, `class="start-screen" id="startScreen" style="display:none"`, 1)
 		page = strings.Replace(page, `id="mainLayout" style="display:none"`, `id="mainLayout" style="display:flex"`, 1)
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1355,7 +1355,7 @@ func run(ctx context.Context) error {
 			return
 		}
 		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
 		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
 		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
 		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
@@ -1404,7 +1404,7 @@ func run(ctx context.Context) error {
 			return
 		}
 		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/terminal-grouping/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/terminal-grouping/desktop-bindings.js"}}</script>`, 1)
 		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
 		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
 		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
@@ -1619,7 +1619,7 @@ export async function RequestTerminalActivation(payload) {
 			return
 		}
 		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
 		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
 		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
 		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
@@ -1829,7 +1829,7 @@ export async function RequestTerminalActivation(payload) {
 			return
 		}
 		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
 		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
 		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
 		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
@@ -1901,7 +1901,7 @@ export async function RequestTerminalActivation(payload) {
 			return
 		}
 		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
 		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
 		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
 		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)

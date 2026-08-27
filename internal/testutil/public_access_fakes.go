@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 )
 
 type fakeClockTimer struct {

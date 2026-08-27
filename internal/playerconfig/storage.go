@@ -1,6 +1,6 @@
 package playerconfig
 
-import sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
+import sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 
 // FileSystem is the atomic filesystem seam shared with durable session files.
 type FileSystem = sessionservice.FileSystem

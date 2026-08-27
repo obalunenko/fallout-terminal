@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateReleaseTagUsesStrictSemVer(t *testing.T) {
+func TestValidateReleaseTagUsesStrictV2SemVer(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -24,19 +24,21 @@ func TestValidateReleaseTagUsesStrictSemVer(t *testing.T) {
 		prerelease bool
 		valid      bool
 	}{
-		{tag: "v1.2.3", valid: true},
-		{tag: "v0.0.0-rc.1", prerelease: true, valid: true},
-		{tag: "v1.2.3-beta.1", prerelease: true, valid: true},
+		{tag: "v2.0.0", valid: true},
+		{tag: "v2.1.3-beta.1", prerelease: true, valid: true},
+		{tag: "v0.0.0-rc.1"},
+		{tag: "v1.2.3"},
+		{tag: "v3.0.0"},
 		{tag: "1.2.3"},
 		{tag: "v01.2.3"},
-		{tag: "v1.02.3"},
-		{tag: "v1.2.03"},
-		{tag: "v1.2.3-01"},
-		{tag: "v1.2.3-"},
-		{tag: "v1.2.3+build.1"},
+		{tag: "v2.02.3"},
+		{tag: "v2.2.03"},
+		{tag: "v2.2.3-01"},
+		{tag: "v2.2.3-"},
+		{tag: "v2.2.3+build.1"},
 		{tag: "vnext"},
-		{tag: "V1.2.3"},
-		{tag: " v1.2.3"},
+		{tag: "V2.2.3"},
+		{tag: " v2.2.3"},
 	}
 
 	for _, test := range tests {

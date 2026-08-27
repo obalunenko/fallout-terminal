@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	sessionservice "github.com/obalunenko/Fallout-Terminal/internal/session"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 )
 
 // desktopService is the complete generated desktop allowlist. It forwards to

@@ -3,8 +3,8 @@ package session
 import (
 	"fmt"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/domain"
-	persistencev1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 )
 
 // SessionToProto maps only known version-1 semantics. JSON extras remain on

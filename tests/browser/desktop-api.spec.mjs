@@ -127,7 +127,7 @@ test('updateCharacter and deleteCharacter forward complete revisioned payloads w
   };
 
   const facade = await page.evaluate(async ({ updateRequest, deleteRequest }) => {
-    const bindings = await import('/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js');
+    const bindings = await import('/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js');
     await desktopAPI.updateCharacter(updateRequest);
     await desktopAPI.deleteCharacter(deleteRequest);
     return {

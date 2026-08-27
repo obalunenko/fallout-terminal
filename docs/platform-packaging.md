@@ -73,13 +73,14 @@ returns a nonzero exit status and preserves an already verified destination.
 Pull requests and pushes to `main` run the read-only quality workflow. It calls `task ci:quality`
 and cannot create releases or upload governed release assets.
 
-A push of a strict SemVer tag such as `v1.2.3` or `v1.2.3-beta.1` starts the tag-only workflow. Its
-five native jobs use the common packaging entrypoint, inspect one archive each, and upload one
-artifact each. The publish job downloads the complete flat inventory, refuses missing, duplicate,
-empty, or extra files, and calls `task release:publish`. That task runs the repository-pinned
-`pinned GoReleaser` module and publishes exactly five assets. GoReleaser is create-only: an existing release,
-including a draft, is refused before packaging and checked again before publication. Prerelease
-suffixes produce GitHub prereleases automatically.
+A push of a strict SemVer tag on the current major line, such as `v2.0.0` or `v2.0.0-rc.1`, starts
+the tag-only workflow. The tag major must match the root Go module major; the current preflight
+accepts only `v2`. Its five native jobs use the common packaging entrypoint, inspect one archive
+each, and upload one artifact each. The publish job downloads the complete flat inventory, refuses
+missing, duplicate, empty, or extra files, and calls `task release:publish`. That task runs the
+repository-pinned `pinned GoReleaser` module and publishes exactly five assets. GoReleaser is
+create-only: an existing release, including a draft, is refused before packaging and checked again
+before publication. Prerelease suffixes produce GitHub prereleases automatically.
 
 The workflow never deletes, replaces, or edits a GitHub release. It also never publishes checksums,
 an installer, or a package-registry copy. Release validation uses static fixtures locally; the sole

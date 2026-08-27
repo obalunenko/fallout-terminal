@@ -7,7 +7,7 @@
 package privatev1
 
 import (
-	v1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/persistence/v1"
+	v1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1857,7 +1857,7 @@ const file_fallout_terminal_private_v1_desktop_proto_rawDesc = "" +
 	"\x1aSetActiveControllerRequest\x12,\n" +
 	"\x12logical_session_id\x18\x01 \x01(\tR\x10logicalSessionId\"\"\n" +
 	"\x0eOpenUrlRequest\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03urlB[ZYgithub.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
+	"\x03url\x18\x01 \x01(\tR\x03urlB^Z\\github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
 
 var (
 	file_fallout_terminal_private_v1_desktop_proto_rawDescOnce sync.Once

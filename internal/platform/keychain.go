@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/obalunenko/Fallout-Terminal/internal/tunnel"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 )
 
 const credentialServiceBase = "com.vaulttec.fallout-terminal"

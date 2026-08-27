@@ -42,7 +42,7 @@ for forbidden in Start Shutdown ServiceStartup ServiceShutdown Dispatch Call Cap
 done
 
 ! grep -ERn 'github\.com/wailsapp/wails/v2|frontend/wailsjs|window\.(go|runtime)|generic.?dispatch' "$first"
-test -f "$first/github.com/obalunenko/Fallout-Terminal/desktopservice.js"
+test -f "$first/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js"
 
 event_types="$first/github.com/wailsapp/wails/v3/internal/eventdata.d.ts"
 test -f "$event_types"

@@ -1,4 +1,4 @@
-module github.com/obalunenko/Fallout-Terminal
+module github.com/obalunenko/Fallout-Terminal/v2
 
 go 1.27.0
 
