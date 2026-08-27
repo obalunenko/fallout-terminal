@@ -1,0 +1,430 @@
+{
+  "workflow": "companion",
+  "specName": "node 26 upgrade",
+  "branch": "024-application-self-update",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T17:13:26.531Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T17:16:13.001Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T17:18:19.194Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:21:07.300Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:22:31.948Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T17:23:05.539Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T17:33:46.682Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:34:30.630Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T17:34:42.888Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T17:35:06.006Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:36:34.602Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:36:54.785Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:37:12.472Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:40:19.103Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:40:47.580Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:40:47.976Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:41:00.108Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T17:44:11.624Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T17:44:11.822Z"
+    }
+  ],
+  "telemetryInstanceId": "8d954cdc-2813-4427-9ab5-f837a7bd8689",
+  "last_action": "all 8 tasks complete; Node 26.8.1 builds, 175 browser tests, focused contracts, and task ci:quality pass locally",
+  "coverage": {
+    "FR-001": {
+      "title": "Every project-owned JavaScript package declares Node.js 26.8.1 minimum",
+      "tasks": [
+        "T002"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces"
+      ]
+    },
+    "FR-002": {
+      "title": "JavaScript automation jobs select Node.js 26.8.1",
+      "tasks": [
+        "T005",
+        "T006"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces"
+      ]
+    },
+    "FR-003": {
+      "title": "Project-owned lockfile entries match Node.js 26.8.1 minimum",
+      "tasks": [
+        "T003"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces"
+      ]
+    },
+    "FR-004": {
+      "title": "Third-party dependency runtime metadata is preserved",
+      "tasks": [
+        "T003"
+      ]
+    },
+    "FR-005": {
+      "title": "Locked installs, frontend builds, and browser tests pass on Node.js 26.8.1",
+      "tasks": [
+        "T004",
+        "T008"
+      ],
+      "tests": [
+        "tests/browser/*.spec.mjs"
+      ]
+    },
+    "FR-006": {
+      "title": "All five portable targets remain governed and buildable",
+      "tasks": [
+        "T006",
+        "T007"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestPortableReleaseWorkflowCoversRequiredTargets"
+      ]
+    },
+    "FR-007": {
+      "title": "Upgradeable automation actions do not use deprecated Node.js 20 internals",
+      "tasks": [
+        "T005",
+        "T006",
+        "T007"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces"
+      ]
+    },
+    "FR-008": {
+      "title": "No active project-owned Node.js 20.19.0 declaration remains",
+      "tasks": [
+        "T001",
+        "T007",
+        "T008"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces"
+      ]
+    },
+    "FR-009": {
+      "title": "Application behavior, dependency pins, and release inventory remain unchanged",
+      "tasks": [
+        "T003",
+        "T004",
+        "T006",
+        "T008"
+      ],
+      "tests": [
+        "internal/platform/portable_release_test.go::TestPortableReleaseWorkflowCoversRequiredTargets",
+        "tests/browser/*.spec.mjs"
+      ]
+    }
+  },
+  "size": "normal",
+  "classification": {
+    "projectedFiles": 8,
+    "projectedTasks": 6,
+    "scopeSignal": "none",
+    "verdict": "normal"
+  },
+  "context": [
+    "area: Node runtime declarations in quality/release workflows and JavaScript manifests/lockfiles",
+    "constraint: use official latest Node.js 26 release 26.8.1",
+    "constraint: preserve third-party lockfile runtime metadata"
+  ],
+  "intent": "Align local development, quality automation, and portable releases on Node.js 26.8.1 without application regressions.",
+  "expectations": [
+    "Do not change application functionality.",
+    "Do not upgrade frontend dependency versions unless Node.js 26.8.1 compatibility requires it.",
+    "Do not alter the five-target release inventory."
+  ],
+  "approach": "Pin Node.js 26.8.1 across project-owned manifests, lock metadata, documentation, and both automation workflows. Upgrade all warning-producing official Actions to exact node24-backed releases, extend existing static workflow contracts, and verify through clean builds, browser tests, quality CI, and the unchanged five-target release pipeline.",
+  "decisions": [
+    {
+      "decision": "Pin Node.js 26.8.1 exactly in automation and use >=26.8.1 in package engines",
+      "why": "The official index identifies it as the latest v26 release and exact CI selection satisfies reproducibility",
+      "rejected": "Floating 26.x/check-latest and Node.js 24 LTS"
+    },
+    {
+      "decision": "Upgrade checkout, setup-node, setup-go, upload-artifact, and download-artifact to exact current releases",
+      "why": "All selected releases use supported internal node24 and preserve required workflow inputs",
+      "rejected": "Updating setup-node alone or suppressing the Node 20 warning"
+    },
+    {
+      "decision": "Regenerate only project-owned lockfile engine metadata",
+      "why": "Owning package-manager regeneration keeps manifests and workspace/root lock records aligned without dependency drift",
+      "rejected": "Manual lock edits or dependency refresh"
+    },
+    {
+      "decision": "Extend internal/platform static acceptance tests",
+      "why": "That package already governs quality and portable-release workflow contracts",
+      "rejected": "A new standalone checker or execution-only evidence"
+    },
+    {
+      "decision": "Preserve behavior-based Node >=22 logic and historical Node 26.7.0 evidence",
+      "why": "Neither is an active supported-runtime declaration",
+      "rejected": "Rewriting technically correct behavior gates or immutable historical evidence"
+    },
+    {
+      "decision": "Pin project commands to exact Node 26.8.1 while using the latest maintained exact official action releases",
+      "why": "Meets the requested minimum and removes deprecated internal Node 20 action runtimes without conflating action internals with the project runtime",
+      "rejected": "Leaving action major tags or expecting official actions to execute internally on Node 26"
+    },
+    {
+      "decision": "Regenerate only project-owned lockfile engine records",
+      "why": "Preserves dependency versions, resolved URLs, integrity hashes, and third-party runtime metadata",
+      "rejected": "Broad dependency refresh during the runtime-only upgrade"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned an atomic ten-file Node.js 26.8.1 and GitHub Actions runtime cutover with no dependency or application changes.",
+      "key_finding": "The CI warning comes from five official Actions internal runtimes, so changing NODE_VERSION alone would not remove it."
+    },
+    "tasks": {
+      "summary": "Eight tasks across setup, foundational policy, two P1 user stories, and one final validation phase."
+    },
+    "implement": {
+      "summary": "Upgraded all active project Node surfaces and GitHub workflows to Node 26.8.1, refreshed maintained official actions, and passed local full validation",
+      "key_finding": "Node v26.8.1 works without dependency or application code changes",
+      "risks": [
+        "GitHub-hosted matrix evidence awaits push/tag"
+      ]
+    }
+  },
+  "currentTask": "T008",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added failing static contract for Node 26.8.1 and current official GitHub Action pins across manifests, lockfiles, README, and workflows",
+      "files": [
+        "internal/platform/portable_release_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Raised all project-owned Node engine declarations to >=26.8.1 and documented Node.js 26.8.1+ as the prerequisite",
+      "files": [
+        "frontend/package.json",
+        "frontend/client/package.json",
+        "frontend/overseer/package.json",
+        "tests/browser/package.json",
+        "README.md"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Regenerated both npm lockfiles with Node 26.8.1/npm 11.19.0; diff changes only the four project-owned Node engine records",
+      "files": [
+        "frontend/package-lock.json",
+        "tests/browser/package-lock.json"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Verified exact NVM Node v26.8.1/npm 11.19.0 clean installs, both Vite production builds, and Playwright browser suite (175 passed, 2 external-ngrok tests skipped)",
+      "files": [
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "tests/browser/package.json",
+        "tests/browser/package-lock.json"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Updated cross-platform quality workflow to Node 26.8.1 with checkout v7.0.1, setup-go v7.0.0, and setup-node v7.0.0",
+      "files": [
+        ".github/workflows/wails-cross-platform.yml"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Updated portable build and publish workflow to Node 26.8.1 and current official checkout/setup/artifact action releases",
+      "files": [
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Focused platform workflow contracts pass for the aligned Node 26.8.1 policy and official action pins",
+      "files": [
+        "internal/platform/portable_release_test.go",
+        ".github/workflows/wails-cross-platform.yml",
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Completed legacy-reference and diff checks, focused workflow contracts, and full task ci:quality under NVM Node v26.8.1; remote GitHub quality and five-target release evidence remains available only after the branch is pushed or tagged",
+      "files": [
+        "README.md",
+        "internal/platform/portable_release_test.go",
+        ".github/workflows/wails-cross-platform.yml",
+        ".github/workflows/wails-portable.yml"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Exact Node runtime and locked installs",
+      "command": "nvm use 26.8.1; npm ci --prefix frontend; npm ci --prefix tests/browser",
+      "result": "Node v26.8.1/npm 11.19.0; both clean installs passed",
+      "warnings": []
+    },
+    {
+      "what": "Frontend production builds",
+      "command": "npm run build:overseer --prefix frontend; npm run build:client --prefix frontend",
+      "result": "Both Vite production builds passed under Node v26.8.1",
+      "warnings": []
+    },
+    {
+      "what": "Complete browser suite",
+      "command": "npm test --prefix tests/browser",
+      "result": "175 passed, 2 skipped external-ngrok tests",
+      "warnings": [
+        "Browser tests required loopback access outside the filesystem sandbox"
+      ]
+    },
+    {
+      "what": "Full repository quality composition",
+      "command": "task ci:quality",
+      "result": "Passed under Node v26.8.1, including go test ./..., go vet, frontend builds, workflow contracts, Wails and protobuf checks",
+      "warnings": [
+        "Go httptest cases required loopback access outside the filesystem sandbox"
+      ]
+    },
+    {
+      "what": "Legacy reference and diff audit",
+      "command": "rg active Node 20/action v4-v5 selectors; git diff --check",
+      "result": "No active legacy selectors outside negative assertions; diff check passed",
+      "warnings": []
+    }
+  ],
+  "concerns": [
+    {
+      "note": "GitHub-hosted quality and five-target portable workflow evidence cannot exist until these unpushed changes are pushed; the local workflow contracts and full quality composition pass",
+      "step": "implement",
+      "kind": "external-evidence"
+    }
+  ]
+}

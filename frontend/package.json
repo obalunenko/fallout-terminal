@@ -19,6 +19,6 @@
     "test:overseer": "npm run test --workspace fallout-terminal-overseer"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=26.8.1"
   }
 }

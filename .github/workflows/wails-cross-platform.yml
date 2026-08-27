@@ -16,7 +16,7 @@ concurrency:
 
 env:
   GO_VERSION: 1.27.x
-  NODE_VERSION: 20.19.0
+  NODE_VERSION: 26.8.1
 
 jobs:
   quality:
@@ -25,12 +25,12 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out clean source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -44,7 +44,7 @@ jobs:
             tools/wails/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm

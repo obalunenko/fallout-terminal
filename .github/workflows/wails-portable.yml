@@ -14,7 +14,7 @@ concurrency:
 
 env:
   GO_VERSION: 1.27.x
-  NODE_VERSION: 20.19.0
+  NODE_VERSION: 26.8.1
 
 jobs:
   preflight:
@@ -25,13 +25,13 @@ jobs:
       version: ${{ steps.release-version.outputs.version }}
     steps:
       - name: Check out exact tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -94,13 +94,13 @@ jobs:
             archive: Fallout-Terminal-darwin-arm64.zip
     steps:
       - name: Check out exact tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -111,7 +111,7 @@ jobs:
             tools/wails/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -134,7 +134,7 @@ jobs:
         run: go run ./cmd/build inspect-release-archive --target "${{ matrix.target }}" --archive "build/dist/${{ matrix.archive }}" --version "$VERSION"
 
       - name: Upload one eligible archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           if-no-files-found: error
@@ -151,13 +151,13 @@ jobs:
       contents: write
     steps:
       - name: Check out exact tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -167,7 +167,7 @@ jobs:
             tools/task/go.sum
 
       - name: Download all five archives
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8.0.1
         with:
           pattern: release-*
           merge-multiple: true
