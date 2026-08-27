@@ -2253,13 +2253,23 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 		"//go:embed all:frontend/client/dist\nvar clientSource embed.FS",
 		`fs.Sub(overseerSource, "frontend/overseer/dist")`,
 		`fs.Sub(clientSource, "frontend/client/dist")`,
+		"windowActivation := &overseerWindowActivation{}",
+		"newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)",
 		"composeApplication(rootContext, host, clientAssets)",
+		"windowActivation.bind(newOverseerWindow(host))",
 	}
 	for _, fragment := range requiredFragments {
 		assert.Falsef(t, !strings.Contains(source, fragment),
 			"main.go is missing production asset wiring %q", fragment)
 
 	}
+	hostConstruction := strings.Index(source,
+		"newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)")
+	applicationComposition := strings.Index(source, "composeApplication(rootContext, host, clientAssets)")
+	require.NotEqual(t, -1, hostConstruction)
+	require.NotEqual(t, -1, applicationComposition)
+	assert.Less(t, hostConstruction, applicationComposition,
+		"single-instance ownership must be acquired before application services are composed")
 	assert.True(t, regexp.MustCompile(`Assets:\s+clientAssets`).MatchString(source),
 		"main.go is missing production player asset wiring")
 	assert.False(t, strings.Contains(source, "//go:embed all:frontend/overseer/dist all:frontend/client/dist") ||
@@ -2270,7 +2280,7 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 	require.NoError(t, err)
 	hostSource := string(hostRaw)
 	for _, fragment := range []string{
-		"application.New(wailsApplicationOptions(overseerAssets))",
+		"application.New(wailsApplicationOptions(overseerAssets, onSecondInstanceLaunch))",
 		"Handler: application.AssetFileServerFS(overseerAssets)",
 		"ApplicationShouldTerminateAfterLastWindowClosed: true",
 		"host.Window.NewWithOptions(overseerWindowOptions())",

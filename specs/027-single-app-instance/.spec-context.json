@@ -1,0 +1,531 @@
+{
+  "workflow": "companion",
+  "specName": "single app instance",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:22:39.716Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:25:25.454Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.165Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.364Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.561Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.765Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:32:18.151Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:34:20.190Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:34:46.512Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:35:20.448Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:36:01.449Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:36:33.747Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:37:32.358Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:38:49.241Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:41:15.037Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:41:15.216Z"
+    },
+    {
+      "step": "clarify",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:45:20.302Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:46:27.207Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:47:05.571Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:47:50.884Z"
+    }
+  ],
+  "telemetryInstanceId": "bce9f818-b455-4765-8e66-298f7cdfa464",
+  "last_action": "all 10 tasks done — automated checks and optional native 20-launch survivor UI, stale-lock recovery, and 1.095-second restore/focus smoke pass",
+  "coverage": {
+    "FR-001": {
+      "title": "The product MUST allow at most one interactive Fallout Terminal desktop instance for the same operating-system login session at a time.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T007"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches"
+      ]
+    },
+    "FR-002": {
+      "title": "A later desktop process MUST exit successfully before composing application services, creating a window, owning campaign state, or attempting to bind the player-server port.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T005",
+        "T007",
+        "T010"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches",
+        "internal/platform/assets_test.go::TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems"
+      ]
+    },
+    "FR-003": {
+      "title": "A later desktop launch MUST request that the active Overseer window be restored and focused when that window is available.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T005",
+        "T007"
+      ],
+      "tests": [
+        "wails_host_test.go::TestOverseerWindowActivationRestoresAndFocusesReadyWindow"
+      ]
+    },
+    "FR-004": {
+      "title": "Concurrent or near-concurrent desktop launches MUST resolve to one active instance without crashing or disrupting that instance's startup.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T005",
+        "T007"
+      ],
+      "tests": [
+        "wails_host_test.go::TestOverseerWindowActivationCoalescesLaunchesUntilWindowBinding"
+      ]
+    },
+    "FR-005": {
+      "title": "Normal or unexpected termination of the active instance MUST release ownership so the next desktop launch can start without manual cleanup.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T007"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches"
+      ]
+    },
+    "FR-006": {
+      "title": "The application identity used to coordinate launches MUST remain stable across application restarts and version upgrades.",
+      "tasks": [
+        "T001",
+        "T002"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches"
+      ]
+    },
+    "FR-007": {
+      "title": "Data received from a later launch MUST be treated as untrusted and MUST NOT execute commands, navigate content, or modify application state.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T007"
+      ],
+      "tests": [
+        "wails_host_test.go::TestOverseerWindowActivationRestoresAndFocusesReadyWindow"
+      ]
+    },
+    "FR-008": {
+      "title": "Informational and maintenance invocations that do not start the interactive desktop application MUST preserve their existing behavior without requiring desktop-instance ownership.",
+      "tasks": [
+        "T005",
+        "T007"
+      ],
+      "tests": [
+        "main_test.go::TestRunMainReportsVersionBeforeApplicationComposition",
+        "main_test.go::TestRunMainRejectsVersionArgumentsBeforeApplicationComposition",
+        "main_test.go::TestRunMainRejectsVersionOutputFailuresBeforeApplicationComposition"
+      ]
+    },
+    "FR-009": {
+      "title": "Duplicate prevention and active-window reactivation MUST have the same user-visible behavior on every supported desktop operating system.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T004",
+        "T005",
+        "T007"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches",
+        "wails_host_test.go::TestOverseerWindowActivationRestoresAndFocusesReadyWindow",
+        "wails_host_test.go::TestOverseerWindowActivationCoalescesLaunchesUntilWindowBinding"
+      ]
+    },
+    "FR-010": {
+      "title": "Duplicate prevention MUST be enabled by default and MUST require no user configuration.",
+      "tasks": [
+        "T001",
+        "T002"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches"
+      ]
+    },
+    "FR-011": {
+      "title": "All data sent from a later launch to the active instance MUST use authenticated AES-256-GCM encryption with a non-zero 32-byte key shared by every copy of the application.",
+      "tasks": [
+        "T008",
+        "T009",
+        "T010"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches"
+      ]
+    },
+    "FR-012": {
+      "title": "A later desktop process MUST terminate before application composition even when its encrypted notification cannot be delivered or decrypted.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T005",
+        "T010"
+      ],
+      "tests": [
+        "wails_host_test.go::TestWailsApplicationOptionsEnableSingleInstanceLaunches",
+        "internal/platform/assets_test.go::TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems"
+      ]
+    }
+  },
+  "size": "simple",
+  "classification": {
+    "projectedFiles": 4,
+    "projectedTasks": 10,
+    "scopeSignal": "none",
+    "verdict": "simple"
+  },
+  "context": [
+    "area: main.go and wails_host.go application bootstrap",
+    "area: wails_host_test.go host contract coverage",
+    "constraint: Wails v3 single-instance guidance and untrusted second-launch data",
+    "constraint: repository Go quality and test cleanup rules"
+  ],
+  "intent": "Prevent duplicate interactive Fallout Terminal instances while returning repeated launches to the active Overseer window.",
+  "expectations": [
+    "Cross-user or machine-wide single-instance enforcement is out of scope.",
+    "Processing arguments or other data supplied by a later launch is out of scope.",
+    "Changing version-reporting or application-update replacement-helper behavior is out of scope."
+  ],
+  "approach": "Use Wails single-instance locking with a stable identity and embedded 32-byte encryption key. Exit later processes before composition and bridge authenticated callbacks to synchronized Overseer-window activation.",
+  "decisions": [
+    {
+      "decision": "Use application.Options.SingleInstance with exit code zero.",
+      "why": "The pinned Wails runtime already owns cross-platform locking, notification, cleanup, and later-process exit.",
+      "rejected": "A custom lock file or platform-specific implementation would duplicate runtime behavior."
+    },
+    {
+      "decision": "Use com.vaulttec.fallout-terminal as the single-instance identity.",
+      "why": "It is the existing stable production bundle identifier and is independent of versions and paths.",
+      "rejected": "Display names, executable paths, and versioned identifiers are unstable or permit duplicates."
+    },
+    {
+      "decision": "Synchronize window binding and activation while remembering one pending activation.",
+      "why": "The runtime callback executes on a background listener and may arrive before window creation.",
+      "rejected": "An unsynchronized captured pointer would race and a direct host lookup would broaden coupling."
+    },
+    {
+      "decision": "Ignore second-launch payload data and provide no additional data or encryption key.",
+      "why": "Only the activation signal is needed, so payload contents cannot affect state, navigation, commands, or logs.",
+      "rejected": "Parsing, validating, or encrypting unused data adds complexity without product value."
+    },
+    {
+      "decision": "Supersede the earlier no-encryption choice: use a unique embedded 32-byte application key for Wails instance communication.",
+      "why": "The user clarified that the notification channel must use Wails secure communication without adding credential prompts or first-run key races.",
+      "rejected": "Plaintext communication and operating-system credential-store provisioning before host construction."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Lean plan resolves the Wails host integration, startup race, stable identity, and focused test seams.",
+      "key_finding": "The pinned Wails runtime invokes the second-launch callback on a background listener and exits later processes during application construction."
+    },
+    "tasks": {
+      "summary": "10 sequential tasks including three clarification follow-ups for encrypted instance communication and full revalidation."
+    },
+    "implement": {
+      "summary": "Completed all 10 tasks plus native validation: secure single-instance locking left one process/listener across 20 rapid duplicates and restored/focused a minimized window in 1.095 seconds; all automated Go checks pass.",
+      "risks": []
+    }
+  },
+  "currentTask": "T010",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added failing host-option coverage for stable single-instance identity, zero exit code, and no extra data.",
+      "files": [
+        "wails_host_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Configured Wails single-instance options with the stable product identity, zero exit code, and callback seam.",
+      "files": [
+        "wails_host.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added failing tests for ready, repeated, concurrent pre-bind, ordered restore/focus, and ignored-payload activation.",
+      "files": [
+        "wails_host_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Implemented synchronized pending activation with restore-before-focus calls outside the lock.",
+      "files": [
+        "wails_host.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Wired activation only into interactive startup, bound the Overseer window, and updated the source-boundary contract.",
+      "files": [
+        "main.go",
+        "wails_host.go",
+        "internal/platform/assets_test.go",
+        "specs/027-single-app-instance/tasks.md"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Formatted the Go diff, removed redundant defensive branches, and passed Go quality, simplification, diagnostics, and focused race review.",
+      "files": [
+        "main.go",
+        "wails_host.go",
+        "wails_host_test.go",
+        "internal/platform/assets_test.go",
+        "specs/027-single-app-instance/tasks.md"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Passed task vet, task test, and task test:race; optional native rapid-launch and focus smoke reported NOT RUN.",
+      "files": [
+        "Taskfile.yml",
+        "specs/027-single-app-instance/spec.md"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Replaced the plaintext expectation with a failing non-zero encryption-key contract.",
+      "files": [
+        "wails_host_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Configured Wails instance notifications with a unique embedded application-specific 32-byte key.",
+      "files": [
+        "wails_host.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Passed formatting, Go quality review, secret scan, vet, tests, and race tests after encrypted communication was added.",
+      "files": [
+        "wails_host.go",
+        "wails_host_test.go",
+        "Taskfile.yml",
+        "specs/027-single-app-instance/spec.md",
+        "specs/027-single-app-instance/plan.md",
+        "specs/027-single-app-instance/tasks.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Changed-file Go diagnostics and focused race coverage",
+      "command": "gopls check main.go wails_host.go wails_host_test.go internal/platform/assets_test.go; go test -race . ./internal/platform -run focused-pattern",
+      "result": "PASS"
+    },
+    {
+      "what": "Repository Go vet",
+      "command": "task vet",
+      "result": "PASS"
+    },
+    {
+      "what": "Repository Go test suite",
+      "command": "task test",
+      "result": "PASS on approved rerun",
+      "warnings": [
+        "Initial sandboxed attempt could not open an existing httptest loopback listener; the identical approved rerun passed."
+      ]
+    },
+    {
+      "what": "Repository race-enabled Go test suite",
+      "command": "task test:race",
+      "result": "PASS"
+    },
+    {
+      "what": "Native 20-launch and window-focus smoke",
+      "command": "NOT RUN",
+      "result": "NOT RUN",
+      "warnings": [
+        "Optional native evidence is non-gating under the project constitution; unit, source-boundary, and race coverage passed."
+      ]
+    },
+    {
+      "what": "Post-clarification secure single-instance contract",
+      "command": "gopls check changed Go files; scripts/secret-leak-check.sh",
+      "result": "PASS"
+    },
+    {
+      "what": "Post-clarification repository validation",
+      "command": "task vet; task test; task test:race",
+      "result": "PASS"
+    },
+    {
+      "what": "Single-instance startup ordering contract",
+      "command": "go test ./internal/platform -run ^TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems$",
+      "result": "PASS",
+      "warnings": [
+        "A direct focused run emitted deployment-target linker warnings; the repository Taskfile validation rerun used the required macOS 13 flags and passed cleanly."
+      ]
+    },
+    {
+      "what": "Native 20-launch and window-focus smoke rerun",
+      "command": "task package; 20 concurrent duplicate executable launches; pgrep/lsof/native UI inspection; timed minimized-window duplicate launch",
+      "result": "PASS: all 20 duplicates exited 0 in one second; exactly one primary process and one port-3690 listener remained; the existing minimized window restored and focused in 1.095 seconds; cleanup left no process or listener",
+      "warnings": [
+        "System Events window enumeration was transiently unavailable during the first probe; direct Computer Use inspection confirmed the single window, and the repeated timed native probe passed."
+      ]
+    },
+    {
+      "what": "Native stale-lock recovery after forced termination",
+      "command": "kill -9 test-owned primary; open -n rebuilt app; native UI and listener inspection",
+      "result": "PASS: the next launch acquired ownership on its first attempt and reached local-ready state"
+    },
+    {
+      "what": "Native 20-launch survivor UI verification",
+      "command": "repeat 20 concurrent duplicate launches, then inspect the exact surviving build/bin app with Computer Use before cleanup",
+      "result": "PASS: the sole surviving process retained one responsive Overseer window in local-ready state at http://127.0.0.1:3690",
+      "warnings": [
+        "System Events reported zero accessibility windows while direct app inspection showed the live standard window; process, listener, direct UI, and timed restore probes were therefore used as the authoritative evidence."
+      ]
+    }
+  ],
+  "concerns": [
+    {
+      "note": "Optional native multi-process rapid-launch and window-focus smoke was NOT RUN; cross-platform native locking remains delegated to the pinned Wails runtime.",
+      "step": "implement",
+      "kind": "validation"
+    }
+  ]
+}
