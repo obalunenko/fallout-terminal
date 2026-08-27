@@ -12,7 +12,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.27; browser JavaScript modules with Node.js 20.19+ build/test tooling
+**Language/Version**: Go 1.27; browser JavaScript modules with Node.js 26.8.1+ build/test tooling
 
 **Primary Dependencies**: Wails v3.0.0-beta.13, `connectrpc.com/connect` v1.20.0, `google.golang.org/protobuf` v1.36.11, `@connectrpc/connect`/`@connectrpc/connect-web` 2.1.2, and Vite 8.1.5; Playwright 1.62.1 for browser journeys
 
@@ -64,8 +64,11 @@ specs/[###-feature]/
 ```text
 main.go                         # Wails entry point, embedding, service composition
 app.go                          # Privileged Wails bridge and application lifecycle
+wails_updater.go                # Wails/provider application-update adapter
 internal/
+├── buildtool/                  # Typed build, package, archive, and verification policy
 ├── domain/                     # Models, JSON codecs, cloning, validation
+├── gen/                        # Generated protobuf and ConnectRPC contracts
 ├── nav/                        # Transport-independent navigation rules
 ├── hack/                       # Transport-independent hacking rules and wordbank
 ├── live/                       # Canonical live terminal/navigation/hack state
@@ -75,6 +78,8 @@ internal/
 ├── player/                     # HTTP assets, ConnectRPC service, public protocol
 ├── platform/                   # Wails desktop adapters and supported-platform paths
 ├── tunnel/                     # Optional embedded public-endpoint lifecycle
+├── update/                     # Framework-independent application-update lifecycle
+├── version/                    # Canonical embedded application identity
 └── testutil/                   # Shared deterministic test fakes and fixtures
 frontend/
 ├── package.json
@@ -173,7 +178,7 @@ scripts/build-macos.sh          # Optional manual signed/notarized macOS distrib
 | Go quality | `task fmt:check`, `task vet`, and `task lint` | N/A | Formatting, vet, and repository lint succeed |
 | Overseer frontend | `npm ci --prefix frontend` and `npm run build --prefix frontend` | `task dev` + [Overseer journey] | [Result] |
 | Player browser(s) | `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` when affected | [Multi-client/audio/reconnect journey] | [Result] |
-| Package/release candidate | `task package` and `task release:local` when affected | [Packaged target smoke] | [Result] |
+| Package/release candidate | `task package` and optional `task package:all` when affected | [Packaged target smoke] | [Result] |
 | Signed macOS distribution/public provider | [`task release:macos:preflight` or N/A] | [Credential-dependent journey] | [Result or explicitly unavailable] |
 
 ## Project-Specific Complexity Factors

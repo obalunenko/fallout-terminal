@@ -91,6 +91,7 @@ Mark material ambiguity inline, for example:
 - **Persistence (`internal/session/`, `internal/playerconfig/`, `sessions/`)**: [Affected/not affected — JSON shape, validation, file references, storage behavior, or examples]
 - **Player transport (`internal/player/`)**: [Affected/not affected — static HTTP assets, ConnectRPC unary/server streams, validation, publication, or reconnect behavior]
 - **Platform and public access (`internal/platform/`, `internal/tunnel/`)**: [Affected/not affected — supported-platform paths, desktop operations, embedded endpoint ownership, OS secure-store secrets, or provider behavior]
+- **Application update and release identity (`internal/update/`, `internal/version/`, `wails_updater*.go`)**: [Affected/not affected — discovery, preparation, restart handoff, provider adapters, or embedded version behavior]
 - **Overseer UI (`frontend/overseer/src/`)**: [Affected/not affected — Overseer editing/control workflow or Wails bridge consumer]
 - **Player UI (`frontend/client/`)**: [Affected/not affected — browser behavior, presentation, audio, or generated ConnectRPC consumer]
 - **Tests and fixtures (`internal/**/*_test.go`, `tests/browser/`, `internal/testutil/`)**: [Affected/not affected — automated coverage or fixtures]
@@ -118,7 +119,7 @@ Mark material ambiguity inline, for example:
 - **Race testing**: [Affected concurrent services and required command, or N/A]
 - **Browser tests**: [Playwright journey under `tests/browser/`, or N/A]
 - **Interactive verification**: [Affected `task dev` Overseer/player journey]
-- **Packaging/release verification**: [Affected `task package`, `task release:local`, optional manual signed macOS distribution, or N/A]
+- **Packaging/release verification**: [Affected `task package`, optional `task package:all`, optional manual signed macOS distribution, or N/A]
 
 The repository-wide Go lint baseline is defined by `.golangci.yml` and executed with `task lint`.
 No numeric coverage threshold is currently defined; specify concrete behavioral checks rather than

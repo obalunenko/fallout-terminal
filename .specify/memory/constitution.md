@@ -1,17 +1,19 @@
 <!--
 Sync Impact Report
-- Version change: 8.0.0 -> 8.1.0
+- Version change: 8.1.0 -> 8.1.1
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Permit deterministic tag-to-artifact release-identity verification as a tagged-release
-    publication gate alongside compilation, archive, executable, and required-resource checks
-  - Require the packaged executable and applicable native metadata to agree with the one canonical
-    version derived from the accepted tag before publication
-  - Preserve the prohibition on native UI, credential-store, player, tunnel, signing,
-    notarization, and multi-browser checks gating tagged releases
+  - Assign framework-independent application-update orchestration to `internal/update/`, canonical
+    embedded release identity to `internal/version/`, and Wails/provider update adapters to root
+    composition
+- Updated templates:
+  - Align the plan template with Node.js 26.8.1+
+  - Remove the obsolete local-release alias from templates in favor of the governed
+    `task package` and optional `task package:all` entrypoints
+  - Add application-update, release-identity, buildtool, and generated-contract ownership paths
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -78,6 +80,11 @@ dependencies, compatibility, acceptance, rollback, or release decisions.
   optional public-access endpoint/provider lifecycle, credential use, reconfiguration, and
   shutdown whether a provider uses an embedded runtime SDK or an explicitly owned external
   process separately authorized by a feature plan.
+- `internal/update/` owns framework-independent application-update discovery, offer decisions,
+  preparation progress, staged-unit lifecycle, recovery, and restart handoff. Root composition
+  owns Wails updater integration, release-provider adapters, and desktop event wiring.
+  `internal/version/` owns the canonical linker-injected application identity consumed by builds,
+  packaging, release verification, and update eligibility.
 - `internal/tunnel/` MUST remain independent of Wails and domain rules. Root composition and
   platform adapters MUST provide UI, secure-storage, and application-lifecycle wiring through
   narrow interfaces.
@@ -290,6 +297,11 @@ that form or proxy a parallel workflow graph.
   or domain packages MUST NOT depend on Wails, a provider SDK, Keychain, or another concrete secure
   store. Only serializable application-owned configuration crossing a boundary belongs in
   protobuf.
+- `internal/update/` MUST remain independent of Wails, concrete release providers, desktop events,
+  and presentation code. Root update adapters MAY depend on `internal/update/`, `internal/version/`,
+  the pinned Wails updater API, and narrowly owned HTTP, filesystem, or process integrations.
+  `internal/version/` MUST remain dependency-free application identity logic and MUST NOT derive a
+  release version from mutable runtime state.
 - `frontend/overseer/` MAY call only the narrow registered desktop service through generated Wails bindings
   and consume named events through `@wailsio/runtime`. Every structured bridge payload MUST
   originate from a protobuf schema and pass through an explicit adapter; a generic dispatch surface
@@ -612,4 +624,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.1.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27
+**Version**: 8.1.1 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-27

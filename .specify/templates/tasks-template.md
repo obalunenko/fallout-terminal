@@ -28,6 +28,8 @@ description: "Task list template for Fallout Terminal feature implementation"
 - Persistent JSON: `internal/session/`, `internal/playerconfig/`, `sessions/*.json`
 - Player HTTP asset/ConnectRPC boundary: `internal/player/`
 - Platform and optional public access: `internal/platform/`, `internal/tunnel/`
+- Application update and release identity: `internal/update/`, `internal/version/`, `wails_updater*.go`
+- Generated contracts: `proto/`, `internal/gen/`, `frontend/client/gen/`
 - Shared Go test support: `internal/testutil/`
 - Overseer interface: `frontend/overseer/src/index.html`, `frontend/overseer/src/desktop-api.js`, `frontend/overseer/src/overseer.js`, `frontend/overseer/src/overseer.css`
 - Player interface: `frontend/client/index.html`, `frontend/client/client.js`, `frontend/client/sound.js`, `frontend/client/client.css`
@@ -143,7 +145,7 @@ setup tasks unless the approved feature actually introduces those changes.
 - [ ] T034 Run `npm ci --prefix frontend` and `npm run build --prefix frontend` when the Overseer UI, bridge, embedding, or package changes
 - [ ] T035 Run `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` when affected browser journeys are available
 - [ ] T036 Run `task dev` and complete the documented Overseer/player smoke journeys
-- [ ] T037 Run `task package` and `task release:local` for packaging/release-sensitive changes on supported hosts
+- [ ] T037 Run `task package` and optional `task package:all` for packaging/release-sensitive changes on supported hosts
 - [ ] T038 Run approved credential-gated public-provider or optional `task release:macos:signed` gates when affected and prerequisites are available; otherwise record them as unavailable
 - [ ] T039 Update `README.md`, contracts, fixtures, and CI configuration when setup, operation, protocol, or user-visible workflows changed
 
