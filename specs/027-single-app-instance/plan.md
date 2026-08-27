@@ -1,0 +1,12 @@
+# Implementation Plan: Single App Instance
+
+## Summary
+
+Configure the pinned Wails application host with its built-in single-instance option and the stable product identity `com.vaulttec.fallout-terminal`, allowing later interactive launches to exit successfully before they compose services or create windows. Add a small mutex-protected activation bridge between Wails' background second-launch callback and the Overseer window; it remembers an activation received before window creation, then restores and focuses the window once it is bound. Create and bind that bridge only inside `runApplication`, preserving the existing version-reporting and update replacement-helper paths.
+
+## Key Decisions
+
+- **Decision**: Use `application.Options.SingleInstance` from the repository's pinned Wails runtime with exit code zero. **Why**: Wails already owns the platform-specific lock, notification, and process-exit behavior on every supported desktop target. **Alternative rejected**: A repository-owned lock file or operating-system-specific implementation would duplicate runtime behavior and expand cleanup risk.
+- **Decision**: Use `com.vaulttec.fallout-terminal`, the production bundle identifier, as a private constant in the root Wails adapter. **Why**: It is an existing stable product identity and remains unchanged across releases and platforms. **Alternative rejected**: Deriving identity from display names, versions, working directories, or executable paths would permit unintended parallel instances.
+- **Decision**: Introduce a narrow activation coordinator that synchronizes window binding and second-launch callbacks, remembers one pending activation, and calls `Restore` followed by `Focus` outside its lock. **Why**: Wails invokes the callback from a background listener and may receive it before `newOverseerWindow` returns; synchronization prevents a data race while pending state closes the startup window. **Alternative rejected**: An unsynchronized captured window pointer would race, while direct window lookup would couple the callback to the complete application host.
+- **Decision**: Supply no additional instance data or encryption key and ignore the callback payload. **Why**: The feature needs only an activation signal, so arguments and working-directory data remain untrusted and cannot affect state, navigation, logs, or commands. **Alternative rejected**: Encrypting or validating unused payload data would add key management and parsing without product value.

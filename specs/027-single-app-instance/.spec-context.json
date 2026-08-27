@@ -1,0 +1,196 @@
+{
+  "workflow": "companion",
+  "specName": "single app instance",
+  "branch": "develop",
+  "currentStep": "tasks",
+  "status": "ready-to-implement",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:22:39.716Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:25:25.454Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.165Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.364Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.561Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-27T20:25:26.765Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-27T20:32:18.151Z"
+    }
+  ],
+  "telemetryInstanceId": "bce9f818-b455-4765-8e66-298f7cdfa464",
+  "last_action": "living specs evaluated — skipped (not configured)",
+  "coverage": {
+    "FR-001": {
+      "title": "The product MUST allow at most one interactive Fallout Terminal desktop instance for the same operating-system login session at a time.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T007"
+      ]
+    },
+    "FR-002": {
+      "title": "A later desktop launch MUST exit without creating an additional application window, local service, or owner of campaign state.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T005",
+        "T007"
+      ]
+    },
+    "FR-003": {
+      "title": "A later desktop launch MUST request that the active Overseer window be restored and focused when that window is available.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T005",
+        "T007"
+      ]
+    },
+    "FR-004": {
+      "title": "Concurrent or near-concurrent desktop launches MUST resolve to one active instance without crashing or disrupting that instance's startup.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T005",
+        "T007"
+      ]
+    },
+    "FR-005": {
+      "title": "Normal or unexpected termination of the active instance MUST release ownership so the next desktop launch can start without manual cleanup.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T007"
+      ]
+    },
+    "FR-006": {
+      "title": "The application identity used to coordinate launches MUST remain stable across application restarts and version upgrades.",
+      "tasks": [
+        "T001",
+        "T002"
+      ]
+    },
+    "FR-007": {
+      "title": "Data received from a later launch MUST be treated as untrusted and MUST NOT execute commands, navigate content, or modify application state.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T007"
+      ]
+    },
+    "FR-008": {
+      "title": "Informational and maintenance invocations that do not start the interactive desktop application MUST preserve their existing behavior without requiring desktop-instance ownership.",
+      "tasks": [
+        "T005",
+        "T007"
+      ]
+    },
+    "FR-009": {
+      "title": "Duplicate prevention and active-window reactivation MUST have the same user-visible behavior on every supported desktop operating system.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T004",
+        "T005",
+        "T007"
+      ]
+    },
+    "FR-010": {
+      "title": "Duplicate prevention MUST be enabled by default and MUST require no user configuration.",
+      "tasks": [
+        "T001",
+        "T002"
+      ]
+    }
+  },
+  "size": "simple",
+  "classification": {
+    "projectedFiles": 3,
+    "projectedTasks": 4,
+    "scopeSignal": "none",
+    "verdict": "simple"
+  },
+  "context": [
+    "area: main.go and wails_host.go application bootstrap",
+    "area: wails_host_test.go host contract coverage",
+    "constraint: Wails v3 single-instance guidance and untrusted second-launch data",
+    "constraint: repository Go quality and test cleanup rules"
+  ],
+  "intent": "Prevent duplicate interactive Fallout Terminal instances while returning repeated launches to the active Overseer window.",
+  "expectations": [
+    "Cross-user or machine-wide single-instance enforcement is out of scope.",
+    "Processing arguments or other data supplied by a later launch is out of scope.",
+    "Changing version-reporting or application-update replacement-helper behavior is out of scope."
+  ],
+  "approach": "Use the pinned Wails single-instance option with the stable product identity. Bridge its background second-launch callback to the Overseer window through synchronized pending activation, and ignore all transferred launch data.",
+  "decisions": [
+    {
+      "decision": "Use application.Options.SingleInstance with exit code zero.",
+      "why": "The pinned Wails runtime already owns cross-platform locking, notification, cleanup, and later-process exit.",
+      "rejected": "A custom lock file or platform-specific implementation would duplicate runtime behavior."
+    },
+    {
+      "decision": "Use com.vaulttec.fallout-terminal as the single-instance identity.",
+      "why": "It is the existing stable production bundle identifier and is independent of versions and paths.",
+      "rejected": "Display names, executable paths, and versioned identifiers are unstable or permit duplicates."
+    },
+    {
+      "decision": "Synchronize window binding and activation while remembering one pending activation.",
+      "why": "The runtime callback executes on a background listener and may arrive before window creation.",
+      "rejected": "An unsynchronized captured pointer would race and a direct host lookup would broaden coupling."
+    },
+    {
+      "decision": "Ignore second-launch payload data and provide no additional data or encryption key.",
+      "why": "Only the activation signal is needed, so payload contents cannot affect state, navigation, commands, or logs.",
+      "rejected": "Parsing, validating, or encrypting unused data adds complexity without product value."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Lean plan resolves the Wails host integration, startup race, stable identity, and focused test seams.",
+      "key_finding": "The pinned Wails runtime invokes the second-launch callback on a background listener and exits later processes during application construction."
+    },
+    "tasks": {
+      "summary": "7 sequential tasks across a no-op foundational phase, two test-first user-story phases, and polish validation."
+    }
+  }
+}
