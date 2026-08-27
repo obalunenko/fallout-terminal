@@ -72,7 +72,9 @@ func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
 
 	root := repositoryRoot(t)
 	workflow := readAcceptanceDocument(t, filepath.Join(root, ".github", "workflows", "wails-cross-platform.yml"))
-	composition := workflow + "\n" + readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+	taskfile := readAcceptanceDocument(t, filepath.Join(root, "Taskfile.yml"))
+	bindingsCheck := readAcceptanceDocument(t, filepath.Join(root, "scripts", "wails-bindings-check.sh"))
+	composition := workflow + "\n" + taskfile
 	for _, required := range []string{
 		"ci --prefix frontend",
 		"run build:overseer --prefix frontend",
@@ -87,6 +89,8 @@ func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
 	for _, pin := range []string{"v3.0.0-beta.13", "3.0.0-beta.13"} {
 		assert.Contains(t, composition, pin)
 	}
+	assert.Contains(t, bindingsCheck, `GOCACHE=${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache}`)
+	assert.NotContains(t, bindingsCheck, "/private/tmp")
 }
 
 func TestTaskfileAlignsDarwinCGOQualityDeploymentTarget(t *testing.T) {
