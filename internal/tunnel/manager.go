@@ -39,9 +39,10 @@ type ManagerConfig struct {
 }
 
 type PublicAccessResult struct {
-	OK       bool
-	Error    string
-	Snapshot PublicAccessSnapshot
+	OK             bool
+	Error          string
+	DiagnosticCode PublicAccessDiagnosticCode
+	Snapshot       PublicAccessSnapshot
 }
 
 type realClock struct{}
@@ -77,14 +78,14 @@ type reconfigureOperation struct {
 }
 
 // SecretMutation is an ephemeral trusted change. A zero value preserves the
-// existing Keychain item; replacement and deletion are mutually exclusive.
+// existing secure-store item; replacement and deletion are mutually exclusive.
 type SecretMutation struct {
 	Replacement []byte
 	Delete      bool
 }
 
 // PublicAccessMutation combines one expected settings revision with its
-// non-secret replacement and two independent ephemeral Keychain changes.
+// non-secret replacement and two independent ephemeral secure-store changes.
 type PublicAccessMutation struct {
 	ExpectedRevision        uint64
 	Preferences             PublicAccessPreferences
@@ -264,8 +265,14 @@ func (manager *PublicAccessManager) startPublicAccess(ctx context.Context, expec
 		}
 	}
 	if manager.provider != SecretPresent || manager.password != SecretPresent {
+		category := ErrorCredentialMissing
+		if manager.provider == SecretUnknown || manager.password == SecretUnknown {
+			if secretStoreFailureCategory(manager.status.ErrorCategory) {
+				category = manager.status.ErrorCategory
+			}
+		}
 		manager.status.Generation++
-		manager.status = failedStatus(manager.status, ErrorCredentialMissing)
+		manager.status = failedStatus(manager.status, category)
 		result := manager.resultLocked(false)
 		manager.mu.Unlock()
 		manager.emit(result.Snapshot)
@@ -409,6 +416,7 @@ func (manager *PublicAccessManager) finishStart(
 		manager.status = failedStatus(manager.status, category)
 		manager.status.ErrorMessage = message
 		result := manager.resultLocked(false)
+		result.DiagnosticCode = safePublicAccessDiagnosticCode(startErr)
 		manager.mu.Unlock()
 		if ingress != nil {
 			ingress.Deny()
@@ -1051,4 +1059,10 @@ func secretErrorCategory(err error) ErrorCategory {
 	default:
 		return ErrorSecretStoreUnavailable
 	}
+}
+
+func secretStoreFailureCategory(category ErrorCategory) bool {
+	return category == ErrorSecretStoreLocked ||
+		category == ErrorSecretStoreDenied ||
+		category == ErrorSecretStoreUnavailable
 }

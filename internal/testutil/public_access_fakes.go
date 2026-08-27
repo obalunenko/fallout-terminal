@@ -150,6 +150,88 @@ type FakeTunnelService struct {
 	upstream string
 }
 
+type FakePublicIngressFactory struct {
+	mu sync.Mutex
+
+	StartErr error
+	starts   int
+	active   int
+}
+
+func NewFakePublicIngressFactory() *FakePublicIngressFactory {
+	return &FakePublicIngressFactory{}
+}
+
+func (factory *FakePublicIngressFactory) Start(_ context.Context, _ string) (tunnel.PublicIngress, error) {
+	factory.mu.Lock()
+	defer factory.mu.Unlock()
+	factory.starts++
+	if factory.StartErr != nil {
+		return nil, factory.StartErr
+	}
+	factory.active++
+	return &FakePublicIngress{
+		factory: factory,
+		url:     url.URL{Scheme: "http", Host: "127.0.0.1:43690"},
+	}, nil
+}
+
+func (factory *FakePublicIngressFactory) StartCalls() int {
+	factory.mu.Lock()
+	defer factory.mu.Unlock()
+	return factory.starts
+}
+
+func (factory *FakePublicIngressFactory) ActiveIngresses() int {
+	factory.mu.Lock()
+	defer factory.mu.Unlock()
+	return factory.active
+}
+
+type FakePublicIngress struct {
+	mu sync.Mutex
+
+	factory *FakePublicIngressFactory
+	url     url.URL
+	closed  bool
+}
+
+func (ingress *FakePublicIngress) URL() *url.URL {
+	copyURL := ingress.url
+	return &copyURL
+}
+
+func (ingress *FakePublicIngress) Activate(_, _ string, _ []byte) error {
+	ingress.mu.Lock()
+	defer ingress.mu.Unlock()
+	if ingress.closed {
+		return errors.New("fake public ingress is closed")
+	}
+	return nil
+}
+
+func (ingress *FakePublicIngress) Deny() {}
+
+func (ingress *FakePublicIngress) Close(_ context.Context) error {
+	ingress.mu.Lock()
+	if ingress.closed {
+		ingress.mu.Unlock()
+		return nil
+	}
+	ingress.closed = true
+	factory := ingress.factory
+	ingress.mu.Unlock()
+
+	if factory != nil {
+		factory.mu.Lock()
+		if factory.active > 0 {
+			factory.active--
+		}
+		factory.mu.Unlock()
+	}
+	return nil
+}
+
 func NewFakeTunnelService(endpoint *FakeTunnelEndpoint) *FakeTunnelService {
 	service := &FakeTunnelService{Endpoint: endpoint, released: true}
 	if endpoint != nil {

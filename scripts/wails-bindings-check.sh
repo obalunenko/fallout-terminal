@@ -11,7 +11,7 @@ second="$temporary/second"
 
 generate() {
     destination=$1
-    GOCACHE=${GOCACHE:-/private/tmp/fallout-terminal-go-cache} \
+    GOCACHE=${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache} \
         go tool -modfile=tools/wails/go.mod wails3 generate bindings \
         -clean -d "$destination" ./... >/dev/null
 }
@@ -29,12 +29,12 @@ sed -n 's/^export function \([A-Za-z0-9_]*\)(.*/\1/p' "$service" | LC_ALL=C sort
 printf '%s\n' \
     AddCharacter AssignCharacter CopyDemo DeleteCharacter EndBroadcast ForceHackSuccess \
     GeneratePlayerPassword GetPublicAccess GetRuntimeStatus LoadReferencedPlayerConfig MoveCharacter NewPlayerConfig NewSession \
-    OpenPlayerConfig OpenSession OpenURL ReleaseCharacter RenameLogicalSession \
+    OpenPlayerConfig OpenSession OpenURL ReleaseCharacter RenameLogicalSession ReplaceTerminalGroups \
     RequestTerminalActivation RequestTerminalClear ResetCommandState ResetFailedHack ResetTerminalCommandStates ResolveCommandExecution ResolveTerminalNavigation ResolveTerminalSwitch \
     SavePublicAccessSettings SaveSession SetActiveController StartBroadcast StartPublicAccess \
     StopPublicAccess UpdateCharacter UpdateLiveTerminal | LC_ALL=C sort >"$expected"
 diff -u "$expected" "$actual"
-test "$(wc -l <"$actual" | tr -d ' ')" = 34
+test "$(wc -l <"$actual" | tr -d ' ')" = 35
 
 for forbidden in Start Shutdown ServiceStartup ServiceShutdown Dispatch Call Capabilities \
     ReadFile WriteFile Exec Environment OpenDialog Browser PlayerService Subscribe; do
@@ -51,4 +51,4 @@ for event in server-info client-count hack-state coordination-state session-stat
 done
 test "$(grep -E '^[[:space:]]+"(server-info|client-count|hack-state|coordination-state|session-state|public-access-status)"' "$event_types" | wc -l | tr -d ' ')" = 6
 
-echo "Wails bindings are deterministic and expose exactly 34 accepted desktop methods."
+echo "Wails bindings are deterministic and expose exactly 35 accepted desktop methods."

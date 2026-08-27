@@ -70,6 +70,24 @@ async function finishHack(request, player) {
   await expect(player.locator('#termList')).toBeVisible();
 }
 
+async function coordinationSnapshot(request) {
+  const response = await request.get(`${FIXTURE}/state`);
+  expect(response.ok()).toBe(true);
+  return response.json();
+}
+
+async function persistedCommandBehavior(page, commandID) {
+  return page.evaluate(async ({ endpoint, id }) => {
+    const response = await fetch(endpoint);
+    if (!response.ok) return '';
+    const session = await response.json();
+    const command = session?.terminals?.[0]?.root?.children?.find(node => node.id === id);
+    if (command?.stateChange) return 'state-change';
+    if (command?.terminalTransition) return 'terminal-transition';
+    return command ? 'ordinary' : '';
+  }, { endpoint: `${FIXTURE}/session`, id: commandID });
+}
+
 async function expectPendingTransitionSurface(page, timeout = 2000) {
   await expect(page.locator('#termEntry')).toBeVisible({ timeout });
   await page.keyboard.press('Shift');
@@ -217,12 +235,14 @@ test('transition authoring is mutually exclusive, validates locally, and survive
   await form.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ').fill('ПЕРЕХОД ПОДГОТОВЛЕН');
   await form.getByLabel('ТЕКСТ ЗАПРОСА ПОДТВЕРЖДЕНИЯ').fill('Подготовить переход?');
   await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+	await expect(page.locator('#saveStatus')).toContainText('Сохранено');
   const stateChangeSave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
     ?.terminals?.[0]?.root?.children?.find(node => node.id === 'go-security'));
-  expect(stateChangeSave).toHaveProperty('stateChange');
-  expect(stateChangeSave).not.toHaveProperty('terminalTransition');
+	expect(stateChangeSave).toHaveProperty('stateChange');
+	expect(stateChangeSave).not.toHaveProperty('terminalTransition');
+	await expect.poll(() => persistedCommandBehavior(page, 'go-security')).toBe('state-change');
 
-  await page.reload();
+	await page.reload();
   await openOverseer(page);
   await selectCommand(page, 'ПЕРЕЙТИ В ОХРАНУ');
   await expect(page.getByLabel('РЕЖИМ КОМАНДЫ')).toHaveValue('state-change');
@@ -232,10 +252,9 @@ test('transition authoring is mutually exclusive, validates locally, and survive
   await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
   const transitionSave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
     ?.terminals?.[0]?.root?.children?.find(node => node.id === 'go-security'));
-  expect(transitionSave).toHaveProperty('terminalTransition.targetTerminalId', 'security');
-  expect(transitionSave).not.toHaveProperty('stateChange');
-  await expect.poll(() => page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
-    ?.terminals?.map(terminal => terminal.id))).toEqual(['residential', 'security', 'vault']);
+	expect(transitionSave).toHaveProperty('terminalTransition.targetTerminalId', 'security');
+	expect(transitionSave).not.toHaveProperty('stateChange');
+	await expect.poll(() => persistedCommandBehavior(page, 'go-security')).toBe('terminal-transition');
 
   await page.reload();
   await openOverseer(page);
@@ -248,8 +267,9 @@ test('transition authoring is mutually exclusive, validates locally, and survive
   await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
   const ordinarySave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
     ?.terminals?.[0]?.root?.children?.find(node => node.id === 'go-security'));
-  expect(ordinarySave).not.toHaveProperty('stateChange');
-  expect(ordinarySave).not.toHaveProperty('terminalTransition');
+	expect(ordinarySave).not.toHaveProperty('stateChange');
+	expect(ordinarySave).not.toHaveProperty('terminalTransition');
+	await expect.poll(() => persistedCommandBehavior(page, 'go-security')).toBe('ordinary');
 
   await page.reload();
   await openOverseer(page);
@@ -263,7 +283,8 @@ test('transition authoring is mutually exclusive, validates locally, and survive
 test('deleting a referenced terminal is blocked before local mutation', async ({ page }) => {
   await openOverseer(page);
 	const security = page.locator('.term-row', { hasText: 'Терминал охраны' });
-  await security.getByRole('button', { name: 'УДАЛИТЬ' }).click();
+  await security.locator('[data-action-menu-trigger="terminal"]').click();
+  await security.getByRole('menuitem', { name: 'УДАЛИТЬ ТЕРМИНАЛ' }).click();
 	await expect(page.locator('#coordinationError')).toContainText(/ссыла|переход/i);
 	await expect(page.locator('.term-row', { hasText: 'Терминал охраны' })).toHaveCount(1);
 });
@@ -298,6 +319,101 @@ test('approved first entry opens the destination hack at root without a terminal
     await expect(player.page.locator('#attemptsLine')).toContainText('ОСТАЛОСЬ');
   } finally {
     await player.context.close();
+    await overseerContext.close();
+  }
+});
+
+test('same-group forward remains pending for controller and observer until one Overseer approval', async ({ browser, request }) => {
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  const controller = await openParticipant(browser);
+  const observer = await openParticipant(browser);
+  try {
+    await expect(controller.page.locator('#roleBadge')).toContainText('АКТИВЕН');
+    await expect(observer.page.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+    const before = await coordinationSnapshot(request);
+    expect(before.broadcast.activeTerminalId).toBe('residential');
+    expect(before.pendingTerminalNavigation).toBeNull();
+
+    await controller.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ОХРАНУ' }).first().click();
+    await Promise.all([controller, observer].map(participant =>
+      expectPendingTransitionSurface(participant.page)));
+
+    const pending = await coordinationSnapshot(request);
+    expect(pending.broadcast.activeTerminalId).toBe('residential');
+    expect(pending.pendingTerminalNavigation).toMatchObject({
+      direction: 'forward',
+      sourceTerminalId: 'residential',
+      targetTerminalId: 'security',
+      routeDepth: 0,
+    });
+    const dialog = overseer.getByRole('dialog', { name: 'ПЕРЕХОД МЕЖДУ ТЕРМИНАЛАМИ' });
+    await expect(dialog).toContainText('ИЗ: Жилой терминал');
+    await expect(dialog).toContainText('В: Терминал охраны');
+
+    for (const participant of [controller, observer]) {
+      await participant.page.keyboard.press('Enter');
+      await participant.page.keyboard.press('Backspace');
+      await expectPendingTransitionSurface(participant.page);
+    }
+    expect((await coordinationSnapshot(request)).broadcast.activeTerminalId).toBe('residential');
+
+    await dialog.getByRole('button', { name: 'ОДОБРИТЬ' }).click();
+    await expect(dialog).toBeHidden();
+    await Promise.all([controller, observer].map(participant =>
+      expect(participant.page.locator('#hackHeader')).toBeVisible({ timeout: 2000 })));
+    const approved = await coordinationSnapshot(request);
+    expect(approved.broadcast.activeTerminalId).toBe('security');
+    expect(approved.pendingTerminalNavigation).toBeNull();
+  } finally {
+    await controller.context.close();
+    await observer.context.close();
+    await overseerContext.close();
+  }
+});
+
+test('cross-group forward attempts by controller and observer have zero navigation effect', async ({ browser, request }) => {
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  const controller = await openParticipant(browser);
+  const observer = await openParticipant(browser);
+  try {
+    await expect(controller.page.locator('#roleBadge')).toContainText('АКТИВЕН');
+    await expect(observer.page.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+
+    await controller.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ОХРАНУ' }).first().click();
+    await decideNavigation(overseer, 'approve');
+    await expect(controller.page.locator('#hackHeader')).toBeVisible();
+    await finishHack(request, controller.page);
+    await expect(observer.page.locator('#termList')).toBeVisible({ timeout: 2000 });
+
+    const returnAction = /НАЗАД В Жилой терминал/i;
+    await expect(controller.page.getByRole('button', { name: returnAction })).toHaveCount(1);
+    await expect(observer.page.getByRole('button', { name: returnAction })).toHaveCount(1);
+    const before = await coordinationSnapshot(request);
+    expect(before.broadcast.activeTerminalId).toBe('security');
+    expect(before.pendingTerminalNavigation).toBeNull();
+
+    await controller.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ХРАНИЛИЩЕ' }).click();
+    await expect(overseer.getByRole('dialog', { name: 'ПЕРЕХОД МЕЖДУ ТЕРМИНАЛАМИ' })).toBeHidden();
+    await expect.poll(async () => (await coordinationSnapshot(request)).pendingTerminalNavigation).toBeNull();
+    let after = await coordinationSnapshot(request);
+    expect(after.broadcast.activeTerminalId).toBe('security');
+    await expect(controller.page.locator('#hackHeader')).toBeHidden();
+    await expect(controller.page.getByRole('button', { name: returnAction })).toHaveCount(1);
+
+    await observer.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ХРАНИЛИЩЕ' }).click({ force: true });
+    await expect(overseer.getByRole('dialog', { name: 'ПЕРЕХОД МЕЖДУ ТЕРМИНАЛАМИ' })).toBeHidden();
+    await expect.poll(async () => (await coordinationSnapshot(request)).pendingTerminalNavigation).toBeNull();
+    after = await coordinationSnapshot(request);
+    expect(after.broadcast.activeTerminalId).toBe('security');
+    await expect(observer.page.getByRole('button', { name: returnAction })).toHaveCount(1);
+    await expect(controller.page.getByRole('button', { name: returnAction })).toHaveCount(1);
+  } finally {
+    await controller.context.close();
+    await observer.context.close();
     await overseerContext.close();
   }
 });
@@ -669,6 +785,7 @@ test('stale target approval fails safely and keeps the source terminal active', 
 });
 
 test('A to B to C returns unwind exactly B then A', async ({ browser, request }) => {
+	expect((await request.post(`${FIXTURE}/group-full-route`)).ok()).toBe(true);
   const overseerContext = await browser.newContext();
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);

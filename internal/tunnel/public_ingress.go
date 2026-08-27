@@ -45,12 +45,13 @@ type ingressAuthorization struct {
 }
 
 type loopbackPublicIngress struct {
-	listener net.Listener
-	server   *http.Server
-	url      *url.URL
-	policy   atomic.Pointer[ingressAuthorization]
-	context  context.Context
-	cancel   context.CancelCauseFunc
+	listener  net.Listener
+	server    *http.Server
+	transport *http.Transport
+	url       *url.URL
+	policy    atomic.Pointer[ingressAuthorization]
+	context   context.Context
+	cancel    context.CancelCauseFunc
 
 	closeMu  sync.Mutex
 	closed   bool
@@ -75,7 +76,7 @@ func (loopbackPublicIngressFactory) Start(ctx context.Context, rawUpstream strin
 	}
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return nil, errors.New(ErrorProviderFailure.SafeMessage())
+		return nil, publicIngressListenFailure(err)
 	}
 	address, ok := listener.Addr().(*net.TCPAddr)
 	if !ok || address.Port <= 0 {
@@ -90,18 +91,33 @@ func (loopbackPublicIngressFactory) Start(ctx context.Context, rawUpstream strin
 	lifetimeContext, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
 	ingress := &loopbackPublicIngress{listener: listener, url: ingressURL, context: lifetimeContext, cancel: cancel}
 	proxy := httputil.NewSingleHostReverseProxy(upstream)
+	upstreamProtocols := new(http.Protocols)
+	upstreamProtocols.SetUnencryptedHTTP2(true)
+	ingress.transport = &http.Transport{Protocols: upstreamProtocols}
+	proxy.Transport = ingress.transport
 	proxy.FlushInterval = -1
 	proxy.ErrorHandler = func(response http.ResponseWriter, _ *http.Request, _ error) {
 		http.Error(response, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 	}
+	ingressProtocols := new(http.Protocols)
+	ingressProtocols.SetHTTP1(true)
+	ingressProtocols.SetUnencryptedHTTP2(true)
 	ingress.server = &http.Server{
 		Handler: http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 			ingress.serve(proxy, response, request)
 		}),
 		BaseContext: func(net.Listener) context.Context { return lifetimeContext },
+		Protocols:   ingressProtocols,
 	}
 	go func() { _ = ingress.server.Serve(listener) }()
 	return ingress, nil
+}
+
+func publicIngressListenFailure(err error) error {
+	category, _ := redactedPublicAccessFailure(err)
+	return publicAccessCategorizedError{
+		category: category, diagnosticCode: DiagnosticPublicIngressListenFailed,
+	}
 }
 
 func (ingress *loopbackPublicIngress) URL() *url.URL {
@@ -169,6 +185,7 @@ func (ingress *loopbackPublicIngress) Close(ctx context.Context) error {
 		ingress.closeMu.Unlock()
 
 		err := ingress.server.Shutdown(ctx)
+		ingress.transport.CloseIdleConnections()
 		if err != nil {
 			err = errors.Join(err, ingress.server.Close())
 		}

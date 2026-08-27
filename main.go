@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -112,6 +111,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		TrustedHack:        live,
 		RosterStore:        playerConfigs,
 		CommandStateStore:  &sessionCommandStateStore{service: sessions},
+		TerminalGroupStore: &sessionCommandStateStore{service: sessions},
 		TerminalCatalog:    sessions,
 		RequestResultLimit: int(runtimeConfig.Coordination.RequestResultLimit),
 	})
@@ -140,7 +140,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 	}
 	packaged := isPackagedApplication()
 	publicSettings := tunnelservice.NewPublicAccessSettingsStore(publicAccessSettingsPath, nil, nil)
-	publicSecrets := platform.NewPlatformKeychainSecretStore(packaged)
+	publicSecrets := platform.NewPlatformSecureCredentialStore(packaged)
 	effectivePublicSettings, effectivePublicSecrets := publicAccessStoresForProfile(publicSettings, publicSecrets, packaged, os.LookupEnv)
 	var app *App
 	publicAccess, err := tunnelservice.NewPublicAccessManager(tunnelservice.ManagerConfig{
@@ -185,6 +185,35 @@ type sessionCommandStateStore struct {
 }
 
 var _ controlservice.CommandStateStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.TerminalGroupStore = (*sessionCommandStateStore)(nil)
+
+func (store *sessionCommandStateStore) ReplaceTerminalGroups(
+	ctx context.Context,
+	groups []domain.TerminalGroup,
+	expectedRevision uint64,
+) (controlservice.TerminalGroupMutation, error) {
+	if store == nil || store.service == nil {
+		return controlservice.TerminalGroupMutation{}, errors.New("session terminal-group store is unavailable")
+	}
+	result := store.service.ReplaceTerminalGroups(ctx, groups, expectedRevision)
+	if !result.OK {
+		message := result.Error
+		if message == "" {
+			message = "session terminal-group mutation failed"
+		}
+		mutation := controlservice.TerminalGroupMutation{Revision: result.Revision}
+		if result.Session != nil {
+			mutation.Session = *result.Session
+		}
+		return mutation, &controlservice.TerminalGroupStoreRejection{Message: message}
+	}
+	if result.Session == nil {
+		return controlservice.TerminalGroupMutation{}, errors.New("session terminal-group mutation returned no document")
+	}
+	return controlservice.TerminalGroupMutation{
+		Changed: result.Changed, Revision: result.Revision, Session: *result.Session,
+	}, nil
+}
 
 func (store *sessionCommandStateStore) ExecuteCommandState(ctx context.Context, terminalID, commandID string) (controlservice.CommandStateMutation, error) {
 	if store == nil || store.service == nil {
@@ -246,15 +275,6 @@ func publicAccessCompositionRoute() publicAccessRoute {
 		PlayerTarget: tunnelservice.PlayerUpstreamAddress,
 		UpstreamURL:  "http://" + tunnelservice.PlayerUpstreamAddress,
 	}
-}
-
-func isPackagedApplication() bool {
-	executable, err := os.Executable()
-	if err != nil {
-		return false
-	}
-	macOSDirectory := filepath.Dir(executable)
-	return filepath.Base(macOSDirectory) == "MacOS" && filepath.Base(filepath.Dir(macOSDirectory)) == "Contents"
 }
 
 func defaultApplicationConfig(locations platform.SessionLocations) *configv1.ApplicationConfig {
@@ -334,27 +354,4 @@ func (router *coordinationEffectRouter) Enqueue(effect controlservice.Effect) {
 			app.updateHackState(effect.Live.Hack)
 		}
 	}
-}
-
-func applicationResourceRoot() string {
-	executable, err := os.Executable()
-	if err != nil {
-		executable = ""
-	}
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		workingDirectory = ""
-	}
-	return applicationResourceRootFor(executable, workingDirectory)
-}
-
-func applicationResourceRootFor(executable, workingDirectory string) string {
-	macOSDirectory := filepath.Dir(executable)
-	if filepath.Base(macOSDirectory) == "MacOS" && filepath.Base(filepath.Dir(macOSDirectory)) == "Contents" {
-		return filepath.Join(filepath.Dir(macOSDirectory), "Resources")
-	}
-	if workingDirectory != "" {
-		return workingDirectory
-	}
-	return filepath.Dir(executable)
 }

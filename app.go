@@ -101,6 +101,10 @@ type coordinationControllerService interface {
 	SetActiveController(domain.LogicalSessionID) (*domain.MasterCoordinationState, error)
 }
 
+type coordinationTerminalGroupService interface {
+	ReplaceTerminalGroups(context.Context, domain.TerminalGroupCandidate) (*domain.MasterCoordinationState, *controlservice.TerminalGroupMutation, error)
+}
+
 // coordinationTerminalService is the trusted terminal-selection boundary. It
 // keeps terminal choice, runtime checkpoints, and publication ordered by the
 // same coordinator that owns assignments and controller authority.
@@ -247,6 +251,25 @@ type SessionStateResult struct {
 type SessionStateEvent struct {
 	Revision uint64          `json:"revision"`
 	Session  *domain.Session `json:"session"`
+}
+
+// TerminalGroupReplacementPayload is the private complete-set authoring
+// request. Both revisions are captured from the canonical state reviewed by
+// the Overseer.
+type TerminalGroupReplacementPayload struct {
+	TerminalGroups               []domain.TerminalGroup `json:"terminalGroups"`
+	ExpectedSessionRevision      uint64                 `json:"expectedSessionRevision"`
+	ExpectedCoordinationRevision uint64                 `json:"expectedCoordinationRevision"`
+}
+
+// TerminalGroupReplacementResult returns both authoritative owners on success
+// and on stale rejection so the frontend never keeps an optimistic draft.
+type TerminalGroupReplacementResult struct {
+	OK                bool                            `json:"ok"`
+	Error             string                          `json:"error,omitempty"`
+	SessionRevision   uint64                          `json:"sessionRevision"`
+	Session           *domain.Session                 `json:"session,omitempty"`
+	CoordinationState *domain.MasterCoordinationState `json:"coordinationState"`
 }
 
 // PublicAccessPreferences is the secret-free native desktop projection.
@@ -585,7 +608,7 @@ func (app *App) GetPublicAccess() PublicAccessSnapshot {
 }
 
 // SavePublicAccessSettings validates the complete proposed revision before
-// applying scoped Keychain changes and then the atomic non-secret file write.
+// applying scoped secure-store changes and then the atomic non-secret file write.
 func (app *App) SavePublicAccessSettings(payload SavePublicAccessSettingsPayload) (result PublicAccessCommandResult) {
 	defer func() {
 		app.recordOperation("public-access.settings", operationOutcome(result.OK, false), publicAccessLogFields(result.Snapshot))
@@ -768,13 +791,19 @@ func savePublicAccessMutationSettings(settings PublicAccessSettingsStore, prefer
 }
 
 func (app *App) StartPublicAccess(payload PublicAccessCommandPayload) (result PublicAccessCommandResult) {
+	var diagnosticCode tunnelservice.PublicAccessDiagnosticCode
 	defer func() {
-		app.recordOperation("public-access.start", operationOutcome(result.OK, false), publicAccessLogFields(result.Snapshot))
+		fields := publicAccessLogFields(result.Snapshot)
+		if diagnosticCode.Valid() {
+			fields["diagnostic_code"] = diagnosticCode.String()
+		}
+		app.recordOperation("public-access.start", operationOutcome(result.OK, false), fields)
 	}()
 	app.publicAccessCommandMu.Lock()
 	defer app.publicAccessCommandMu.Unlock()
 	if app.deps.PublicAccess != nil {
 		result := app.deps.PublicAccess.Start(app.contextSnapshot(), routePublicAccessCommandRequest(payload).ExpectedRevision)
+		diagnosticCode = result.DiagnosticCode
 		app.acceptPublicAccessSnapshot(result.Snapshot, true)
 		return routePublicAccessCommandResult(PublicAccessCommandResult{
 			OK: result.OK, Error: result.Error, Snapshot: routePublicAccessSnapshot(result.Snapshot),
@@ -1084,7 +1113,9 @@ func (app *App) Shutdown(ctx context.Context) error {
 	if app.log != nil {
 		app.log.WithField("phase", "stopping").Info("application shutdown started")
 	}
-	err := app.shutdownLocked(ctx, false)
+	cleanupContext, cancel := app.shutdownContext(ctx)
+	defer cancel(errApplicationCleanupComplete)
+	err := app.shutdownLocked(cleanupContext, false)
 	if err == nil && app.log != nil {
 		app.log.WithField("phase", "stopped").Info("application shutdown completed")
 	}
@@ -1214,6 +1245,77 @@ func (app *App) SaveSession(session domain.Session) (result sessionservice.SaveR
 	}
 	app.mu.Unlock()
 	return routeSaveSessionResult(commandResult)
+}
+
+// ReplaceTerminalGroups routes the one private complete-set mutation through
+// the coordinator, then publishes the durable session before the matching
+// coordination revision.
+func (app *App) ReplaceTerminalGroups(payload TerminalGroupReplacementPayload) TerminalGroupReplacementResult {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+	payload = routeTerminalGroupReplacementRequest(payload)
+
+	coordination, ok := app.deps.Coordination.(coordinationTerminalGroupService)
+	if !ok {
+		return routeTerminalGroupReplacementResult(app.terminalGroupReplacementFailure("coordination service is unavailable", nil))
+	}
+	candidate := domain.TerminalGroupCandidate{
+		TerminalGroups:               domain.CloneTerminalGroups(payload.TerminalGroups),
+		ExpectedSessionRevision:      payload.ExpectedSessionRevision,
+		ExpectedCoordinationRevision: payload.ExpectedCoordinationRevision,
+	}
+	state, mutation, err := coordination.ReplaceTerminalGroups(app.contextSnapshot(), candidate)
+	if err != nil {
+		result := app.terminalGroupReplacementFailure(err.Error(), state)
+		if mutation != nil {
+			result.SessionRevision = mutation.Revision
+			if mutation.Session.Version != 0 {
+				result.Session = sessionPointerForApp(mutation.Session)
+			}
+		}
+		return routeTerminalGroupReplacementResult(result)
+	}
+	if mutation == nil {
+		return routeTerminalGroupReplacementResult(app.terminalGroupReplacementFailure("terminal groups were not replaced", state))
+	}
+	canonicalSession := domain.CloneSession(mutation.Session)
+	app.acceptSessionStateRevision(mutation.Revision)
+	if mutation.Changed {
+		app.publishSessionState(SessionStateEvent{Revision: mutation.Revision, Session: &canonicalSession})
+		app.publishCoordinationState(state)
+	}
+	return routeTerminalGroupReplacementResult(TerminalGroupReplacementResult{
+		OK:                true,
+		SessionRevision:   mutation.Revision,
+		Session:           sessionPointerForApp(canonicalSession),
+		CoordinationState: domain.CloneMasterCoordinationState(state),
+	})
+}
+
+func (app *App) terminalGroupReplacementFailure(message string, state *domain.MasterCoordinationState) TerminalGroupReplacementResult {
+	result := TerminalGroupReplacementResult{
+		Error:             message,
+		CoordinationState: domain.CloneMasterCoordinationState(state),
+	}
+	if result.CoordinationState == nil {
+		app.mu.RLock()
+		result.CoordinationState = domain.CloneMasterCoordinationState(app.coordinationState)
+		app.mu.RUnlock()
+	}
+	if sessions, ok := app.deps.Sessions.(sessionCommands); ok {
+		active := sessions.Snapshot()
+		app.captureSessionStatus(sessions)
+		result.SessionRevision = active.SavedRevision
+		if active.Session != nil {
+			result.Session = sessionPointerForApp(*active.Session)
+		}
+	}
+	return result
+}
+
+func sessionPointerForApp(session domain.Session) *domain.Session {
+	clone := domain.CloneSession(session)
+	return &clone
 }
 
 // LoadReferencedPlayerConfig reloads the active session's durable roster.
@@ -2142,11 +2244,15 @@ func (app *App) setPhase(phase string) {
 }
 
 func (app *App) freshShutdownContext() (context.Context, context.CancelCauseFunc) {
+	return app.shutdownContext(app.root)
+}
+
+func (app *App) shutdownContext(parent context.Context) (context.Context, context.CancelCauseFunc) {
 	timeout := app.deps.ShutdownTimeout
 	if timeout <= 0 {
 		timeout = wailsShutdownTimeout
 	}
-	return boundedCleanupContext(app.root, timeout, errApplicationCleanupTimeout)
+	return boundedCleanupContext(parent, timeout, errApplicationCleanupTimeout)
 }
 
 func boundedCleanupContext(parent context.Context, timeout time.Duration, timeoutCause error) (context.Context, context.CancelCauseFunc) {

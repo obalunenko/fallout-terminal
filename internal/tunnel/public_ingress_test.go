@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -15,6 +17,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func startProtocolAwareUpstream(t *testing.T, handler http.Handler) string {
+	t.Helper()
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
+	server := &http.Server{Handler: handler, Protocols: protocols}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+		defer cancel()
+		require.NoError(t, server.Shutdown(ctx))
+	})
+	return "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(listener.Addr().(*net.TCPAddr).Port))
+}
 
 const (
 	publicIngressHost     = "public.example"
@@ -36,9 +55,11 @@ func publicIngressRequest(t *testing.T, ingressURL, method, path, host, username
 func TestPublicIngressStartsDeniedAndProtectsStaticUnaryAndStreaming(t *testing.T) {
 	var upstreamCalls atomic.Int64
 	var authorizationForwarded atomic.Bool
+	var upstreamProtocol atomic.Int64
 	releaseUpdate := make(chan struct{})
-	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	upstreamURL := startProtocolAwareUpstream(t, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		upstreamCalls.Add(1)
+		upstreamProtocol.Store(int64(request.ProtoMajor))
 		if request.Header.Get("Authorization") != "" {
 			authorizationForwarded.Store(true)
 		}
@@ -59,9 +80,8 @@ func TestPublicIngressStartsDeniedAndProtectsStaticUnaryAndStreaming(t *testing.
 			_, _ = io.WriteString(response, "player")
 		}
 	}))
-	t.Cleanup(upstream.Close)
 
-	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), upstream.URL)
+	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), upstreamURL)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, ingress.Close(context.WithoutCancel(t.Context()))) })
 	client := &http.Client{Timeout: time.Second}
@@ -99,6 +119,7 @@ func TestPublicIngressStartsDeniedAndProtectsStaticUnaryAndStreaming(t *testing.
 	_ = staticResponse.Body.Close()
 	assert.Equal(t, http.StatusOK, staticResponse.StatusCode)
 	assert.Equal(t, "player", string(staticBody))
+	assert.Equal(t, int64(2), upstreamProtocol.Load(), "ingress-to-player hop must use h2c")
 
 	unaryResponse, err := client.Do(publicIngressRequest(t, ingress.URL().String(), http.MethodPost, "/unary", publicIngressHost, publicIngressUsername, publicIngressPassword))
 	require.NoError(t, err)
@@ -127,13 +148,26 @@ func TestPublicIngressStartsDeniedAndProtectsStaticUnaryAndStreaming(t *testing.
 	_ = streamResponse.Body.Close()
 	assert.False(t, authorizationForwarded.Load())
 
+	protocols := new(http.Protocols)
+	protocols.SetUnencryptedHTTP2(true)
+	http2Client := &http.Client{Transport: &http.Transport{Protocols: protocols}, Timeout: time.Second}
+	http2Response, err := http2Client.Do(publicIngressRequest(
+		t, ingress.URL().String(), http.MethodGet, "/", publicIngressHost, publicIngressUsername, publicIngressPassword,
+	))
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, http2Response.Body)
+	require.NoError(t, err)
+	require.NoError(t, http2Response.Body.Close())
+	assert.Equal(t, 2, http2Response.ProtoMajor, "public-to-ingress hop must independently negotiate h2c")
+	assert.Equal(t, int64(2), upstreamProtocol.Load(), "ingress-to-player hop must remain h2c")
+
 	ingress.Deny()
 	stale, err := client.Do(publicIngressRequest(t, ingress.URL().String(), http.MethodGet, "/", publicIngressHost, publicIngressUsername, publicIngressPassword))
 	require.NoError(t, err)
 	_ = stale.Body.Close()
 	assert.NotEqual(t, http.StatusOK, stale.StatusCode)
 
-	local, err := http.Get(upstream.URL + "/")
+	local, err := http.Get(upstreamURL + "/")
 	require.NoError(t, err)
 	_ = local.Body.Close()
 	assert.Equal(t, http.StatusOK, local.StatusCode)
@@ -147,6 +181,7 @@ func TestPublicIngressRejectsUnsafeActivationAndClosesIdempotently(t *testing.T)
 	t.Cleanup(upstream.Close)
 	ingress, err := tunnel.NewPublicIngressFactory().Start(t.Context(), upstream.URL)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, ingress.Close(context.WithoutCancel(t.Context()))) })
 
 	for _, activation := range []struct {
 		host, username, password string

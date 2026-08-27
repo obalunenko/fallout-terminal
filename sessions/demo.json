@@ -166,5 +166,15 @@
         "type": "folder"
       }
     }
+  ],
+  "terminalGroups": [
+    {
+      "id": "vault-76-route",
+      "name": "Убежище 76",
+      "terminalIds": [
+        "t_demo1",
+        "t_demo2"
+      ]
+    }
   ]
 }

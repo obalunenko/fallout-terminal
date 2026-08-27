@@ -28,10 +28,9 @@ func TestDecodeEncodeSessionV1Fixture(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, bytes.HasSuffix(encoded, []byte("\n")))
 
-	var got, want any
-	require.NoError(t, json.Unmarshal(encoded, &got))
-	require.NoError(t, json.Unmarshal(raw, &want))
-	assert.True(t, deepJSONEqual(got, want), "semantic round trip changed fixture\ngot:  %s\nwant: %s", encoded, raw)
+	roundTrip, err := DecodeSession(encoded)
+	require.NoError(t, err)
+	assert.Equal(t, session, roundTrip)
 }
 
 func TestDecodeStateChangingSessionV1Fixture(t *testing.T) {
@@ -95,6 +94,35 @@ func TestUnknownFieldsRoundTrip(t *testing.T) {
 	for _, field := range []string{"campaignNote", "terminalNote", "nodeNote"} {
 		assert.Contains(t, string(encoded), `"`+field+`"`)
 	}
+}
+
+func TestLegacySessionNormalizesSingletonGroupsAndCloneDetachesOrder(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte(`{
+  "version": 1,
+  "name": "Legacy",
+  "terminals": [
+    {"id":"a","name":"Terminal","hackLevel":0,"introText":"","root":{"id":"root","type":"folder","name":"ROOT","children":[]}},
+    {"id":"b","name":"Terminal","hackLevel":0,"introText":"","root":{"id":"root","type":"folder","name":"ROOT","children":[]}}
+  ]
+}`)
+
+	session, err := DecodeSession(raw)
+	require.NoError(t, err)
+	require.Len(t, session.TerminalGroups, 2)
+	assert.Equal(t, []string{"a"}, session.TerminalGroups[0].TerminalIDs)
+	assert.Equal(t, []string{"b"}, session.TerminalGroups[1].TerminalIDs)
+	assert.NotEqual(t, session.TerminalGroups[0].ID, session.TerminalGroups[1].ID)
+	assert.NotEqual(t, session.TerminalGroups[0].Name, session.TerminalGroups[1].Name)
+
+	clone := CloneSession(session)
+	clone.TerminalGroups[0].TerminalIDs[0] = "changed"
+	assert.Equal(t, "a", session.TerminalGroups[0].TerminalIDs[0])
+
+	encoded, err := EncodeSession(session)
+	require.NoError(t, err)
+	assert.Contains(t, string(encoded), `"terminalGroups"`)
 }
 
 func TestTerminalTransitionRoundTripTreatsConfigAsKnownAndDetachesClone(t *testing.T) {
@@ -435,7 +463,7 @@ func TestVersionOneSessionJSONContainsOnlyDurableAuthoredFields(t *testing.T) {
 
 	var document map[string]any
 	require.NoError(t, json.Unmarshal(encoded, &document))
-	assertJSONFieldSet(t, document, "session", "name", "terminals", "version")
+	assertJSONFieldSet(t, document, "session", "name", "terminalGroups", "terminals", "version")
 
 	terminals, ok := document["terminals"].([]any)
 	require.True(t, ok)
@@ -582,10 +610,88 @@ func containsJSONField(value any, forbidden string) bool {
 	return false
 }
 
-func deepJSONEqual(left, right any) bool {
-	leftJSON, _ := json.Marshal(left)
-	rightJSON, _ := json.Marshal(right)
-	return bytes.Equal(leftJSON, rightJSON)
+func TestCloneLiveBroadcastPreservesReturnPointProvenanceAndDetachesRoute(t *testing.T) {
+	t.Parallel()
+
+	original := &LiveBroadcast{
+		ID: "broadcast-route",
+		Route: []TerminalReturnPoint{
+			{
+				TerminalID:        "terminal-authored",
+				TerminalName:      "Authored",
+				FolderID:          "archive",
+				AncestorFolderIDs: []string{"root", "records"},
+				CommandID:         "go",
+				CommandName:       "GO",
+				Origin:            TerminalReturnAuthored,
+			},
+			{
+				TerminalID:    "terminal-prefix",
+				TerminalName:  "Prefix",
+				Origin:        TerminalReturnInitialPrefix,
+				GroupID:       "group-route",
+				GroupPosition: 1,
+			},
+		},
+	}
+
+	clone := CloneLiveBroadcast(original)
+	require.Equal(t, original, clone)
+	require.NotSame(t, original, clone)
+	require.Len(t, clone.Route, 2)
+	assert.Equal(t, TerminalReturnAuthored, clone.Route[0].Origin)
+	assert.Empty(t, clone.Route[0].GroupID)
+	assert.Equal(t, TerminalReturnInitialPrefix, clone.Route[1].Origin)
+	assert.Equal(t, "group-route", clone.Route[1].GroupID)
+	assert.Equal(t, 1, clone.Route[1].GroupPosition)
+
+	clone.Route[0].AncestorFolderIDs[0] = "mutated-root"
+	clone.Route[0].CommandName = "MUTATED"
+	clone.Route[1].GroupID = "mutated-group"
+	clone.Route[1].GroupPosition = 99
+	assert.Equal(t, []string{"root", "records"}, original.Route[0].AncestorFolderIDs)
+	assert.Equal(t, "GO", original.Route[0].CommandName)
+	assert.Equal(t, "group-route", original.Route[1].GroupID)
+	assert.Equal(t, 1, original.Route[1].GroupPosition)
+}
+
+func TestCloneLiveBroadcastPreservesInitialTerminalEstablishedState(t *testing.T) {
+	t.Parallel()
+
+	for _, established := range []bool{false, true} {
+		name := "fresh"
+		if established {
+			name = "initialized"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			original := &LiveBroadcast{
+				ID:                           BroadcastID("broadcast-" + name),
+				InitialTerminalEstablished:   established,
+				InitialTerminalID:            "terminal-c",
+				InitialTerminalGroupID:       "ordered-route",
+				InitialTerminalGroupPosition: 2,
+			}
+			clone := CloneLiveBroadcast(original)
+			require.NotNil(t, clone)
+			assert.Equal(t, established, clone.InitialTerminalEstablished)
+			assert.Equal(t, "terminal-c", clone.InitialTerminalID)
+			assert.Equal(t, "ordered-route", clone.InitialTerminalGroupID)
+			assert.Equal(t, 2, clone.InitialTerminalGroupPosition)
+
+			clone.InitialTerminalEstablished = !established
+			clone.InitialTerminalID = "mutated"
+			clone.InitialTerminalGroupID = "mutated"
+			clone.InitialTerminalGroupPosition = 99
+			assert.Equal(t, established, original.InitialTerminalEstablished)
+			assert.Equal(t, "terminal-c", original.InitialTerminalID)
+			assert.Equal(t, "ordered-route", original.InitialTerminalGroupID)
+			assert.Equal(t, 2, original.InitialTerminalGroupPosition)
+		})
+	}
+
+	assert.Nil(t, CloneLiveBroadcast(nil))
 }
 
 func TestVersionOneEncodingIsInvariantAcrossCompleteProcessRuntimeActivity(t *testing.T) {

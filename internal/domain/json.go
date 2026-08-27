@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	sessionFields  = fieldSet("version", "name", "playerConfig", "terminals")
+	sessionFields  = fieldSet("version", "name", "playerConfig", "terminals", "terminalGroups")
 	terminalFields = fieldSet("id", "name", "hackLevel", "introText", "root", "commandStates")
 	nodeFields     = fieldSet("id", "type", "name", "children", "text", "description", "stateChange", "terminalTransition")
 )
@@ -126,6 +126,7 @@ func DecodeSession(data []byte) (Session, error) {
 		}
 		return Session{}, fmt.Errorf("decode session: %w", err)
 	}
+	session = NormalizeTerminalGroups(session)
 	if err := ValidateSession(session); err != nil {
 		return Session{}, fmt.Errorf("validate session: %w", err)
 	}
@@ -134,6 +135,7 @@ func DecodeSession(data []byte) (Session, error) {
 
 // EncodeSession emits stable, human-readable version-1 JSON with a final newline.
 func EncodeSession(session Session) ([]byte, error) {
+	session = NormalizeTerminalGroups(session)
 	if err := ValidateSession(session); err != nil {
 		return nil, fmt.Errorf("validate session: %w", err)
 	}

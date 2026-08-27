@@ -17,12 +17,45 @@ const (
 
 // Session is the durable version-1 campaign document.
 type Session struct {
-	Version      int                        `json:"version"`
-	Name         string                     `json:"name"`
-	PlayerConfig string                     `json:"playerConfig,omitempty"`
-	Terminals    []Terminal                 `json:"terminals"`
-	Extra        map[string]json.RawMessage `json:"-"`
+	Version        int                        `json:"version"`
+	Name           string                     `json:"name"`
+	PlayerConfig   string                     `json:"playerConfig,omitempty"`
+	Terminals      []Terminal                 `json:"terminals"`
+	TerminalGroups []TerminalGroup            `json:"terminalGroups,omitempty"`
+	Extra          map[string]json.RawMessage `json:"-"`
 }
+
+// TerminalGroup is the durable high-level representation of one ordered set
+// of terminals. A standalone terminal is represented by a one-member group.
+type TerminalGroup struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	TerminalIDs []string `json:"terminalIds"`
+}
+
+// TerminalGroupSnapshot is a detached lookup of one canonical ordered group.
+type TerminalGroupSnapshot struct {
+	ID          string
+	Name        string
+	TerminalIDs []string
+}
+
+// TerminalGroupCandidate is one complete trusted replacement proposal guarded
+// by both durable-session and process-runtime revisions.
+type TerminalGroupCandidate struct {
+	TerminalGroups               []TerminalGroup
+	ExpectedSessionRevision      uint64
+	ExpectedCoordinationRevision uint64
+}
+
+// TerminalReturnOrigin distinguishes an authored route point from a prefix
+// seeded when a fresh broadcast starts in the middle of an ordered group.
+type TerminalReturnOrigin string
+
+const (
+	TerminalReturnAuthored      TerminalReturnOrigin = "authored-transition"
+	TerminalReturnInitialPrefix TerminalReturnOrigin = "initial-group-prefix"
+)
 
 // PlayerConfig is the durable version-1 authored player roster. It is stored
 // separately from Session so runtime recognition, claims, and terminal state
@@ -228,6 +261,7 @@ type PublicLiveState struct {
 	Hack               *PublicHackState                `json:"hack"`
 	CommandExecution   *CommandExecutionPresentation   `json:"commandExecution,omitempty"`
 	TerminalNavigation *TerminalNavigationPresentation `json:"terminalNavigation,omitempty"`
+	Presentation       ControllerTerminalPresentation  `json:"controllerPresentation"`
 }
 
 // LogicalSessionID identifies one browser profile for the lifetime of a server process.
@@ -274,7 +308,31 @@ const (
 	RuntimeCommandNavigate        RuntimeCommandKind = "navigate"
 	RuntimeCommandGuess           RuntimeCommandKind = "guess"
 	RuntimeCommandActivatePattern RuntimeCommandKind = "activate-pattern"
+	RuntimeCommandPresentation    RuntimeCommandKind = "presentation"
 )
+
+// ControllerTerminalPresentationKind identifies the stable semantic portion
+// of the terminal view shared by the controller and every observer. Pointer
+// coordinates, DOM focus, viewport geometry, and audio eligibility remain
+// deliberately outside this process-local value.
+type ControllerTerminalPresentationKind string
+
+const (
+	ControllerTerminalPresentationNone    ControllerTerminalPresentationKind = "none"
+	ControllerTerminalPresentationMenu    ControllerTerminalPresentationKind = "menu"
+	ControllerTerminalPresentationPage    ControllerTerminalPresentationKind = "page"
+	ControllerTerminalPresentationHacking ControllerTerminalPresentationKind = "hacking"
+)
+
+// ControllerTerminalPresentation is the complete semantic selection for one
+// active terminal context. Exactly the fields admitted by Kind may be set.
+type ControllerTerminalPresentation struct {
+	Kind       ControllerTerminalPresentationKind `json:"kind"`
+	ContextKey string                             `json:"contextKey"`
+	TargetID   string                             `json:"targetId,omitempty"`
+	PatternID  string                             `json:"patternId,omitempty"`
+	PageIndex  uint32                             `json:"pageIndex,omitempty"`
+}
 
 // PlayerRole is a logical session's current broadcast-wide authority.
 type PlayerRole string
@@ -380,6 +438,9 @@ type TerminalReturnPoint struct {
 	AncestorFolderIDs []string
 	CommandID         string
 	CommandName       string
+	Origin            TerminalReturnOrigin
+	GroupID           string
+	GroupPosition     int
 }
 
 // PendingTerminalNavigation is the exact private decision awaiting the Overseer.
@@ -475,6 +536,7 @@ type RuntimeCommand struct {
 	NodeID             string
 	TargetID           string
 	PatternID          string
+	Presentation       ControllerTerminalPresentation
 	PayloadFingerprint string
 }
 
@@ -569,18 +631,23 @@ type TerminalRuntime struct {
 	IntroText        string
 	Nav              NavState
 	Hack             *HackState
+	Presentation     ControllerTerminalPresentation
 	Lifecycle        TerminalLifecycle
 }
 
 // LiveBroadcast owns all state whose lifetime ends with the current broadcast.
 type LiveBroadcast struct {
-	ID                   BroadcastID
-	AssignmentsBySession map[LogicalSessionID]CharacterID
-	SessionByCharacter   map[CharacterID]LogicalSessionID
-	ControllerSessionID  *LogicalSessionID
-	ActiveTerminalID     *string
-	TerminalRuntimes     map[string]*TerminalRuntime
-	Route                []TerminalReturnPoint
+	ID                           BroadcastID
+	AssignmentsBySession         map[LogicalSessionID]CharacterID
+	SessionByCharacter           map[CharacterID]LogicalSessionID
+	ControllerSessionID          *LogicalSessionID
+	ActiveTerminalID             *string
+	TerminalRuntimes             map[string]*TerminalRuntime
+	Route                        []TerminalReturnPoint
+	InitialTerminalEstablished   bool
+	InitialTerminalID            string
+	InitialTerminalGroupID       string
+	InitialTerminalGroupPosition int
 }
 
 // TerminalTarget is the validated authored payload retained by a pending switch.
@@ -978,26 +1045,123 @@ func cloneContentNode(node ContentNode) ContentNode {
 		clone.TerminalTransition = &transition
 	}
 	clone.Extra = cloneRawMessages(node.Extra)
-	clone.Children = make([]ContentNode, len(node.Children))
-	for index := range node.Children {
-		clone.Children[index] = cloneContentNode(node.Children[index])
+	if node.Children != nil {
+		clone.Children = make([]ContentNode, len(node.Children))
+		for index := range node.Children {
+			clone.Children[index] = cloneContentNode(node.Children[index])
+		}
 	}
 	return clone
+}
+
+// CloneLiveBroadcast returns a deeply detached process-local broadcast state.
+// Runtime-only navigation provenance is intentionally preserved so snapshots
+// cannot lose the distinction between authored and initially seeded routes.
+func CloneLiveBroadcast(broadcast *LiveBroadcast) *LiveBroadcast {
+	if broadcast == nil {
+		return nil
+	}
+	clone := *broadcast
+	if broadcast.AssignmentsBySession != nil {
+		clone.AssignmentsBySession = make(map[LogicalSessionID]CharacterID, len(broadcast.AssignmentsBySession))
+		maps.Copy(clone.AssignmentsBySession, broadcast.AssignmentsBySession)
+	}
+	if broadcast.SessionByCharacter != nil {
+		clone.SessionByCharacter = make(map[CharacterID]LogicalSessionID, len(broadcast.SessionByCharacter))
+		maps.Copy(clone.SessionByCharacter, broadcast.SessionByCharacter)
+	}
+	clone.ControllerSessionID = cloneLogicalSessionID(broadcast.ControllerSessionID)
+	clone.ActiveTerminalID = cloneString(broadcast.ActiveTerminalID)
+	if broadcast.TerminalRuntimes != nil {
+		clone.TerminalRuntimes = make(map[string]*TerminalRuntime, len(broadcast.TerminalRuntimes))
+		for terminalID, runtime := range broadcast.TerminalRuntimes {
+			clone.TerminalRuntimes[terminalID] = cloneLiveTerminalRuntime(runtime)
+		}
+	}
+	if broadcast.Route != nil {
+		clone.Route = make([]TerminalReturnPoint, len(broadcast.Route))
+		for index, point := range broadcast.Route {
+			clone.Route[index] = point
+			clone.Route[index].AncestorFolderIDs = append([]string(nil), point.AncestorFolderIDs...)
+		}
+	}
+	return &clone
+}
+
+func cloneLiveTerminalRuntime(runtime *TerminalRuntime) *TerminalRuntime {
+	if runtime == nil {
+		return nil
+	}
+	clone := *runtime
+	clone.Tree = cloneContentNode(runtime.Tree)
+	if runtime.CommandStates != nil {
+		clone.CommandStates = make(map[string]CommandExecutionState, len(runtime.CommandStates))
+		maps.Copy(clone.CommandStates, runtime.CommandStates)
+	}
+	if runtime.CommandExecution != nil {
+		execution := *runtime.CommandExecution
+		clone.CommandExecution = &execution
+	}
+	clone.Nav.Path = append([]string(nil), runtime.Nav.Path...)
+	clone.Nav.ViewEntryID = cloneString(runtime.Nav.ViewEntryID)
+	clone.Nav.CommandNodeID = cloneString(runtime.Nav.CommandNodeID)
+	clone.Hack = cloneLiveHackState(runtime.Hack)
+	return &clone
+}
+
+func cloneLiveHackState(state *HackState) *HackState {
+	if state == nil {
+		return nil
+	}
+	clone := *state
+	if state.WordsByID != nil {
+		clone.WordsByID = make(map[string]HackCandidate, len(state.WordsByID))
+		maps.Copy(clone.WordsByID, state.WordsByID)
+	}
+	if state.UsedPatterns != nil {
+		clone.UsedPatterns = make(map[HackPatternIdentity]struct{}, len(state.UsedPatterns))
+		maps.Copy(clone.UsedPatterns, state.UsedPatterns)
+	}
+	clone.Log = append([]string(nil), state.Log...)
+	if state.Columns != nil {
+		clone.Columns = make([]HackColumn, len(state.Columns))
+		for index, column := range state.Columns {
+			clone.Columns[index] = column
+			clone.Columns[index].Addresses = append([]string(nil), column.Addresses...)
+			clone.Columns[index].Words = append([]HackWord(nil), column.Words...)
+		}
+	}
+	return &clone
 }
 
 // CloneSession returns a deeply detached durable document.
 func CloneSession(session Session) Session {
 	clone := session
 	clone.Extra = cloneRawMessages(session.Extra)
-	clone.Terminals = make([]Terminal, len(session.Terminals))
-	for index, terminal := range session.Terminals {
-		clone.Terminals[index] = terminal
-		clone.Terminals[index].Extra = cloneRawMessages(terminal.Extra)
-		clone.Terminals[index].Root = cloneContentNode(terminal.Root)
-		if terminal.CommandStates != nil {
-			clone.Terminals[index].CommandStates = make(map[string]CommandExecutionState, len(terminal.CommandStates))
-			maps.Copy(clone.Terminals[index].CommandStates, terminal.CommandStates)
+	if session.TerminalGroups != nil {
+		clone.TerminalGroups = CloneTerminalGroups(session.TerminalGroups)
+	}
+	if session.Terminals != nil {
+		clone.Terminals = make([]Terminal, len(session.Terminals))
+		for index, terminal := range session.Terminals {
+			clone.Terminals[index] = terminal
+			clone.Terminals[index].Extra = cloneRawMessages(terminal.Extra)
+			clone.Terminals[index].Root = cloneContentNode(terminal.Root)
+			if terminal.CommandStates != nil {
+				clone.Terminals[index].CommandStates = make(map[string]CommandExecutionState, len(terminal.CommandStates))
+				maps.Copy(clone.Terminals[index].CommandStates, terminal.CommandStates)
+			}
 		}
+	}
+	return clone
+}
+
+// CloneTerminalGroups returns a deeply detached ordered group set.
+func CloneTerminalGroups(groups []TerminalGroup) []TerminalGroup {
+	clone := make([]TerminalGroup, len(groups))
+	for index, group := range groups {
+		clone[index] = group
+		clone[index].TerminalIDs = append([]string(nil), group.TerminalIDs...)
 	}
 	return clone
 }

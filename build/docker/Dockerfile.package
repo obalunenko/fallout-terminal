@@ -1,0 +1,50 @@
+# syntax=docker/dockerfile:1.7
+
+ARG GO_IMAGE=golang:1.27-trixie
+ARG NODE_IMAGE=node:24-trixie
+
+FROM ${GO_IMAGE} AS go-toolchain
+
+FROM ${NODE_IMAGE} AS builder
+
+COPY --from=go-toolchain /usr/local/go /usr/local/go
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        git \
+        libgtk-4-dev \
+        libwebkitgtk-6.0-dev \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG TARGETOS
+ARG TARGETARCH
+ARG SOURCE_REVISION
+
+WORKDIR /workspace
+COPY . .
+
+RUN test -n "${TARGETOS}" \
+    && test -n "${TARGETARCH}" \
+    && test -n "${SOURCE_REVISION}"
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/.npm \
+    FALLOUT_TERMINAL_CONTAINER_TARGET="${TARGETOS}/${TARGETARCH}" \
+    FALLOUT_TERMINAL_SOURCE_REVISION="${SOURCE_REVISION}" \
+    go run ./cmd/build package-container --target "${TARGETOS}/${TARGETARCH}"
+
+RUN mkdir -p \
+        /export/dist \
+        "/export/bin/${TARGETOS}-${TARGETARCH}" \
+    && cp build/dist/* /export/dist/ \
+    && cp -a \
+        "build/bin/${TARGETOS}-${TARGETARCH}/stage/Fallout Terminal/." \
+        "/export/bin/${TARGETOS}-${TARGETARCH}/"
+
+FROM scratch AS artifact
+COPY --from=builder /export/ /

@@ -52,7 +52,7 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 	require.False(t, service == nil,
 		"public descriptor is missing PlayerService")
 
-	wantMethods := []string{"Subscribe", "SelectCharacter", "Navigate", "Guess", "ActivatePattern", "SoundManifest"}
+	wantMethods := []string{"Subscribe", "SelectCharacter", "Navigate", "Guess", "ActivatePattern", "SetPresentation", "PresentationUplink", "SoundManifest"}
 	require.Falsef(t, service.Methods().Len() != len(wantMethods),
 		"PlayerService methods = %d, want %d", service.Methods().Len(), len(wantMethods))
 
@@ -64,11 +64,14 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 				"PlayerService method %d = %q, want %q", index, got, want)
 		}
 
-		if want == "Subscribe" {
+		switch want {
+		case "Subscribe":
 			assert.Falsef(t, method.IsStreamingClient() || !method.IsStreamingServer(),
 				"Subscribe must be server-streaming only")
-
-		} else {
+		case "PresentationUplink":
+			assert.Falsef(t, !method.IsStreamingClient() || method.IsStreamingServer(),
+				"PresentationUplink must be client-streaming only")
+		default:
 			assert.Falsef(t, method.IsStreamingClient() || method.IsStreamingServer(),
 				"%s must be unary", want)
 		}
@@ -108,6 +111,7 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 		"fallout.terminal.player.v1.PlayerState.broadcast_id":                          true,
 		"fallout.terminal.player.v1.PlayerState.active_terminal_id":                    true,
 		"fallout.terminal.player.v1.SubscribeRequest.recognition_handle":               true,
+		"fallout.terminal.player.v1.SubscribeRequest.client_instance_id":               true,
 		"fallout.terminal.player.v1.NavigationState.view_entry_id":                     true,
 		"fallout.terminal.player.v1.NavigationState.command_node_id":                   true,
 		"fallout.terminal.persistence.v1.Session.player_config":                        true,
@@ -257,7 +261,7 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "4fd0b3ef31bd7ada1101ae36bfbd749acd36c53c4bc2da185d33dec4d4c669a9",
-		"proto/schema-revision.txt":                       "79b2445eb0ffc5873f774772ae5e0337623c36706b5f5d24f997c7c3ea0156ba",
+		"proto/schema-revision.txt":                       "4211c6a2f25e6ebf72aa2b28c2b564d45b9d5df077ffa62f55c25f9de2864522",
 		"proto/compatibility-baseline.binpb":              "50b88cc9e08a189012925e1a97094d1e097b223e591aca8acb856ba0daf099f3",
 	}
 	for relative, want := range wantDigests {
@@ -528,7 +532,7 @@ func TestPlayerHackingOutcomeAudioUsesEligibleAuthoritativeTransitions(t *testin
 	require.False(t, beginActionStart < 0,
 		"player script is missing the shared-action presentation boundary")
 
-	beginActionEnd := strings.Index(playerScript[beginActionStart:], "function selectCharacter(characterID) {")
+	beginActionEnd := strings.Index(playerScript[beginActionStart:], "function beginSharedMutationForAction(")
 	require.False(t, beginActionEnd < 0,
 		"player script is missing the shared-action presentation boundary")
 
@@ -537,8 +541,9 @@ func TestPlayerHackingOutcomeAudioUsesEligibleAuthoritativeTransitions(t *testin
 		"beginSharedAction must update pending presentation without rebuilding the hacking board")
 
 	for _, required := range []string{
-		"pattern.id !== hackHoverKey",
-		"setHackHover(hoveredCells.length ? hackHoverKey : null, true);",
+		"playControllerPresentationCue(previousPresentation, controllerPresentation, terminalLiveBaselinePending);",
+		"if (baseline || !next || JSON.stringify(previous) === JSON.stringify(next)) return;",
+		"setHackHover(hoveredCells.length ? target : null, true);",
 	} {
 		assert.Falsef(t, !strings.Contains(playerScript, required),
 			"player script is missing preview-audio replay guard %q", required)
@@ -886,7 +891,7 @@ func TestPlayerDesktopResponsiveLayoutContract(t *testing.T) {
 	for _, fragment := range []string{
 		"function paginateText(container, text)",
 		"function naturalPageBreak(text, start, fittedEnd)",
-		"pagedView.index = Math.min(previousIndex, pagedView.pages.length - 1)",
+		"pagedView.index = Math.min(authoritativeIndex, pagedView.pages.length - 1)",
 		"pagePrev.hidden = pagedView.index === 0",
 		"pageNext.hidden = pagedView.index >= pagedView.pages.length - 1",
 		"pageIndicator.value = `${pagedView.index + 1} / ${pagedView.pages.length}`",
@@ -1115,7 +1120,8 @@ func TestPlayerHackingPatternInteractionContract(t *testing.T) {
 		"const relatedPattern = patternAtCell(related)",
 		"offset >= pattern.start && offset <= pattern.end",
 		"`[data-row=\"${pattern.row}\"][data-offset]`",
-		"if (pattern.used) setHackPatternHover(null)",
+		"candidate.id === presentation.patternId && !candidate.used",
+		"setHackPatternHover(pattern || null)",
 		"beginPattern(pattern.id)",
 		"beginGuess(cell.dataset.target)",
 	} {
@@ -1945,7 +1951,7 @@ func TestBundledDemoManifestIsValidAndResolvesFromResources(t *testing.T) {
 		{ID: "demo_guard", Name: "Престон Гарви", Intelligence: 6, HackerPerkAvailable: false},
 	}, playerConfig.Roster, "bundled player profiles must preserve authored IDs, order, and private attributes")
 
-	locations, err := NewSessionLocations(filepath.Join(root, ".manifest-home"), root)
+	locations, err := NewSessionLocations(t.TempDir(), root)
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -2124,7 +2130,7 @@ func TestActiveWailsV3DocumentsStaySeparateFromHistoricalEvidence(t *testing.T) 
 		"active Go source contains v2 or dual-runtime code",
 		"application module still resolves Wails v2",
 		"frontend source/generated/bundle contains a v2 global or dual-runtime fallback",
-		"active command/documentation uses v2, global, or floating Wails resolution",
+		"active command/documentation bypasses Task or uses v2, global, or floating Wails resolution",
 		"historical Wails v2 spec is missing",
 		"historical Electron-to-Wails rollback record is missing",
 		"git -C \"${repository_root}\" diff --exit-code -- specs/001-wails-v2-migration docs/wails-migration-rollback.md",
@@ -2240,7 +2246,9 @@ func TestPlayerSessionsControlCrossCuttingAssetContract(t *testing.T) {
 
 	for _, fragment := range []string{
 		"const observerReadOnly = hasState && playerState.role === 'observer'",
+		"const blockingSharedInputPending = pendingSharedAction !== null || commandRequestPending || terminalNavigationPending",
 		"screen.classList.toggle('observer-read-only', observerReadOnly)",
+		"screen.classList.toggle('shared-input-pending', blockingSharedInputPending)",
 		"screen.setAttribute('aria-readonly', String(observerReadOnly))",
 		"function canControlSharedTerminal()",
 		"playerState.role === 'active'",
@@ -2250,9 +2258,12 @@ func TestPlayerSessionsControlCrossCuttingAssetContract(t *testing.T) {
 			"player asset is missing observer/local-only action gate %q", fragment)
 
 	}
+	assert.NotContains(t, playerJS,
+		"pendingSharedAction !== null || pendingPresentationAction !== null || commandRequestPending || terminalNavigationPending",
+		"presentation-only correlation must not activate blocking shared-input styling")
 	for _, fragment := range []string{
-		"#screen.observer-read-only :is(.term-row, .back-btn, .hcell)",
-		"#screen.shared-input-pending :is(.term-row, .back-btn, .hcell)",
+		"#screen.observer-read-only :is(.term-row, .back-btn, .page-btn, .hcell)",
+		"#screen.shared-input-pending :is(.term-row, .back-btn, .page-btn, .hcell)",
 	} {
 		assert.Falsef(t, !strings.Contains(playerCSS, fragment),
 			"player stylesheet is missing read-only/pending presentation %q", fragment)
@@ -2262,6 +2273,13 @@ func TestPlayerSessionsControlCrossCuttingAssetContract(t *testing.T) {
 	for _, fragment := range []string{
 		"pendingSharedAction.acceptedRevision = Number(result.revision) || 0",
 		"if (appliedSharedRevision < pendingSharedAction.acceptedRevision) return",
+		"pendingPresentationAction.acceptedRevision = Number(result.revision) || 0",
+		"if (appliedSharedRevision < pendingPresentationAction.acceptedRevision) return",
+		"let desiredPresentationAction = null",
+		"if (pendingPresentationAction || !desiredPresentationAction) return",
+		"desiredPresentationAction = presentation",
+		"scheduleDesiredPresentationDispatch()",
+		"presentation.contextKey !== controllerPresentation.contextKey",
 		"playerState.revision >= pendingSelection.acceptedRevision",
 	} {
 		assert.Falsef(t, !strings.Contains(playerJS, fragment),

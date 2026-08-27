@@ -53,9 +53,16 @@ message Terminal {
   map<string, CommandExecutionState> command_states = 6;
 }
 
+message TerminalGroup {
+  string id = 1;
+  string name = 2;
+  repeated string terminal_ids = 3;
+}
+
 message Session {
   int32 version = 1;
   string name = 2;
   optional string player_config = 3;
   repeated Terminal terminals = 4;
+  repeated TerminalGroup terminal_groups = 5;
 }

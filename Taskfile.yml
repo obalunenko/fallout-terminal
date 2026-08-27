@@ -1,0 +1,262 @@
+version: '3'
+
+vars:
+  GO: '{{default "go" .GO}}'
+  NPM: '{{default "npm" .NPM}}'
+  APP_ARGS: '{{default "" .APP_ARGS}}'
+  MACOS_MINIMUM_VERSION: '13.0'
+  DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}} CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} CGO_LDFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}{{end}}'
+  SPECKIT_INSTALL: scripts/install-speckit.sh
+  SPECKIT_UPDATE_CHECK: scripts/check-speckit-updates.py
+  SPECKIT_VERSION: '1.0.1'
+  SPECKIT_COMPANION_VERSION: '0.20.2'
+  SPECKIT_BROWNFIELD_VERSION: '1.0.0'
+  SPECKIT_BUGFIX_VERSION: '1.1.0'
+  SPECKIT_FEATURE_NUMBERING_VERSION: '1.0.0'
+
+tasks:
+  default:
+    desc: List available tasks.
+    cmds:
+      - task --list
+
+  dev:
+    desc: Build and run the complete application in development mode.
+    cmds:
+      - '{{.GO}} run ./cmd/build dev {{.APP_ARGS}}'
+
+  run:
+    desc: Build and run the application.
+    cmds:
+      - '{{.GO}} run ./cmd/build run {{.APP_ARGS}}'
+
+  prepare:
+    desc: Verify and build protobuf, client, bindings, and Overseer assets.
+    cmds:
+      - '{{.GO}} run ./cmd/build prepare'
+
+  build:
+    desc: Build the application for the current or explicit GOOS/GOARCH target.
+    cmds:
+      - |
+        if [ -n "{{.GOOS}}" ] || [ -n "{{.GOARCH}}" ]; then
+          if [ -z "{{.GOOS}}" ] || [ -z "{{.GOARCH}}" ]; then
+            echo 'GOOS and GOARCH must be provided together' >&2
+            exit 1
+          fi
+          {{.GO}} run ./cmd/build build --target "{{.GOOS}}/{{.GOARCH}}"
+        else
+          {{.GO}} run ./cmd/build build
+        fi
+
+  package:
+    desc: Package macOS for development by default or one unsigned portable archive for an explicit matching GOOS/GOARCH target, including darwin/arm64.
+    cmds:
+      - |
+        if [ -n "{{.GOOS}}" ] || [ -n "{{.GOARCH}}" ]; then
+          if [ -z "{{.GOOS}}" ] || [ -z "{{.GOARCH}}" ]; then
+            echo 'GOOS and GOARCH must be provided together' >&2
+            exit 1
+          fi
+          {{.GO}} run ./cmd/build package --target "{{.GOOS}}/{{.GOARCH}}"
+        else
+          {{.GO}} run ./cmd/build package
+        fi
+
+  package:all:
+    desc: Package Darwin natively and all portable targets locally with Docker.
+    cmds:
+      - |
+        if [ -n "{{.OUTPUT}}" ]; then
+          {{.GO}} run ./cmd/build package-all-docker --output "{{.OUTPUT}}"
+        else
+          {{.GO}} run ./cmd/build package-all-docker
+        fi
+
+  release:publish:
+    desc: Publish the prevalidated five-archive tag inventory through pinned GoReleaser.
+    cmds:
+      - 'go tool -modfile=tools/goreleaser/go.mod goreleaser release --clean --config .goreleaser.yaml'
+
+  deps:
+    desc: Install all locked Node.js dependencies.
+    cmds:
+      - task: deps:frontend
+      - task: deps:browser
+
+  deps:frontend:
+    desc: Install locked client and Overseer workspace dependencies.
+    cmds:
+      - '{{.NPM}} ci --prefix frontend'
+
+  deps:browser:
+    desc: Install locked browser-test dependencies.
+    cmds:
+      - '{{.NPM}} ci --prefix tests/browser'
+
+  speckit:install:
+    desc: Install pinned Spec Kit and all project extensions.
+    env:
+      SPECKIT_VERSION: '{{.SPECKIT_VERSION}}'
+      SPECKIT_COMPANION_VERSION: '{{.SPECKIT_COMPANION_VERSION}}'
+      SPECKIT_BROWNFIELD_VERSION: '{{.SPECKIT_BROWNFIELD_VERSION}}'
+      SPECKIT_BUGFIX_VERSION: '{{.SPECKIT_BUGFIX_VERSION}}'
+      SPECKIT_FEATURE_NUMBERING_VERSION: '{{.SPECKIT_FEATURE_NUMBERING_VERSION}}'
+    cmds:
+      - '{{.SPECKIT_INSTALL}}'
+
+  speckit:update:check:
+    desc: Check for Spec Kit and Companion updates without installing them.
+    env:
+      SPECKIT_VERSION: '{{.SPECKIT_VERSION}}'
+      SPECKIT_COMPANION_VERSION: '{{.SPECKIT_COMPANION_VERSION}}'
+      SPECKIT_BROWNFIELD_VERSION: '{{.SPECKIT_BROWNFIELD_VERSION}}'
+      SPECKIT_BUGFIX_VERSION: '{{.SPECKIT_BUGFIX_VERSION}}'
+      SPECKIT_FEATURE_NUMBERING_VERSION: '{{.SPECKIT_FEATURE_NUMBERING_VERSION}}'
+    cmds:
+      - '{{.SPECKIT_UPDATE_CHECK}}'
+
+  speckit:update:test:
+    desc: Run the network-free Spec Kit update-checker regression tests.
+    cmds:
+      - python3 scripts/test_check_speckit_updates.py
+
+  fmt:
+    desc: Format all Go sources.
+    cmds:
+      - gofmt -w .
+
+  fmt:check:
+    desc: Fail when a Go source is not formatted.
+    cmds:
+      - |
+        unformatted="$(gofmt -l .)"
+        if [ -n "$unformatted" ]; then
+          printf 'Go files need formatting:\n%s\n' "$unformatted" >&2
+          exit 1
+        fi
+
+  vet:
+    desc: Run Go static analysis.
+    cmds:
+      - '{{.DARWIN_CGO_ENV}} {{.GO}} vet ./...'
+
+  lint:
+    desc: Run the pinned golangci-lint tool.
+    cmds:
+      - '{{.GO}} tool -modfile=tools/golangci-lint/go.mod golangci-lint run'
+
+  test:
+    desc: Run the Go test suite.
+    cmds:
+      - '{{.DARWIN_CGO_ENV}} {{.GO}} test ./...'
+
+  test:race:
+    desc: Run the Go test suite with the race detector.
+    cmds:
+      - '{{.DARWIN_CGO_ENV}} {{.GO}} test -race ./...'
+
+  frontend:build:
+    desc: Install locked frontend dependencies and build both production interfaces.
+    cmds:
+      - '{{.NPM}} ci --prefix frontend'
+      - '{{.NPM}} run build:overseer --prefix frontend'
+      - '{{.NPM}} run build:client --prefix frontend'
+
+  startup:check:
+    desc: Run repository startup and workflow-surface contracts.
+    cmds:
+      - '{{.DARWIN_CGO_ENV}} {{.GO}} test ./internal/platform -run "Test(WailsV3|Taskfile|QualityWorkflow|PortableRelease|Distribution)"'
+
+  wails:pins:check:
+    desc: Verify the exact Wails v3.0.0-beta.13 and frontend 3.0.0-beta.13 pins.
+    cmds:
+      - scripts/wails-v3-contract-check.sh
+
+  proto:format:check:
+    desc: Check protobuf source formatting with pinned Buf.
+    cmds:
+      - 'go tool -modfile=tools/buf/go.mod buf format proto --diff --exit-code'
+
+  proto:lint:
+    desc: Lint protobuf contracts with pinned Buf.
+    cmds:
+      - 'go tool -modfile=tools/buf/go.mod buf lint proto'
+
+  proto:drift:check:
+    desc: Check deterministic protobuf generation drift.
+    cmds:
+      - scripts/proto-drift-test.sh
+
+  proto:generated:check:
+    desc: Verify generated Go and browser protobuf code compiles cleanly.
+    cmds:
+      - '{{.GO}} test ./internal/gen/...'
+      - '{{.NPM}} run build:client --prefix frontend'
+
+  ci:quality:
+    desc: Run deterministic, non-publishing pull-request and main quality checks.
+    cmds:
+      - task: test
+      - task: vet
+      - task: frontend:build
+      - task: startup:check
+      - task: wails:pins:check
+      - task: bindings:check
+      - task: proto:format:check
+      - task: proto:lint
+      - task: proto:drift:check
+      - task: proto:breaking
+      - task: proto:generated:check
+
+  proto:generate:
+    desc: Regenerate protobuf code and update the reviewed revision.
+    cmds:
+      - task: deps:frontend
+      - scripts/proto-generate.sh --sync-revision
+
+  proto:check:
+    desc: Verify protobuf formatting, generation, and generated clients.
+    cmds:
+      - task: deps:frontend
+      - scripts/proto-check.sh
+
+  proto:breaking:
+    desc: Verify protobuf compatibility and negative fixtures.
+    cmds:
+      - scripts/proto-breaking.sh --all-fixtures
+
+  bindings:check:
+    desc: Verify deterministic Wails bindings and their public surface.
+    cmds:
+      - scripts/wails-bindings-check.sh
+
+  browser:test:
+    desc: Install Chromium and run Playwright journeys.
+    cmds:
+      - task: deps:frontend
+      - task: deps:browser
+      - '{{.NPM}} exec --prefix tests/browser -- playwright install chromium'
+      - '{{.NPM}} test --prefix tests/browser'
+
+  check:
+    desc: Run the main local quality gates.
+    cmds:
+      - task: fmt:check
+      - task: vet
+      - task: lint
+      - task: test:race
+      - task: proto:check
+      - task: proto:breaking
+      - task: bindings:check
+      - task: speckit:update:test
+
+  release:macos:preflight:
+    desc: Validate Developer ID and notarization prerequisites.
+    cmds:
+      - scripts/build-macos.sh --preflight
+
+  release:macos:signed:
+    desc: Build, sign, notarize, and verify the release DMG.
+    cmds:
+      - scripts/build-macos.sh

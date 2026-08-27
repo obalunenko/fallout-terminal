@@ -10,6 +10,11 @@ import {
 } from './gen/fallout/terminal/player/v1/player_pb.js';
 import { CommandExecutionPhase, TerminalNavigationDirection } from './gen/fallout/terminal/player/v1/terminal_pb.js';
 import {
+  createPresentationUplinkTransport,
+  LatestPresentationMailbox,
+  supportsPresentationRequestStreaming,
+} from './presentation-uplink.js';
+import {
   playCharScroll,
   playEnter,
   playHackBad,
@@ -29,11 +34,21 @@ const PLAYER_SESSION_INIT_CONTENDER_PREFIX = 'fallout-terminal.player-session-in
 const PLAYER_SESSION_INIT_LEASE_MS = 5000;
 const PLAYER_SESSION_INIT_RETRY_MS = 100;
 const PLAYER_SESSION_INIT_ELECTION_MS = 100;
+const PRESENTATION_RESULT_TIMEOUT_MS = 1500;
+
+function reportPresentationDiagnostic(stage, details = {}) {
+  try {
+    if (typeof window.__falloutTerminalPresentationObserver === 'function') {
+      window.__falloutTerminalPresentationObserver({ stage, ...details });
+    }
+  } catch {
+    // Test/diagnostic observation is optional and cannot affect control.
+  }
+}
 
 // ── State ─────────────────────────────────────────────────
-// navStack / mode(list|entry) / viewEntryId / commandOutput are mirrors of
-// the server's shared nav state — every connected player sees the same
-// position. Only selIndex (the keyboard highlight) stays local per client.
+// Navigation and semantic selection/page/preview are authoritative mirrors.
+// Only the connected active controller may request presentation changes.
 let hasLive       = false;
 let terminalID    = '';
 let terminalBroadcastID = '';
@@ -49,6 +64,9 @@ let commandOutput = null;
 let currentCommandNodeId = null;
 let commandExecution = null;
 let terminalNavigation = null;
+let controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+let localControllerPresentation = null;
+let localPresentationFrame = null;
 
 // Typewriter reveal: only replay when the shown content actually changed.
 let lastRenderedFolderKey  = null;
@@ -88,6 +106,12 @@ let sessionReady = false;
 let playerState = null;
 let pendingSelection = null;
 let pendingSharedAction = null;
+let pendingPresentationAction = null;
+let desiredPresentationAction = null;
+let presentationDrainScheduled = false;
+let presentationUplinkGeneration = 0;
+let activePresentationUplink = null;
+let presentationUplinkRetryTimer = null;
 let appliedSharedRevision = 0;
 let transientPlayerNotice = '';
 
@@ -141,10 +165,16 @@ let reconnectTimer = null;
 let streamAbortController = null;
 let streamGeneration = 0;
 const RECONNECT_DELAY_MS = 3000;
-const sessionInitOwner = (window.crypto && typeof window.crypto.randomUUID === 'function')
-  ? window.crypto.randomUUID()
-  : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+function createPageLifetimeID() {
+  return (window.crypto && typeof window.crypto.randomUUID === 'function')
+    ? window.crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+const sessionInitOwner = createPageLifetimeID();
 const recognitionWaiters = new Set();
+const playerClientInstanceID = createPageLifetimeID();
+const presentationRequestStreamingSupported = supportsPresentationRequestStreaming(window);
 
 function readBrowserToken() {
   try {
@@ -155,9 +185,14 @@ function readBrowserToken() {
   }
 }
 
-const playerTransport = createConnectTransport({
+const connectWebTransport = createConnectTransport({
   baseUrl: window.location.origin,
   useBinaryFormat: true,
+});
+const playerTransport = createPresentationUplinkTransport({
+  baseUrl: window.location.origin,
+  fallback: connectWebTransport,
+  method: PlayerService.method.presentationUplink,
 });
 const playerRPC = createClient(PlayerService, playerTransport);
 
@@ -362,6 +397,8 @@ async function connectPlayer() {
   reconnectTimer = null;
 
   sessionReady = false;
+  invalidatePresentationUplink();
+  clearControllerPresentationDispatch();
   terminalLiveBaselinePending = true;
   connOverlay.classList.remove('hidden');
   connText.textContent = 'УСТАНОВКА СВЯЗИ...';
@@ -378,7 +415,8 @@ async function establishSubscription(recognitionHandle) {
   const controller = new AbortController();
   streamAbortController = controller;
   const generation = ++streamGeneration;
-  const request = recognitionHandle ? { recognitionHandle } : {};
+  const request = { clientInstanceId: playerClientInstanceID };
+  if (recognitionHandle) request.recognitionHandle = recognitionHandle;
   const iterator = playerRPC.subscribe(request, { signal: controller.signal })[Symbol.asyncIterator]();
   const first = await iterator.next();
   if (generation !== streamGeneration || controller.signal.aborted || first.done) {
@@ -386,6 +424,7 @@ async function establishSubscription(recognitionHandle) {
   }
   applySubscriptionMessage(first.value, true);
   void drainSubscription(iterator, controller, generation);
+  startPresentationUplink(readBrowserToken());
 }
 
 async function drainSubscription(iterator, controller, generation) {
@@ -404,6 +443,8 @@ async function drainSubscription(iterator, controller, generation) {
 
 function scheduleReconnect() {
   sessionReady = false;
+  invalidatePresentationUplink();
+  clearControllerPresentationDispatch();
   terminalLiveBaselinePending = true;
   signalRecognitionChange();
   connOverlay.classList.remove('hidden');
@@ -420,7 +461,107 @@ function applySubscriptionMessage(message, first) {
     applyGeneratedSnapshot(message.payload.value);
   } else if (message.payload.case === 'update') {
     applyGeneratedUpdate(message.payload.value);
+  } else if (message.payload.case === 'presentationUplinkResult') {
+    applyPresentationUplinkResult(message.payload.value);
   }
+}
+
+function startPresentationUplink(recognitionHandle) {
+  invalidatePresentationUplink();
+  if (!recognitionHandle || !presentationRequestStreamingSupported) return;
+  const generation = ++presentationUplinkGeneration;
+  const abortController = new AbortController();
+  const mailbox = new LatestPresentationMailbox();
+  const uplink = {
+    generation,
+    abortController,
+    mailbox,
+    ready: false,
+    probeTimer: setTimeout(() => failPresentationUplink(generation), 2000),
+  };
+  activePresentationUplink = uplink;
+  const open = {
+    payload: {
+      case: 'open',
+      value: {
+        recognitionHandle,
+        clientInstanceId: playerClientInstanceID,
+        uplinkGeneration: BigInt(generation),
+      },
+    },
+  };
+  const frames = (async function* () {
+    yield open;
+    yield* mailbox;
+  })();
+  void playerRPC.presentationUplink(frames, { signal: abortController.signal }).then(
+    () => failPresentationUplink(generation),
+    () => failPresentationUplink(generation),
+  );
+}
+
+function applyPresentationUplinkResult(result) {
+  const uplink = activePresentationUplink;
+  if (!uplink || result.clientInstanceId !== playerClientInstanceID ||
+      Number(result.uplinkGeneration) !== uplink.generation) {
+    return;
+  }
+  if (result.payload.case === 'ready') {
+    clearTimeout(uplink.probeTimer);
+    uplink.probeTimer = null;
+    uplink.ready = true;
+    return;
+  }
+  if (result.payload.case === 'action') {
+    const action = result.payload.value;
+    applyActionResult({
+      requestId: action.requestId,
+      accepted: action.accepted,
+      reason: actionReasonName(action.reason),
+      revision: Number(action.revision),
+    });
+  }
+}
+
+function failPresentationUplink(generation) {
+  const uplink = activePresentationUplink;
+  if (!uplink || uplink.generation !== generation) {
+    reportPresentationDiagnostic('uplink-failure-ignored', { generation: Number(generation || 0) });
+    return;
+  }
+  const pending = pendingPresentationAction?.transport === 'stream'
+    ? pendingPresentationAction.presentation
+    : null;
+  reportPresentationDiagnostic('uplink-failed', {
+    generation,
+    pending: pending !== null,
+    desired: desiredPresentationAction !== null,
+  });
+  invalidatePresentationUplink();
+  if (pending) {
+    clearPendingPresentationAction();
+    desiredPresentationAction = desiredPresentationAction || pending;
+    scheduleDesiredPresentationDispatch();
+  }
+  if (sessionReady && presentationRequestStreamingSupported) {
+    presentationUplinkRetryTimer = setTimeout(() => {
+      presentationUplinkRetryTimer = null;
+      if (sessionReady && !activePresentationUplink) {
+        startPresentationUplink(readBrowserToken());
+      }
+    }, RECONNECT_DELAY_MS);
+  }
+}
+
+function invalidatePresentationUplink() {
+  clearTimeout(presentationUplinkRetryTimer);
+  presentationUplinkRetryTimer = null;
+  const uplink = activePresentationUplink;
+  activePresentationUplink = null;
+  if (!uplink) return;
+  clearTimeout(uplink.probeTimer);
+  uplink.mailbox.close();
+  uplink.abortController.abort();
 }
 
 function applyGeneratedSnapshot(snapshot) {
@@ -467,8 +608,26 @@ function applyGeneratedTerminal(presentation, revision) {
     nav: generatedNavigation(live.navigation),
     hack: generatedHack(live.hacking),
     commandExecution: generatedCommandExecution(live.commandExecution),
-  terminalNavigation: generatedTerminalNavigation(live.terminalNavigation),
+    terminalNavigation: generatedTerminalNavigation(live.terminalNavigation),
+    presentation: generatedControllerPresentation(live.controllerPresentation),
   });
+}
+
+function generatedControllerPresentation(presentation) {
+  if (!presentation) return { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+  const result = {
+    kind: presentation.presentation.case || 'none',
+    contextKey: presentation.contextKey || '',
+    targetId: '', patternId: '', pageIndex: 0,
+  };
+  if (presentation.presentation.case === 'menu') result.targetId = presentation.presentation.value.targetId || '';
+  if (presentation.presentation.case === 'page') result.pageIndex = Number(presentation.presentation.value.pageIndex || 0);
+  if (presentation.presentation.case === 'hacking') {
+    const target = presentation.presentation.value.target;
+    if (target.case === 'targetId') result.targetId = target.value || '';
+    if (target.case === 'patternId') result.patternId = target.value || '';
+  }
+  return result;
 }
 
 function generatedTerminalNavigation(navigation) {
@@ -588,6 +747,33 @@ async function applyMutationResult(operation) {
   }
 }
 
+async function applyPresentationMutationResult(requestId, operation) {
+  if (!sessionReady) return;
+  try {
+    const result = await operation();
+    if (result) applyActionResult({
+      requestId: result.requestId,
+      accepted: result.accepted,
+      reason: actionReasonName(result.reason),
+      revision: Number(result.revision),
+    });
+  } catch (error) {
+    console.warn('Player presentation mutation failed', error);
+    if (pendingPresentationAction?.requestId === requestId) {
+      const failedPresentation = pendingPresentationAction.presentation;
+      clearPendingPresentationAction();
+      if (!desiredPresentationAction &&
+          sameControllerPresentation(localControllerPresentation, failedPresentation)) {
+        clearLocalControllerPresentation();
+        render();
+      }
+      showPlayerNotice('ДЕЙСТВИЕ ОТКЛОНЕНО');
+      renderPlayerContext();
+      scheduleDesiredPresentationDispatch();
+    }
+  }
+}
+
 function selectCharacterRPC(requestId, broadcastId, characterId) {
   return applyMutationResult(() => playerRPC.selectCharacter({
     recognitionHandle: readBrowserToken(), requestId, broadcastId, characterId,
@@ -619,6 +805,48 @@ function activatePatternRPC(requestId, broadcastId, terminalId, patternId) {
   }));
 }
 
+function setPresentationRPC(requestId, broadcastId, terminalId, presentation) {
+  const generatedPresentation = generatedPresentationRequest(presentation);
+  return playerRPC.setPresentation({
+    recognitionHandle: readBrowserToken(), requestId, broadcastId, terminalId,
+    contextKey: presentation.contextKey,
+    presentation: generatedPresentation,
+  });
+}
+
+function generatedPresentationRequest(presentation) {
+  let variant = { case: 'none', value: {} };
+  if (presentation.kind === 'menu') {
+    variant = { case: 'menu', value: { targetId: presentation.targetId } };
+  } else if (presentation.kind === 'page') {
+    variant = { case: 'page', value: { pageIndex: presentation.pageIndex } };
+  } else if (presentation.kind === 'hacking') {
+    const target = presentation.patternId
+      ? { case: 'patternId', value: presentation.patternId }
+      : { case: 'targetId', value: presentation.targetId };
+    variant = { case: 'hacking', value: { target } };
+  }
+  return { contextKey: presentation.contextKey, presentation: variant };
+}
+
+function offerPresentationIntent(requestId, broadcastId, terminalId, presentation) {
+  const uplink = activePresentationUplink;
+  if (!uplink?.ready) return false;
+  return uplink.mailbox.offer({
+    payload: {
+      case: 'intent',
+      value: {
+        recognitionHandle: readBrowserToken(),
+        requestId,
+        broadcastId,
+        terminalId,
+        contextKey: presentation.contextKey,
+        presentation: generatedPresentationRequest(presentation),
+      },
+    },
+  });
+}
+
 function actionReasonName(reason) {
   return ({
     [ActionReason.ACCEPTED]: 'accepted',
@@ -641,10 +869,10 @@ function applyNavFromServer(nav) {
   viewEntryId   = nav.viewEntryId || null;
   currentCommandNodeId = nav.commandNodeId || null;
   commandOutput = nav.commandNodeId ? ((findNodeById(tree, nav.commandNodeId) || {}).text ?? null) : null;
-  selIndex      = 0;
   if (mode !== MODE.HACK) {
     mode = nav.mode === 'entry' ? MODE.ENTRY : MODE.LIST;
   }
+  applyPresentationSelection();
 }
 
 function acceptSharedSnapshot(message) {
@@ -656,6 +884,7 @@ function acceptSharedSnapshot(message) {
   appliedSharedRevision = revision;
   screen.dataset.runtimeRevision = String(revision);
   completeAcceptedSharedAction();
+  completeAcceptedPresentationAction();
   return true;
 }
 
@@ -689,6 +918,14 @@ function completeAcceptedSharedAction() {
   showPlayerNotice('');
 }
 
+function completeAcceptedPresentationAction() {
+  if (!pendingPresentationAction || pendingPresentationAction.acceptedRevision == null) return;
+  if (appliedSharedRevision < pendingPresentationAction.acceptedRevision) return;
+  clearPendingPresentationAction();
+  showPlayerNotice('');
+  scheduleDesiredPresentationDispatch();
+}
+
 function clearBroadcastMirrors() {
   hasLive = false;
   terminalID = '';
@@ -705,6 +942,7 @@ function clearBroadcastMirrors() {
   currentCommandNodeId = null;
   commandExecution = null;
   terminalNavigation = null;
+  controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
   lastRenderedFolderKey = null;
   lastRenderedEntryId = null;
   lastRenderedCommandKey = null;
@@ -779,6 +1017,7 @@ function applyRecognitionSnapshot(recognitionHandle, state) {
     terminalLiveBaselinePending = true;
     pendingSelection = null;
     pendingSharedAction = null;
+    clearControllerPresentationDispatch();
     showPlayerNotice('');
     applyPlayerState(state, { authoritativeWelcome: true });
     if (!hasCurrentTerminalMirror()) appliedSharedRevision = 0;
@@ -803,7 +1042,23 @@ function applyLiveTerminal(msg) {
     hackLevel     = msg.hackLevel || 0;
     hack          = msg.hack || null;
     commandExecution = msg.commandExecution || null;
-  terminalNavigation = msg.terminalNavigation || null;
+    terminalNavigation = msg.terminalNavigation || null;
+    const previousPresentation = controllerPresentation;
+    controllerPresentation = msg.presentation || { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+    if (pendingPresentationAction?.transport === 'stream' &&
+        sameControllerPresentation(pendingPresentationAction.presentation, controllerPresentation)) {
+      clearTimeout(pendingPresentationAction.resultTimer);
+      pendingPresentationAction.resultTimer = null;
+    }
+    if (localControllerPresentation &&
+        (localControllerPresentation.contextKey !== controllerPresentation.contextKey ||
+         sameControllerPresentation(localControllerPresentation, controllerPresentation))) {
+      clearLocalControllerPresentation();
+    }
+    if (desiredPresentationAction &&
+        desiredPresentationAction.contextKey !== controllerPresentation.contextKey) {
+      desiredPresentationAction = null;
+    }
     serverNum     = 1 + Math.floor(Math.random() * 9);
     if (!isContinuousTerminalUpdate) {
       hackTyped     = '';
@@ -822,7 +1077,6 @@ function applyLiveTerminal(msg) {
     viewEntryId   = nav.viewEntryId || null;
     currentCommandNodeId = nav.commandNodeId || null;
     commandOutput = nav.commandNodeId ? ((findNodeById(tree, nav.commandNodeId) || {}).text ?? null) : null;
-    selIndex      = 0;
     if (terminalIdentityChanged) {
       lastRenderedFolderKey  = null;
       lastRenderedEntryId    = null;
@@ -835,12 +1089,40 @@ function applyLiveTerminal(msg) {
       ? MODE.HACK
       : (nav.mode === 'entry' ? MODE.ENTRY : MODE.LIST);
 
+    applyPresentationSelection();
+    const canonicalPresentationIsSuperseded = localControllerPresentation &&
+      localControllerPresentation.contextKey === controllerPresentation.contextKey &&
+      !sameControllerPresentation(localControllerPresentation, controllerPresentation);
+    if (!canonicalPresentationIsSuperseded) {
+      playControllerPresentationCue(previousPresentation, controllerPresentation, terminalLiveBaselinePending);
+    }
+
     if (isContinuousTerminalUpdate) playHackOutcomeTransition(previousHack, hack);
     if (isContinuousTerminalUpdate) scheduleHackSolvedNavigation();
     terminalLiveBaselinePending = false;
 
     setAmbientActive(true);
     render();
+}
+
+function applyPresentationSelection() {
+  const presentation = effectiveControllerPresentation();
+  if (presentation.kind !== 'menu') return;
+  const kids = currentFolderNode()?.children || [];
+  const index = kids.findIndex(node => node.id === presentation.targetId);
+  selIndex = index >= 0 ? index : 0;
+}
+
+function playControllerPresentationCue(previous, next, baseline) {
+  if (baseline || !next || JSON.stringify(previous) === JSON.stringify(next)) return;
+  if (next.kind === 'menu') {
+    playMenuFocus();
+  } else if (next.kind === 'hacking') {
+    if (next.patternId || !/^\d+:\d+$/.test(next.targetId)) playMultiple();
+    else playSingle();
+  } else if (next.kind === 'page') {
+    playEnter();
+  }
 }
 
 function applyNavigationProjection(nav, revision, projectedTerminalID) {
@@ -875,6 +1157,8 @@ function applyNoLiveTerminal(revision) {
     hack = null;
     commandExecution = null;
   terminalNavigation = null;
+  controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+    clearLocalControllerPresentation();
     clearTimeout(hackSolvedTimer);
     hackSolvedTimer = null;
     setAmbientActive(false);
@@ -936,16 +1220,25 @@ function applyPlayerState(nextState, { authoritativeWelcome = false } = {}) {
 
   const broadcastChanged = previousState !== null &&
     previousState.broadcastId !== nextPlayerState.broadcastId;
+  const activeTerminalChanged = previousState !== null &&
+    previousState.activeTerminalId !== nextPlayerState.activeTerminalId;
   const outsideBroadcast = nextPlayerState.broadcastId === null ||
     nextPlayerState.phase === 'no-broadcast';
   if (broadcastChanged || outsideBroadcast) {
     pendingSelection = null;
     pendingSharedAction = null;
+    clearControllerPresentationDispatch();
     clearBroadcastMirrors();
     showPlayerNotice('');
   } else if (pendingSelection && nextPlayerState.phase !== 'selecting') {
     pendingSelection = null;
     showPlayerNotice('');
+  }
+
+  if (activeTerminalChanged) clearControllerPresentationDispatch();
+
+  if (nextPlayerState.role !== 'active' || nextPlayerState.phase !== 'controlling') {
+    clearControllerPresentationDispatch();
   }
 
   if (authoritativeWelcome || !hasCurrentTerminalMirror()) {
@@ -974,6 +1267,25 @@ function applyPlayerState(nextState, { authoritativeWelcome = false } = {}) {
 }
 
 function applyActionResult(result) {
+  if (pendingPresentationAction && result.requestId === pendingPresentationAction.requestId) {
+    if (!result.accepted) {
+      const rejectedPresentation = pendingPresentationAction.presentation;
+      clearPendingPresentationAction();
+      if (!desiredPresentationAction &&
+          sameControllerPresentation(localControllerPresentation, rejectedPresentation)) {
+        clearLocalControllerPresentation();
+        render();
+      }
+      showPlayerNotice(`ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`);
+      scheduleDesiredPresentationDispatch();
+    } else {
+      pendingPresentationAction.acceptedRevision = Number(result.revision) || 0;
+      completeAcceptedPresentationAction();
+    }
+    renderPlayerContext();
+    return;
+  }
+
   if (pendingSharedAction && result.requestId === pendingSharedAction.requestId) {
     if (!result.accepted) {
       pendingSharedAction = null;
@@ -1036,6 +1348,16 @@ function canControlSharedTerminal() {
   return canControlSharedTerminalAction('');
 }
 
+function canControlTerminalPresentation() {
+  return sessionReady && playerState !== null && hasCurrentTerminalMirror() &&
+    terminalNavigation?.pending == null &&
+    playerState.role === 'active' &&
+    playerState.phase === 'controlling' &&
+    playerState.broadcastId !== null &&
+    playerState.activeTerminalId !== null &&
+    playerState.activeTerminalId === terminalID;
+}
+
 function beginSharedMutation(procedure, invoke) {
   if (!canControlSharedTerminal()) return false;
 
@@ -1055,6 +1377,145 @@ function beginSharedMutationForAction(procedure, invoke, action) {
   showPlayerNotice('');
   renderPlayerContext();
   void invoke(requestId, playerState.broadcastId, playerState.activeTerminalId);
+  return true;
+}
+
+function beginControllerPresentation(next) {
+  if (!canControlTerminalPresentation() || !controllerPresentation.contextKey) return false;
+  const presentation = {
+    kind: next.kind || 'none',
+    contextKey: controllerPresentation.contextKey,
+    targetId: next.targetId || '',
+    patternId: next.patternId || '',
+    pageIndex: Number(next.pageIndex || 0),
+  };
+
+  if (sameControllerPresentation(presentation, effectiveControllerPresentation())) return false;
+  showLocalControllerPresentation(presentation);
+
+  if (pendingPresentationAction) {
+    if (sameControllerPresentation(presentation, pendingPresentationAction.presentation)) {
+      desiredPresentationAction = null;
+      return true;
+    }
+    if (sameControllerPresentation(presentation, desiredPresentationAction)) return false;
+    desiredPresentationAction = presentation;
+    return true;
+  }
+
+  desiredPresentationAction = null;
+  return dispatchControllerPresentation(presentation);
+}
+
+function sameControllerPresentation(left, right) {
+  return !!left && !!right && left.kind === right.kind &&
+    left.contextKey === right.contextKey &&
+    left.targetId === right.targetId &&
+    left.patternId === right.patternId &&
+    left.pageIndex === right.pageIndex;
+}
+
+function clearControllerPresentationDispatch() {
+  clearPendingPresentationAction();
+  desiredPresentationAction = null;
+  presentationDrainScheduled = false;
+  clearLocalControllerPresentation();
+}
+
+function clearPendingPresentationAction() {
+  const pending = pendingPresentationAction;
+  if (pending?.resultTimer != null) clearTimeout(pending.resultTimer);
+  pendingPresentationAction = null;
+}
+
+function effectiveControllerPresentation() {
+  const local = localControllerPresentation;
+  if (local && local.contextKey === controllerPresentation.contextKey && canControlTerminalPresentation()) {
+    return local;
+  }
+  return controllerPresentation;
+}
+
+function showLocalControllerPresentation(presentation) {
+  localControllerPresentation = { ...presentation };
+  if (localPresentationFrame !== null) return;
+  localPresentationFrame = requestAnimationFrame(() => {
+    localPresentationFrame = null;
+    if (!localControllerPresentation || !canControlTerminalPresentation() ||
+        localControllerPresentation.contextKey !== controllerPresentation.contextKey) {
+      clearLocalControllerPresentation();
+      return;
+    }
+    applyPresentationSelection();
+    render();
+  });
+}
+
+function clearLocalControllerPresentation() {
+  localControllerPresentation = null;
+  if (localPresentationFrame !== null) {
+    cancelAnimationFrame(localPresentationFrame);
+    localPresentationFrame = null;
+  }
+}
+
+function scheduleDesiredPresentationDispatch() {
+  if (presentationDrainScheduled || !desiredPresentationAction) return;
+  presentationDrainScheduled = true;
+  queueMicrotask(() => {
+    presentationDrainScheduled = false;
+    if (pendingPresentationAction || !desiredPresentationAction) return;
+    const presentation = desiredPresentationAction;
+    desiredPresentationAction = null;
+    if (!canControlTerminalPresentation() ||
+        presentation.contextKey !== controllerPresentation.contextKey ||
+        sameControllerPresentation(presentation, controllerPresentation)) {
+      return;
+    }
+    dispatchControllerPresentation(presentation);
+  });
+}
+
+function dispatchControllerPresentation(presentation) {
+  if (!canControlTerminalPresentation() || !controllerPresentation.contextKey ||
+      presentation.contextKey !== controllerPresentation.contextKey ||
+      sameControllerPresentation(presentation, controllerPresentation)) {
+    return false;
+  }
+  const requestId = createRequestID();
+  const streamed = offerPresentationIntent(
+    requestId,
+    playerState.broadcastId,
+    playerState.activeTerminalId,
+    presentation,
+  );
+  const streamedGeneration = streamed ? activePresentationUplink.generation : 0;
+  reportPresentationDiagnostic('presentation-dispatched', {
+    transport: streamed ? 'stream' : 'unary',
+    generation: streamedGeneration,
+  });
+  pendingPresentationAction = {
+    requestId,
+    acceptedRevision: null,
+    presentation,
+    transport: streamed ? 'stream' : 'unary',
+    resultTimer: streamed
+      ? setTimeout(() => {
+        reportPresentationDiagnostic('presentation-result-timeout', { generation: streamedGeneration });
+        failPresentationUplink(streamedGeneration);
+      }, PRESENTATION_RESULT_TIMEOUT_MS)
+      : null,
+  };
+  showPlayerNotice('');
+  renderPlayerContext();
+  if (!streamed) {
+    void applyPresentationMutationResult(requestId, () => setPresentationRPC(
+      requestId,
+      playerState.broadcastId,
+      playerState.activeTerminalId,
+      presentation,
+    ));
+  }
   return true;
 }
 
@@ -1148,9 +1609,10 @@ function renderPlayerContext() {
   const commandRequestPending = commandExecution?.phase === 'pending';
   const terminalNavigationPending = terminalNavigation?.pending != null;
   const commandRequestRejected = commandExecution?.phase === 'rejected';
+  const blockingSharedInputPending = pendingSharedAction !== null || commandRequestPending || terminalNavigationPending;
   roleBadge.dataset.role = hasState ? playerState.role : '';
   screen.classList.toggle('observer-read-only', observerReadOnly);
-  screen.classList.toggle('shared-input-pending', pendingSharedAction !== null || commandRequestPending || terminalNavigationPending);
+  screen.classList.toggle('shared-input-pending', blockingSharedInputPending);
   screen.classList.toggle('shared-command-rejected', commandRequestRejected);
   screen.setAttribute('aria-readonly', String(observerReadOnly));
   renderPlayerNotice();
@@ -1250,12 +1712,10 @@ let lastMenuHoverIdx = null;
 termList.addEventListener('mouseover', (e) => {
   const row = e.target.closest('.term-row');
   if (!row || row.dataset.idx == null) return;
+  if (!canControlTerminalPresentation()) return;
   if (row.dataset.idx === lastMenuHoverIdx) return;
   lastMenuHoverIdx = row.dataset.idx;
-  playMenuFocus();
-  selIndex = Number(row.dataset.idx);
-  termList.querySelectorAll('.term-row.sel').forEach(el => el.classList.remove('sel'));
-  row.classList.add('sel');
+  beginControllerPresentation({ kind: 'menu', targetId: row.dataset.nodeId });
 });
 termList.addEventListener('mouseleave', () => { lastMenuHoverIdx = null; });
 
@@ -1274,7 +1734,12 @@ function setHackHover(key, force = false) {
   if (key != null) {
     const els = hackColumns.querySelectorAll(`[data-target="${cssEscape(key)}"]`);
     els.forEach(el => el.classList.add('hi'));
-    hackHoverText = Array.from(els).map(el => el.textContent).join('');
+    const word = (hack?.columns || []).flatMap(column =>
+      (column.words || []).map(candidate => ({ column, candidate })),
+    ).find(({ candidate }) => candidate.id === key);
+    hackHoverText = word
+      ? word.column.text.slice(word.candidate.start, word.candidate.start + word.candidate.length)
+      : Array.from(els).map(el => el.textContent).join('');
   }
   renderHackInputPreview();
 }
@@ -1289,7 +1754,9 @@ function scheduleHackHoverClear(key) {
   cancelHackHoverClear();
   hackHoverClearTimer = setTimeout(() => {
     hackHoverClearTimer = null;
-    if (hackHoverKey === key) setHackHover(null, true);
+    if (hackHoverKey === key && canControlTerminalPresentation()) {
+      beginControllerPresentation({ kind: 'none' });
+    }
   }, 0);
 }
 
@@ -1324,21 +1791,15 @@ function setHackPatternHover(pattern) {
 }
 
 function previewHackCell(cell) {
-  if (!cell) return;
+  if (!cell || !canControlTerminalPresentation()) return;
   cancelHackHoverClear();
   const pattern = patternAtCell(cell);
   if (pattern) {
-    if (pattern.used) setHackPatternHover(null);
-    else if (pattern.id !== hackHoverKey) {
-      setHackPatternHover(pattern);
-      playMultiple();
-    }
+    if (!pattern.used) beginControllerPresentation({ kind: 'hacking', patternId: pattern.id });
     return;
   }
   const key = cell.dataset.target;
-  if (key === hackHoverKey) return;
-  setHackHover(key);
-  if (cell.classList.contains('word')) playMultiple(); else playSingle();
+  beginControllerPresentation({ kind: 'hacking', targetId: key });
 }
 
 hackColumns.addEventListener('mouseover', (e) => {
@@ -1429,6 +1890,13 @@ document.addEventListener('keyup', releaseConsumedRevealKey, { capture: true });
 document.addEventListener('keydown', (e) => {
   if (!hasLive) return;
 
+  if (!canControlTerminalPresentation()) {
+    if (['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', 'Enter', 'Escape', 'Backspace'].includes(e.key) || e.key.length === 1) {
+      e.preventDefault();
+    }
+    return;
+  }
+
   if (mode === MODE.HACK) {
     if (!hack || hack.solved || hack.failed) return;
     if (e.key === 'Enter') {
@@ -1502,16 +1970,14 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowDown') {
     if (kids.length) {
       const next = Math.min(kids.length - 1, selIndex + 1);
-      if (next !== selIndex) { selIndex = next; playMultiple(); }
+      if (next !== selIndex) beginControllerPresentation({ kind: 'menu', targetId: kids[next].id });
     }
-    render();
     e.preventDefault();
   } else if (e.key === 'ArrowUp') {
     if (kids.length) {
       const next = Math.max(0, selIndex - 1);
-      if (next !== selIndex) { selIndex = next; playMultiple(); }
+      if (next !== selIndex) beginControllerPresentation({ kind: 'menu', targetId: kids[next].id });
     }
-    render();
     e.preventDefault();
   } else if (e.key === 'Enter') {
     if (kids[selIndex]) activateRow(kids[selIndex]);
@@ -1720,7 +2186,11 @@ function recalculatePagination(resetPage, animate) {
   if (pagedView.kind === null || !pagedView.container) return;
   const previousIndex = resetPage ? 0 : pagedView.index;
   pagedView.pages = paginateText(pagedView.container, pagedView.text);
-  pagedView.index = Math.min(previousIndex, pagedView.pages.length - 1);
+  const presentation = effectiveControllerPresentation();
+  const authoritativeIndex = presentation.kind === 'page'
+    ? presentation.pageIndex
+    : previousIndex;
+  pagedView.index = Math.min(authoritativeIndex, pagedView.pages.length - 1);
   renderPagedView(animate && pagedView.index === 0);
 }
 
@@ -1737,6 +2207,10 @@ function activatePagination(kind, key, text, container, animate) {
   if (identityChanged || contentChanged) {
     recalculatePagination(identityChanged, animate);
   } else {
+    const presentation = effectiveControllerPresentation();
+    if (presentation.kind === 'page') {
+      pagedView.index = Math.min(presentation.pageIndex, pagedView.pages.length - 1);
+    }
     renderPagedView(false);
   }
 }
@@ -1759,20 +2233,10 @@ function deactivatePagination() {
 }
 
 function changePage(delta) {
-  if (pagedView.kind === null || !delta) return;
-  const activeControl = document.activeElement;
+  if (pagedView.kind === null || !delta || !canControlTerminalPresentation()) return;
   const nextIndex = Math.max(0, Math.min(pagedView.pages.length - 1, pagedView.index + delta));
   if (nextIndex === pagedView.index) return;
-
-  pagedView.index = nextIndex;
-  playEnter();
-  renderPagedView(false);
-
-  if (activeControl === pagePrev && pagePrev.hidden) {
-    (pageNext.hidden ? backBtn : pageNext).focus();
-  } else if (activeControl === pageNext && pageNext.hidden) {
-    (pagePrev.hidden ? backBtn : pagePrev).focus();
-  }
+  beginControllerPresentation({ kind: 'page', pageIndex: nextIndex });
 }
 
 function scheduleRepagination() {
@@ -2177,9 +2641,9 @@ function renderNormalScreen() {
       const row = document.createElement('div');
       row.className = 'term-row' + (i === selIndex ? ' sel' : '');
       row.dataset.idx = String(i);
+      row.dataset.nodeId = node.id;
       row.textContent = '> ' + node.name;
       row.addEventListener('click', () => {
-        selIndex = i;
         activateRow(node);
       });
       return row;
@@ -2387,16 +2851,21 @@ function renderHackColumns(animate, hackKey) {
 
   if (!hackBoardFit) fitCompleteHackBoard();
 
-  if (hackHoverKey === null) return;
-  const hoveredPattern = (hack.patterns || []).find(pattern =>
-    pattern.id === hackHoverKey && !pattern.used
-  );
-  if (hoveredPattern) {
-    setHackPatternHover(hoveredPattern);
+  const presentation = effectiveControllerPresentation();
+  if (presentation.kind !== 'hacking') {
+    setHackHover(null, true);
     return;
   }
-  const hoveredCells = hackColumns.querySelectorAll(`[data-target="${cssEscape(hackHoverKey)}"]`);
-  setHackHover(hoveredCells.length ? hackHoverKey : null, true);
+  if (presentation.patternId) {
+    const pattern = (hack.patterns || []).find(candidate =>
+      candidate.id === presentation.patternId && !candidate.used
+    );
+    setHackPatternHover(pattern || null);
+    return;
+  }
+  const target = presentation.targetId;
+  const hoveredCells = hackColumns.querySelectorAll(`[data-target="${cssEscape(target)}"]`);
+  setHackHover(hoveredCells.length ? target : null, true);
 }
 
 function renderHackLog() {

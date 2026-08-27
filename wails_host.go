@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"io/fs"
 	"sync"
@@ -14,6 +15,16 @@ import (
 )
 
 const wailsShutdownTimeout = 5 * time.Second
+
+const (
+	wailsApplicationName        = "Fallout Terminal"
+	wailsApplicationDescription = "Fallout Terminal — Overseer Control"
+	wailsWindowsWindowClass     = "FalloutTerminalWindow"
+	wailsLinuxProgramName       = "fallout-terminal"
+)
+
+//go:embed build/appicon.png
+var embeddedWailsApplicationIcon []byte
 
 var (
 	errWailsContextRequired  = errors.New("wails lifecycle context is required")
@@ -36,8 +47,9 @@ func newWailsApplication(overseerAssets fs.FS) *application.App {
 
 func wailsApplicationOptions(overseerAssets fs.FS) application.Options {
 	return application.Options{
-		Name:                        "Fallout Terminal",
-		Description:                 "Fallout Terminal — Overseer Control",
+		Name:                        wailsApplicationName,
+		Description:                 wailsApplicationDescription,
+		Icon:                        wailsApplicationIcon(),
 		DisableDefaultSignalHandler: true,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(overseerAssets),
@@ -45,7 +57,19 @@ func wailsApplicationOptions(overseerAssets fs.FS) application.Options {
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
 		},
+		Windows: application.WindowsOptions{
+			WndClass:                      wailsWindowsWindowClass,
+			DisableQuitOnLastWindowClosed: false,
+		},
+		Linux: application.LinuxOptions{
+			DisableQuitOnLastWindowClosed: false,
+			ProgramName:                   wailsLinuxProgramName,
+		},
 	}
+}
+
+func wailsApplicationIcon() []byte {
+	return append([]byte(nil), embeddedWailsApplicationIcon...)
 }
 
 func newOverseerWindow(host *application.App) *application.WebviewWindow {
@@ -56,7 +80,6 @@ func newOverseerWindow(host *application.App) *application.WebviewWindow {
 
 type overseerWindowCloseRegistrar interface {
 	RegisterHook(events.WindowEventType, func(*application.WindowEvent)) func()
-	OnWindowEvent(events.WindowEventType, func(*application.WindowEvent)) func()
 }
 
 type applicationQuitter interface {
@@ -67,29 +90,28 @@ func registerOverseerWindowQuitOnClose(window overseerWindowCloseRegistrar, host
 	var quitOnce sync.Once
 	requestQuit := func(*application.WindowEvent) {
 		quitOnce.Do(func() {
-			// Wails v3 beta may close its final Darwin NSWindow without asking
-			// NSApplication to terminate. Request application shutdown explicitly
-			// before returning control to AppKit so the service cleanup path runs
-			// for the red close button/Cmd+W too.
 			host.Quit()
 		})
 	}
 	window.RegisterHook(events.Common.WindowClosing, requestQuit)
-	// A native/scripted NSWindow close can bypass WindowShouldClose. Observe
-	// AppKit's post-close notification as a fallback while sharing the same
-	// exactly-once quit intent.
-	window.OnWindowEvent(events.Mac.WindowWillClose, requestQuit)
+	registerNativeWindowCloseFallback(window, requestQuit)
 }
 
 func overseerWindowOptions() application.WebviewWindowOptions {
 	return application.WebviewWindowOptions{
-		Title:            "Fallout Terminal — Overseer Control",
+		Title:            wailsApplicationDescription,
 		Width:            1200,
 		Height:           780,
 		MinWidth:         900,
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(11, 13, 10),
 		URL:              "/",
+		Windows: application.WindowsWindow{
+			DisableIcon: false,
+		},
+		Linux: application.LinuxWindow{
+			Icon: wailsApplicationIcon(),
+		},
 	}
 }
 

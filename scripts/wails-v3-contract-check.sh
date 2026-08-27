@@ -36,7 +36,7 @@ scan_files() {
     fi
 
     case "$relative_file" in
-      scripts/wails-v3-contract-check.sh|scripts/tool-modules-check.sh|specs/*|docs/wails-migration-rollback.md|node_modules/*|frontend/node_modules/*|frontend/client/node_modules/*|frontend/overseer/node_modules/*|tests/browser/node_modules/*)
+      scripts/wails-v3-contract-check.sh|scripts/wails-v3-cutover-check.sh|scripts/tool-modules-check.sh|specs/*|docs/wails-migration-rollback.md|node_modules/*|frontend/node_modules/*|frontend/client/node_modules/*|frontend/overseer/node_modules/*|tests/browser/node_modules/*)
         continue
         ;;
     esac
@@ -74,23 +74,96 @@ scan_floating_versions() {
   }
 }
 
+task_block() {
+  local taskfile="$1"
+  local task_name="$2"
+
+  awk -v task_name="$task_name" '
+    $0 ~ "^  " task_name ":" { in_task = 1 }
+    in_task && $0 ~ /^  [A-Za-z0-9:_-]+:/ && $0 !~ "^  " task_name ":" { exit }
+    in_task { print }
+  ' "$taskfile"
+}
+
 scan_build_orchestration() {
   local scan_root="$1"
-  local taskfiles forbidden_commands
+  local taskfile="$scan_root/Taskfile.yml"
+  local taskfiles task_name task_definition forbidden_commands make_targets
 
   taskfiles="$(find "$scan_root" \
     -type d \( -name node_modules -o -name .git \) -prune -o \
     -type f \( -name 'Taskfile.yml' -o -name 'Taskfile.yaml' \) -print)"
-  [[ -z "$taskfiles" ]] || {
+  [[ "$taskfiles" == "$taskfile" ]] || {
     printf '%s\n' "$taskfiles" >&2
-    fail 'active repository contains a Taskfile'
+    fail 'root Taskfile.yml must be the only active Taskfile'
     return 1
   }
 
-  forbidden_commands="$(scan_files "$scan_root" 'wails3[[:space:]]+(dev|build|package|task)([[:space:]]|$)' true)"
+  grep -Eq "^[[:space:]]*version:[[:space:]]*['\"]?3['\"]?[[:space:]]*$" "$taskfile" || {
+    fail 'root Taskfile.yml does not declare schema version 3'
+    return 1
+  }
+
+  for task_name in dev build package; do
+    task_definition="$(task_block "$taskfile" "$task_name")"
+    [[ -n "$task_definition" ]] || {
+      fail "root Taskfile.yml is missing the canonical $task_name task"
+      return 1
+    }
+    printf '%s\n' "$task_definition" | grep -Eq "(go|\{\{\.GO\}\})[[:space:]]+run[[:space:]]+\./cmd/build[[:space:]]+$task_name([[:space:]\"']|$)" || {
+      fail "canonical $task_name task does not delegate to cmd/build"
+      return 1
+    }
+  done
+
+  for task_name in build package; do
+    task_definition="$(task_block "$taskfile" "$task_name")"
+    printf '%s\n' "$task_definition" | grep -Fq '{{.GOOS}}' &&
+      printf '%s\n' "$task_definition" | grep -Fq '{{.GOARCH}}' || {
+      fail "canonical $task_name task does not translate Wails GOOS/GOARCH variables"
+      return 1
+    }
+  done
+
+  forbidden_commands="$(LC_ALL=C grep -IEn '(^|[[:space:]`;&|])(wails3|wails)[[:space:]]+(dev|build|package|task)([[:space:]]|$)' "$taskfile" 2>/dev/null || true)"
   [[ -z "$forbidden_commands" ]] || {
     printf '%s\n' "$forbidden_commands" >&2
-    fail 'active files bypass the repository-owned Go build command'
+    fail 'root Taskfile.yml can recurse through a high-level Wails command'
+    return 1
+  }
+
+  forbidden_commands="$(scan_files "$scan_root" 'go[[:space:]]+run[[:space:]]+\./cmd/build[[:space:]]+(dev|build|package)([[:space:]]|$)' true)"
+  forbidden_commands="$(printf '%s\n' "$forbidden_commands" | grep -Ev '^Taskfile\.yml:' || true)"
+  [[ -z "$forbidden_commands" ]] || {
+    printf '%s\n' "$forbidden_commands" >&2
+    fail 'active files bypass the canonical Task dev/build/package graph'
+    return 1
+  }
+
+  [[ -f "$scan_root/Makefile" ]] || {
+    fail 'Makefile tool bootstrap is missing'
+    return 1
+  }
+  make_targets="$(LC_ALL=C grep -IEn '^[[:alnum:]_-]+:' "$scan_root/Makefile" 2>/dev/null | grep -Ev '^[0-9]+:(tools|help):' || true)"
+  [[ -z "$make_targets" ]] || {
+    printf '%s\n' "$make_targets" >&2
+    fail 'Makefile contains a parallel workflow target'
+    return 1
+  }
+  grep -Eq '^tools:' "$scan_root/Makefile" || {
+    fail 'Makefile does not expose the tools bootstrap'
+    return 1
+  }
+  grep -Eq '^help:' "$scan_root/Makefile" || {
+    fail 'Makefile does not expose non-mutating help'
+    return 1
+  }
+
+  forbidden_commands="$(scan_files "$scan_root" '(^|[[:space:]`;&|])make[[:space:]]+(dev|build|package)([[:space:]]|$)' true)"
+  [[ -z "$forbidden_commands" ]] || {
+    printf '%s\n' "$forbidden_commands" >&2
+    fail 'active files advertise a superseded Make workflow command'
+    return 1
   }
 }
 
@@ -128,7 +201,7 @@ scan_lifecycle_schema() {
     fail 'reviewed private runtime schema changed unexpectedly'
     return 1
   }
-  [[ "$revision_digest" == 79b2445eb0ffc5873f774772ae5e0337623c36706b5f5d24f997c7c3ea0156ba ]] || {
+  [[ "$revision_digest" == 4211c6a2f25e6ebf72aa2b28c2b564d45b9d5df077ffa62f55c25f9de2864522 ]] || {
     fail 'reviewed schema revision record changed unexpectedly'
     return 1
   }
@@ -155,29 +228,65 @@ self_test() {
 
   mkdir -p "$fixture_root/proto/fallout/terminal/private/v1" "$fixture_root/docs"
   printf 'module example.test/app\n\ngo 1.27.0\n' >"$fixture_root/go.mod"
+  printf 'tools:\n\t@go install tool\nhelp:\n\t@printf '\''Run task --list.\\n'\''\n' >"$fixture_root/Makefile"
+  printf '%s\n' \
+    "version: '3'" \
+    'tasks:' \
+    '  dev:' \
+    '    cmds:' \
+    '      - go run ./cmd/build dev' \
+    '  build:' \
+    '    cmds:' \
+    '      - go run ./cmd/build build --target "{{.GOOS}}/{{.GOARCH}}"' \
+    '  package:' \
+    '    cmds:' \
+    '      - go run ./cmd/build package --target "{{.GOOS}}/{{.GOARCH}}"' >"$fixture_root/Taskfile.yml"
   cp "$repository_root/proto/fallout/terminal/private/v1/runtime.proto" "$fixture_root/proto/fallout/terminal/private/v1/runtime.proto"
   cp "$repository_root/proto/schema-revision.txt" "$fixture_root/proto/schema-revision.txt"
   cp "$repository_root/proto/compatibility-baseline.binpb" "$fixture_root/proto/compatibility-baseline.binpb"
-  printf 'go run ./cmd/build dev\n' >"$fixture_root/docs/commands.md"
+  printf 'task dev\n' >"$fixture_root/docs/commands.md"
   check_tree "$fixture_root"
 
   printf 'go tool -modfile=tools/wails/go.mod wails3 dev\n' >"$fixture_root/docs/commands.md"
+  check_tree "$fixture_root"
+
+  printf 'wails3 dev\n' >"$fixture_root/docs/commands.md"
   if check_tree "$fixture_root" >/dev/null 2>&1; then
-    fail 'self-test accepted a Wails-owned development command'
+    fail 'self-test accepted an unqualified Wails command'
   fi
 
-  printf 'go run ./cmd/build dev\n"@wailsio/runtime": "latest"\n' >"$fixture_root/docs/commands.md"
+  printf 'task dev\n"@wailsio/runtime": "latest"\n' >"$fixture_root/docs/commands.md"
   if check_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a floating Wails version'
   fi
 
-  printf 'go run ./cmd/build dev\n' >"$fixture_root/docs/commands.md"
+  printf 'task dev\n' >"$fixture_root/docs/commands.md"
   printf 'module example.test/app\n\ngo 1.27.0\n\ntool github.com/bufbuild/buf/cmd/buf\n' >"$fixture_root/go.mod"
   if check_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a root tool declaration'
   fi
 
   printf 'module example.test/app\n\ngo 1.27.0\n' >"$fixture_root/go.mod"
+  mkdir -p "$fixture_root/nested"
+  printf "version: '3'\n" >"$fixture_root/nested/Taskfile.yml"
+  if check_tree "$fixture_root" >/dev/null 2>&1; then
+    fail 'self-test accepted a parallel Taskfile'
+  fi
+  rm "$fixture_root/nested/Taskfile.yml"
+
+  printf 'go run ./cmd/build package\n' >"$fixture_root/docs/commands.md"
+  if check_tree "$fixture_root" >/dev/null 2>&1; then
+    fail 'self-test accepted a public direct-Go package command'
+  fi
+  printf 'task package GOOS=linux GOARCH=amd64\n' >"$fixture_root/docs/commands.md"
+
+  cp "$fixture_root/Taskfile.yml" "$fixture_root/Taskfile.valid.yml"
+  printf '\n      - go tool -modfile=tools/wails/go.mod wails3 package\n' >>"$fixture_root/Taskfile.yml"
+  if check_tree "$fixture_root" >/dev/null 2>&1; then
+    fail 'self-test accepted Wails-to-Task recursion'
+  fi
+  mv "$fixture_root/Taskfile.valid.yml" "$fixture_root/Taskfile.yml"
+
   printf '\nmessage LifecycleFixture { string lifecycle_phase = 1; }\n' >>"$fixture_root/proto/fallout/terminal/private/v1/runtime.proto"
   if check_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a serialized lifecycle phase'

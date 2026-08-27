@@ -108,6 +108,20 @@ message SessionStateResult {
   fallout.terminal.persistence.v1.Session session = 4;
 }
 
+message ReplaceTerminalGroupsRequest {
+  repeated fallout.terminal.persistence.v1.TerminalGroup terminal_groups = 1;
+  uint64 expected_session_revision = 2;
+  uint64 expected_coordination_revision = 3;
+}
+
+message ReplaceTerminalGroupsResult {
+  bool ok = 1;
+  optional string error = 2;
+  uint64 session_revision = 3;
+  fallout.terminal.persistence.v1.Session session = 4;
+  CoordinationState coordination_state = 5;
+}
+
 message ResetFailedHackRequest {
   string terminal_id = 1;
   string terminal_name = 2;

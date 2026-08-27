@@ -87,6 +87,10 @@ Flag imports of deprecated packages in favor of maintained replacements:
 
 - Table-driven structure; error paths and edge cases covered, not just the happy path
 - Deterministic: no un-injected `time.Now()`, no real network/DB/filesystem I/O in unit tests
+- Register cleanup for every test-owned resource immediately after acquisition with `t.Cleanup`
+- Do not use `defer` for test-lifetime resource cleanup; use `t.Cleanup` so cleanup is owned by the correct test or subtest and still runs after `Fatal`/`FailNow`
+- When cleanup needs a context, derive it from `context.WithoutCancel(t.Context())` because the test context is canceled before cleanup functions run; add a bounded timeout when shutdown can block
+- Keep function-scope `defer` only for lexical control flow that cannot be moved to test cleanup, such as unlocking a mutex or balancing `WaitGroup.Done`
 - Generated mocks are regenerated via `go generate`, never hand-edited
 - `t.Helper()` in helpers; `t.Fatalf` when continuing would panic; never `t.Fatal` inside goroutines
 - Proto messages compared with `cmp.Diff` + `protocmp.Transform()`, not `reflect.DeepEqual`

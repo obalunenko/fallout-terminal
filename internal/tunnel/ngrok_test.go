@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -18,6 +19,37 @@ type fakeNgrokCodedError struct{ code string }
 
 func (failure fakeNgrokCodedError) Error() string { return "synthetic provider diagnostic" }
 func (failure fakeNgrokCodedError) Code() string  { return failure.code }
+
+type recordingNgrokAgent struct {
+	upstream        *ngrok.Upstream
+	endpointOptions int
+}
+
+func (agent *recordingNgrokAgent) Connect(context.Context) error { return nil }
+func (agent *recordingNgrokAgent) Disconnect() error             { return nil }
+func (agent *recordingNgrokAgent) Forward(
+	_ context.Context,
+	upstream *ngrok.Upstream,
+	options ...ngrok.EndpointOption,
+) (ngrok.EndpointForwarder, error) {
+	agent.upstream = upstream
+	agent.endpointOptions = len(options)
+	return nil, errors.New("synthetic capture complete")
+}
+
+func TestSDKAgentForwardsWithExactHTTP2UpstreamOption(t *testing.T) {
+	recorder := &recordingNgrokAgent{}
+	agent := &sdkAgent{agent: recorder}
+	_, err := agent.Forward(t.Context(), ngrokForwardRequest{
+		UpstreamURL: "http://127.0.0.1:41000", ReservedDomain: "vault.example",
+	})
+	require.Error(t, err)
+	require.NotNil(t, recorder.upstream)
+	upstream := reflect.ValueOf(recorder.upstream).Elem()
+	assert.Equal(t, "http://127.0.0.1:41000", upstream.FieldByName("addr").String())
+	assert.Equal(t, "http2", upstream.FieldByName("protocol").String())
+	assert.Equal(t, 1, recorder.endpointOptions, "reserved domain remains the sole endpoint option")
+}
 
 type fakeSDKFactory struct {
 	agent *fakeSDKAgent
@@ -402,10 +434,10 @@ func TestEmbeddedNgrokEndpointCloseDoesNotTrustBlockingSDKComponentsToHonorConte
 
 	deadline, stopDeadline := context.WithTimeoutCause(t.Context(), 25*time.Millisecond, errors.New("test endpoint close timed out"))
 	ctx, cancel := context.WithCancelCause(deadline)
-	defer func() {
+	t.Cleanup(func() {
 		cancel(errors.New("test endpoint close completed"))
 		stopDeadline()
-	}()
+	})
 	finished := make(chan error, 1)
 	go func() { finished <- endpoint.Close(ctx) }()
 	var closeErr error

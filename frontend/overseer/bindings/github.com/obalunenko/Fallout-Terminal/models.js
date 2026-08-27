@@ -1334,6 +1334,121 @@ export class SessionStateResult {
     }
 }
 
+/**
+ * TerminalGroupReplacementPayload is the private complete-set authoring
+ * request. Both revisions are captured from the canonical state reviewed by
+ * the Overseer.
+ */
+export class TerminalGroupReplacementPayload {
+    /**
+     * Creates a new TerminalGroupReplacementPayload instance.
+     * @param {Partial<TerminalGroupReplacementPayload>} [$$source = {}] - The source object to create the TerminalGroupReplacementPayload.
+     */
+    constructor($$source = {}) {
+        if (!("terminalGroups" in $$source)) {
+            /**
+             * @member
+             * @type {domain$0.TerminalGroup[]}
+             */
+            this["terminalGroups"] = [];
+        }
+        if (!("expectedSessionRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedSessionRevision"] = 0;
+        }
+        if (!("expectedCoordinationRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedCoordinationRevision"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TerminalGroupReplacementPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TerminalGroupReplacementPayload}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("terminalGroups" in $$parsedSource) {
+            $$parsedSource["terminalGroups"] = $$createField0_0($$parsedSource["terminalGroups"]);
+        }
+        return new TerminalGroupReplacementPayload(/** @type {Partial<TerminalGroupReplacementPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * TerminalGroupReplacementResult returns both authoritative owners on success
+ * and on stale rejection so the frontend never keeps an optimistic draft.
+ */
+export class TerminalGroupReplacementResult {
+    /**
+     * Creates a new TerminalGroupReplacementResult instance.
+     * @param {Partial<TerminalGroupReplacementResult>} [$$source = {}] - The source object to create the TerminalGroupReplacementResult.
+     */
+    constructor($$source = {}) {
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error"] = undefined;
+        }
+        if (!("sessionRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["sessionRevision"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.Session | null | undefined}
+             */
+            this["session"] = undefined;
+        }
+        if (!("coordinationState" in $$source)) {
+            /**
+             * @member
+             * @type {domain$0.MasterCoordinationState | null}
+             */
+            this["coordinationState"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TerminalGroupReplacementResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TerminalGroupReplacementResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("coordinationState" in $$parsedSource) {
+            $$parsedSource["coordinationState"] = $$createField4_0($$parsedSource["coordinationState"]);
+        }
+        return new TerminalGroupReplacementResult(/** @type {Partial<TerminalGroupReplacementResult>} */($$parsedSource));
+    }
+}
+
 export class TerminalNavigationDecisionPayload {
     /**
      * Creates a new TerminalNavigationDecisionPayload instance.
@@ -1485,3 +1600,5 @@ const $$createType7 = domain$0.ServerInfo.createFrom;
 const $$createType8 = $Create.Nullable($$createType7);
 const $$createType9 = domain$0.PublicHackState.createFrom;
 const $$createType10 = $Create.Nullable($$createType9);
+const $$createType11 = domain$0.TerminalGroup.createFrom;
+const $$createType12 = $Create.Array($$createType11);

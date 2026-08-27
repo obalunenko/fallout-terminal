@@ -3,6 +3,7 @@ __pycache__/
 # Node/Vite artifacts and local configuration
 node_modules/
 dist/
+/combined/
 !frontend/client/dist/
 frontend/client/dist/*
 !frontend/client/dist/.keep
@@ -15,6 +16,7 @@ frontend/overseer/dist/*
 # Go/Wails build output
 build/bin/
 build/dev/
+build/release/
 frontend/node_modules/
 frontend/overseer/wailsjs/
 tests/browser/test-results/
@@ -36,3 +38,5 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+build/.fallout-terminal-package-*

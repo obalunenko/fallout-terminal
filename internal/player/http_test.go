@@ -3,6 +3,7 @@ package player
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -12,11 +13,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/internal/domain"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1"
+	"github.com/obalunenko/Fallout-Terminal/internal/gen/fallout/terminal/player/v1/playerv1connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -26,6 +29,47 @@ import (
 type countingConnectCoordinator struct {
 	ConnectCoordinator
 	mutations atomic.Int64
+}
+
+func TestPresentationUplinkBypassesWholeBodyBufferingOnlyForExactProcedure(t *testing.T) {
+	started := make(chan struct{}, 1)
+	rpc := http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		started <- struct{}{}
+		response.WriteHeader(http.StatusOK)
+	})
+	handler := NewApplicationHandler(nil, "/fallout.terminal.player.v1.PlayerService/", rpc)
+
+	reader, writer := io.Pipe()
+	request := httptest.NewRequest(http.MethodPost, playerv1connect.PlayerServicePresentationUplinkProcedure, reader)
+	request.Host = "player.test"
+	request.Header.Set("Origin", "http://player.test")
+	response := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(response, request)
+		close(done)
+	}()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		assert.FailNow(t, "stream handler waited for request EOF")
+	}
+	require.NoError(t, writer.Close())
+	<-done
+
+	blockedReader, blockedWriter := io.Pipe()
+	ordinary := httptest.NewRequest(http.MethodPost, playerv1connect.PlayerServiceSetPresentationProcedure, blockedReader)
+	ordinary.Host = "player.test"
+	ordinary.Header.Set("Origin", "http://player.test")
+	ordinaryResponse := httptest.NewRecorder()
+	ordinaryDone := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(ordinaryResponse, ordinary)
+		close(ordinaryDone)
+	}()
+	require.Never(t, func() bool { return len(started) != 0 }, 20*time.Millisecond, time.Millisecond)
+	require.NoError(t, blockedWriter.Close())
+	<-ordinaryDone
 }
 
 func (coordinator *countingConnectCoordinator) DispatchPlayerActionForRecognition(handle domain.RecognitionHandle, command domain.RuntimeCommand) domain.ActionResult {
@@ -388,7 +432,7 @@ func TestBrowserRecognitionNeverUsesHTTPURLsOrWeakensOriginAndHeaders(t *testing
 		require.NoError(t, err)
 	}
 	js := string(clientScript)
-	start := strings.Index(js, "const playerTransport = createConnectTransport(")
+	start := strings.Index(js, "const connectWebTransport = createConnectTransport(")
 	end := strings.Index(js, "const playerRPC = createClient(")
 	require.False(t, start < 0 || end <= start,
 		"player script is missing the same-origin Connect transport boundary")

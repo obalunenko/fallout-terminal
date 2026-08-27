@@ -1,0 +1,205 @@
+name: Wails Portable Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wails-portable-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: 1.27.x
+  NODE_VERSION: 20.19.0
+
+jobs:
+  preflight:
+    name: Validate unused release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Validate strict semantic release tag
+        run: go run ./cmd/build validate-release-tag --tag "$GITHUB_REF_NAME"
+
+      - name: Refuse an existing release and include drafts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id')"
+          test -z "$existing" || {
+            echo "A GitHub Release already exists for $GITHUB_REF_NAME; refusing publication." >&2
+            exit 1
+          }
+
+  package:
+    name: Package ${{ matrix.target }}
+    needs: [preflight]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows/amd64
+            goos: windows
+            goarch: amd64
+            runner: windows-2025
+            archive: Fallout-Terminal-windows-amd64.zip
+          - target: windows/arm64
+            goos: windows
+            goarch: arm64
+            runner: windows-11-arm
+            archive: Fallout-Terminal-windows-arm64.zip
+          - target: linux/amd64
+            goos: linux
+            goarch: amd64
+            runner: ubuntu-24.04
+            archive: Fallout-Terminal-linux-amd64.tar.gz
+          - target: linux/arm64
+            goos: linux
+            goarch: arm64
+            runner: ubuntu-24.04-arm
+            archive: Fallout-Terminal-linux-arm64.tar.gz
+          - target: darwin/arm64
+            goos: darwin
+            goarch: arm64
+            runner: macos-15
+            archive: Fallout-Terminal-darwin-arm64.zip
+    steps:
+      - name: Check out exact tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            tools/buf/go.sum
+            tools/task/go.sum
+            tools/wails/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Linux build dependencies
+        if: ${{ matrix.goos == 'linux' }}
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
+
+      - name: Build one matching-native portable archive
+        shell: bash
+        run: go tool -modfile=tools/task/go.mod task package GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}
+
+      - name: Inspect minimal release eligibility
+        shell: bash
+        run: go run ./cmd/build inspect-release-archive --target "${{ matrix.target }}" --archive "build/dist/${{ matrix.archive }}"
+
+      - name: Upload one eligible archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          if-no-files-found: error
+          retention-days: 7
+          path: build/dist/${{ matrix.archive }}
+
+  publish:
+    name: Publish complete five-archive release
+    needs: [package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Check out exact tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            tools/goreleaser/go.sum
+            tools/task/go.sum
+
+      - name: Download all five archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: combined
+
+      - name: Inspect exact publication inventory
+        run: go run ./cmd/build inspect-release-inventory --directory combined
+
+      - name: Repeat existing-release refusal and include drafts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id')"
+          test -z "$existing" || {
+            echo "A GitHub Release already exists for $GITHUB_REF_NAME; refusing publication." >&2
+            exit 1
+          }
+
+      - name: Publish once through pinned GoReleaser
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: go tool -modfile=tools/task/go.mod task release:publish
+
+  failure-diagnostic:
+    name: Report safe publication recovery
+    if: ${{ always() && needs.publish.result == 'failure' }}
+    needs: [publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Look up release state without mutation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.tag_name == env.GITHUB_REF_NAME) | .id')"
+          if test -z "$existing"; then
+            echo 'No release exists; rerun the same tag immediately.'
+          else
+            echo 'Delete the partial release manually, then rerun the same tag.'
+          fi

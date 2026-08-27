@@ -5,9 +5,11 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${repository_root}"
 export BUF_CACHE_DIR="${BUF_CACHE_DIR:-${TMPDIR:-/tmp}/fallout-terminal-buf-cache}"
 export GOCACHE="${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache}"
-export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
-export CGO_CFLAGS="${CGO_CFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
-export CGO_LDFLAGS="${CGO_LDFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
+if [[ "$(go env GOOS)" == darwin ]]; then
+  export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
+  export CGO_CFLAGS="${CGO_CFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
+  export CGO_LDFLAGS="${CGO_LDFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
+fi
 
 generated_revision() {
   find internal/gen frontend/client/gen -type f -print \
@@ -56,7 +58,7 @@ if [[ -e proto/toolchain.env || -e scripts/ensure-protoc.sh ]]; then
   printf 'standalone protoc distribution metadata remains in the repository\n' >&2
   exit 1
 fi
-if grep -En 'ensure-protoc\.sh|proto/toolchain\.env|libprotoc 35\.0|protoc v7\.35\.0' scripts/proto-generate.sh .github/workflows/wails-macos.yml; then
+if grep -En 'ensure-protoc\.sh|proto/toolchain\.env|libprotoc 35\.0|protoc v7\.35\.0' scripts/proto-generate.sh; then
   printf 'an active generation or CI path still requires standalone protoc\n' >&2
   exit 1
 fi

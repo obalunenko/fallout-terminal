@@ -1,8 +1,8 @@
 # Fallout Terminal
 
-Приложение для настольных RPG: смотритель создаёт терминалы в нативном приложении macOS, а игроки открывают общий Fallout-style интерфейс в браузере. Навигация, взлом, роли игроков и состояние терминала синхронизируются сервером внутри приложения.
+Приложение для настольных RPG: смотритель создаёт терминалы в нативном настольном приложении, а игроки открывают общий Fallout-style интерфейс в браузере. Навигация, взлом, роли игроков и состояние терминала синхронизируются сервером внутри приложения.
 
-Поддерживаемая платформа: **macOS 13+ на Apple Silicon (`arm64`)**. Проект использует Go и Wails v3.
+Поддерживаются macOS 13+ на Apple Silicon, Windows 10/11 и Linux на архитектурах `amd64` и `arm64`. Проект использует Go, Wails `v3.0.0-beta.13` и Task `v3.53.1`. Системные требования и расположение пользовательских данных описаны в [руководстве по платформам](docs/platform-support.md).
 
 ## Возможности
 
@@ -19,14 +19,16 @@
 
 Требуются:
 
-- Xcode Command Line Tools;
 - Go 1.27.x;
-- Node.js 20.19+ и npm.
+- Node.js 20.19+ и npm;
+- нативные компоненты сборки для вашей ОС из [руководства по платформам](docs/platform-support.md).
 
-Из корня репозитория запустите:
+Сначала установите все закреплённые Go-инструменты, включая Task и Wails, из изолированных модулей каталога `tools/`, убедитесь, что `GOBIN` (или `$(go env GOPATH)/bin`) находится в `PATH`, затем запустите приложение:
 
 ```bash
-go run ./cmd/build dev
+make help
+make tools
+task dev
 ```
 
 Команда устанавливает закреплённые frontend-зависимости, проверяет и генерирует контракты, собирает приложение и открывает окно смотрителя. Отдельно запускать Vite или сервер игроков не нужно. Локальный адрес игроков обычно имеет вид `http://<IP-смотрителя>:3690`.
@@ -34,34 +36,39 @@ go run ./cmd/build dev
 Основные команды:
 
 ```bash
-make help       # список доступных целей
-make dev        # разработка
-make build      # сборка
-make package    # локальный .app
-make test       # тесты
-make test-race  # тесты с race detector
-make check      # полный набор проверок
-make speckit-install      # Spec Kit и расширения
-make speckit-update-check # проверить обновления Spec Kit
+task --list                # список доступных задач
+task dev                   # разработка
+task build                 # сборка для текущей ОС
+task package               # пакет для текущей ОС
+task package:all           # опциональная локальная матрица через macOS и Docker
+task release:macos:preflight # проверить prerequisites ручного подписанного macOS-релиза
+task release:macos:signed  # собрать ручной Developer ID/notarized macOS-релиз
+task test                  # Go-тесты
+task test:race             # Go-тесты с race detector
+task check                 # полный набор локальных проверок
+task speckit:install       # Spec Kit и расширения
+task speckit:update:check  # проверить обновления Spec Kit и Companion
 ```
+
+`make tools` — единственная изменяющая состояние Make-команда: она обнаруживает каждый `tools/*/go.mod` и устанавливает закреплённые Go-инструменты. `make help` показывает эти bootstrap-команды и направляет к `task --list`; все операции разработки, проверки и упаковки выполняются через корневой `Taskfile.yml`. Полный каталог команд и правила Wails-совместимой упаковки приведены в [руководстве по сборке и выпуску](docs/platform-packaging.md).
 
 ### Spec Kit и расширения
 
 Для работы со спецификациями нужны Python 3.11+ и [uv](https://docs.astral.sh/uv/getting-started/installation/). Репозиторий уже инициализирован для Codex, поэтому повторно запускать `specify init` не нужно. Из корня проекта одной командой установите закреплённую версию [GitHub Spec Kit](https://github.com/github/spec-kit) и все используемые расширения:
 
 ```bash
-make speckit-install
+task speckit:install
 ```
 
-Цель устанавливает Spec Kit 0.16.5 и воспроизводимо переустанавливает `companion` 0.20.1, `brownfield` 1.0.0, `bugfix` 1.1.0 и локальный `feature-numbering` 1.0.0. Для собственного расширения используется обязательный `--dev` и приоритет 5; для остальных — приоритет 10. В конце команда выводит версии и зарегистрированные расширения.
+Задача устанавливает Spec Kit 1.0.1 и воспроизводимо переустанавливает `companion` 0.20.2, `brownfield` 1.0.0, `bugfix` 1.1.0 и локальный `feature-numbering` 1.0.0. Для собственного расширения используется обязательный `--dev` и приоритет 5; для остальных — приоритет 10. В конце команда выводит версии и зарегистрированные расширения.
 
-Все закреплённые версии объявлены в `Makefile` и передаются установочному скрипту через environment. Проверить доступные обновления без установки и изменения файлов можно отдельной командой:
+Все закреплённые версии объявлены в `Taskfile.yml` и передаются установочному скрипту через environment. Проверить доступные обновления без установки и изменения файлов можно отдельной командой:
 
 ```bash
-make speckit-update-check
+task speckit:update:check
 ```
 
-Она запускает read-only `specify self check`, сравнивает установленные extensions/plugins с версиями из `Makefile`, проверяет последние стабильные upstream-теги и сверяет локальный manifest `feature-numbering`.
+Она запускает read-only `specify self check`, сравнивает установленные extensions/plugins с версиями из `Taskfile.yml`, отдельно проверяет установленный SpecKit Companion для VS Code/Cursor по релизам `vX.Y.Z`, проверяет последние стабильные upstream-теги и сверяет локальный manifest `feature-numbering`.
 
 Проверить установку отдельно можно так:
 
@@ -87,6 +94,12 @@ specify extension list
    - **Переход в другой терминал** запрашивает решение смотрителя, активирует выбранный терминал и добавляет на его корневой экран возврат назад.
 
 Целью перехода может быть только другой существующий терминал. Удалить терминал, на который ещё ссылается команда, нельзя. Чтобы изменить режим уже выполненной state-changing команды, сначала нажмите **Сбросить состояние**.
+
+### Группы терминалов
+
+Все терминалы представлены внутри упорядоченных групп; отдельный терминал автоматически получает собственную группу из одного участника. Смотритель может создавать и переименовывать группы, менять порядок терминалов, переносить их между группами и расформировывать группы без удаления содержимого терминалов. Изменение состава или порядка и расформирование применяются только после подтверждения с перечнем затронутых групп и терминалов.
+
+Переходы вперёд и назад работают только внутри одной группы и каждый раз требуют отдельного решения смотрителя. Если трансляция началась с терминала в середине группы, игроки после одобрения всё равно могут пройти всю группу в обоих направлениях в заданном порядке; до одобрения активный терминал не меняется.
 
 [Demo-сессия](sessions/demo.json) показывает все типы содержимого и переход между терминалами; [demo-players.json](sessions/demo-players.json) содержит готовый список игроков. Встроенный demo-файл доступен только для чтения, поэтому для экспериментов создайте пользовательскую копию.
 
@@ -117,11 +130,11 @@ specify extension list
 3. при необходимости укажите зарезервированный домен;
 4. сохраните настройки и нажмите **Включить**.
 
-Публичный endpoint защищает статические файлы и RPC одной парой Basic Auth. Authtoken и пароль хранятся только в macOS Keychain и не попадают в session JSON, player-config или публичное состояние. Ошибка ngrok не мешает локальной игре.
+Публичный endpoint защищает статические файлы и RPC одной парой Basic Auth. Authtoken и пароль хранятся только в системном защищённом хранилище — macOS Keychain, Windows Credential Manager или Linux Secret Service — и не попадают в session JSON, player-config или публичное состояние. Недоступное или заблокированное хранилище отображается как безопасная ошибка без записи секрета в обычный файл; локальная игра продолжает работать. Ошибка ngrok также не мешает локальной игре.
 
 ## Сессии и данные
 
-- Session JSON сохраняется по явно выбранному пути; новые файлы по умолчанию предлагаются в `~/Documents/Fallout Terminal/Sessions/`.
+- Session JSON сохраняется по явно выбранному пути; новые файлы по умолчанию предлагаются в системном каталоге Documents внутри `Fallout Terminal/Sessions/`.
 - Формат остаётся обратно совместимым `version: 1`, включая необязательные настройки и состояния команд.
 - Player-config также использует `version: 1` и хранит только стабильные ID и имена персонажей.
 - Ожидающие запросы, подключения игроков, роли, активная трансляция и текущий взлом не записываются в session JSON.
@@ -130,36 +143,87 @@ specify extension list
 
 Перед экспериментами делайте копии важных сессий.
 
-## Сборка приложения
+## Готовые пакеты и запуск
 
-Локальный ad-hoc подписанный пакет для Apple Silicon:
+В portable-выпуске выберите один архив, который в точности соответствует ОС и архитектуре:
+
+| Целевая платформа | Архив для скачивания | Запуск после распаковки |
+|---|---|---|
+| `windows/amd64` | `Fallout-Terminal-windows-amd64.zip` | `Fallout Terminal.exe` |
+| `windows/arm64` | `Fallout-Terminal-windows-arm64.zip` | `Fallout Terminal.exe` |
+| `linux/amd64` | `Fallout-Terminal-linux-amd64.tar.gz` | `./Fallout Terminal` |
+| `linux/arm64` | `Fallout-Terminal-linux-arm64.tar.gz` | `./Fallout Terminal` |
+| `darwin/arm64` | `Fallout-Terminal-darwin-arm64.zip` | `Fallout Terminal.app` |
+
+Полностью распакуйте архив и не отделяйте executable или app bundle от ресурсов. Darwin ZIP содержит
+unsigned-приложение для macOS 13+ на Apple Silicon; первый запуск может потребовать подтверждения в
+Privacy & Security. Требования WebView2, GTK4, WebKitGTK 6.0, защищённых хранилищ, расположение
+данных и устранение неполадок описаны в [docs/platform-support.md](docs/platform-support.md).
+
+### Первый запуск на macOS
+
+Текущий portable-релиз не подписан и не нотарифицирован Apple. Поэтому Gatekeeper может показать
+сообщение `“Fallout Terminal” is damaged and can’t be opened` даже для корректно скачанного архива.
+Сначала попробуйте открыть приложение, затем разрешите его запуск через **System Settings → Privacy &
+Security → Open Anyway**.
+
+Если кнопка не появилась или ошибка сохранилась, удалите атрибут карантина только у приложения,
+скачанного с официальной страницы релизов:
 
 ```bash
-go run ./cmd/build package
+xattr -dr com.apple.quarantine "/Applications/Fallout Terminal.app"
+open "/Applications/Fallout Terminal.app"
 ```
 
-Результат: `build/bin/Fallout Terminal.app`. При первом запуске macOS может потребовать разрешение в **System Settings → Privacy & Security**.
+Если приложение находится не в `/Applications`, замените путь в обеих командах на фактический. Не
+отключайте Gatekeeper глобально и не применяйте команду к приложениям из недоверенных источников.
 
-Публичный релиз требует Developer ID signing, notarization и проверки Gatekeeper. Процедура находится в [scripts/build-macos.sh](scripts/build-macos.sh) и [Wails v3 quickstart](specs/006-wails-v3-migration/quickstart.md).
+Поддержка означает наличие корректного governed-архива для платформы. Нативный запуск полезен как
+дополнительная проверка, но не является обязательным условием публикации portable-архива.
 
-Активная процедура отката: [Wails v3 → v2](docs/wails-v3-migration-rollback.md). Каталоги [спецификации Wails v2](specs/001-wails-v2-migration/) и [старого rollback](docs/wails-migration-rollback.md) — неизменяемые исторические evidence, а не действующие инструкции.
+## Сборка приложения
+
+На соответствующем нативном runner-е все пять целей используют один entrypoint:
+
+```bash
+task package GOOS=windows GOARCH=amd64
+task package GOOS=windows GOARCH=arm64
+task package GOOS=linux GOARCH=amd64
+task package GOOS=linux GOARCH=arm64
+task package GOOS=darwin GOARCH=arm64
+```
+
+На Apple Silicon Mac команда `task package:all` опционально собирает локальную матрицу: Darwin на
+хосте, Windows/Linux через Docker. Можно задать `OUTPUT=build/portable`. Это только удобство для
+разработчика: команда никогда не запускается в CI и её каталог не используется для публикации.
+
+События `pull requests` и push в `main` запускают только read-only quality workflow. Push строгого SemVer `tag`
+вида `v1.2.3` или `v1.2.3-beta.1` запускает пять нативных package jobs и create-only публикацию через
+закреплённый GoReleaser. Публикуются ровно пять указанных архивов; checksum-sidecars, installers и
+package registry не входят в контракт. Существующий draft или release для тега приводит к отказу.
+
+При сбое до создания release исправьте причину и перезапустите тот же тег. Если GitHub успел создать
+частичный release, maintainer должен удалить его вручную перед повторным запуском. Подробный контракт,
+команды и процедура восстановления: [docs/platform-packaging.md](docs/platform-packaging.md).
+
+Активная процедура отката: [Wails v3 → v2](docs/wails-v3-migration-rollback.md). [Материалы завершённой миграции Wails v3](specs/006-wails-v3-migration/quickstart.md), каталоги [спецификации Wails v2](specs/001-wails-v2-migration/) и [старого rollback](docs/wails-migration-rollback.md) — неизменяемые исторические evidence, а не действующие инструкции.
 
 ## Проверки
 
 Для обычной разработки достаточно:
 
 ```bash
-make check
-make test-race
+task check
+task test:race
 ```
 
 Отдельные проверки контрактов:
 
 ```bash
-scripts/proto-check.sh
-scripts/proto-breaking.sh --all-fixtures
-scripts/wails-bindings-check.sh
-npm test --prefix tests/browser
+task proto:check
+task proto:breaking
+task bindings:check
+task browser:test
 ```
 
 ## Структура проекта
@@ -171,3 +235,9 @@ npm test --prefix tests/browser
 - `sessions/` — встроенные примеры session JSON;
 - `tests/browser/` — браузерные сценарии;
 - `specs/` — спецификации реализованных возможностей.
+
+## Документация проекта
+
+- [Архитектура](ARCHITECTURE.md) — границы модулей, владельцы состояния и основные runtime-последовательности;
+- [Участие в разработке](CONTRIBUTING.md) — настройка окружения, правила изменений и проверки;
+- [Политика безопасности](SECURITY.md) — поддерживаемые версии и приватная отправка отчётов об уязвимостях.

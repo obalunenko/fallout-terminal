@@ -8,7 +8,7 @@ description: "Task list template for Fallout Terminal feature implementation"
 
 **Prerequisites**: `plan.md` and `spec.md`; include `research.md`, `data-model.md`, `contracts/`, and `quickstart.md` when the plan requires them
 
-**Testing**: Colocated Go tests and Playwright browser journeys are configured. Include focused automated tests for changed behavior, race testing for affected concurrent services, and concrete `go run ./cmd/build dev` journeys for native/browser interaction. Packaging and credential-dependent checks apply only when their surfaces change and the required environment is available.
+**Testing**: Colocated Go tests and Playwright browser journeys are configured. Include focused automated tests for changed behavior, repository lint with `task lint`, race testing for affected concurrent services, and concrete `task dev` journeys for native/browser interaction. Packaging and credential-dependent checks apply only when their surfaces change and the required environment is available.
 
 **Organization**: Group tasks by prioritized user story so each story remains independently implementable and verifiable.
 
@@ -26,14 +26,15 @@ description: "Task list template for Fallout Terminal feature implementation"
 - Models and pure rules: `internal/domain/`, `internal/nav/`, `internal/hack/`
 - Canonical live and coordination state: `internal/live/`, `internal/control/`
 - Persistent JSON: `internal/session/`, `internal/playerconfig/`, `sessions/*.json`
-- Player HTTP/WebSocket boundary: `internal/player/`
+- Player HTTP asset/ConnectRPC boundary: `internal/player/`
 - Platform and optional public access: `internal/platform/`, `internal/tunnel/`
 - Shared Go test support: `internal/testutil/`
 - Overseer interface: `frontend/overseer/src/index.html`, `frontend/overseer/src/desktop-api.js`, `frontend/overseer/src/overseer.js`, `frontend/overseer/src/overseer.css`
 - Player interface: `frontend/client/index.html`, `frontend/client/client.js`, `frontend/client/sound.js`, `frontend/client/client.css`
 - Browser journeys: `tests/browser/*.spec.mjs`, `tests/browser/fixture-server/main.go`
 - Build configuration: `go.mod`, `go.sum`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/client/package.json`, `frontend/overseer/package.json`
-- macOS packaging/release: `build/`, `scripts/build-macos.sh`, `.github/workflows/wails-macos.yml`
+- Cross-platform packaging/unsigned release: `build/`, `internal/buildtool/`, `.goreleaser.yaml`, `.github/workflows/`
+- Optional signed macOS distribution: `scripts/build-macos.sh`
 
 <!--
 The task generator MUST replace all examples below with feature-specific tasks.
@@ -46,7 +47,7 @@ setup tasks unless the approved feature actually introduces those changes.
 **Purpose**: Confirm affected boundaries, compatibility requirements, and verification before implementation.
 
 - [ ] T001 Review the feature's affected paths and current behavior in [exact paths]
-- [ ] T002 Record changed persistent JSON, Wails, HTTP, or WebSocket contracts in `specs/[###-feature]/contracts/[contract].md`
+- [ ] T002 Record changed persistent JSON, Wails, protobuf/ConnectRPC, or HTTP asset contracts in `specs/[###-feature]/contracts/[contract].md`
 - [ ] T003 Define automated commands and interactive journeys in `specs/[###-feature]/quickstart.md`
 - [ ] T004 [P] Update `go.mod`/`go.sum` or the relevant npm manifest/lockfile only if required by the approved plan
 
@@ -61,7 +62,7 @@ setup tasks unless the approved feature actually introduces those changes.
 - [ ] T005 Implement model, validation, navigation, or hacking behavior in `internal/domain/`, `internal/nav/`, or `internal/hack/`
 - [ ] T006 Implement canonical state and ordered coordination in `internal/live/` or `internal/control/`
 - [ ] T007 Implement compatible persistence in `internal/session/` or `internal/playerconfig/` if required
-- [ ] T008 Implement HTTP/WebSocket validation, protocol, and publication in `internal/player/` if required
+- [ ] T008 Implement static HTTP/ConnectRPC validation, protocol, and publication in `internal/player/` if required
 - [ ] T009 Wire lifecycle, dependencies, or the smallest required Wails API/event in `main.go` and `app.go`
 - [ ] T010 Add focused colocated Go tests and deterministic fixtures in [exact `*_test.go` or `internal/testutil/` path]
 
@@ -79,13 +80,13 @@ setup tasks unless the approved feature actually introduces those changes.
 
 - [ ] T011 [P] [US1] Add focused Go tests in [exact package/test path]
 - [ ] T012 [P] [US1] Add or update a Playwright journey in `tests/browser/[exact].spec.mjs` when player behavior changes
-- [ ] T013 [US1] Document the `go run ./cmd/build dev` Overseer/player journey in `specs/[###-feature]/quickstart.md`
+- [ ] T013 [US1] Document the `task dev` Overseer/player journey in `specs/[###-feature]/quickstart.md`
 
 ### Implementation for User Story 1
 
 - [ ] T014 [P] [US1] Implement Overseer changes in `frontend/overseer/src/[exact file]`
 - [ ] T015 [P] [US1] Implement player changes in `frontend/client/[exact file]`
-- [ ] T016 [US1] Integrate Wails/WebSocket producers and consumers in [exact Go and JavaScript paths]
+- [ ] T016 [US1] Integrate Wails/ConnectRPC producers and consumers in [exact Go and JavaScript paths]
 - [ ] T017 [US1] Update JSON defaults, validation, versioning, references, or `sessions/demo.json` if the persistent contract changes
 - [ ] T018 [US1] Verify the independent journey with one Overseer and [client count] player browsers
 
@@ -135,15 +136,15 @@ setup tasks unless the approved feature actually introduces those changes.
 ## Final Phase: Cross-Cutting Verification and Polish
 
 - [ ] T029 [P] Review Wails method exposure, CSP, external URL handling, and privileged input validation in `app.go` and `frontend/overseer/src/`
-- [ ] T030 [P] Review WebSocket origin/input validation, public projections, revisions, and reconnect synchronization in `internal/player/` and `frontend/client/`
+- [ ] T030 [P] Review ConnectRPC origin/input validation, public projections, revisions, and reconnect synchronization in `internal/player/` and `frontend/client/`
 - [ ] T031 [P] Open and save existing compatible files from `sessions/` without data loss when persistence changes
-- [ ] T032 Run `gofmt -l .`, `go vet ./...`, and `go test ./...`
-- [ ] T033 Run `go test -race ./...` when concurrent runtime behavior changes
+- [ ] T032 Run `task fmt:check`, `task vet`, `task lint`, and `task test`
+- [ ] T033 Run `task test:race` when concurrent runtime behavior changes
 - [ ] T034 Run `npm ci --prefix frontend` and `npm run build --prefix frontend` when the Overseer UI, bridge, embedding, or package changes
 - [ ] T035 Run `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` when affected browser journeys are available
-- [ ] T036 Run `go run ./cmd/build dev` and complete the documented Overseer/player smoke journeys
-- [ ] T037 Run `go run ./cmd/build package` for packaging-sensitive changes when the required macOS environment is available
-- [ ] T038 Run approved credential-gated public-provider or signing/notarization/DMG gates when affected and prerequisites are available; otherwise record them as unavailable
+- [ ] T036 Run `task dev` and complete the documented Overseer/player smoke journeys
+- [ ] T037 Run `task package` and `task release:local` for packaging/release-sensitive changes on supported hosts
+- [ ] T038 Run approved credential-gated public-provider or optional `task release:macos:signed` gates when affected and prerequisites are available; otherwise record them as unavailable
 - [ ] T039 Update `README.md`, contracts, fixtures, and CI configuration when setup, operation, protocol, or user-visible workflows changed
 
 ---
@@ -174,6 +175,6 @@ setup tasks unless the approved feature actually introduces those changes.
 ## Notes
 
 - Do not claim formatting, vet, test, race, browser, CI, packaging, or release success unless the relevant command or journey actually ran.
-- Record unavailable macOS build environments, credentials, browsers, or manual checks explicitly.
+- Record unavailable target-platform build environments, credentials, browsers, or manual checks explicitly.
 - Keep runtime-only live and coordination state out of persistent JSON unless persistence is an approved requirement.
 - Avoid vague tasks, generic database/authentication work, and producer-only contract changes.

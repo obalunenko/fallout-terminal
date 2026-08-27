@@ -56,9 +56,15 @@ func (sdkAgentFactory) New(accountToken []byte) (ngrokAgent, error) {
 }
 
 type sdkAgent struct {
-	agent     ngrok.Agent
+	agent     ngrokForwardAgent
 	failureMu sync.Mutex
 	failure   error
+}
+
+type ngrokForwardAgent interface {
+	Connect(context.Context) error
+	Forward(context.Context, *ngrok.Upstream, ...ngrok.EndpointOption) (ngrok.EndpointForwarder, error)
+	Disconnect() error
 }
 
 func (agent *sdkAgent) handleEvent(event ngrok.Event) {
@@ -89,7 +95,10 @@ func (agent *sdkAgent) Forward(ctx context.Context, request ngrokForwardRequest)
 	if request.ReservedDomain != "" {
 		options = append(options, ngrok.WithURL("https://"+request.ReservedDomain))
 	}
-	forwarder, err := agent.agent.Forward(ctx, ngrok.WithUpstream(request.UpstreamURL), options...)
+	forwarder, err := agent.agent.Forward(ctx, ngrok.WithUpstream(
+		request.UpstreamURL,
+		ngrok.WithUpstreamProtocol("http2"),
+	), options...)
 	if err != nil {
 		return nil, newRedactedPublicAccessError(err)
 	}

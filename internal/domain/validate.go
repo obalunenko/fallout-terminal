@@ -1,9 +1,11 @@
 package domain
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -33,6 +35,9 @@ const (
 	MaxCharacterIDBytes = 256
 	// MaxActionTargetBytes bounds node, guess, and opaque pattern targets.
 	MaxActionTargetBytes = 256
+	// MaxPresentationPageIndex bounds controller-owned page ordinals before a
+	// responsive client clamps them to its rendered page count.
+	MaxPresentationPageIndex = 10000
 	// MaxSoundCategoryBytes bounds typed sound adapter input before lookup.
 	MaxSoundCategoryBytes = 32
 	maxNameBytes          = 256
@@ -208,7 +213,324 @@ func ValidateSession(session Session) error {
 			return fmt.Errorf("%s.targetTerminalId references unknown terminal %q", reference.path, reference.targetTerminalID)
 		}
 	}
+	if err := validateTerminalGroups(session, terminalIDs); err != nil {
+		return err
+	}
 	return nil
+}
+
+// NormalizeTerminalGroups returns a detached canonical session for the wholly
+// absent legacy group shape. Malformed explicit groups are left for validation.
+func NormalizeTerminalGroups(session Session) Session {
+	clone := session
+	if len(clone.Terminals) == 0 || len(clone.TerminalGroups) != 0 {
+		return clone
+	}
+	return EnsureTerminalGroups(clone)
+}
+
+// EnsureTerminalGroups adds singleton groups for terminals not represented by
+// the supplied groups. It is intended for trusted terminal create/import
+// normalization after canonical existing memberships have been retained.
+func EnsureTerminalGroups(session Session) Session {
+	clone := session
+	clone.TerminalGroups = CloneTerminalGroups(session.TerminalGroups)
+	usedIDs := make(map[string]struct{}, len(clone.TerminalGroups))
+	usedNames := make(map[string]struct{}, len(clone.TerminalGroups))
+	members := make(map[string]struct{}, len(clone.Terminals))
+	for _, group := range clone.TerminalGroups {
+		usedIDs[group.ID] = struct{}{}
+		usedNames[strings.ToLower(strings.TrimSpace(group.Name))] = struct{}{}
+		for _, terminalID := range group.TerminalIDs {
+			members[terminalID] = struct{}{}
+		}
+	}
+	for _, terminal := range clone.Terminals {
+		if _, exists := members[terminal.ID]; exists {
+			continue
+		}
+		clone.TerminalGroups = append(clone.TerminalGroups, TerminalGroup{
+			ID:          uniqueSingletonGroupID(terminal.ID, usedIDs),
+			Name:        uniqueSingletonGroupName(terminal.Name, usedNames),
+			TerminalIDs: []string{terminal.ID},
+		})
+	}
+	return clone
+}
+
+// TerminalGroupFor returns a detached ordered group containing terminalID.
+func TerminalGroupFor(session Session, terminalID string) (TerminalGroupSnapshot, bool) {
+	for _, group := range session.TerminalGroups {
+		for _, memberID := range group.TerminalIDs {
+			if memberID == terminalID {
+				return TerminalGroupSnapshot{ID: group.ID, Name: group.Name, TerminalIDs: append([]string(nil), group.TerminalIDs...)}, true
+			}
+		}
+	}
+	return TerminalGroupSnapshot{}, false
+}
+
+// TerminalGroupDiff describes the server-derived semantic impact of replacing
+// the complete group set. Callers must never trust an authored impact flag.
+type TerminalGroupDiff struct {
+	Changed                  bool
+	MembershipOrOrderChanged bool
+	RemovedGroupIDs          []string
+	AffectedTerminalIDs      []string
+}
+
+// ValidateTerminalGroupReplacement validates one complete trusted group
+// candidate against the current canonical session. Unlike compatible document
+// loading, this boundary also requires every authored transition to remain
+// inside one group.
+func ValidateTerminalGroupReplacement(session Session, groups []TerminalGroup) (TerminalGroupDiff, error) {
+	candidate := CloneSession(session)
+	candidate.TerminalGroups = CloneTerminalGroups(groups)
+	if err := ValidateSession(candidate); err != nil {
+		return TerminalGroupDiff{}, fmt.Errorf("terminal group candidate is invalid: %w", err)
+	}
+
+	groupByTerminal := make(map[string]string, len(candidate.Terminals))
+	for _, group := range candidate.TerminalGroups {
+		for _, terminalID := range group.TerminalIDs {
+			groupByTerminal[terminalID] = group.ID
+		}
+	}
+	var transitionConflicts []string
+	for terminalIndex, terminal := range candidate.Terminals {
+		_, references, err := validateTree(fmt.Sprintf("terminals[%d].root", terminalIndex), terminal.Root)
+		if err != nil {
+			return TerminalGroupDiff{}, err
+		}
+		for _, reference := range references {
+			if groupByTerminal[terminal.ID] != groupByTerminal[reference.targetTerminalID] {
+				transitionConflicts = append(transitionConflicts, fmt.Sprintf(
+					"terminal transition command %q in terminal %q targets terminal %q and crosses groups %q and %q",
+					reference.commandID, terminal.ID, reference.targetTerminalID,
+					groupByTerminal[terminal.ID], groupByTerminal[reference.targetTerminalID],
+				))
+			}
+		}
+	}
+	if len(transitionConflicts) > 0 {
+		return TerminalGroupDiff{}, fmt.Errorf(
+			"terminal group candidate invalidates authored transitions: %s",
+			strings.Join(transitionConflicts, "; "),
+		)
+	}
+
+	diff := deriveTerminalGroupDiff(session.TerminalGroups, candidate.TerminalGroups)
+	if err := rejectSingletonIdentityChurn(session.TerminalGroups, candidate.TerminalGroups); err != nil {
+		return TerminalGroupDiff{}, err
+	}
+	return diff, nil
+}
+
+func deriveTerminalGroupDiff(current, candidate []TerminalGroup) TerminalGroupDiff {
+	diff := TerminalGroupDiff{Changed: !terminalGroupsEqual(current, candidate)}
+	if !diff.Changed {
+		return diff
+	}
+
+	currentByID := make(map[string]TerminalGroup, len(current))
+	candidateByID := make(map[string]TerminalGroup, len(candidate))
+	for _, group := range current {
+		currentByID[group.ID] = group
+	}
+	for _, group := range candidate {
+		candidateByID[group.ID] = group
+	}
+	affected := make(map[string]struct{})
+	for _, group := range current {
+		next, exists := candidateByID[group.ID]
+		if !exists {
+			diff.RemovedGroupIDs = append(diff.RemovedGroupIDs, group.ID)
+			diff.MembershipOrOrderChanged = true
+			for _, terminalID := range group.TerminalIDs {
+				affected[terminalID] = struct{}{}
+			}
+			continue
+		}
+		if !stringSlicesEqual(group.TerminalIDs, next.TerminalIDs) {
+			diff.MembershipOrOrderChanged = true
+			for _, terminalID := range group.TerminalIDs {
+				affected[terminalID] = struct{}{}
+			}
+			for _, terminalID := range next.TerminalIDs {
+				affected[terminalID] = struct{}{}
+			}
+		}
+	}
+	for _, group := range candidate {
+		if _, exists := currentByID[group.ID]; exists {
+			continue
+		}
+		diff.MembershipOrOrderChanged = true
+		for _, terminalID := range group.TerminalIDs {
+			affected[terminalID] = struct{}{}
+		}
+	}
+	for _, terminal := range candidateTerminalOrder(current, candidate) {
+		if _, exists := affected[terminal]; exists {
+			diff.AffectedTerminalIDs = append(diff.AffectedTerminalIDs, terminal)
+		}
+	}
+	return diff
+}
+
+func rejectSingletonIdentityChurn(current, candidate []TerminalGroup) error {
+	candidateByMember := make(map[string]TerminalGroup)
+	for _, group := range candidate {
+		if len(group.TerminalIDs) == 1 {
+			candidateByMember[group.TerminalIDs[0]] = group
+		}
+	}
+	for _, group := range current {
+		if len(group.TerminalIDs) != 1 {
+			continue
+		}
+		replacement, remainsSingleton := candidateByMember[group.TerminalIDs[0]]
+		if remainsSingleton && replacement.ID != group.ID {
+			return fmt.Errorf("singleton group %q for terminal %q cannot be dissolved without moving the terminal", group.Name, group.TerminalIDs[0])
+		}
+	}
+	return nil
+}
+
+func terminalGroupsEqual(left, right []TerminalGroup) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index].ID != right[index].ID || left[index].Name != right[index].Name ||
+			!stringSlicesEqual(left[index].TerminalIDs, right[index].TerminalIDs) {
+			return false
+		}
+	}
+	return true
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func candidateTerminalOrder(current, candidate []TerminalGroup) []string {
+	seen := make(map[string]struct{})
+	ordered := make([]string, 0)
+	for _, groups := range [][]TerminalGroup{current, candidate} {
+		for _, group := range groups {
+			for _, terminalID := range group.TerminalIDs {
+				if _, exists := seen[terminalID]; exists {
+					continue
+				}
+				seen[terminalID] = struct{}{}
+				ordered = append(ordered, terminalID)
+			}
+		}
+	}
+	return ordered
+}
+
+func validateTerminalGroups(session Session, terminalIDs map[string]struct{}) error {
+	if len(session.TerminalGroups) == 0 {
+		return nil
+	}
+	groupIDs := make(map[string]struct{}, len(session.TerminalGroups))
+	groupNames := make(map[string]struct{}, len(session.TerminalGroups))
+	members := make(map[string]string, len(session.Terminals))
+	for groupIndex, group := range session.TerminalGroups {
+		path := fmt.Sprintf("terminalGroups[%d]", groupIndex)
+		if err := validateRequiredString(path+".id", group.ID, maxNameBytes); err != nil {
+			return err
+		}
+		if _, exists := groupIDs[group.ID]; exists {
+			return fmt.Errorf("%s.id duplicates %q", path, group.ID)
+		}
+		groupIDs[group.ID] = struct{}{}
+		if err := validateRequiredString(path+".name", group.Name, maxNameBytes); err != nil {
+			return err
+		}
+		normalizedName := strings.ToLower(strings.TrimSpace(group.Name))
+		if _, exists := groupNames[normalizedName]; exists {
+			return fmt.Errorf("%s.name duplicates normalized group name %q", path, strings.TrimSpace(group.Name))
+		}
+		groupNames[normalizedName] = struct{}{}
+		if len(group.TerminalIDs) == 0 {
+			return fmt.Errorf("%s.terminalIds must contain at least one terminal", path)
+		}
+		for memberIndex, terminalID := range group.TerminalIDs {
+			memberPath := fmt.Sprintf("%s.terminalIds[%d]", path, memberIndex)
+			if err := validateRequiredString(memberPath, terminalID, maxNameBytes); err != nil {
+				return err
+			}
+			if _, exists := terminalIDs[terminalID]; !exists {
+				return fmt.Errorf("%s references unknown terminal %q", memberPath, terminalID)
+			}
+			if priorGroup, exists := members[terminalID]; exists {
+				return fmt.Errorf("%s assigns terminal %q more than once (already in group %q)", memberPath, terminalID, priorGroup)
+			}
+			members[terminalID] = group.ID
+		}
+	}
+	for terminalIndex, terminal := range session.Terminals {
+		if _, exists := members[terminal.ID]; !exists {
+			return fmt.Errorf("terminals[%d].id %q is missing from terminalGroups", terminalIndex, terminal.ID)
+		}
+	}
+	return nil
+}
+
+func uniqueSingletonGroupID(terminalID string, used map[string]struct{}) string {
+	digest := sha256.Sum256([]byte(terminalID))
+	base := fmt.Sprintf("singleton-%x", digest[:12])
+	for suffix := 1; ; suffix++ {
+		candidate := base
+		if suffix > 1 {
+			candidate += "-" + strconv.Itoa(suffix)
+		}
+		if _, exists := used[candidate]; !exists {
+			used[candidate] = struct{}{}
+			return candidate
+		}
+	}
+}
+
+func uniqueSingletonGroupName(terminalName string, used map[string]struct{}) string {
+	base := strings.TrimSpace(terminalName)
+	if base == "" {
+		base = "Terminal"
+	}
+	for suffix := 1; ; suffix++ {
+		candidate := base
+		if suffix > 1 {
+			ending := " (" + strconv.Itoa(suffix) + ")"
+			candidate = truncateUTF8Bytes(base, maxNameBytes-len(ending)) + ending
+		}
+		normalized := strings.ToLower(strings.TrimSpace(candidate))
+		if _, exists := used[normalized]; !exists {
+			used[normalized] = struct{}{}
+			return candidate
+		}
+	}
+}
+
+func truncateUTF8Bytes(value string, maxBytes int) string {
+	if len(value) <= maxBytes {
+		return value
+	}
+	value = value[:maxBytes]
+	for !utf8.ValidString(value) {
+		value = value[:len(value)-1]
+	}
+	return strings.TrimSpace(value)
 }
 
 // ValidatePlayerConfig validates a complete standalone authored roster.
@@ -250,6 +572,7 @@ func ValidatePlayerConfig(config PlayerConfig) error {
 
 type treeTransitionReference struct {
 	path             string
+	commandID        string
 	targetTerminalID string
 }
 
@@ -321,7 +644,8 @@ func validateTree(path string, root ContentNode) (map[string]ContentNode, []tree
 					return err
 				}
 				transitionReferences = append(transitionReferences, treeTransitionReference{
-					path: nodePath + ".terminalTransition", targetTerminalID: node.TerminalTransition.TargetTerminalID,
+					path: nodePath + ".terminalTransition", commandID: node.ID,
+					targetTerminalID: node.TerminalTransition.TargetTerminalID,
 				})
 			case CommandBehaviorOrdinary:
 				// No optional command behavior is configured.

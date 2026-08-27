@@ -196,12 +196,22 @@ export function RenameLogicalSession(payload) {
 }
 
 /**
+ * @param {$models.TerminalGroupReplacementPayload} payload
+ * @returns {$CancellablePromise<$models.TerminalGroupReplacementResult>}
+ */
+export function ReplaceTerminalGroups(payload) {
+    return $Call.ByID(1254344367, payload).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType7($result);
+    }));
+}
+
+/**
  * @param {$models.LiveTerminalPayload} payload
  * @returns {$CancellablePromise<$models.TerminalSwitchCommandResult>}
  */
 export function RequestTerminalActivation(payload) {
     return $Call.ByID(2107315930, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType7($result);
+        return $$createType8($result);
     }));
 }
 
@@ -210,7 +220,7 @@ export function RequestTerminalActivation(payload) {
  */
 export function RequestTerminalClear() {
     return $Call.ByID(2661250323).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType7($result);
+        return $$createType8($result);
     }));
 }
 
@@ -220,7 +230,7 @@ export function RequestTerminalClear() {
  */
 export function ResetCommandState(payload) {
     return $Call.ByID(3257636586, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType9($result);
     }));
 }
 
@@ -240,7 +250,7 @@ export function ResetFailedHack(payload) {
  */
 export function ResetTerminalCommandStates(payload) {
     return $Call.ByID(2301755571, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType9($result);
     }));
 }
 
@@ -250,7 +260,7 @@ export function ResetTerminalCommandStates(payload) {
  */
 export function ResolveCommandExecution(payload) {
     return $Call.ByID(3276299750, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType10($result);
     }));
 }
 
@@ -260,7 +270,7 @@ export function ResolveCommandExecution(payload) {
  */
 export function ResolveTerminalNavigation(payload) {
     return $Call.ByID(2812243969, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType10($result);
+        return $$createType11($result);
     }));
 }
 
@@ -270,7 +280,7 @@ export function ResolveTerminalNavigation(payload) {
  */
 export function ResolveTerminalSwitch(payload) {
     return $Call.ByID(3005579231, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType7($result);
+        return $$createType8($result);
     }));
 }
 
@@ -280,7 +290,7 @@ export function ResolveTerminalSwitch(payload) {
  */
 export function SavePublicAccessSettings(payload) {
     return $Call.ByID(2107763802, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType11($result);
+        return $$createType12($result);
     }));
 }
 
@@ -290,7 +300,7 @@ export function SavePublicAccessSettings(payload) {
  */
 export function SaveSession(session) {
     return $Call.ByID(830349524, session).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType13($result);
     }));
 }
 
@@ -319,7 +329,7 @@ export function StartBroadcast() {
  */
 export function StartPublicAccess(payload) {
     return $Call.ByID(2229627868, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType11($result);
+        return $$createType12($result);
     }));
 }
 
@@ -329,7 +339,7 @@ export function StartPublicAccess(payload) {
  */
 export function StopPublicAccess(payload) {
     return $Call.ByID(887374898, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType11($result);
+        return $$createType12($result);
     }));
 }
 
@@ -361,9 +371,10 @@ const $$createType3 = $models.GeneratedPlayerPasswordResult.createFrom;
 const $$createType4 = $models.PublicAccessSnapshot.createFrom;
 const $$createType5 = $models.RuntimeStatus.createFrom;
 const $$createType6 = $models.PlayerConfigCommandResult.createFrom;
-const $$createType7 = $models.TerminalSwitchCommandResult.createFrom;
-const $$createType8 = $models.SessionStateResult.createFrom;
-const $$createType9 = $models.ResolveCommandExecutionResult.createFrom;
-const $$createType10 = $models.ResolveTerminalNavigationResult.createFrom;
-const $$createType11 = $models.PublicAccessCommandResult.createFrom;
-const $$createType12 = session$0.SaveResult.createFrom;
+const $$createType7 = $models.TerminalGroupReplacementResult.createFrom;
+const $$createType8 = $models.TerminalSwitchCommandResult.createFrom;
+const $$createType9 = $models.SessionStateResult.createFrom;
+const $$createType10 = $models.ResolveCommandExecutionResult.createFrom;
+const $$createType11 = $models.ResolveTerminalNavigationResult.createFrom;
+const $$createType12 = $models.PublicAccessCommandResult.createFrom;
+const $$createType13 = session$0.SaveResult.createFrom;

@@ -28,6 +28,37 @@ func TestCommandContentUsesOneRealBehaviorOneofWithStableFieldNumbers(t *testing
 	require.Equal(t, behavior, terminalTransition.ContainingOneof())
 }
 
+func TestSessionContractAddsTerminalGroupsWithStableFieldNumbers(t *testing.T) {
+	t.Parallel()
+
+	sessionDescriptor := (&persistencev1.Session{}).ProtoReflect().Descriptor()
+	groups := sessionDescriptor.Fields().ByName("terminal_groups")
+	require.NotNil(t, groups)
+	require.Equal(t, int32(5), int32(groups.Number()))
+
+	groupDescriptor := (&persistencev1.TerminalGroup{}).ProtoReflect().Descriptor()
+	require.Equal(t, int32(1), int32(groupDescriptor.Fields().ByName("id").Number()))
+	require.Equal(t, int32(2), int32(groupDescriptor.Fields().ByName("name").Number()))
+	require.Equal(t, int32(3), int32(groupDescriptor.Fields().ByName("terminal_ids").Number()))
+}
+
+func TestSessionContractRoundTripsOrderedTerminalGroups(t *testing.T) {
+	t.Parallel()
+
+	value := linkedSessionForTest()
+	value.TerminalGroups = []domain.TerminalGroup{{ID: "vault", Name: "Vault", TerminalIDs: []string{"b", "a"}}}
+	semantic, err := SessionToProto(value)
+	require.NoError(t, err)
+	require.Len(t, semantic.GetTerminalGroups(), 1)
+	require.Equal(t, []string{"b", "a"}, semantic.GetTerminalGroups()[0].GetTerminalIds())
+
+	roundTrip, err := SessionFromProto(semantic, value)
+	require.NoError(t, err)
+	require.Equal(t, value, roundTrip)
+	roundTrip.TerminalGroups[0].TerminalIDs[0] = "changed"
+	require.Equal(t, "b", value.TerminalGroups[0].TerminalIDs[0])
+}
+
 func TestSessionContractMapsEveryKnownFieldAndPreservesRecursiveJSONExtras(t *testing.T) {
 	value := domain.Session{
 		Version: 1, Name: "Vault", PlayerConfig: "players/roster.json",
@@ -62,7 +93,7 @@ func TestSessionContractMapsEveryKnownFieldAndPreservesRecursiveJSONExtras(t *te
 }
 
 func TestSessionContractRejectsMissingOneofAndInvalidReference(t *testing.T) {
-	value := domain.Session{Version: 1, Name: "Vault", PlayerConfig: "/absolute/players.json", Terminals: []domain.Terminal{}}
+	value := domain.Session{Version: 1, Name: "Vault", PlayerConfig: testAbsolutePath("absolute", "players.json"), Terminals: []domain.Terminal{}}
 	_, err := SessionToProto(value)
 	require.Error(t, err)
 }

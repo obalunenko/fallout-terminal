@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -60,6 +63,17 @@ type fixtureAuthoringStore struct {
 	mu       sync.Mutex
 	session  domain.Session
 	revision uint64
+}
+
+type fixtureTerminalGroupingStore struct {
+	mu                   sync.Mutex
+	scenario             string
+	persisted            domain.Session
+	active               domain.Session
+	revision             uint64
+	coordinationRevision uint64
+	activationHistory    []string
+	lastActiveTerminalID string
 }
 
 type fixturePlayerManagementStore struct {
@@ -319,7 +333,7 @@ type fixtureTerminalCatalog struct {
 
 func (catalog *fixtureTerminalCatalog) replace(session domain.Session) {
 	catalog.mu.Lock()
-	catalog.session = domain.CloneSession(session)
+	catalog.session = domain.NormalizeTerminalGroups(domain.CloneSession(session))
 	catalog.mu.Unlock()
 }
 
@@ -339,6 +353,12 @@ func (catalog *fixtureTerminalCatalog) LookupTerminal(id string) (domain.Termina
 	return fixtureTarget(*terminal), true
 }
 
+func (catalog *fixtureTerminalCatalog) LookupTerminalGroup(id string) (domain.TerminalGroupSnapshot, bool) {
+	catalog.mu.Lock()
+	defer catalog.mu.Unlock()
+	return domain.TerminalGroupFor(catalog.session, id)
+}
+
 func (catalog *fixtureTerminalCatalog) LookupTerminalTransition(sourceID, commandID string) (domain.TerminalTransitionTarget, bool) {
 	catalog.mu.Lock()
 	defer catalog.mu.Unlock()
@@ -352,6 +372,11 @@ func (catalog *fixtureTerminalCatalog) LookupTerminalTransition(sourceID, comman
 	}
 	target := fixtureTerminalByID(&catalog.session, command.TerminalTransition.TargetTerminalID)
 	if target == nil || target.ID == source.ID {
+		return domain.TerminalTransitionTarget{}, false
+	}
+	sourceGroup, sourceGrouped := domain.TerminalGroupFor(catalog.session, source.ID)
+	targetGroup, targetGrouped := domain.TerminalGroupFor(catalog.session, target.ID)
+	if !sourceGrouped || !targetGrouped || sourceGroup.ID == "" || sourceGroup.ID != targetGroup.ID {
 		return domain.TerminalTransitionTarget{}, false
 	}
 	return domain.TerminalTransitionTarget{
@@ -378,6 +403,12 @@ func fixtureNodeByID(node *domain.ContentNode, id string) *domain.ContentNode {
 		}
 	}
 	return nil
+}
+
+func (store *fixtureTerminalGroupingStore) orderedNavigation() bool {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return store.scenario == "ordered-navigation"
 }
 
 type fixtureSessionStateResult struct {
@@ -452,6 +483,235 @@ func (store *fixtureAuthoringStore) resetTerminal(request fixtureResetTerminalRe
 func (store *fixtureAuthoringStore) resultLocked() fixtureSessionStateResult {
 	session := cloneFixtureSession(store.session)
 	return fixtureSessionStateResult{OK: true, Revision: store.revision, Session: &session}
+}
+
+func (store *fixtureTerminalGroupingStore) reset(scenario string) error {
+	session, err := terminalGroupingSession(scenario)
+	if err != nil {
+		return err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.scenario = strings.TrimSpace(scenario)
+	if store.scenario == "" {
+		store.scenario = "canonical"
+	}
+	store.persisted = domain.CloneSession(session)
+	store.active = normalizeFixtureTerminalGroups(session)
+	store.revision = 1
+	store.coordinationRevision = 1
+	store.activationHistory = nil
+	store.lastActiveTerminalID = ""
+	return nil
+}
+
+func (store *fixtureTerminalGroupingStore) persistedSnapshot() domain.Session {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return domain.CloneSession(store.persisted)
+}
+
+func (store *fixtureTerminalGroupingStore) activeSnapshot() fixtureSessionStateResult {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	session := domain.CloneSession(store.active)
+	return fixtureSessionStateResult{OK: true, Revision: store.revision, Session: &session}
+}
+
+type fixtureTerminalGroupReplacementRequest struct {
+	TerminalGroups               []domain.TerminalGroup `json:"terminalGroups"`
+	ExpectedSessionRevision      uint64                 `json:"expectedSessionRevision"`
+	ExpectedCoordinationRevision uint64                 `json:"expectedCoordinationRevision"`
+}
+
+type fixtureTerminalGroupReplacementResult struct {
+	OK                bool                            `json:"ok"`
+	Error             string                          `json:"error,omitempty"`
+	SessionRevision   uint64                          `json:"sessionRevision"`
+	Session           *domain.Session                 `json:"session,omitempty"`
+	CoordinationState *domain.MasterCoordinationState `json:"coordinationState"`
+}
+
+func (store *fixtureTerminalGroupingStore) replaceGroups(request fixtureTerminalGroupReplacementRequest) fixtureTerminalGroupReplacementResult {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	canonical := domain.CloneSession(store.active)
+	result := fixtureTerminalGroupReplacementResult{
+		SessionRevision: store.revision,
+		Session:         &canonical,
+		CoordinationState: &domain.MasterCoordinationState{
+			Revision: store.coordinationRevision,
+		},
+	}
+	if request.ExpectedSessionRevision != store.revision || request.ExpectedCoordinationRevision != store.coordinationRevision {
+		result.Error = "СОСТОЯНИЕ ИЗМЕНИЛОСЬ; ПРЕДЛОЖЕНИЕ УСТАРЕЛО, ПРОВЕРЬТЕ ГРУППЫ ЕЩЁ РАЗ"
+		return result
+	}
+	if _, err := domain.ValidateTerminalGroupReplacement(store.active, request.TerminalGroups); err != nil {
+		result.Error = err.Error()
+		return result
+	}
+	store.active.TerminalGroups = cloneFixtureGroups(request.TerminalGroups)
+	store.persisted = domain.CloneSession(store.active)
+	store.revision++
+	store.coordinationRevision++
+	canonical = domain.CloneSession(store.active)
+	result.OK = true
+	result.SessionRevision = store.revision
+	result.Session = &canonical
+	result.CoordinationState = &domain.MasterCoordinationState{Revision: store.coordinationRevision}
+	return result
+}
+
+func (store *fixtureTerminalGroupingStore) advanceRevisions(session, coordination bool) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if session {
+		store.revision++
+	}
+	if coordination {
+		store.coordinationRevision++
+	}
+}
+
+func (store *fixtureTerminalGroupingStore) setCoordinationRevision(revision uint64) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.coordinationRevision = revision
+}
+
+func (store *fixtureTerminalGroupingStore) runtimeStatus(coordination *domain.MasterCoordinationState) map[string]any {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if coordination == nil {
+		coordination = &domain.MasterCoordinationState{Revision: store.coordinationRevision}
+	}
+	return map[string]any{
+		"requestedRevision": store.revision,
+		"savedRevision":     store.revision,
+		"coordinationState": coordination,
+	}
+}
+
+func (store *fixtureTerminalGroupingStore) navigationState(coordination *domain.MasterCoordinationState) map[string]any {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	activeTerminalID := ""
+	if coordination != nil && coordination.Broadcast != nil && coordination.Broadcast.ActiveTerminalID != nil {
+		activeTerminalID = *coordination.Broadcast.ActiveTerminalID
+	}
+	if activeTerminalID != "" && activeTerminalID != store.lastActiveTerminalID {
+		store.activationHistory = append(store.activationHistory, activeTerminalID)
+		store.lastActiveTerminalID = activeTerminalID
+	}
+	var pending *domain.MasterPendingTerminalNavigation
+	var pendingCommand *domain.MasterPendingCommandExecution
+	if coordination != nil {
+		pending = coordination.PendingTerminalNavigation
+		pendingCommand = coordination.PendingCommandExecution
+	}
+	return map[string]any{
+		"activeTerminalId":          activeTerminalID,
+		"pendingCommandExecution":   pendingCommand,
+		"pendingTerminalNavigation": pending,
+		"activationHistory":         append([]string(nil), store.activationHistory...),
+	}
+}
+
+func cloneFixtureGroups(groups []domain.TerminalGroup) []domain.TerminalGroup {
+	clone := make([]domain.TerminalGroup, len(groups))
+	for index, group := range groups {
+		clone[index] = group
+		clone[index].TerminalIDs = append([]string(nil), group.TerminalIDs...)
+	}
+	return clone
+}
+
+func (store *fixtureTerminalGroupingStore) save(candidate domain.Session) fixtureSessionStateResult {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	terminalByID := make(map[string]domain.Terminal, len(candidate.Terminals))
+	for _, terminal := range candidate.Terminals {
+		terminalByID[terminal.ID] = terminal
+	}
+	assigned := make(map[string]struct{}, len(candidate.Terminals))
+	groups := make([]domain.TerminalGroup, 0, len(store.active.TerminalGroups)+len(candidate.Terminals))
+	for _, group := range store.active.TerminalGroups {
+		retainedIDs := make([]string, 0, len(group.TerminalIDs))
+		for _, terminalID := range group.TerminalIDs {
+			if _, exists := terminalByID[terminalID]; !exists {
+				continue
+			}
+			retainedIDs = append(retainedIDs, terminalID)
+			assigned[terminalID] = struct{}{}
+		}
+		if len(retainedIDs) == 0 {
+			continue
+		}
+		group.TerminalIDs = retainedIDs
+		groups = append(groups, group)
+	}
+
+	usedGroupIDs := make(map[string]struct{}, len(groups))
+	usedGroupNames := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
+		usedGroupIDs[strings.ToLower(strings.TrimSpace(group.ID))] = struct{}{}
+		usedGroupNames[strings.ToLower(strings.TrimSpace(group.Name))] = struct{}{}
+	}
+	for _, terminal := range candidate.Terminals {
+		if _, exists := assigned[terminal.ID]; exists {
+			continue
+		}
+		groupID := uniqueFixtureGroupValue("singleton-"+terminal.ID, usedGroupIDs)
+		groupName := uniqueFixtureGroupValue(terminal.Name, usedGroupNames)
+		groups = append(groups, domain.TerminalGroup{
+			ID: groupID, Name: groupName, TerminalIDs: []string{terminal.ID},
+		})
+	}
+
+	candidate.TerminalGroups = groups
+	store.active = domain.CloneSession(candidate)
+	store.persisted = domain.CloneSession(candidate)
+	store.revision++
+	session := domain.CloneSession(store.active)
+	return fixtureSessionStateResult{OK: true, Revision: store.revision, Session: &session}
+}
+
+func uniqueFixtureGroupValue(base string, used map[string]struct{}) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "terminal-group"
+	}
+	for suffix := 1; ; suffix++ {
+		candidate := base
+		if suffix > 1 {
+			candidate = fmt.Sprintf("%s-%d", base, suffix)
+		}
+		key := strings.ToLower(candidate)
+		if _, exists := used[key]; exists {
+			continue
+		}
+		used[key] = struct{}{}
+		return candidate
+	}
+}
+
+func normalizeFixtureTerminalGroups(session domain.Session) domain.Session {
+	if len(session.Terminals) == 0 || len(session.TerminalGroups) != 0 {
+		return domain.CloneSession(session)
+	}
+	normalized := domain.CloneSession(session)
+	normalized.TerminalGroups = make([]domain.TerminalGroup, 0, len(normalized.Terminals))
+	usedNames := make(map[string]struct{}, len(normalized.Terminals))
+	for _, terminal := range normalized.Terminals {
+		normalized.TerminalGroups = append(normalized.TerminalGroups, domain.TerminalGroup{
+			ID:          "legacy-singleton-" + terminal.ID,
+			Name:        uniqueFixtureGroupValue(terminal.Name, usedNames),
+			TerminalIDs: []string{terminal.ID},
+		})
+	}
+	return normalized
 }
 
 func fixtureTerminalByID(session *domain.Session, terminalID string) *domain.Terminal {
@@ -628,8 +888,114 @@ type fixtureEdge struct {
 	publicGeneration atomic.Uint64
 	service          *control.Service
 	connect          *player.ConnectService
+	hub              *player.SubscriptionHub
 	ingress          tunnel.PublicIngress
 	publicURL        string
+}
+
+type fixturePresentationGateState struct {
+	release     chan struct{}
+	blocked     chan struct{}
+	canceled    bool
+	releaseOnce sync.Once
+	blockedOnce sync.Once
+}
+
+// fixturePresentationGate makes the public-stream cancellation journey
+// deterministic: it pauses exactly one connection-bound presentation before
+// canonical dispatch, then lets the fixture rotate the uplink and reject that
+// obsolete work so the browser must transfer its newest target to unary.
+type fixturePresentationGate struct {
+	*control.Service
+	context context.Context
+	mu      sync.Mutex
+	state   *fixturePresentationGateState
+}
+
+func (gate *fixturePresentationGate) arm() {
+	gate.cancel()
+	gate.mu.Lock()
+	gate.state = &fixturePresentationGateState{
+		release: make(chan struct{}),
+		blocked: make(chan struct{}),
+	}
+	gate.mu.Unlock()
+}
+
+func (gate *fixturePresentationGate) cancel() {
+	gate.mu.Lock()
+	defer gate.mu.Unlock()
+	if gate.state == nil {
+		return
+	}
+	gate.state.canceled = true
+	gate.state.releaseOnce.Do(func() { close(gate.state.release) })
+}
+
+func (gate *fixturePresentationGate) cancelAfter(delay time.Duration) {
+	gate.mu.Lock()
+	if gate.state == nil {
+		gate.mu.Unlock()
+		return
+	}
+	state := gate.state
+	state.canceled = true
+	gate.mu.Unlock()
+	time.AfterFunc(delay, func() {
+		state.releaseOnce.Do(func() { close(state.release) })
+	})
+}
+
+func (gate *fixturePresentationGate) isBlocked() bool {
+	gate.mu.Lock()
+	defer gate.mu.Unlock()
+	if gate.state == nil {
+		return false
+	}
+	select {
+	case <-gate.state.blocked:
+		return true
+	default:
+		return false
+	}
+}
+
+func (gate *fixturePresentationGate) reset() {
+	gate.cancel()
+	gate.mu.Lock()
+	gate.state = nil
+	gate.mu.Unlock()
+}
+
+func (gate *fixturePresentationGate) DispatchPlayerAction(connectionID domain.ConnectionID, command domain.RuntimeCommand) domain.ActionResult {
+	gate.mu.Lock()
+	state := gate.state
+	gate.mu.Unlock()
+	if command.Kind != domain.RuntimeCommandPresentation || state == nil {
+		return gate.Service.DispatchPlayerAction(connectionID, command)
+	}
+
+	state.blockedOnce.Do(func() { close(state.blocked) })
+	contextClosed := false
+	select {
+	case <-state.release:
+	case <-gate.context.Done():
+		contextClosed = true
+	}
+	gate.mu.Lock()
+	canceled := state.canceled || contextClosed
+	if gate.state == state {
+		gate.state = nil
+	}
+	gate.mu.Unlock()
+	if canceled {
+		return domain.ActionResult{
+			RequestID: command.RequestID,
+			Reason:    domain.ActionReasonControllerDisconnected,
+			Revision:  gate.Service.Snapshot().Revision,
+		}
+	}
+	return gate.Service.DispatchPlayerAction(connectionID, command)
 }
 
 type fixtureEdgeStatus struct {
@@ -648,7 +1014,11 @@ func (edge *fixtureEdge) reset() error {
 	if edge.ingress == nil || edge.ingress.URL() == nil {
 		return errors.New("fixture ingress is unavailable")
 	}
-	if err := edge.ingress.Activate(edge.ingress.URL().Host, fixtureEdgeUsername, []byte(fixtureEdgePassword)); err != nil {
+	host := edge.ingress.URL().Host
+	if publicURL, err := url.Parse(edge.publicURL); err == nil && publicURL.Host != "" {
+		host = publicURL.Host
+	}
+	if err := edge.ingress.Activate(host, fixtureEdgeUsername, []byte(fixtureEdgePassword)); err != nil {
 		return err
 	}
 	edge.active.Store(true)
@@ -823,9 +1193,14 @@ func run(ctx context.Context) error {
 	approvalStore.reset()
 	authoringStore := &fixtureAuthoringStore{}
 	authoringStore.reset()
+	terminalGroupingStore := &fixtureTerminalGroupingStore{}
+	if err := terminalGroupingStore.reset("canonical"); err != nil {
+		return fmt.Errorf("reset terminal-grouping fixture: %w", err)
+	}
 	playerManagementStore := &fixturePlayerManagementStore{}
 	playerManagementStore.reset()
-	navigationCatalog := &fixtureTerminalCatalog{session: terminalNavigationSession()}
+	navigationCatalog := &fixtureTerminalCatalog{}
+	navigationCatalog.replace(terminalNavigationSession())
 	var navigationPending atomic.Bool
 	var navigationProjectionRevision atomic.Uint64
 	liveService := live.New(fixtureHackRandom, nil)
@@ -843,13 +1218,19 @@ func run(ctx context.Context) error {
 			}
 		},
 	})
-	connectPlayer, err = player.NewConnectService(player.ConnectServiceConfig{Coordinator: service, Assets: playerAssets})
+	presentationGate := &fixturePresentationGate{Service: service, context: ctx}
+	presentationHub := player.NewSubscriptionHub()
+	connectPlayer, err = player.NewConnectService(player.ConnectServiceConfig{
+		Coordinator: presentationGate,
+		Hub:         presentationHub,
+		Assets:      playerAssets,
+	})
 	if err != nil {
 		return fmt.Errorf("construct fixture Connect service: %w", err)
 	}
 	rpcPath, rpcHandler := player.NewConnectHandler(connectPlayer)
 	applicationHandler := player.NewApplicationHandler(playerAssets, rpcPath, rpcHandler)
-	edge := &fixtureEdge{service: service, connect: connectPlayer}
+	edge := &fixtureEdge{service: service, connect: connectPlayer, hub: presentationHub}
 
 	for _, name := range []string{"Mara", "Boone", "Arcade", "Cass", "Veronica", "Raul", "Lily"} {
 		if _, err := service.AddCharacter(domain.CharacterCreatePayload{
@@ -1016,6 +1397,221 @@ func run(ctx context.Context) error {
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(authoringStore.resetTerminal(payload))
 	})
+	mux.HandleFunc("GET /__fixture/terminal-grouping/overseer", func(response http.ResponseWriter, _ *http.Request) {
+		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
+		if readErr != nil {
+			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
+			return
+		}
+		page := strings.Replace(string(raw), `<head>`, `<head>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/desktopservice.js":"/__fixture/terminal-grouping/desktop-bindings.js"}}</script>`, 1)
+		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
+		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
+		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("GET /__fixture/terminal-grouping/desktop-bindings.js", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = fmt.Fprint(response, `export * from "/__fixture/desktop-bindings.js";
+
+export async function OpenSession() {
+  const response = await fetch("/__fixture/terminal-grouping/open-session");
+  const result = response.ok ? await response.json() : null;
+  return {
+    ok: response.ok && result?.ok === true,
+    error: response.ok ? (result?.error ?? "") : "terminal grouping fixture is unavailable",
+    filePath: "/private/tmp/fallout-terminal-grouping.json",
+    session: result?.session ?? null,
+  };
+}
+
+export async function SaveSession(session) {
+  const retained = structuredClone(session);
+  const response = await fetch("/__fixture/terminal-grouping/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(retained),
+  });
+  const result = response.ok ? await response.json() : null;
+  return {
+    ok: response.ok && result?.ok === true,
+    error: response.ok ? (result?.error ?? "") : "terminal grouping save failed",
+    savedRevision: Number(result?.revision ?? 0),
+  };
+}
+
+export async function RequestTerminalActivation(payload) {
+  const response = await fetch("/__fixture/terminal-grouping/activate-terminal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return response.ok
+    ? response.json()
+    : { ok: false, error: "terminal grouping activation fixture is unavailable" };
+}
+`)
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/reset", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Scenario string `json:"scenario"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid terminal-grouping reset", http.StatusBadRequest)
+			return
+		}
+		if err := terminalGroupingStore.reset(payload.Scenario); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		active := terminalGroupingStore.activeSnapshot().Session
+		if active == nil || len(active.Terminals) == 0 {
+			http.Error(response, "terminal-grouping scenario has no terminal", http.StatusInternalServerError)
+			return
+		}
+		navigationCatalog.replace(*active)
+		if _, err := service.EndBroadcast(); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		if _, err := service.StartBroadcast(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		initialTerminalID := active.Terminals[0].ID
+		if strings.TrimSpace(payload.Scenario) == "ordered-navigation" {
+			initialTerminalID = "gamma"
+		}
+		initial, ok := navigationCatalog.LookupTerminal(initialTerminalID)
+		if !ok {
+			http.Error(response, "terminal-grouping initial terminal is unavailable", http.StatusInternalServerError)
+			return
+		}
+		if _, err := service.RequestTerminalActivation(initial); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		terminalGroupingStore.setCoordinationRevision(service.Snapshot().Revision)
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/terminal-grouping/session", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(terminalGroupingStore.persistedSnapshot())
+	})
+	mux.HandleFunc("GET /__fixture/terminal-grouping/open-session", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(terminalGroupingStore.activeSnapshot())
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/save", func(response http.ResponseWriter, request *http.Request) {
+		var candidate domain.Session
+		if err := json.NewDecoder(request.Body).Decode(&candidate); err != nil {
+			http.Error(response, "invalid terminal-grouping session", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(terminalGroupingStore.save(candidate))
+	})
+	mux.HandleFunc("GET /__fixture/terminal-grouping/status", func(response http.ResponseWriter, _ *http.Request) {
+		var coordination *domain.MasterCoordinationState
+		if terminalGroupingStore.orderedNavigation() {
+			coordination = service.Snapshot()
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(terminalGroupingStore.runtimeStatus(coordination))
+	})
+	mux.HandleFunc("GET /__fixture/terminal-grouping/navigation-state", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(terminalGroupingStore.navigationState(service.Snapshot()))
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/activate-terminal", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			TerminalID string `json:"terminalId"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			http.Error(response, "invalid terminal grouping activation", http.StatusBadRequest)
+			return
+		}
+		target, ok := navigationCatalog.LookupTerminal(payload.TerminalID)
+		if !ok {
+			http.Error(response, "terminal grouping activation target is unavailable", http.StatusNotFound)
+			return
+		}
+		state, err := service.RequestTerminalActivation(target)
+		result := map[string]any{"ok": err == nil, "status": "activated", "state": state}
+		if err != nil {
+			result["error"] = err.Error()
+			result["status"] = ""
+		} else if state.PendingSwitch != nil {
+			result["status"] = "decision-required"
+			result["switchId"] = state.PendingSwitch.SwitchID
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/resolve-navigation", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			RequestID string                            `json:"requestId"`
+			Decision  domain.TerminalNavigationDecision `json:"decision"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			http.Error(response, "invalid terminal grouping navigation decision", http.StatusBadRequest)
+			return
+		}
+		state, err := service.ResolveTerminalNavigation(payload.RequestID, payload.Decision)
+		result := map[string]any{"ok": err == nil, "state": state}
+		if err != nil {
+			result["error"] = err.Error()
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/resolve-command", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			RequestID string                          `json:"requestId"`
+			Decision  domain.CommandExecutionDecision `json:"decision"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			http.Error(response, "invalid terminal grouping command decision", http.StatusBadRequest)
+			return
+		}
+		state, _, err := service.ResolveCommandExecution(request.Context(), payload.RequestID, payload.Decision)
+		result := map[string]any{"ok": err == nil, "state": state}
+		if err != nil {
+			result["error"] = err.Error()
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/replace-groups", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureTerminalGroupReplacementRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid terminal group replacement", http.StatusBadRequest)
+			return
+		}
+		result := terminalGroupingStore.replaceGroups(payload)
+		if result.OK && result.Session != nil {
+			navigationCatalog.replace(*result.Session)
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/terminal-grouping/advance-revisions", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Session      bool `json:"session"`
+			Coordination bool `json:"coordination"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			http.Error(response, "invalid revision advance", http.StatusBadRequest)
+			return
+		}
+		terminalGroupingStore.advanceRevisions(payload.Session, payload.Coordination)
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /__fixture/terminal-navigation/overseer", func(response http.ResponseWriter, _ *http.Request) {
 		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
 		if readErr != nil {
@@ -1036,8 +1632,14 @@ func run(ctx context.Context) error {
 	})
 	mux.HandleFunc("POST /__fixture/terminal-navigation/save", func(response http.ResponseWriter, request *http.Request) {
 		var candidate domain.Session
-		if err := json.NewDecoder(request.Body).Decode(&candidate); err != nil || domain.ValidateSession(candidate) != nil {
+		if err := json.NewDecoder(request.Body).Decode(&candidate); err != nil {
 			http.Error(response, "invalid terminal navigation session", http.StatusBadRequest)
+			return
+		}
+		candidate.TerminalGroups = navigationCatalog.snapshot().TerminalGroups
+		candidate = domain.EnsureTerminalGroups(candidate)
+		if err := domain.ValidateSession(candidate); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 		navigationCatalog.replace(candidate)
@@ -1078,6 +1680,15 @@ func run(ctx context.Context) error {
 			http.Error(response, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/terminal-navigation/group-full-route", func(response http.ResponseWriter, _ *http.Request) {
+		session := navigationCatalog.snapshot()
+		session.TerminalGroups = []domain.TerminalGroup{{
+			ID: "navigation-full-route", Name: "Полный навигационный маршрут",
+			TerminalIDs: []string{"residential", "security", "vault"},
+		}}
+		navigationCatalog.replace(session)
 		response.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /__fixture/terminal-navigation/pending-forward", func(response http.ResponseWriter, _ *http.Request) {
@@ -1392,6 +2003,7 @@ func run(ctx context.Context) error {
 	})
 	mux.HandleFunc("POST /__fixture/reset", func(response http.ResponseWriter, _ *http.Request) {
 		fixtureHackRandom.reset()
+		presentationGate.reset()
 		if err := edge.reset(); err != nil {
 			http.Error(response, err.Error(), http.StatusInternalServerError)
 			return
@@ -1409,6 +2021,30 @@ func run(ctx context.Context) error {
 			return
 		}
 		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/reassign-controller", func(response http.ResponseWriter, _ *http.Request) {
+		state := service.Snapshot()
+		var target domain.LogicalSessionID
+		for _, session := range state.Sessions {
+			if session.Connected && session.Character != nil && session.Role == domain.PlayerRoleObserver {
+				target = session.ID
+				break
+			}
+		}
+		if target == "" {
+			http.Error(response, "connected assigned observer does not exist", http.StatusConflict)
+			return
+		}
+		updated, err := service.SetActiveController(target)
+		if err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]any{
+			"controllerSessionId": target,
+			"revision":            updated.Revision,
+		})
 	})
 	mux.HandleFunc("POST /__fixture/update", func(response http.ResponseWriter, _ *http.Request) {
 		updated := fixtureTerminal()
@@ -1524,6 +2160,22 @@ func run(ctx context.Context) error {
 		edge.connect.CloseSubscriptions()
 		response.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /__fixture/edge/presentation-gate/arm", func(response http.ResponseWriter, _ *http.Request) {
+		presentationGate.arm()
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/edge/presentation-gate/blocked", func(response http.ResponseWriter, _ *http.Request) {
+		if !presentationGate.isBlocked() {
+			response.WriteHeader(http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/edge/presentation-gate/cancel-uplinks", func(response http.ResponseWriter, _ *http.Request) {
+		edge.hub.CloseUplinks(errors.New("fixture presentation uplinks rotated"))
+		presentationGate.cancelAfter(2 * time.Second)
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /__fixture/edge/disable", func(response http.ResponseWriter, _ *http.Request) {
 		edge.ingress.Deny()
 		edge.active.Store(false)
@@ -1553,13 +2205,35 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("start fixture public ingress: %w", err)
 	}
 	edge.ingress = ingress
-	edge.publicURL = ingress.URL().String()
+	publicTLS := httptest.NewUnstartedServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if !edge.active.Load() {
+			http.NotFound(response, request)
+			return
+		}
+		username, password, ok := request.BasicAuth()
+		if !ok || username != fixtureEdgeUsername || password != fixtureEdgePassword {
+			response.Header().Set("WWW-Authenticate", `Basic realm="Fallout Terminal Players"`)
+			http.Error(response, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		forwarded := request.Clone(request.Context())
+		forwarded.Header.Del("Authorization")
+		forwarded.Header.Del("Proxy-Authorization")
+		mux.ServeHTTP(response, forwarded)
+	}))
+	publicTLS.EnableHTTP2 = true
+	publicTLS.StartTLS()
+	edge.publicURL = publicTLS.URL
 	if err := edge.reset(); err != nil {
+		publicTLS.Close()
 		_ = ingress.Close(ctx)
 		_ = listener.Close()
 		return fmt.Errorf("activate fixture public ingress: %w", err)
 	}
-	httpServer := &http.Server{Handler: mux}
+	fixtureProtocols := new(http.Protocols)
+	fixtureProtocols.SetHTTP1(true)
+	fixtureProtocols.SetUnencryptedHTTP2(true)
+	httpServer := &http.Server{Handler: mux, Protocols: fixtureProtocols}
 	serveErrors := make(chan error, 1)
 	go func() {
 		serveErrors <- httpServer.Serve(listener)
@@ -1581,6 +2255,7 @@ func run(ctx context.Context) error {
 		stopShutdownDeadline()
 	}()
 	ingress.Deny()
+	publicTLS.Close()
 	return errors.Join(ingress.Close(shutdownContext), httpServer.Shutdown(shutdownContext))
 }
 
@@ -1679,6 +2354,171 @@ func stateChangingAuthoringSession() domain.Session {
 	}
 }
 
+func terminalGroupingSession(scenario string) (domain.Session, error) {
+	scenario = strings.TrimSpace(scenario)
+	if scenario == "" {
+		scenario = "canonical"
+	}
+	terminal := func(id, name string) domain.Terminal {
+		return domain.Terminal{
+			ID: id, Name: name,
+			Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}},
+		}
+	}
+	switch scenario {
+	case "canonical":
+		return domain.Session{
+			Version: 1, Name: "Terminal grouping canonical fixture",
+			Terminals: []domain.Terminal{
+				terminal("residential", "Жилой терминал"),
+				terminal("security", "Терминал охраны"),
+				terminal("vault", "Терминал хранилища"),
+			},
+			TerminalGroups: []domain.TerminalGroup{
+				{ID: "vault-route", Name: "Маршрут хранилища", TerminalIDs: []string{"security", "residential"}},
+				{ID: "vault-standalone", Name: "Отдельное хранилище", TerminalIDs: []string{"vault"}},
+			},
+		}, nil
+	case "singleton":
+		return domain.Session{
+			Version: 1, Name: "Terminal grouping singleton fixture",
+			Terminals: []domain.Terminal{
+				terminal("medical", "Медицинский терминал"),
+				terminal("reactor", "Терминал реактора"),
+				terminal("archive", "Архивный терминал"),
+			},
+			TerminalGroups: []domain.TerminalGroup{
+				{ID: "medical-singleton", Name: "Медицинский блок", TerminalIDs: []string{"medical"}},
+				{ID: "reactor-singleton", Name: "Реакторный блок", TerminalIDs: []string{"reactor"}},
+				{ID: "archive-singleton", Name: "Архивный блок", TerminalIDs: []string{"archive"}},
+			},
+		}, nil
+	case "ordered":
+		return domain.Session{
+			Version: 1, Name: "Terminal grouping ordered fixture",
+			Terminals: []domain.Terminal{
+				terminal("alpha", "Терминал Альфа"),
+				terminal("beta", "Терминал Бета"),
+				terminal("gamma", "Терминал Гамма"),
+				terminal("delta", "Терминал Дельта"),
+				terminal("epsilon", "Терминал Эпсилон"),
+			},
+			TerminalGroups: []domain.TerminalGroup{
+				{ID: "south-route", Name: "Южный маршрут", TerminalIDs: []string{"delta", "beta"}},
+				{ID: "north-route", Name: "Северный маршрут", TerminalIDs: []string{"gamma", "alpha"}},
+				{ID: "epsilon-singleton", Name: "Терминал Гамма", TerminalIDs: []string{"epsilon"}},
+			},
+		}, nil
+	case "legacy":
+		legacyOne := terminal("legacy-one", "Старый терминал 1")
+		legacyOne.Root.Children = append(legacyOne.Root.Children, domain.ContentNode{
+			ID: "legacy-transition", Type: domain.NodeCommand, Name: "СТАРЫЙ ПЕРЕХОД",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "legacy-two"},
+		})
+		return domain.Session{
+			Version: 1, Name: "Terminal grouping legacy fixture",
+			Terminals: []domain.Terminal{
+				legacyOne,
+				terminal("legacy-two", "Старый терминал 2"),
+				terminal("legacy-three", "Старый терминал 3"),
+			},
+		}, nil
+	case "legacy-multi-link":
+		service := terminal("t-krel-service", "K-REL / СЕРВИСНЫЙ КОНТУР")
+		service.Root.Children = append(service.Root.Children, domain.ContentNode{
+			ID: "svc-access-admin", Type: domain.NodeCommand, Name: "ВХОД АДМИНИСТРАТОРА",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "t-krel-admin"},
+		})
+		admin := terminal("t-krel-admin", "K-REL / АДМИНИСТРАТОР")
+		admin.Root.Children = append(admin.Root.Children, domain.ContentNode{
+			ID: "adm-emergency", Type: domain.NodeCommand, Name: "АВАРИЙНОЕ УПРАВЛЕНИЕ",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "t-krel-emergency"},
+		})
+		emergency := terminal("t-krel-emergency", "K-REL / АВАРИЙНОЕ УПРАВЛЕНИЕ")
+		emergency.HackLevel = 4
+		return domain.Session{
+			Version: 1, Name: "session-05-cold-storage",
+			Terminals: []domain.Terminal{service, admin, emergency},
+		}, nil
+	case "legacy-multi-link-authored":
+		return bug004AuthoredSession()
+	case "ordered-navigation":
+		alpha := terminal("alpha", "Терминал Альфа")
+		alpha.Root.Children = append(alpha.Root.Children, domain.ContentNode{
+			ID: "go-beta", Type: domain.NodeCommand, Name: "ПЕРЕЙТИ В ТЕРМИНАЛ БЕТА",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "beta"},
+		})
+		beta := terminal("beta", "Терминал Бета")
+		beta.Root.Children = append(beta.Root.Children,
+			domain.ContentNode{
+				ID: "go-gamma", Type: domain.NodeCommand, Name: "ПЕРЕЙТИ В ТЕРМИНАЛ ГАММА",
+				TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "gamma"},
+			},
+			domain.ContentNode{
+				ID: "go-gamma-backup", Type: domain.NodeCommand, Name: "РЕЗЕРВНЫЙ МАРШРУТ К ГАММЕ",
+				TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "gamma"},
+			},
+		)
+		gamma := terminal("gamma", "Терминал Гамма")
+		gamma.Root.Children = append(gamma.Root.Children,
+			domain.ContentNode{ID: "check-link", Type: domain.NodeCommand, Name: "ПРОВЕРИТЬ СВЯЗЬ", Text: "СВЯЗЬ СТАБИЛЬНА"},
+			domain.ContentNode{
+				ID: "go-delta", Type: domain.NodeCommand, Name: "ПЕРЕЙТИ В ТЕРМИНАЛ ДЕЛЬТА",
+				TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "delta"},
+			},
+		)
+		return domain.Session{
+			Version: 1, Name: "Terminal grouping ordered navigation fixture",
+			Terminals: []domain.Terminal{
+				alpha, beta, gamma, terminal("delta", "Терминал Дельта"), terminal("epsilon", "Терминал Эпсилон"),
+			},
+			TerminalGroups: []domain.TerminalGroup{
+				{ID: "ordered-route", Name: "Полный маршрут", TerminalIDs: []string{"alpha", "beta", "gamma", "delta"}},
+				{ID: "epsilon-standalone", Name: "Отдельный терминал", TerminalIDs: []string{"epsilon"}},
+			},
+		}, nil
+	default:
+		return domain.Session{}, fmt.Errorf("unknown terminal-grouping scenario %q", scenario)
+	}
+}
+
+func bug004AuthoredSession() (domain.Session, error) {
+	const exactSHA256 = "b4ca8b89b7d7af32e05a9b598a007e36a747ef59ce3e2bd15a60d0b3f0ec9438"
+	exactPath := strings.TrimSpace(os.Getenv("FALLOUT_BUG004_SOURCE"))
+	candidates := []string{exactPath}
+	if exactPath == "" {
+		candidates = []string{
+			filepath.Join("..", "fixtures", "session-05-cold-storage.json"),
+			filepath.Join("tests", "fixtures", "session-05-cold-storage.json"),
+			filepath.Join("..", "..", "tests", "fixtures", "session-05-cold-storage.json"),
+		}
+	}
+	var raw []byte
+	var sourcePath string
+	var readErr error
+	for _, candidate := range candidates {
+		if candidate == "" {
+			continue
+		}
+		raw, readErr = os.ReadFile(candidate)
+		if readErr == nil {
+			sourcePath = candidate
+			break
+		}
+	}
+	if readErr != nil || sourcePath == "" {
+		return domain.Session{}, fmt.Errorf("read BUG-004 authored fixture: %w", readErr)
+	}
+	if exactPath != "" && fmt.Sprintf("%x", sha256.Sum256(raw)) != exactSHA256 {
+		return domain.Session{}, fmt.Errorf("BUG-004 authored source SHA-256 does not match %s", exactSHA256)
+	}
+	session, err := domain.DecodeSession(raw)
+	if err != nil {
+		return domain.Session{}, fmt.Errorf("decode BUG-004 authored fixture %s: %w", sourcePath, err)
+	}
+	return session, nil
+}
+
 func terminalNavigationSession() domain.Session {
 	return domain.Session{
 		Version: 1, Name: "Terminal navigation fixture",
@@ -1703,8 +2543,12 @@ func terminalNavigationSession() domain.Session {
 			},
 			{
 				ID: "vault", Name: "Терминал хранилища",
-				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT"},
+				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}},
 			},
+		},
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: "navigation-route", Name: "Навигационный маршрут", TerminalIDs: []string{"residential", "security"}},
+			{ID: "vault-singleton", Name: "Терминал хранилища", TerminalIDs: []string{"vault"}},
 		},
 	}
 }

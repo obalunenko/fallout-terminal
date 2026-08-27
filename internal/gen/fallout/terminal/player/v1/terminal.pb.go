@@ -343,6 +343,334 @@ func (x *TerminalNavigationPresentation) GetPending() *PendingTerminalNavigation
 	return nil
 }
 
+type NoControllerTerminalPresentation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NoControllerTerminalPresentation) Reset() {
+	*x = NoControllerTerminalPresentation{}
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NoControllerTerminalPresentation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NoControllerTerminalPresentation) ProtoMessage() {}
+
+func (x *NoControllerTerminalPresentation) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NoControllerTerminalPresentation.ProtoReflect.Descriptor instead.
+func (*NoControllerTerminalPresentation) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{4}
+}
+
+type MenuSelection struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TargetId      string                 `protobuf:"bytes,1,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MenuSelection) Reset() {
+	*x = MenuSelection{}
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MenuSelection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MenuSelection) ProtoMessage() {}
+
+func (x *MenuSelection) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MenuSelection.ProtoReflect.Descriptor instead.
+func (*MenuSelection) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *MenuSelection) GetTargetId() string {
+	if x != nil {
+		return x.TargetId
+	}
+	return ""
+}
+
+type InformationPagePosition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PageIndex     uint32                 `protobuf:"varint,1,opt,name=page_index,json=pageIndex,proto3" json:"page_index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InformationPagePosition) Reset() {
+	*x = InformationPagePosition{}
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InformationPagePosition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InformationPagePosition) ProtoMessage() {}
+
+func (x *InformationPagePosition) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InformationPagePosition.ProtoReflect.Descriptor instead.
+func (*InformationPagePosition) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *InformationPagePosition) GetPageIndex() uint32 {
+	if x != nil {
+		return x.PageIndex
+	}
+	return 0
+}
+
+type HackingPreview struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Target:
+	//
+	//	*HackingPreview_TargetId
+	//	*HackingPreview_PatternId
+	Target        isHackingPreview_Target `protobuf_oneof:"target"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HackingPreview) Reset() {
+	*x = HackingPreview{}
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HackingPreview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HackingPreview) ProtoMessage() {}
+
+func (x *HackingPreview) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HackingPreview.ProtoReflect.Descriptor instead.
+func (*HackingPreview) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *HackingPreview) GetTarget() isHackingPreview_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *HackingPreview) GetTargetId() string {
+	if x != nil {
+		if x, ok := x.Target.(*HackingPreview_TargetId); ok {
+			return x.TargetId
+		}
+	}
+	return ""
+}
+
+func (x *HackingPreview) GetPatternId() string {
+	if x != nil {
+		if x, ok := x.Target.(*HackingPreview_PatternId); ok {
+			return x.PatternId
+		}
+	}
+	return ""
+}
+
+type isHackingPreview_Target interface {
+	isHackingPreview_Target()
+}
+
+type HackingPreview_TargetId struct {
+	TargetId string `protobuf:"bytes,1,opt,name=target_id,json=targetId,proto3,oneof"`
+}
+
+type HackingPreview_PatternId struct {
+	PatternId string `protobuf:"bytes,2,opt,name=pattern_id,json=patternId,proto3,oneof"`
+}
+
+func (*HackingPreview_TargetId) isHackingPreview_Target() {}
+
+func (*HackingPreview_PatternId) isHackingPreview_Target() {}
+
+type ControllerTerminalPresentation struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ContextKey string                 `protobuf:"bytes,1,opt,name=context_key,json=contextKey,proto3" json:"context_key,omitempty"`
+	// Types that are valid to be assigned to Presentation:
+	//
+	//	*ControllerTerminalPresentation_None
+	//	*ControllerTerminalPresentation_Menu
+	//	*ControllerTerminalPresentation_Page
+	//	*ControllerTerminalPresentation_Hacking
+	Presentation  isControllerTerminalPresentation_Presentation `protobuf_oneof:"presentation"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ControllerTerminalPresentation) Reset() {
+	*x = ControllerTerminalPresentation{}
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ControllerTerminalPresentation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ControllerTerminalPresentation) ProtoMessage() {}
+
+func (x *ControllerTerminalPresentation) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ControllerTerminalPresentation.ProtoReflect.Descriptor instead.
+func (*ControllerTerminalPresentation) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ControllerTerminalPresentation) GetContextKey() string {
+	if x != nil {
+		return x.ContextKey
+	}
+	return ""
+}
+
+func (x *ControllerTerminalPresentation) GetPresentation() isControllerTerminalPresentation_Presentation {
+	if x != nil {
+		return x.Presentation
+	}
+	return nil
+}
+
+func (x *ControllerTerminalPresentation) GetNone() *NoControllerTerminalPresentation {
+	if x != nil {
+		if x, ok := x.Presentation.(*ControllerTerminalPresentation_None); ok {
+			return x.None
+		}
+	}
+	return nil
+}
+
+func (x *ControllerTerminalPresentation) GetMenu() *MenuSelection {
+	if x != nil {
+		if x, ok := x.Presentation.(*ControllerTerminalPresentation_Menu); ok {
+			return x.Menu
+		}
+	}
+	return nil
+}
+
+func (x *ControllerTerminalPresentation) GetPage() *InformationPagePosition {
+	if x != nil {
+		if x, ok := x.Presentation.(*ControllerTerminalPresentation_Page); ok {
+			return x.Page
+		}
+	}
+	return nil
+}
+
+func (x *ControllerTerminalPresentation) GetHacking() *HackingPreview {
+	if x != nil {
+		if x, ok := x.Presentation.(*ControllerTerminalPresentation_Hacking); ok {
+			return x.Hacking
+		}
+	}
+	return nil
+}
+
+type isControllerTerminalPresentation_Presentation interface {
+	isControllerTerminalPresentation_Presentation()
+}
+
+type ControllerTerminalPresentation_None struct {
+	None *NoControllerTerminalPresentation `protobuf:"bytes,2,opt,name=none,proto3,oneof"`
+}
+
+type ControllerTerminalPresentation_Menu struct {
+	Menu *MenuSelection `protobuf:"bytes,3,opt,name=menu,proto3,oneof"`
+}
+
+type ControllerTerminalPresentation_Page struct {
+	Page *InformationPagePosition `protobuf:"bytes,4,opt,name=page,proto3,oneof"`
+}
+
+type ControllerTerminalPresentation_Hacking struct {
+	Hacking *HackingPreview `protobuf:"bytes,5,opt,name=hacking,proto3,oneof"`
+}
+
+func (*ControllerTerminalPresentation_None) isControllerTerminalPresentation_Presentation() {}
+
+func (*ControllerTerminalPresentation_Menu) isControllerTerminalPresentation_Presentation() {}
+
+func (*ControllerTerminalPresentation_Page) isControllerTerminalPresentation_Presentation() {}
+
+func (*ControllerTerminalPresentation_Hacking) isControllerTerminalPresentation_Presentation() {}
+
 type ContentFolder struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Children      []*ContentNode         `protobuf:"bytes,1,rep,name=children,proto3" json:"children,omitempty"`
@@ -352,7 +680,7 @@ type ContentFolder struct {
 
 func (x *ContentFolder) Reset() {
 	*x = ContentFolder{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[4]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -364,7 +692,7 @@ func (x *ContentFolder) String() string {
 func (*ContentFolder) ProtoMessage() {}
 
 func (x *ContentFolder) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[4]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -377,7 +705,7 @@ func (x *ContentFolder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentFolder.ProtoReflect.Descriptor instead.
 func (*ContentFolder) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{4}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ContentFolder) GetChildren() []*ContentNode {
@@ -396,7 +724,7 @@ type ContentCommand struct {
 
 func (x *ContentCommand) Reset() {
 	*x = ContentCommand{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[5]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -408,7 +736,7 @@ func (x *ContentCommand) String() string {
 func (*ContentCommand) ProtoMessage() {}
 
 func (x *ContentCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[5]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -421,7 +749,7 @@ func (x *ContentCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentCommand.ProtoReflect.Descriptor instead.
 func (*ContentCommand) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{5}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ContentCommand) GetText() string {
@@ -440,7 +768,7 @@ type ContentEntry struct {
 
 func (x *ContentEntry) Reset() {
 	*x = ContentEntry{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[6]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +780,7 @@ func (x *ContentEntry) String() string {
 func (*ContentEntry) ProtoMessage() {}
 
 func (x *ContentEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[6]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +793,7 @@ func (x *ContentEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentEntry.ProtoReflect.Descriptor instead.
 func (*ContentEntry) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{6}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ContentEntry) GetDescription() string {
@@ -491,7 +819,7 @@ type ContentNode struct {
 
 func (x *ContentNode) Reset() {
 	*x = ContentNode{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[7]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +831,7 @@ func (x *ContentNode) String() string {
 func (*ContentNode) ProtoMessage() {}
 
 func (x *ContentNode) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[7]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +844,7 @@ func (x *ContentNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentNode.ProtoReflect.Descriptor instead.
 func (*ContentNode) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{7}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ContentNode) GetId() string {
@@ -590,23 +918,24 @@ func (*ContentNode_Command) isContentNode_Content() {}
 func (*ContentNode_Entry) isContentNode_Content() {}
 
 type LiveTerminal struct {
-	state              protoimpl.MessageState          `protogen:"open.v1"`
-	TerminalId         string                          `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
-	TerminalName       string                          `protobuf:"bytes,2,opt,name=terminal_name,json=terminalName,proto3" json:"terminal_name,omitempty"`
-	Tree               *ContentNode                    `protobuf:"bytes,3,opt,name=tree,proto3" json:"tree,omitempty"`
-	HackLevel          int32                           `protobuf:"varint,4,opt,name=hack_level,json=hackLevel,proto3" json:"hack_level,omitempty"`
-	IntroText          string                          `protobuf:"bytes,5,opt,name=intro_text,json=introText,proto3" json:"intro_text,omitempty"`
-	Navigation         *NavigationState                `protobuf:"bytes,6,opt,name=navigation,proto3" json:"navigation,omitempty"`
-	Hacking            *PublicHackState                `protobuf:"bytes,7,opt,name=hacking,proto3" json:"hacking,omitempty"`
-	CommandExecution   *CommandExecutionPresentation   `protobuf:"bytes,8,opt,name=command_execution,json=commandExecution,proto3,oneof" json:"command_execution,omitempty"`
-	TerminalNavigation *TerminalNavigationPresentation `protobuf:"bytes,9,opt,name=terminal_navigation,json=terminalNavigation,proto3,oneof" json:"terminal_navigation,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	state                  protoimpl.MessageState          `protogen:"open.v1"`
+	TerminalId             string                          `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	TerminalName           string                          `protobuf:"bytes,2,opt,name=terminal_name,json=terminalName,proto3" json:"terminal_name,omitempty"`
+	Tree                   *ContentNode                    `protobuf:"bytes,3,opt,name=tree,proto3" json:"tree,omitempty"`
+	HackLevel              int32                           `protobuf:"varint,4,opt,name=hack_level,json=hackLevel,proto3" json:"hack_level,omitempty"`
+	IntroText              string                          `protobuf:"bytes,5,opt,name=intro_text,json=introText,proto3" json:"intro_text,omitempty"`
+	Navigation             *NavigationState                `protobuf:"bytes,6,opt,name=navigation,proto3" json:"navigation,omitempty"`
+	Hacking                *PublicHackState                `protobuf:"bytes,7,opt,name=hacking,proto3" json:"hacking,omitempty"`
+	CommandExecution       *CommandExecutionPresentation   `protobuf:"bytes,8,opt,name=command_execution,json=commandExecution,proto3,oneof" json:"command_execution,omitempty"`
+	TerminalNavigation     *TerminalNavigationPresentation `protobuf:"bytes,9,opt,name=terminal_navigation,json=terminalNavigation,proto3,oneof" json:"terminal_navigation,omitempty"`
+	ControllerPresentation *ControllerTerminalPresentation `protobuf:"bytes,10,opt,name=controller_presentation,json=controllerPresentation,proto3" json:"controller_presentation,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *LiveTerminal) Reset() {
 	*x = LiveTerminal{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[8]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -618,7 +947,7 @@ func (x *LiveTerminal) String() string {
 func (*LiveTerminal) ProtoMessage() {}
 
 func (x *LiveTerminal) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[8]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -631,7 +960,7 @@ func (x *LiveTerminal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LiveTerminal.ProtoReflect.Descriptor instead.
 func (*LiveTerminal) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{8}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *LiveTerminal) GetTerminalId() string {
@@ -697,6 +1026,13 @@ func (x *LiveTerminal) GetTerminalNavigation() *TerminalNavigationPresentation {
 	return nil
 }
 
+func (x *LiveTerminal) GetControllerPresentation() *ControllerTerminalPresentation {
+	if x != nil {
+		return x.ControllerPresentation
+	}
+	return nil
+}
+
 type NoLiveTerminal struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -705,7 +1041,7 @@ type NoLiveTerminal struct {
 
 func (x *NoLiveTerminal) Reset() {
 	*x = NoLiveTerminal{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[9]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -717,7 +1053,7 @@ func (x *NoLiveTerminal) String() string {
 func (*NoLiveTerminal) ProtoMessage() {}
 
 func (x *NoLiveTerminal) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[9]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -730,7 +1066,7 @@ func (x *NoLiveTerminal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NoLiveTerminal.ProtoReflect.Descriptor instead.
 func (*NoLiveTerminal) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{9}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{14}
 }
 
 type TerminalPresentation struct {
@@ -746,7 +1082,7 @@ type TerminalPresentation struct {
 
 func (x *TerminalPresentation) Reset() {
 	*x = TerminalPresentation{}
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[10]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -758,7 +1094,7 @@ func (x *TerminalPresentation) String() string {
 func (*TerminalPresentation) ProtoMessage() {}
 
 func (x *TerminalPresentation) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[10]
+	mi := &file_fallout_terminal_player_v1_terminal_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,7 +1107,7 @@ func (x *TerminalPresentation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalPresentation.ProtoReflect.Descriptor instead.
 func (*TerminalPresentation) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{10}
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TerminalPresentation) GetPresentation() isTerminalPresentation_Presentation {
@@ -838,7 +1174,26 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"\apending\x18\x03 \x01(\v2A.fallout.terminal.player.v1.PendingTerminalNavigationPresentationH\x01R\apending\x88\x01\x01B\x10\n" +
 	"\x0e_return_targetB\n" +
 	"\n" +
-	"\b_pending\"T\n" +
+	"\b_pending\"\"\n" +
+	" NoControllerTerminalPresentation\",\n" +
+	"\rMenuSelection\x12\x1b\n" +
+	"\ttarget_id\x18\x01 \x01(\tR\btargetId\"8\n" +
+	"\x17InformationPagePosition\x12\x1d\n" +
+	"\n" +
+	"page_index\x18\x01 \x01(\rR\tpageIndex\"Z\n" +
+	"\x0eHackingPreview\x12\x1d\n" +
+	"\ttarget_id\x18\x01 \x01(\tH\x00R\btargetId\x12\x1f\n" +
+	"\n" +
+	"pattern_id\x18\x02 \x01(\tH\x00R\tpatternIdB\b\n" +
+	"\x06target\"\xf9\x02\n" +
+	"\x1eControllerTerminalPresentation\x12\x1f\n" +
+	"\vcontext_key\x18\x01 \x01(\tR\n" +
+	"contextKey\x12R\n" +
+	"\x04none\x18\x02 \x01(\v2<.fallout.terminal.player.v1.NoControllerTerminalPresentationH\x00R\x04none\x12?\n" +
+	"\x04menu\x18\x03 \x01(\v2).fallout.terminal.player.v1.MenuSelectionH\x00R\x04menu\x12I\n" +
+	"\x04page\x18\x04 \x01(\v23.fallout.terminal.player.v1.InformationPagePositionH\x00R\x04page\x12F\n" +
+	"\ahacking\x18\x05 \x01(\v2*.fallout.terminal.player.v1.HackingPreviewH\x00R\ahackingB\x0e\n" +
+	"\fpresentation\"T\n" +
 	"\rContentFolder\x12C\n" +
 	"\bchildren\x18\x01 \x03(\v2'.fallout.terminal.player.v1.ContentNodeR\bchildren\"$\n" +
 	"\x0eContentCommand\x12\x12\n" +
@@ -851,7 +1206,7 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"\x06folder\x18\x03 \x01(\v2).fallout.terminal.player.v1.ContentFolderH\x00R\x06folder\x12F\n" +
 	"\acommand\x18\x04 \x01(\v2*.fallout.terminal.player.v1.ContentCommandH\x00R\acommand\x12@\n" +
 	"\x05entry\x18\x05 \x01(\v2(.fallout.terminal.player.v1.ContentEntryH\x00R\x05entryB\t\n" +
-	"\acontent\"\xef\x04\n" +
+	"\acontent\"\xe4\x05\n" +
 	"\fLiveTerminal\x12\x1f\n" +
 	"\vterminal_id\x18\x01 \x01(\tR\n" +
 	"terminalId\x12#\n" +
@@ -866,7 +1221,9 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"navigation\x12E\n" +
 	"\ahacking\x18\a \x01(\v2+.fallout.terminal.player.v1.PublicHackStateR\ahacking\x12j\n" +
 	"\x11command_execution\x18\b \x01(\v28.fallout.terminal.player.v1.CommandExecutionPresentationH\x00R\x10commandExecution\x88\x01\x01\x12p\n" +
-	"\x13terminal_navigation\x18\t \x01(\v2:.fallout.terminal.player.v1.TerminalNavigationPresentationH\x01R\x12terminalNavigation\x88\x01\x01B\x14\n" +
+	"\x13terminal_navigation\x18\t \x01(\v2:.fallout.terminal.player.v1.TerminalNavigationPresentationH\x01R\x12terminalNavigation\x88\x01\x01\x12s\n" +
+	"\x17controller_presentation\x18\n" +
+	" \x01(\v2:.fallout.terminal.player.v1.ControllerTerminalPresentationR\x16controllerPresentationB\x14\n" +
 	"\x12_command_executionB\x16\n" +
 	"\x14_terminal_navigation\"\x10\n" +
 	"\x0eNoLiveTerminal\"\xcf\x01\n" +
@@ -896,7 +1253,7 @@ func file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP() []byte {
 }
 
 var file_fallout_terminal_player_v1_terminal_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_fallout_terminal_player_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_fallout_terminal_player_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_fallout_terminal_player_v1_terminal_proto_goTypes = []any{
 	(CommandExecutionPhase)(0),                    // 0: fallout.terminal.player.v1.CommandExecutionPhase
 	(TerminalNavigationDirection)(0),              // 1: fallout.terminal.player.v1.TerminalNavigationDirection
@@ -904,37 +1261,47 @@ var file_fallout_terminal_player_v1_terminal_proto_goTypes = []any{
 	(*TerminalReturnTarget)(nil),                  // 3: fallout.terminal.player.v1.TerminalReturnTarget
 	(*PendingTerminalNavigationPresentation)(nil), // 4: fallout.terminal.player.v1.PendingTerminalNavigationPresentation
 	(*TerminalNavigationPresentation)(nil),        // 5: fallout.terminal.player.v1.TerminalNavigationPresentation
-	(*ContentFolder)(nil),                         // 6: fallout.terminal.player.v1.ContentFolder
-	(*ContentCommand)(nil),                        // 7: fallout.terminal.player.v1.ContentCommand
-	(*ContentEntry)(nil),                          // 8: fallout.terminal.player.v1.ContentEntry
-	(*ContentNode)(nil),                           // 9: fallout.terminal.player.v1.ContentNode
-	(*LiveTerminal)(nil),                          // 10: fallout.terminal.player.v1.LiveTerminal
-	(*NoLiveTerminal)(nil),                        // 11: fallout.terminal.player.v1.NoLiveTerminal
-	(*TerminalPresentation)(nil),                  // 12: fallout.terminal.player.v1.TerminalPresentation
-	(*NavigationState)(nil),                       // 13: fallout.terminal.player.v1.NavigationState
-	(*PublicHackState)(nil),                       // 14: fallout.terminal.player.v1.PublicHackState
+	(*NoControllerTerminalPresentation)(nil),      // 6: fallout.terminal.player.v1.NoControllerTerminalPresentation
+	(*MenuSelection)(nil),                         // 7: fallout.terminal.player.v1.MenuSelection
+	(*InformationPagePosition)(nil),               // 8: fallout.terminal.player.v1.InformationPagePosition
+	(*HackingPreview)(nil),                        // 9: fallout.terminal.player.v1.HackingPreview
+	(*ControllerTerminalPresentation)(nil),        // 10: fallout.terminal.player.v1.ControllerTerminalPresentation
+	(*ContentFolder)(nil),                         // 11: fallout.terminal.player.v1.ContentFolder
+	(*ContentCommand)(nil),                        // 12: fallout.terminal.player.v1.ContentCommand
+	(*ContentEntry)(nil),                          // 13: fallout.terminal.player.v1.ContentEntry
+	(*ContentNode)(nil),                           // 14: fallout.terminal.player.v1.ContentNode
+	(*LiveTerminal)(nil),                          // 15: fallout.terminal.player.v1.LiveTerminal
+	(*NoLiveTerminal)(nil),                        // 16: fallout.terminal.player.v1.NoLiveTerminal
+	(*TerminalPresentation)(nil),                  // 17: fallout.terminal.player.v1.TerminalPresentation
+	(*NavigationState)(nil),                       // 18: fallout.terminal.player.v1.NavigationState
+	(*PublicHackState)(nil),                       // 19: fallout.terminal.player.v1.PublicHackState
 }
 var file_fallout_terminal_player_v1_terminal_proto_depIdxs = []int32{
 	0,  // 0: fallout.terminal.player.v1.CommandExecutionPresentation.phase:type_name -> fallout.terminal.player.v1.CommandExecutionPhase
 	1,  // 1: fallout.terminal.player.v1.PendingTerminalNavigationPresentation.direction:type_name -> fallout.terminal.player.v1.TerminalNavigationDirection
 	3,  // 2: fallout.terminal.player.v1.TerminalNavigationPresentation.return_target:type_name -> fallout.terminal.player.v1.TerminalReturnTarget
 	4,  // 3: fallout.terminal.player.v1.TerminalNavigationPresentation.pending:type_name -> fallout.terminal.player.v1.PendingTerminalNavigationPresentation
-	9,  // 4: fallout.terminal.player.v1.ContentFolder.children:type_name -> fallout.terminal.player.v1.ContentNode
-	6,  // 5: fallout.terminal.player.v1.ContentNode.folder:type_name -> fallout.terminal.player.v1.ContentFolder
-	7,  // 6: fallout.terminal.player.v1.ContentNode.command:type_name -> fallout.terminal.player.v1.ContentCommand
-	8,  // 7: fallout.terminal.player.v1.ContentNode.entry:type_name -> fallout.terminal.player.v1.ContentEntry
-	9,  // 8: fallout.terminal.player.v1.LiveTerminal.tree:type_name -> fallout.terminal.player.v1.ContentNode
-	13, // 9: fallout.terminal.player.v1.LiveTerminal.navigation:type_name -> fallout.terminal.player.v1.NavigationState
-	14, // 10: fallout.terminal.player.v1.LiveTerminal.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
-	2,  // 11: fallout.terminal.player.v1.LiveTerminal.command_execution:type_name -> fallout.terminal.player.v1.CommandExecutionPresentation
-	5,  // 12: fallout.terminal.player.v1.LiveTerminal.terminal_navigation:type_name -> fallout.terminal.player.v1.TerminalNavigationPresentation
-	10, // 13: fallout.terminal.player.v1.TerminalPresentation.live_terminal:type_name -> fallout.terminal.player.v1.LiveTerminal
-	11, // 14: fallout.terminal.player.v1.TerminalPresentation.no_live_terminal:type_name -> fallout.terminal.player.v1.NoLiveTerminal
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	6,  // 4: fallout.terminal.player.v1.ControllerTerminalPresentation.none:type_name -> fallout.terminal.player.v1.NoControllerTerminalPresentation
+	7,  // 5: fallout.terminal.player.v1.ControllerTerminalPresentation.menu:type_name -> fallout.terminal.player.v1.MenuSelection
+	8,  // 6: fallout.terminal.player.v1.ControllerTerminalPresentation.page:type_name -> fallout.terminal.player.v1.InformationPagePosition
+	9,  // 7: fallout.terminal.player.v1.ControllerTerminalPresentation.hacking:type_name -> fallout.terminal.player.v1.HackingPreview
+	14, // 8: fallout.terminal.player.v1.ContentFolder.children:type_name -> fallout.terminal.player.v1.ContentNode
+	11, // 9: fallout.terminal.player.v1.ContentNode.folder:type_name -> fallout.terminal.player.v1.ContentFolder
+	12, // 10: fallout.terminal.player.v1.ContentNode.command:type_name -> fallout.terminal.player.v1.ContentCommand
+	13, // 11: fallout.terminal.player.v1.ContentNode.entry:type_name -> fallout.terminal.player.v1.ContentEntry
+	14, // 12: fallout.terminal.player.v1.LiveTerminal.tree:type_name -> fallout.terminal.player.v1.ContentNode
+	18, // 13: fallout.terminal.player.v1.LiveTerminal.navigation:type_name -> fallout.terminal.player.v1.NavigationState
+	19, // 14: fallout.terminal.player.v1.LiveTerminal.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
+	2,  // 15: fallout.terminal.player.v1.LiveTerminal.command_execution:type_name -> fallout.terminal.player.v1.CommandExecutionPresentation
+	5,  // 16: fallout.terminal.player.v1.LiveTerminal.terminal_navigation:type_name -> fallout.terminal.player.v1.TerminalNavigationPresentation
+	10, // 17: fallout.terminal.player.v1.LiveTerminal.controller_presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
+	15, // 18: fallout.terminal.player.v1.TerminalPresentation.live_terminal:type_name -> fallout.terminal.player.v1.LiveTerminal
+	16, // 19: fallout.terminal.player.v1.TerminalPresentation.no_live_terminal:type_name -> fallout.terminal.player.v1.NoLiveTerminal
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_player_v1_terminal_proto_init() }
@@ -946,12 +1313,22 @@ func file_fallout_terminal_player_v1_terminal_proto_init() {
 	file_fallout_terminal_player_v1_navigation_proto_init()
 	file_fallout_terminal_player_v1_terminal_proto_msgTypes[3].OneofWrappers = []any{}
 	file_fallout_terminal_player_v1_terminal_proto_msgTypes[7].OneofWrappers = []any{
+		(*HackingPreview_TargetId)(nil),
+		(*HackingPreview_PatternId)(nil),
+	}
+	file_fallout_terminal_player_v1_terminal_proto_msgTypes[8].OneofWrappers = []any{
+		(*ControllerTerminalPresentation_None)(nil),
+		(*ControllerTerminalPresentation_Menu)(nil),
+		(*ControllerTerminalPresentation_Page)(nil),
+		(*ControllerTerminalPresentation_Hacking)(nil),
+	}
+	file_fallout_terminal_player_v1_terminal_proto_msgTypes[12].OneofWrappers = []any{
 		(*ContentNode_Folder)(nil),
 		(*ContentNode_Command)(nil),
 		(*ContentNode_Entry)(nil),
 	}
-	file_fallout_terminal_player_v1_terminal_proto_msgTypes[8].OneofWrappers = []any{}
-	file_fallout_terminal_player_v1_terminal_proto_msgTypes[10].OneofWrappers = []any{
+	file_fallout_terminal_player_v1_terminal_proto_msgTypes[13].OneofWrappers = []any{}
+	file_fallout_terminal_player_v1_terminal_proto_msgTypes[15].OneofWrappers = []any{
 		(*TerminalPresentation_LiveTerminal)(nil),
 		(*TerminalPresentation_NoLiveTerminal)(nil),
 	}
@@ -961,7 +1338,7 @@ func file_fallout_terminal_player_v1_terminal_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_player_v1_terminal_proto_rawDesc), len(file_fallout_terminal_player_v1_terminal_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   11,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

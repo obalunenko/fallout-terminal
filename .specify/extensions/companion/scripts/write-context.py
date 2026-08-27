@@ -26,6 +26,7 @@ Stdlib only. Safe to run anywhere `python3` is available.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -129,16 +130,9 @@ def update_context(
 
     ctx = read_ctx(target)
 
-    reopened_implement = False
-    if ctx.get("status") == "completed" and step == "implement":
-        all_tasks, done_tasks = parse_task_markers(feature_dir / "tasks.md")
-        reopened_implement = bool(set(all_tasks) - set(done_tasks))
-
     # Never drag a more-advanced (e.g. shipped) spec backward. Leave it fully
-    # intact unless a bugfix patch has explicitly reopened checkboxes in this
-    # spec's own tasks.md. Pending task markers are the only sanctioned reopen
-    # signal, so ordinary late writes to a shipped spec remain blocked.
-    if ctx and _is_more_advanced(ctx, step) and not reopened_implement:
+    # intact — this is the bug the schema reconciliation exists to prevent.
+    if ctx and _is_more_advanced(ctx, step):
         print(
             f"[companion] {target} already at currentStep={ctx.get('currentStep')} / "
             f"status={ctx.get('status')}; not regressing to {step}/{status}.",
@@ -163,16 +157,7 @@ def update_context(
         # A step is started once. Skip a redundant start if this (step, substep)
         # already has a start anywhere in the log — this collapses the GUI startStep +
         # the body start + the late after_specify hook-start into one entry.
-        if reopened_implement:
-            log.append({
-                "step": step,
-                "substep": substep,
-                "kind": "start",
-                "by": by,
-                "at": now,
-                "reopened": True,
-            })
-        elif not _has_step_start(log, step, substep):
+        if not _has_step_start(log, step, substep):
             log.append({
                 "step": step,
                 "substep": substep,
@@ -319,10 +304,127 @@ def mark_spec_complete(feature_dir: Path, by: str) -> Path | None:
     # Promoting straight from implementing@100%: close the implement step first so the canonical `implemented` state exists before `completed`.
     if from_implementing_at_100:
         append_complete(log, "implement", by=by, at=_now_iso())
+    open_bugfix = _open_bugfix_substep(log)
+    if open_bugfix is not None:
+        append_complete(log, "implement", substep=open_bugfix, by=by, at=_now_iso())
     ctx["status"] = "completed"
     commit_log(ctx, log)
     atomic_write(target, ctx)
     _gc_events_log(feature_dir)
+    return target
+
+
+BUG_ID_RE = re.compile(r"BUG-\d{3}")
+PATCHED_BUG_RE = re.compile(r"^\*\*Status\*\*:\s*Patched\s*$", re.MULTILINE)
+
+
+def _pending_bugfix_tasks(tasks_md: Path, bug_id: str) -> list[str]:
+    """Return pending tasks explicitly reopened for bug_id or inside its phase."""
+    try:
+        lines = tasks_md.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    pending: list[str] = []
+    in_bugfix_phase = False
+    for line in lines:
+        if line.startswith("## Phase"):
+            in_bugfix_phase = bug_id in line
+        match = PENDING_TASK_RE.match(line)
+        if match and (in_bugfix_phase or bug_id in line):
+            task_id = match.group(1)
+            if task_id not in pending:
+                pending.append(task_id)
+    return pending
+
+
+def _open_bugfix_substep(log: list) -> str | None:
+    """Return the newest bugfix implementation substep without a matching finish."""
+    completed: set[str] = set()
+    for entry in reversed(log):
+        if not isinstance(entry, dict):
+            continue
+        substep = entry.get("substep")
+        if not isinstance(substep, str) or not substep.startswith("bugfix-"):
+            continue
+        if entry.get("step") == "implement" and entry.get("kind") == "complete":
+            completed.add(substep)
+            continue
+        if (
+            entry.get("step") == "implement"
+            and entry.get("kind") == "start"
+        ):
+            if substep not in completed:
+                return substep
+            completed.remove(substep)
+    return None
+
+
+def reopen_for_bugfix(feature_dir: Path, bug_id: str, by: str) -> Path | None:
+    """Reopen a shipped feature only for pending tasks owned by one patched bug."""
+    normalized_bug_id = bug_id.strip().upper()
+    if BUG_ID_RE.fullmatch(normalized_bug_id) is None:
+        print(
+            f"[companion] Invalid bug id {bug_id!r}; expected BUG-NNN.",
+            file=sys.stderr,
+        )
+        return None
+
+    report = feature_dir / "bugs" / f"{normalized_bug_id}.md"
+    try:
+        report_text = report.read_text(encoding="utf-8")
+    except OSError:
+        print(f"[companion] Missing bug report {report}; refusing to reopen.", file=sys.stderr)
+        return None
+    if PATCHED_BUG_RE.search(report_text) is None:
+        print(
+            f"[companion] {report} is not marked Patched; refusing to reopen.",
+            file=sys.stderr,
+        )
+        return None
+
+    pending = _pending_bugfix_tasks(feature_dir / "tasks.md", normalized_bug_id)
+    if not pending:
+        print(
+            f"[companion] No pending tasks belong to {normalized_bug_id}; nothing to reopen.",
+            file=sys.stderr,
+        )
+        return None
+
+    target = feature_dir / ".spec-context.json"
+    ctx = read_ctx(target)
+    log = canonical_log(ctx)
+    substep = f"bugfix-{normalized_bug_id}"
+    if ctx.get("status") == "implementing" and _open_bugfix_substep(log) == substep:
+        print(
+            f"[companion] {target} is already reopened for {normalized_bug_id}.",
+            file=sys.stderr,
+        )
+        return None
+    if ctx.get("status") != "completed":
+        print(
+            f"[companion] {target} is at status={ctx.get('status')!r}; only a completed "
+            "feature can be reopened for bugfix implementation.",
+            file=sys.stderr,
+        )
+        return None
+
+    branch = _git_branch(_repo_root_for(feature_dir)) or "main"
+    fill_required(ctx, feature_dir, branch)
+    ctx["currentStep"] = "implement"
+    ctx["currentTask"] = pending[0]
+    ctx["status"] = "implementing"
+    log.append({
+        "step": "implement",
+        "substep": substep,
+        "kind": "start",
+        "by": by,
+        "at": _now_iso(),
+        "bugfix": normalized_bug_id,
+        "tasks": pending,
+        "fromStatus": "completed",
+    })
+    commit_log(ctx, log)
+    atomic_write(target, ctx)
     return target
 
 
@@ -360,6 +462,11 @@ def main() -> int:
         "--mark-complete", action="store_true",
         help="Promote a finished spec to the terminal status 'completed' "
              "(the only sanctioned writer of completed; keeps currentStep=implement).",
+    )
+    parser.add_argument(
+        "--reopen-for-bugfix", default=None, metavar="BUG-NNN",
+        help="Reopen a completed feature for pending tasks owned by one patched bug report. "
+             "Appends an auditable bugfix implementation substep and never reopens archived specs.",
     )
     parser.add_argument(
         "--finish", action="store_true",
@@ -473,7 +580,7 @@ def main() -> int:
         args.decisions or args.verified or args.concerns or args.expectations
         or args.coverage_req or args.step_summary or args.classification or args.context_entries
     )
-    if not args.tasks_file and not args.task and not args.mark_complete and not args.set_pairs and not args.living_specs and not args.living_spec_skips and not args.fold_living_spec and not args.materialize and not args.finish and not args.advance and not capture_mode and (args.step == "done" or args.step not in CANONICAL_STEPS):
+    if not args.tasks_file and not args.task and not args.mark_complete and not args.reopen_for_bugfix and not args.set_pairs and not args.living_specs and not args.living_spec_skips and not args.fold_living_spec and not args.materialize and not args.finish and not args.advance and not capture_mode and (args.step == "done" or args.step not in CANONICAL_STEPS):
         print(
             f"[companion] Skipping: '{args.step}' is not a canonical currentStep "
             f"({', '.join(sorted(CANONICAL_STEPS))}).",
@@ -606,6 +713,7 @@ def main() -> int:
             name for name, given in (
                 ("--tasks-file", args.tasks_file), ("--task", args.task),
                 ("--materialize", args.materialize), ("--mark-complete", args.mark_complete),
+                ("--reopen-for-bugfix", args.reopen_for_bugfix),
                 ("--finish", args.finish), ("--advance", args.advance),
             ) if given
         ]
@@ -628,6 +736,8 @@ def main() -> int:
             # ("specified") would be an incoherent terminal status here.
             final_status = args.status if args.status != parser.get_default("status") else "implemented"
             target = sync_tasks(feature_dir, tasks_md, final_status, args.by)
+        elif args.reopen_for_bugfix:
+            target = reopen_for_bugfix(feature_dir, args.reopen_for_bugfix, args.by)
         elif args.mark_complete:
             target = mark_spec_complete(feature_dir, args.by)
         elif args.finish:
@@ -653,7 +763,9 @@ def main() -> int:
         return 0
 
     if target is not None and not args.tasks_file:
-        if args.mark_complete:
+        if args.reopen_for_bugfix:
+            print(f"[companion] Reopened {target} for {args.reopen_for_bugfix.upper()} (by={args.by})")
+        elif args.mark_complete:
             print(f"[companion] Marked {target} complete (status=completed, by={args.by})")
         elif args.finish:
             _label = f"{args.step}{('/' + args.substep) if args.substep else ''}"

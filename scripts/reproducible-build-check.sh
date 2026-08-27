@@ -40,7 +40,7 @@ tracked_state() {
 run_once() {
   local run="$1"
 
-  go run ./cmd/build package
+  go tool -modfile=tools/task/go.mod task package
   tree_digest internal/gen >"${temporary}/${run}.internal-gen"
   tree_digest frontend/client/gen >"${temporary}/${run}.client-gen"
   tree_digest frontend/overseer/bindings >"${temporary}/${run}.bindings"

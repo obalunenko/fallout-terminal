@@ -21,6 +21,41 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+func TestPresentationUplinkOpenPublishesReadyToMatchingSubscription(t *testing.T) {
+	coordinator := newConnectTestCoordinator(t)
+	service, err := NewConnectService(ConnectServiceConfig{Coordinator: coordinator, QueueSize: 2})
+	require.NoError(t, err)
+	server := httptest.NewServer(func() http.Handler {
+		_, handler := NewConnectHandler(service)
+		return handler
+	}())
+	t.Cleanup(server.Close)
+
+	client := playerv1connect.NewPlayerServiceClient(server.Client(), server.URL)
+	clientID := "tab-ready"
+	subscriptionContext, cancelSubscription := context.WithCancelCause(t.Context())
+	t.Cleanup(func() { cancelSubscription(errors.New("test subscription closed")) })
+	subscription, err := client.Subscribe(subscriptionContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientID}))
+	require.NoError(t, err)
+	require.True(t, subscription.Receive(), "snapshot: %v", subscription.Err())
+	handle := subscription.Msg().GetSnapshot().GetRecognitionHandle()
+
+	uplinkContext, cancelUplink := context.WithCancelCause(t.Context())
+	t.Cleanup(func() { cancelUplink(errors.New("test uplink closed")) })
+	uplink := client.PresentationUplink(uplinkContext)
+	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{Payload: &playerv1.PresentationUplinkRequest_Open{
+		Open: &playerv1.PresentationUplinkOpen{ClientInstanceId: clientID, UplinkGeneration: 1, RecognitionHandle: handle},
+	}}))
+	require.True(t, subscription.Receive(), "ready: %v", subscription.Err())
+	ready := subscription.Msg().GetPresentationUplinkResult()
+	require.NotNil(t, ready)
+	require.Equal(t, clientID, ready.GetClientInstanceId())
+	require.Equal(t, uint64(1), ready.GetUplinkGeneration())
+	require.NotNil(t, ready.GetReady())
+	_, err = uplink.CloseAndReceive()
+	require.NoError(t, err)
+}
+
 func TestConnectSubscribeBeginsWithCompleteSnapshotAndSelectsCharacter(t *testing.T) {
 	var service *ConnectService
 	coordinator := newConnectTestCoordinator(t, func(effect control.Effect) {
@@ -155,6 +190,19 @@ func TestTypedSharedActionHandlersRejectUnassignedSessionWithoutMutation(t *test
 				return service.ActivatePattern(t.Context(), connect.NewRequest(&playerv1.ActivatePatternRequest{
 					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "pattern-1",
 					BroadcastId: "broadcast-1", TerminalId: "terminal-1", PatternId: "opaque-pattern-1",
+				}))
+			},
+		},
+		{
+			name: "set presentation",
+			call: func() (*connect.Response[playerv1.ActionResult], error) {
+				return service.SetPresentation(t.Context(), connect.NewRequest(&playerv1.SetPresentationRequest{
+					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "presentation-1",
+					BroadcastId: "broadcast-1", TerminalId: "terminal-1", ContextKey: "menu:root",
+					Presentation: &playerv1.ControllerTerminalPresentation{
+						ContextKey:   "menu:root",
+						Presentation: &playerv1.ControllerTerminalPresentation_Menu{Menu: &playerv1.MenuSelection{TargetId: "docs"}},
+					},
 				}))
 			},
 		},
@@ -368,7 +416,8 @@ func TestPublicDescriptorAndProceduresExcludeEveryPrivateDesktopCapability(t *te
 	publicSurface := strings.ToLower(strings.Join(symbols, "\n") + playerv1connect.PlayerServiceName +
 		playerv1connect.PlayerServiceSubscribeProcedure + playerv1connect.PlayerServiceSelectCharacterProcedure +
 		playerv1connect.PlayerServiceNavigateProcedure + playerv1connect.PlayerServiceGuessProcedure +
-		playerv1connect.PlayerServiceActivatePatternProcedure + playerv1connect.PlayerServiceSoundManifestProcedure)
+		playerv1connect.PlayerServiceActivatePatternProcedure + playerv1connect.PlayerServiceSetPresentationProcedure +
+		playerv1connect.PlayerServiceSoundManifestProcedure)
 	for _, forbidden := range []string{
 		"desktop", "dialog", "openurl", "forcehacksuccess", "resetfailedhack", "runtimestatus",
 		"serverinformation", "credential", "secretword", "logicalsessionstate", "coordinationstate",

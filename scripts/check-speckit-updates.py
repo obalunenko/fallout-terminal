@@ -11,10 +11,22 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from functools import lru_cache
 from pathlib import Path
 
 
 SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+COMPANION_REPOSITORY = "alfredoperez/speckit-companion"
+COMPANION_EDITOR_TAG_RE = re.compile(r"^v(\d+\.\d+\.\d+)$")
+COMPANION_SPECKIT_TAG_RE = re.compile(r"^speckit-ext-v(\d+\.\d+\.\d+)$")
+COMPANION_EDITOR_EXTENSION_RE = re.compile(
+    r"^(?:alfredoperez|alfredo-dev)\.speckit-companion@(\d+\.\d+\.\d+)$",
+    re.IGNORECASE,
+)
+EDITOR_COMMANDS = (
+    ("VS Code", "code"),
+    ("Cursor", "cursor"),
+)
 REQUIRED_ENV = (
     "SPECKIT_VERSION",
     "SPECKIT_COMPANION_VERSION",
@@ -24,9 +36,9 @@ REQUIRED_ENV = (
 )
 UPSTREAMS = {
     "companion": (
-        "alfredoperez/speckit-companion",
+        COMPANION_REPOSITORY,
         "releases",
-        re.compile(r"^speckit-ext-v(\d+\.\d+\.\d+)$"),
+        COMPANION_SPECKIT_TAG_RE,
     ),
     "brownfield": (
         "Quratulain-bilal/spec-kit-brownfield",
@@ -66,6 +78,13 @@ def latest_github_version(
     endpoint: str,
     tag_pattern: re.Pattern[str],
 ) -> str:
+    tags = github_entries(repository, endpoint)
+    name_field = "tag_name" if endpoint == "releases" else "name"
+    return latest_matching_version(tags, name_field, tag_pattern, repository)
+
+
+@lru_cache(maxsize=None)
+def github_entries(repository: str, endpoint: str) -> list[dict]:
     request = urllib.request.Request(
         f"https://api.github.com/repos/{repository}/{endpoint}?per_page=100",
         headers={
@@ -78,19 +97,48 @@ def latest_github_version(
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     with urllib.request.urlopen(request, timeout=20) as response:
-        tags = json.load(response)
+        return json.load(response)
 
+
+def latest_matching_version(
+    entries: list[dict],
+    name_field: str,
+    tag_pattern: re.Pattern[str],
+    source: str,
+) -> str:
     versions = []
-    name_field = "tag_name" if endpoint == "releases" else "name"
-    for tag in tags:
+    for tag in entries:
         name = str(tag.get(name_field, ""))
         match = tag_pattern.fullmatch(name)
         if match is not None:
             version = match.group(1)
             versions.append((semantic_version(version), version))
     if not versions:
-        raise ValueError(f"no matching stable releases found for {repository}")
+        raise ValueError(f"no matching stable releases found for {source}")
     return max(versions)[1]
+
+
+def editor_extension_version(output: str) -> str | None:
+    for line in output.splitlines():
+        match = COMPANION_EDITOR_EXTENSION_RE.fullmatch(line.strip())
+        if match is not None:
+            return match.group(1)
+    return None
+
+
+def installed_editor_version(command: str) -> str | None:
+    result = subprocess.run(
+        [command, "--list-extensions", "--show-versions"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    version = editor_extension_version(result.stdout)
+    if result.returncode != 0 and version is None:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        message = detail[-1] if detail else f"exit status {result.returncode}"
+        raise OSError(message)
+    return version
 
 
 def pin_state(installed: str, pinned: str) -> str:
@@ -107,6 +155,48 @@ def update_state(pinned: str, latest: str) -> str:
     return "pin is current"
 
 
+def installed_update_state(installed: str, latest: str) -> str:
+    if semantic_version(latest) > semantic_version(installed):
+        return "UPDATE AVAILABLE"
+    if semantic_version(latest) < semantic_version(installed):
+        return "installed version is ahead of discovered releases"
+    return "installed is current"
+
+
+def print_companion_editor_updates(errors: list[str]) -> None:
+    print("\nSpecKit Companion editor extension")
+    latest: str | None = None
+    try:
+        latest = latest_github_version(
+            COMPANION_REPOSITORY,
+            "releases",
+            COMPANION_EDITOR_TAG_RE,
+        )
+        print(f"  upstream:  {latest}")
+    except (OSError, ValueError, urllib.error.URLError) as exc:
+        print(f"  upstream:  check failed: {exc}")
+        errors.append(f"companion editor: {exc}")
+
+    detected = False
+    for editor_name, executable in EDITOR_COMMANDS:
+        editor_bin = shutil.which(executable)
+        if editor_bin is None:
+            continue
+        detected = True
+        try:
+            installed = installed_editor_version(editor_bin)
+            if installed is None:
+                print(f"  {editor_name}: extension not installed")
+                continue
+            state = installed_update_state(installed, latest) if latest else "upstream unavailable"
+            print(f"  {editor_name}: {installed} ({state})")
+        except OSError as exc:
+            print(f"  {editor_name}: check failed: {exc}")
+            errors.append(f"companion editor ({editor_name}): {exc}")
+    if not detected:
+        print("  installed: no VS Code or Cursor CLI detected")
+
+
 def main() -> int:
     missing = [name for name in REQUIRED_ENV if not os.environ.get(name)]
     if missing:
@@ -116,12 +206,12 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     registry_path = repo_root / ".specify/extensions/.registry"
     if not registry_path.is_file():
-        print("Missing Spec Kit extension registry; run make speckit-install first.", file=sys.stderr)
+        print("Missing Spec Kit extension registry; run task speckit:install first.", file=sys.stderr)
         return 1
 
     specify_bin = shutil.which("specify")
     if specify_bin is None:
-        print("Specify CLI is not on PATH; run make speckit-install first.", file=sys.stderr)
+        print("Specify CLI is not on PATH; run task speckit:install first.", file=sys.stderr)
         return 1
 
     pinned_cli = os.environ["SPECKIT_VERSION"].removeprefix("v")
@@ -164,7 +254,12 @@ def main() -> int:
     for extension_id, metadata in sorted(installed_extensions.items()):
         installed = str(metadata.get("version", "unknown"))
         pinned = pins.get(extension_id)
-        print(f"  {extension_id}")
+        display_name = (
+            "companion (Spec Kit extension)"
+            if extension_id == "companion"
+            else extension_id
+        )
+        print(f"  {display_name}")
         print(f"    installed: {installed}")
         if pinned is None:
             print("    pinned:    unmanaged (add a Makefile pin to track it)")
@@ -205,6 +300,8 @@ def main() -> int:
     uninstalled_pins = sorted(set(pins) - set(installed_extensions))
     for extension_id in uninstalled_pins:
         print(f"  {extension_id}: NOT INSTALLED (pinned {pins[extension_id]})")
+
+    print_companion_editor_updates(errors)
 
     if self_check.returncode != 0:
         errors.append("specify self check failed")

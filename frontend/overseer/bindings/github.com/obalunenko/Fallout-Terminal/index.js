@@ -32,6 +32,8 @@ export {
     SavePublicAccessSettingsPayload,
     SessionStateEvent,
     SessionStateResult,
+    TerminalGroupReplacementPayload,
+    TerminalGroupReplacementResult,
     TerminalNavigationDecisionPayload,
     TerminalSwitchCommandResult,
     TerminalSwitchDecisionPayload
