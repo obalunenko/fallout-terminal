@@ -9,6 +9,10 @@
 
 **Bugfix**: 2026-08-11 — BUG-001 Updated from bugfix patch; artifact consistency and verification coverage remediated after analysis.
 
+**Bugfix**: 2026-08-28 — BUG-002 Updated from bugfix patch.
+
+**Bugfix**: 2026-08-28 — BUG-003 Updated from bugfix patch.
+
 Task IDs continue at `T027` so the prior completed task journal cannot mark this corrective task set complete accidentally.
 
 ## Phase 1: Setup
@@ -202,6 +206,8 @@ This phase establishes the generation-bound identity and minimal public shape re
 - ~~Phase 10 starts from the completed T027–T048 baseline. T049, T050, and T051 may run in parallel; all three block T052. T052 blocks T053, and T053 blocks the final T054 verification gate.~~ BUG-001 reopens the affected interaction work after completed T052: `T031 → T050`, T049, and T051 form the corrective test wave; all block T033, which blocks T048, then T053. T049 and T051 may run in parallel with the T031 → T050 chain because they touch different files.
 - The existing discovery, identity, activation, probability, concurrency, projection, reconnect, private-control, and persistence rules remain prerequisites and are not reopened except where a new regression explicitly proves they remain unchanged.
 - Phase 11 closes the remaining coverage before final verification: T055 blocks T056 because both update `internal/hack/hack_test.go`; T057 may run independently after T053; T055, T056, and T057 all block the reopened T054 verification gate.
+- BUG-002 starts from the completed T054–T057 baseline without reopening those historically valid tasks: T058 adds the failing cross-channel regression, T059 implements reconciliation against that regression, and both block T060 final verification.
+- BUG-003 preserves T058–T060 as historical BUG-002 work and adds T062–T064 for the uncovered production-equivalent ordering and context shapes. T062 blocks T063; T063 blocks T064, whose native smoke must use the actual private Overseer control.
 
 ## Phase 11: Convergence
 
@@ -216,3 +222,63 @@ This phase establishes the generation-bound identity and minimal public shape re
 - [x] **T054** ⚠️ Reopened — Run formatting, static analysis, full tests, race tests, browser syntax checks, `npm --prefix tests/browser test`, the frontend build, and explicit ~~SC-003/SC-004/SC-014–SC-017~~ SC-003/SC-004/SC-014/SC-016–SC-019 verification; confirm the 1,000-board gate, opening-only pattern activation, individual delimiter/non-opening-symbol selection, executable browser interactions, unchanged discovery fixtures, difficulty-invariant `3–6` generation, and an accurately recorded Electron smoke result without claiming unavailable checks passed · `.` (reopened — BUG-001)
 
 **Checkpoint**: User Story 6 is independently functional and the board reveals pattern validity only through ~~normal valid-pattern interaction~~ whole-span interaction from an unused valid pattern's opening coordinate, never through construction grouping, public decoy metadata, or static styling. ~~Delimiter decoys have no side effects.~~ Under BUG-001 they retain ordinary individual filler effects without gaining pattern identity.
+
+## Phase 12: BUG-002 Authoritative Hack-Outcome Reconciliation
+
+**Goal**: Preserve the authoritative shared success flow when a trusted `ForceHackSuccess` transition races a player guess or hacking-presentation result, and prevent notices from the superseded hacking context from surviving on either the hacking surface or terminal menu.
+
+**Independent Test**: Submit an unsuccessful guess, delay a correlated shared-action or presentation result, force the active puzzle to success, and deliver the result on each side of the solved snapshot; verify the active controller and observers retain the solved outcome and see no stale or raw rejection through the hacking-to-menu transition.
+
+### Tests
+
+- [x] **T058** [US5] Add deterministic executable browser regressions for unsuccessful-guess then `ForceHackSuccess` ordering, including a delayed shared-action result, streamed hacking-presentation result, unary fallback result, delivery before and after the solved snapshot, active-controller and observer rendering, and zero stale `invalid-action` notice on the hacking surface or subsequent terminal menu · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/terminal-navigation.spec.mjs`, `tests/browser/fixture-server/main.go`
+
+**⟶ Wait for T058 to finish, then:**
+
+### Implementation
+
+- [x] **T059** [US5] Reconcile authoritative solved snapshots in the player client by invalidating pending shared-action and presentation UI state plus transient notices from the superseded hacking context, consuming matching late results without suppressing unrelated current rejections, and preserving the existing success delay, cue, and terminal-menu transition · `frontend/client/client.js`
+
+**⟶ Wait for T059 to finish, then:**
+
+### Final Verification
+
+- [x] **T060** Verify US5/AC5, FR-089–FR-090, and SC-020 with the focused browser journeys; if Go files changed, run `go fix ./...` and review its edits; then run `task fmt:check`, `task vet`, `task test`, `task test:race`, `task frontend:build`, and `task browser:test`, and record the native behavioral smoke accurately without claiming unavailable checks passed · `.`
+
+**Checkpoint**: A successful trusted solve remains the one player-facing outcome across correlated result orderings, and rejection notices remain visible only for unrelated current actions.
+
+## Phase 13: Convergence
+
+**Depends on:** all prior phases.
+
+**Wave 1 — Restore mutex-protected pattern publication:**
+
+- [x] **T061** [US4] Invoke the detached enqueue-only `ApplyHackPattern` publication callback before releasing the canonical live-service mutex, and add deterministic concurrency coverage proving a blocked callback prevents a later accepted pattern transition and publication from overtaking it while rejected requests still publish nothing and callbacks remain non-reentrant, per FR-047, plan strategy 7, research Decision 6, and T040/T043 (contradicts) · `internal/live/service.go`, `internal/live/service_test.go`
+
+**Checkpoint**: Every accepted legacy pattern activation commits its detached publication in canonical mutation order before the live-service mutex is released, without performing transport writes or re-entering live state.
+
+## Phase 14: BUG-003 Production Forced-Success Reconciliation
+
+**Depends on:** T058 and T061.
+
+**Goal**: Reproduce the remaining production ordering, close the presentation-context blind spot in BUG-002 coverage, and prove that the real private Overseer success flow cannot leak `invalid-action` across the hacking-to-menu transition.
+
+**Independent Test**: Select the first incorrect password, invoke the real private Overseer success control immediately, and verify the active player and observers show only the shared solved outcome on the hacking surface and subsequent menu. Repeat the production-equivalent ordering deterministically for full live-terminal and hacking-only solved publications with absent, changed, and already-advanced presentation context.
+
+### Tests and Production-Ordering Evidence
+
+- [x] **T062** [US5] Capture the real private-control event ordering and non-sensitive request, broadcast, terminal, puzzle-generation, presentation-context, solved-publication, and action-result identities; add a failing production-equivalent regression for the first incorrect password followed by immediate trusted success, covering full live-terminal and hacking-only publications with absent, changed, and already-advanced presentation context and asserting zero raw or stale notice before and after menu return · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/terminal-navigation.spec.mjs`, `tests/browser/fixture-server/main.go`, `frontend/client/client.js`
+
+**⟶ Wait for T062 to finish, then:**
+
+### Implementation
+
+- [x] **T063** [US5] Bind solved-snapshot reconciliation to the ended broadcast/terminal/puzzle generation rather than only the current presentation kind, handling full live-terminal and hacking-only projections with absent, changed, or already-advanced presentation context while preserving unrelated current rejections and the existing success transition · `frontend/client/client.js`
+
+**⟶ Wait for T063 to finish, then:**
+
+### Final Verification
+
+- [x] **T064** Verify US5/AC5, FR-089–FR-090, and SC-020 with the focused browser journeys and repository gates from T060; perform and record a native replay in which the player selects the first incorrect password and the game master immediately invokes the actual private Overseer success control, asserting zero rejection notice on the hacking surface and terminal menu, and do not treat fixture-only force success as equivalent evidence · `.`
+
+**Checkpoint**: The fixture regression matches the captured production ordering, and the native Overseer replay is the final acceptance evidence rather than an unperformed follow-up.
