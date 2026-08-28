@@ -5,12 +5,21 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('#publicAccessSection')).toBeVisible();
 });
 
+async function openPublicAccessSettings(page) {
+  await page.locator('#btnOpenPublicAccessSettings').click();
+  const dialog = page.locator('#publicAccessSettingsDialog');
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 test('settings form is labelled, keyboard reachable, and defaults without revealing secrets', async ({ page }) => {
+  const dialog = await openPublicAccessSettings(page);
+  await expect(page.locator('#btnClosePublicAccessSettings')).toBeFocused();
   const guide = page.locator('#publicAccessGuide');
   await expect(guide).not.toHaveAttribute('open', '');
   await guide.getByText('КАК НАСТРОИТЬ ЧЕРЕЗ NGROK').click();
   await expect(guide).toHaveAttribute('open', '');
-  await expect(guide).toContainText('СОХРАНИТЬ ДОСТУП');
+  await expect(guide).toContainText('Сохраните настройки');
   await expect(guide).toContainText('Basic Auth');
 
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');
@@ -23,6 +32,21 @@ test('settings form is labelled, keyboard reachable, and defaults without reveal
 
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).not.toHaveAttribute('type', 'hidden');
+
+  await page.locator('#btnClosePublicAccessSettings').click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('#btnOpenPublicAccessSettings')).toBeFocused();
+});
+
+test('first enable opens required setup without requesting tunnel startup', async ({ page }) => {
+  const callsBefore = await page.evaluate(() => __desktopFixture.calls.length);
+  await page.locator('#btnStartPublicAccess').click();
+  await expect(page.locator('#publicAccessSettingsDialog')).toBeVisible();
+  await expect(page.locator('#publicAccessSetupRequired')).toBeVisible();
+  await expect(page.locator('#publicAccessGuide')).toHaveAttribute('open', '');
+  const startCalls = await page.evaluate(start => __desktopFixture.calls.slice(start)
+    .filter(call => call.method === 'StartPublicAccess'), callsBefore);
+  expect(startCalls).toEqual([]);
 });
 
 test('development override prefill is presence-only and does not save or start implicitly', async ({ page }) => {
@@ -33,6 +57,7 @@ test('development override prefill is presence-only and does not save or start i
     playerPasswordPresence: 'present',
     status: { state: 'disabled', generation: 0, settingsRevision: 0 },
   }));
+  await openPublicAccessSettings(page);
 
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('override.example');
   await expect(page.getByLabel('Имя игрока')).toHaveValue('override-players');
@@ -49,12 +74,13 @@ test('development override prefill is presence-only and does not save or start i
     .filter(call => call.method === 'SavePublicAccessSettings'));
   expect(saveCallsAfterGenerate).toEqual([]);
   await page.reload();
+  await openPublicAccessSettings(page);
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');
   await expect(page.getByLabel('Имя игрока')).toHaveValue('players');
 
   await page.getByLabel('Зарезервированный домен').fill('override.example');
   await page.getByLabel('Имя игрока').fill('override-players');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   const saved = await page.evaluate(() => __desktopFixture.calls
     .filter(call => call.method === 'SavePublicAccessSettings').at(-1));
   expect(saved.args[0]).toMatchObject({
@@ -64,10 +90,12 @@ test('development override prefill is presence-only and does not save or start i
 });
 
 test('save replaces secrets without echo and clears transient fields', async ({ page }) => {
+  const dialog = await openPublicAccessSettings(page);
   await page.getByLabel('Токен ngrok').fill('synthetic-provider-input');
   await page.getByLabel('Пароль игроков').fill('synthetic-player-input');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
 
+  await expect(dialog).toBeHidden();
   await expect(page.getByLabel('Токен ngrok')).toHaveValue('');
   await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
   await expect(page.locator('#publicAccessProviderPresence')).toHaveText(/сохранен/i);
@@ -78,6 +106,7 @@ test('save replaces secrets without echo and clears transient fields', async ({ 
 
 test('generated password is copied once, dismissed, and removed from DOM references', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await openPublicAccessSettings(page);
   await page.getByRole('button', { name: 'СГЕНЕРИРОВАТЬ ПАРОЛЬ' }).click();
   const dialog = page.getByRole('dialog', { name: 'НОВЫЙ ПАРОЛЬ ИГРОКОВ' });
   await expect(dialog).toBeVisible();
@@ -94,21 +123,23 @@ test('generated password is copied once, dismissed, and removed from DOM referen
 });
 
 test('relaunch restores only non-secret settings and presence without auto-start', async ({ page }) => {
+  await openPublicAccessSettings(page);
   await page.getByLabel('Публичный доступ предпочтителен').check();
   await page.getByLabel('Зарезервированный домен').fill('vault.example');
   await page.getByLabel('Имя игрока').fill('wanderers');
   await page.getByLabel('Токен ngrok').fill('synthetic-provider-input');
   await page.getByLabel('Пароль игроков').fill('synthetic-player-input');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   await page.reload();
 
+  await expect(page.locator('#publicAccessURL')).toHaveText('https://vault.example');
+  await openPublicAccessSettings(page);
   await expect(page.getByLabel('Публичный доступ предпочтителен')).toBeChecked();
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('vault.example');
   await expect(page.getByLabel('Имя игрока')).toHaveValue('wanderers');
   await expect(page.getByLabel('Токен ngrok')).toHaveValue('');
   await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
   await expect(page.locator('#publicAccessStatus')).toHaveText(/остановлен/i);
-  await expect(page.locator('#publicAccessURL')).toHaveText('');
 });
 
 test('Start and Stop map exact lifecycle states and never expose a pre-ready URL', async ({ page }) => {
@@ -119,10 +150,10 @@ test('Start and Stop map exact lifecycle states and never expose a pre-ready URL
     status: { state: 'starting', generation: 1, settingsRevision: 0, publicUrl: 'https://must-not-render.invalid' },
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ЗАПУСК…');
-  await expect(page.locator('#publicAccessURL')).toHaveText('');
+  await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
   await expect(page.locator('#btnSavePublicAccess')).toBeDisabled();
   await expect(page.locator('#btnStartPublicAccess')).toBeDisabled();
-  await expect(page.locator('#btnStopPublicAccess')).toBeDisabled();
+  await expect(page.locator('#btnStopPublicAccess')).toBeHidden();
 
   await page.evaluate(() => __desktopFixture.emit('public-access-status', {
     preferences: { version: 1, username: 'players', revision: 0 },
@@ -134,9 +165,11 @@ test('Start and Stop map exact lifecycle states and never expose a pre-ready URL
   await page.locator('#btnStartPublicAccess').click();
   await expect(page.locator('#publicAccessStatus')).toHaveText('ГОТОВ');
   await expect(page.locator('#publicAccessURL')).toHaveText('https://fixture.example');
+  await expect(page.locator('#btnStartPublicAccess')).toBeHidden();
+  await expect(page.locator('#btnStopPublicAccess')).toBeVisible();
   await page.locator('#btnStopPublicAccess').click();
   await expect(page.locator('#publicAccessStatus')).toHaveText('ОСТАНОВЛЕН');
-  await expect(page.locator('#publicAccessURL')).toHaveText('');
+  await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
 });
 
 test('random and reserved ready outcomes are copied without reconstructing saved password', async ({ page, context }) => {
@@ -152,6 +185,7 @@ test('random and reserved ready outcomes are copied without reconstructing saved
     await page.locator('#btnCopyPublicURL').click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(publicUrl);
   }
+  await openPublicAccessSettings(page);
   await page.locator('#btnCopyPublicUsername').click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('wanderers');
   await expect(page.locator('#publicAccessPlayerPassword')).toHaveValue('');
@@ -166,8 +200,9 @@ test('copy falls back to the native runtime when WebView clipboard permission is
     });
   });
 
+  await openPublicAccessSettings(page);
   await page.locator('#btnCopyPublicUsername').click();
-  await expect(page.locator('#publicAccessCopyStatus')).toHaveText('ИМЯ СКОПИРОВАНО');
+  await expect(page.locator('#publicAccessSettingsCopyStatus')).toHaveText('ИМЯ СКОПИРОВАНО');
   expect(await page.evaluate(() => __desktopFixture.takeClipboardText())).toBe('players');
 });
 
@@ -183,7 +218,7 @@ test('failed domain state is redacted, URL-free, and rendered as error', async (
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ОШИБКА');
   await expect(page.locator('#publicAccessError')).toContainText('unavailable');
-  await expect(page.locator('#publicAccessURL')).toHaveText('');
+  await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
   await expect(page.locator('body')).not.toContainText(/authtoken|password-test-value/i);
 });
 
@@ -194,6 +229,7 @@ test('active edits require confirmation and render stopped-to-starting replaceme
     playerPasswordPresence: 'present',
     status: { state: 'ready', generation: 10, settingsRevision: 7, publicUrl: 'https://before.example' },
   }));
+  await openPublicAccessSettings(page);
   await page.evaluate(() => __desktopFixture.deferSavePublicAccess());
   await page.getByLabel('Зарезервированный домен').fill('after.example');
   await page.getByLabel('Имя игрока').fill('friends');
@@ -205,7 +241,7 @@ test('active edits require confirmation and render stopped-to-starting replaceme
     confirmation = dialog.message();
     await dialog.accept();
   });
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   await expect.poll(() => confirmation).toMatch(/останов|перезапуск|актив/i);
   await expect(page.getByLabel('Токен ngrok')).toHaveValue('');
   await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
@@ -226,7 +262,7 @@ test('active edits require confirmation and render stopped-to-starting replaceme
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ЗАПУСК…');
   await expect(page.locator('#btnStartPublicAccess')).toBeDisabled();
-  await expect(page.locator('#btnStopPublicAccess')).toBeDisabled();
+  await expect(page.locator('#btnStopPublicAccess')).toBeHidden();
   await page.evaluate(() => __desktopFixture.resolveSavePublicAccess({
     ok: true,
     snapshot: {
@@ -245,10 +281,11 @@ test('cancelled active deletion sends no mutation and saved secrets are never re
     providerTokenPresence: 'present', playerPasswordPresence: 'present',
     status: { state: 'ready', generation: 6, settingsRevision: 4, publicUrl: 'https://fixture.example' },
   }));
+  await openPublicAccessSettings(page);
   const callsBefore = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SavePublicAccessSettings').length);
   page.once('dialog', dialog => dialog.dismiss());
   await page.getByLabel('УДАЛИТЬ СОХРАНЁННЫЙ').first().check();
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   const callsAfter = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SavePublicAccessSettings').length);
   expect(callsAfter).toBe(callsBefore);
   await expect(page.getByLabel('Токен ngrok')).toHaveValue('');
@@ -266,10 +303,11 @@ test('newer reconfigure event wins over a stale command result and stale secret 
     });
     __desktopFixture.deferSavePublicAccess();
   });
+  await openPublicAccessSettings(page);
   page.on('dialog', dialog => dialog.accept());
   await page.getByLabel('Имя игрока').fill('requested');
   await page.getByLabel('Пароль игроков').fill('synthetic-stale-result-password');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   await page.evaluate(() => __desktopFixture.emit('public-access-status', {
     preferences: { version: 1, enabledPreference: true, reservedDomain: 'newer.example', username: 'newer', revision: 8 },
     providerTokenPresence: 'present', playerPasswordPresence: 'present',
@@ -300,9 +338,10 @@ test('active mutation failure stays URL-free, redacted, and keeps transition act
     });
     __desktopFixture.deferSavePublicAccess();
   });
+  await openPublicAccessSettings(page);
   page.on('dialog', dialog => dialog.accept());
   await page.getByLabel('Имя игрока').fill('friends');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ДОСТУП' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   await page.evaluate(() => __desktopFixture.resolveSavePublicAccess({
     ok: false,
     error: 'Keychain is unavailable; local access remains available.',
@@ -316,8 +355,11 @@ test('active mutation failure stays URL-free, redacted, and keeps transition act
     },
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ОШИБКА');
-  await expect(page.locator('#publicAccessURL')).toHaveText('');
-  await expect(page.locator('#publicAccessError')).toContainText('Keychain is unavailable');
+  await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
+  await expect(page.locator('#publicAccessError')).toContainText('secure credential store is unavailable');
+  await expect(page.locator('#publicAccessSettingsDialog')).toBeVisible();
+  await expect(page.getByLabel('Имя игрока')).toHaveValue('friends');
+  await expect(page.locator('#publicAccessSettingsError')).toContainText('Keychain is unavailable');
   await expect(page.locator('#btnSavePublicAccess')).toBeEnabled();
   await expect(page.locator('#btnStartPublicAccess')).toBeEnabled();
 });

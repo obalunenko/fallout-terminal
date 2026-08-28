@@ -157,65 +157,22 @@
       </div>
       <section class="public-access" id="publicAccessSection" aria-labelledby="publicAccessHeading" hidden>
         <h2 class="panel-hdr public-access-heading" id="publicAccessHeading">ПУБЛИЧНЫЙ ДОСТУП</h2>
-        <details class="public-access-guide" id="publicAccessGuide">
-          <summary>КАК НАСТРОИТЬ ЧЕРЕЗ NGROK</summary>
-          <ol>
-            <li>Создайте личный токен в своём аккаунте ngrok. Устанавливать ngrok или запускать Terminal не нужно.</li>
-            <li>Для случайной HTTPS-ссылки оставьте домен пустым. Зарезервированный домен указывайте без <code>https://</code> и только если он доступен вашему аккаунту.</li>
-            <li>Введите имя игрока, токен ngrok и пароль от 8 символов либо нажмите <strong>СГЕНЕРИРОВАТЬ ПАРОЛЬ</strong> и сразу скопируйте его.</li>
-            <li>Нажмите <strong>СОХРАНИТЬ ДОСТУП</strong>, затем <strong>ВКЛЮЧИТЬ</strong>. Галочка предпочтения сама доступ не запускает.</li>
-            <li>Дождитесь статуса <strong>ГОТОВ</strong>. Отправьте друзьям URL, имя и пароль: браузер запросит их через Basic Auth.</li>
-            <li>После игры нажмите <strong>ОСТАНОВИТЬ</strong>. Локальный адрес продолжает работать независимо от ngrok.</li>
-          </ol>
-          <p>Сохранённые токен и пароль повторно не показываются: приложение отображает только их наличие.</p>
-        </details>
-        <form class="public-access-form" id="publicAccessForm" autocomplete="off">
-          <label class="public-access-preference" for="publicAccessEnabledPreference">
-            <input id="publicAccessEnabledPreference" name="publicAccessEnabledPreference" type="checkbox">
-            Публичный доступ предпочтителен
-          </label>
-
-          <label class="field-label-inline" for="publicAccessDomain">Зарезервированный домен</label>
-          <input class="field-input" id="publicAccessDomain" name="publicAccessDomain" type="text" inputmode="url" autocapitalize="none" spellcheck="false" aria-describedby="publicAccessDomainHint">
-          <div class="public-access-hint" id="publicAccessDomainHint">Необязательно · только имя хоста без https://</div>
-
-          <div class="public-access-labelled-row">
-            <label class="field-label-inline" for="publicAccessUsername">Имя игрока</label>
-            <button class="btn btn-mini btn-secondary" id="btnCopyPublicUsername" type="button">КОПИРОВАТЬ</button>
+        <div class="public-access-compact">
+          <div class="public-access-state-row">
+            <span class="public-access-state-marker" aria-hidden="true"></span>
+            <div id="publicAccessStatus" role="status" aria-live="polite" aria-atomic="true">ОСТАНОВЛЕН</div>
           </div>
-          <input class="field-input" id="publicAccessUsername" name="publicAccessUsername" type="text" value="players" autocomplete="username" autocapitalize="none" spellcheck="false">
-
-          <label class="field-label-inline" for="publicAccessProviderToken">Токен ngrok</label>
-          <input class="field-input" id="publicAccessProviderToken" type="password" name="publicAccessProviderToken" autocomplete="new-password" aria-describedby="publicAccessProviderPresence">
-          <div class="public-access-presence-row">
-            <span id="publicAccessProviderPresence">НЕДОСТУПЕН</span>
-            <label><input id="publicAccessDeleteProviderToken" type="checkbox"> УДАЛИТЬ СОХРАНЁННЫЙ</label>
-          </div>
-
-          <label class="field-label-inline" for="publicAccessPlayerPassword">Пароль игроков</label>
-          <input class="field-input" id="publicAccessPlayerPassword" type="password" name="publicAccessPlayerPassword" autocomplete="new-password" minlength="8" aria-describedby="publicAccessPasswordPresence">
-          <div class="public-access-presence-row">
-            <span id="publicAccessPasswordPresence">НЕДОСТУПЕН</span>
-            <label><input id="publicAccessDeletePlayerPassword" type="checkbox"> УДАЛИТЬ СОХРАНЁННЫЙ</label>
-          </div>
-          <button class="btn btn-mini btn-secondary public-access-copy-manual" id="btnCopyManualPassword" type="button">КОПИРОВАТЬ ВВЕДЁННЫЙ ПАРОЛЬ</button>
-
-          <div class="public-access-actions">
-            <button class="btn btn-primary" id="btnSavePublicAccess" type="submit">СОХРАНИТЬ ДОСТУП</button>
-            <button class="btn btn-secondary" id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ ПАРОЛЬ</button>
-          </div>
-          <div class="public-access-runtime-actions">
-            <button class="btn btn-accent" id="btnStartPublicAccess" type="button">ВКЛЮЧИТЬ</button>
-            <button class="btn btn-danger" id="btnStopPublicAccess" type="button">ОСТАНОВИТЬ</button>
-          </div>
-        </form>
-        <div class="public-access-output">
-          <div id="publicAccessStatus" role="status" aria-live="polite" aria-atomic="true">ОСТАНОВЛЕН</div>
           <div id="publicAccessError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+          <div class="public-access-address-label">ПУБЛИЧНЫЙ АДРЕС</div>
           <div class="public-access-url-row">
-            <span id="publicAccessURL"></span>
-            <button class="btn btn-mini btn-secondary" id="btnCopyPublicURL" type="button" hidden>КОПИРОВАТЬ URL</button>
+            <span id="publicAccessURL">ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА</span>
+            <button class="btn btn-mini btn-secondary" id="btnCopyPublicURL" type="button" hidden>КОПИРОВАТЬ</button>
           </div>
+          <div class="public-access-runtime-actions" role="group" aria-label="Управление публичным доступом">
+            <button class="btn btn-accent" id="btnStartPublicAccess" type="button">ВКЛЮЧИТЬ ДОСТУП</button>
+            <button class="btn btn-danger" id="btnStopPublicAccess" type="button" hidden>ОСТАНОВИТЬ ДОСТУП</button>
+          </div>
+          <button class="btn btn-secondary public-access-settings-trigger" id="btnOpenPublicAccessSettings" type="button">НАСТРОЙКИ…</button>
           <div class="public-access-copy-status" id="publicAccessCopyStatus" role="status" aria-live="polite" aria-atomic="true"></div>
         </div>
       </section>
@@ -557,6 +514,68 @@
     </div>
     <div class="terminal-switch-status" id="terminalSwitchStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="terminal-switch-error" id="terminalSwitchError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+  </div>
+</dialog>
+
+<dialog class="terminal-switch-dialog public-access-settings-dialog" id="publicAccessSettingsDialog" aria-modal="true" aria-labelledby="publicAccessSettingsDialogTitle" aria-describedby="publicAccessSettingsDialogDescription publicAccessSetupRequired" hidden>
+  <div class="terminal-switch-dialog-panel">
+    <header class="public-access-settings-header">
+      <div>
+        <h2 class="terminal-switch-dialog-title" id="publicAccessSettingsDialogTitle">НАСТРОЙКИ ПУБЛИЧНОГО ДОСТУПА</h2>
+        <p class="terminal-switch-dialog-description" id="publicAccessSettingsDialogDescription">Настройте ngrok и данные, которые игроки используют для входа.</p>
+      </div>
+      <button class="btn btn-secondary" id="btnClosePublicAccessSettings" type="button">ЗАКРЫТЬ</button>
+    </header>
+    <div class="public-access-setup-required" id="publicAccessSetupRequired" role="status" aria-live="polite" hidden>СНАЧАЛА СОХРАНИТЕ ТОКЕН NGROK И ПАРОЛЬ ИГРОКОВ</div>
+    <details class="public-access-guide" id="publicAccessGuide">
+      <summary>КАК НАСТРОИТЬ ЧЕРЕЗ NGROK</summary>
+      <ol>
+        <li>Создайте личный токен в своём аккаунте ngrok. Устанавливать ngrok или запускать Terminal не нужно.</li>
+        <li>Для случайной HTTPS-ссылки оставьте домен пустым. Зарезервированный домен указывайте без <code>https://</code> и только если он доступен вашему аккаунту.</li>
+        <li>Введите имя игрока, токен ngrok и пароль от 8 символов либо нажмите <strong>СГЕНЕРИРОВАТЬ ПАРОЛЬ</strong> и сразу скопируйте его.</li>
+        <li>Сохраните настройки и включите доступ из основной панели.</li>
+        <li>Дождитесь статуса <strong>ГОТОВ</strong>. Отправьте друзьям URL, имя и пароль: браузер запросит их через Basic Auth.</li>
+      </ol>
+      <p>Сохранённые токен и пароль повторно не показываются: приложение отображает только их наличие.</p>
+    </details>
+    <form class="public-access-form" id="publicAccessForm" autocomplete="off">
+      <label class="public-access-preference" for="publicAccessEnabledPreference">
+        <input id="publicAccessEnabledPreference" name="publicAccessEnabledPreference" type="checkbox">
+        Публичный доступ предпочтителен
+      </label>
+
+      <label class="field-label-inline" for="publicAccessDomain">Зарезервированный домен</label>
+      <input class="field-input" id="publicAccessDomain" name="publicAccessDomain" type="text" inputmode="url" autocapitalize="none" spellcheck="false" aria-describedby="publicAccessDomainHint">
+      <div class="public-access-hint" id="publicAccessDomainHint">Необязательно · только имя хоста без https://</div>
+
+      <div class="public-access-labelled-row">
+        <label class="field-label-inline" for="publicAccessUsername">Имя игрока</label>
+        <button class="btn btn-mini btn-secondary" id="btnCopyPublicUsername" type="button">КОПИРОВАТЬ</button>
+      </div>
+      <input class="field-input" id="publicAccessUsername" name="publicAccessUsername" type="text" value="players" autocomplete="username" autocapitalize="none" spellcheck="false">
+
+      <label class="field-label-inline" for="publicAccessProviderToken">Токен ngrok</label>
+      <input class="field-input" id="publicAccessProviderToken" type="password" name="publicAccessProviderToken" autocomplete="new-password" aria-describedby="publicAccessProviderPresence">
+      <div class="public-access-presence-row">
+        <span id="publicAccessProviderPresence">НЕДОСТУПЕН</span>
+        <label><input id="publicAccessDeleteProviderToken" type="checkbox"> УДАЛИТЬ СОХРАНЁННЫЙ</label>
+      </div>
+
+      <label class="field-label-inline" for="publicAccessPlayerPassword">Пароль игроков</label>
+      <input class="field-input" id="publicAccessPlayerPassword" type="password" name="publicAccessPlayerPassword" autocomplete="new-password" minlength="8" aria-describedby="publicAccessPasswordPresence">
+      <div class="public-access-presence-row">
+        <span id="publicAccessPasswordPresence">НЕДОСТУПЕН</span>
+        <label><input id="publicAccessDeletePlayerPassword" type="checkbox"> УДАЛИТЬ СОХРАНЁННЫЙ</label>
+      </div>
+      <button class="btn btn-mini btn-secondary public-access-copy-manual" id="btnCopyManualPassword" type="button">КОПИРОВАТЬ ВВЕДЁННЫЙ ПАРОЛЬ</button>
+      <div class="public-access-copy-status" id="publicAccessSettingsCopyStatus" role="status" aria-live="polite" aria-atomic="true"></div>
+
+      <div class="public-access-settings-error" id="publicAccessSettingsError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+      <div class="public-access-actions">
+        <button class="btn btn-primary" id="btnSavePublicAccess" type="submit">СОХРАНИТЬ НАСТРОЙКИ</button>
+        <button class="btn btn-secondary" id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ ПАРОЛЬ</button>
+      </div>
+    </form>
   </div>
 </dialog>
 

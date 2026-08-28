@@ -120,6 +120,11 @@ const terminalSwitchStatus = document.getElementById('terminalSwitchStatus');
 const terminalSwitchError = document.getElementById('terminalSwitchError');
 const terminalSwitchButtons = Array.from(document.querySelectorAll('[data-switch-decision]'));
 const publicAccessSection = document.getElementById('publicAccessSection');
+const publicAccessStateRow = document.querySelector('.public-access-state-row');
+const publicAccessSettingsDialog = document.getElementById('publicAccessSettingsDialog');
+const publicAccessSetupRequired = document.getElementById('publicAccessSetupRequired');
+const publicAccessSettingsError = document.getElementById('publicAccessSettingsError');
+const publicAccessGuide = document.getElementById('publicAccessGuide');
 const publicAccessForm = document.getElementById('publicAccessForm');
 const publicAccessEnabledPreference = document.getElementById('publicAccessEnabledPreference');
 const publicAccessDomain = document.getElementById('publicAccessDomain');
@@ -134,11 +139,14 @@ const publicAccessStatus = document.getElementById('publicAccessStatus');
 const publicAccessError = document.getElementById('publicAccessError');
 const publicAccessURL = document.getElementById('publicAccessURL');
 const publicAccessCopyStatus = document.getElementById('publicAccessCopyStatus');
+const publicAccessSettingsCopyStatus = document.getElementById('publicAccessSettingsCopyStatus');
 const btnSavePublicAccess = document.getElementById('btnSavePublicAccess');
 const btnGeneratePlayerPassword = document.getElementById('btnGeneratePlayerPassword');
 const btnStartPublicAccess = document.getElementById('btnStartPublicAccess');
 const btnStopPublicAccess = document.getElementById('btnStopPublicAccess');
 const btnCopyPublicURL = document.getElementById('btnCopyPublicURL');
+const btnOpenPublicAccessSettings = document.getElementById('btnOpenPublicAccessSettings');
+const btnClosePublicAccessSettings = document.getElementById('btnClosePublicAccessSettings');
 const btnCopyPublicUsername = document.getElementById('btnCopyPublicUsername');
 const btnCopyManualPassword = document.getElementById('btnCopyManualPassword');
 const generatedPasswordDialog = document.getElementById('generatedPasswordDialog');
@@ -173,6 +181,7 @@ let pendingTerminalSwitch = null;
 let startupStatus = null;
 let publicAccessSnapshot = null;
 let publicAccessCommandPending = false;
+let publicAccessSettingsDialogOpener = null;
 let sessionStateCommandPending = false;
 let commandExecutionDialogRequestID = null;
 let commandExecutionDecisionRequestID = null;
@@ -767,6 +776,14 @@ function renderSecretPresence(element, presence) {
     : presence === 'absent' ? 'НЕ СОХРАНЕН' : 'НЕДОСТУПЕН';
 }
 
+function publicAccessDisplayURL(preferences, status) {
+  if (status.state === 'ready' && status.publicUrl) return status.publicUrl;
+  if (status.state === 'error') return '';
+  const reservedDomain = String(preferences.reservedDomain || '').trim();
+  if (!reservedDomain) return '';
+  return /^https?:\/\//i.test(reservedDomain) ? reservedDomain : `https://${reservedDomain}`;
+}
+
 function renderPublicAccess(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return;
   if (publicAccessSnapshot) {
@@ -788,6 +805,7 @@ function renderPublicAccess(snapshot) {
   renderSecretPresence(publicAccessPasswordPresence, snapshot.playerPasswordPresence);
   publicAccessStatus.textContent = publicAccessStateLabels[status.state] || 'ЗАГРУЗКА…';
   publicAccessStatus.dataset.state = status.state || 'loading';
+  publicAccessStateRow.dataset.state = status.state || 'loading';
   publicAccessStatus.dataset.generation = String(Number(status.generation || 0));
   publicAccessStatus.dataset.settingsRevision = String(Number(status.settingsRevision || preferences.revision || 0));
   const publicFailure = publicAccessFailureMessage(status);
@@ -795,8 +813,10 @@ function renderPublicAccess(snapshot) {
     ? `${publicFailure} · ЛОКАЛЬНЫЙ РЕЖИМ ПРОДОЛЖАЕТ РАБОТАТЬ`
     : '';
   publicAccessError.hidden = publicAccessError.textContent === '';
-  publicAccessURL.textContent = status.state === 'ready' ? (status.publicUrl || '') : '';
-  btnCopyPublicURL.hidden = publicAccessURL.textContent === '';
+  const displayURL = publicAccessDisplayURL(preferences, status);
+  publicAccessURL.textContent = displayURL || 'ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА';
+  publicAccessURL.dataset.available = String(Boolean(displayURL));
+  btnCopyPublicURL.hidden = !displayURL;
   const transitioning = status.state === 'starting' || status.state === 'stopping';
   const disabled = publicAccessCommandPending || transitioning;
   for (const control of [
@@ -805,8 +825,15 @@ function renderPublicAccess(snapshot) {
     publicAccessDeleteProviderToken, publicAccessDeletePlayerPassword,
     btnSavePublicAccess, btnGeneratePlayerPassword,
   ]) control.disabled = disabled;
+  const stopping = status.state === 'ready' || status.state === 'stopping';
+  btnStartPublicAccess.hidden = stopping;
+  btnStopPublicAccess.hidden = !stopping;
+  btnStartPublicAccess.textContent = status.state === 'starting' ? 'ЗАПУСК…' : 'ВКЛЮЧИТЬ ДОСТУП';
+  btnStopPublicAccess.textContent = status.state === 'stopping' ? 'ОСТАНОВКА…' : 'ОСТАНОВИТЬ ДОСТУП';
   btnStartPublicAccess.disabled = disabled || status.state === 'ready';
   btnStopPublicAccess.disabled = disabled || status.state === 'stopped';
+  btnOpenPublicAccessSettings.disabled = disabled;
+  btnClosePublicAccessSettings.disabled = publicAccessCommandPending;
   btnCopyManualPassword.disabled = disabled || publicAccessPlayerPassword.value === '';
 }
 
@@ -814,7 +841,7 @@ function publicAccessRevision() {
   return Number(publicAccessSnapshot?.preferences?.revision || 0);
 }
 
-async function copyTransientText(value, successMessage) {
+async function copyTransientText(value, successMessage, statusElement = publicAccessCopyStatus) {
   if (!value) return false;
   let copied = false;
   try {
@@ -830,11 +857,52 @@ async function copyTransientText(value, successMessage) {
     copied = await desktopAPI.writeClipboardText(value);
   }
   if (copied) {
-    publicAccessCopyStatus.textContent = successMessage;
+    statusElement.textContent = successMessage;
     return true;
   }
-  publicAccessCopyStatus.textContent = 'НЕ УДАЛОСЬ СКОПИРОВАТЬ';
+  statusElement.textContent = 'НЕ УДАЛОСЬ СКОПИРОВАТЬ';
   return false;
+}
+
+function showPublicAccessSettings({ setupRequired = false } = {}) {
+  if (publicAccessCommandPending) return;
+  publicAccessSettingsDialogOpener = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : btnOpenPublicAccessSettings;
+  publicAccessSetupRequired.hidden = !setupRequired;
+  if (setupRequired) publicAccessGuide.open = true;
+  publicAccessSettingsError.textContent = '';
+  publicAccessSettingsError.hidden = true;
+  publicAccessSettingsCopyStatus.textContent = '';
+  publicAccessSettingsDialog.hidden = false;
+  if (typeof publicAccessSettingsDialog.showModal === 'function' && !publicAccessSettingsDialog.open) {
+    publicAccessSettingsDialog.showModal();
+  } else {
+    publicAccessSettingsDialog.setAttribute('open', '');
+  }
+  queueMicrotask(() => btnClosePublicAccessSettings.focus());
+}
+
+function hidePublicAccessSettings() {
+  if (publicAccessCommandPending) return;
+  if (typeof publicAccessSettingsDialog.close === 'function' && publicAccessSettingsDialog.open) {
+    publicAccessSettingsDialog.close();
+  } else {
+    publicAccessSettingsDialog.removeAttribute('open');
+  }
+  publicAccessSettingsDialog.hidden = true;
+  publicAccessSetupRequired.hidden = true;
+  publicAccessSettingsError.textContent = '';
+  publicAccessSettingsError.hidden = true;
+  publicAccessSettingsCopyStatus.textContent = '';
+  publicAccessProviderToken.value = '';
+  publicAccessPlayerPassword.value = '';
+  publicAccessDeleteProviderToken.checked = false;
+  publicAccessDeletePlayerPassword.checked = false;
+  renderPublicAccess(publicAccessSnapshot);
+  const opener = publicAccessSettingsDialogOpener;
+  publicAccessSettingsDialogOpener = null;
+  if (opener?.isConnected) opener.focus();
 }
 
 function showGeneratedPassword(oneTimeValue) {
@@ -851,7 +919,7 @@ function showGeneratedPassword(oneTimeValue) {
     btnGeneratePlayerPassword.focus();
   };
   btnCopyGeneratedPassword.onclick = async () => {
-    await copyTransientText(transientValue, 'ПАРОЛЬ СКОПИРОВАН');
+    await copyTransientText(transientValue, 'ПАРОЛЬ СКОПИРОВАН', publicAccessSettingsCopyStatus);
     clearAndClose();
   };
   btnDismissGeneratedPassword.onclick = clearAndClose;
@@ -881,6 +949,8 @@ publicAccessForm.addEventListener('submit', async (event) => {
     replacementPlayerPassword: publicAccessPlayerPassword.value,
     deletePlayerPassword: publicAccessDeletePlayerPassword.checked,
   };
+  publicAccessSettingsError.textContent = '';
+  publicAccessSettingsError.hidden = true;
   publicAccessCommandPending = true;
   renderPublicAccess(publicAccessSnapshot);
   const pending = desktopAPI.savePublicAccessSettings(request);
@@ -894,9 +964,14 @@ publicAccessForm.addEventListener('submit', async (event) => {
   publicAccessDeletePlayerPassword.checked = false;
   renderPublicAccess(result.snapshot || publicAccessSnapshot);
   if (!result.ok) {
-    publicAccessError.textContent = result.error || 'НЕ УДАЛОСЬ СОХРАНИТЬ НАСТРОЙКИ';
-    publicAccessError.hidden = false;
+    publicAccessEnabledPreference.checked = request.enabledPreference;
+    publicAccessDomain.value = request.reservedDomain;
+    publicAccessUsername.value = request.username;
+    publicAccessSettingsError.textContent = result.error || 'НЕ УДАЛОСЬ СОХРАНИТЬ НАСТРОЙКИ';
+    publicAccessSettingsError.hidden = false;
+    return;
   }
+  hidePublicAccessSettings();
 });
 
 btnGeneratePlayerPassword.addEventListener('click', async () => {
@@ -909,8 +984,8 @@ btnGeneratePlayerPassword.addEventListener('click', async () => {
   publicAccessCommandPending = false;
   if (!result.ok || !result.generatedPassword) {
     renderPublicAccess(publicAccessSnapshot);
-    publicAccessError.textContent = result.error || 'НЕ УДАЛОСЬ СОЗДАТЬ ПАРОЛЬ';
-    publicAccessError.hidden = false;
+    publicAccessSettingsError.textContent = result.error || 'НЕ УДАЛОСЬ СОЗДАТЬ ПАРОЛЬ';
+    publicAccessSettingsError.hidden = false;
     return;
   }
   showGeneratedPassword(result.generatedPassword);
@@ -931,11 +1006,36 @@ async function runPublicAccessLifecycle(command) {
   }
 }
 
-btnStartPublicAccess.addEventListener('click', () => runPublicAccessLifecycle(desktopAPI.startPublicAccess));
+btnStartPublicAccess.addEventListener('click', () => {
+  const configured = publicAccessSnapshot?.providerTokenPresence === 'present'
+    && publicAccessSnapshot?.playerPasswordPresence === 'present';
+  if (!configured) {
+    showPublicAccessSettings({ setupRequired: true });
+    return;
+  }
+  void runPublicAccessLifecycle(desktopAPI.startPublicAccess);
+});
 btnStopPublicAccess.addEventListener('click', () => runPublicAccessLifecycle(desktopAPI.stopPublicAccess));
-btnCopyPublicURL.addEventListener('click', () => copyTransientText(publicAccessURL.textContent, 'URL СКОПИРОВАН'));
-btnCopyPublicUsername.addEventListener('click', () => copyTransientText(publicAccessUsername.value, 'ИМЯ СКОПИРОВАНО'));
-btnCopyManualPassword.addEventListener('click', () => copyTransientText(publicAccessPlayerPassword.value, 'ВВЕДЁННЫЙ ПАРОЛЬ СКОПИРОВАН'));
+btnOpenPublicAccessSettings.addEventListener('click', () => showPublicAccessSettings());
+btnClosePublicAccessSettings.addEventListener('click', hidePublicAccessSettings);
+publicAccessSettingsDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  hidePublicAccessSettings();
+});
+btnCopyPublicURL.addEventListener('click', () => {
+  if (publicAccessURL.dataset.available !== 'true') return;
+  void copyTransientText(publicAccessURL.textContent, 'URL СКОПИРОВАН');
+});
+btnCopyPublicUsername.addEventListener('click', () => copyTransientText(
+  publicAccessUsername.value,
+  'ИМЯ СКОПИРОВАНО',
+  publicAccessSettingsCopyStatus,
+));
+btnCopyManualPassword.addEventListener('click', () => copyTransientText(
+  publicAccessPlayerPassword.value,
+  'ВВЕДЁННЫЙ ПАРОЛЬ СКОПИРОВАН',
+  publicAccessSettingsCopyStatus,
+));
 publicAccessPlayerPassword.addEventListener('input', () => {
   btnCopyManualPassword.disabled = publicAccessCommandPending || publicAccessPlayerPassword.value === '';
 });

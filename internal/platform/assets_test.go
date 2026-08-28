@@ -487,25 +487,50 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 	javascript := read("frontend/overseer/src/overseer.js")
 
 	for _, fragment := range []string{
-		`id="publicAccessSection"`, `for="publicAccessDomain"`, `for="publicAccessUsername"`,
+		`id="publicAccessSection"`, `class="public-access-compact"`, `ПУБЛИЧНЫЙ АДРЕС`,
+		`id="btnStartPublicAccess" type="button">ВКЛЮЧИТЬ ДОСТУП</button>`,
+		`id="btnStopPublicAccess" type="button" hidden>ОСТАНОВИТЬ ДОСТУП</button>`,
+		`id="btnOpenPublicAccessSettings" type="button">НАСТРОЙКИ…</button>`,
+		`id="publicAccessSettingsDialog" aria-modal="true"`,
+		`id="btnClosePublicAccessSettings" type="button">ЗАКРЫТЬ</button>`,
+		`id="publicAccessSetupRequired" role="status" aria-live="polite" hidden`,
+		`for="publicAccessDomain"`, `for="publicAccessUsername"`,
 		`for="publicAccessProviderToken"`, `for="publicAccessPlayerPassword"`,
 		`id="publicAccessProviderToken" type="password"`, `id="publicAccessPlayerPassword" type="password"`,
 		`id="publicAccessGuide"`, `КАК НАСТРОИТЬ ЧЕРЕЗ NGROK`,
-		`СОХРАНИТЬ ДОСТУП`, `ВКЛЮЧИТЬ`, `Basic Auth`,
+		`СОХРАНИТЬ НАСТРОЙКИ`, `Basic Auth`,
 		`id="publicAccessStatus" role="status" aria-live="polite"`,
 		`id="publicAccessError" role="alert" aria-live="assertive"`,
 		`id="generatedPasswordDialog"`, `aria-modal="true"`,
 	} {
 		assert.Contains(t, html, fragment)
 	}
+	sectionStart := strings.Index(html, `id="publicAccessSection"`)
+	dialogStart := strings.Index(html, `id="publicAccessSettingsDialog"`)
+	require.NotEqual(t, -1, sectionStart)
+	require.NotEqual(t, -1, dialogStart)
+	require.Less(t, sectionStart, dialogStart)
+	assert.NotContains(t, html[sectionStart:dialogStart], `id="publicAccessForm"`,
+		"public-access configuration must not remain inline in the compact section")
 	for _, forbidden := range []string{"RevealSecret", "GetSecret", ">REVEAL<", ">ПОКАЗАТЬ ПАРОЛЬ<"} {
 		assert.NotContains(t, html+javascript, forbidden)
 	}
 	assert.Contains(t, html, `id="publicAccessUsername"`)
 	assert.Contains(t, html, `value="players"`)
 	assert.Contains(t, css, ".public-access")
-	assert.Contains(t, javascript, "generatePlayerPassword")
-	assert.Contains(t, javascript, "public-access-status")
+	for _, fragment := range []string{
+		"generatePlayerPassword",
+		"public-access-status",
+		"publicAccessDisplayURL",
+		"showPublicAccessSettings({ setupRequired: true })",
+		"publicAccessSnapshot?.providerTokenPresence === 'present'",
+		"publicAccessSnapshot?.playerPasswordPresence === 'present'",
+		"btnStartPublicAccess.hidden = stopping",
+		"btnStopPublicAccess.hidden = !stopping",
+		"hidePublicAccessSettings()",
+	} {
+		assert.Contains(t, javascript, fragment)
+	}
 	assert.Contains(t, read("frontend/overseer/src/desktop-api.js"), "Clipboard.SetText")
 }
 

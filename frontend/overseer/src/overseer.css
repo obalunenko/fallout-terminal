@@ -808,16 +808,50 @@ button {
 
 /* ── Public access ─────────────────────────────────────── */
 .public-access {
-  flex: 0 1 58%;
-  min-height: 230px;
+  flex: 0 0 auto;
+  max-height: 52%;
   overflow-y: auto;
   border-top: 1px solid #2a3520;
   background: #0a0d08;
 }
 .public-access[hidden] { display: none; }
 .public-access-heading { margin: 0; color: #ffe08a; }
+.public-access-compact { padding: 11px 12px 12px; }
+.public-access-state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
+}
+.public-access-state-marker {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border: 1px solid #6f9a5f;
+  background: #253018;
+}
+.public-access-state-row[data-state="ready"] .public-access-state-marker {
+  border-color: #9fe89a;
+  border-radius: 50%;
+  background: #6fae55;
+}
+.public-access-state-row[data-state="starting"] .public-access-state-marker,
+.public-access-state-row[data-state="stopping"] .public-access-state-marker {
+  border-color: #d0a63a;
+  background: #8c702c;
+}
+.public-access-state-row[data-state="error"] .public-access-state-marker {
+  border-color: #ff9a7a;
+  background: #8a3a2a;
+}
+.public-access-address-label {
+  margin-top: 10px;
+  color: #6f9a5f;
+  font-size: 9px;
+  letter-spacing: .7px;
+}
 .public-access-guide {
-  margin: 8px 12px 0;
+  margin: 0 0 16px;
   border: 1px solid #3a4a30;
   background: #0d110a;
   color: #9fe89a;
@@ -842,8 +876,6 @@ button {
 }
 .public-access-guide code,
 .public-access-guide strong { color: #d8ffb8; }
-.public-access-form,
-.public-access-output { padding: 10px 12px; }
 .public-access-form { display: grid; gap: 6px; }
 .public-access-form .field-label-inline { margin: 5px 0 0; }
 .public-access-preference {
@@ -854,15 +886,14 @@ button {
   font-size: 11px;
   line-height: 1.35;
 }
-.public-access input[type="checkbox"] { accent-color: #6fae55; }
+.public-access-settings-dialog input[type="checkbox"] { accent-color: #6fae55; }
 .public-access-hint {
   color: #566b49;
   font-size: 9px;
   line-height: 1.35;
 }
 .public-access-labelled-row,
-.public-access-presence-row,
-.public-access-url-row {
+.public-access-presence-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -877,7 +908,6 @@ button {
 .public-access-presence-row label { text-align: right; }
 .public-access-copy-manual { justify-self: start; }
 .public-access-actions,
-.public-access-runtime-actions,
 .generated-password-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -892,7 +922,6 @@ button {
   overflow-wrap: anywhere;
   line-height: 1.2;
 }
-.public-access-output { padding-top: 0; }
 #publicAccessStatus { color: #9fe89a; font-size: 11px; letter-spacing: .6px; }
 #publicAccessError {
   margin-top: 7px;
@@ -904,9 +933,66 @@ button {
   overflow-wrap: anywhere;
 }
 #publicAccessError[hidden] { display: none; }
-.public-access-url-row { margin-top: 7px; align-items: flex-start; }
-#publicAccessURL { color: #7fc0ff; font-size: 10px; overflow-wrap: anywhere; }
+.public-access-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  margin-top: 5px;
+}
+#publicAccessURL {
+  min-height: 31px;
+  padding: 7px 8px;
+  border: 1px solid #3a4a30;
+  background: #060804;
+  color: #7fc0ff;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.public-access-runtime-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  margin-top: 9px;
+}
+.public-access-runtime-actions .btn,
+.public-access-settings-trigger { width: 100%; min-height: 34px; }
+.public-access-settings-trigger { margin-top: 7px; }
 .public-access-copy-status { min-height: 15px; margin-top: 5px; color: #6f9a5f; font-size: 9px; }
+.public-access-settings-dialog {
+  width: min(680px, calc(100vw - 32px));
+}
+.public-access-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #2a3520;
+}
+.public-access-settings-header > div { min-width: 0; }
+.public-access-settings-header .terminal-switch-dialog-description { margin-bottom: 0; }
+.public-access-setup-required,
+.public-access-settings-error {
+  margin: 14px 0 0;
+  padding: 8px;
+  border: 1px solid #d0a63a;
+  background: #181407;
+  color: #ffe08a;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.public-access-settings-error {
+  border-color: #8a3a2a;
+  background: #1d0e0a;
+  color: #ff9a7a;
+}
+.public-access-setup-required[hidden],
+.public-access-settings-error[hidden] { display: none; }
+.public-access-settings-dialog .public-access-guide { margin-top: 16px; }
+.public-access-settings-dialog :is(input, button, summary):focus-visible {
+  outline: 2px solid #ffe08a;
+  outline-offset: 2px;
+}
 .generated-password-value {
   display: block;
   min-height: 42px;
@@ -1645,6 +1731,8 @@ button {
   .terminal-switch-actions { grid-template-columns: 1fr; }
   .terminal-switch-actions .btn { min-height: 40px; }
   .dialog-actions { grid-template-columns: 1fr; }
+  .public-access-settings-header { align-items: stretch; flex-direction: column; }
+  .public-access-settings-header > .btn { align-self: flex-end; }
   .terminal-settings-menu-panel {
     position: fixed;
     inset: auto 10px 10px;
