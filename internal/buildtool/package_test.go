@@ -198,6 +198,7 @@ func TestPortablePackagePlanIncludesExactRuntimeResourceInventory(t *testing.T) 
 			}
 
 			want := map[string]string{
+				portableLaunchGuideFilename:                                 portableLaunchGuideFilename,
 				filepath.Join("resources", "appicon.png"):                   filepath.Join("build", "appicon.png"),
 				filepath.Join("resources", "THIRD_PARTY_NOTICES.md"):        "THIRD_PARTY_NOTICES.md",
 				filepath.Join("resources", "sessions", "demo.json"):         filepath.Join("sessions", "demo.json"),
@@ -328,6 +329,7 @@ func TestDarwinPortablePackagePlanStagesCompleteUnsignedApplicationBundle(t *tes
 	assertPackageTemplatesAreReadOnlyInputs(t, actions)
 
 	wantCopies := map[string]string{
+		filepath.Join(plan.PayloadRoot(), portableLaunchGuideFilename):                                                      portableLaunchGuideFilename,
 		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "THIRD_PARTY_NOTICES.md"):        "THIRD_PARTY_NOTICES.md",
 		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo.json"):         filepath.Join("sessions", "demo.json"),
 		filepath.Join(plan.PayloadRoot(), "Fallout Terminal.app", "Contents", "Resources", "sessions", "demo-players.json"): filepath.Join("sessions", "demo-players.json"),

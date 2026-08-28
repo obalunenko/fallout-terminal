@@ -193,6 +193,7 @@ func portablePackageActions(plan PackagePlan) []Step {
 		preflightStep("verify "+plan.target.String()+" native build prerequisites", verifyNativeBuildPrerequisites, plan.target),
 		Step{Name: "remove previous " + plan.target.String() + " staging directory", Operation: removeTree, Path: plan.stageRoot},
 		Step{Name: "create portable application root", Operation: makeDirectory, Path: plan.payloadRoot, Mode: 0o755},
+		Step{Name: "install portable launch guide", Operation: copyFile, Source: portableLaunchGuideFilename, Destination: filepath.Join(plan.payloadRoot, portableLaunchGuideFilename), Mode: 0o444},
 		Step{Name: "create portable resource directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
 		Step{Name: "install portable application icon", Operation: copyFile, Source: filepath.Join("build", "appicon.png"), Destination: filepath.Join(resources, "appicon.png"), Mode: 0o444},
 		Step{Name: "install portable third-party notices", Operation: copyFile, Source: "THIRD_PARTY_NOTICES.md", Destination: filepath.Join(resources, "THIRD_PARTY_NOTICES.md"), Mode: 0o444},
@@ -261,6 +262,7 @@ func darwinPortablePackageActions(plan PackagePlan) []Step {
 		preflightStep("verify "+plan.target.String()+" native build prerequisites", verifyNativeBuildPrerequisites, plan.target),
 		Step{Name: "remove previous " + plan.target.String() + " staging directory", Operation: removeTree, Path: plan.stageRoot},
 		Step{Name: "create portable application root", Operation: makeDirectory, Path: plan.payloadRoot, Mode: 0o755},
+		Step{Name: "install portable launch guide", Operation: copyFile, Source: portableLaunchGuideFilename, Destination: filepath.Join(plan.payloadRoot, portableLaunchGuideFilename), Mode: 0o444},
 		Step{Name: "create Darwin application executable directory", Operation: makeDirectory, Path: macOS, Mode: 0o755},
 		Step{Name: "create Darwin bundled session directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
 		versionTemplateStep(

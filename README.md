@@ -166,10 +166,15 @@ specify extension list
 | `linux/arm64` | `Fallout-Terminal-linux-arm64.tar.gz` | `./Fallout Terminal` |
 | `darwin/arm64` | `Fallout-Terminal-darwin-arm64.zip` | `Fallout Terminal.app` |
 
+Пошаговые команды, системные требования и безопасное прохождение предупреждений первого запуска
+собраны в [RUNNING.md](RUNNING.md). Этот файл также находится в корне каждого релизного архива рядом
+с приложением, поэтому инструкция доступна после скачивания без исходного репозитория.
+
 Полностью распакуйте архив и не отделяйте executable или app bundle от ресурсов. Darwin ZIP содержит
 unsigned-приложение для macOS 13+ на Apple Silicon; первый запуск может потребовать подтверждения в
 Privacy & Security. Требования WebView2, GTK4, WebKitGTK 6.0, защищённых хранилищ, расположение
-данных и устранение неполадок описаны в [docs/platform-support.md](docs/platform-support.md).
+данных и расширенное устранение неполадок описаны в
+[docs/platform-support.md](docs/platform-support.md).
 
 Версию распакованного приложения можно проверить без запуска окна или внутренних сервисов:
 

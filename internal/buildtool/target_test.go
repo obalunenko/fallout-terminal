@@ -154,7 +154,7 @@ func TestTargetArchiveContractIsStableAndCollisionFree(t *testing.T) {
 			assert.Equal(t, test.format, target.ArchiveFormat())
 			assert.Equal(t, test.archive, target.ArchiveName())
 			assert.Equal(t, test.executable, target.ExecutablePath())
-			assert.NotEmpty(t, target.RequiredResourcePaths())
+			assert.Contains(t, target.RequiredResourcePaths(), portableLaunchGuideFilename)
 			require.NoError(t, ValidateHost(target, NewHost(test.goos, test.goarch)))
 		})
 

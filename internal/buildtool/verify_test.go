@@ -195,6 +195,7 @@ func TestVerifyArtifactRejectsMissingRequiredPayloadAndExecutableMode(t *testing
 	t.Parallel()
 
 	required := []string{
+		portableLaunchGuideFilename,
 		filepath.ToSlash(filepath.Join("resources", "appicon.png")),
 		filepath.ToSlash(filepath.Join("resources", "THIRD_PARTY_NOTICES.md")),
 		filepath.ToSlash(filepath.Join("resources", "sessions", "demo.json")),
@@ -430,6 +431,7 @@ func newVerificationFixture(t *testing.T, target Target) *verificationFixture {
 		archiveName: target.ArchiveName(),
 		files: map[string]verificationFile{
 			target.ExecutableName():                {contents: executable, mode: 0o755},
+			portableLaunchGuideFilename:            {contents: []byte("portable launch guide\n"), mode: 0o444},
 			"resources/appicon.png":                {contents: []byte("portable-icon"), mode: 0o444},
 			"resources/THIRD_PARTY_NOTICES.md":     {contents: []byte("portable notices\n"), mode: 0o444},
 			"resources/sessions/demo.json":         {contents: []byte(`{"version":1,"name":"demo"}`), mode: 0o444},
