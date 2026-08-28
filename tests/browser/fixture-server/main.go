@@ -1878,6 +1878,14 @@ export async function RequestTerminalActivation(payload) {
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(stateChangingApprovalSession(nil))
 	})
+	mux.HandleFunc("GET /__fixture/state-changing-command-approval/audit", func(response http.ResponseWriter, _ *http.Request) {
+		executeWrites, completed := approvalStore.audit()
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]any{
+			"executeWrites": executeWrites,
+			"completed":     completed,
+		})
+	})
 	mux.HandleFunc("POST /__fixture/state-changing-command-approval/reset", func(response http.ResponseWriter, _ *http.Request) {
 		approvalStore.reset()
 		if _, err := service.EndBroadcast(); err != nil {
@@ -2339,6 +2347,10 @@ func stateChangingApprovalTarget() domain.TerminalTarget {
 				{
 					ID: "renderer-reference", Type: domain.NodeEntry, Name: "ЭТАЛОН РЕНДЕРА",
 					Description: fixtureCommandResult,
+				},
+				{
+					ID: "diagnostics", Type: domain.NodeCommand, Name: "Запустить диагностику",
+					Text: "Диагностика завершена.",
 				},
 				{
 					ID: "doors", Type: domain.NodeCommand, Name: "Открыть двери",

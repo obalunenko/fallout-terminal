@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	liveservice "github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -17,6 +19,36 @@ import (
 )
 
 const approvalNotificationTestLaunchID = "test-launch"
+
+type approvalTerminalNavigationCatalog struct {
+	source    domain.TerminalTarget
+	target    domain.TerminalTarget
+	commandID string
+}
+
+func (catalog approvalTerminalNavigationCatalog) LookupTerminal(terminalID string) (domain.TerminalTarget, bool) {
+	switch terminalID {
+	case catalog.source.TerminalID:
+		return catalog.source, true
+	case catalog.target.TerminalID:
+		return catalog.target, true
+	default:
+		return domain.TerminalTarget{}, false
+	}
+}
+
+func (catalog approvalTerminalNavigationCatalog) LookupTerminalTransition(sourceTerminalID, commandID string) (domain.TerminalTransitionTarget, bool) {
+	if sourceTerminalID != catalog.source.TerminalID || commandID != catalog.commandID {
+		return domain.TerminalTransitionTarget{}, false
+	}
+	return domain.TerminalTransitionTarget{
+		SourceTerminalID:   catalog.source.TerminalID,
+		SourceTerminalName: catalog.source.TerminalName,
+		CommandID:          catalog.commandID,
+		CommandName:        "OPEN TARGET",
+		Target:             catalog.target,
+	}, true
+}
 
 type fakeApprovalNativeNotifier struct {
 	mu sync.Mutex
@@ -356,6 +388,7 @@ func TestApprovalNotificationResponsesRouteOnlyCurrentTrustedAction(t *testing.T
 		kind                   approvalRequestKind
 	}{
 		{name: "approve command", action: approvalNotificationApproveID, decision: "approve", state: commandApprovalState(1, "command", domain.CommandApprovalModeOrdinary), kind: approvalRequestCommandExecution},
+		{name: "reject command", action: approvalNotificationRejectID, decision: "reject", state: commandApprovalState(1, "command", domain.CommandApprovalModeOrdinary), kind: approvalRequestCommandExecution},
 		{name: "reject navigation", action: approvalNotificationRejectID, decision: "reject", state: navigationApprovalState(1, "navigation"), kind: approvalRequestTerminalNavigation},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -381,6 +414,191 @@ func TestApprovalNotificationResponsesRouteOnlyCurrentTrustedAction(t *testing.T
 			}}, target.snapshot())
 		})
 	}
+}
+
+func TestApprovalNotificationCommandRejectUsesAppDecisionPathAndPublishesAccessError(t *testing.T) {
+	const commandID = "diagnostics"
+	completedState := domain.CommandExecutionState{CompletedName: "DIAGNOSTICS COMPLETE", ResultText: "DONE"}
+	for _, test := range []struct {
+		name          string
+		stateChange   *domain.StateChangeConfig
+		commandStates map[string]domain.CommandExecutionState
+		wantMode      domain.CommandApprovalMode
+	}{
+		{name: "ordinary", wantMode: domain.CommandApprovalModeOrdinary},
+		{
+			name: "completed state changing",
+			stateChange: &domain.StateChangeConfig{
+				CompletedName: "DIAGNOSTICS COMPLETE", ConfirmationText: "Run diagnostics again?",
+			},
+			commandStates: map[string]domain.CommandExecutionState{commandID: completedState},
+			wantMode:      domain.CommandApprovalModeCompletedStateChange,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			live := liveservice.New(nil, nil)
+			rejectedEffects := make(chan *domain.PublicLiveState, 1)
+			coordination := controlservice.New(controlservice.Config{
+				Runtime: live, Terminals: live, TrustedHack: live,
+				Enqueue: func(effect controlservice.Effect) {
+					if effect.Live != nil && effect.Live.CommandExecution != nil &&
+						effect.Live.CommandExecution.Phase == domain.CommandExecutionPhaseRejected {
+						rejectedEffects <- effect.Live
+					}
+				},
+			})
+			state, err := coordination.AddCharacter(domain.CharacterCreatePayload{
+				Name: "Mara", Intelligence: 1, HackerPerkAvailable: false,
+				ExpectedRevision: coordination.Revision(),
+			})
+			require.NoError(t, err)
+			require.Len(t, state.Roster, 1)
+			state, err = coordination.StartBroadcast()
+			require.NoError(t, err)
+			require.NotNil(t, state.Broadcast)
+
+			connectionID := domain.ConnectionID("notification-controller-" + test.name)
+			session := coordination.CreateSession(connectionID)
+			selected := coordination.SelectCharacter(controlservice.CharacterSelection{
+				ConnectionID: connectionID, SessionID: session.SessionID,
+				RequestID: "notification-select-" + test.name, BroadcastID: state.Broadcast.ID,
+				CharacterID: state.Roster[0].ID,
+			})
+			require.True(t, selected.Accepted)
+			_, err = coordination.RequestTerminalActivation(domain.TerminalTarget{
+				TerminalID: "terminal-1", TerminalName: "Diagnostics", HackLevel: 0,
+				Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{{
+					ID: commandID, Type: domain.NodeCommand, Name: "RUN", Text: "DONE", StateChange: test.stateChange,
+				}}},
+				CommandStates: test.commandStates,
+			})
+			require.NoError(t, err)
+			selected = coordination.DispatchPlayerAction(connectionID, domain.RuntimeCommand{
+				RequestID: "notification-command-" + test.name, BroadcastID: state.Broadcast.ID,
+				TerminalID: "terminal-1", Kind: domain.RuntimeCommandNavigate,
+				Action: "command", NodeID: commandID,
+			})
+			require.True(t, selected.Accepted)
+			pending := coordination.Snapshot().PendingCommandExecution
+			require.NotNil(t, pending)
+			require.Equal(t, test.wantMode, pending.Mode)
+
+			app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination})
+			fake := &fakeApprovalNativeNotifier{}
+			service := startReadyApprovalNotifications(t, fake)
+			service.bind(app)
+			service.observeCoordinationState(coordination.Snapshot())
+			require.Eventually(t, func() bool { return len(fake.snapshot().notifications) == 1 }, time.Second, time.Millisecond)
+			option := fake.snapshot().notifications[0]
+			fake.respond(wailsnotifications.NotificationResult{Response: wailsnotifications.NotificationResponse{
+				ID: option.ID, CategoryID: option.CategoryID, ActionIdentifier: approvalNotificationRejectID,
+			}})
+
+			require.Eventually(t, func() bool {
+				return coordination.Snapshot().PendingCommandExecution == nil
+			}, time.Second, time.Millisecond)
+			var rejected *domain.PublicLiveState
+			select {
+			case rejected = <-rejectedEffects:
+			case <-time.After(time.Second):
+				t.Fatal("notification rejection did not publish a rejected live state")
+			}
+			require.NotNil(t, rejected)
+			require.Equal(t, &domain.CommandExecutionPresentation{
+				Phase: domain.CommandExecutionPhaseRejected, CommandID: commandID,
+			}, rejected.CommandExecution)
+			require.Equal(t, domain.NavState{Path: []string{"root"}, Mode: "list"}, rejected.Nav)
+		})
+	}
+}
+
+func TestApprovalNotificationForwardTransitionRejectUsesAppDecisionPathAndPublishesAccessError(t *testing.T) {
+	const (
+		sourceID  = "terminal-source"
+		targetID  = "terminal-target"
+		commandID = "open-target"
+	)
+	source := domain.TerminalTarget{
+		TerminalID: sourceID, TerminalName: "Source", HackLevel: 0,
+		Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{{
+			ID: commandID, Type: domain.NodeCommand, Name: "OPEN TARGET",
+			TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: targetID},
+		}}},
+	}
+	target := domain.TerminalTarget{
+		TerminalID: targetID, TerminalName: "Target", HackLevel: 0,
+		Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT"},
+	}
+	live := liveservice.New(nil, nil)
+	rejectedEffects := make(chan *domain.PublicLiveState, 1)
+	coordination := controlservice.New(controlservice.Config{
+		Runtime: live, Terminals: live, TrustedHack: live,
+		TerminalCatalog: approvalTerminalNavigationCatalog{source: source, target: target, commandID: commandID},
+		Enqueue: func(effect controlservice.Effect) {
+			if effect.Live != nil && effect.Live.CommandExecution != nil &&
+				effect.Live.CommandExecution.Phase == domain.CommandExecutionPhaseRejected {
+				rejectedEffects <- effect.Live
+			}
+		},
+	})
+	state, err := coordination.AddCharacter(domain.CharacterCreatePayload{
+		Name: "Mara", Intelligence: 1, HackerPerkAvailable: false,
+		ExpectedRevision: coordination.Revision(),
+	})
+	require.NoError(t, err)
+	require.Len(t, state.Roster, 1)
+	state, err = coordination.StartBroadcast()
+	require.NoError(t, err)
+	require.NotNil(t, state.Broadcast)
+
+	connectionID := domain.ConnectionID("notification-transition-controller")
+	session := coordination.CreateSession(connectionID)
+	selected := coordination.SelectCharacter(controlservice.CharacterSelection{
+		ConnectionID: connectionID, SessionID: session.SessionID,
+		RequestID: "notification-transition-select", BroadcastID: state.Broadcast.ID,
+		CharacterID: state.Roster[0].ID,
+	})
+	require.True(t, selected.Accepted)
+	_, err = coordination.RequestTerminalActivation(source)
+	require.NoError(t, err)
+	selected = coordination.DispatchPlayerAction(connectionID, domain.RuntimeCommand{
+		RequestID: "notification-transition", BroadcastID: state.Broadcast.ID,
+		TerminalID: sourceID, Kind: domain.RuntimeCommandNavigate,
+		Action: "command", NodeID: commandID,
+	})
+	require.True(t, selected.Accepted)
+	pending := coordination.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pending)
+	require.Equal(t, domain.TerminalNavigationForward, pending.Direction)
+
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination})
+	fake := &fakeApprovalNativeNotifier{}
+	service := startReadyApprovalNotifications(t, fake)
+	service.bind(app)
+	service.observeCoordinationState(coordination.Snapshot())
+	require.Eventually(t, func() bool { return len(fake.snapshot().notifications) == 1 }, time.Second, time.Millisecond)
+	option := fake.snapshot().notifications[0]
+	fake.respond(wailsnotifications.NotificationResult{Response: wailsnotifications.NotificationResponse{
+		ID: option.ID, CategoryID: option.CategoryID, ActionIdentifier: approvalNotificationRejectID,
+	}})
+
+	require.Eventually(t, func() bool {
+		return coordination.Snapshot().PendingTerminalNavigation == nil
+	}, time.Second, time.Millisecond)
+	var rejected *domain.PublicLiveState
+	select {
+	case rejected = <-rejectedEffects:
+	case <-time.After(time.Second):
+		t.Fatal("forward-transition notification rejection did not publish a rejected live state")
+	}
+	require.Equal(t, sourceID, rejected.TerminalID)
+	require.Equal(t, domain.NavState{Path: []string{"root"}, Mode: "list"}, rejected.Nav)
+	require.Equal(t, &domain.CommandExecutionPresentation{
+		Phase: domain.CommandExecutionPhaseRejected, CommandID: commandID,
+	}, rejected.CommandExecution)
+	require.Nil(t, rejected.TerminalNavigation)
+	final := coordination.Snapshot()
+	require.Equal(t, sourceID, *final.Broadcast.ActiveTerminalID)
 }
 
 func TestApprovalNotificationIgnoresMalformedStaleAndRepeatedResponses(t *testing.T) {

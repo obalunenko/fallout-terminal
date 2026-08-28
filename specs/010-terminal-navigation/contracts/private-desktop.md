@@ -106,7 +106,7 @@ ResolveTerminalNavigation(ResolveTerminalNavigationRequest) ResolveTerminalNavig
 
 ~~Approve одной coordinator transaction сохраняет source checkpoint, меняет route/active target, очищает pending/notice и публикует одну revision.~~ По BUG-005 approve сначала проверяет exact typed pending, затем применяет ровно один mode-specific effect: ordinary публикует authored result без durable write; initial state-change выполняет persist-once; completed state-change публикует frozen result без повторного execution/write; terminal-transition сохраняет source checkpoint и атомарно меняет route/active target; return атомарно восстанавливает предыдущую route point. Каждый путь очищает exact pending и публикует одну revision; transition/return никогда не создают `PendingTerminalSwitch` и не открывают preserve/discard dialog.
 
-Reject очищает только exact pending. Stale/duplicate decision возвращает `ok=false` и не меняет current state. Если target/command устарели после создания pending, coordinator очищает pending, сохраняет active/nav/route, ставит typed notice и возвращает safe private error.
+Reject очищает exact pending без mode-specific effect. Для forward terminal-transition он сохраняет на active source runtime существующий `CommandExecutionPresentation{Phase: REJECTED}` для exact source command до controller acknowledgement; terminal-return reject не создаёт command presentation и немедленно восстанавливает current root screen. Stale/duplicate decision возвращает `ok=false` и не меняет current state. Если target/command устарели после создания pending, coordinator очищает pending, сохраняет active/nav/route, ставит typed notice и возвращает safe private error.
 
 ## Invalid target notice
 

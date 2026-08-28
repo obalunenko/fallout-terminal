@@ -1,6 +1,7 @@
 # Исследование: переходы между терминалами
 
 **Bugfix**: 2026-08-19 — BUG-004 Уточнены общий persistence `oneof` и единый authoring mode selector.
+**Bugfix**: 2026-08-28 — BUG-007 Уточнено переиспользование общего rejected-command presentation без объединения pending lifecycle.
 
 ## 1. Авторская ссылка в session JSON version 1
 
@@ -60,11 +61,11 @@
 
 ## 8. Минимальная public projection, полный private prompt
 
-**Decision**: Публичный `LiveTerminal` получает optional `TerminalNavigationPresentation`: route depth, верхнюю return target и secret-free pending direction/target. Private `CoordinationState` получает полный `PendingTerminalNavigation` с decision ID, direction, source, command и target. Полный route stack остаётся coordinator-private.
+**Decision**: Публичный `LiveTerminal` получает optional `TerminalNavigationPresentation`: route depth, верхнюю return target и secret-free pending direction/target. Private `CoordinationState` получает полный `PendingTerminalNavigation` с decision ID, direction, source, command и target. Полный route stack остаётся coordinator-private. По BUG-007 forward transition pending остаётся отдельным terminal-navigation lifecycle, но exact reject/close после его очистки публикует для source command существующий detached `CommandExecutionPresentation{Phase: REJECTED}` как общий post-decision screen до controller acknowledgement; return reject не публикует command presentation.
 
 **Rationale**: Player-клиенту нужны только авторитетное ожидание и возможность вернуться; master-клиенту нужны exact ID и все поля понятного решения. Оба получают state в первом snapshot и в монотонных updates.
 
-**Alternatives considered**: Публикация decision ID/всего route излишне расширяет public surface; client-local route ломает reconnect и multi-player convergence; переиспользование `CommandExecutionPresentation` смешивает два независимых lifecycle.
+**Alternatives considered**: Публикация decision ID/всего route излишне расширяет public surface; client-local route ломает reconnect и multi-player convergence; ~~переиспользование `CommandExecutionPresentation` смешивает два независимых lifecycle~~ BUG-007 различает запрещённое объединение pending state и допустимое переиспользование уже detached rejected-command presentation после решения, поэтому новые protocol fields не нужны.
 
 ## 9. Без новых зависимостей
 

@@ -6,6 +6,7 @@ const OVERSEER_URL = `${FIXTURE}/overseer`;
 const REQUEST_ID = 'approval-request-1';
 const COMMAND_NAME = 'Открыть двери';
 const CONFIRMATION_TEXT = 'Разрешить доступ в защищённый сектор?';
+const ORDINARY_COMMAND_NAME = 'Запустить диагностику';
 
 async function resetApprovalFixture(request) {
   const response = await request.post(`${FIXTURE}/reset`);
@@ -88,6 +89,19 @@ async function chooseStateChangingCommand(journey) {
   return dialog;
 }
 
+async function chooseOrdinaryCommand(journey) {
+  await journey.player.locator('.term-row', { hasText: ORDINARY_COMMAND_NAME }).click();
+  await expectFullScreenCommandSurface(journey.player, 'Выполняется запрос');
+
+  const dialog = journey.overseer.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ КОМАНДЫ' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#commandExecutionDialogStatus')).toContainText(
+    `РЕЖИМ: ОБЫЧНАЯ · КОМАНДА: ${ORDINARY_COMMAND_NAME}`,
+  );
+  await expect(dialog.locator('#commandExecutionDialogDescription')).toHaveText('Выполнить команду?');
+  return dialog;
+}
+
 function collectFixtureNodes(session) {
   const nodes = [];
   const visit = (node, isRoot = false) => {
@@ -155,11 +169,74 @@ async function resolveCalls(overseer) {
     .filter(call => call.method === 'ResolveCommandExecution'));
 }
 
+async function sourceMenuSnapshot(page) {
+  return page.locator('#termList').evaluate((element) => {
+    const clone = element.cloneNode(true);
+    for (const row of clone.querySelectorAll('.term-row')) row.classList.remove('sel');
+    return clone.innerHTML;
+  });
+}
+
+async function expectOrdinaryRejectionJourney(browser, reject, acknowledge) {
+  const journey = await openApprovalJourney(browser);
+  const firstObserver = await openApprovalParticipant(browser);
+  let secondObserver = await openApprovalParticipant(browser);
+  try {
+    const originalMenu = await sourceMenuSnapshot(journey.player);
+    const reconnectToken = await secondObserver.page.evaluate(tokenKey =>
+      localStorage.getItem(tokenKey), TOKEN_KEY);
+    const dialog = await chooseOrdinaryCommand(journey);
+
+    await Promise.all([firstObserver, secondObserver].map(participant =>
+      expectFullScreenCommandSurface(participant.page, 'Выполняется запрос')));
+    await reject(dialog);
+    await expect.poll(() => resolveCalls(journey.overseer)).toEqual([
+      expect.objectContaining({
+        args: [expect.objectContaining({ decision: 'reject' })],
+      }),
+    ]);
+
+    for (const participant of [
+      { page: journey.player }, firstObserver, secondObserver,
+    ]) {
+      await expectFullScreenCommandSurface(participant.page, 'Ошибка доступа');
+      await expect(participant.page.locator('#entryBody')).toHaveText('Ошибка доступа');
+      await expect(participant.page.locator('#termList')).toBeHidden();
+    }
+    await expect(firstObserver.page.locator('#backBtn')).toBeHidden();
+    await expect(secondObserver.page.locator('#backBtn')).toBeHidden();
+
+    await secondObserver.context.close();
+    secondObserver = await openApprovalParticipant(browser, reconnectToken);
+    await expectFullScreenCommandSurface(secondObserver.page, 'Ошибка доступа');
+    await expect(secondObserver.page.locator('#backBtn')).toBeHidden();
+
+    const audit = await journey.player.evaluate(async (endpoint) => {
+      const response = await fetch(endpoint);
+      return response.json();
+    }, `${FIXTURE}/audit`);
+    expect(audit).toEqual({ executeWrites: 0, completed: false });
+
+    await acknowledge(journey.player);
+    for (const participant of [
+      { page: journey.player }, firstObserver, secondObserver,
+    ]) {
+      await expect(participant.page.locator('.term-row', { hasText: ORDINARY_COMMAND_NAME })).toBeVisible();
+      expect(await sourceMenuSnapshot(participant.page)).toBe(originalMenu);
+      await expect(participant.page.locator('#entryBody')).not.toContainText('Диагностика завершена.');
+    }
+  } finally {
+    await firstObserver.context.close();
+    await secondObserver.context.close();
+    await closeApprovalJourney(journey);
+  }
+}
+
 test.beforeEach(async ({ request }) => {
   await resetApprovalFixture(request);
 });
 
-test('canonical approval input has explicit folder, entry, and only initial state-changing commands', async ({ request }) => {
+test('canonical approval input has explicit folder, entry, ordinary, and initial state-changing commands', async ({ request }) => {
   const response = await request.get(`${FIXTURE}/session`);
   expect(response.ok()).toBe(true);
   const session = await response.json();
@@ -170,13 +247,35 @@ test('canonical approval input has explicit folder, entry, and only initial stat
   expect(nodes.some(node => node.type === 'entry')).toBe(true);
   expect(commands.length).toBeGreaterThan(0);
   expect(session.terminals.flatMap(terminal => Object.keys(terminal.commandStates ?? {}))).toEqual([]);
+  const ordinaryCommands = commands.filter(command => command.stateChange == null);
+  const stateChangingCommands = commands.filter(command => command.stateChange != null);
+  expect(ordinaryCommands.length).toBeGreaterThan(0);
+  expect(stateChangingCommands.length).toBeGreaterThan(0);
   for (const command of commands) {
     expect(command.name.trim()).not.toBe('');
     expect(command.text.trim()).not.toBe('');
+  }
+  for (const command of stateChangingCommands) {
     expect(command.stateChange?.completedName?.trim()).not.toBe('');
     expect(command.stateChange?.confirmationText?.trim()).not.toBe('');
     expect(command.stateChange.confirmationText).not.toContain(command.name);
   }
+});
+
+test('ordinary explicit reject remains an access error for controller, observers, and reconnect until Back', async ({ browser }) => {
+  await expectOrdinaryRejectionJourney(
+    browser,
+    dialog => dialog.getByRole('button', { name: 'ОТКЛОНИТЬ' }).click(),
+    page => page.locator('#backBtn').click(),
+  );
+});
+
+test('ordinary dialog close remains an access error for controller, observers, and reconnect until Enter', async ({ browser }) => {
+  await expectOrdinaryRejectionJourney(
+    browser,
+    dialog => dialog.press('Escape'),
+    page => page.keyboard.press('Enter'),
+  );
 });
 
 test('one pending request opens exactly one overseer dialog and approve publishes a full-screen durable result', async ({ browser, request }) => {

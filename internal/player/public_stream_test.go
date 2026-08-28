@@ -86,6 +86,7 @@ func TestFirstPublicSnapshotRestoresPendingRejectedAndCompletedCommandState(t *t
 		{name: "initial state-changing pending", phase: domain.CommandExecutionPhasePending, wantPhase: playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_PENDING, wantName: "Open doors", wantResult: "Doors opened"},
 		{name: "completed state-changing pending", phase: domain.CommandExecutionPhasePending, completed: true, wantPhase: playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_PENDING, wantName: "Doors open", wantResult: "Doors opened"},
 		{name: "rejected", phase: domain.CommandExecutionPhaseRejected, wantPhase: playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_REJECTED, wantName: "Open doors", wantResult: "Doors opened"},
+		{name: "completed state-changing rejected", phase: domain.CommandExecutionPhaseRejected, completed: true, wantPhase: playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_REJECTED, wantName: "Doors open", wantResult: "Doors opened"},
 		{name: "completed", completed: true, wantName: "Doors open", wantResult: "Doors opened", wantCommandID: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
