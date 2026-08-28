@@ -532,11 +532,11 @@
       <ol>
         <li>Создайте личный токен в своём аккаунте ngrok. Устанавливать ngrok или запускать Terminal не нужно.</li>
         <li>Для случайной HTTPS-ссылки оставьте домен пустым. Зарезервированный домен указывайте без <code>https://</code> и только если он доступен вашему аккаунту.</li>
-        <li>Введите имя игрока, токен ngrok и пароль от 8 символов либо нажмите <strong>СГЕНЕРИРОВАТЬ ПАРОЛЬ</strong> и сразу скопируйте его.</li>
+        <li>Сохраните токен ngrok, затем откройте <strong>ИЗМЕНИТЬ ДАННЫЕ</strong> и задайте логин и пароль игроков от 8 символов либо сгенерируйте пароль.</li>
         <li>Сохраните настройки и включите доступ из основной панели.</li>
-        <li>Дождитесь статуса <strong>ГОТОВ</strong>. Отправьте друзьям URL, имя и пароль: браузер запросит их через Basic Auth.</li>
+        <li>Дождитесь статуса <strong>ГОТОВ</strong>. Скопируйте URL и нажмите <strong>ПОДЕЛИТЬСЯ</strong>, чтобы получить логин и пароль, которые браузер запросит через Basic Auth.</li>
       </ol>
-      <p>Сохранённые токен и пароль повторно не показываются: приложение отображает только их наличие.</p>
+      <p>Сохранённые токен и пароль не показываются: пароль обозначается маской ***** и попадает только в системный буфер после команды «Поделиться».</p>
     </details>
     <form class="public-access-form" id="publicAccessForm" autocomplete="off">
       <fieldset class="public-access-settings-group" id="publicAccessConnectionGroup">
@@ -558,22 +558,21 @@
 
       <fieldset class="public-access-settings-group" id="publicAccessPlayerLoginGroup">
         <legend>ВХОД ДЛЯ ИГРОКОВ</legend>
-        <div class="public-access-labelled-row">
-          <label class="field-label-inline" for="publicAccessUsername">Имя игрока</label>
-          <button class="btn btn-mini btn-secondary" id="btnCopyPublicUsername" type="button">КОПИРОВАТЬ</button>
+        <div class="public-access-player-summary">
+          <div class="public-access-player-summary-row">
+            <span class="field-label-inline">Имя игрока</span>
+            <output class="public-access-player-summary-value" id="publicAccessUsernameSummary">players</output>
+          </div>
+          <div class="public-access-player-summary-row">
+            <span class="field-label-inline">Пароль игроков</span>
+            <output class="public-access-player-password-mask" id="publicAccessPasswordMask" aria-label="Сохранённый пароль игроков" hidden></output>
+            <span class="public-access-credential-status" id="publicAccessPasswordPresence">НЕДОСТУПЕН</span>
+          </div>
         </div>
-        <input class="field-input" id="publicAccessUsername" name="publicAccessUsername" type="text" value="players" autocomplete="username" autocapitalize="none" spellcheck="false">
-
-        <label class="field-label-inline" for="publicAccessPlayerPassword">Пароль игроков</label>
-        <div class="public-access-password-row">
-          <input class="field-input" id="publicAccessPlayerPassword" type="password" name="publicAccessPlayerPassword" autocomplete="new-password" minlength="8" aria-describedby="publicAccessPasswordPresence">
-          <button class="btn btn-secondary" id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ</button>
+        <div class="public-access-player-summary-actions" role="group" aria-label="Управление данными входа игроков">
+          <button class="btn btn-secondary" id="btnOpenPublicAccessPlayerCredentials" type="button">ИЗМЕНИТЬ ДАННЫЕ</button>
+          <button class="btn btn-primary" id="btnSharePublicAccessCredentials" type="button" disabled>ПОДЕЛИТЬСЯ</button>
         </div>
-        <div class="public-access-presence-row">
-          <span id="publicAccessPasswordPresence">НЕДОСТУПЕН</span>
-          <label><input id="publicAccessDeletePlayerPassword" type="checkbox"> УДАЛИТЬ СОХРАНЁННЫЙ</label>
-        </div>
-        <button class="btn btn-mini btn-secondary public-access-copy-manual" id="btnCopyManualPassword" type="button">КОПИРОВАТЬ ВВЕДЁННЫЙ ПАРОЛЬ</button>
         <div class="public-access-copy-status" id="publicAccessSettingsCopyStatus" role="status" aria-live="polite" aria-atomic="true"></div>
       </fieldset>
 
@@ -600,6 +599,29 @@
         <button class="btn btn-primary" id="btnSavePublicAccessProviderToken" type="submit">СОХРАНИТЬ ТОКЕН</button>
       </div>
       <button class="btn btn-danger public-access-provider-token-delete" id="btnDeletePublicAccessProviderToken" type="button">УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН</button>
+    </form>
+  </div>
+</dialog>
+
+<dialog class="terminal-switch-dialog public-access-player-credentials-dialog" id="publicAccessPlayerCredentialsDialog" aria-modal="true" aria-labelledby="publicAccessPlayerCredentialsDialogTitle" aria-describedby="publicAccessPlayerCredentialsDialogDescription" hidden>
+  <div class="terminal-switch-dialog-panel">
+    <h2 class="terminal-switch-dialog-title" id="publicAccessPlayerCredentialsDialogTitle">ИЗМЕНИТЬ ДАННЫЕ ИГРОКОВ</h2>
+    <p class="terminal-switch-dialog-description" id="publicAccessPlayerCredentialsDialogDescription">Измените логин и при необходимости задайте новый пароль. Сохранённый пароль посмотреть нельзя.</p>
+    <form class="public-access-player-credentials-form" id="publicAccessPlayerCredentialsForm" autocomplete="off">
+      <label class="field-label-inline" for="publicAccessReplacementUsername">Логин игроков</label>
+      <input class="field-input" id="publicAccessReplacementUsername" type="text" name="publicAccessReplacementUsername" value="players" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      <label class="field-label-inline" for="publicAccessReplacementPlayerPassword">Новый пароль игроков</label>
+      <div class="public-access-password-row">
+        <input class="field-input" id="publicAccessReplacementPlayerPassword" type="password" name="publicAccessReplacementPlayerPassword" autocomplete="new-password" minlength="8" aria-describedby="publicAccessReplacementPlayerPasswordHint">
+        <button class="btn btn-secondary" id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ</button>
+      </div>
+      <div class="public-access-hint" id="publicAccessReplacementPlayerPasswordHint">Оставьте пустым, чтобы сохранить текущий пароль.</div>
+      <div class="public-access-settings-error" id="publicAccessPlayerCredentialsError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+      <div class="public-access-player-credentials-actions">
+        <button class="btn btn-secondary" id="btnCancelPublicAccessPlayerCredentials" type="button">ОТМЕНА</button>
+        <button class="btn btn-primary" id="btnSavePublicAccessPlayerCredentials" type="submit">СОХРАНИТЬ ДАННЫЕ</button>
+      </div>
+      <button class="btn btn-danger public-access-player-credentials-delete" id="btnDeletePublicAccessPlayerCredentials" type="button">УДАЛИТЬ СОХРАНЁННЫЕ ДАННЫЕ</button>
     </form>
   </div>
 </dialog>

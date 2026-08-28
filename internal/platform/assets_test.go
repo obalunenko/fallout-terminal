@@ -498,14 +498,21 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 		`id="publicAccessProviderConfigured" hidden`,
 		`id="btnOpenPublicAccessProviderToken" type="button">ИЗМЕНИТЬ ТОКЕН</button>`,
 		`id="publicAccessPlayerLoginGroup"`, `ВХОД ДЛЯ ИГРОКОВ`,
-		`for="publicAccessDomain"`, `for="publicAccessUsername"`,
-		`for="publicAccessProviderToken"`, `for="publicAccessPlayerPassword"`,
-		`id="publicAccessProviderToken" type="password"`, `id="publicAccessPlayerPassword" type="password"`,
+		`for="publicAccessDomain"`, `id="publicAccessUsernameSummary"`,
+		`id="publicAccessPasswordMask"`, `id="publicAccessPasswordPresence"`,
+		`id="btnOpenPublicAccessPlayerCredentials" type="button">ИЗМЕНИТЬ ДАННЫЕ</button>`,
+		`id="btnSharePublicAccessCredentials" type="button" disabled>ПОДЕЛИТЬСЯ</button>`,
+		`for="publicAccessProviderToken"`, `id="publicAccessProviderToken" type="password"`,
 		`id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ</button>`,
 		`id="btnCancelPublicAccessSettings" type="button">ОТМЕНА</button>`,
 		`id="publicAccessProviderTokenDialog" aria-modal="true"`,
 		`id="publicAccessReplacementProviderToken" type="password"`,
 		`Сохранённый токен нельзя посмотреть`, `СОХРАНИТЬ ТОКЕН`, `УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН`,
+		`id="publicAccessPlayerCredentialsDialog" aria-modal="true"`,
+		`id="publicAccessReplacementUsername" type="text"`,
+		`id="publicAccessReplacementPlayerPassword" type="password"`,
+		`id="btnSavePublicAccessPlayerCredentials" type="submit">СОХРАНИТЬ ДАННЫЕ</button>`,
+		`id="btnDeletePublicAccessPlayerCredentials" type="button">УДАЛИТЬ СОХРАНЁННЫЕ ДАННЫЕ</button>`,
 		`id="publicAccessGuide"`, `КАК НАСТРОИТЬ ЧЕРЕЗ NGROK`,
 		`СОХРАНИТЬ НАСТРОЙКИ`, `Basic Auth`,
 		`id="publicAccessStatus" role="status" aria-live="polite"`,
@@ -539,7 +546,7 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 	for _, forbidden := range []string{"RevealSecret", "GetSecret", ">REVEAL<", ">ПОКАЗАТЬ ПАРОЛЬ<"} {
 		assert.NotContains(t, html+javascript, forbidden)
 	}
-	assert.Contains(t, html, `id="publicAccessUsername"`)
+	assert.Contains(t, html, `id="publicAccessUsernameSummary"`)
 	assert.Contains(t, html, `value="players"`)
 	assert.Contains(t, css, ".public-access")
 	for _, fragment := range []string{
@@ -552,6 +559,10 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 		"publicAccessProviderSetup.hidden = providerTokenConfigured",
 		"showPublicAccessProviderTokenDialog",
 		"runPublicAccessProviderTokenMutation",
+		"showPublicAccessPlayerCredentialsDialog",
+		"runPublicAccessPlayerCredentialMutation",
+		"publicAccessPasswordMask.textContent = playerPasswordConfigured ? '*****' : ''",
+		"desktopAPI.copyPublicAccessCredentials()",
 		"deleteProviderToken: true",
 		"btnStartPublicAccess.hidden = stopping",
 		"btnStopPublicAccess.hidden = !stopping",

@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 38 methods and seven named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 39 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -43,6 +43,7 @@ test('desktop facade retains one v2 service with 38 methods and seven named even
     'AddCharacter',
     'AssignCharacter',
     'CopyDemo',
+    'CopyPublicAccessCredentials',
     'DeleteCharacter',
     'EndBroadcast',
     'ForceHackSuccess',
@@ -335,7 +336,7 @@ test('release is exact-once, suppresses pending snapshot callbacks, and hot disp
   expect(result.releases).toEqual([1, 1, 1, 1]);
 });
 
-test('public-access facade exposes exactly five methods with secret-free reusable results', async ({ page }) => {
+test('public-access facade exposes exactly six methods with native secret-free sharing results', async ({ page }) => {
   const result = await page.evaluate(async () => {
     const request = {
       expectedRevision: 0,
@@ -348,6 +349,8 @@ test('public-access facade exposes exactly five methods with secret-free reusabl
     const saved = await desktopAPI.savePublicAccessSettings(request);
     const generated = await desktopAPI.generatePlayerPassword({ expectedRevision: saved.snapshot.preferences.revision });
     const afterGenerated = await desktopAPI.getPublicAccess();
+    const shared = await desktopAPI.copyPublicAccessCredentials();
+    const clipboardText = __desktopFixture.takeClipboardText();
     const started = await desktopAPI.startPublicAccess({ expectedRevision: afterGenerated.preferences.revision });
     const stopped = await desktopAPI.stopPublicAccess({ expectedRevision: started.snapshot.preferences.revision });
     return {
@@ -355,6 +358,8 @@ test('public-access facade exposes exactly five methods with secret-free reusabl
       saved,
       generated,
       afterGenerated,
+      shared,
+      clipboardText,
       started,
       stopped,
       methods: __desktopFixture.calls.map(call => call.method).filter(method => method.includes('PublicAccess') || method.includes('PlayerPassword')),
@@ -364,7 +369,7 @@ test('public-access facade exposes exactly five methods with secret-free reusabl
 
   expect(result.methods).toEqual([
     'SavePublicAccessSettings', 'GeneratePlayerPassword', 'GetPublicAccess',
-    'StartPublicAccess', 'StopPublicAccess',
+    'CopyPublicAccessCredentials', 'StartPublicAccess', 'StopPublicAccess',
   ]);
   expect(result.request.replacementProviderToken).toBe('');
   expect(result.request.replacementPlayerPassword).toBe('');
@@ -372,6 +377,9 @@ test('public-access facade exposes exactly five methods with secret-free reusabl
   expect(result.saved.snapshot.playerPasswordPresence).toBe('present');
   expect(result.generated.generatedPassword).toBe('synthetic-one-time-generated-value');
   expect(result.afterGenerated.generatedPassword).toBeUndefined();
+  expect(result.shared).toEqual(expect.objectContaining({ ok: true }));
+  expect(result.clipboardText).toBe('Логин: players\nПароль: synthetic-one-time-generated-value');
+  expect(JSON.stringify(result.shared)).not.toContain('synthetic-one-time-generated-value');
   expect(JSON.stringify([result.saved, result.afterGenerated, result.started, result.stopped, result.retainedCalls]))
     .not.toContain('synthetic-one-time-generated-value');
   expect(JSON.stringify(result.retainedCalls)).not.toContain('synthetic-provider-input');

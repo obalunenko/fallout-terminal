@@ -26,6 +26,13 @@ async function openConfiguredProviderTokenDialog(page) {
   return dialog;
 }
 
+async function openPlayerCredentialsDialog(page) {
+  await page.locator('#btnOpenPublicAccessPlayerCredentials').click();
+  const dialog = page.locator('#publicAccessPlayerCredentialsDialog');
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 test('settings form is labelled, keyboard reachable, and defaults without revealing secrets', async ({ page }) => {
   const dialog = await openPublicAccessSettings(page);
   await expect(page.locator('#btnClosePublicAccessSettings')).toBeFocused();
@@ -37,9 +44,9 @@ test('settings form is labelled, keyboard reachable, and defaults without reveal
   await expect(guide).toContainText('Basic Auth');
 
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');
-  await expect(page.getByLabel('Имя игрока')).toHaveValue('players');
+  await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('players');
   await expect(page.locator('#publicAccessProviderToken')).toHaveAttribute('type', 'password');
-  await expect(page.getByLabel('Пароль игроков')).toHaveAttribute('type', 'password');
+  await expect(page.locator('#publicAccessPasswordMask')).toBeHidden();
   await expect(page.getByRole('button', { name: /показать|reveal/i })).toHaveCount(0);
   await expect(page.locator('#publicAccessProviderPresence')).toHaveText(/не сохранен|недоступен/i);
   await expect(page.locator('#publicAccessPasswordPresence')).toHaveText(/не сохранен|недоступен/i);
@@ -51,8 +58,16 @@ test('settings form is labelled, keyboard reachable, and defaults without reveal
   await expect(page.locator('.public-access-settings-group')).toHaveCount(2);
   await expect(page.locator('#publicAccessBehaviorGroup')).toHaveCount(0);
   await expect(page.getByText('Включать публичный доступ при запуске приложения')).toHaveCount(0);
-  await expect(page.locator('#btnGeneratePlayerPassword')).toBeVisible();
   await expect(page.locator('#publicAccessProviderConfigured')).toBeHidden();
+
+  const credentialsDialog = await openPlayerCredentialsDialog(page);
+  await expect(page.getByLabel('Логин игроков')).toBeFocused();
+  await expect(page.getByLabel('Логин игроков')).toHaveValue('players');
+  await expect(page.getByLabel('Новый пароль игроков')).toHaveAttribute('type', 'password');
+  await expect(page.locator('#btnDeletePublicAccessPlayerCredentials')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(credentialsDialog).toBeHidden();
+  await expect(page.locator('#btnOpenPublicAccessPlayerCredentials')).toBeFocused();
 
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).not.toHaveAttribute('type', 'hidden');
@@ -84,16 +99,19 @@ test('development override prefill is presence-only and does not save or start i
   await openPublicAccessSettings(page);
 
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('override.example');
-  await expect(page.getByLabel('Имя игрока')).toHaveValue('override-players');
+  await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('override-players');
   await expect(page.locator('#publicAccessProviderSetup')).toBeHidden();
   await expect(page.locator('#publicAccessProviderConfigured')).toBeVisible();
-  await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
+  await expect(page.locator('#publicAccessPasswordMask')).toHaveText('*****');
   await expect(page.locator('#publicAccessProviderPresence')).toHaveText(/настроен/i);
-  await expect(page.locator('#publicAccessPasswordPresence')).toHaveText(/сохранен/i);
+  await expect(page.locator('#publicAccessPasswordPresence')).toBeHidden();
   const implicitCalls = await page.evaluate(start => __desktopFixture.calls.slice(start)
     .filter(call => call.method === 'SavePublicAccessSettings' || call.method === 'StartPublicAccess'), callsBefore);
   expect(implicitCalls).toEqual([]);
 
+  await openPlayerCredentialsDialog(page);
+  await expect(page.getByLabel('Логин игроков')).toHaveValue('override-players');
+  await expect(page.getByLabel('Новый пароль игроков')).toHaveValue('');
   await page.getByRole('button', { name: 'СГЕНЕРИРОВАТЬ' }).click();
   const saveCallsAfterGenerate = await page.evaluate(() => __desktopFixture.calls
     .filter(call => call.method === 'SavePublicAccessSettings'));
@@ -101,15 +119,14 @@ test('development override prefill is presence-only and does not save or start i
   await page.reload();
   await openPublicAccessSettings(page);
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');
-  await expect(page.getByLabel('Имя игрока')).toHaveValue('players');
+  await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('players');
 
   await page.getByLabel('Зарезервированный домен').fill('override.example');
-  await page.getByLabel('Имя игрока').fill('override-players');
   await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   const saved = await page.evaluate(() => __desktopFixture.calls
     .filter(call => call.method === 'SavePublicAccessSettings').at(-1));
   expect(saved.args[0]).toMatchObject({
-    reservedDomain: 'override.example', username: 'override-players',
+    reservedDomain: 'override.example', username: 'players',
     replacementProviderToken: '', replacementPlayerPassword: '',
   });
 });
@@ -159,7 +176,7 @@ test('configured token can be deleted without affecting the player password', as
   await expect(page.locator('#publicAccessProviderSetup')).toBeVisible();
   await expect(page.locator('#publicAccessProviderConfigured')).toBeHidden();
   await expect(page.locator('#publicAccessProviderPresence')).toHaveText(/не сохранен/i);
-  await expect(page.locator('#publicAccessPasswordPresence')).toHaveText(/сохранен/i);
+  await expect(page.locator('#publicAccessPasswordMask')).toHaveText('*****');
   const saved = await page.evaluate(() => __desktopFixture.calls
     .filter(call => call.method === 'SavePublicAccessSettings').at(-1));
   expect(saved.args[0]).toMatchObject({ deleteProviderToken: true, deletePlayerPassword: false });
@@ -172,7 +189,7 @@ test('token replacement failure stays open, clears the secret, and preserves the
     status: { state: 'disabled', generation: 3, settingsRevision: 3 },
   }));
   await openPublicAccessSettings(page);
-  await page.getByLabel('Имя игрока').fill('draft-name');
+  await page.getByLabel('Зарезервированный домен').fill('draft.example');
   await page.evaluate(() => __desktopFixture.deferSavePublicAccess());
   await page.locator('#btnOpenPublicAccessProviderToken').click();
   await page.locator('#publicAccessReplacementProviderToken').fill('synthetic-failed-provider-token');
@@ -190,7 +207,7 @@ test('token replacement failure stays open, clears the secret, and preserves the
   await expect(page.locator('#publicAccessProviderTokenDialog')).toBeVisible();
   await expect(page.locator('#publicAccessProviderTokenError')).toContainText('Keychain is unavailable');
   await expect(page.locator('#publicAccessReplacementProviderToken')).toHaveValue('');
-  await expect(page.getByLabel('Имя игрока')).toHaveValue('draft-name');
+  await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('draft.example');
   await expect(page.locator('body')).not.toContainText('synthetic-failed-provider-token');
 });
 
@@ -211,21 +228,28 @@ test('unknown token presence uses the safe initial-entry state', async ({ page }
 test('save replaces secrets without echo and clears transient fields', async ({ page }) => {
   const dialog = await openPublicAccessSettings(page);
   await page.locator('#publicAccessProviderToken').fill('synthetic-provider-input');
-  await page.getByLabel('Пароль игроков').fill('synthetic-player-input');
   await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
 
   await expect(dialog).toBeHidden();
   await expect(page.locator('#publicAccessProviderToken')).toHaveValue('');
-  await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
   await expect(page.locator('#publicAccessProviderPresence')).toHaveText(/настроен/i);
-  await expect(page.locator('#publicAccessPasswordPresence')).toHaveText(/сохранен/i);
   await expect(page.locator('body')).not.toContainText('synthetic-provider-input');
+
+  await openPublicAccessSettings(page);
+  const credentialsDialog = await openPlayerCredentialsDialog(page);
+  await page.getByLabel('Новый пароль игроков').fill('synthetic-player-input');
+  await page.getByRole('button', { name: 'СОХРАНИТЬ ДАННЫЕ' }).click();
+  await expect(credentialsDialog).toBeHidden();
+  await expect(page.getByLabel('Новый пароль игроков')).toHaveValue('');
+  await expect(page.locator('#publicAccessPasswordMask')).toHaveText('*****');
+  await expect(page.locator('#publicAccessPasswordPresence')).toBeHidden();
   await expect(page.locator('body')).not.toContainText('synthetic-player-input');
 });
 
 test('generated password is copied once, dismissed, and removed from DOM references', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await openPublicAccessSettings(page);
+  await openPlayerCredentialsDialog(page);
   await page.getByRole('button', { name: 'СГЕНЕРИРОВАТЬ' }).click();
   const dialog = page.getByRole('dialog', { name: 'НОВЫЙ ПАРОЛЬ ИГРОКОВ' });
   await expect(dialog).toBeVisible();
@@ -236,7 +260,7 @@ test('generated password is copied once, dismissed, and removed from DOM referen
   await page.locator('#btnCopyGeneratedPassword').click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('#generatedPasswordValue')).toHaveText('');
-  await expect(page.locator('#publicAccessPasswordPresence')).toHaveText(/сохранен/i);
+  await expect(page.locator('#publicAccessPasswordMask')).toHaveText('*****');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(generated);
   await expect(page.locator('#btnGeneratePlayerPassword')).toBeFocused();
 });
@@ -261,7 +285,6 @@ test('legacy automatic-start preference is inert and new saves disable it', asyn
 
   await openPublicAccessSettings(page);
   await page.getByLabel('Зарезервированный домен').fill('vault.example');
-  await page.getByLabel('Имя игрока').fill('wanderers');
   await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
   const saved = await page.evaluate(() => __desktopFixture.calls
     .filter(call => call.method === 'SavePublicAccessSettings').at(-1));
@@ -301,7 +324,7 @@ test('Start and Stop map exact lifecycle states and never expose a pre-ready URL
   await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
 });
 
-test('random and reserved ready outcomes are copied without reconstructing saved password', async ({ page, context }) => {
+test('random and reserved ready outcomes support URL copying and native credential sharing', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   for (const [index, publicUrl] of ['https://random.example', 'https://vault.example'].entries()) {
     await page.evaluate(({ url, index: eventIndex }) => __desktopFixture.emit('public-access-status', {
@@ -315,13 +338,16 @@ test('random and reserved ready outcomes are copied without reconstructing saved
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(publicUrl);
   }
   await openPublicAccessSettings(page);
-  await page.locator('#btnCopyPublicUsername').click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('wanderers');
-  await expect(page.locator('#publicAccessPlayerPassword')).toHaveValue('');
-  await expect(page.locator('#btnCopyManualPassword')).toBeDisabled();
+  await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('wanderers');
+  await expect(page.locator('#publicAccessPasswordMask')).toHaveText('*****');
+  await page.locator('#btnSharePublicAccessCredentials').click();
+  await expect(page.locator('#publicAccessSettingsCopyStatus')).toHaveText('ЛОГИН И ПАРОЛЬ СКОПИРОВАНЫ');
+  expect(await page.evaluate(() => __desktopFixture.takeClipboardText()))
+    .toBe('Логин: wanderers\nПароль: synthetic-player-share-value');
+  await expect(page.locator('body')).not.toContainText('synthetic-player-share-value');
 });
 
-test('copy falls back to the native runtime when WebView clipboard permission is unavailable', async ({ page }) => {
+test('credential sharing stays native when WebView clipboard permission is unavailable', async ({ page }) => {
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -330,9 +356,15 @@ test('copy falls back to the native runtime when WebView clipboard permission is
   });
 
   await openPublicAccessSettings(page);
-  await page.locator('#btnCopyPublicUsername').click();
-  await expect(page.locator('#publicAccessSettingsCopyStatus')).toHaveText('ИМЯ СКОПИРОВАНО');
-  expect(await page.evaluate(() => __desktopFixture.takeClipboardText())).toBe('players');
+  await page.evaluate(() => __desktopFixture.emit('public-access-status', {
+    preferences: { version: 1, enabledPreference: false, username: 'players', revision: 2 },
+    providerTokenPresence: 'present', playerPasswordPresence: 'present',
+    status: { state: 'disabled', generation: 2, settingsRevision: 2 },
+  }));
+  await page.locator('#btnSharePublicAccessCredentials').click();
+  await expect(page.locator('#publicAccessSettingsCopyStatus')).toHaveText('ЛОГИН И ПАРОЛЬ СКОПИРОВАНЫ');
+  expect(await page.evaluate(() => __desktopFixture.takeClipboardText()))
+    .toBe('Логин: players\nПароль: synthetic-player-share-value');
 });
 
 test('failed domain state is redacted, URL-free, and rendered as error', async ({ page }) => {
@@ -361,17 +393,18 @@ test('active edits require confirmation and render stopped-to-starting replaceme
   await openPublicAccessSettings(page);
   await page.evaluate(() => __desktopFixture.deferSavePublicAccess());
   await page.getByLabel('Зарезервированный домен').fill('after.example');
-  await page.getByLabel('Имя игрока').fill('friends');
-  await page.getByLabel('Пароль игроков').fill('synthetic-active-password-replacement');
+  await openPlayerCredentialsDialog(page);
+  await page.getByLabel('Логин игроков').fill('friends');
+  await page.getByLabel('Новый пароль игроков').fill('synthetic-active-password-replacement');
 
   let confirmation = '';
   page.on('dialog', async dialog => {
     confirmation = dialog.message();
     await dialog.accept();
   });
-  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
+  await page.getByRole('button', { name: 'СОХРАНИТЬ ДАННЫЕ' }).click();
   await expect.poll(() => confirmation).toMatch(/останов|перезапуск|актив/i);
-  await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
+  await expect(page.getByLabel('Новый пароль игроков')).toHaveValue('');
   await expect(page.locator('body')).not.toContainText('synthetic-active-password-replacement');
 
   await page.evaluate(() => __desktopFixture.emit('public-access-status', {
@@ -410,14 +443,14 @@ test('cancelled active deletion sends no mutation and saved secrets are never re
   await openPublicAccessSettings(page);
   const callsBefore = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SavePublicAccessSettings').length);
   page.once('dialog', dialog => dialog.dismiss());
-  await page.locator('#btnOpenPublicAccessProviderToken').click();
-  await page.getByRole('button', { name: 'УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН' }).click();
+  await openPlayerCredentialsDialog(page);
+  await page.getByRole('button', { name: 'УДАЛИТЬ СОХРАНЁННЫЕ ДАННЫЕ' }).click();
   const callsAfter = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SavePublicAccessSettings').length);
   expect(callsAfter).toBe(callsBefore);
-  await expect(page.locator('#publicAccessProviderTokenDialog')).toBeVisible();
-  await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
+  await expect(page.locator('#publicAccessPlayerCredentialsDialog')).toBeVisible();
+  await expect(page.getByLabel('Новый пароль игроков')).toHaveValue('');
   await expect(page.locator('#publicAccessProviderPresence')).toHaveText(/настроен/i);
-  await expect(page.locator('#publicAccessPasswordPresence')).toHaveText(/сохранен/i);
+  await expect(page.locator('#publicAccessPasswordMask')).toHaveText('*****');
 });
 
 test('newer reconfigure event wins over a stale command result and stale secret fields stay empty', async ({ page }) => {
@@ -431,9 +464,10 @@ test('newer reconfigure event wins over a stale command result and stale secret 
   });
   await openPublicAccessSettings(page);
   page.on('dialog', dialog => dialog.accept());
-  await page.getByLabel('Имя игрока').fill('requested');
-  await page.getByLabel('Пароль игроков').fill('synthetic-stale-result-password');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
+  await openPlayerCredentialsDialog(page);
+  await page.getByLabel('Логин игроков').fill('requested');
+  await page.getByLabel('Новый пароль игроков').fill('synthetic-stale-result-password');
+  await page.getByRole('button', { name: 'СОХРАНИТЬ ДАННЫЕ' }).click();
   await page.evaluate(() => __desktopFixture.emit('public-access-status', {
     preferences: { version: 1, enabledPreference: true, reservedDomain: 'newer.example', username: 'newer', revision: 8 },
     providerTokenPresence: 'present', playerPasswordPresence: 'present',
@@ -449,10 +483,10 @@ test('newer reconfigure event wins over a stale command result and stale secret 
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ГОТОВ');
   await expect(page.locator('#publicAccessURL')).toHaveText('https://newer.example');
-  await expect(page.getByLabel('Имя игрока')).toHaveValue('newer');
+  await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('newer');
   await expect(page.locator('#publicAccessProviderConfigured')).not.toHaveAttribute('hidden', '');
   await expect(page.locator('#publicAccessReplacementProviderToken')).toHaveValue('');
-  await expect(page.getByLabel('Пароль игроков')).toHaveValue('');
+  await expect(page.getByLabel('Новый пароль игроков')).toHaveValue('');
   await expect(page.locator('body')).not.toContainText('synthetic-stale-result-password');
 });
 
@@ -467,8 +501,9 @@ test('active mutation failure stays URL-free, redacted, and keeps transition act
   });
   await openPublicAccessSettings(page);
   page.on('dialog', dialog => dialog.accept());
-  await page.getByLabel('Имя игрока').fill('friends');
-  await page.getByRole('button', { name: 'СОХРАНИТЬ НАСТРОЙКИ' }).click();
+  await openPlayerCredentialsDialog(page);
+  await page.getByLabel('Логин игроков').fill('friends');
+  await page.getByRole('button', { name: 'СОХРАНИТЬ ДАННЫЕ' }).click();
   await page.evaluate(() => __desktopFixture.resolveSavePublicAccess({
     ok: false,
     error: 'Keychain is unavailable; local access remains available.',
@@ -485,8 +520,9 @@ test('active mutation failure stays URL-free, redacted, and keeps transition act
   await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
   await expect(page.locator('#publicAccessError')).toContainText('secure credential store is unavailable');
   await expect(page.locator('#publicAccessSettingsDialog')).toBeVisible();
-  await expect(page.getByLabel('Имя игрока')).toHaveValue('friends');
-  await expect(page.locator('#publicAccessSettingsError')).toContainText('Keychain is unavailable');
-  await expect(page.locator('#btnSavePublicAccess')).toBeEnabled();
+  await expect(page.locator('#publicAccessPlayerCredentialsDialog')).toBeVisible();
+  await expect(page.getByLabel('Логин игроков')).toHaveValue('friends');
+  await expect(page.locator('#publicAccessPlayerCredentialsError')).toContainText('Keychain is unavailable');
+  await expect(page.locator('#btnSavePublicAccessPlayerCredentials')).toBeEnabled();
   await expect(page.locator('#btnStartPublicAccess')).toBeEnabled();
 });

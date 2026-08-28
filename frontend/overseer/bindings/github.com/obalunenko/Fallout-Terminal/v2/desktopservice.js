@@ -55,6 +55,15 @@ export function CopyDemo() {
 }
 
 /**
+ * @returns {$CancellablePromise<$models.CommandResult>}
+ */
+export function CopyPublicAccessCredentials() {
+    return $Call.ByID(644689427).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType2($result);
+    }));
+}
+
+/**
  * @param {$models.CharacterDeletePayload} payload
  * @returns {$CancellablePromise<$models.CoordinationCommandResult>}
  */

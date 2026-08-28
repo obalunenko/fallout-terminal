@@ -181,6 +181,33 @@ func WithPublicAccessSecrets(ctx context.Context, store SecretStore, callback fu
 	return nil
 }
 
+// WithPlayerPassword provides bounded access to the saved player password
+// without requiring or exposing the provider credential.
+func WithPlayerPassword(ctx context.Context, store SecretStore, callback func([]byte) error) error {
+	if store == nil || callback == nil {
+		return ErrSecretStoreUnavailable
+	}
+	var callbackErr error
+	err := store.WithSecrets(ctx, []SecretRef{PlayerBasicAuthPassword}, func(use *SecretUse) error {
+		if use == nil {
+			return ErrSecretStoreUnavailable
+		}
+		defer use.Clear()
+		if validationErr := ValidatePlayerPassword(use.PlayerPassword); validationErr != nil {
+			return errors.New("stored player credential is invalid")
+		}
+		callbackErr = callback(use.PlayerPassword)
+		return callbackErr
+	})
+	if callbackErr != nil && errors.Is(err, callbackErr) {
+		return callbackErr
+	}
+	if err != nil {
+		return redactSecretStoreError(err)
+	}
+	return nil
+}
+
 func redactSecretStoreError(err error) error {
 	switch {
 	case errors.Is(err, ErrSecretStoreLocked):
