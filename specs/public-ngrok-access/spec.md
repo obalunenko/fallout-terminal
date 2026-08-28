@@ -44,7 +44,7 @@ As a game master, I can configure credentials, domain, and executable location o
 3. **Given** only one paired variable is set, **when** configuration is resolved, **then** startup fails instead of falling back to the combined value.
 4. **Given** a credential is validated, **when** its username is empty or contains a line break, or its password is outside 8–128 characters or contains a line break, **then** startup fails with a descriptive error.
 5. **Given** `NGROK_DOMAIN` or `NGROK_BIN` is set, **when** ngrok starts, **then** the configured endpoint or executable overrides the corresponding default.
-6. **Given** no custom domain or executable is configured, **when** ngrok starts, **then** it uses `fallout-terminal.ngrok.app` and resolves `ngrok` through the process environment.
+6. **Given** no custom domain or executable is configured, **when** ngrok starts, **then** the provider assigns a random public endpoint and the application resolves `ngrok` through the process environment.
 
 ---
 
@@ -129,7 +129,7 @@ As a game master, I can close the application or encounter a failed startup with
 | `NGROK_ENABLED` | Enable public mode | Enables only when exactly `1` |
 | `NGROK_USERNAME` + `NGROK_PASSWORD` | Paired Basic Auth credential | Used when either paired value is present; both are required |
 | `NGROK_BASIC_AUTH` | Combined `username:password` credential | Used only when neither paired value is present |
-| `NGROK_DOMAIN` | Reserved/public endpoint | Defaults to `fallout-terminal.ngrok.app` |
+| `NGROK_DOMAIN` | Reserved/public endpoint | Empty by default; the provider assigns a random endpoint |
 | `NGROK_BIN` | ngrok executable | Defaults to `ngrok` |
 
 Programmatic `startNgrok` options override the corresponding environment-derived credential, binary, domain, and timeout values. They are an internal CommonJS module contract rather than a renderer or player API.

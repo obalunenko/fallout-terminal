@@ -134,6 +134,7 @@ const publicAccessProviderConfigured = document.getElementById('publicAccessProv
 const publicAccessProviderToken = document.getElementById('publicAccessProviderToken');
 const publicAccessProviderPresence = document.getElementById('publicAccessProviderPresence');
 const publicAccessPasswordPresence = document.getElementById('publicAccessPasswordPresence');
+const publicAccessNgrokDocLinks = document.querySelectorAll('[data-ngrok-doc-url]');
 const publicAccessProviderTokenDialog = document.getElementById('publicAccessProviderTokenDialog');
 const publicAccessProviderTokenForm = document.getElementById('publicAccessProviderTokenForm');
 const publicAccessReplacementProviderToken = document.getElementById('publicAccessReplacementProviderToken');
@@ -1286,6 +1287,11 @@ btnSharePublicAccessCredentials.addEventListener('click', async () => {
     ? 'ЛОГИН И ПАРОЛЬ СКОПИРОВАНЫ'
     : (result.error || 'НЕ УДАЛОСЬ СКОПИРОВАТЬ ДАННЫЕ ИГРОКОВ');
 });
+for (const link of publicAccessNgrokDocLinks) {
+  link.addEventListener('click', () => {
+    void desktopAPI.openUrl(link.dataset.ngrokDocUrl);
+  });
+}
 // ── Start screen: open / new session ───────────────────────
 btnOpenSession.addEventListener('click', async () => {
   const res = await desktopAPI.openSession();

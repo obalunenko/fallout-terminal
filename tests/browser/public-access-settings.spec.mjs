@@ -42,8 +42,22 @@ test('settings form is labelled, keyboard reachable, and defaults without reveal
   await expect(guide).toHaveAttribute('open', '');
   await expect(guide).toContainText('Сохраните настройки');
   await expect(guide).toContainText('Basic Auth');
+  await expect(guide).toContainText('ngrok автоматически назначит случайный хост');
+  await expect(guide).toContainText('Он начнёт использоваться только после сохранения настроек');
+
+  await page.locator('#btnOpenNgrokAutoAssignedDomainDocs').click();
+  await page.locator('#btnOpenNgrokFixedDomainDocs').click();
+  const documentationCalls = await page.evaluate(() => __desktopFixture.calls
+    .filter(call => call.method === 'OpenURL')
+    .map(call => call.args[0]));
+  expect(documentationCalls).toEqual([
+    'https://ngrok.com/docs/gateway/domains/#auto-assigned-domains',
+    'https://ngrok.com/docs/gateway/domains/#domains',
+  ]);
 
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');
+  await expect(page.locator('#publicAccessDomainHint'))
+    .toContainText('Фиксированный хост применяется только после заполнения поля и сохранения');
   await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('players');
   await expect(page.locator('#publicAccessProviderToken')).toHaveAttribute('type', 'password');
   await expect(page.locator('#publicAccessPasswordMask')).toBeHidden();

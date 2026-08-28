@@ -531,7 +531,8 @@
       <summary>КАК НАСТРОИТЬ ЧЕРЕЗ NGROK</summary>
       <ol>
         <li>Создайте личный токен в своём аккаунте ngrok. Устанавливать ngrok или запускать Terminal не нужно.</li>
-        <li>Для случайной HTTPS-ссылки оставьте домен пустым. Зарезервированный домен указывайте без <code>https://</code> и только если он доступен вашему аккаунту.</li>
+        <li>По умолчанию оставьте домен пустым: ngrok автоматически назначит случайный хост для публичной ссылки.</li>
+        <li>Для фиксированного хоста укажите доступный вашему аккаунту домен без <code>https://</code>. Он начнёт использоваться только после сохранения настроек.</li>
         <li>Сохраните токен ngrok, затем откройте <strong>ИЗМЕНИТЬ ДАННЫЕ</strong> и задайте логин и пароль игроков от 8 символов либо сгенерируйте пароль.</li>
         <li>Сохраните настройки и включите доступ из основной панели.</li>
         <li>Дождитесь статуса <strong>ГОТОВ</strong>. Скопируйте URL и нажмите <strong>ПОДЕЛИТЬСЯ</strong>, чтобы получить логин и пароль, которые браузер запросит через Basic Auth.</li>
@@ -553,7 +554,11 @@
 
         <label class="field-label-inline" for="publicAccessDomain">Зарезервированный домен</label>
         <input class="field-input" id="publicAccessDomain" name="publicAccessDomain" type="text" inputmode="url" autocapitalize="none" spellcheck="false" aria-describedby="publicAccessDomainHint">
-        <div class="public-access-hint" id="publicAccessDomainHint">Необязательно · только имя хоста без https://</div>
+        <div class="public-access-hint" id="publicAccessDomainHint">Пустое поле — случайный хост от ngrok. Фиксированный хост применяется только после заполнения поля и сохранения · без https://</div>
+        <div class="public-access-doc-links" aria-label="Документация ngrok о доменах">
+          <button class="public-access-doc-link" data-ngrok-doc-url="https://ngrok.com/docs/gateway/domains/#auto-assigned-domains" id="btnOpenNgrokAutoAssignedDomainDocs" type="button">СЛУЧАЙНЫЕ ХОСТЫ · NGROK</button>
+          <button class="public-access-doc-link" data-ngrok-doc-url="https://ngrok.com/docs/gateway/domains/#domains" id="btnOpenNgrokFixedDomainDocs" type="button">ФИКСИРОВАННЫЕ ХОСТЫ · NGROK</button>
+        </div>
       </fieldset>
 
       <fieldset class="public-access-settings-group" id="publicAccessPlayerLoginGroup">

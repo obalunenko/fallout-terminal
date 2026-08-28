@@ -51,13 +51,13 @@ kept only in environment variables:
    received a complete reconnect snapshot.
 
 ```text
-$ NGROK_TEST_URL=https://fallout-terminal.ngrok.app \
+$ NGROK_TEST_URL=https://fixed-host.example \
     npx playwright test connectrpc-player.spec.mjs \
     --grep 'actual authenticated ngrok endpoint'
 1 passed
 
-$ FIXTURE_PUBLIC_HOST=https://fallout-terminal.ngrok.app \
-    NGROK_TEST_URL=https://fallout-terminal.ngrok.app \
+$ FIXTURE_PUBLIC_HOST=https://fixed-host.example \
+    NGROK_TEST_URL=https://fixed-host.example \
     NGROK_TEST_FIXTURE=1 \
     npx playwright test connectrpc-player.spec.mjs \
     --grep 'actual authenticated ngrok endpoint'

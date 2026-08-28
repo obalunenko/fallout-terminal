@@ -407,7 +407,7 @@ A maintainer proves parity through a thin vertical slice and migration tests, th
 - **FR-102**: A roster or association change MUST NOT be published before its required complete-file atomic save succeeds.
 - **FR-103**: Environment variables and command-line arguments MUST retain their current precedence and validation.
 - **FR-104**: The player listener MUST retain default port 3690, delivery queue default 32, and current startup-timeout behavior.
-- **FR-105**: Protected public access MUST retain domain `fallout-terminal.ngrok.app`, credential-pair validation, and fail-closed Basic Auth.
+- **FR-105**: Protected public access MUST retain a provider-assigned public endpoint when no fixed domain is configured, credential-pair validation, and fail-closed Basic Auth.
 - **FR-106**: Tunnel credentials MUST remain process-local and redacted.
 - **FR-107**: Credentials MUST be absent from public schemas, runtime status, desktop events, logs, public errors, session files, player-config files, and generated public documentation.
 - **FR-108**: Private protobuf configuration contracts MUST NOT authorize configuration exposure through public procedures.
@@ -602,7 +602,7 @@ Wails lifecycle callbacks remain private application lifecycle boundaries and ar
 - Default replay-cache limit: `256` entries per logical session and broadcast.
 - Maximum uncompressed public player RPC request message: `4 KiB`.
 - Current reconnect delay: `three seconds`.
-- Public ngrok domain: `fallout-terminal.ngrok.app`.
+- Public ngrok domain: provider-assigned unless a fixed domain is explicitly configured and saved.
 - Invalid Basic Auth response: HTTP `401`.
 - Connect error codes: `invalid_argument`, `resource_exhausted`, `unimplemented`, `canceled`, `unavailable`, `internal`.
 - Stable action-result reasons: `accepted`, `invalid-session`, `stale-broadcast`, `unassigned`, `not-controller`, `controller-disconnected`, `stale-terminal`, `invalid-action`, `conflict`, `duplicate`.

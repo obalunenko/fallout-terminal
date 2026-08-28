@@ -913,6 +913,28 @@ button {
   font-size: 9px;
   line-height: 1.35;
 }
+
+.public-access-doc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+}
+
+.public-access-doc-link {
+  padding: 0;
+  border: 0;
+  color: #9fe89a;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.public-access-doc-link:hover,
+.public-access-doc-link:focus-visible {
+  color: #ffe08a;
+}
 .public-access-player-summary {
   display: grid;
   gap: 8px;

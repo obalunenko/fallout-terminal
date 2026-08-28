@@ -212,7 +212,6 @@ They do not replace file representation. Session JSON preserves compatible unkno
 
 ## Serializable Configuration
 
-Generated `fallout.terminal.config.v1` values govern serializable application, listener, queue, request-limit, reconnect, replay, path, tunnel, startup, shutdown, and process-grace settings. Defaults include public player port `3690`, delivery queue `32`, replay cache `256`, request message `4 KiB`, encoded body `8 KiB`, reconnect delay three seconds, ngrok domain `fallout-terminal.ngrok.app`, current tunnel startup timeout, and current shutdown/grace behavior.
+Generated `fallout.terminal.config.v1` values govern serializable application, listener, queue, request-limit, reconnect, replay, path, tunnel, startup, shutdown, and process-grace settings. Defaults include public player port `3690`, delivery queue `32`, replay cache `256`, request message `4 KiB`, encoded body `8 KiB`, reconnect delay three seconds, no configured fixed ngrok domain, current tunnel startup timeout, and current shutdown/grace behavior.
 
 Embedded filesystems, callbacks, event sinks, clocks, random/ID sources, service interfaces, contexts, process handles, listeners, and runners remain non-serializable injected values and never become protobuf fields.
-
