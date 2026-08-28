@@ -114,6 +114,8 @@ let activePresentationUplink = null;
 let presentationUplinkRetryTimer = null;
 let appliedSharedRevision = 0;
 let transientPlayerNotice = '';
+let transientPlayerNoticeContextKey = '';
+let activeHackingContextKey = '';
 
 // ── DOM refs ──────────────────────────────────────────────
 const normalHeader = document.getElementById('normalHeader');
@@ -943,6 +945,7 @@ function clearBroadcastMirrors() {
   commandExecution = null;
   terminalNavigation = null;
   controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+  activeHackingContextKey = '';
   lastRenderedFolderKey = null;
   lastRenderedEntryId = null;
   lastRenderedCommandKey = null;
@@ -996,6 +999,47 @@ function playHackOutcomeTransition(previousHack, nextHack, revision = appliedSha
   }
 }
 
+function isHackingContextKey(contextKey) {
+  return typeof contextKey === 'string' && contextKey.startsWith('hack:');
+}
+
+function hackingContextKey(presentation = controllerPresentation) {
+  const contextKey = typeof presentation?.contextKey === 'string'
+    ? presentation.contextKey
+    : '';
+  return isHackingContextKey(contextKey) ? contextKey : '';
+}
+
+function reconcileSolvedHack(previousHack, nextHack, contextKey) {
+  if (!previousHack || previousHack.solved || !nextHack?.solved) return;
+
+  const endedContextKeys = new Set([
+    activeHackingContextKey,
+    contextKey,
+    hackingContextKey(pendingPresentationAction?.presentation),
+    hackingContextKey(desiredPresentationAction),
+    hackingContextKey(localControllerPresentation),
+    pendingSharedAction?.contextKey,
+    transientPlayerNoticeContextKey,
+  ].filter(isHackingContextKey));
+
+  if (endedContextKeys.has(pendingSharedAction?.contextKey)) pendingSharedAction = null;
+  if (pendingPresentationAction?.presentation.kind === 'hacking' &&
+      endedContextKeys.has(pendingPresentationAction.presentation.contextKey)) {
+    clearPendingPresentationAction();
+  }
+  if (desiredPresentationAction?.kind === 'hacking' &&
+      endedContextKeys.has(desiredPresentationAction.contextKey)) {
+    desiredPresentationAction = null;
+  }
+  if (localControllerPresentation?.kind === 'hacking' &&
+      endedContextKeys.has(localControllerPresentation.contextKey)) {
+    clearLocalControllerPresentation();
+  }
+  if (endedContextKeys.has(transientPlayerNoticeContextKey)) showPlayerNotice('');
+  activeHackingContextKey = '';
+}
+
 function scheduleHackSolvedNavigation() {
   if (!hack || !hack.solved || hackSolvedTimer) return;
   hackSolvedTimer = setTimeout(() => {
@@ -1045,6 +1089,11 @@ function applyLiveTerminal(msg) {
     terminalNavigation = msg.terminalNavigation || null;
     const previousPresentation = controllerPresentation;
     controllerPresentation = msg.presentation || { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+    const nextHackingContextKey = hackingContextKey();
+    const solvedHackContextKey = activeHackingContextKey ||
+      hackingContextKey(previousPresentation) || nextHackingContextKey;
+    if (!hack?.solved && nextHackingContextKey) activeHackingContextKey = nextHackingContextKey;
+    reconcileSolvedHack(previousHack, hack, solvedHackContextKey);
     if (pendingPresentationAction?.transport === 'stream' &&
         sameControllerPresentation(pendingPresentationAction.presentation, controllerPresentation)) {
       clearTimeout(pendingPresentationAction.resultTimer);
@@ -1139,6 +1188,11 @@ function applyHackingProjection(nextHack, revision, projectedTerminalID) {
     const previousHack = hack;
     hack = nextHack;
     if (mode !== MODE.HACK || !hack) return;
+    reconcileSolvedHack(
+      previousHack,
+      hack,
+      hackingContextKey(),
+    );
     playHackOutcomeTransition(previousHack, hack);
     lastAttemptsLeft = hack.attemptsLeft;
     hackWasSolved = hack.solved;
@@ -1158,6 +1212,7 @@ function applyNoLiveTerminal(revision) {
     commandExecution = null;
   terminalNavigation = null;
   controllerPresentation = { kind: 'none', contextKey: '', targetId: '', patternId: '', pageIndex: 0 };
+  activeHackingContextKey = '';
     clearLocalControllerPresentation();
     clearTimeout(hackSolvedTimer);
     hackSolvedTimer = null;
@@ -1216,7 +1271,10 @@ function applyPlayerState(nextState, { authoritativeWelcome = false } = {}) {
     roster,
   };
   playerState = nextPlayerState;
-  if (nextPlayerState.notice !== null) transientPlayerNotice = '';
+  if (nextPlayerState.notice !== null) {
+    transientPlayerNotice = '';
+    transientPlayerNoticeContextKey = '';
+  }
 
   const broadcastChanged = previousState !== null &&
     previousState.broadcastId !== nextPlayerState.broadcastId;
@@ -1276,7 +1334,11 @@ function applyActionResult(result) {
         clearLocalControllerPresentation();
         render();
       }
-      showPlayerNotice(`ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`);
+      const contextKey = hackingContextKey(rejectedPresentation);
+      showPlayerNotice(
+        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`,
+        contextKey,
+      );
       scheduleDesiredPresentationDispatch();
     } else {
       pendingPresentationAction.acceptedRevision = Number(result.revision) || 0;
@@ -1288,8 +1350,12 @@ function applyActionResult(result) {
 
   if (pendingSharedAction && result.requestId === pendingSharedAction.requestId) {
     if (!result.accepted) {
+      const contextKey = pendingSharedAction.contextKey;
       pendingSharedAction = null;
-      showPlayerNotice(`ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`);
+      showPlayerNotice(
+        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`,
+        contextKey,
+      );
     } else {
       pendingSharedAction.acceptedRevision = Number(result.revision) || 0;
       completeAcceptedSharedAction();
@@ -1362,7 +1428,8 @@ function beginSharedMutation(procedure, invoke) {
   if (!canControlSharedTerminal()) return false;
 
   const requestId = createRequestID();
-  pendingSharedAction = { requestId, procedure, acceptedRevision: null };
+  const contextKey = mode === MODE.HACK ? hackingContextKey() : '';
+  pendingSharedAction = { requestId, procedure, acceptedRevision: null, contextKey };
   showPlayerNotice('');
   renderPlayerContext();
   void invoke(requestId, playerState.broadcastId, playerState.activeTerminalId);
@@ -1373,7 +1440,8 @@ function beginSharedMutationForAction(procedure, invoke, action) {
   if (!canControlSharedTerminalAction(action)) return false;
 
   const requestId = createRequestID();
-  pendingSharedAction = { requestId, procedure, acceptedRevision: null };
+  const contextKey = mode === MODE.HACK ? hackingContextKey() : '';
+  pendingSharedAction = { requestId, procedure, acceptedRevision: null, contextKey };
   showPlayerNotice('');
   renderPlayerContext();
   void invoke(requestId, playerState.broadcastId, playerState.activeTerminalId);
@@ -1554,8 +1622,9 @@ function selectCharacter(characterID) {
   void selectCharacterRPC(requestId, playerState.broadcastId, entry.id);
 }
 
-function showPlayerNotice(message) {
+function showPlayerNotice(message, contextKey = '') {
   transientPlayerNotice = message;
+  transientPlayerNoticeContextKey = message ? contextKey : '';
   renderPlayerNotice();
 }
 
@@ -1791,7 +1860,7 @@ function setHackPatternHover(pattern) {
 }
 
 function previewHackCell(cell) {
-  if (!cell || !canControlTerminalPresentation()) return;
+  if (!cell || !hack || hack.solved || hack.failed || !canControlTerminalPresentation()) return;
   cancelHackHoverClear();
   const pattern = patternAtCell(cell);
   if (pattern) {

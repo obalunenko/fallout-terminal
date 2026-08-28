@@ -267,11 +267,13 @@ func (service *Service) ApplyHackGuess(targetID string) (*domain.PublicHackState
 	return projection.Hack, true
 }
 
-// ApplyHackPattern atomically validates and consumes one current pattern.
+// ApplyHackPattern atomically validates and consumes one current pattern. The
+// publication callback runs while the live-service mutex is held and must not
+// call back into the service or perform blocking transport work.
 func (service *Service) ApplyHackPattern(patternID string, publish func(*domain.PublicHackState)) bool {
 	service.mu.Lock()
+	defer service.mu.Unlock()
 	if !activePuzzle(service.live) {
-		service.mu.Unlock()
 		return false
 	}
 
@@ -280,12 +282,10 @@ func (service *Service) ApplyHackPattern(patternID string, publish func(*domain.
 		Kind: domain.RuntimeCommandActivatePattern, PatternID: patternID,
 	})
 	if !ok {
-		service.mu.Unlock()
 		return false
 	}
 	service.live.Hack = runtime.Hack
 	publicHack := projection.Hack
-	service.mu.Unlock()
 
 	if publish != nil {
 		publish(publicHack)

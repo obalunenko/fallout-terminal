@@ -604,7 +604,21 @@ export async function DeleteCharacter(payload) {
 export const AssignCharacter = (...args) => record('AssignCharacter', args);
 export const CopyDemo = (...args) => record('CopyDemo', args);
 export const EndBroadcast = (...args) => record('EndBroadcast', args);
-export const ForceHackSuccess = (...args) => record('ForceHackSuccess', args);
+export function ForceHackSuccess(...args) {
+  if (!terminalNavigationFixtureActive()) return record('ForceHackSuccess', args);
+  state.calls.push({ method: 'ForceHackSuccess', args: structuredClone(args) });
+  return fetch('/__fixture/terminal-navigation/force-hack', { method: 'POST' }).then(async response => {
+    if (response.ok) {
+      emitFixtureEvent('hack-state', {
+        solved: true, failed: false, attemptsLeft: 3, attemptsMax: 4,
+      });
+    }
+    return {
+      ok: response.ok,
+      error: response.ok ? '' : (await response.text()).trim(),
+    };
+  });
+}
 export const LoadReferencedPlayerConfig = (...args) => record('LoadReferencedPlayerConfig', args);
 export const MoveCharacter = (...args) => record('MoveCharacter', args);
 export const NewPlayerConfig = (...args) => record('NewPlayerConfig', args);

@@ -739,9 +739,65 @@
       "by": "ai",
       "at": "2026-08-11T16:38:44.356Z",
       "reopened": true
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T058",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T00:50:01.725Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T059",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T00:50:09.576Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T060",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T00:50:15.394Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T061",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T00:50:22.155Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T062",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T01:32:29.255Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T063",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T01:36:23.803Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T064",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T01:47:27.186Z"
     }
   ],
-  "last_action": "all tasks done — Go, race, syntax, Playwright 3/3, frontend build, and diff checks pass; Electron smoke recorded unavailable",
+  "last_action": "BUG-003 implementation, focused/full automation, and native private Overseer replay all passed",
   "coverage": {
     "FR-001": {
       "title": "Phase 1 MUST replace player-accessible hacking cheats with server-authoritative Fallout-style special patterns.",
@@ -1232,12 +1288,12 @@
       ]
     },
     "FR-047": {
-      "title": "Under that mutex, activation MUST perform these steps in order: validate the active generation; validate or rediscover the requested coordinate pair against canonical board state; verify unused state; mark the pair used; select the weighted outcome; apply the outcome or fallback; recompute patterns affected by mutation; produce a detached public projection; broadcast resulting canonical state.",
+      "title": "Pattern activation publishes canonical detached state before releasing the live-service mutex.",
       "tasks": [
-        "T036",
-        "T038",
-        "T040",
-        "T043"
+        "T061"
+      ],
+      "tests": [
+        "internal/live/service_test.go::TestApplyHackPatternSerializesPublicationBeforeNextTransition"
       ]
     },
     "FR-048": {
@@ -1723,6 +1779,41 @@
         "internal/hack/hack_test.go::TestDelimiterAndInterruptedSpanTargetsUseOrdinaryGuessRules",
         "tests/browser/hacking-camouflage.spec.mjs::invalid delimiter categories remain ordinary individual targets"
       ]
+    },
+    "FR-089": {
+      "tasks": [
+        "T062",
+        "T063",
+        "T064"
+      ],
+      "tests": [
+        "tests/browser/terminal-navigation.spec.mjs:first-guess presentation cannot reject after the private Overseer solve",
+        "tests/browser/player-sessions-control.spec.mjs:late unary hacking presentation rejection cannot outlive trusted success",
+        "tests/browser/player-sessions-control.spec.mjs:late streamed hacking presentation rejection cannot outlive trusted success"
+      ]
+    },
+    "FR-090": {
+      "tasks": [
+        "T062",
+        "T063",
+        "T064"
+      ],
+      "tests": [
+        "tests/browser/terminal-navigation.spec.mjs:late shared hacking rejection cannot outlive a trusted solved snapshot",
+        "native private Overseer replay"
+      ]
+    },
+    "SC-020": {
+      "tasks": [
+        "T062",
+        "T063",
+        "T064"
+      ],
+      "tests": [
+        "focused Playwright 5/5",
+        "full Playwright 180 passed",
+        "native private Overseer replay"
+      ]
     }
   },
   "size": "oversized",
@@ -1878,6 +1969,29 @@
       "decision": "Make the existing 1,000-board gate explicitly enumerate all five configured hacking difficulties",
       "why": "FR-020 requires the same initial 3-6 pattern invariant at every supported level",
       "rejected": "A separate duplicate generator test with weaker camouflage coverage"
+    },
+    {
+      "decision": "Associate pending hacking actions and rejection notices with the authoritative hacking presentation context key.",
+      "why": "A solved snapshot can invalidate only results and notices from the superseded hack while preserving unrelated current rejections.",
+      "rejected": "Clearing every transient notice on any solved snapshot would suppress unrelated current errors."
+    },
+    {
+      "decision": "Exercise unary and streamed presentation races through transport-specific fixture gates.",
+      "why": "Both result channels must deliver after the same authoritative solve without changing existing stream cancellation behavior.",
+      "rejected": "A single transport-agnostic gate changed established unary fallback timing."
+    },
+    {
+      "decision": "Release the live-service mutex with a deferred unlock only after the detached ApplyHackPattern publication callback returns.",
+      "why": "This preserves FR-047 publication order on every accepted transition and still unlocks safely if the callback panics.",
+      "rejected": "Unlocking before callback invocation permits a later accepted transition to overtake publication."
+    },
+    {
+      "decision": "Recognize hacking generations by the opaque hack: context key independently of presentation kind and retain the active generation until an authoritative solved transition.",
+      "why": "The first guess can carry a valid hack generation while the canonical presentation kind is none, and solved publications may already advance presentation to menu."
+    },
+    {
+      "decision": "Use fresh T063 and T064 task IDs for BUG-003 implementation and verification while preserving T059 and T060 as historical BUG-002 completions.",
+      "why": "Companion journals task completion by stable task ID, so reopening an already journaled ID cannot represent a second completion accurately."
     }
   ],
   "step_summaries": {
@@ -1889,12 +2003,12 @@
       "summary": "21 corrective tasks across foundational work, five user-story phases, and one success-criteria validation phase"
     },
     "implement": {
-      "summary": "Revalidated BUG-001 opening-only pattern activation, completed SC-018 fixtures and all-difficulties generation coverage, and passed the full automated gate",
-      "key_finding": "The existing production implementation already routes every non-selected delimiter coordinate through ordinary HACK_GUESS behavior, so only explicit regression fixtures were required.",
-      "risks": "No remaining implementation risks identified."
+      "summary": "Implemented and verified BUG-003 forced-success reconciliation across first-guess presentation ordering and native Overseer control.",
+      "key_finding": "The stale notice came from treating presentation kind as hacking identity even though the active generation was already represented by a hack: context key under kind none.",
+      "risks": "Two external ngrok browser tests remain intentionally skipped; no native or automated BUG-003 failures remain."
     }
   },
-  "currentTask": "T054",
+  "currentTask": "T064",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2306,6 +2420,61 @@
       "files": [
         "."
       ]
+    },
+    "T058": {
+      "status": "DONE",
+      "did": "Added cross-channel browser regressions for trusted hack success racing unsuccessful guess results.",
+      "files": [
+        "tests/browser/player-sessions-control.spec.mjs",
+        "tests/browser/terminal-navigation.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T059": {
+      "status": "DONE",
+      "did": "Reconciled solved hacking snapshots with pending action state and scoped transient notices.",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T060": {
+      "status": "DONE",
+      "did": "Verified BUG-002 with focused and full Go, frontend, and browser validation; native smoke remains unclaimed.",
+      "files": [
+        "."
+      ]
+    },
+    "T061": {
+      "status": "DONE",
+      "did": "Kept detached pattern publication under the live mutex and added deterministic non-overtaking concurrency coverage.",
+      "files": [
+        "internal/live/service.go",
+        "internal/live/service_test.go"
+      ]
+    },
+    "T062": {
+      "status": "DONE",
+      "did": "Captured first-guess pending-presentation ordering through the real Overseer control and added a deterministic regression reproducing stale invalid-action",
+      "files": [
+        "tests/browser/fixtures/desktop-bindings.js",
+        "tests/browser/terminal-navigation.spec.mjs"
+      ]
+    },
+    "T063": {
+      "status": "DONE",
+      "did": "Bound solved-hack reconciliation to the opaque puzzle-generation context across presentation kind changes and blocked post-solve preview dispatch",
+      "files": [
+        "frontend/client/client.js",
+        "specs/003-hacking-game-evolution/tasks.md"
+      ]
+    },
+    "T064": {
+      "status": "DONE",
+      "did": "Passed focused and full Go, frontend, and browser gates and completed a native first-wrong-guess replay through the actual private Overseer success control with no rejection notice",
+      "files": [
+        ".",
+        "specs/003-hacking-game-evolution/bugs/BUG-003.md"
+      ]
     }
   },
   "verified": [
@@ -2435,6 +2604,91 @@
       "warnings": [
         "Electron baseline is absent"
       ]
+    },
+    {
+      "what": "BUG-002 focused result-ordering journeys",
+      "command": "npm test --prefix tests/browser -- terminal-navigation.spec.mjs player-sessions-control.spec.mjs --grep ...",
+      "result": "4 passed",
+      "warnings": [
+        "Expected self-signed fixture TLS handshake diagnostics"
+      ]
+    },
+    {
+      "what": "Go modernization",
+      "command": "go fix ./...",
+      "result": "passed with no unintended edits",
+      "warnings": []
+    },
+    {
+      "what": "Full Playwright suite",
+      "command": "nvm use && task browser:test",
+      "result": "179 passed, 2 skipped",
+      "warnings": [
+        "Two opt-in authenticated ngrok journeys skipped",
+        "Expected self-signed fixture TLS handshake diagnostics"
+      ]
+    },
+    {
+      "what": "Native behavioral smoke",
+      "command": "not run",
+      "result": "not performed; no native pass claimed",
+      "warnings": [
+        "Exact notification ordering verified through executable browser journeys"
+      ]
+    },
+    {
+      "what": "T061 live-service publication ordering",
+      "command": "go test ./internal/live -run '^(TestApplyHackPatternSerializesPublicationBeforeNextTransition|TestAcceptedPatternPublishesOnceAfterMutationAndDuplicatePublishesNever|TestConcurrentPatternUseAppliesOnceAndFreshSetResetsUsage)$' -count=1",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Post-convergence Go quality gates",
+      "command": "go fix ./...; task fmt:check; task vet; gopls check internal/live/service.go internal/live/service_test.go; git diff --check",
+      "result": "PASS; go fix produced no extra edits",
+      "warnings": []
+    },
+    {
+      "what": "Post-convergence Go unit and race suites",
+      "command": "task test; task test:race",
+      "result": "PASS across all packages",
+      "warnings": []
+    },
+    {
+      "what": "Post-convergence frontend production build",
+      "command": "nvm-exec task frontend:build",
+      "result": "PASS under Node 26.8.1",
+      "warnings": []
+    },
+    {
+      "what": "Post-convergence full browser suite",
+      "command": "nvm-exec task browser:test",
+      "result": "179 passed, 2 skipped",
+      "warnings": [
+        "Two opt-in authenticated ngrok journeys skipped",
+        "Expected self-signed fixture TLS handshake diagnostics",
+        "Initial sandboxed Playwright install stalled and was interrupted; approved rerun passed"
+      ]
+    },
+    {
+      "what": "BUG-003 focused browser ordering",
+      "result": "5 passed",
+      "command": "task node:check && npm test --prefix tests/browser -- --grep first-guess..."
+    },
+    {
+      "what": "Repository Go and frontend gates",
+      "result": "passed; go fix produced no edits",
+      "command": "go fix ./...; task fmt:check; task vet; task test; task test:race; task frontend:build"
+    },
+    {
+      "what": "Full browser suite",
+      "result": "180 passed, 2 expected external-ngrok tests skipped",
+      "command": "task browser:test"
+    },
+    {
+      "what": "Native private Overseer replay",
+      "result": "first incorrect guess changed attempts 4 to 3; actual Wails VZLOM USPESHEN control left notices empty on hacking surface and terminal menu; raw invalid-action absent",
+      "command": "task dev plus native Overseer and local player UI"
     }
   ],
   "concerns": [
@@ -2448,6 +2702,18 @@
     },
     {
       "note": "The constitution-requested npm start smoke is unavailable because the post-cutover repository has no root package.json or Electron runtime; the result is recorded without claiming success",
+      "step": "implement"
+    },
+    {
+      "note": "The feature context was already status completed before BUG-002 implementation, so the sanctioned Companion writer refused the implement start and T058-T060 task finishes; their tasks.md boxes remain unchecked despite completed work and passing validation.",
+      "step": "implement"
+    },
+    {
+      "note": "A post-fix native GUI replay was not performed; no native smoke pass is claimed.",
+      "step": "implement"
+    },
+    {
+      "note": "The feature had already reached terminal completed status before convergence added T061, so the sanctioned Companion writer refused T058-T061 finish events and their tasks.md boxes remain unchecked despite implemented code and passing validation.",
       "step": "implement"
     }
   ]

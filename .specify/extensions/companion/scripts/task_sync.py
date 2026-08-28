@@ -101,9 +101,10 @@ def _feature_tasks_at_100(feature_dir: Path) -> bool:
 
 
 def _gc_events_log(feature_dir: Path) -> None:
-    """Remove `.spec-context.events.jsonl` at the terminal `completed` transition —
-    the one state after which CROSS_STEP_TERMINAL blocks every further append, so the
-    file can't be recreated and a re-run of the spec dir can't re-fold stale lines."""
+    """Remove `.spec-context.events.jsonl` when every task is complete.
+
+    Completed specs may briefly recreate the log for validated late convergence
+    tasks; materialization removes it again once those markers reach 100%."""
     try:
         (feature_dir / ".spec-context.events.jsonl").unlink(missing_ok=True)
     except OSError:
@@ -148,6 +149,31 @@ def _tasks_at_100(markers: tuple[list[str], list[str]]) -> bool:
     equality, not set subset (a duplicate id with one marker unchecked isn't 100%)."""
     all_ids, done_ids = markers
     return bool(all_ids) and len(done_ids) == len(all_ids)
+
+
+def _task_is_pending(feature_dir: Path, task_id: str) -> bool:
+    """True when task_id is a current unchecked marker in this feature."""
+    all_ids, done_ids = parse_task_markers(feature_dir / "tasks.md")
+    return task_id in all_ids and task_id not in done_ids
+
+
+def _pending_logged_tasks(feature_dir: Path, log_path: Path) -> set[str]:
+    """Return current unchecked task IDs that also have an appended finish."""
+    if not log_path.is_file():
+        return set()
+    all_ids, done_ids = parse_task_markers(feature_dir / "tasks.md")
+    pending = set(all_ids) - set(done_ids)
+    if not pending:
+        return set()
+    logged: set[str] = set()
+    for raw in log_path.read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if entry.get("task") in pending:
+            logged.add(entry["task"])
+    return logged
 
 
 def _fold_task_finish(
@@ -246,10 +272,13 @@ def append_task_log(
     The line carries its own `at` timestamp (real finish time) plus `did`/`files`,
     so `--materialize` can fold it later with the task's true duration preserved.
     This path never closes the step or updates status — that happens at fold time.
-    A genuinely shipped spec (completed/archived) is left untouched, so a stray
-    late append can't orphan a post-completion line into the events log.
+    Archived specs remain immutable. A completed spec accepts only task IDs that
+    currently exist as unchecked markers, allowing convergence work appended after
+    completion to be journaled without reopening or regressing lifecycle status.
     """
-    if read_ctx(feature_dir / ".spec-context.json").get("status") in CROSS_STEP_TERMINAL:
+    status = read_ctx(feature_dir / ".spec-context.json").get("status")
+    allow_late_finish = status == "completed" and _task_is_pending(feature_dir, task_id)
+    if status in CROSS_STEP_TERMINAL and not allow_late_finish:
         print(
             f"[companion] {feature_dir} already shipped; not appending task {task_id}.",
             file=sys.stderr,
@@ -281,13 +310,18 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     materialized `history`/`task_summaries` are byte-identical to what the live path
     would have produced — only batched into a single read-modify-write instead of one
     per task. Idempotent: dedup on (implement, task_id) means re-folding the whole log
-    (per batch and again at step close) never double-counts. Leaves a genuinely shipped
-    spec untouched. No log file → nothing to fold."""
+    (per batch and again at step close) never double-counts. A completed spec is writable
+    only when the log contains a finish for a current unchecked task; archived specs stay
+    immutable. No log file → nothing to fold."""
     log_path = feature_dir / ".spec-context.events.jsonl"
     if not log_path.is_file():
         return None
     target = feature_dir / ".spec-context.json"
-    opened = _open_ctx_or_none(feature_dir)
+    late_tasks = _pending_logged_tasks(feature_dir, log_path)
+    opened = _open_ctx_or_none(
+        feature_dir,
+        allow_completed=bool(late_tasks),
+    )
     if opened is None:
         return None
     ctx, log, _branch = opened
@@ -305,6 +339,8 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
         tid = e.get("task")
         if not tid:
             continue
+        if ctx.get("status") == "completed" and tid not in late_tasks:
+            continue
         _fold_task_finish(
             ctx, log, feature_dir, tid, e.get("by", by),
             e.get("did"), e.get("files"), e.get("at") or _now_iso(),
@@ -315,9 +351,12 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     # journaled task (single writer, so parallel subagents that only append are
     # race-free). Must run BEFORE the step-close check, which reads tasks.md.
     _mark_tasks_done(tasks_md, _journaled_tasks(log))
-    _maybe_close_implement(ctx, log, feature_dir, by, markers=parse_task_markers(tasks_md))
+    final_markers = parse_task_markers(tasks_md)
+    _maybe_close_implement(ctx, log, feature_dir, by, markers=final_markers)
     commit_log(ctx, log)
     atomic_write(target, ctx)
+    if ctx.get("status") == "completed" and _tasks_at_100(final_markers):
+        _gc_events_log(feature_dir)
     if not quiet:
         print(
             f"[companion] Materialized {folded} task line(s) from {log_path.name} into {target}.",

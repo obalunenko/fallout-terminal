@@ -7,6 +7,10 @@
 
 **Bugfix**: 2026-08-11 — BUG-001 separated opening-symbol-only pattern activation from ordinary individual delimiter-symbol selection.
 
+**Bugfix**: 2026-08-28 — BUG-002 made authoritative forced-success outcomes take precedence over stale hacking action and presentation rejections.
+
+**Bugfix**: 2026-08-28 — BUG-003 clarified that BUG-002 reconciliation follows the ended hacking generation across presentation-context changes and requires verification through the real private Overseer control.
+
 ## Clarifications
 
 ### Session 2026-08-11
@@ -90,7 +94,7 @@ As a game master, I retain the existing trusted `ForceHackSuccess` control throu
 
 **Why this priority**: Removing player shortcuts must preserve the established trusted recovery control and its privileged boundary.
 
-**Independent Test**: Invoke `ForceHackSuccess` through the existing private desktop/Wails boundary, verify the shared success flow, and verify that every player-accessible surface lacks an equivalent invocation path.
+**Independent Test**: Invoke `ForceHackSuccess` through the existing private desktop/Wails boundary, verify the shared success flow, and verify that every player-accessible surface lacks an equivalent invocation path. Repeat after an unsuccessful guess while a correlated hacking action or presentation result is delayed, and verify that the solved outcome remains unambiguous on the hacking surface and subsequent terminal menu. BUG-003 requires at least one replay through the real private Overseer control; a fixture-only force-success endpoint does not by itself verify this boundary or its production event ordering.
 
 **Acceptance Scenarios**:
 
@@ -98,6 +102,7 @@ As a game master, I retain the existing trusted `ForceHackSuccess` control throu
 2. **Given** the trusted action succeeds, **When** state is broadcast, **Then** all connected players transition through the existing success flow.
 3. **Given** there is no eligible active puzzle, **When** the game master views the hacking controls, **Then** the trusted solve control is unavailable and cannot alter state.
 4. **Given** a player WebSocket connection or browser context, **When** any player-accessible input is attempted, **Then** no `ForceHackSuccess` operation is exposed or accepted.
+5. **Given** an unsuccessful guess has left a player action or hacking-presentation result in flight, **When** the game master successfully forces the active puzzle to completion before or after that result is delivered, **Then** every player retains the authoritative solved outcome and sees no stale or raw rejection notice on either the hacking surface or subsequent terminal menu.
 
 ### User Story 6 - Search a Camouflaged Board (Priority: P1)
 
@@ -141,6 +146,7 @@ As a player, I search for special patterns in the same rows as candidate words, 
 - A request with missing, unknown, or invalid fields is rejected before used-state mutation or random selection.
 - Pattern requests received before a puzzle is actionable or after success, failure, or other terminal state have no effect.
 - Concurrent requests for the same pattern yield exactly one accepted activation; all duplicates are rejected without consuming attempts or random values.
+- A guess or hacking-presentation result may arrive immediately before or after a trusted forced-success snapshot; the solved snapshot remains authoritative in both orderings, and any notice from the superseded hacking context is cleared rather than carried to the terminal menu.
 - Process restart may discard the active puzzle and all special-pattern progress; reconnect synchronization is guaranteed only while the same server process retains the canonical puzzle.
 
 ## Requirements
@@ -241,6 +247,10 @@ As a player, I search for special patterns in the same rows as candidate words, 
 - **FR-086**: Hovering or focusing an unused pattern's opening symbol MUST highlight and preview its whole inclusive span, and selecting that opening symbol MUST send exactly one `HACK_PATTERN` request containing the opaque `patternId`.
 - **FR-087**: Hovering, focusing, or selecting a non-opening filler symbol inside a valid pattern span, including its closing delimiter, MUST use ordinary individual filler-symbol behavior and MUST NOT highlight or activate the enclosing pattern.
 - **FR-088**: Selecting an individually actionable delimiter symbol that is not a current pattern's opening coordinate MUST use the existing `HACK_GUESS` filler-target path, including its established logging and attempt-spending behavior, and MUST NOT send `HACK_PATTERN`.
+- **FR-089**: When an authoritative snapshot transitions the active hacking generation to solved, every player client MUST give that terminal outcome precedence over pending or later action and presentation results from the superseded actionable hacking context; those results MUST NOT replace the solved outcome with a rejection notice.
+- **FR-090**: A transient rejection notice produced by a hacking action or hacking-presentation result MUST remain scoped to the hacking context that produced it and MUST be cleared when an authoritative solved snapshot ends that context, without suppressing a rejection for an unrelated current action.
+
+**BUG-003 clarification for FR-089–FR-090**: The superseded hacking context is the ended actionable puzzle generation, not merely the controller-presentation value visible when the solved update is applied. The same precedence and notice-lifetime rules apply when success arrives through a full live-terminal snapshot or a hacking-only projection and when the presentation context is absent, changes in the same update, or was already advanced by another authoritative update.
 
 ## Key Entities
 
@@ -300,6 +310,9 @@ The player/live-service authorization boundary is preserved only as an extension
 - **SC-017**: Static-style checks find no validity-dependent color, brightness, font, CRT effect, class, or other persistent visual treatment on delimiter characters before interaction.
 - **SC-018**: Browser and domain interaction tests confirm that 100% of tested standalone, mismatched, word-interrupted, later-closer, and otherwise invalid delimiter targets use ordinary individual filler-symbol highlight, preview, `HACK_GUESS`, logging, and attempt behavior while sending zero `HACK_PATTERN` requests.
 - **SC-019**: For every controlled valid-pattern span, interaction with `start` highlights the complete inclusive span and selection sends one `HACK_PATTERN`, while interaction with every tested offset greater than `start` highlights or selects only that symbol and sends no `HACK_PATTERN`.
+- **SC-020**: Deterministic browser tests covering a rejected or unsuccessful guess followed by trusted forced success, with correlated shared-action and hacking-presentation results delivered both before and after the solved snapshot through streamed and unary paths, show the authoritative success flow to the active controller and observers and display zero stale or raw rejection notices on the hacking surface and subsequent terminal menu.
+
+**BUG-003 verification clarification for SC-020**: Automated coverage MUST include full live-terminal and hacking-only solved publications with absent, changed, and already-advanced presentation context. The final evidence MUST also include a native replay in which the player selects the first incorrect password and the game master immediately uses the real private Overseer success control; fixture-only success injection is insufficient final evidence.
 
 ## Assumptions
 
