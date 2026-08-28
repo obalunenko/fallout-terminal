@@ -1331,6 +1331,11 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		if decision == domain.TerminalNavigationReject {
 			runtime.PendingTerminalNavigation = nil
 			runtime.TerminalNavigationNotice = nil
+			if pending.Direction == domain.TerminalNavigationForward {
+				source.CommandExecution = &domain.CommandExecutionPresentation{
+					Phase: domain.CommandExecutionPhaseRejected, CommandID: pending.CommandID,
+				}
+			}
 			state = masterSnapshot(runtime)
 			effects := stateEffects(runtime)
 			if projection := service.projectActiveTerminal(runtime); projection != nil {

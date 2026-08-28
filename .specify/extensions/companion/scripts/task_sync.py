@@ -325,6 +325,7 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     if opened is None:
         return None
     ctx, log, _branch = opened
+    late_convergence = ctx.get("status") == "completed"
     tasks_md = feature_dir / "tasks.md"
     markers = parse_task_markers(tasks_md)
     folded = 0
@@ -350,7 +351,13 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     # The script owns the checkboxes: flip tasks.md `[ ]` → `[x]` for every
     # journaled task (single writer, so parallel subagents that only append are
     # race-free). Must run BEFORE the step-close check, which reads tasks.md.
-    _mark_tasks_done(tasks_md, _journaled_tasks(log))
+    # A completed spec can reopen task markers for a later convergence pass while
+    # retaining its append-only history. In that mode, historical task finishes
+    # are not evidence that the newly reopened markers are done: only finishes in
+    # the current events log may close them. Active implementation runs can still
+    # derive every checkbox from the full journal as before.
+    completed_ids = late_tasks if late_convergence else _journaled_tasks(log)
+    _mark_tasks_done(tasks_md, completed_ids)
     final_markers = parse_task_markers(tasks_md)
     _maybe_close_implement(ctx, log, feature_dir, by, markers=final_markers)
     commit_log(ctx, log)

@@ -3,6 +3,7 @@
 **Bugfix**: 2026-08-19 — BUG-004 Уточнён дискриминированный режим содержимого команды.
 **Bugfix**: 2026-08-20 — BUG-005 Уточнён один логический approval lifecycle и взаимное исключение типизированных command/transition/return pending-состояний.
 **Bugfix**: 2026-08-28 — BUG-006 Уточнён ordinary-command `REJECTED` lifecycle до controller acknowledgement.
+**Bugfix**: 2026-08-28 — BUG-007 Уточнён forward terminal-transition `REJECTED` lifecycle до controller acknowledgement.
 
 ## Границы жизненного цикла
 
@@ -11,7 +12,7 @@
 | `TerminalTransitionConfig` | session/domain | Пока существует command-узел | session JSON version 1 |
 | `TerminalReturnPoint` | coordinator | Один broadcast | Нет |
 | `PendingCommandExecution` | coordinator | Один broadcast, взаимоисключён с terminal-navigation pending | Нет |
-| `CommandExecutionPresentation` | active terminal runtime / detached public projection | `PENDING` до решения; ordinary и initial state-change `REJECTED` до controller acknowledgement | Нет |
+| `CommandExecutionPresentation` | active terminal runtime / detached public projection | `PENDING` до решения; ~~ordinary и initial state-change~~ ordinary, initial state-change и rejected forward terminal-transition `REJECTED` до controller acknowledgement по BUG-007 | Нет |
 | `PendingTerminalNavigation` | coordinator | Один broadcast, не более одного запроса | Нет |
 | `TerminalNavigationNotice` | coordinator/private master projection | До следующего transition/lifecycle action | Нет |
 | `TerminalRuntime` | coordinator/live | Один broadcast | Нет |
@@ -66,7 +67,9 @@
 
 В `ProcessRuntime` может быть не более одного `PendingTerminalNavigation`. По BUG-005 `PendingCommandExecution` для ordinary/initial/completed state-change и `PendingTerminalNavigation` для terminal-transition/return являются типизированными проекциями одного логического approval lifecycle и взаимно исключаются: одновременно во всём broadcast существует не более одного pending любого из этих видов. Пока любой из них существует, все shared navigation/hack actions отклоняются как conflict после обычных identity/authority checks.
 
-По BUG-006 exact reject или close-as-reject ordinary-команды очищает `PendingCommandExecution`, но сохраняет на active runtime `CommandExecutionPresentation{Phase: REJECTED, CommandID: exact command}`. Эта detached projection показывает controller, observers и reconnect полноэкранный record-description «Ошибка доступа» без authored result или source menu. Только `Back` или `Enter` controller очищает presentation и возвращает общую проекцию к неизменённой source navigation; acknowledgement не выполняет command и не меняет persistence, active terminal или route. Completed state-changing, terminal-transition и return rejection lifecycles не меняются.
+По BUG-006 exact reject или close-as-reject ordinary-команды очищает `PendingCommandExecution`, но сохраняет на active runtime `CommandExecutionPresentation{Phase: REJECTED, CommandID: exact command}`. Эта detached projection показывает controller, observers и reconnect полноэкранный record-description «Ошибка доступа» без authored result или source menu. Только `Back` или `Enter` controller очищает presentation и возвращает общую проекцию к неизменённой source navigation; acknowledgement не выполняет command и не меняет persistence, active terminal или route. Completed state-changing, ~~terminal-transition~~ и return rejection lifecycles не меняются; BUG-007 supersedes только forward terminal-transition rejection.
+
+По BUG-007 exact reject или close-as-reject forward terminal-transition команды очищает отдельный `PendingTerminalNavigation`, но сохраняет на source runtime тот же `CommandExecutionPresentation{Phase: REJECTED, CommandID: exact source command}`. Pending lifecycle и private decision остаются terminal-navigation state; переиспользуется только detached post-decision presentation, его reconnect projection и существующий controller `Back`/`Enter` acknowledgement. Target terminal не активируется, route point не добавляется, source navigation/checkpoints/persistence не меняются. Terminal-return rejection по-прежнему очищает navigation pending и немедленно восстанавливает current root screen без command presentation.
 
 ### `TerminalNavigationNotice`
 
@@ -91,7 +94,8 @@
 | Controller нажимает root return | Root list; route не пуст; нет pending | Создать return pending из верхней точки, но не pop. |
 | Master approve forward | Exact pending, source всё ещё active, latest command всё ещё указывает на existing target | Suspend source, push point, create/reactivate target, set target root, clear pending/notice, publish one revision. |
 | Master approve return | Exact pending и unchanged top point, latest source terminal exists | Suspend current, reactivate return target, restore folder/fallback, pop one point, clear pending/notice, publish one revision. |
-| Master reject/close | Exact pending | Clear pending; active terminal, nav, route и checkpoints не менятся. |
+| ~~Master reject/close~~ Master reject/close return (уточнено BUG-007) | Exact return pending | Clear pending; active terminal, nav, route и checkpoints не менятся; current root screen восстанавливается немедленно. |
+| Master reject/close forward transition | Exact forward pending | Clear pending; set source command presentation to `REJECTED`; active terminal, nav, route, checkpoints and persistence не менять. |
 | Master reject/close ordinary command | Exact `PendingCommandExecution` mode ordinary | Clear pending; set exact command presentation to `REJECTED`; authored result, active terminal, nav, route, checkpoints and persistence не менять. |
 | Controller acknowledges ordinary rejection | Exact ordinary `REJECTED`; `Back` или `Enter` от current controller | Clear command presentation and publish unchanged source menu to all players; no command effect or durable write. |
 | Stale approve | Target/command/source/route больше не совпадают | Clear pending, set private notice/error, active/nav/route не менятся. |
