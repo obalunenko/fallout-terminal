@@ -60,7 +60,7 @@ Fully extract the chosen archive so resources remain beside the executable:
 - macOS: open the extracted `Fallout Terminal.app` bundle.
 
 Do not run from an archive viewer or copy only the executable. The bundled demos, icon, third-party
-notices, and artifact manifest are part of the application resource tree.
+notices, `RUNNING.md`, and artifact manifest are part of the governed application package.
 
 ## Sessions, settings, and credentials
 
@@ -91,4 +91,5 @@ and LAN sessions remain available.
 - **Secure storage is unavailable:** unlock Windows Credential Manager, Secret Service, or Keychain
   for the signed-in user. Retry credentials afterward; do not create a plaintext fallback.
 - **Sessions do not save:** check the resolved Documents directory and the platform settings path.
-  Keep the extracted application directory read-only and preserve its resources.
+  Do not save sessions inside the extracted application directory; preserve its resources and keep
+  the directory writable when using self-update.

@@ -73,8 +73,9 @@ The governed output is exactly five non-empty archives:
 
 Windows archives contain `Fallout Terminal.exe` and resources, Linux archives contain the
 executable `Fallout Terminal` and resources, and the Darwin ZIP contains the complete unsigned
-`Fallout Terminal.app` bundle. Per-target release eligibility checks the expected asset name,
-non-empty archive, executable, and required resources. Runtime GUI, dialog, credential, player,
+`Fallout Terminal.app` bundle. Every archive also contains the user-facing `RUNNING.md` launch guide
+at the payload root. Per-target release eligibility checks the expected asset name, non-empty
+archive, executable, launch guide, and required resources. Runtime GUI, dialog, credential, player,
 tunnel, and signing journeys are useful optional evidence, but are not release eligibility gates.
 
 ## Runtime self-update contract
