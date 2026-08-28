@@ -871,9 +871,33 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-20T00:16:53.832Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T06:30:17.116Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T06:30:17.116Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T07:54:00.219Z"
     }
   ],
-  "last_action": "Idempotent implement reconciliation — 46/46 tasks complete; no source changes required",
+  "last_action": "BUG-006 implemented and verified through focused, full, race, browser, signed package, and native Wails/player acceptance",
   "coverage": {
     "FR-001": {
       "title": "Мастер MUST иметь возможность настроить обычную команду как команду перехода и выбрать для неё другой терминал из текущей сессии.",
@@ -1530,6 +1554,39 @@
         "tests/browser/state-changing-command-sync.spec.mjs",
         "tests/browser/crt-rendering.spec.mjs"
       ]
+    },
+    "FR-037": {
+      "title": "Ordinary reject or close publishes exact REJECTED access-error presentation until controller acknowledgement.",
+      "tasks": [
+        "T042",
+        "T043",
+        "T047",
+        "T048",
+        "T049"
+      ],
+      "tests": [
+        "internal/control/service_test.go:TestOrdinaryAndCompletedCommandDecisionsPreserveModeSpecificEffects",
+        "approval_notifications_test.go:TestApprovalNotificationOrdinaryRejectUsesAppDecisionPathAndPublishesAccessError",
+        "tests/browser/state-changing-command-approval.spec.mjs:ordinary explicit reject and dialog close",
+        "tests/browser/terminal-navigation.spec.mjs:ordinary command approve/reject/close"
+      ]
+    },
+    "SC-015": {
+      "title": "Controller, observers, and reconnect see Ошибка доступа for ordinary reject/close until Back or Enter, with no effect.",
+      "tasks": [
+        "T044",
+        "T030",
+        "T031",
+        "T036",
+        "T047",
+        "T048",
+        "T049"
+      ],
+      "tests": [
+        "task test:race",
+        "task browser:test",
+        "signed packaged native BUG-006 delta"
+      ]
     }
   },
   "size": "oversized",
@@ -1543,7 +1600,8 @@
     "area: terminal content authoring and durable session content",
     "area: broadcast coordination, shared navigation, and terminal runtime lifecycle",
     "constraint: one game-master approval per forward or back transition",
-    "constraint: retain solved hacking state within the current broadcast"
+    "constraint: retain solved hacking state within the current broadcast",
+    "BUG-006 implementation used explicit feature directory specs/010-terminal-navigation because .specify/feature.json still points to feature 003 and bugfix-switch correctly refused a dirty worktree."
   ],
   "intent": "Allow player-requested, game-master-approved movement between linked terminals with reversible navigation and preserved solved hacking state.",
   "expectations": [
@@ -1673,6 +1731,11 @@
       "decision": "Leave implementation sources unchanged during this rerun.",
       "why": "All 46 tasks are complete, the all-bugfix consistency verification passed, and no executable task remains.",
       "rejected": "Reopening completed tasks or rerunning implementation work without a specification gap."
+    },
+    {
+      "decision": "Retain CommandExecutionPhaseRejected for ordinary and initial state-change rejects, while completed-state-change and terminal-navigation rejection semantics remain unchanged.",
+      "why": "The existing player renderer, public adapter, reconnect projection, and Back/Enter acknowledgement already implement the required access-error lifecycle once the coordinator publishes REJECTED.",
+      "rejected": "Adding notification-specific or client-local rejection state."
     }
   ],
   "step_summaries": {
@@ -1684,12 +1747,12 @@
       "summary": "31 tasks across Setup, Foundational, four user-story phases, and Polish; explicit waves, fail-first tests, and single-owner validation"
     },
     "implement": {
-      "summary": "Closed convergence tasks T045 and T046 by aligning exact master-request assertions and routing CRT ordinary-command coverage through private approval; all repository and browser gates pass.",
-      "key_finding": "The remaining failures were stale browser expectations and fixture flow, not production behavior.",
-      "risks": "None identified; production and protobuf sources were unchanged."
+      "summary": "Implemented BUG-006 by retaining ordinary REJECTED presentation at the coordinator and proving the existing shared player renderer across explicit reject, close, notification action, reconnect, Back, and Enter.",
+      "key_finding": "The defect was one server-side mode condition; no new public contract or player renderer was required.",
+      "risks": "task check has an unrelated zero-discovered Companion-test failure; all executable product gates pass."
     }
   },
-  "currentTask": "T046",
+  "currentTask": "T049",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2093,6 +2156,37 @@
         "tests/browser/crt-rendering.spec.mjs",
         "tests/browser/fixture-server/main.go"
       ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Added fail-first ordinary explicit-reject and close browser journeys for controller, two observers, reconnect, zero writes, and Back/Enter acknowledgement; both fail on direct menu return.",
+      "files": [
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Added fail-first ordinary reject coordinator projection regression; it fails because rejection is cleared instead of retained.",
+      "files": [
+        "internal/control/service_test.go",
+        "internal/player/adapter_test.go",
+        "internal/player/public_stream_test.go"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Passed focused coordinator/live/player projection matrix, 10-test approval browser suite, and native-notification-to-App reject integration with zero writes and retained REJECTED presentation.",
+      "files": [
+        "approval_notifications_test.go",
+        "app.go",
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "internal/player/adapter_test.go",
+        "internal/player/public_stream_test.go",
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
     }
   },
   "verified": [
@@ -2387,6 +2481,35 @@
       "command": "task/context coverage inspection plus git diff --check",
       "result": "46/46 tasks DONE, FR-033 through FR-036 and SC-013 through SC-014 mapped, feature remains completed, diff check clean",
       "warnings": []
+    },
+    {
+      "what": "BUG-006 red-green regressions",
+      "command": "focused internal/control test and two Playwright ordinary reject/close journeys before and after the correction",
+      "result": "PASS after both red tests failed on nil presentation and hidden termEntry",
+      "warnings": []
+    },
+    {
+      "what": "Go correctness and race gate",
+      "command": "go fix ./...; task vet; task test; task test:race",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Frontend and browser acceptance",
+      "command": "task frontend:build; terminal-navigation.spec.mjs; task browser:test",
+      "result": "PASS: production builds, 22 navigation journeys, and 182 full-browser tests",
+      "warnings": [
+        "2 authenticated-ngrok journeys intentionally skipped"
+      ]
+    },
+    {
+      "what": "Signed packaged BUG-006 native delta",
+      "command": "task package; scripts/verify-macos-app.sh; packaged Wails master plus packaged player endpoint",
+      "result": "PASS: explicit reject and close-as-reject showed Ошибка доступа; reconnect retained it; Back and Enter restored the unchanged demo menu; app shut down cleanly",
+      "warnings": [
+        "real sessions/demo.json opened successfully but its existing relative player-roster auto-load remained stuck, so the interactive delta used an isolated byte-equivalent demo copy with only the auto-load pointer removed and selected the real demo-players.json explicitly",
+        "prior accepted packaged two-observer universal-approval evidence covers the unchanged observer baseline"
+      ]
     }
   ],
   "concerns": [
@@ -2408,7 +2531,12 @@
       "note": "The packaged Wails modal is visually correct but its internal buttons are not exposed in the macOS accessibility tree while open; accessibility automation could approve the default action and invoke close-as-reject, but could not directly target the explicit Reject button.",
       "step": "implement",
       "kind": "manual-gate"
+    },
+    {
+      "note": "task check remains non-green only because .specify/extensions/companion/scripts contains no test_*.py files, so Python unittest discovery exits 5 after every preceding gate passes.",
+      "step": "implement",
+      "kind": "verification"
     }
   ],
-  "summary": "BUG-005 implementation and automated verification are complete; T031/T036 remain pending until the required packaged controller + two-observer approve/reject/close acceptance evidence is recorded."
+  "summary": "BUG-006 implementation and verification are complete; all 49 tasks, including the repeated full and packaged-runtime gates, are recorded as done."
 }

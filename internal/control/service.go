@@ -1238,7 +1238,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 
 		if decision == domain.CommandExecutionReject {
 			runtime.PendingCommandExecution = nil
-			if pending.Mode == domain.CommandApprovalModeStateChange {
+			if pending.Mode == domain.CommandApprovalModeOrdinary || pending.Mode == domain.CommandApprovalModeStateChange {
 				terminal.CommandExecution = &domain.CommandExecutionPresentation{
 					Phase: domain.CommandExecutionPhaseRejected, CommandID: pending.CommandID,
 				}

@@ -112,6 +112,16 @@ async function expectPendingTransitionSurface(page, timeout = 2000) {
   await expect(page.locator('#playerNotice')).toBeHidden({ timeout });
 }
 
+async function expectRejectedCommandSurface(page, controller, timeout = 2000) {
+  await expect(page.locator('#termEntry')).toBeVisible({ timeout });
+  await page.keyboard.press('Shift');
+  await expect(page.locator('#entryBody')).toHaveText('Ошибка доступа', { timeout });
+  await expect(page.locator('#termList')).toBeHidden({ timeout });
+  await expect(page.locator('#termOutput')).toBeHidden({ timeout });
+  if (controller) await expect(page.locator('#backBtn')).toBeVisible({ timeout });
+  else await expect(page.locator('#backBtn')).toBeHidden({ timeout });
+}
+
 test.beforeEach(async ({ request }) => {
   const response = await request.post(`${FIXTURE}/reset`);
   expect(response.ok()).toBe(true);
@@ -498,6 +508,22 @@ for (const command of [
             await participant.page.keyboard.press('Shift');
             await expect(participant.page.locator('#entryBody')).toHaveText(command.result);
             await expect(participant.page.locator('#termList')).toBeHidden();
+          }));
+        } else if (command.mode === 'ordinary') {
+          await expectRejectedCommandSurface(controller.page, true);
+          await expectRejectedCommandSurface(firstObserver.page, false);
+          await expectRejectedCommandSurface(secondObserver.page, false);
+
+          await secondObserver.context.close();
+          secondObserver = await openParticipant(browser, retainedToken);
+          await expectRejectedCommandSurface(secondObserver.page, false);
+
+          if (decision === 'reject') await controller.page.locator('#backBtn').click();
+          else await controller.page.keyboard.press('Enter');
+          await Promise.all([controller, firstObserver, secondObserver].map(async participant => {
+            await expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 });
+            await expect(participant.page.locator('#termList')).toHaveText(sourceMenu);
+            await expect(participant.page.locator('#termEntry')).toBeHidden();
           }));
         } else {
           await Promise.all([controller, firstObserver, secondObserver].map(async participant => {

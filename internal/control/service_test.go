@@ -1479,7 +1479,14 @@ func TestOrdinaryAndCompletedCommandDecisionsPreserveModeSpecificEffects(t *test
 			require.Nil(t, state.PendingCommandExecution)
 			require.Zero(t, store.ExecuteCalls())
 			after := canonicalTerminal(t, fixture.service, fixture.terminalID)
-			require.Nil(t, after.CommandExecution)
+			if !test.completed && test.decision == domain.CommandExecutionReject {
+				require.Equal(t, &domain.CommandExecutionPresentation{
+					Phase:     domain.CommandExecutionPhaseRejected,
+					CommandID: fixture.commandID,
+				}, after.CommandExecution)
+			} else {
+				require.Nil(t, after.CommandExecution)
+			}
 			require.Equal(t, before.CommandStates, after.CommandStates)
 			if test.decision == domain.CommandExecutionApprove {
 				require.NotNil(t, after.Nav.CommandNodeID)
