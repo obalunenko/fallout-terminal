@@ -1196,7 +1196,7 @@ func (service *Service) ResolveTerminalSwitch(switchID domain.SwitchID, choice d
 }
 
 // ResolveCommandExecution applies one exact private decision to the single
-// pending state-changing command. Approve holds the coordinator transaction
+// pending command. Approve holds the coordinator transaction
 // across the one-way durable store call and publishes completed state only
 // after that call succeeds.
 func (service *Service) ResolveCommandExecution(ctx context.Context, requestID string, decision domain.CommandExecutionDecision) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
@@ -1238,12 +1238,8 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 
 		if decision == domain.CommandExecutionReject {
 			runtime.PendingCommandExecution = nil
-			if pending.Mode == domain.CommandApprovalModeOrdinary || pending.Mode == domain.CommandApprovalModeStateChange {
-				terminal.CommandExecution = &domain.CommandExecutionPresentation{
-					Phase: domain.CommandExecutionPhaseRejected, CommandID: pending.CommandID,
-				}
-			} else {
-				terminal.CommandExecution = nil
+			terminal.CommandExecution = &domain.CommandExecutionPresentation{
+				Phase: domain.CommandExecutionPhaseRejected, CommandID: pending.CommandID,
 			}
 			state = masterSnapshot(runtime)
 			effects := stateEffects(runtime)

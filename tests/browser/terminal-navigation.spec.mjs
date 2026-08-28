@@ -509,7 +509,7 @@ for (const command of [
             await expect(participant.page.locator('#entryBody')).toHaveText(command.result);
             await expect(participant.page.locator('#termList')).toBeHidden();
           }));
-        } else if (command.mode === 'ordinary') {
+        } else {
           await expectRejectedCommandSurface(controller.page, true);
           await expectRejectedCommandSurface(firstObserver.page, false);
           await expectRejectedCommandSurface(secondObserver.page, false);
@@ -520,12 +520,6 @@ for (const command of [
 
           if (decision === 'reject') await controller.page.locator('#backBtn').click();
           else await controller.page.keyboard.press('Enter');
-          await Promise.all([controller, firstObserver, secondObserver].map(async participant => {
-            await expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 });
-            await expect(participant.page.locator('#termList')).toHaveText(sourceMenu);
-            await expect(participant.page.locator('#termEntry')).toBeHidden();
-          }));
-        } else {
           await Promise.all([controller, firstObserver, secondObserver].map(async participant => {
             await expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 });
             await expect(participant.page.locator('#termList')).toHaveText(sourceMenu);

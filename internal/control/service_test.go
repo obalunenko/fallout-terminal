@@ -1489,7 +1489,7 @@ func TestOrdinaryAndCompletedCommandDecisionsPreserveModeSpecificEffects(t *test
 			require.Nil(t, state.PendingCommandExecution)
 			require.Zero(t, store.ExecuteCalls())
 			after := canonicalTerminal(t, fixture.service, fixture.terminalID)
-			if !test.completed && test.decision == domain.CommandExecutionReject {
+			if test.decision == domain.CommandExecutionReject {
 				require.Equal(t, &domain.CommandExecutionPresentation{
 					Phase:     domain.CommandExecutionPhaseRejected,
 					CommandID: fixture.commandID,
@@ -1503,6 +1503,21 @@ func TestOrdinaryAndCompletedCommandDecisionsPreserveModeSpecificEffects(t *test
 				require.Equal(t, fixture.commandID, *after.Nav.CommandNodeID)
 			} else {
 				require.Equal(t, before.Nav, after.Nav)
+				acknowledged := fixture.service.DispatchPlayerAction(
+					fixture.controllerConnection,
+					domain.RuntimeCommand{
+						RequestID:   "acknowledge-" + domain.RequestID(test.name),
+						BroadcastID: fixture.broadcastID,
+						TerminalID:  fixture.terminalID,
+						Kind:        domain.RuntimeCommandNavigate,
+						Action:      "back",
+					},
+				)
+				require.True(t, acknowledged.Accepted)
+				afterAcknowledgement := canonicalTerminal(t, fixture.service, fixture.terminalID)
+				require.Nil(t, afterAcknowledgement.CommandExecution)
+				require.Equal(t, before.Nav, afterAcknowledgement.Nav)
+				require.Equal(t, before.CommandStates, afterAcknowledgement.CommandStates)
 			}
 		})
 	}
