@@ -494,9 +494,18 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 		`id="publicAccessSettingsDialog" aria-modal="true"`,
 		`id="btnClosePublicAccessSettings" type="button">ЗАКРЫТЬ</button>`,
 		`id="publicAccessSetupRequired" role="status" aria-live="polite" hidden`,
+		`id="publicAccessConnectionGroup"`, `ПОДКЛЮЧЕНИЕ NGROK`,
+		`id="publicAccessProviderConfigured" hidden`,
+		`id="btnOpenPublicAccessProviderToken" type="button">ИЗМЕНИТЬ ТОКЕН</button>`,
+		`id="publicAccessPlayerLoginGroup"`, `ВХОД ДЛЯ ИГРОКОВ`,
 		`for="publicAccessDomain"`, `for="publicAccessUsername"`,
 		`for="publicAccessProviderToken"`, `for="publicAccessPlayerPassword"`,
 		`id="publicAccessProviderToken" type="password"`, `id="publicAccessPlayerPassword" type="password"`,
+		`id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ</button>`,
+		`id="btnCancelPublicAccessSettings" type="button">ОТМЕНА</button>`,
+		`id="publicAccessProviderTokenDialog" aria-modal="true"`,
+		`id="publicAccessReplacementProviderToken" type="password"`,
+		`Сохранённый токен нельзя посмотреть`, `СОХРАНИТЬ ТОКЕН`, `УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН`,
 		`id="publicAccessGuide"`, `КАК НАСТРОИТЬ ЧЕРЕЗ NGROK`,
 		`СОХРАНИТЬ НАСТРОЙКИ`, `Basic Auth`,
 		`id="publicAccessStatus" role="status" aria-live="polite"`,
@@ -512,6 +521,21 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 	require.Less(t, sectionStart, dialogStart)
 	assert.NotContains(t, html[sectionStart:dialogStart], `id="publicAccessForm"`,
 		"public-access configuration must not remain inline in the compact section")
+	connectionStart := strings.Index(html, `id="publicAccessConnectionGroup"`)
+	playerLoginStart := strings.Index(html, `id="publicAccessPlayerLoginGroup"`)
+	actionsStart := strings.Index(html, `class="public-access-actions"`)
+	require.NotEqual(t, -1, connectionStart)
+	require.NotEqual(t, -1, playerLoginStart)
+	require.NotEqual(t, -1, actionsStart)
+	assert.Less(t, connectionStart, playerLoginStart)
+	assert.Less(t, playerLoginStart, actionsStart)
+	for _, removed := range []string{
+		`id="publicAccessBehaviorGroup"`,
+		`id="publicAccessEnabledPreference"`,
+		`Включать публичный доступ при запуске приложения`,
+	} {
+		assert.NotContains(t, html+javascript, removed)
+	}
 	for _, forbidden := range []string{"RevealSecret", "GetSecret", ">REVEAL<", ">ПОКАЗАТЬ ПАРОЛЬ<"} {
 		assert.NotContains(t, html+javascript, forbidden)
 	}
@@ -525,6 +549,10 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 		"showPublicAccessSettings({ setupRequired: true })",
 		"publicAccessSnapshot?.providerTokenPresence === 'present'",
 		"publicAccessSnapshot?.playerPasswordPresence === 'present'",
+		"publicAccessProviderSetup.hidden = providerTokenConfigured",
+		"showPublicAccessProviderTokenDialog",
+		"runPublicAccessProviderTokenMutation",
+		"deleteProviderToken: true",
 		"btnStartPublicAccess.hidden = stopping",
 		"btnStopPublicAccess.hidden = !stopping",
 		"hidePublicAccessSettings()",

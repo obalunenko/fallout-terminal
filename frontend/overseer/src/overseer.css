@@ -876,17 +876,38 @@ button {
 }
 .public-access-guide code,
 .public-access-guide strong { color: #d8ffb8; }
-.public-access-form { display: grid; gap: 6px; }
+.public-access-form { display: grid; gap: 14px; }
 .public-access-form .field-label-inline { margin: 5px 0 0; }
-.public-access-preference {
-  display: flex;
-  align-items: flex-start;
+.public-access-settings-group {
+  display: grid;
   gap: 7px;
-  color: #b9ffb0;
-  font-size: 11px;
-  line-height: 1.35;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid #3a4a30;
+}
+.public-access-settings-group legend {
+  padding: 0 8px;
+  color: #9fe89a;
+  font-size: 10px;
+  letter-spacing: .7px;
 }
 .public-access-settings-dialog input[type="checkbox"] { accent-color: #6fae55; }
+.public-access-provider-setup { display: grid; gap: 7px; }
+.public-access-provider-setup[hidden] { display: none; }
+.public-access-credential-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.public-access-credential-row[hidden] { display: none; }
+.public-access-credential-row .field-label-inline { margin: 0; }
+.public-access-credential-status {
+  color: #6f9a5f;
+  font-size: 9px;
+  letter-spacing: .5px;
+}
 .public-access-hint {
   color: #566b49;
   font-size: 9px;
@@ -906,8 +927,15 @@ button {
   line-height: 1.3;
 }
 .public-access-presence-row label { text-align: right; }
+.public-access-password-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.public-access-password-row .btn { min-width: 0; }
 .public-access-copy-manual { justify-self: start; }
 .public-access-actions,
+.public-access-provider-token-actions,
 .generated-password-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -915,6 +943,7 @@ button {
   margin-top: 6px;
 }
 .public-access-actions .btn,
+.public-access-provider-token-actions .btn,
 .public-access-runtime-actions .btn,
 .generated-password-actions .btn {
   min-width: 0;
@@ -960,6 +989,17 @@ button {
 .public-access-copy-status { min-height: 15px; margin-top: 5px; color: #6f9a5f; font-size: 9px; }
 .public-access-settings-dialog {
   width: min(680px, calc(100vw - 32px));
+}
+.public-access-provider-token-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+.public-access-provider-token-form {
+  display: grid;
+  gap: 8px;
+}
+.public-access-provider-token-delete {
+  justify-self: start;
+  margin-top: 8px;
 }
 .public-access-settings-header {
   display: flex;
@@ -1672,7 +1712,9 @@ button {
   .selected-terminal-actions,
   .editor-publish-actions { flex-wrap: wrap; }
   .public-access-actions,
+  .public-access-provider-token-actions,
   .public-access-runtime-actions { grid-template-columns: 1fr; }
+  .public-access-password-row { grid-template-columns: 1fr; }
   .player-management-row { grid-template-columns: 1fr; }
   .player-management-row-actions { justify-content: flex-end; }
   .logical-session-dialog-header { align-items: stretch; flex-direction: column; }
