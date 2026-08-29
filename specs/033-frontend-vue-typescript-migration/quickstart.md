@@ -14,14 +14,16 @@ go version
 
 - The immutable legacy rollback source is `06696ee1c7155a1bb1135ef46ec91445dd73a2a4`.
 - The implementation revision must be a descendant or reviewed successor, not a runtime toggle back to the legacy bundle.
-- Run `nvm use` from the repository root and require Node.js `26.8.1` or newer under the repository's exact policy.
+- Run `nvm use` from the repository root and require exactly Node.js `26.8.1`. `.nvmrc`, Node preflight, dependency-compatibility evidence, clean verification, and final evidence all use that exact version; a Node upgrade is unrelated scope and requires a separate governed change.
 - Begin from a clean checkout when collecting final reproducibility, generation, or package evidence.
 
 ## 2. Install one frontend workspace
 
 ```bash
-task deps:frontend
+task frontend:build
 ```
+
+This canonical target owns the single governed frontend dependency installation and then calls both no-install per-application build targets. The root Taskfile is the public workflow owner; internal npm commands are not a second documented workflow.
 
 Verify:
 
@@ -29,19 +31,20 @@ Verify:
 - both application manifests declare `vue` exactly `3.5.42`;
 - the root workspace declares exact `typescript` `6.0.3`, `@vitejs/plugin-vue` `6.0.8`, and `vue-tsc` `3.3.11`;
 - Vite, Wails, ConnectRPC, protobuf, Node, and Playwright pins are unchanged;
-- the lockfile and manifests remain unchanged after `npm ci`.
+- the lockfile and manifests remain unchanged after the target's governed clean installation.
 
 ## 3. Run independent and workspace TypeScript gates
 
 ```bash
-npm run typecheck:overseer --prefix frontend
-npm run typecheck:client --prefix frontend
-npm run typecheck --prefix frontend
+task frontend:typecheck:overseer
+task frontend:typecheck:client
+task frontend:typecheck
+task frontend:policy:check
 ```
 
-All commands must use the pinned `vue-tsc`, check strict SFC templates and owned TypeScript, and compile generated Player TypeScript. Final configs must contain `strict`, `noUncheckedIndexedAccess`, and `exactOptionalPropertyTypes`, with no `allowJs` or `checkJs`.
+The per-app targets dispatch only their owning workspace check; the aggregate target runs both. None installs dependencies. All use the pinned `vue-tsc`, check strict SFC templates and application-owned TypeScript, and compile generated Player TypeScript. Final configs must contain `strict`, `noUncheckedIndexedAccess`, and `exactOptionalPropertyTypes`, with no `allowJs` or `checkJs`. Only the npm install/lock boundary, exact compiler/build tooling, and capability-neutral `frontend/tsconfig.base.json` are shared; authored declarations remain application-owned.
 
-Run the final forbidden-state task introduced by the migration and confirm that its self-test rejects each prohibited fixture before it scans production source. Generated Wails bindings, dependencies, output directories, and `tests/browser/*.mjs` are the only applicable exclusions.
+`task frontend:policy:check` must self-test forbidden production source and prohibited type escapes before scanning production, prove the single-lockfile and Player dependency boundaries, reject expired temporary mechanisms, and enforce final cutover. Generated Wails bindings, dependencies, output directories, and `tests/browser/*.mjs` are the only applicable exclusions.
 
 ## 4. Verify protobuf TypeScript generation
 
@@ -67,9 +70,9 @@ Verify:
 
 ```bash
 task bindings:check
-npm run build:overseer --prefix frontend
-npm run build:client --prefix frontend
-task frontend:build
+task frontend:build:overseer
+task frontend:build:client
+task frontend:reproducible:check
 ```
 
 Verify:
@@ -80,9 +83,20 @@ Verify:
 - Player bundle scans contain no Wails/native/private/Overseer path;
 - TypeScript/SFC source, handwritten production JavaScript source, development tools, and ungoverned source maps are absent from runtime outputs.
 
-Run the governed reproducibility task/script after a clean install. Two complete builds of the same revision must produce byte-identical `frontend/overseer/dist` and `frontend/client/dist` trees, deterministic generated sources, and identical asset manifests.
+The per-app build targets build only their owning production bundle and do not install dependencies. `task frontend:reproducible:check` performs two complete builds of the same revision and produces byte-identical `frontend/overseer/dist` and `frontend/client/dist` trees, deterministic generated sources, identical asset manifests, and actionable sorted path/mode/size/SHA-256 differences on failure.
 
-## 6. Verify each ownership wave
+## 6. Verify persistence compatibility and external boundaries
+
+```bash
+task frontend:compatibility:check
+task frontend:boundary:check
+```
+
+`task frontend:compatibility:check` runs in Overseer wave e and final wave i. During task generation, record the exact reviewed paths for one current and one legacy version-1 session document, one current and one legacy player-configuration document, compatible unknown fields in both types, and established cross-file player-configuration references. Reuse existing repository fixtures and Go codecs where suitable. The gate opens through the migrated Overseer boundary, renders and edits without changing meaning, saves, reopens, and compares supported fields, defaults, references, compatible unknown fields, location, and business meaning. Loss, silent normalization, or relocation fails.
+
+`task frontend:boundary:check` consumes `tests/browser/fixtures/frontend-boundary-manifest.json`. Every entry records the boundary class, fixture identifier, owning adapter/composable, expected accept or reject result, trusted projection or no-state-change outcome, migration wave, and focused test file. The complete reviewed population covers Wails/native events and command results, storage, DOM/form and pointer/keyboard inputs, decoded network values, clipboard, sound values, and presentation-stream capability/results. The gate rejects invalid entries before trusted mutation, accepts valid entries, and fails on any missing test mapping. It claims completeness only for this reviewed manifest, not every theoretically possible invalid value.
+
+## 7. Verify each ownership wave
 
 At every wave, review [migration-ownership.md](./migration-ownership.md) and record:
 
@@ -96,7 +110,7 @@ At every wave, review [migration-ownership.md](./migration-ownership.md) and rec
 
 Do not begin Player wave f until Overseer wave e has passed its complete cutover and forbidden-state gate. Do not accept wave i while any temporary mechanism register entry remains.
 
-## 7. Run browser and visual evidence
+## 8. Run browser and visual evidence
 
 ```bash
 task browser:test
@@ -106,7 +120,7 @@ The complete existing `.mjs` suite must pass through the production-fidelity fix
 
 Record this evidence only as browser/visual evidence. Do not describe it as a packaged Wails runtime test.
 
-## 8. Run Go and repository quality gates
+## 9. Run Go and repository quality gates
 
 If implementation changed Go source, before each commit containing those changes run:
 
@@ -129,7 +143,7 @@ task check
 
 These gates cover buildtool ordering, workflow contracts, Go behavior, concurrency, binding/generation integration, native embedding declarations, resources, public/private separation, and active CI policy.
 
-## 9. Verify native embedding, resources, secrets, and packages
+## 10. Verify native embedding, resources, secrets, and packages
 
 Run the governed native/resource checks referenced by Task/buildtool and the repository scripts, including Wails pin/cutover, secret-leak, legacy-public-access, production-resource, native startup/accessibility, and package-content checks applicable to the host.
 
@@ -145,7 +159,7 @@ task package GOOS=linux GOARCH=arm64
 
 Each command is run only on its matching host. Verify the executable, separate embedded frontend roles, required font/sound/static resources, package inventory, identity, startup, and absence of forbidden source/stale bundles.
 
-## 10. Verify active documentation
+## 11. Verify active documentation
 
 Confirm the accepted Vue/TypeScript architecture and commands appear consistently in:
 
@@ -158,7 +172,7 @@ Confirm the accepted Vue/TypeScript architecture and commands appear consistentl
 
 Do not rewrite completed historical specifications or recorded evidence.
 
-## 11. Record results honestly
+## 12. Record results honestly
 
 Use `PASS`, `FAIL`, or `NOT RUN` with the command, host, and reason. Never convert a deterministic fake into real-provider evidence or a browser fixture into native evidence.
 

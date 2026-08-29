@@ -46,28 +46,30 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 - Strict Player compilation includes all generated TypeScript.
 - Existing Go generated tree, descriptors, Buf format/lint/breaking checks, RPC inventories, Connect paths, and public/private scans remain unchanged.
 - Player build plus focused ConnectRPC browser journeys pass with unchanged selectors/behavior.
+- The unchanged production Player Vite build and existing CRT/rendering visual suite pass with immutable snapshots and zero selector, screenshot, CSS, copy, accessibility, layout, timing, or geometry baseline change. Task generation records the exact focused Playwright/visual command; `target=ts` conversion cannot create or approve snapshots.
 
 **Removal criteria**: All `_pb.js` generated files and every script/import/probe assumption that checked them are replaced in the same wave. No parallel `target=js`, `target=js+dts`, or checked-in compiled-JavaScript output remains.
 
-## Wave c — Shared declarations, both Vue shells, and typed desktop API
+## Wave c — Shared compiler policy, application-owned declarations, both Vue shells, and typed desktop API
 
 **Vue mount boundaries**:
 
 - Production documents remain wholly legacy-owned.
-- `#overseerApp` and `#playerApp` exist and mount only in isolated candidate/fixture documents built from the new application entrypoints.
+- `#overseerApp` and `#playerApp` exist and mount only in isolated candidate/fixture documents built from the new application entrypoints and application-owned declarations.
 - The Overseer candidate root receives a typed `DesktopPort`; the production candidate uses the Wails adapter and the browser fixture uses a deterministic fake port.
 
 **Legacy-owned adjacent subtrees**: The complete live Overseer and Player production documents remain legacy-owned; candidate documents are separate documents, never adjacent subtrees in the same document.
 
 **Remaining legacy files and handlers**: All current production JavaScript bootstraps and handlers remain. `desktop-api.js` remains the production bridge until Overseer ownership transfer; `client.js`, `sound.js`, and `presentation-uplink.js` remain Player production owners.
 
-**Prohibited boundaries**: Candidate Vue apps cannot locate or mutate legacy production DOM. Player declarations/config/import graphs cannot reference Wails, `@wailsio/runtime`, bindings, native capabilities, privileged types, Overseer state, or the Overseer candidate. The typed desktop adapter is the only authored import boundary for generated Wails service modules, runtime events, and clipboard.
+**Prohibited boundaries**: Candidate Vue apps cannot locate or mutate legacy production DOM. The applications share only the npm install/lock boundary, exact compiler/build tooling, and capability-neutral `frontend/tsconfig.base.json`; all authored environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations remain application-owned. Player declarations/config/import graphs, including type-only imports, cannot reference Wails, `@wailsio/runtime`, bindings, native capabilities, privileged types, Overseer state, or the Overseer candidate. The typed desktop adapter is the only authored import boundary for generated Wails service modules, runtime events, and clipboard.
 
 **Focused checks**:
 
 - Workspace plus independent Overseer/Player strict `vue-tsc` checks.
 - Both candidate Vite builds and unchanged legacy production builds.
 - Desktop adapter malformed-event/result/clipboard fixtures, listener-before-getter ordering, revision reconciliation, and exact-once unsubscribe tests.
+- The wave-c Wails/native named-event and command-result subset of the reviewed frontend boundary manifest has complete focused test mappings and expected accept/reject plus trusted-projection/no-state-change outcomes.
 - Player dependency-graph boundary scan.
 - Existing production browser/visual suite remains unchanged.
 
@@ -108,6 +110,8 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 - Overseer independent and workspace strict type-checks; Overseer production build.
 - Complete Overseer Playwright suite with unchanged selectors and visual expectations.
 - Focus restoration, keyboard, pointer, modal, stale-result, revision, confirmation atomicity, secret, clipboard, update, public-access, session, player, terminal, group, authoring, approval, broadcast, and hacking-control journeys.
+- `task frontend:compatibility:check` opens, edits, saves, reopens, and compares the reviewed current/legacy session and player-configuration fixtures, compatible unknown fields, defaults, references, locations, and business meaning.
+- The complete desktop/Wails subset of the reviewed frontend boundary manifest passes before Overseer cutover is accepted.
 - Wails binding integrity, embedding, startup, native accessibility/dialog behavior, resources, secret checks, and package checks as separate evidence.
 
 **Removal criteria**: Delete `frontend/overseer/src/overseer.js`, `desktop-api.js`, legacy script tags, `#legacyOverseerRoot`, `#overseerVueLeaves`, temporary bridges, temporary mounts, and Overseer legacy-check configuration. The final forbidden-state scan must pass for `frontend/overseer/src` before wave f starts.
@@ -129,6 +133,7 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 
 - Player independent and workspace strict type-checks and candidate build.
 - Candidate first connection, complete-snapshot-first subscription, fixed reconnect, stale revision suppression, pending ActionResult correlation, multi-tab recognition/lease, roster/role/controller, navigation, pagination, cancellation, and public/private graph tests.
+- Reviewed localStorage/storage-event, decoded-network, DOM/form, and navigation-input boundary-manifest entries have focused test mappings and expected accept/reject plus trusted-projection/no-state-change outcomes.
 - Legacy production full browser/visual suite continues to pass until candidate parity is complete.
 - Candidate DOM selector/accessibility checks compare against the immutable production fixture without updating baselines.
 
@@ -150,6 +155,7 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 - Exact 40ms typewriter progression, completion/cancel/repeat behavior, cue de-duplication, pagination/measurement, and CRT snapshots at every existing viewport.
 - Gesture-gated Web Audio, manifest validation, ambient and one-shot volumes/cues, failure isolation, teardown, and no replay after reconnect/rejection.
 - Streaming capability probe, ready/result correlation, latest-value mailbox, request cancellation, retry timing, authoritative convergence, stale-result rejection, and unary fallback.
+- Reviewed pointer/keyboard-derived, sound-manifest/asset, and presentation-stream capability/result boundary-manifest entries have focused test mappings and expected accept/reject plus trusted-projection/no-state-change outcomes.
 - Complete candidate Player `.mjs` and visual suite without baseline changes; legacy production suite still passes.
 
 **Removal criteria**: Every candidate lifecycle resource has an automated cleanup assertion or observable unmount/reconnect proof. Candidate reaches complete parity and is eligible for the single wave-h production ownership transfer.
@@ -169,6 +175,7 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 - Player independent and workspace strict type-checks and production build.
 - Complete unchanged Player and cross-application Playwright suite plus all immutable visual snapshots.
 - Reconnect, multi-tab, revision, pending-action, authority, navigation, hacking, CRT/typewriter, geometry, sound, streaming, cancellation, fallback, and cleanup stress journeys.
+- Every Player-owned entry in the reviewed frontend boundary manifest has its focused test mapping and passes against the production Player root.
 - Production bundle capability scan and separate native Player serving/startup/package probes.
 
 **Removal criteria**: Delete `frontend/client/client.js`, `sound.js`, `presentation-uplink.js`, old script tag, candidate entry/selector, any staging root or bridge, and Player legacy-check configuration. Final Player ownership inventory is empty before wave i.
@@ -185,7 +192,12 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 
 **Focused checks**:
 
-- Clean workspace installation; workspace and per-app strict `vue-tsc`; both Vite production builds twice with byte-identical output trees.
+- `task frontend:build` performs the one clean workspace installation and both builds; `task frontend:build:overseer` and `task frontend:build:client` retain independent no-install build ownership.
+- `task frontend:typecheck`, `task frontend:typecheck:overseer`, and `task frontend:typecheck:client` run workspace and per-app strict `vue-tsc` checks without installing dependencies.
+- `task frontend:compatibility:check` reruns the full FR-023/SC-007 reviewed current/legacy persistence fixture set.
+- `task frontend:boundary:check` runs every reviewed valid/invalid boundary-manifest entry and rejects missing test mappings.
+- `task frontend:policy:check` proves forbidden-source/type, one-lockfile, Player-boundary, temporary-mechanism, and final-cutover policy.
+- `task frontend:reproducible:check` performs both Vite builds twice and emits actionable byte-identical tree-digest evidence.
 - Protobuf format/lint/breaking/generation/drift/strict compilation; Wails binding generation/integrity.
 - Complete Playwright and visual suite through production-fidelity fixtures.
 - `go fix ./...` before final formatting when Go source changed, then repository Taskfile Go quality/test/race gates.
@@ -201,7 +213,11 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 |---|---|---:|---:|---|---|
 | Overseer bounded legacy JS check config | Frontend Migration | a | e | Overseer legacy build and applicable browser suite | Delete config and remove `allowJs`/`checkJs` |
 | Player bounded legacy JS check config | Frontend Migration | a | h | Player legacy build and complete Player suite | Delete config and remove `allowJs`/`checkJs` |
-| Overseer candidate/test entrypoint and typed fake port | Frontend Migration | c | e | Same SFCs/selectors through production-fidelity fixture | Promote production bootstrap; retain fake only under tests |
+| Overseer candidate/test entrypoint | Frontend Migration | c | e | Production SFCs satisfy immutable browser and visual expectations through the production-fidelity fixture | Promote the production bootstrap; delete the candidate entrypoint, selector, and build selection |
 | `#overseerVueLeaves` plus typed legacy/Vue state callbacks | Frontend Migration | d | e | Per-leaf browser, focus, visual, revision, and ownership checks | Consolidate into `#overseerApp`; delete legacy root/callbacks |
 | Player candidate document/build selection | Frontend Migration | f | h | Complete candidate `.mjs` and visual suite | Promote `#playerApp`; delete candidate selector/entry |
 | Any temporary source alias, mount flag, or compatibility switch discovered during implementation | Frontend Migration | owning wave | e for Overseer, h for Player, never later than i | Named focused parity test before merge | Add an explicit task immediately; final scan must reject it |
+
+## Retained browser evidence and test infrastructure
+
+The typed fake `DesktopPort` used by the browser fixtures is permanent test-only evidence infrastructure, not a temporary production compatibility mechanism. It lives outside production source and bundles, remains after wave e, is never embedded or packaged, and is verified against the production `DesktopPort` contract. It may prove browser DOM/application parity only and is explicitly excluded from native Wails claims. No temporary-mechanism register row may combine it with an expiring candidate entrypoint, selector, mount, or build selection.

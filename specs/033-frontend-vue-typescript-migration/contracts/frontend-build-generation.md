@@ -9,29 +9,33 @@
 | Workspace root | `frontend/package.json` |
 | Workspaces | `client`, `overseer` |
 | Only frontend lockfile | `frontend/package-lock.json` |
-| Governed clean install | `npm ci --prefix frontend` through the root Taskfile/buildtool workflows |
+| Governed clean install | `task frontend:build`, which invokes the one internal `npm ci --prefix frontend` installation before both per-app builds |
 | Prohibited | `frontend/client/package-lock.json`, `frontend/overseer/package-lock.json`, app-local install docs/tasks, or another active install workflow |
 
 The root manifest owns exact direct development dependencies `typescript: 6.0.3`, `@vitejs/plugin-vue: 6.0.8`, and `vue-tsc: 3.3.11`. Both application manifests own the exact direct runtime dependency `vue: 3.5.42`. Existing exact Vite `8.1.5`, Wails frontend `3.0.0-beta.15`, ConnectRPC `2.1.2`, protobuf `2.13.0`, Node `26.8.1`, and Playwright `1.62.1` pins remain unchanged.
 
-## Commands
+## Canonical Taskfile commands
 
-The final manifests expose these independently runnable commands from the one installed workspace:
+The root Taskfile is the public workflow owner. The final application manifests still contain independently runnable `typecheck` and `build` scripts, but their npm invocations are implementation details called by these canonical targets and are not documented as a competing workflow:
 
-| Scope | Command | Required behavior |
-|---|---|---|
-| Workspace | `npm run typecheck --prefix frontend` | Run strict `vue-tsc --noEmit` for Overseer and Player and include generated browser TypeScript. |
-| Overseer | `npm run typecheck:overseer --prefix frontend` | Dispatch the Overseer workspace `typecheck` script only. |
-| Player | `npm run typecheck:client --prefix frontend` | Dispatch the Player workspace `typecheck` script only. |
-| Overseer | `npm run build:overseer --prefix frontend` | Build only `frontend/overseer/dist` from the Overseer Vue entrypoint. |
-| Player | `npm run build:client --prefix frontend` | Build only `frontend/client/dist` from the Player Vue entrypoint. |
-| Workspace | `npm run build --prefix frontend` | Build both applications without installing dependencies or creating another lockfile. |
+| Target | Required behavior |
+|---|---|
+| `task frontend:typecheck:overseer` | Dispatch only the Overseer workspace `typecheck`; do not install dependencies or check Player. |
+| `task frontend:typecheck:client` | Dispatch only the Player workspace `typecheck`; do not install dependencies or check Overseer. |
+| `task frontend:typecheck` | Run both strict per-app checks, including generated Player TypeScript, without installing dependencies. |
+| `task frontend:build:overseer` | Build only `frontend/overseer/dist` from the Overseer production entrypoint without installing dependencies. |
+| `task frontend:build:client` | Build only `frontend/client/dist` from the Player production entrypoint without installing dependencies. |
+| `task frontend:build` | Perform the single governed frontend dependency installation, then call both per-app build targets; create no other lockfile or install path. |
+| `task frontend:compatibility:check` | Run the complete FR-023/SC-007 session/player-configuration compatibility fixture gate. |
+| `task frontend:boundary:check` | Run every FR-015/SC-012 entry in the reviewed frontend boundary manifest and reject unmapped entries. |
+| `task frontend:policy:check` | Enforce forbidden source/type escapes, one lockfile, Player dependency boundaries, temporary-mechanism inventory, and final cutover. |
+| `task frontend:reproducible:check` | Build both Vite outputs twice and compare actionable sorted path/mode/size/SHA-256 tree evidence. |
 
-Each application manifest contains its own `typecheck` and `build` scripts. The root scripts dispatch with npm workspace selection; they do not invoke `npm install` or `npm ci` recursively.
+The root npm scripts dispatch with workspace selection and the application manifests own their individual scripts. No npm script recursively installs dependencies. Only `task frontend:build` owns the installation step; every other canonical frontend target consumes that governed installed workspace.
 
 ## Strict compiler policy
 
-`frontend/tsconfig.base.json` is extended by both application configurations. Final production compilation must include all of the following:
+`frontend/tsconfig.base.json` is extended by both application configurations and is the only shared declaration/configuration input. It contains capability-neutral compiler policy only. Authored environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations remain inside their owning application boundary, and type-only imports cannot create a cross-boundary application contract. Final production compilation must include all of the following:
 
 - `strict: true`;
 - `noUncheckedIndexedAccess: true`;
@@ -55,7 +59,38 @@ The final repository check fails with exact file/line evidence for broad `any`, 
 
 The outputs remain separate and contain only runtime HTML, CSS, JavaScript bundles, fonts/sounds/static assets, and `.keep` markers required by existing embedding. They exclude TypeScript/SFC source, handwritten production JavaScript source, development tooling, ungoverned source maps, Wails binding source, and generated contracts not required at runtime.
 
-Both Vite output trees must be byte-identical across two clean builds of one source revision and lockfile. The reproducibility manifest sorts relative paths and records mode, size, and SHA-256 so a mismatch names the exact asset.
+Both Vite output trees must be byte-identical across two clean builds of one source revision and lockfile. `task frontend:reproducible:check` owns the comparison. Its reproducibility manifest sorts relative paths and records mode, size, and SHA-256 so a mismatch names the exact asset.
+
+## Persistence compatibility gate
+
+`task frontend:compatibility:check` is the canonical FR-023/SC-007 gate in Overseer wave e and final wave i. Its production-fidelity fixture set contains:
+
+- one representative current session document;
+- one representative legacy version-1 session document;
+- one current player-configuration document;
+- one legacy player-configuration document;
+- compatible unknown fields in both document types; and
+- existing cross-file player-configuration reference behavior.
+
+Each fixture opens through the migrated Overseer application boundary, renders and permits an edit without changing established meaning, saves, reopens, and compares supported fields, defaults, references, and compatible unknown fields. The gate fails on loss, silent normalization, relocation, or business-meaning change. Task generation must inventory and name the exact reviewed fixture paths. It reuses current repository fixtures and the existing Go version-1 codecs wherever suitable and does not establish a duplicate persistence format.
+
+## Frontend boundary fixture gate
+
+`task frontend:boundary:check` owns one reviewed manifest at `tests/browser/fixtures/frontend-boundary-manifest.json`. Every entry records:
+
+1. boundary class;
+2. fixture identifier;
+3. owning adapter or composable;
+4. expected accept or reject result;
+5. expected trusted projection or no-state-change outcome;
+6. applicable migration wave; and
+7. focused test file.
+
+The manifest enumerates valid and invalid Wails/native named events, Wails command results, localStorage/storage-event records, DOM/form inputs, pointer/keyboard-derived values, ConnectRPC-decoded semantic network values, clipboard outcomes, sound-manifest/asset values, and presentation-stream capability/results. Desktop/Wails entries are implemented and focused in waves c/e; Player storage/network/input entries in wave f; pointer/sound/stream entries in wave g; production Player completion in wave h; and the complete manifest runs in wave i. The final gate rejects every explicitly listed invalid fixture before trusted mutation, accepts every explicitly listed valid fixture, and fails if any manifest entry lacks a test mapping. Its completeness claim is limited to the reviewed manifest, not all theoretically possible invalid data.
+
+## Frontend policy gate
+
+`task frontend:policy:check` owns final forbidden production source, prohibited type escapes, the single-lockfile rule, direct and transitive Player dependency boundaries, temporary-mechanism inventory, and final-cutover removal. Generated Wails bindings, dependencies, build/package output, and `tests/browser/*.mjs` retain only their path-exact applicable exclusions.
 
 ## Public browser protobuf generation
 
@@ -119,17 +154,18 @@ Generated JavaScript, JSDoc, `eventdata.d.ts`, model files, and generator suppre
 7. Overseer production build;
 8. native build/package step selected by the existing target plan.
 
-`Taskfile.yml` exposes this policy and adds focused frontend type-check/forbidden-state/reproducibility tasks without duplicating buildtool internals. `.github/workflows/wails-cross-platform.yml` and `.github/workflows/wails-portable.yml` continue to enter through Task targets and cache only `frontend/package-lock.json`.
+`Taskfile.yml` exposes this policy through the ten canonical `frontend:*` targets above without duplicating buildtool or npm internals. `.github/workflows/wails-cross-platform.yml` and `.github/workflows/wails-portable.yml` continue to enter through Task targets and cache only `frontend/package-lock.json`.
 
 ## Producer and consumer update matrix
 
 | Producer | Consumers that must change together |
 |---|---|
-| Root/app manifests and lockfile | Task `node:check`, `deps:frontend`, frontend type/build tasks, buildtool plans/tests, CI cache/preflight, dependency/license validation, README/contributor docs |
-| Shared/app TypeScript configs | Workspace/app scripts, `vue-tsc`, generated browser contracts, SFCs, forbidden-state checks, CI |
+| Root/app manifests and lockfile | Canonical frontend Task targets, Task `node:check`, buildtool plans/tests, CI cache/preflight, dependency/license validation, README/contributor docs |
+| Base/app TypeScript configs and application-owned declarations | Workspace/app scripts, `vue-tsc`, generated browser contracts, owned SFCs, boundary/policy checks, CI; no authored cross-app declaration module |
 | `vite.config.ts` and HTML/entrypoints | Vite builds, Wails plugin, browser fixture build, Go embeds, production resource tests, package checks |
 | CSS/fonts/sounds/static assets | Vue templates, Vite asset graph, SoundManifest serving, visual tests, resource and package inventories |
 | `proto/buf.gen.es.yaml` | generation/check/drift scripts, Player imports, native package probe fixtures, buildtool preflight, CI, docs |
-| Wails generator output | desktop adapter alias/inventory, browser fake port, binding integrity, buildtool, native startup/package checks |
-| Browser fixture build | `tests/browser/playwright.config.mjs`, `fixture-server/main.go`, fixture bindings, selectors/snapshots; never native evidence |
+| Wails generator output | desktop adapter alias/inventory, binding integrity, buildtool, native startup/package checks |
+| Browser fixture build and typed fake `DesktopPort` | `tests/browser/playwright.config.mjs`, `fixture-server/main.go`, fixture bindings, boundary manifest, selectors/snapshots; permanent test-only infrastructure outside production and never native evidence |
+| Existing session/player-config fixtures and Go codecs | `task frontend:compatibility:check`, exact reviewed paths recorded during task generation, Overseer wave-e and final wave-i evidence |
 | Final source layout | `internal/platform/assets_test.go`, secret/boundary/legacy scans, state-changing native smoke, active Spec Kit templates and docs |

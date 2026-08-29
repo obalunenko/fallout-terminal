@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [x] Any [NEEDS CLARIFICATION] markers are genuine ambiguities (≤3) deferred to clarify — no markers are required
+- [x] No unresolved clarification-placeholder markers remain
 - [x] Each Functional Requirement is a single, testable MUST/SHOULD statement
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)

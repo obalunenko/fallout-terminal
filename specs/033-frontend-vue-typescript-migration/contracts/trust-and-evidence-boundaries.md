@@ -20,7 +20,7 @@ existing public ConnectRPC handlers
 canonical server-authoritative state
 ```
 
-The Player graph must have no direct or indirect path to `frontend/overseer`, `@wailsio/runtime`, Wails bindings, native capabilities, filesystem APIs, privileged types, Overseer state, or a shared cross-boundary store. Capability-neutral compiler configuration is not application state and may be shared at the workspace root.
+The Player graph must have no direct or indirect path to `frontend/overseer`, `@wailsio/runtime`, Wails bindings, native capabilities, filesystem APIs, privileged types, Overseer state, or a shared cross-boundary store. The applications share only the npm install/lock boundary, exact compiler/build tooling, and capability-neutral `frontend/tsconfig.base.json` compiler policy. Authored environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations stay inside their owning application; type-only imports do not create an allowed cross-boundary application contract.
 
 ## Preserved Player RPC contract
 
@@ -48,6 +48,12 @@ All paths remain `/fallout.terminal.player.v1.PlayerService/<RPC>`, binary Conne
 - Overseer command/result and named-event adapters preserve listener-before-getter ordering, exact-once release, correlation/idempotency, tuple/revision comparisons, confirmation atomicity, and stale completion suppression.
 - Session and player-configuration JSON retain their exact version-1 fields, defaults, compatible unknown-field behavior, and business meaning.
 
+## Persistence compatibility evidence
+
+`task frontend:compatibility:check` is the production-fidelity FR-023/SC-007 evidence gate in Overseer wave e and final wave i. Its reviewed fixture set contains one current and one legacy version-1 session, one current and one legacy player configuration, compatible unknown fields in both document types, and established cross-file player-configuration references. Task generation records the exact repository fixture paths and reuses the existing version-1 Go codecs where suitable instead of defining another persistence representation.
+
+Each fixture opens through the migrated Overseer application boundary, renders and permits an edit without changing established meaning, saves, reopens, and compares supported fields, defaults, references, compatible unknown fields, and location. Loss, silent normalization, relocation, or business-meaning change fails the gate. Browser evidence proves the migrated application-boundary journey; existing Go codec tests separately retain persistence-format authority.
+
 ## External runtime validation
 
 Generated decoding or Wails construction proves transport structure only. Trusted application state is created only after boundary validation.
@@ -61,6 +67,8 @@ Generated decoding or Wails construction proves transport structure only. Truste
 | Clipboard | Non-empty value, supported native function, promise outcome/failure; secrets remain transient and are cleared immediately |
 | Sound manifests/assets | Exact category prefix, safe single filename, approved extension, same-origin URL, optional fetch/decode/play failure isolation |
 | Presentation streaming | Secure-context capability, stream generation, open/ready/result correlation, response envelope/end-stream validity, cancellation, timeout, context applicability |
+
+`task frontend:boundary:check` makes these obligations measurable through the reviewed `tests/browser/fixtures/frontend-boundary-manifest.json`. Each entry names the boundary class, fixture identifier, owning adapter/composable, expected accept or reject result, trusted projection or no-state-change outcome, applicable migration wave, and focused test file. The gate fails if a manifest entry lacks a test mapping, rejects every explicitly defined invalid fixture before trusted state mutation, and accepts every explicitly defined valid fixture. Desktop/Wails entries belong primarily to waves c/e, Player storage/network/input entries to wave f, pointer/sound/stream entries to wave g, production Player completion to wave h, and the complete manifest to wave i. This is exhaustive only for the reviewed manifest population, never for every theoretically possible invalid value.
 
 ## Imperative Vue-owned seams and cleanup
 
@@ -79,6 +87,8 @@ Imperative code is limited to these narrow owners:
 Subscriptions, document/window listeners, timers, animation frames, observers, audio resources, AbortControllers, streams, and temporary nodes are registered immediately with the owning Vue scope and released in `onScopeDispose`/`onUnmounted` as appropriate.
 
 ## Browser versus native evidence
+
+The typed fake `DesktopPort` is permanent test-only browser evidence infrastructure outside production source and bundles. It remains after the temporary candidate/test entrypoint is deleted in wave e, is never embedded or packaged, is checked against the production `DesktopPort` contract, and cannot be cited as Wails/native evidence.
 
 | Evidence class | Producer | What it proves | What it must not claim |
 |---|---|---|---|

@@ -101,7 +101,7 @@ README.md, ARCHITECTURE.md, CONTRIBUTING.md, docs/
 
 The migration changes presentation ownership, not product authority. Overseer Vue state is an application view over validated private Wails commands/events; Player Vue state is an application view over validated public ConnectRPC snapshots, updates, and action results. Existing Go services retain semantic validation, authorization, persistence, revision ordering, public-access isolation, update policy, and canonical mutation ownership.
 
-The two applications share only the npm installation/lock boundary and strict compiler policy. They do not share an application root, runtime entrypoint, bundle, state store, adapter, transport, privileged type, or mutable composable. Player's dependency graph is checked for direct and transitive paths to Overseer, Wails, `@wailsio/runtime`, generated Wails bindings, filesystem/native capabilities, private protobuf packages, or privileged state.
+The two applications share only the npm installation/lock boundary, exact compiler/build tooling, and capability-neutral compiler policy in `frontend/tsconfig.base.json`. They do not share an authored environment/global declaration module, application type module, application root, runtime entrypoint, bundle, state store, adapter, transport, view-state type, Wails or ConnectRPC declaration, component, composable, or privileged type. All authored declarations remain inside their owning application source or configuration boundary, and type-only imports cannot establish a cross-boundary application contract. Player's dependency graph is checked for direct and transitive paths to Overseer, Wails, `@wailsio/runtime`, generated Wails bindings, filesystem/native capabilities, private protobuf packages, or privileged state.
 
 Generated browser Protobuf TypeScript remains a public transport boundary. Generated Wails JavaScript/JSDoc/declarations remain a private framework boundary. Neither generated representation becomes a canonical mutable model. Application adapters convert untrusted external values into narrow trusted TypeScript projections and preserve all existing semantic checks.
 
@@ -166,7 +166,7 @@ No approved imperative seam may independently render or mutate Vue-owned descend
 | `overseer.css`, `client.css`, fonts, sounds, static assets | Vue templates, Vite manifests, SoundManifest service, snapshots, resource/package checks | Keep paths/content/global selectors stable; no scoped rewrite or intentional baseline update. |
 | `proto/buf.gen.es.yaml` and public schemas | `scripts/proto-*`, checked-in `frontend/client/gen`, Player imports, buildtool preflight, native package probes, CI | Change only `target=ts`; retain `.js` specifiers, exact pins, schema/Go output; update deterministic inventories and direct-JS probe consumers. |
 | Wails binding producer and generated tree | typed desktop adapter, Wails Vite plugin, browser fake port, integrity scripts, buildtool, native checks | Keep output unedited; add strict unknown-validating alias/adapter and synchronized exact method/event checks. |
-| `Taskfile.yml` | maintainers, buildtool entrypoints, quality CI, portable release matrix | Add focused type-check/forbidden/reproducibility tasks while keeping Task the sole workflow graph and buildtool the detailed policy owner. |
+| `Taskfile.yml` | maintainers, buildtool entrypoints, quality CI, portable release matrix | Add the ten canonical `frontend:*` targets defined below while keeping Task the sole public workflow graph and buildtool/npm scripts as implementation seams rather than documented alternatives. |
 | `internal/buildtool` and tests | `task prepare/build/package/dev`, all supported package plans | Insert strict app checks in protobuf → Player → bindings → Overseer order; preserve target/package behavior and standard-library-only ownership. |
 | `.github/workflows/wails-cross-platform.yml`, `wails-portable.yml` | PR/main quality and five matching-host release jobs | Continue Task entry and one lockfile cache; enforce new gates through Task/buildtool instead of ad hoc npm workflow commands. |
 | `tests/browser/playwright.config.mjs`, `fixture-server/main.go`, fixture bindings | all existing `.mjs` journeys and snapshots | Build production Player and production Overseer SFCs; inject only typed fake desktop transport for browser Overseer evidence; preserve selectors/baselines. |
@@ -177,6 +177,27 @@ No approved imperative seam may independently render or mutate Vue-owned descend
 | Constitution 9.0.0 and `.specify/templates/*` | future specifications/plans/tasks | Keep constitution authoritative; update active templates that still name legacy JavaScript paths. Historical completed specs/evidence remain untouched. |
 
 The explicit command, generation, output, and producer-consumer contract is [frontend-build-generation.md](./contracts/frontend-build-generation.md).
+
+## Canonical Frontend Task Contract
+
+The root Taskfile remains the only public frontend workflow owner. These future targets are the canonical interfaces that implementation tasks must add; underlying npm workspace commands remain private implementation details invoked by the targets and are not documented as a second workflow:
+
+| Task target | Exact ownership |
+|---|---|
+| `task frontend:typecheck:overseer` | Dispatch only the Overseer workspace `typecheck`; do not install dependencies or check Player. |
+| `task frontend:typecheck:client` | Dispatch only the Player workspace `typecheck`; do not install dependencies or check Overseer. |
+| `task frontend:typecheck` | Run both per-application strict checks without installing dependencies. |
+| `task frontend:build:overseer` | Build only the Overseer production bundle without installing dependencies. |
+| `task frontend:build:client` | Build only the Player production bundle without installing dependencies. |
+| `task frontend:build` | Perform the single governed frontend dependency installation, then call both per-application build targets. |
+| `task frontend:compatibility:check` | Own the FR-023/SC-007 production-fidelity current-and-legacy session/player-configuration round-trip gate. |
+| `task frontend:boundary:check` | Own the FR-015/SC-012 complete reviewed valid/invalid frontend boundary-fixture manifest gate. |
+| `task frontend:policy:check` | Own forbidden production source, prohibited type escapes, single-lockfile policy, Player dependency boundaries, temporary-mechanism inventory, and final-cutover policy. |
+| `task frontend:reproducible:check` | Own two-build byte comparison and actionable sorted tree-digest evidence for both Vite outputs. |
+
+`task frontend:compatibility:check` uses a production-fidelity fixture set containing one representative current session document, one representative legacy version-1 session document, one current player-configuration document, one legacy player-configuration document, compatible unknown fields in both document types, and the established cross-file player-configuration reference behavior. It opens each document through the migrated Overseer boundary, renders and edits without changing established meaning, saves, reopens, and compares supported fields, defaults, references, and compatible unknown fields. It rejects any loss, silent normalization, relocation, or business-meaning change. Task generation must inventory and record the exact reviewed fixture paths, reusing repository version-1 fixtures and Go codecs where suitable rather than inventing a duplicate persistence representation.
+
+`task frontend:boundary:check` consumes one reviewed manifest planned at `tests/browser/fixtures/frontend-boundary-manifest.json`. Each manifest entry records its boundary class, fixture identifier, owning adapter or composable, expected accept/reject result, expected trusted projection or no-state-change outcome, applicable migration wave, and focused test file. The population covers Wails/native named events, Wails command results, localStorage/storage-event records, DOM/form inputs, pointer/keyboard-derived values, ConnectRPC-decoded semantic network values, clipboard outcomes, sound-manifest/asset values, and presentation-stream capability/results. The gate runs every manifest entry, rejects every listed invalid fixture before trusted state mutation, accepts every listed valid fixture, and fails when an entry lacks a test mapping. This is complete for the reviewed manifest only; it does not claim every theoretically possible invalid value.
 
 ## Implementation Waves
 
@@ -194,11 +215,11 @@ Switch only `proto/buf.gen.es.yaml` to `target=ts`, preserve `import_extension=j
 
 **Exit**: exactly five deterministic checked-in `_pb.ts` files, no old generated JS, actionable deliberate-drift rejection, two identical generations, strict Player compilation/build, and all protobuf/Connect/public-private gates pass.
 
-### Wave c — Shared declarations, both Vue shells, and typed desktop API
+### Wave c — Shared compiler policy, application-owned declarations, both Vue shells, and typed desktop API
 
-Create both Vue roots and entrypoints in candidate/fixture documents, shared capability-neutral declarations, application-specific environment declarations, and the typed Wails alias/desktop adapter. Establish the production-code/bootstrap injection seam for the Overseer browser fixture. Add Player transport/projection interfaces without changing production ownership.
+Establish the shared strict compiler policy in `frontend/tsconfig.base.json`, then create application-owned environment/global/transport/view declarations, both Vue roots and entrypoints in candidate/fixture documents, and the typed Wails alias/desktop adapter. Establish the production-code/bootstrap injection seam for the Overseer browser fixture. Add Player-owned transport/projection interfaces without changing production ownership. Do not create a shared authored application declaration or type module.
 
-**Exit**: independent and workspace strict checks; both candidate shells build; desktop boundary malformed-value, ordering, subscription, clipboard, and method/event integrity tests pass; Player graph has no privileged dependency.
+**Exit**: independent and workspace strict checks; both candidate shells build; the wave-c desktop/Wails subset of the reviewed boundary manifest passes for malformed values, ordering, subscriptions, clipboard, and method/event integrity; Player graph has no privileged dependency.
 
 ### Wave d — Overseer leaf components and composables
 
@@ -208,31 +229,31 @@ Migrate complete Overseer leaf families in reviewable slices: application-update
 
 ### Wave e — Complete Overseer cutover and remove its legacy bootstrap
 
-Move the shell/runtime status, terminal/group list, selection, authoring tree/forms, coordination, broadcast, hacking controls, public access, updates, and all dialogs into one `#overseerApp`. Remove `overseer.js`, `desktop-api.js`, dynamic renderers, global facade, temporary islands/bridges/mounts, legacy script tags, and Overseer `allowJs`/`checkJs` configuration.
+Move the shell/runtime status, terminal/group list, selection, authoring tree/forms, coordination, broadcast, hacking controls, public access, updates, and all dialogs into one `#overseerApp`. Remove `overseer.js`, `desktop-api.js`, dynamic renderers, global facade, temporary islands/bridges/mounts, legacy script tags, and Overseer `allowJs`/`checkJs` configuration. Complete the desktop/Wails boundary-manifest cases and run `task frontend:compatibility:check` against the reviewed current/legacy session and player-configuration fixture set.
 
-**Exit**: complete Overseer strict/build/browser/visual parity and separate Wails/native/embed/resource/package gates pass; the Overseer forbidden-state and ownership inventories are empty. Player wave f cannot begin earlier.
+**Exit**: complete Overseer strict/build/browser/visual parity, `task frontend:compatibility:check`, applicable desktop/Wails boundary cases, and separate Wails/native/embed/resource/package gates pass; the Overseer forbidden-state and ownership inventories are empty. Player wave f cannot begin earlier.
 
 ### Wave f — Player shell, identity, transport, session initialization, navigation, and presentation foundations
 
-Build the complete candidate shell, connection overlay, recognition/lease coordination, snapshot-first subscription/reconnect, player identity/roster/role/controller state, terminal list/entry/navigation/pagination/command output, action correlation, and transient presentation foundations in a separate candidate document. Production Player remains wholly legacy-owned.
+Build the complete candidate shell, connection overlay, recognition/lease coordination, snapshot-first subscription/reconnect, player identity/roster/role/controller state, terminal list/entry/navigation/pagination/command output, action correlation, and transient presentation foundations in a separate candidate document. Add the Player storage, storage-event, decoded-network, DOM/form, and navigation-input entries and focused tests to the reviewed boundary manifest. Production Player remains wholly legacy-owned.
 
 **Exit**: candidate focused type/build/browser checks prove first connection, multi-tab convergence, reconnect, revisions, authority, navigation, pending actions, and accessibility; production legacy suite still passes; all acquired lifecycle resources have cleanup.
 
 ### Wave g — Player hacking, CRT/typewriter, sound, and presentation-uplink integrations
 
-Complete candidate hacking components, target geometry/fitting/focus/input, CRT/typewriter timing, pagination measurement, sound/gesture activation, cue de-duplication, presentation streaming capability/probe/mailbox/cancellation/retry, and unary fallback. Keep all imperative work in the named Vue-owned composables/adapters/directives.
+Complete candidate hacking components, target geometry/fitting/focus/input, CRT/typewriter timing, pagination measurement, sound/gesture activation, cue de-duplication, presentation streaming capability/probe/mailbox/cancellation/retry, and unary fallback. Add pointer/keyboard-derived, sound-manifest/asset, and presentation-stream capability/result entries and focused tests to the reviewed boundary manifest. Keep all imperative work in the named Vue-owned composables/adapters/directives.
 
 **Exit**: complete candidate Player `.mjs` and immutable visual suite passes with exact timing/geometry/audio/stream behavior and cleanup evidence; production legacy suite remains green; no baseline is intentionally updated.
 
 ### Wave h — Complete Player cutover
 
-Atomically transfer the production document to the single `#playerApp` root. Remove `client.js`, `sound.js`, `presentation-uplink.js`, old script tag, candidate selection, staging entry/mount, legacy handlers/resources, and Player `allowJs`/`checkJs` configuration.
+Atomically transfer the production document to the single `#playerApp` root. Remove `client.js`, `sound.js`, `presentation-uplink.js`, old script tag, candidate selection, staging entry/mount, legacy handlers/resources, and Player `allowJs`/`checkJs` configuration. Complete every Player-owned boundary-manifest entry and focused test before declaring the production transfer complete.
 
 **Exit**: independent/workspace strict checks, Player build, complete browser/visual suite, public dependency scan, reconnect/multi-tab/authority/hacking/timing/sound/uplink stress checks, and separate native Player serving/package checks pass. The legacy and temporary Player inventories are empty.
 
 ### Wave i — Final strict cleanup, complete verification, packaging, and documentation
 
-Run final forbidden-state self-tests/scans, clean installation, all strict/type/build/generation/binding/browser/visual/Go/native/resource/secret/package gates, byte-reproducible Vite builds, supported matching-host packages, and active documentation/template updates. Remove every temporary mechanism and ensure the package contains only accepted runtime artifacts.
+Run the canonical frontend Task gates, final forbidden-state self-tests/scans, clean installation, all generation/binding/browser/visual/Go/native/resource/secret/package gates, supported matching-host packages, and active documentation/template updates. `task frontend:compatibility:check` reruns the complete persistence fixture set; `task frontend:boundary:check` runs every reviewed manifest entry and rejects unmapped entries; `task frontend:policy:check` proves final source/boundary/cutover policy; and `task frontend:reproducible:check` proves byte-identical output trees. Remove every temporary mechanism and ensure the package contains only accepted runtime artifacts.
 
 **Exit**: zero legacy/mixed/temporary/type-escape findings; all unconditional gates pass; conditional credentials/signing/notarization/unavailable host checks are recorded honestly as `NOT RUN`; active documentation describes only the accepted architecture.
 
@@ -240,12 +261,16 @@ Run final forbidden-state self-tests/scans, clean installation, all strict/type/
 
 | Surface | Per-wave evidence | Final governed evidence |
 |---|---|---|
-| Frontend install/pins | Lockfile and exact-pin checks after dependency/config waves | `task deps:frontend`; unchanged one lockfile; dependency graph/boundary validation |
-| Strict TypeScript/SFC | Changed app independent `vue-tsc` plus workspace check | `npm run typecheck:overseer --prefix frontend`, `typecheck:client`, and workspace `typecheck` |
-| Vite builds | Changed app build after each slice; immutable assets/selectors | Both independent builds, `task frontend:build`, and two-build byte-identical tree comparison |
+| Frontend install/pins | Lockfile and exact-pin checks after dependency/config waves | `task frontend:build` owns the one clean install before both builds; `task frontend:policy:check` proves one lockfile and exact dependency/boundary policy |
+| Strict TypeScript/SFC | Changed app independent strict check plus workspace check | `task frontend:typecheck:overseer`, `task frontend:typecheck:client`, and `task frontend:typecheck`; none installs dependencies |
+| Vite builds | Changed app build after each slice; immutable assets/selectors | `task frontend:build:overseer`, `task frontend:build:client`, and governed `task frontend:build` |
+| Vite reproducibility | Focused tree comparison after output-affecting waves | `task frontend:reproducible:check`; two byte-identical builds and actionable sorted path/mode/size/SHA-256 evidence for both outputs |
 | Protobuf/ConnectRPC | Wave-b generation, compile, RPC/path/cardinality/public scans; transport tests later | Task `proto:format:check`, `proto:lint`, `proto:breaking`, `proto:drift:check`, `proto:generated:check`, `proto:check` |
 | Wails bridge | Adapter fixtures after wave c; binding checks after affected slices | `task bindings:check`, Wails pins/cutover checks, exact 39 methods/seven events, separate native evidence |
+| Persistence compatibility | Reviewed existing/current/legacy fixture paths selected during task generation; focused Overseer checks in wave e | `task frontend:compatibility:check` in waves e and i; open/edit/save/reopen comparison of fields, defaults, references, unknown fields, location, and meaning |
+| External boundary validation | Desktop/Wails manifest subset in c/e; Player storage/network/input subset in f; pointer/sound/stream subset in g; production Player completion in h | `task frontend:boundary:check` in wave i runs the complete reviewed valid/invalid manifest and rejects missing test mappings |
 | DOM/accessibility/visual parity | Focused unchanged `.mjs` tests and ownership record per wave | `task browser:test`, complete visual snapshots, final single-owner scan |
+| Frontend policy/final cutover | Focused ownership, dependency, temporary-mechanism, and source scans after each cutover | `task frontend:policy:check` owns forbidden source/type escapes, one lockfile, Player boundary, temporary inventory, and final removal |
 | Go behavior/quality | Focused package tests when orchestration/checks change | `go fix ./...` before relevant commits, then `task fmt:check`, `task vet`, `task lint`, `task test`, `task test:race`, `task check`, `task ci:quality` |
 | Native embed/startup/resources/secrets | Focused static/native checks after build/entry changes | `task startup:check`, secret/cutover/resource/native smoke checks, separate privileged/public embed inspection |
 | Packages | Current-host package after cutover-relevant waves | `task package GOOS=<os> GOARCH=<arch>` on each of five matching hosts; governed content/identity/resource inspection |
@@ -253,13 +278,15 @@ Run final forbidden-state self-tests/scans, clean installation, all strict/type/
 
 Browser journeys use the production Player bundle and production Overseer SFCs with a typed fake desktop port. They do not prove Wails/native behavior. Wails binding integrity, native embedding/startup, resources, secure-store/native clipboard/dialog behavior, and packages remain separate evidence classes as defined in [trust-and-evidence-boundaries.md](./contracts/trust-and-evidence-boundaries.md).
 
+The typed fake `DesktopPort` is permanent test-only browser evidence infrastructure outside production source and bundles. It remains after wave e, is never embedded or packaged, is contract-checked against the production `DesktopPort`, and cannot satisfy or replace Wails/native evidence. Only the candidate/test entrypoint, selector, and candidate build selection expire in wave e.
+
 Real provider credentials, signing, notarization, stapling, Gatekeeper, or unavailable matching-host checks are never inferred from deterministic tests. They are recorded `NOT RUN` unless actually executed with the required host and credentials.
 
 ## Rollback, Compatibility, and Final Removal
 
 Commit `06696ee1c7155a1bb1135ef46ec91445dd73a2a4` is the immutable pre-migration rollback revision. Rollback is source-control reversion to that complete revision; no legacy runtime switch or duplicate bundle ships in the accepted implementation.
 
-Every temporary legacy check, candidate entry, fake port, Vue leaf root, state callback, mount flag, or alias created during implementation must be added to the temporary mechanism register with the Frontend Migration owner, an expiry no later than Overseer wave e or Player wave h, a parity gate, and a removal task. Wave i fails while any temporary item, legacy bootstrap, handwritten production JavaScript module, mixed DOM owner, or prohibited compiler/type escape remains.
+Every temporary legacy check, candidate entry, Vue leaf root, state callback, mount flag, or compatibility alias created during implementation must be added to the temporary mechanism register with the Frontend Migration owner, an expiry no later than Overseer wave e or Player wave h, a parity gate, and a removal task. Permanent test-only evidence infrastructure is governed separately and must remain outside production source, bundles, embeds, and packages. Wave i fails while any temporary item, legacy bootstrap, handwritten production JavaScript module, mixed DOM owner, or prohibited compiler/type escape remains.
 
 ## Design Artifacts
 
