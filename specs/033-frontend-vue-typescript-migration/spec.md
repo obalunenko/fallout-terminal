@@ -5,6 +5,27 @@
 **Status**: Draft
 **Input**: Migrate both production frontends to independently owned, strictly typed component applications while preserving every established user, protocol, security, build, and distribution contract.
 
+## Clarifications
+
+### Session 2026-08-30
+
+- Q: How are frontend dependencies installed and locked? → A: One npm workspace rooted at `frontend/`, one committed `frontend/package-lock.json`, and one governed clean-install workflow; each application retains its own workspace manifest and independent type-check and build commands.
+- Q: Which exact runtime package and dependency ownership rules apply? → A: Both application manifests declare the same exact compatible `vue` version, resolved once in the shared lockfile; exact direct TypeScript tooling pins use the appropriate workspace ownership without unrelated upgrades.
+- Q: Which Vue architecture and prohibited additions are fixed? → A: Vue 3 Single-File Components use the Composition API and `<script setup lang="ts">`; Pinia, Vue Router, Nuxt, JSX, component and CSS frameworks, and a shared cross-boundary application store remain prohibited.
+- Q: In what order must the two applications be migrated? → A: Infrastructure, TypeScript protobuf generation, shared declarations and typed desktop API, Overseer components, complete Overseer cutover, Player foundations, Player presentation adapters, complete Player cutover, then final cleanup and verification.
+- Q: How is DOM ownership enforced during coexistence? → A: Vue and legacy mount boundaries remain adjacent and disjoint, cross-querying and cross-mutation are prohibited, and each wave records its mount boundaries and remaining legacy ownership.
+- Q: Which imperative browser integrations are permitted? → A: Only narrow Vue-owned composables, adapters, or directives for the seven approved browser seams, with lifecycle cleanup for every owned resource and listener.
+- Q: Which ConnectRPC behavior may change? → A: None; the existing transport, contracts, limits, authorization, error behavior, authority, streaming, reconnect, backpressure, cancellation, and unary fallback semantics remain unchanged, with no new public operational RPC.
+- Q: What may `protoc-gen-es` `target=ts` generation change? → A: Only deterministic generated browser source representation; schemas, descriptors, wire and RPC contracts, Go output, service behavior, and capability boundaries remain unchanged.
+- Q: Which JavaScript outputs are generator-owned or test-owned exceptions? → A: Checked-in protobuf TypeScript stays generator-owned, Wails bindings stay in supported generated JavaScript/JSDoc/declaration form, and Wails bindings plus Playwright `.mjs` tests are exempt from the handwritten production-JavaScript prohibition.
+- Q: What do browser journeys prove? → A: They prove browser behavior and visual parity through the existing production-fidelity fixtures, not a packaged Wails runtime; native embedding, startup, binding, resource, and package checks remain separate.
+- Q: May parity baselines change for Vue? → A: No; existing Playwright snapshots, selectors, copy, CSS, accessibility, focus, input, timing, and audio expectations are immutable migration baselines.
+- Q: How is external data validated? → A: Runtime validation remains at browser and Wails boundaries; generated protobuf decoding supplies wire structure while existing adapters and Go services retain semantic validation and authorization.
+- Q: What exactly does the final forbidden-state scan cover? → A: Handwritten production source in `frontend/client` and `frontend/overseer/src`, excluding generated Wails bindings, dependencies, build output, and `tests/browser/*.mjs`.
+- Q: What does independent application validation mean inside the workspace? → A: Each application can be type-checked and built independently within the one governed npm workspace; it does not get a separate dependency installation or lockfile.
+- Q: When must Vite output be byte-identical? → A: Only when Phase 0 proves the existing toolchain reproducibly emits identical bytes; otherwise deterministic sources plus equivalent manifests, content hashes, and asset inventories provide package-integrity evidence.
+- Q: What population does malformed-value acceptance measure? → A: The complete explicitly defined malformed-value fixture set, not every theoretically possible invalid value.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Players retain the complete terminal experience (Priority: P1)
@@ -110,26 +131,26 @@ As a contributor reviewing the migration, I can accept bounded intermediate revi
 
 ### Functional Requirements
 
-- **FR-001**: The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and script setup with TypeScript.
+- **FR-001**: The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang="ts">`.
 - **FR-002**: The migration MUST preserve the exact rendered appearance, CSS behavior, user-visible text, accessibility semantics, keyboard behavior, pointer behavior, focus restoration, CRT and typewriter timing, and audio behavior of both current production interfaces.
 - **FR-003**: The public player application MUST preserve connection, reconnect, multi-tab recognition and session initialization, terminal presentation and navigation, hacking rendering and input, sound, and presentation-uplink behavior.
 - **FR-004**: The privileged Overseer application MUST preserve desktop API adaptation, presentation control, public-access control, update presentation, terminal authoring, player and session management, and terminal grouping behavior.
 - **FR-005**: The two applications MUST remain separate build and trust boundaries with separate entry points, bundles, dependency-facing adapters, and no shared cross-boundary application store.
 - **FR-006**: Vue MUST be the sole owner of every rendered production document subtree at final acceptance.
-- **FR-007**: Imperative production code MAY be used only in narrow Vue-owned adapters, composables, or directives for Web Audio, focus and element measurement, CRT and typewriter animation, hacking-board fitting and pointer geometry, and presentation streaming.
+- **FR-007**: Imperative production code MAY be used only in narrow Vue-owned composables, adapters, or directives for Web Audio, focus, element measurement, CRT and typewriter timing, hacking-board fitting and pointer geometry, and presentation streaming.
 - **FR-008**: Application state and presentation MUST use typed component properties and events together with Vue reactive references, reactive objects, and derived values, without adding Pinia, Vue Router, Nuxt, JSX, a component library, or a CSS framework.
-- **FR-009**: Each application and the frontend workspace MUST provide a strict Single-File Component type-check command that rejects production JavaScript type-check fallbacks.
-- **FR-010**: Final production source under the player and Overseer source boundaries MUST contain no handwritten JavaScript, legacy application bootstrap, or mixed ownership of rendered document subtrees.
-- **FR-011**: The frontend dependency manifests and lockfile MUST pin one exact reproducible Vue production dependency and exact reproducible TypeScript, Vue build-plugin, and Single-File Component type-checker development dependencies.
-- **FR-012**: The public protobuf browser contracts MUST be generated as deterministic checked-in TypeScript using the repository's existing pinned protobuf browser generator.
+- **FR-009**: The root frontend workspace and both application workspace manifests MUST expose strict Single-File Component type-check and build commands that reject production JavaScript type-check fallbacks, while each application's commands remain independently runnable inside the governed workspace.
+- **FR-010**: Final handwritten production source in `frontend/client` and `frontend/overseer/src` MUST contain no `.js` application module, legacy application bootstrap, temporary mount switch, or mixed ownership of rendered document subtrees; generated Wails bindings, dependencies, build output, and `tests/browser/*.mjs` are excluded from this prohibition.
+- **FR-011**: The repository MUST retain one npm workspace rooted at `frontend/`, one committed `frontend/package-lock.json`, one governed clean-install workflow, and separate `frontend/overseer/package.json` and `frontend/client/package.json` workspace manifests, without per-application lockfiles or competing install workflows.
+- **FR-012**: The public protobuf browser contracts MUST be generated as deterministic checked-in generator-owned TypeScript using the existing exactly pinned `protoc-gen-es` with `target=ts`.
 - **FR-013**: Generated protobuf browser contracts and generated Wails bindings MUST NOT be manually edited.
-- **FR-014**: Generator-owned Wails JavaScript, documentation annotations, and declarations MAY remain in the bindings directory and MUST be consumed only through a handwritten typed desktop adapter.
-- **FR-015**: The typed desktop adapter and player transport boundary MUST validate untrusted native events, command results, browser storage, document and browser inputs, network values, and other external values at runtime before they enter trusted application state.
+- **FR-014**: Generator-owned Wails bindings MUST remain unedited in the pinned generator's supported JavaScript, JSDoc, and declaration format, MUST NOT be manually migrated to TypeScript, and MUST be consumed only through a handwritten typed desktop adapter.
+- **FR-015**: The typed desktop adapter and player transport boundary MUST runtime-validate localStorage values, Wails events and command results, DOM and browser inputs, clipboard results, and other external values before trusted use; generated protobuf decoding supplies structural wire validation while existing adapters and Go services retain semantic validation and authorization.
 - **FR-016**: Production TypeScript MUST contain no broad untyped values, file-wide type-check disabling, blanket assertions, or unexplained compiler or linter suppressions.
-- **FR-017**: The migration MUST preserve every existing ConnectRPC method, message meaning, transport encoding, and unary, server-streaming, or client-streaming cardinality.
-- **FR-018**: The player application MUST preserve complete-snapshot-first reconnect behavior, strictly increasing applicable revisions, stale-state suppression, correlated pending-action behavior, and server-authoritative canonical state.
+- **FR-017**: ConnectRPC MUST remain the application network transport with every existing RPC name, protobuf message meaning, field number, RPC path, wire encoding, cardinality, Connect error behavior, typed action result, request limit, authorization rule, and public or private capability boundary unchanged, and no public health, reflection, status, or administration RPC may be added.
+- **FR-018**: The player application MUST preserve complete-snapshot-first reconnect behavior, strictly increasing applicable revisions, stale-state suppression, slow-stream termination and recovery, correlated pending-action behavior, and server-authoritative canonical state.
 - **FR-019**: The player application MUST preserve one logical session across qualifying concurrent tabs, one physical stream per connected tab, recognition-handle opacity, lease recovery, and established session-initialization coordination.
-- **FR-020**: The player application MUST preserve controller-only immediate presentation feedback, observer read-only behavior, latest-value presentation backpressure, request cancellation, fallback, and authoritative convergence semantics.
+- **FR-020**: The player application MUST preserve controller-only immediate presentation feedback, observer read-only behavior, latest-value presentation backpressure, request cancellation, authoritative convergence, and functionally equivalent unary fallback behavior for unsupported or failed presentation streaming.
 - **FR-021**: The migration MUST preserve terminal navigation, hacking attempts and outcomes, target geometry, board fitting, special-pattern behavior, presentation cues, ambient sound, input sounds, and gesture-based audio activation without optimistic mutation of canonical gameplay state.
 - **FR-022**: The Overseer application MUST preserve authoritative revision comparisons, stale-result suppression, event subscription lifetimes, command correlation, confirmation atomicity, and idempotent handling across all privileged workflows.
 - **FR-023**: Existing session and player-configuration JSON MUST load and save with identical supported fields, defaults, compatibility behavior, and business meaning.
@@ -139,17 +160,27 @@ As a contributor reviewing the migration, I can accept bounded intermediate revi
 - **FR-027**: Overseer update discovery and decision presentation MUST retain current state ordering, cumulative information, deferral, restart, failure-isolation, and secret-redaction behavior.
 - **FR-028**: Terminal authoring, player and session management, and terminal grouping MUST retain current validation, modal, confirmation, accessibility, persistence, focus, and atomic no-partial-change guarantees.
 - **FR-029**: The migration MUST preserve separate public and privileged build outputs, existing embedding locations, required fonts and sounds, executable startup behavior, package inventory, and supported Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64 packages.
-- **FR-030**: Existing Playwright browser and visual journeys MUST remain ECMAScript module files and MUST all pass against production-fidelity migrated builds.
+- **FR-030**: Existing Playwright browser and visual journeys MUST remain `.mjs` files, run through the existing production-fidelity fixture architecture, preserve their selectors, snapshots, and behavior, and MUST NOT be presented as evidence of a real packaged Wails runtime.
 - **FR-031**: Every intermediate migration revision MUST be buildable and covered by its applicable automated tests.
-- **FR-032**: During intermediate coexistence, each rendered document subtree MUST have exactly one owner and legacy code MUST NOT render, replace, or mutate a Vue-owned subtree.
-- **FR-033**: Intermediate JavaScript and TypeScript coexistence MUST be explicitly bounded by a tracked migration inventory and MUST NOT weaken the final production compiler configuration.
-- **FR-034**: Final acceptance MUST include deterministic checks for strict Vue Single-File Component compilation, generated protobuf drift, forbidden legacy production files, forbidden type-system escape hatches, both production builds, Wails binding integrity, embedded assets, supported package contents, and the complete existing quality suite.
+- **FR-032**: During intermediate coexistence, legacy code MAY own a subtree adjacent to a Vue mount, but each rendered document subtree MUST have exactly one owner; legacy code MUST NOT query, render, replace, mutate, or bind handlers inside a Vue-owned subtree, and Vue code MUST NOT mutate a legacy-owned subtree.
+- **FR-033**: Every migration wave MUST record its Vue mount boundaries and remaining legacy ownership, and intermediate JavaScript and TypeScript coexistence MUST remain bounded by that tracked migration inventory without weakening the final production compiler configuration.
+- **FR-034**: Final acceptance MUST include deterministic checks for strict Vue Single-File Component compilation, generated protobuf drift, forbidden legacy production files and temporary switches, forbidden type-system escape hatches, both production builds, Wails binding integrity, native embedding and startup, embedded resources, supported package contents, and the complete existing quality suite.
 - **FR-035**: Active developer and release documentation, dependency workflows, build scripts, generation scripts, validation scripts, and continuous-integration checks MUST describe and enforce the migrated applications.
 - **FR-036**: Historical completed specifications and their recorded evidence MUST remain unchanged.
 - **FR-037**: The migration MUST preserve all existing production-supported packages and MUST NOT introduce an additional runtime service, public endpoint, native capability, or browser privilege.
-- **FR-038**: The dependency and build configuration MUST permit each application to be installed, type-checked, built, and tested independently while also supporting one governed workspace-wide validation path.
+- **FR-038**: The dependency and build configuration MUST permit each application to be type-checked and built independently inside the single governed npm workspace while retaining one shared dependency installation, one lockfile, and one workspace-wide validation path.
 - **FR-039**: Production build outputs MUST exclude TypeScript source, handwritten production JavaScript source, development-only tooling, source maps not already governed for release, and generated artifacts not required at runtime.
 - **FR-040**: Every deterministic check introduced by the migration MUST fail with an actionable identification of the stale, forbidden, missing, or mismatched artifact.
+- **FR-041**: Both application workspace manifests MUST declare the same exact compatible `vue` runtime version, resolved once in `frontend/package-lock.json`.
+- **FR-042**: TypeScript, `@vitejs/plugin-vue`, and `vue-tsc` MUST be exact direct development dependencies in their plan-determined workspace ownership, and the migration MUST NOT upgrade unrelated dependencies.
+- **FR-043**: Migration work MUST begin with Vue and TypeScript infrastructure plus bounded temporary legacy checking before application component cutover.
+- **FR-044**: Deterministic public browser generation MUST switch to `protoc-gen-es` `target=ts` before shared declarations, application shells, or typed transport consumers are completed.
+- **FR-045**: Shared declarations, both Vue shells, and the typed desktop API adapter MUST be established before Overseer leaf components and composables are migrated.
+- **FR-046**: The Overseer leaf components and composables MUST be migrated and the Overseer legacy bootstrap MUST be fully removed before the main Player application cutover begins.
+- **FR-047**: The Player cutover MUST establish its shell, identity, transport, session-initialization, navigation, and presentation components before migrating hacking, CRT and typewriter, sound, and presentation-uplink adapters.
+- **FR-048**: The Player legacy application MUST be fully cut over before final strict cleanup, complete verification, packaging, and active-documentation updates begin.
+- **FR-049**: Changing generated browser output from `target=js` to `target=ts` MUST NOT change protobuf schemas, descriptors, field numbers, wire encoding, RPC paths, Go-generated contracts, service behavior, or public and private capability boundaries.
+- **FR-050**: Every permitted imperative integration MUST register lifecycle cleanup for its timers, animation frames, subscriptions, audio nodes, abort controllers, streams, observers, and document or window listeners.
 
 ## Key Entities
 
@@ -160,17 +191,19 @@ As a contributor reviewing the migration, I can accept bounded intermediate revi
 - **Authoritative Revision**: The monotonically ordered server or desktop state version used to reject stale values and converge each affected view.
 - **Browser Recognition State**: The opaque stored handle, page identity, contender and lease records, and coordination state through which qualifying tabs share one logical session without sharing one physical stream.
 - **Rendered Subtree Ownership**: The exclusive relationship between a document subtree and either a migrated component owner or, only during bounded transition, one legacy owner.
+- **Migration Wave Ownership Record**: The reviewable inventory for one migration wave, including every Vue mount boundary, every adjacent legacy-owned subtree, the remaining legacy source, and the wave's parity and removal evidence.
 - **Generated Contract Artifact**: Deterministically produced browser protobuf or Wails binding output whose source schema or generator is authoritative and whose checked-in integrity is verified.
+- **Frontend Workspace**: The single dependency and clean-install boundary rooted at `frontend/`, containing the two application manifests and one committed lockfile while allowing independent type-check and build commands.
 - **Build Artifact**: One independently produced privileged or public asset bundle, including its required static resources and its governed embedding or serving destination.
 
 ## Success Criteria
 
 ### Measurable Outcomes
 
-- **SC-001**: One hundred percent of existing player and Overseer browser journeys and visual comparisons pass with no intentional screenshot, copy, accessibility, timing, focus, pointer, keyboard, or audio baseline changes.
-- **SC-002**: A final production-source scan finds zero handwritten JavaScript files, zero legacy application bootstraps, zero mixed-ownership document mutations, zero broad untyped values, zero file-wide type-check disabling directives, and zero unexplained suppressions in the governed player and Overseer source boundaries.
+- **SC-001**: One hundred percent of existing player and Overseer browser journeys pass through the current production-fidelity fixture architecture with unchanged selectors and immutable visual snapshots, and with no intentional screenshot, copy, CSS, accessibility, timing, focus, pointer, keyboard, or audio baseline change.
+- **SC-002**: A final scan of handwritten production source in `frontend/client` and `frontend/overseer/src` finds zero `.js` application modules, legacy bootstraps, temporary mount switches, mixed-ownership document mutations, `allowJs`, `checkJs`, `@ts-nocheck`, broad `any`, blanket assertions, or unexplained suppressions after excluding generated Wails bindings, dependencies, build output, and `tests/browser/*.mjs`.
 - **SC-003**: Workspace-wide and per-application strict component compilation complete with zero type errors on a clean dependency installation.
-- **SC-004**: Clean dependency installation and two consecutive generation-and-build runs produce identical lockfile, generated browser contracts, privileged bundle, public bundle, and embedded-asset inventories.
+- **SC-004**: Clean dependency installation and two consecutive generation-and-build runs MUST produce an unchanged lockfile, byte-identical generated browser contracts, and equivalent privileged-bundle, public-bundle, content-hash, and embedded-asset inventories; byte-identical Vite bundles are additionally required only if Phase 0 research proves reproducible bytes with the existing toolchain.
 - **SC-005**: Contract tests confirm 100% preservation of existing public method names, message meanings, and cardinalities, with zero new private contracts or capabilities reachable from the public bundle.
 - **SC-006**: Reconnect, stale-update, pending-action, slow-stream, and multi-tab race journeys produce zero regressing revisions, duplicate logical sessions for qualifying tabs, replayed stale effects, or optimistic canonical-state mutations.
 - **SC-007**: Representative current and legacy session and player-configuration fixtures round-trip through the migrated interfaces with no loss or change in supported business content.
@@ -178,12 +211,12 @@ As a contributor reviewing the migration, I can accept bounded intermediate revi
 - **SC-009**: Supported package validation passes for all five governed operating-system and architecture targets, with every required frontend asset present and every forbidden source or stale bundle absent.
 - **SC-010**: Deterministic drift, forbidden-state, binding-integrity, embedded-asset, package-content, production-build, and complete repository quality checks all pass from a clean checkout.
 - **SC-011**: Every reviewed intermediate revision has one recorded owner per rendered subtree, a successful applicable production build, and a passing applicable test set; final acceptance has zero entries remaining in the legacy inventory.
-- **SC-012**: Automated malformed-boundary tests reject 100% of representative invalid native events, storage records, document inputs, network values, and command results before trusted state changes, while accepting all valid production fixtures.
+- **SC-012**: Automated malformed-boundary tests reject 100% of the complete explicitly defined invalid native-event, storage, document-input, network-value, clipboard-result, and command-result fixture set before trusted state changes, while accepting all valid production fixtures; this criterion does not quantify theoretically possible invalid values outside that fixture set.
 
 ## Assumptions
 
 - The current production behavior and completed specifications through feature 032 are the acceptance baseline; this migration intentionally changes maintainability and compile-time safety, not product behavior.
-- Exact dependency versions will be selected during planning from mutually compatible supported releases and committed without ranges in the existing lockfile.
+- Exact mutually compatible `vue`, TypeScript, `@vitejs/plugin-vue`, and `vue-tsc` versions and their appropriate workspace ownership will be selected during planning, committed without ranges in `frontend/package-lock.json`, and introduced without unrelated dependency upgrades.
 - Existing CSS, fonts, sounds, user-visible copy, protobuf schemas, Go services, Wails capabilities, and persistence formats remain authoritative inputs rather than redesign opportunities.
 - The generated Wails binding directory remains outside the handwritten-production-source prohibition because it is generator-owned and consumed only through the typed adapter.
 - Existing test journeys may gain typed build setup and additional assertions, but their `.mjs` format and behavioral expectations remain unchanged.
@@ -200,13 +233,17 @@ As a contributor reviewing the migration, I can accept bounded intermediate revi
 - Feature identifier: `033-frontend-vue-typescript-migration`
 - Production application boundaries: `frontend/overseer` and `frontend/client`
 - Final Overseer handwritten-source boundary: `frontend/overseer/src`
-- Required component script form: `script setup lang=ts`
+- Required component script form: `<script setup lang="ts">`
 - Required reactive primitives: `ref`, `reactive`, `computed`
-- Required production dependency identifier: `Vue`
-- Required development dependency identifiers: `TypeScript`, `@vitejs/plugin-vue`, `vue-tsc`
+- Required production dependency identifier: `vue`
+- Required development dependency identifiers: `typescript`, `@vitejs/plugin-vue`, `vue-tsc`
+- Required workspace lockfile: `frontend/package-lock.json`
+- Required protobuf generation mode: `target=ts`
 - Prohibited framework and library additions: `Pinia`, `Vue Router`, `Nuxt`, `JSX`
 - Existing browser protobuf generator identifier: `protoc-gen-es`
 - Prohibited production compiler options: `allowJs`, `checkJs`
 - Prohibited type escape: `any`
 - Prohibited file-wide suppression: `@ts-nocheck`
+- Final handwritten production JavaScript extension: `.js`
+- Browser-test exclusion boundary: `tests/browser/*.mjs`
 - Preserved browser-test extension: `.mjs`
