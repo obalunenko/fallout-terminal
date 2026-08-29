@@ -1,0 +1,168 @@
+{
+  "workflow": "companion",
+  "specName": "Vue and TypeScript Frontend Migration",
+  "branch": "033-frontend-vue-typescript-migration",
+  "currentStep": "specify",
+  "status": "specified",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-29T20:19:37.507Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-29T20:20:40.986Z"
+    }
+  ],
+  "last_action": "living specs evaluated — skipped (not configured)",
+  "coverage": {
+    "FR-001": {
+      "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and script setup with TypeScript."
+    },
+    "FR-002": {
+      "title": "The migration MUST preserve the exact rendered appearance, CSS behavior, user-visible text, accessibility semantics, keyboard behavior, pointer behavior, focus restoration, CRT and typewriter timing, and audio behavior of both current production interfaces."
+    },
+    "FR-003": {
+      "title": "The public player application MUST preserve connection, reconnect, multi-tab recognition and session initialization, terminal presentation and navigation, hacking rendering and input, sound, and presentation-uplink behavior."
+    },
+    "FR-004": {
+      "title": "The privileged Overseer application MUST preserve desktop API adaptation, presentation control, public-access control, update presentation, terminal authoring, player and session management, and terminal grouping behavior."
+    },
+    "FR-005": {
+      "title": "The two applications MUST remain separate build and trust boundaries with separate entry points, bundles, dependency-facing adapters, and no shared cross-boundary application store."
+    },
+    "FR-006": {
+      "title": "Vue MUST be the sole owner of every rendered production document subtree at final acceptance."
+    },
+    "FR-007": {
+      "title": "Imperative production code MAY be used only in narrow Vue-owned adapters, composables, or directives for Web Audio, focus and element measurement, CRT and typewriter animation, hacking-board fitting and pointer geometry, and presentation streaming."
+    },
+    "FR-008": {
+      "title": "Application state and presentation MUST use typed component properties and events together with Vue reactive references, reactive objects, and derived values, without adding Pinia, Vue Router, Nuxt, JSX, a component library, or a CSS framework."
+    },
+    "FR-009": {
+      "title": "Each application and the frontend workspace MUST provide a strict Single-File Component type-check command that rejects production JavaScript type-check fallbacks."
+    },
+    "FR-010": {
+      "title": "Final production source under the player and Overseer source boundaries MUST contain no handwritten JavaScript, legacy application bootstrap, or mixed ownership of rendered document subtrees."
+    },
+    "FR-011": {
+      "title": "The frontend dependency manifests and lockfile MUST pin one exact reproducible Vue production dependency and exact reproducible TypeScript, Vue build-plugin, and Single-File Component type-checker development dependencies."
+    },
+    "FR-012": {
+      "title": "The public protobuf browser contracts MUST be generated as deterministic checked-in TypeScript using the repository's existing pinned protobuf browser generator."
+    },
+    "FR-013": {
+      "title": "Generated protobuf browser contracts and generated Wails bindings MUST NOT be manually edited."
+    },
+    "FR-014": {
+      "title": "Generator-owned Wails JavaScript, documentation annotations, and declarations MAY remain in the bindings directory and MUST be consumed only through a handwritten typed desktop adapter."
+    },
+    "FR-015": {
+      "title": "The typed desktop adapter and player transport boundary MUST validate untrusted native events, command results, browser storage, document and browser inputs, network values, and other external values at runtime before they enter trusted application state."
+    },
+    "FR-016": {
+      "title": "Production TypeScript MUST contain no broad untyped values, file-wide type-check disabling, blanket assertions, or unexplained compiler or linter suppressions."
+    },
+    "FR-017": {
+      "title": "The migration MUST preserve every existing ConnectRPC method, message meaning, transport encoding, and unary, server-streaming, or client-streaming cardinality."
+    },
+    "FR-018": {
+      "title": "The player application MUST preserve complete-snapshot-first reconnect behavior, strictly increasing applicable revisions, stale-state suppression, correlated pending-action behavior, and server-authoritative canonical state."
+    },
+    "FR-019": {
+      "title": "The player application MUST preserve one logical session across qualifying concurrent tabs, one physical stream per connected tab, recognition-handle opacity, lease recovery, and established session-initialization coordination."
+    },
+    "FR-020": {
+      "title": "The player application MUST preserve controller-only immediate presentation feedback, observer read-only behavior, latest-value presentation backpressure, request cancellation, fallback, and authoritative convergence semantics."
+    },
+    "FR-021": {
+      "title": "The migration MUST preserve terminal navigation, hacking attempts and outcomes, target geometry, board fitting, special-pattern behavior, presentation cues, ambient sound, input sounds, and gesture-based audio activation without optimistic mutation of canonical gameplay state."
+    },
+    "FR-022": {
+      "title": "The Overseer application MUST preserve authoritative revision comparisons, stale-result suppression, event subscription lifetimes, command correlation, confirmation atomicity, and idempotent handling across all privileged workflows."
+    },
+    "FR-023": {
+      "title": "Existing session and player-configuration JSON MUST load and save with identical supported fields, defaults, compatibility behavior, and business meaning."
+    },
+    "FR-024": {
+      "title": "Existing Go APIs, Wails method contracts, desktop event names and payload meaning, ConnectRPC services, protobuf schemas, persistence contracts, and server behavior MUST remain unchanged except for deterministic browser-code generation required by this migration."
+    },
+    "FR-025": {
+      "title": "The Wails v3 capability allowlist and the public/private security boundary MUST remain no broader than the production baseline."
+    },
+    "FR-026": {
+      "title": "Local, LAN, and protected public access MUST retain current startup, authentication, same-origin, reconnect, credential, clipboard, tunnel, and failure-isolation behavior."
+    },
+    "FR-027": {
+      "title": "Overseer update discovery and decision presentation MUST retain current state ordering, cumulative information, deferral, restart, failure-isolation, and secret-redaction behavior."
+    },
+    "FR-028": {
+      "title": "Terminal authoring, player and session management, and terminal grouping MUST retain current validation, modal, confirmation, accessibility, persistence, focus, and atomic no-partial-change guarantees."
+    },
+    "FR-029": {
+      "title": "The migration MUST preserve separate public and privileged build outputs, existing embedding locations, required fonts and sounds, executable startup behavior, package inventory, and supported Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64 packages."
+    },
+    "FR-030": {
+      "title": "Existing Playwright browser and visual journeys MUST remain ECMAScript module files and MUST all pass against production-fidelity migrated builds."
+    },
+    "FR-031": {
+      "title": "Every intermediate migration revision MUST be buildable and covered by its applicable automated tests."
+    },
+    "FR-032": {
+      "title": "During intermediate coexistence, each rendered document subtree MUST have exactly one owner and legacy code MUST NOT render, replace, or mutate a Vue-owned subtree."
+    },
+    "FR-033": {
+      "title": "Intermediate JavaScript and TypeScript coexistence MUST be explicitly bounded by a tracked migration inventory and MUST NOT weaken the final production compiler configuration."
+    },
+    "FR-034": {
+      "title": "Final acceptance MUST include deterministic checks for strict Vue Single-File Component compilation, generated protobuf drift, forbidden legacy production files, forbidden type-system escape hatches, both production builds, Wails binding integrity, embedded assets, supported package contents, and the complete existing quality suite."
+    },
+    "FR-035": {
+      "title": "Active developer and release documentation, dependency workflows, build scripts, generation scripts, validation scripts, and continuous-integration checks MUST describe and enforce the migrated applications."
+    },
+    "FR-036": {
+      "title": "Historical completed specifications and their recorded evidence MUST remain unchanged."
+    },
+    "FR-037": {
+      "title": "The migration MUST preserve all existing production-supported packages and MUST NOT introduce an additional runtime service, public endpoint, native capability, or browser privilege."
+    },
+    "FR-038": {
+      "title": "The dependency and build configuration MUST permit each application to be installed, type-checked, built, and tested independently while also supporting one governed workspace-wide validation path."
+    },
+    "FR-039": {
+      "title": "Production build outputs MUST exclude TypeScript source, handwritten production JavaScript source, development-only tooling, source maps not already governed for release, and generated artifacts not required at runtime."
+    },
+    "FR-040": {
+      "title": "Every deterministic check introduced by the migration MUST fail with an actionable identification of the stale, forbidden, missing, or mismatched artifact."
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 85,
+    "projectedTasks": 65,
+    "scopeSignal": "larger",
+    "verdict": "oversized"
+  },
+  "context": [
+    "area: frontend/client public player application",
+    "area: frontend/overseer privileged desktop application and typed binding adapter",
+    "area: protobuf browser generation, frontend build, embedding, packaging, and browser validation",
+    "baseline: completed behavior specifications through feature 032 and current production assets",
+    "constraint: exact presentation and interaction parity across both trust boundaries",
+    "constraint: final strict TypeScript SFC ownership with no handwritten production JavaScript"
+  ],
+  "intent": "Replace both production frontend implementations with independently typed component applications while preserving every established user, protocol, security, build, and package contract.",
+  "expectations": [
+    "No redesign, copy change, CSS appearance change, or interaction-timing change.",
+    "No Go API, protobuf service, persistence, authentication, tunnel, update-policy, or security-boundary change.",
+    "No combined application, shared cross-boundary store, routing system, meta-framework, JSX layer, component library, or CSS framework.",
+    "No rewrite of historical completed specifications or archived evidence."
+  ]
+}
