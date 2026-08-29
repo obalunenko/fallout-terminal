@@ -3,6 +3,9 @@
 **Created**: 2026-08-27
 **Status**: Draft
 
+**Bugfix**: 2026-08-29 — BUG-001 requires every discoverable release archive to remain consumable
+by the previously published updater contract and adds predecessor-to-candidate acceptance evidence.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Discover an Update at Startup (Priority: P1)
@@ -20,6 +23,7 @@ As the Overseer, I launch the packaged application normally. The application che
 3. **Given** the update check is still running, **When** the application finishes normal startup, **Then** the Overseer can use the application without waiting for the check to finish.
 4. **Given** the installed version is current or newer than every eligible published release, **When** the startup check completes, **Then** no update prompt interrupts the Overseer.
 5. **Given** the Overseer chooses to continue without updating, **When** the prompt closes, **Then** the current application remains fully usable and the same release is not prompted again during that application run.
+6. **Given** more than one eligible version was published after the installed version, **When** the newest update is offered, **Then** the prompt shows the release notes for every intervening eligible version, grouped by version from newest to oldest.
 
 ---
 
@@ -64,6 +68,7 @@ As the Overseer, I can still run Fallout Terminal when the update service is off
 - What happens when the installed version is newer than the latest public release, such as a local or rollback build?
 - How are stable and prerelease versions compared so a stable installation is not moved to an unintended prerelease channel?
 - What happens when a release exists but its platform or architecture artifact, release notes, size, or verification evidence is missing?
+- How are empty release notes, drafts, prereleases excluded by the installed channel, and releases returned out of version order represented in the cumulative changelog?
 - What happens when more than one release asset appears to match the running platform and architecture?
 - How does the flow behave when a second check is requested while checking, downloading, verifying, staging, or restarting is already in progress?
 - What happens if the Overseer closes the prompt or quits the application during download or staging?
@@ -102,6 +107,9 @@ As the Overseer, I can still run Fallout Terminal when the update service is off
 - **FR-023**: Release publication MUST withhold an update from discovery when any required supported-target artifact or verification record is absent or invalid.
 - **FR-024**: The update feature MUST support the existing governed targets: Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64.
 - **FR-025**: Update diagnostics MUST identify the failed stage and provide an actionable next step while excluding credentials, authorization values, and user document contents.
+- **FR-026**: Before publication, every governed release artifact MUST pass manifest and package-shape validation through the oldest supported published updater contract; a payload inventory change MUST NOT reuse a package schema accepted with a different exact inventory. Any already-published updater with a conflicting exact inventory MUST be documented as requiring manual recovery and MUST NOT count as a supported self-update path.
+- **FR-027**: An update offer MUST present one cumulative changelog containing every published release newer than the installed version and no newer than the offered version that is eligible for the installed release channel; release discovery MUST traverse paginated provider results rather than silently limiting the changelog to the first page.
+- **FR-028**: The cumulative changelog MUST group entries under explicit version headings in descending semantic-version order, retain a heading when a release has no notes, and exclude drafts, ineligible prereleases, the installed version, and older releases.
 
 ## Key Entities
 
@@ -125,6 +133,8 @@ As the Overseer, I can still run Fallout Terminal when the update service is off
 - **SC-008**: Representative sessions, player configurations, credentials, and preferences have identical business content before and after both successful and failed update attempts.
 - **SC-009**: Every published governed release exposes a complete update path for all five supported targets, with zero discoverable releases missing required verification evidence.
 - **SC-010**: Every simulated failure stage produces a diagnostic that identifies the stage and a recovery action while automated secret scanning finds zero leaked sensitive values.
+- **SC-011**: For each supported target, every proposed governed release archive is accepted by the oldest supported published updater contract, every known incompatible published cohort has an explicit manual recovery path, and the current-host release evidence includes one real oldest-supported-to-candidate update and relaunch.
+- **SC-012**: In all update-offer tests containing two or more eligible intervening releases in arbitrary source order, every eligible version appears exactly once in descending semantic-version order and every excluded version appears zero times.
 
 ## Assumptions
 
@@ -136,3 +146,4 @@ As the Overseer, I can still run Fallout Terminal when the update service is off
 - The existing portable release matrix remains supported. Planning may adjust its artifact layout or publication inventory where required to make each target safely replaceable.
 - Update application resources are distinct from user-owned data; sessions, player configurations, credentials, and preferences remain outside the replacement boundary.
 - The update flow does not add an installer, an unattended forced-update policy, downgrade support, or a background update service that runs while the application is closed.
+- Cumulative changelogs use the installed release's existing channel eligibility rules, display newest versions first, and preserve release-note text without interpreting it as executable content.

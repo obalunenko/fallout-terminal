@@ -83,3 +83,58 @@ browser suites continue to cover those paths.
 | `sc-006-update-offer.png` | `69c1c93c215466a259cd7c4eeb2ced9060014c6561d053fbf3b88abd24fb9813` |
 | `sc-006-update-ready.png` | `c9ca24d61b921a654fc48c924be9d740cf81a937c75f247248e353312f1116ba` |
 | `sc-006-updated-version.png` | `732b8ca73f0c7a104428abb2ab55c20dbd1d7bb489c4b2b5e1e7f1d80e8bf112` |
+
+## BUG-001 forward-fix evidence
+
+Validation date: 2026-08-29.
+
+The published v2.1.0 Darwin ARM64 archive has SHA-256
+`bd2769ee733f522627be30698d95e941e042aa55b83ef0f3af02266b839f980b` and contains eight ZIP
+entries. Its schema-v2 manifest governs seven payload files, including `RUNNING.md`; the published
+v2.0.0 updater accepts exactly the six original Darwin payload files and therefore rejects v2.1.0
+before adjacent staging.
+
+BUG-001 restores the schema-v2 package inventory compiled into v2.0.0 and adds fixed predecessor
+contract assertions in both the build producer and staging consumer. The following gates passed:
+
+- focused `go test ./internal/buildtool ./internal/update`;
+- `go fix ./...`, followed by `gofmt` and `git diff --check`;
+- `task vet`;
+- `task test`;
+- `task test:race`.
+
+A local unsigned Darwin ARM64 candidate was built with `VERSION=2.1.1`. The repository release
+inspector accepted it as version 2.1.1. It has SHA-256
+`3e7d83648ac56206257b19e5bb44b9b89232d52a72f9d2b44330880b14a7d7cf`, seven ZIP entries, and six
+manifest files matching the v2.0.0 Darwin inventory; `RUNNING.md` remains repository documentation
+and is not in the governed payload.
+
+The real v2.0.0-to-forward-fix tagged update and relaunch is **NOT RUN**. It requires a committed
+source revision and a newly published, complete five-target release. The v2.1.0 tag and assets were
+not moved or replaced. Because the published v2.1.0 binary requires the conflicting seven-file
+inventory, a manually installed v2.1.0 cannot accept the six-file forward-fix archive and needs one
+manual application replacement. No single exact-inventory archive can satisfy both binaries.
+
+## Cumulative update changelog evidence
+
+Validation date: 2026-08-29.
+
+The provider now collects every non-draft release newer than the installed version that is eligible
+for the installed stable or prerelease channel. It sorts those releases by semantic-version
+precedence and projects one plain-text changelog with an explicit heading for each version, including
+versions whose release notes are empty. Release discovery requests the provider maximum of 100
+releases per page and traverses subsequent pages with a bounded failure instead of returning a
+partial history. Provider tests cover unordered input, excluded stable-channel prereleases, drafts,
+the installed version, empty notes, a prerelease-to-stable sequence, and a 101-release history.
+
+The following gates passed after `go fix ./...` and formatting:
+
+- focused cumulative provider tests;
+- `task vet`;
+- `task test`;
+- `task test:race`;
+- `task fmt:check` and `gopls check wails_updater.go wails_updater_test.go`;
+- `task browser:test`: 188 passed and the two external ngrok journeys were skipped by design.
+
+The browser journey verifies the renamed `ИСТОРИЯ ИЗМЕНЕНИЙ` section and multiple version
+groups in the offered update without changing the existing accept/defer behavior.

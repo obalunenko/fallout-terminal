@@ -40,7 +40,6 @@ func TestPrepareApplicationUnitValidatesManifestBeforeAdjacentStaging(t *testing
 	assert.Equal(t, installedUnit, prepared.InstalledUnit)
 	assert.Equal(t, filepath.Dir(installedUnit), filepath.Dir(prepared.StagedUnit))
 	assert.FileExists(t, filepath.Join(prepared.StagedUnit, "Fallout Terminal"))
-	assert.FileExists(t, filepath.Join(prepared.StagedUnit, portableLaunchGuideFilename))
 }
 
 func TestPrepareApplicationUnitRejectsManifestIdentityBeforeStaging(t *testing.T) {
@@ -162,6 +161,54 @@ func TestSelectReplacementUnitForPortableTargets(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, extractedRoot, unit)
 			assert.Equal(t, test.wantLaunch, launchRelativePath)
+		})
+	}
+}
+
+func TestRequiredExtractedApplicationFilesRemainCompatibleWithV2(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		target Target
+		want   map[string]string
+	}{
+		{
+			target: Target{OS: "darwin", Arch: "arm64"},
+			want: map[string]string{
+				"Fallout Terminal.app/Contents/Info.plist":                           "0444",
+				"Fallout Terminal.app/Contents/MacOS/Fallout Terminal":               "0755",
+				"Fallout Terminal.app/Contents/Resources/THIRD_PARTY_NOTICES.md":     "0444",
+				"Fallout Terminal.app/Contents/Resources/icon.icns":                  "0444",
+				"Fallout Terminal.app/Contents/Resources/sessions/demo-players.json": "0444",
+				"Fallout Terminal.app/Contents/Resources/sessions/demo.json":         "0444",
+			},
+		},
+		{
+			target: Target{OS: "linux", Arch: "amd64"},
+			want: map[string]string{
+				"Fallout Terminal":                     "0755",
+				"resources/THIRD_PARTY_NOTICES.md":     "0444",
+				"resources/appicon.png":                "0444",
+				"resources/sessions/demo-players.json": "0444",
+				"resources/sessions/demo.json":         "0444",
+			},
+		},
+		{
+			target: Target{OS: "windows", Arch: "amd64"},
+			want: map[string]string{
+				"Fallout Terminal.exe":                 "0755",
+				"resources/THIRD_PARTY_NOTICES.md":     "0444",
+				"resources/appicon.png":                "0444",
+				"resources/sessions/demo-players.json": "0444",
+				"resources/sessions/demo.json":         "0444",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.target.OS, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, requiredExtractedApplicationFiles(test.target))
 		})
 	}
 }

@@ -148,3 +148,6 @@ The update surface remains available on both startup and main layouts.
 The status uses a polite live region; failures use an assertive alert. Both dialogs are modal and
 labelled, restore focus, treat Escape as the safe choice, and disable duplicate actions while a
 command is pending. Download and staging progress are nonmodal so sessions remain usable.
+The offer's release-notes field contains the cumulative eligible changelog from the selected
+version down to, but excluding, the installed version. Each release uses an explicit version
+heading, including releases whose notes are empty, and the field remains bounded plain text.

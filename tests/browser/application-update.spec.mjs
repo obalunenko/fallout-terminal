@@ -6,7 +6,7 @@ const availableUpdate = Object.freeze({
   state: 'available',
   installedVersion: '2.0.0',
   availableVersion: '2.1.0',
-  releaseNotes: '## Версия 2.1.0\n\nИсправлено сохранение сессии.',
+  releaseNotes: '## Версия 2.1.0\n\nДобавлена группировка терминалов.\n\n## Версия 2.0.1\n\nИсправлено сохранение сессии.',
   bytesDownloaded: 0,
   downloadSize: 8192,
   failedStage: '',
@@ -76,7 +76,10 @@ test('discovery stays nonblocking and presents one complete versioned offer', as
   await expect(dialog).toBeVisible();
   await expect(page.locator('#applicationUpdateInstalledVersion')).toHaveText('2.0.0');
   await expect(page.locator('#applicationUpdateAvailableVersion')).toHaveText('2.1.0');
+  await expect(page.getByRole('heading', { name: 'ИСТОРИЯ ИЗМЕНЕНИЙ' })).toBeVisible();
   await expect(page.locator('#applicationUpdateReleaseNotes')).toContainText('Исправлено сохранение сессии.');
+  await expect(page.locator('#applicationUpdateReleaseNotes')).toContainText('Версия 2.1.0');
+  await expect(page.locator('#applicationUpdateReleaseNotes')).toContainText('Версия 2.0.1');
   await expect(page.locator('#btnAcceptApplicationUpdate')).toBeEnabled();
   await expect(page.locator('#btnDeferApplicationUpdate')).toBeEnabled();
 

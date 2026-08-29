@@ -61,7 +61,7 @@ A release that passed channel, version, completeness, target, and evidence check
 | `version` | string | Strict canonical v2 SemVer without leading `v`; strictly newer than installed. |
 | `channel` | `stable` or `prerelease` | Stable installations accept only stable; prerelease installations accept eligible newer prerelease or stable. |
 | `name` | string | Optional provider display name; bounded and treated as untrusted presentation text. |
-| `releaseNotes` | string | Optional bounded Markdown/plain text; rendered without arbitrary HTML or script execution. |
+| `releaseNotes` | string | Optional bounded cumulative changelog for every eligible version above the installed release through the candidate, grouped newest-first by explicit version heading and rendered without arbitrary HTML or script execution. |
 | `publishedAt` | timestamp | Informational only; never overrides semantic-version ordering. |
 | `artifact` | `ReleaseAsset` | Exactly one target match from a complete five-asset release. |
 

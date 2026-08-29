@@ -407,6 +407,36 @@ func expectedArchivePaths(target Target) []string {
 	return paths
 }
 
+func TestSchemaV2ArchiveInventoryRemainsCompatibleWithV2(t *testing.T) {
+	t.Parallel()
+
+	for _, target := range PortableTargets() {
+		t.Run(target.String(), func(t *testing.T) {
+			t.Parallel()
+
+			want := []string{
+				artifactManifestFilename,
+				"resources/THIRD_PARTY_NOTICES.md",
+				"resources/appicon.png",
+				"resources/sessions/demo-players.json",
+				"resources/sessions/demo.json",
+			}
+			if target.OS() == goosDarwin {
+				want = []string{
+					artifactManifestFilename,
+					"Fallout Terminal.app/Contents/Info.plist",
+					"Fallout Terminal.app/Contents/Resources/THIRD_PARTY_NOTICES.md",
+					"Fallout Terminal.app/Contents/Resources/icon.icns",
+					"Fallout Terminal.app/Contents/Resources/sessions/demo-players.json",
+					"Fallout Terminal.app/Contents/Resources/sessions/demo.json",
+				}
+			}
+
+			assert.Equal(t, want, target.RequiredResourcePaths())
+		})
+	}
+}
+
 func expectedManifestFiles(target Target, contents map[string][]byte) []testManifestFileRecord {
 	paths := make([]string, 0, len(contents))
 	for filePath := range contents {

@@ -23,9 +23,12 @@ import (
 )
 
 const (
-	applicationUpdateStatusEvent = "application-update-status"
-	applicationUpdateRepository  = "obalunenko/Fallout-Terminal"
-	applicationGitHubAPIBaseURL  = "https://api.github.com"
+	applicationUpdateStatusEvent        = "application-update-status"
+	applicationUpdateRepository         = "obalunenko/Fallout-Terminal"
+	applicationGitHubAPIBaseURL         = "https://api.github.com"
+	applicationGitHubReleasesPerPage    = 100
+	applicationGitHubReleasePageLimit   = 100
+	applicationGitHubReleaseResponseMax = 8 << 20
 )
 
 var (
@@ -103,6 +106,11 @@ type applicationSemanticVersion struct {
 	prerelease []string
 }
 
+type applicationEligibleRelease struct {
+	release *applicationGitHubRelease
+	version applicationSemanticVersion
+}
+
 func newApplicationGitHubProvider(config applicationGitHubProviderConfig) (updater.Provider, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(config.BaseURL), "/")
 	if baseURL == "" {
@@ -139,8 +147,7 @@ func (provider *applicationGitHubProvider) Check(
 	}
 
 	allowPrerelease := len(current.prerelease) > 0
-	var selected *applicationGitHubRelease
-	var selectedVersion applicationSemanticVersion
+	var eligible []applicationEligibleRelease
 	for index := range releases {
 		release := &releases[index]
 		if release.Draft {
@@ -156,14 +163,15 @@ func (provider *applicationGitHubProvider) Check(
 		if compareApplicationSemanticVersions(version, current) <= 0 {
 			continue
 		}
-		if selected == nil || compareApplicationSemanticVersions(version, selectedVersion) > 0 {
-			selected = release
-			selectedVersion = version
-		}
+		eligible = append(eligible, applicationEligibleRelease{release: release, version: version})
 	}
-	if selected == nil {
+	if len(eligible) == 0 {
 		return nil, nil
 	}
+	slices.SortFunc(eligible, func(left, right applicationEligibleRelease) int {
+		return compareApplicationSemanticVersions(right.version, left.version)
+	})
+	selected := eligible[0].release
 
 	asset, digest, err := selectApplicationReleaseAsset(*selected, request)
 	if err != nil {
@@ -177,7 +185,7 @@ func (provider *applicationGitHubProvider) Check(
 		Version:     strings.TrimPrefix(selected.TagName, "v"),
 		Channel:     channel,
 		Name:        selected.Name,
-		Notes:       selected.Body,
+		Notes:       applicationReleaseChangelog(eligible),
 		PublishedAt: selected.PublishedAt,
 		Artifact: updater.Artifact{
 			Filename: asset.Name,
@@ -194,6 +202,23 @@ func (provider *applicationGitHubProvider) Check(
 			"github.release.tag":       selected.TagName,
 		},
 	}, nil
+}
+
+func applicationReleaseChangelog(releases []applicationEligibleRelease) string {
+	var changelog strings.Builder
+	for _, candidate := range releases {
+		if changelog.Len() > 0 {
+			changelog.WriteString("\n\n")
+		}
+		changelog.WriteString("## Версия ")
+		changelog.WriteString(strings.TrimPrefix(candidate.release.TagName, "v"))
+		if strings.TrimSpace(candidate.release.Body) == "" {
+			continue
+		}
+		changelog.WriteString("\n\n")
+		changelog.WriteString(candidate.release.Body)
+	}
+	return changelog.String()
 }
 
 func (provider *applicationGitHubProvider) Download(
@@ -283,7 +308,31 @@ func (provider *applicationGitHubProvider) authorizeApplicationGitHubRequest(req
 func (provider *applicationGitHubProvider) fetchApplicationGitHubReleases(
 	ctx context.Context,
 ) ([]applicationGitHubRelease, error) {
-	endpoint := provider.baseURL + "/repos/" + applicationUpdateRepository + "/releases"
+	var releases []applicationGitHubRelease
+	for page := 1; page <= applicationGitHubReleasePageLimit; page++ {
+		pageReleases, err := provider.fetchApplicationGitHubReleasePage(ctx, page)
+		if err != nil {
+			return nil, err
+		}
+		releases = append(releases, pageReleases...)
+		if len(pageReleases) < applicationGitHubReleasesPerPage {
+			return releases, nil
+		}
+	}
+	return nil, errors.New("check application updates: release history is too large")
+}
+
+func (provider *applicationGitHubProvider) fetchApplicationGitHubReleasePage(
+	ctx context.Context,
+	page int,
+) ([]applicationGitHubRelease, error) {
+	endpoint := fmt.Sprintf(
+		"%s/repos/%s/releases?per_page=%d&page=%d",
+		provider.baseURL,
+		applicationUpdateRepository,
+		applicationGitHubReleasesPerPage,
+		page,
+	)
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, errors.New("check application updates: create release request")
@@ -305,7 +354,7 @@ func (provider *applicationGitHubProvider) fetchApplicationGitHubReleases(
 		return nil, fmt.Errorf("check application updates: release service returned HTTP %d", response.StatusCode)
 	}
 	var releases []applicationGitHubRelease
-	decoder := json.NewDecoder(io.LimitReader(response.Body, 8<<20))
+	decoder := json.NewDecoder(io.LimitReader(response.Body, applicationGitHubReleaseResponseMax))
 	if err := decoder.Decode(&releases); err != nil {
 		return nil, errors.New("check application updates: release metadata is unreadable")
 	}

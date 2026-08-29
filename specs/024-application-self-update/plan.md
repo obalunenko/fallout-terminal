@@ -2,6 +2,8 @@
 
 **Branch**: `024-application-self-update` | **Date**: 2026-08-27 | **Spec**: [spec.md](./spec.md)
 
+**Bugfix**: 2026-08-29 — BUG-001 updated from bugfix patch.
+
 **Input**: Feature specification from `specs/024-application-self-update/spec.md`
 
 ## Summary
@@ -118,6 +120,16 @@ No constitution violations require Complexity Tracking.
    proves its embedded manifest version and canonical release version before upload. Keep the
    GitHub Release inventory at exactly five archives: GitHub supplies each asset digest, and pinned
    GoReleaser uploads to a draft before making the complete release discoverable.
+8. Preserve the exact schema-v2 payload inventory compiled into v2.0.0 for the forward-fix archive.
+   Treat user-facing launch documentation as release-page or repository documentation until an
+   intentional package-schema migration can be consumed by all older releases that may discover it.
+   Before publication, validate candidate archives with the oldest supported published updater
+   contract instead of only the candidate revision's validator. Document any already-published
+   conflicting strict inventory as requiring one manual replacement.
+9. Build the update offer's release notes from every eligible published version above the installed
+   version through the selected candidate. Sort groups by semantic-version precedence from newest
+   to oldest, retain version headings for empty notes, and continue projecting the result through
+   the existing bounded plain-text update field and dialog.
 
 ## Verification Strategy
 
@@ -128,6 +140,10 @@ No constitution violations require Complexity Tracking.
   malformed or mismatched target/version, deterministic archives, exact inventory, and canceled
   inspection. Every test-owned resource registers `t.Cleanup` immediately; blocking cleanup uses a
   bounded context derived from `context.WithoutCancel(t.Context())`.
+- Add a predecessor-consumer regression gate that feeds each proposed target archive to the exact
+  inventory contract of the oldest supported published updater. On the current native host, retain
+  one real oldest-supported-to-candidate update/relaunch as publication evidence, and verify that
+  release guidance names any incompatible intermediate cohort honestly.
 - Regenerate and verify protobufs and Wails bindings through the pinned Task graph; run Buf format,
   lint, breaking, generation drift, generated-code compilation, private-surface allowlists, and the
   secret-leak check.
@@ -138,6 +154,9 @@ No constitution violations require Complexity Tracking.
   ordering, versions and notes, consent separation, nonblocking progress, failure actions,
   postpone/reopen, restart exactly once, stale suppression, Escape handling, focus, live regions,
   and double-click protection.
+- Add provider and browser coverage for unordered multi-release input, stable/prerelease channel
+  filtering, empty notes, provider pagination, explicit version headings, and descending cumulative
+  changelog order.
 - Run `task check`, `task ci:quality`, `task package` on the current Darwin ARM64 host, and the
   governed tagged five-target matrix for final package evidence. The minimum live acceptance is one
   real GitHub prerelease update/relaunch journey on Darwin ARM64; Windows/Linux runtime journeys and
@@ -166,4 +185,11 @@ relaunches that unit; user-owned data is never part of either unit.
 | Release and package gates | PASS | Manifest v2 strengthens canonical identity, the provider requires exactly five uploaded assets and GitHub SHA-256 evidence, and no prohibited sidecar or native/signing journey gates publication. |
 | Cutover and rollback | PASS | There is one update path, no coexistence switch, source rollback is allowed before publication, published releases use forward fixes, and device failure restores the backup. |
 
-The final design introduces no constitution violation and requires no Complexity Tracking entry.
+The original design introduced no constitution violation or Complexity Tracking entry. BUG-001
+adds the release-compatibility edge case below without changing an architectural boundary.
+
+## Complexity Tracking
+
+| Edge case | Required handling |
+|---|---|
+| A same-schema release adds or removes a governed payload path | Reject publication unless the candidate remains accepted by the oldest supported updater; use a new schema only with an explicit migration strategy, and document manual recovery for any already-published conflicting inventory. |

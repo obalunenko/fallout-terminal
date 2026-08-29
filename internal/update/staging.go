@@ -19,10 +19,9 @@ import (
 )
 
 const (
-	applicationName             = "Fallout Terminal"
-	artifactManifest            = "artifact-manifest.json"
-	portableLaunchGuideFilename = "RUNNING.md"
-	stagingCopyFileMode         = 0o600
+	applicationName     = "Fallout Terminal"
+	artifactManifest    = "artifact-manifest.json"
+	stagingCopyFileMode = 0o600
 )
 
 type stageRequest struct {
@@ -323,7 +322,6 @@ func expectedApplicationRuntime(target Target) string {
 func requiredExtractedApplicationFiles(target Target) map[string]string {
 	if target.OS == "darwin" {
 		return map[string]string{
-			portableLaunchGuideFilename:                                          "0444",
 			"Fallout Terminal.app/Contents/Info.plist":                           "0444",
 			"Fallout Terminal.app/Contents/MacOS/Fallout Terminal":               "0755",
 			"Fallout Terminal.app/Contents/Resources/THIRD_PARTY_NOTICES.md":     "0444",
@@ -337,7 +335,6 @@ func requiredExtractedApplicationFiles(target Target) map[string]string {
 		executable += ".exe"
 	}
 	return map[string]string{
-		portableLaunchGuideFilename:            "0444",
 		executable:                             "0755",
 		"resources/THIRD_PARTY_NOTICES.md":     "0444",
 		"resources/appicon.png":                "0444",

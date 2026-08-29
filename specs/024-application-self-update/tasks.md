@@ -1,5 +1,7 @@
 # Tasks: Application Self-Update
 
+**Bugfix**: 2026-08-29 — BUG-001 updated from bugfix patch.
+
 **Input**: [spec.md](./spec.md), [plan.md](./plan.md), [research.md](./research.md),
 [data-model.md](./data-model.md), and [contracts/](./contracts/)
 
@@ -194,6 +196,28 @@ evidence after all stories work independently.
 
 ---
 
+## Phase 7: BUG-001 — Predecessor Package Compatibility
+
+**Purpose**: Restore a self-update path from v2.0.0 and prevent same-schema inventory drift from
+passing same-revision validation.
+
+- [x] **T045** [P] Add cross-version regression fixtures that assert the governed schema-v2 payload remains accepted by the v2.0.0 exact inventory on all five targets · `internal/buildtool/archive_test.go`, `internal/update/staging_test.go`
+- [x] **T046** [P] Restore the v2.0.0 schema-v2 archive inventory by removing `RUNNING.md` from governed package generation and staging requirements while retaining it as repository/release-page documentation · `internal/buildtool/package.go`, `internal/buildtool/target.go`, `internal/update/staging.go`, package tests and docs
+- [x] **T047** Make focused build-tool and updater tests, `go fix ./...`, formatting, `task vet`, `task test`, and `task test:race` pass; review every modernization edit and retain only intentional changes · repository root
+- [ ] **T048** Build a higher strict-v2 forward-fix release candidate and record one real v2.0.0-to-candidate Darwin ARM64 update/relaunch before publication · `specs/024-application-self-update/validation.md` (candidate built and inspected; tagged live journey remains `NOT RUN`)
+
+---
+
+## Phase 8: Cumulative Update Changelog
+
+**Purpose**: Show every eligible intervening release in one version-grouped update offer.
+
+- [x] **T049** Add failing provider and browser tests for unordered multi-version notes, descending version groups, empty notes, and channel exclusions · `wails_updater_test.go`, `tests/browser/application-update.spec.mjs`
+- [x] **T050** Aggregate eligible release notes under explicit version headings while preserving the existing update snapshot and bounded plain-text UI contract · `wails_updater.go`
+- [x] **T051** Run `go fix ./...`, formatting, focused updater/browser tests, `task vet`, `task test`, and `task test:race`; review the final change for Go quality and unnecessary complexity · repository root
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase dependencies
@@ -204,6 +228,10 @@ evidence after all stories work independently.
 4. **User Story 2** depends on the User Story 1 candidate/bridge path and adds preparation/apply.
 5. **User Story 3** depends on the complete User Story 2 lifecycle and closes every failure path.
 6. **Polish** depends on all stories and owns the single full Success Criteria suite run.
+7. **BUG-001** depends on the published v2.0.0 consumer contract; T045 and T046 join at T047, and
+   T048 depends on the validated result of T047.
+8. **Cumulative changelog** depends on the existing provider selection and offer projection;
+   T049 precedes T050, and T051 validates both.
 
 ### Wave joins
 
@@ -213,6 +241,8 @@ evidence after all stories work independently.
 - User Story 2: `T022,T023,T024` → `T025,T026,T027` → `T028,T029,T030,T031` → `T032`.
 - User Story 3: `T033,T034,T035` → `T036,T037,T038` → `T039`.
 - Polish: `T040,T041,T042` → `T043` → `T044`.
+- BUG-001: `T045,T046` → `T047` → `T048`.
+- Cumulative changelog: `T049` → `T050` → `T051`.
 
 ### Parallel opportunities
 

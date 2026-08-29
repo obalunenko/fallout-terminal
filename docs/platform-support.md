@@ -59,8 +59,10 @@ Fully extract the chosen archive so resources remain beside the executable:
 - Linux: run `./Fallout Terminal`; if transfer removed its mode, use `chmod 0755 "./Fallout Terminal"`.
 - macOS: open the extracted `Fallout Terminal.app` bundle.
 
-Do not run from an archive viewer or copy only the executable. The bundled demos, icon, third-party
-notices, `RUNNING.md`, and artifact manifest are part of the governed application package.
+Do not run from an archive viewer or copy only the executable. The bundled demos, icon,
+third-party notices, and artifact manifest are part of the governed application package. The
+repository-level `RUNNING.md` contains the detailed launch guide but is intentionally outside the
+schema-v2 archive inventory for v2.0.0 updater compatibility.
 
 ## Sessions, settings, and credentials
 

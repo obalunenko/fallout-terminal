@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -119,6 +120,97 @@ func TestApplicationGitHubProviderSelectsGreatestEligibleSemanticVersion(t *test
 			assert.Equal(t, "Fallout-Terminal-linux-amd64.tar.gz", release.Artifact.Filename)
 		})
 	}
+}
+
+func TestApplicationGitHubProviderBuildsCumulativeVersionedChangelog(t *testing.T) {
+	t.Parallel()
+
+	release210 := newGitHubReleaseFixture("v2.1.0", false)
+	release210.Body = "Исправлено сохранение сессии."
+	release220 := newGitHubReleaseFixture("v2.2.0", false)
+	release220.Body = ""
+	release230 := newGitHubReleaseFixture("v2.3.0", false)
+	release230.Body = "Добавлена группировка терминалов."
+	prerelease := newGitHubReleaseFixture("v2.4.0-beta.1", true)
+	prerelease.Body = "Не должно быть показано stable-пользователю."
+	current := newGitHubReleaseFixture("v2.0.0", false)
+	current.Body = "Уже установлено."
+	draft := newGitHubReleaseFixture("v2.5.0", false)
+	draft.Body = "Черновик."
+	draft.Draft = true
+
+	provider := newGitHubProviderFixture(t, []githubReleaseFixture{
+		release210, prerelease, release230, current, draft, release220,
+	})
+	release, err := provider.Check(t.Context(), updater.CheckRequest{
+		CurrentVersion: "2.0.0",
+		Platform:       "linux",
+		Arch:           "amd64",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, release)
+
+	assert.Equal(t, "2.3.0", release.Version)
+	assert.Equal(t, strings.Join([]string{
+		"## Версия 2.3.0",
+		"Добавлена группировка терминалов.",
+		"## Версия 2.2.0",
+		"## Версия 2.1.0",
+		"Исправлено сохранение сессии.",
+	}, "\n\n"), release.Notes)
+}
+
+func TestApplicationGitHubProviderIncludesPrereleasesInCumulativeChangelog(t *testing.T) {
+	t.Parallel()
+
+	beta := newGitHubReleaseFixture("v2.1.0-beta.2", true)
+	beta.Body = "Исправлена проверка prerelease-сборки."
+	releaseCandidate := newGitHubReleaseFixture("v2.1.0-rc.1", true)
+	releaseCandidate.Body = "Добавлена проверка архива."
+	stable := newGitHubReleaseFixture("v2.1.0", false)
+	stable.Body = "Версия готова к выпуску."
+
+	provider := newGitHubProviderFixture(t, []githubReleaseFixture{beta, stable, releaseCandidate})
+	release, err := provider.Check(t.Context(), updater.CheckRequest{
+		CurrentVersion: "2.1.0-beta.1",
+		Platform:       "linux",
+		Arch:           "amd64",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, release)
+
+	assert.Equal(t, "2.1.0", release.Version)
+	assert.Equal(t, strings.Join([]string{
+		"## Версия 2.1.0",
+		"Версия готова к выпуску.",
+		"## Версия 2.1.0-rc.1",
+		"Добавлена проверка архива.",
+		"## Версия 2.1.0-beta.2",
+		"Исправлена проверка prerelease-сборки.",
+	}, "\n\n"), release.Notes)
+}
+
+func TestApplicationGitHubProviderBuildsChangelogAcrossReleasePages(t *testing.T) {
+	t.Parallel()
+
+	releases := make([]githubReleaseFixture, 101)
+	for index := range releases {
+		releases[index] = newGitHubReleaseFixture("v2.1."+strconv.Itoa(index+1), false)
+	}
+
+	provider := newGitHubProviderFixture(t, releases)
+	release, err := provider.Check(t.Context(), updater.CheckRequest{
+		CurrentVersion: "2.1.0",
+		Platform:       "linux",
+		Arch:           "amd64",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, release)
+
+	assert.Equal(t, "2.1.101", release.Version)
+	assert.Equal(t, 101, strings.Count(release.Notes, "## Версия "))
+	assert.Contains(t, release.Notes, "## Версия 2.1.101")
+	assert.Contains(t, release.Notes, "## Версия 2.1.1")
 }
 
 func TestApplicationGitHubProviderReturnsCurrentWithoutNewerEligibleRelease(t *testing.T) {
@@ -576,7 +668,14 @@ func newGitHubProviderFixture(t *testing.T, releases []githubReleaseFixture) upd
 			http.Error(response, "unexpected release request", http.StatusNotFound)
 			return
 		}
-		fixtures := cloneGitHubReleaseFixtures(releases)
+		page, err := strconv.Atoi(request.URL.Query().Get("page"))
+		if err != nil || page < 1 || request.URL.Query().Get("per_page") != "100" {
+			http.Error(response, "invalid release pagination", http.StatusBadRequest)
+			return
+		}
+		start := min((page-1)*applicationGitHubReleasesPerPage, len(releases))
+		end := min(start+applicationGitHubReleasesPerPage, len(releases))
+		fixtures := cloneGitHubReleaseFixtures(releases[start:end])
 		for releaseIndex := range fixtures {
 			for assetIndex := range fixtures[releaseIndex].Assets {
 				asset := &fixtures[releaseIndex].Assets[assetIndex]

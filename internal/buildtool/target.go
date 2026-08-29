@@ -10,8 +10,6 @@ const (
 	goosLinux   = "linux"
 	goosWindows = "windows"
 
-	portableLaunchGuideFilename = "RUNNING.md"
-
 	goarchAMD64 = "amd64"
 	goarchARM64 = "arm64"
 )
@@ -101,7 +99,6 @@ func (t Target) RequiredResourcePaths() []string {
 	if t.goos == goosDarwin {
 		return []string{
 			artifactManifestFilename,
-			portableLaunchGuideFilename,
 			"Fallout Terminal.app/Contents/Info.plist",
 			"Fallout Terminal.app/Contents/Resources/THIRD_PARTY_NOTICES.md",
 			"Fallout Terminal.app/Contents/Resources/icon.icns",
@@ -111,7 +108,6 @@ func (t Target) RequiredResourcePaths() []string {
 	}
 	return []string{
 		artifactManifestFilename,
-		portableLaunchGuideFilename,
 		"resources/THIRD_PARTY_NOTICES.md",
 		"resources/appicon.png",
 		"resources/sessions/demo-players.json",
