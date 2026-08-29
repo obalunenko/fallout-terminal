@@ -52,7 +52,7 @@ As the Overseer, I can operate the desktop interface for broadcast presentation,
 
 **Why this priority**: The Overseer is the authoritative control surface for a live game and must remain trustworthy throughout all management and approval workflows.
 
-**Independent Test**: Run every existing Overseer browser and visual journey through the packaged desktop adapter and verify terminal authoring, state-changing approval, players, sessions, groups, public access, update dialogs, clipboard actions, focus behavior, and live broadcast control against the production baseline.
+**Independent Test**: Run every existing Overseer browser and visual journey through the current production-fidelity fixture architecture and verify terminal authoring, approvals, players, sessions, terminal groups, public access, update dialogs, clipboard behavior, focus, and broadcast controls against the immutable production baseline. Verify native Wails binding integrity, embedding, startup, resources, and packaged-runtime behavior separately through their governed native and package checks.
 
 **Acceptance Scenarios**:
 
