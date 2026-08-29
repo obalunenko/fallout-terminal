@@ -10,11 +10,15 @@ git status --short
 node --version
 npm --version
 go version
+task node:check
+scripts/frontend-task-contract-check.sh --node-version-self-test
 ```
 
 - The immutable legacy rollback source is `06696ee1c7155a1bb1135ef46ec91445dd73a2a4`.
 - The implementation revision must be a descendant or reviewed successor, not a runtime toggle back to the legacy bundle.
 - Run `nvm use` from the repository root and require exactly Node.js `26.8.1`. `.nvmrc`, Node preflight, dependency-compatibility evidence, clean verification, and final evidence all use that exact version; a Node upgrade is unrelated scope and requires a separate governed change.
+- The Node self-test must prove `26.8.1` passes, `26.8.0` fails, and `26.8.2` fails. A missing executable, malformed fixture, or Taskfile parse error is an infrastructure failure, not an accepted negative-version result.
+- Confirm `.nvmrc`, `Taskfile.yml`, `.github/workflows/wails-cross-platform.yml`, `.github/workflows/wails-portable.yml`, `frontend/package.json`, `frontend/client/package.json`, `frontend/overseer/package.json`, `frontend/package-lock.json`, `README.md`, and `CONTRIBUTING.md` agree on the exact pin.
 - Begin from a clean checkout when collecting final reproducibility, generation, or package evidence.
 
 ## 2. Install one frontend workspace
@@ -108,7 +112,9 @@ At every wave, review [migration-ownership.md](./migration-ownership.md) and rec
 6. focused browser and visual parity result;
 7. removal criteria met or exact expiry wave.
 
-Do not begin Player wave f until Overseer wave e has passed its complete cutover and forbidden-state gate. Do not accept wave i while any temporary mechanism register entry remains.
+Every implementation task must also run a locally executable completion check against the files it creates or changes. A later integration/parity task adds evidence but cannot be the prerequisite task's only verification. For test-first work, record the exact expected failing assertion, accepted absent-behavior signature, rejected infrastructure/configuration signatures, RED evidence path, and later GREEN task; then the GREEN task reruns the same assertion successfully.
+
+Wave c may create only the empty capability-neutral Player shell, strict participation, Player-owned declarations/ports, mount function, isolated candidate document/entry, and dependency/boundary fixtures. It cannot add Player business behavior, replace production DOM, use Wails/privileged APIs, or become production-selected. Do not begin Player feature migration in wave f until Overseer wave e has passed its complete cutover, temporary-removal, parity, native/binding/resource/package, forbidden-state, and ownership gates. Do not accept wave i while any temporary mechanism register entry remains.
 
 ## 8. Run browser and visual evidence
 
@@ -143,9 +149,24 @@ task check
 
 These gates cover buildtool ordering, workflow contracts, Go behavior, concurrency, binding/generation integration, native embedding declarations, resources, public/private separation, and active CI policy.
 
+This is a global per-task pre-commit rule. Every task that changes a `.go` file must cite and perform it before its commit. The final wave-i Go-fix task is an audit of recorded compliance and cannot repair missing earlier compliance retroactively.
+
 ## 10. Verify native embedding, resources, secrets, and packages
 
-Run the governed native/resource checks referenced by Task/buildtool and the repository scripts, including Wails pin/cutover, secret-leak, legacy-public-access, production-resource, native startup/accessibility, and package-content checks applicable to the host.
+Run the exact governed native/resource and packaging checks that consume the migrated layouts:
+
+```bash
+scripts/wails-bindings-check.sh
+scripts/wails-v3-cutover-check.sh
+scripts/secret-leak-check.sh
+scripts/legacy-public-access-check.sh
+scripts/state-changing-reset-native-smoke.sh
+scripts/reproducible-build-check.sh
+scripts/dependency-license-check.sh
+scripts/verify-linux-package.sh --self-test
+```
+
+On Windows, run `scripts/verify-windows-package.ps1` through its documented self-test/package workflow. Also run the Taskfile/buildtool gates that exercise `main.go`, `internal/platform/assets_test.go`, `internal/player/http_test.go`, `internal/player/public_stream_test.go`, `internal/buildtool/buildtool.go`, `internal/buildtool/preflight.go`, `internal/buildtool/buildtool_test.go`, and `internal/buildtool/package_test.go`. Before the first consuming gate, tasks must update any legacy filename, root, entrypoint, bundle, or generated-JavaScript assumption in those exact files. `scripts/dependency-license-check.sh` and `THIRD_PARTY_NOTICES.md` must account for the reviewed shipped Vue runtime and exact pinned frontend dependencies.
 
 On each matching supported host, build and inspect exactly one governed package:
 
@@ -166,11 +187,15 @@ Confirm the accepted Vue/TypeScript architecture and commands appear consistentl
 - `README.md`;
 - `ARCHITECTURE.md`;
 - `CONTRIBUTING.md`;
-- applicable active files under `docs/`;
-- `Taskfile.yml` and buildtool-owned command documentation;
-- `.specify/templates/plan-template.md`, `tasks-template.md`, and applicable active template guidance.
+- `docs/platform-packaging.md`;
+- `Taskfile.yml`;
+- `internal/buildtool/buildtool.go`;
+- `internal/buildtool/preflight.go`;
+- `.specify/templates/plan-template.md`;
+- `.specify/templates/spec-template.md`;
+- `.specify/templates/tasks-template.md`.
 
-Do not rewrite completed historical specifications or recorded evidence.
+Treat `docs/wails-beta15-upgrade.md`, `docs/wails-migration-rollback.md`, `docs/wails-v3-migration-rollback.md`, and completed historical specifications as read-only comparison inputs; do not rewrite them.
 
 ## 12. Record results honestly
 

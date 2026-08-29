@@ -27,7 +27,7 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 - Full existing browser and visual suite against legacy production outputs.
 - Existing Wails binding, protobuf, native embed, resource, and package checks applicable to infrastructure changes.
 
-**Removal criteria**: Temporary `tsconfig.legacy-overseer.json` and `tsconfig.legacy-client.json`, if needed, list their exact JavaScript inputs and cannot be extended implicitly. Overseer legacy checking expires in wave e; Player legacy checking expires in wave h. No `allowJs` or `checkJs` enters `tsconfig.base.json` or either final app configuration.
+**Removal criteria**: Temporary `frontend/overseer/tsconfig.legacy.json` and `frontend/client/tsconfig.legacy.json`, if needed, list their exact JavaScript inputs and cannot be extended implicitly. Overseer legacy checking expires in wave e; Player legacy checking expires in wave h. No `allowJs` or `checkJs` enters `frontend/tsconfig.base.json`, `frontend/overseer/tsconfig.json`, or `frontend/client/tsconfig.json`.
 
 ## Wave b — Deterministic protobuf `target=ts` generation
 
@@ -55,14 +55,14 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 **Vue mount boundaries**:
 
 - Production documents remain wholly legacy-owned.
-- `#overseerApp` and `#playerApp` exist and mount only in isolated candidate/fixture documents built from the new application entrypoints and application-owned declarations.
+- `#overseerApp` and `#playerApp` exist and mount only in isolated candidate/fixture documents built from the new application entrypoints and application-owned declarations. The Player candidate is an empty, capability-neutral shell: strict compiler participation, Player-owned declarations and ports, an empty `App.vue`, mount function, isolated document/entry, and dependency/boundary fixtures only.
 - The Overseer candidate root receives a typed `DesktopPort`; the production candidate uses the Wails adapter and the browser fixture uses a deterministic fake port.
 
 **Legacy-owned adjacent subtrees**: The complete live Overseer and Player production documents remain legacy-owned; candidate documents are separate documents, never adjacent subtrees in the same document.
 
 **Remaining legacy files and handlers**: All current production JavaScript bootstraps and handlers remain. `desktop-api.js` remains the production bridge until Overseer ownership transfer; `client.js`, `sound.js`, and `presentation-uplink.js` remain Player production owners.
 
-**Prohibited boundaries**: Candidate Vue apps cannot locate or mutate legacy production DOM. The applications share only the npm install/lock boundary, exact compiler/build tooling, and capability-neutral `frontend/tsconfig.base.json`; all authored environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations remain application-owned. Player declarations/config/import graphs, including type-only imports, cannot reference Wails, `@wailsio/runtime`, bindings, native capabilities, privileged types, Overseer state, or the Overseer candidate. The typed desktop adapter is the only authored import boundary for generated Wails service modules, runtime events, and clipboard.
+**Prohibited boundaries**: Candidate Vue apps cannot locate or mutate legacy production DOM. The applications share only the npm install/lock boundary, exact compiler/build tooling, and capability-neutral `frontend/tsconfig.base.json`; all authored environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations remain application-owned. Wave c cannot add Player business behavior, render or replace production Player DOM, consume Wails or another privileged API, or make the Player candidate production-selected. Player feature migration cannot begin until the complete wave-e Overseer exit gate passes. Player declarations/config/import graphs, including type-only imports, cannot reference Wails, `@wailsio/runtime`, bindings, native capabilities, privileged types, Overseer state, or the Overseer candidate. The typed desktop adapter is the only authored import boundary for generated Wails service modules, runtime events, and clipboard.
 
 **Focused checks**:
 
@@ -117,6 +117,8 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 **Removal criteria**: Delete `frontend/overseer/src/overseer.js`, `desktop-api.js`, legacy script tags, `#legacyOverseerRoot`, `#overseerVueLeaves`, temporary bridges, temporary mounts, and Overseer legacy-check configuration. The final forbidden-state scan must pass for `frontend/overseer/src` before wave f starts.
 
 ## Wave f — Player shell, identity, transport, session, navigation, and presentation foundations
+
+Wave f is the first wave permitted to implement Player business behavior. It cannot begin until every wave-e Overseer exit condition, including removal and absence checks, has passed.
 
 **Vue mount boundaries**:
 
@@ -209,14 +211,28 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 
 ## Temporary mechanism register
 
-| Mechanism | Owner | Introduced | Expiry | Parity gate | Mandatory removal |
-|---|---|---:|---:|---|---|
-| Overseer bounded legacy JS check config | Frontend Migration | a | e | Overseer legacy build and applicable browser suite | Delete config and remove `allowJs`/`checkJs` |
-| Player bounded legacy JS check config | Frontend Migration | a | h | Player legacy build and complete Player suite | Delete config and remove `allowJs`/`checkJs` |
-| Overseer candidate/test entrypoint | Frontend Migration | c | e | Production SFCs satisfy immutable browser and visual expectations through the production-fidelity fixture | Promote the production bootstrap; delete the candidate entrypoint, selector, and build selection |
-| `#overseerVueLeaves` plus typed legacy/Vue state callbacks | Frontend Migration | d | e | Per-leaf browser, focus, visual, revision, and ownership checks | Consolidate into `#overseerApp`; delete legacy root/callbacks |
-| Player candidate document/build selection | Frontend Migration | f | h | Complete candidate `.mjs` and visual suite | Promote `#playerApp`; delete candidate selector/entry |
-| Any temporary source alias, mount flag, or compatibility switch discovered during implementation | Frontend Migration | owning wave | e for Overseer, h for Player, never later than i | Named focused parity test before merge | Add an explicit task immediately; final scan must reject it |
+Every generated creation or removal task must name the corresponding row and reproduce its exact paths. The task IDs below are the current planning bindings; `$speckit-tasks` must update the row and task together if regeneration changes an ID. A newly discovered mechanism cannot be created until a new exact row, owner, expiry, removal task, and executable absence check are added.
+
+| Mechanism | Owning file and selector/root/entry/config | Creation task | Owner and permitted scope | Expiry | Unconditional removal task | Absence verification |
+|---|---|---|---|---:|---|---|
+| Overseer bounded legacy compiler program | `frontend/overseer/tsconfig.legacy.json`; exact inputs `frontend/overseer/src/overseer.js`, `frontend/overseer/src/desktop-api.js` | T004 | Frontend Migration; compile only the two named legacy modules | e | T073 | `test ! -e frontend/overseer/tsconfig.legacy.json` and `task frontend:policy:check` |
+| Player bounded legacy compiler program | `frontend/client/tsconfig.legacy.json`; exact inputs `frontend/client/client.js`, `frontend/client/sound.js`, `frontend/client/presentation-uplink.js` | T004 | Frontend Migration; compile only the three named legacy modules | h | T114 | `test ! -e frontend/client/tsconfig.legacy.json` and `task frontend:policy:check` |
+| Overseer candidate document | `frontend/overseer/test-fixtures/index.html`; `#overseerApp` | T036 | Frontend Migration; isolated browser/test route only | e | T073 | `test ! -e frontend/overseer/test-fixtures/index.html` and `task frontend:policy:check` |
+| Overseer candidate entry | `frontend/overseer/test-fixtures/candidate-main.ts`; imports `frontend/overseer/src/mount.ts` | T036 | Frontend Migration; isolated browser/test route only | e | T073 | `test ! -e frontend/overseer/test-fixtures/candidate-main.ts` and `task frontend:policy:check` |
+| Overseer candidate Vite selection | `frontend/overseer/vite.config.ts`; candidate input `frontend/overseer/test-fixtures/index.html` | T038 | Frontend Migration; test build only, never the embedded production input | e | T073 | `! rg -n 'test-fixtures/index.html|candidate-main' frontend/overseer/vite.config.ts` and `task frontend:policy:check` |
+| Overseer candidate Playwright selection | `tests/browser/playwright.config.mjs`; Overseer candidate project/route | T038 | Frontend Migration; browser parity only, never native evidence | e | T073 | `! rg -n 'candidate-main|overseer/test-fixtures/index.html' tests/browser/playwright.config.mjs` and `task frontend:policy:check` |
+| Overseer coexistence roots | `frontend/overseer/src/index.html`; `#overseerVueLeaves` and `#legacyOverseerRoot` | T045 | Frontend Migration; complete reviewed leaf subtrees only | e | T073 | `! rg -n 'overseerVueLeaves|legacyOverseerRoot' frontend/overseer/src/index.html frontend/overseer/src/main.ts` and `task frontend:policy:check` |
+| Overseer typed legacy/Vue callbacks | `frontend/overseer/src/overseer.js`, `frontend/overseer/src/mount.ts`; leaf request/state callbacks | T045 | Frontend Migration; typed data/callback crossing only, no cross-root DOM access | e | T073 | `test ! -e frontend/overseer/src/overseer.js`, `! rg -n 'legacyOverseerRoot|overseerVueLeaves' frontend/overseer/src/mount.ts`, and `task frontend:policy:check` |
+| Overseer legacy script tags | `frontend/overseer/src/index.html`; `overseer.js`, `desktop-api.js` script entries | T001 | Frontend Migration; existing production ownership until atomic Overseer cutover | e | T073 | `! rg -n 'overseer\.js|desktop-api\.js' frontend/overseer/src/index.html` and `task frontend:policy:check` |
+| Overseer legacy lifecycle owners | `frontend/overseer/src/overseer.js`, `frontend/overseer/src/desktop-api.js`; document/window listeners, timers, animation frames, observers, subscriptions, and temporary dialog nodes | T001 | Frontend Migration; existing legacy root only; each migrated slice deletes matching acquisition and cleanup | e | T073 | `test ! -e frontend/overseer/src/overseer.js`, `test ! -e frontend/overseer/src/desktop-api.js`, and focused unmount/cleanup tests |
+| Player candidate document | `frontend/client/test-fixtures/candidate-index.html`; `#playerApp` | T037 | Frontend Migration; empty capability-neutral shell in c, candidate feature work only in f–g | h | T114 | `test ! -e frontend/client/test-fixtures/candidate-index.html` and `task frontend:policy:check` |
+| Player candidate entry | `frontend/client/test-fixtures/candidate-main.ts`; imports `frontend/client/src/mount.ts` | T037 | Frontend Migration; empty capability-neutral shell in c, candidate feature work only in f–g | h | T114 | `test ! -e frontend/client/test-fixtures/candidate-main.ts` and `task frontend:policy:check` |
+| Player candidate Vite selection | `frontend/client/vite.config.ts`; candidate input `frontend/client/test-fixtures/candidate-index.html` | T080 | Frontend Migration; candidate build only, never public production selection before h | h | T114 | `! rg -n 'candidate-index.html|candidate-main' frontend/client/vite.config.ts` and `task frontend:policy:check` |
+| Player candidate Playwright selection | `tests/browser/playwright.config.mjs`; Player candidate project/route | T080 | Frontend Migration; candidate browser parity only | h | T114 | `! rg -n 'candidate-index.html|candidate-main' tests/browser/playwright.config.mjs` and `task frontend:policy:check` |
+| Player staging mount | `frontend/client/src/mount.ts`; candidate-only `#playerApp` mount selection | T037 | Frontend Migration; isolated candidate document only until atomic h cutover | h | T114 | `! rg -n 'candidate-index.html|test-fixtures' frontend/client/src/mount.ts` and production-root ownership test |
+| Player legacy script tags | `frontend/client/index.html`; `client.js`, `sound.js`, `presentation-uplink.js` script entries | T001 | Frontend Migration; existing public production ownership through g | h | T114 | `! rg -n 'client\.js|sound\.js|presentation-uplink\.js' frontend/client/index.html` and `task frontend:policy:check` |
+| Player legacy lifecycle owners | `frontend/client/client.js`, `frontend/client/sound.js`, `frontend/client/presentation-uplink.js`; listeners, timers, animation frames, observers, subscriptions, streams/iterators, AbortControllers, and audio owners | T001 | Frontend Migration; production legacy document only; no sharing with candidate | h | T114 | `test ! -e frontend/client/client.js`, `test ! -e frontend/client/sound.js`, `test ! -e frontend/client/presentation-uplink.js`, and production cleanup stress tests |
+| Deliberate protobuf drift mutation | `frontend/client/gen/fallout/terminal/player/v1/player_pb.ts`; self-test-only content mutation | T019 | Protobuf generator-check owner; only inside the drift command and never committed | b, same command | T019 | `task proto:drift:check`, followed by `git diff --exit-code -- frontend/client/gen/fallout/terminal/player/v1/player_pb.ts` |
 
 ## Retained browser evidence and test infrastructure
 

@@ -16,9 +16,15 @@ description: "Task list template for Fallout Terminal feature implementation"
 
 - **[P]**: Safe to execute in parallel because files do not overlap and prerequisites are complete
 - **[Story]**: User-story traceability label such as `[US1]`
-- Every task MUST name exact repository paths
+- Every task MUST contain `Files (modify/create/delete)` with complete repository-relative paths; bare basenames, directory inheritance, known-inventory globs, and phrases such as “both manifests,” “relevant scripts,” or “all active artifacts” are invalid
+- Every task MUST list `Read-only inputs` separately from files it may change
 - Contract changes MUST identify both producer and consumer tasks
-- Verification tasks MUST name the command or observable manual journey
+- Every implementation task MUST name a locally executable completion command or observable check that exists when reached; later integration/parity evidence is additive, never its only check
+- Test-first tasks MUST record the expected failing assertion, accepted product-behavior failure signature, rejected infrastructure/configuration signatures, exact RED evidence path, and later GREEN task; GREEN reruns the same assertion
+- Every Go-changing task MUST cite the global pre-commit rule: run `go fix ./...`, review every modernization edit, retain only intentional changes, format, then run that task's Go validation gates
+- Every temporary mechanism MUST name its exact owning file and selector/root/entry/config, creation task, owner, permitted scope, expiry wave, unconditional removal task, and executable absence verification
+- Every FR, SC, clarification, constitutional obligation, checklist item, contract obligation, and migration wave MUST map to explicit valid task IDs and concrete verification; reject invalid ranges, “same as” references, “every wave task,” and final-umbrella-only mappings
+- `[P]` is allowed only for disjoint exact files with no shared generated output, lockfile, Taskfile section, manifest, entrypoint, ownership/evidence ledger, or visual baseline; parallel branches MUST join before shared integration
 
 ## Repository Paths
 
@@ -31,9 +37,9 @@ description: "Task list template for Fallout Terminal feature implementation"
 - Application update and release identity: `internal/update/`, `internal/version/`, `wails_updater*.go`
 - Generated contracts: `proto/`, `internal/gen/`, `frontend/client/gen/`
 - Shared Go test support: `internal/testutil/`
-- Overseer interface: `frontend/overseer/src/index.html`, `frontend/overseer/src/desktop-api.js`, `frontend/overseer/src/overseer.js`, `frontend/overseer/src/overseer.css`
-- Player interface: `frontend/client/index.html`, `frontend/client/client.js`, `frontend/client/sound.js`, `frontend/client/client.css`
-- Browser journeys: `tests/browser/*.spec.mjs`, `tests/browser/fixture-server/main.go`
+- Overseer interface examples: `frontend/overseer/src/index.html`, `frontend/overseer/src/main.ts`, `frontend/overseer/src/App.vue`, `frontend/overseer/src/adapters/desktop-api.ts`, `frontend/overseer/vite.config.ts`, `frontend/overseer/tsconfig.json`
+- Player interface examples: `frontend/client/index.html`, `frontend/client/src/main.ts`, `frontend/client/src/App.vue`, `frontend/client/src/adapters/player-rpc.ts`, `frontend/client/vite.config.ts`, `frontend/client/tsconfig.json`
+- Browser journey examples: `tests/browser/connectrpc-player.spec.mjs`, `tests/browser/fixture-server/main.go`, `tests/browser/playwright.config.mjs`; generated tasks enumerate every affected test and snapshot path rather than using a glob
 - Build configuration: `go.mod`, `go.sum`, `frontend/package.json`, `frontend/package-lock.json`, `frontend/client/package.json`, `frontend/overseer/package.json`
 - Cross-platform packaging/unsigned release: `build/`, `internal/buildtool/`, `.goreleaser.yaml`, `.github/workflows/`
 - Optional signed macOS distribution: `scripts/build-macos.sh`
@@ -42,6 +48,11 @@ description: "Task list template for Fallout Terminal feature implementation"
 The task generator MUST replace all examples below with feature-specific tasks.
 Do not add database, generic authentication, API-framework, or imaginary src/
 setup tasks unless the approved feature actually introduces those changes.
+Split every task by one coherent UI, workflow, resource owner, or independently
+testable behavior. A slice includes its exact production files, exact tests,
+local verification, matching legacy deletion where applicable, cleanup evidence,
+ownership-record update, and temporary-mechanism impact. Integration and wave-exit
+gates remain separate tasks.
 -->
 
 ## Phase 1: Setup and Contract Baseline
@@ -142,8 +153,8 @@ setup tasks unless the approved feature actually introduces those changes.
 - [ ] T031 [P] Open and save existing compatible files from `sessions/` without data loss when persistence changes
 - [ ] T032 Run `task fmt:check`, `task vet`, `task lint`, and `task test`
 - [ ] T033 Run `task test:race` when concurrent runtime behavior changes
-- [ ] T034 Run `npm ci --prefix frontend` and `npm run build --prefix frontend` when the Overseer UI, bridge, embedding, or package changes
-- [ ] T035 Run `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` when affected browser journeys are available
+- [ ] T034 Run the exact canonical Taskfile frontend type-check/build/policy/reproducibility targets required by the approved plan
+- [ ] T035 Run `task browser:test` with an exact test selector when focused, then the complete browser gate when required
 - [ ] T036 Run `task dev` and complete the documented Overseer/player smoke journeys
 - [ ] T037 Run `task package` and optional `task package:all` for packaging/release-sensitive changes on supported hosts
 - [ ] T038 Run approved credential-gated public-provider or optional `task release:macos:signed` gates when affected and prerequisites are available; otherwise record them as unavailable
@@ -162,10 +173,10 @@ setup tasks unless the approved feature actually introduces those changes.
 
 ## Parallel Opportunities
 
-- Independent `frontend/overseer/src/` and `frontend/client/` presentation work may run in parallel after their shared contract is fixed.
-- Pure Go tests may run in parallel with isolated CSS/HTML work when their files and prerequisites do not overlap.
-- Security, documentation, fixtures, and packaging review may run in parallel when they touch different files.
-- Tasks changing `main.go`, `app.go`, `internal/control/`, `internal/player/`, shared frontend state, or the same contract are not parallel merely because they have different story labels.
+- Independent application-owned declarations may run in parallel only when their exact files, configs, manifests, lockfile, Taskfile sections, ownership rows, and evidence are disjoint.
+- Pure Go tests may run in parallel with an isolated frontend file only when neither task changes or records shared generated output, contracts, fixtures, or evidence.
+- Documentation, fixtures, and packaging work is not parallel when it shares an entrypoint, bundle inventory, ownership/evidence ledger, or integration gate.
+- Tasks changing `main.go`, `app.go`, `Taskfile.yml`, a manifest/lockfile, `internal/control/`, `internal/player/`, shared frontend state, the same contract, or an immutable visual baseline are not parallel merely because they have different story labels.
 
 ## Implementation Strategy
 

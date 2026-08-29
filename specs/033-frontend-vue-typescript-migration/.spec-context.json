@@ -571,7 +571,8 @@
     "area: protobuf browser generation, frontend build, embedding, packaging, and browser validation",
     "baseline: completed behavior specifications through feature 032 and current production assets",
     "constraint: exact presentation and interaction parity across both trust boundaries",
-    "constraint: final strict TypeScript SFC ownership with no handwritten production JavaScript"
+    "constraint: final strict TypeScript SFC ownership with no handwritten production JavaScript",
+    "Approach: revise feature 033 into an executable producer-before-consumer wave DAG with task-local evidence, exact path ownership, explicit temporary-mechanism lifecycle, and preserved protocol/security invariants. Player wave-c work stays capability-neutral; Player behavior unlocks only after complete wave-e; production cutover remains atomic in h."
   ],
   "intent": "Replace both production frontend implementations with independently typed component applications while preserving every established user, protocol, security, build, and package contract.",
   "expectations": [
@@ -621,15 +622,70 @@
       "decision": "Omit data-model.md and create build-generation plus trust-evidence contracts",
       "why": "No persistent or canonical model changes; build, generation, typing, fixture, trust, and evidence interfaces do change and benefit from explicit contracts",
       "rejected": "Duplicating unchanged protobuf and persistence models or omitting cross-tool contracts"
+    },
+    {
+      "decision": "Wave c permits only capability-neutral Player foundations; Player feature behavior starts after complete wave e and production cutover remains atomic in h",
+      "rationale": "Preserves FR-045 two-shell proof without weakening Overseer-first ownership",
+      "alternatives": [
+        "Defer every Player file until wave f",
+        "Permit partial Player behavior in wave c"
+      ]
+    },
+    {
+      "decision": "Every implementation task has an immediately executable local check and every test-first task records accepted RED evidence plus a later GREEN task",
+      "rationale": "Eliminates hidden verification cycles and distinguishes absent behavior from infrastructure failure",
+      "alternatives": [
+        "Treat Verify as advisory until wave exit",
+        "Accept any non-zero RED result"
+      ]
+    },
+    {
+      "decision": "Node is exactly 26.8.1 with positive, older, and newer self-tests; each Go-changing task applies go fix, review, formatting, and task-local gates before commit",
+      "rationale": "Makes runtime and commit-scoped workflow compliance exact and non-retroactive",
+      "alternatives": [
+        "Accept newer Node runtimes",
+        "Run go fix only in wave i"
+      ]
+    },
+    {
+      "decision": "Tasks use exact modifiable paths plus separate read-only inputs, coherent slices, exact temporary rows, and optional parallelism only for disjoint work",
+      "rationale": "Makes ownership, cleanup, verification, and dependencies mechanically auditable",
+      "alternatives": [
+        "Keep shorthand and inheritance",
+        "Require artificial parallel tasks"
+      ]
+    },
+    {
+      "decision": "Only the three already-authorized active Spec Kit templates may change, each as separate exact-file maintenance work",
+      "rationale": "Corrects generators without expanding runtime scope or changing constitution and historical artifacts",
+      "alternatives": [
+        "Remove template corrections",
+        "Rewrite constitution or historical artifacts"
+      ]
     }
   ],
   "step_summaries": {
     "plan": {
-      "summary": "Planned nine-wave behavior-preserving migration to two strict Vue applications with exact pins, deterministic TypeScript contracts, typed Wails isolation, explicit DOM ownership, and complete final removal gates",
-      "key_finding": "The safe cutover shape is Overseer-first with complete leaf ownership and an atomic Player production transfer; the exact Vue 3.5.42/TS 6.0.3/plugin 6.0.8/vue-tsc 3.3.11 stack works while TypeScript 7 does not."
+      "summary": "Revised feature 033 after high-rigor analysis",
+      "key_finding": "The safe cutover shape is Overseer-first with complete leaf ownership and an atomic Player production transfer; the exact Vue 3.5.42/TS 6.0.3/plugin 6.0.8/vue-tsc 3.3.11 stack works while TypeScript 7 does not.",
+      "details": "Executable wave-a bootstrap; exhaustive Player foundation boundary; task-local RED/GREEN checks; per-task Go workflow; exact path, consumer, and temporary inventories; exact Node contract; granular slices; direct traceability; safe optional parallelism; bounded active-template maintenance."
     },
     "tasks": {
       "summary": "144 dependency-ordered tasks across mandatory waves a-i, five user stories, ten canonical frontend targets, complete FR-001-FR-050 and SC-001-SC-012 traceability"
     }
-  }
+  },
+  "verified": [
+    {
+      "what": "Planning scope",
+      "result": "PASS",
+      "command": "git diff --exit-code for tasks.md, constitution, production source, Taskfile and manifests",
+      "warnings": "tasks.md intentionally remains stale until $speckit-tasks"
+    },
+    {
+      "what": "Planning invariants",
+      "result": "PASS",
+      "command": "FR/SC/CHK counts, ten target inventory, eight RPC rows, eighteen exact temporary rows, normalized legacy tsconfig names, git diff --check",
+      "warnings": "implementation executability requires regenerated tasks"
+    }
+  ]
 }

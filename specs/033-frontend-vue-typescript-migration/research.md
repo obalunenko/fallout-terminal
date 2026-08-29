@@ -28,7 +28,7 @@ TypeScript `7.0.2` was tested and rejected: `vue-tsc` `3.3.11` failed before che
 
 **Decision**: Add `frontend/tsconfig.base.json` as the sole shared capability-neutral compiler policy and application-specific `frontend/client/tsconfig.json` and `frontend/overseer/tsconfig.json`. The shared final settings include `strict: true`, `noUncheckedIndexedAccess: true`, `exactOptionalPropertyTypes: true`, `moduleResolution: "Bundler"`, `module: "ESNext"`, `target: "ES2022"`, `isolatedModules: true`, `verbatimModuleSyntax: true`, `noEmit: true`, DOM libraries, and explicit strict Vue template checking. Each application configuration includes only its application root and owned declarations; Player additionally includes `frontend/client/gen/**/*.ts`. Environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations stay inside their owning application source or configuration boundary. No shared authored application type module is created, and a type-only import cannot establish a cross-boundary application contract.
 
-`allowJs` and `checkJs` may appear only in explicit migration-only configurations introduced in wave a. Those files have the Frontend Migration owner, expire at the relevant application cutover, may check only the listed legacy files, and are deleted no later than wave e for Overseer and wave h for Player. They never enter the final base or application configurations.
+`allowJs` and `checkJs` may appear only in `frontend/overseer/tsconfig.legacy.json` and `frontend/client/tsconfig.legacy.json`, introduced in wave a. Those files have the Frontend Migration owner, expire at the relevant application cutover, may check only the exact legacy files recorded in the ownership register, and are deleted no later than wave e for Overseer and wave h for Player. They never enter the final base or application configurations.
 
 **Rationale**: This shares compiler policy and exact tooling without sharing authored application declarations, runtime types, or trust-boundary state. `moduleResolution: "Bundler"` also lets TypeScript resolve generated `_pb.ts` sources through their emitted-runtime `.js` specifiers, matching Vite's ESM behavior. The candidate fixture compiled generated TypeScript with all required strict flags and no source suppression.
 
@@ -122,6 +122,61 @@ Player browser tests continue to consume the production `frontend/client/dist`. 
 - Mount Vue inside legacy-rendered lists, trees, hacking columns, or terminal content: rejected because legacy `replaceChildren`, query, and handler delegation would cross ownership.
 - Move Player leaf subtrees one by one in production: rejected because terminal presentation, geometry, audio, reveal, authority, and streaming lifecycles share observable timing and focus.
 - A permanent compatibility bridge or dual entrypoint: rejected by the constitution and final forbidden-state requirements.
+
+## Wave-c Player foundation boundary
+
+**Decision**: Permit wave c to create only capability-neutral Player compiler participation through `frontend/tsconfig.base.json` and `frontend/client/tsconfig.json`; application-owned declarations and public ports under exact files enumerated by the regenerated tasks; empty `frontend/client/src/App.vue`; `frontend/client/src/mount.ts`; isolated `frontend/client/test-fixtures/candidate-index.html` and `frontend/client/test-fixtures/candidate-main.ts`; and exact dependency/boundary policy fixtures enumerated by the regenerated tasks. Player business behavior begins only after the complete Overseer wave-e exit. Production Player DOM remains wholly legacy-owned until the atomic wave-h transfer.
+
+**Rationale**: FR-045 needs both shells to prove strict application separation before component migration, but creating an empty shell is different from migrating recognition, ConnectRPC subscription, session initialization, identity, navigation, hacking, timing, sound, or presentation behavior. Naming the permitted files and prohibited behavior preserves the two-shell foundation without weakening the Overseer-first delivery boundary.
+
+**Alternatives considered**:
+
+- Move every Player file after wave e: rejected because it removes the early independent compiler/dependency-boundary proof required by FR-045.
+- Permit partial Player behavior in wave c: rejected because it creates an ambiguous second feature-migration start and weakens the complete Overseer exit gate.
+
+## Executable task and RED/GREEN semantics
+
+**Decision**: A generated implementation task is complete only after a locally executable check passes at that point in the DAG. Later integration and parity tasks provide broader evidence but cannot be the prerequisite task's only check. RED tasks succeed only when the named assertion fails with the accepted signature; missing tools, configuration, fixture startup, and unrelated failures invalidate RED evidence.
+
+**Rationale**: The previous task list was syntactically acyclic but invoked future Task targets and deferred local verification to dependent tasks, creating hidden execution cycles. Explicit local completion and RED signatures make the task graph executable rather than merely ordered on paper.
+
+**Alternatives considered**:
+
+- Treat `Verify` as advisory until wave exit: rejected because it makes task completion unverifiable and permits broken intermediate revisions.
+- Permit any non-zero command as RED: rejected because infrastructure failures do not prove the intended missing behavior.
+
+## Exact Node and Go commit workflow
+
+**Decision**: `task node:check` accepts exactly Node.js `26.8.1` and has positive and older/newer negative self-tests. Every Go-changing task applies `go fix ./...`, reviews modernization edits, retains only intentional changes, formats, and runs its own Go gates before commit; final Go validation audits this evidence.
+
+**Rationale**: `.nvmrc`, CI, clean verification, and dependency research use one exact Node runtime. The Go modernization requirement is commit-scoped and cannot be satisfied retroactively by a final-wave command.
+
+**Alternatives considered**:
+
+- Keep `26.8.1+`: rejected because it contradicts the clean-verification and compatibility baseline.
+- Run `go fix` only once in wave i: rejected because earlier Go commits would already violate repository workflow.
+
+## Task granularity, exact paths, and parallelism
+
+**Decision**: Regenerated tasks own one coherent UI, workflow, lifecycle resource, or independently testable behavior and list complete repository-relative modifiable paths plus separate read-only inputs. `[P]` is optional and allowed only for disjoint modifiable files with no shared generated output, lockfile, Taskfile section, manifest, entrypoint, ownership ledger, evidence record, or visual baseline.
+
+**Rationale**: Exact path ownership is needed for safe deletion, temporary-mechanism expiry, code review, and automation. Small coherent slices can be locally verified and rolled back; artificial parallel markers provide no value when evidence or ownership files are shared.
+
+**Alternatives considered**:
+
+- Preserve directory inheritance and prose shorthands: rejected because they are not mechanically auditable.
+- Require at least one `[P]` task: rejected because correctness and cutover safety take priority over nominal parallel coverage.
+
+## Active Spec Kit template maintenance boundary
+
+**Decision**: Feature 033 may update only `.specify/templates/plan-template.md`, `.specify/templates/spec-template.md`, and `.specify/templates/tasks-template.md`, because the approved feature scope already authorized those active templates and they directly generate the unsafe path, verification, RED/GREEN, Go-workflow, temporary-mechanism, and parallelism guidance being corrected. Regenerated tasks split each template into its own exact-file maintenance task and verify template guidance independently before the final feature governance join. `.specify/memory/constitution.md`, completed historical specifications, and recorded historical evidence remain read-only.
+
+**Rationale**: This is not a new runtime or migration implementation surface and does not change constitutional policy. It narrows already-authorized active generator guidance so future feature-033 tasks can satisfy Constitution 9.0.0. Keeping the three files distinct preserves the previously required maintenance-change review boundary inside the feature while avoiding an unrelated repository-wide template rewrite.
+
+**Alternatives considered**:
+
+- Remove template updates from feature 033: rejected because the approved plan already included them and leaving stale legacy-JavaScript/task semantics would regenerate known defects.
+- Combine constitution, templates, and historical specifications in one task: rejected because the constitution and historical artifacts are authoritative read-only inputs, not feature outputs.
 
 ## Model and contract artifacts
 

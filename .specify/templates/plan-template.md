@@ -13,7 +13,7 @@
 ## Technical Context
 
 **Language/Version**: Go 1.27; two independent Vue 3 applications using strict TypeScript
-Single-File Components, the Composition API, and `<script setup lang="ts">`; Node.js 26.8.1+ for
+Single-File Components, the Composition API, and `<script setup lang="ts">`; Node.js exactly 26.8.1 for
 build, code generation, type checking, and browser-test tooling only
 
 **Primary Dependencies**: Wails v3.0.0-beta.15, `connectrpc.com/connect` v1.20.0,
@@ -66,6 +66,10 @@ policy, owned-resource cleanup, and the single-process runtime
 - [ ] New dependencies or structural changes have a concrete, documented need and reproducible pinning; Pinia, Vue Router, Nuxt, component libraries, and CSS frameworks are not baseline requirements.
 - [ ] Verification uses the configured Go, `vue-tsc`, Playwright, visual-snapshot, Vite, Wails, Taskfile, packaging, and CI gates that apply; unavailable conditional checks are reported rather than claimed.
 - [ ] Naming and code style match the conventions of the affected files.
+- [ ] Every planned implementation task has a locally executable completion check whose checker, target, fixture, script, and generated inputs exist before the task runs.
+- [ ] Every test-first task defines an accepted RED product-behavior failure, rejected infrastructure/configuration failures, recorded RED evidence, and a later GREEN task.
+- [ ] Every temporary mechanism has an exact owning path and selector/root/entry/config, creation task, owner, permitted scope, expiry wave, unconditional removal task, and executable absence check.
+- [ ] Every Go-changing task cites the global pre-commit workflow: `go fix ./...`, review and retain only intentional modernization edits, format, then execute the task's Go validation gates.
 
 ## Project Structure
 
@@ -187,6 +191,14 @@ publications, action results, and reconnect state, or N/A]
 - [For migration work, inventory legacy DOM/JavaScript ownership and define bounded Vue ownership,
   parity, visual snapshot, expiry, and removal gates]
 
+### Task-Generation Contract
+
+- [Define a producer-before-consumer DAG so no task verifies a target, checker, script, fixture, or generated artifact created later]
+- [Require complete repository-relative paths in `Files (modify/create/delete)` and list `Read-only inputs` separately; prohibit bare basenames, directory inheritance, known-inventory globs, and prose shorthands]
+- [Split work by one coherent UI, workflow, resource owner, or independently testable behavior; keep integration and wave-exit gates separate]
+- [Map every FR, SC, clarification, constitutional obligation, checklist item, contract obligation, and migration wave to explicit valid task IDs and a concrete verification path]
+- [Permit `[P]` only for disjoint exact files that share no generated output, lockfile, Taskfile section, manifest, entrypoint, ownership/evidence ledger, or visual baseline and join before shared integration]
+
 ### Phase 1: Contracts and Data Design
 
 - [Define persistent JSON, Wails, protobuf/ConnectRPC, and HTTP asset contracts as applicable]
@@ -228,7 +240,8 @@ publications, action results, and reconnect state, or N/A]
 | Go domain/services | `task test` | [Focused scenario if needed] | [Result] |
 | Concurrent runtime | `task test:race` when affected | [Stress/reconnect scenario] | [Result] |
 | Go quality | `task fmt:check`, `task vet`, and `task lint` | N/A | Formatting, vet, and repository lint succeed |
-| Vue frontends and browser parity | `npm ci --prefix frontend`, `npm run typecheck --prefix frontend` (`vue-tsc`), `npm run build:overseer --prefix frontend`, `npm run build:client --prefix frontend`, `npm ci --prefix tests/browser`, and `npm test --prefix tests/browser` when affected | `task dev` + [Overseer, multi-client, audio, reconnect, and visual snapshot parity journeys] | Strict SFC checks, both Vite bundles, Playwright journeys, and approved visual snapshots pass |
+| Exact Node contract | `task node:check` plus the repository Node-version self-test | N/A | Exactly `26.8.1` passes; an older and a newer version fail actionably |
+| Vue frontends and browser parity | `task frontend:typecheck:overseer`, `task frontend:typecheck:client`, `task frontend:typecheck`, `task frontend:build:overseer`, `task frontend:build:client`, `task frontend:build`, `task frontend:policy:check`, `task frontend:reproducible:check`, and `task browser:test` when affected | `task dev` + [Overseer, multi-client, audio, reconnect, and visual snapshot parity journeys] | Strict SFC checks, both Vite bundles, Playwright journeys, and immutable approved visual snapshots pass |
 | Package/release candidate | `task package` and optional `task package:all` when affected | [Packaged target smoke] | [Result] |
 | Signed macOS distribution/public provider | [`task release:macos:preflight` or N/A] | [Credential-dependent journey] | [Result or explicitly unavailable] |
 

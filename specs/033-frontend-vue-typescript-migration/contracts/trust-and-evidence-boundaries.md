@@ -22,6 +22,16 @@ canonical server-authoritative state
 
 The Player graph must have no direct or indirect path to `frontend/overseer`, `@wailsio/runtime`, Wails bindings, native capabilities, filesystem APIs, privileged types, Overseer state, or a shared cross-boundary store. The applications share only the npm install/lock boundary, exact compiler/build tooling, and capability-neutral `frontend/tsconfig.base.json` compiler policy. Authored environment, global, transport, view-state, Wails, ConnectRPC, component, and composable declarations stay inside their owning application; type-only imports do not create an allowed cross-boundary application contract.
 
+Wave c preserves FR-045 by establishing two independently compiling Vue shells. Its Player exception is capability-neutral and exhaustive: strict participation through `frontend/tsconfig.base.json` and `frontend/client/tsconfig.json`; Player-owned declarations and ports; empty `frontend/client/src/App.vue`; `frontend/client/src/mount.ts`; isolated `frontend/client/test-fixtures/candidate-index.html` and `frontend/client/test-fixtures/candidate-main.ts`; and dependency/boundary policy fixtures. Wave c must not implement Player business behavior, render or replace production Player DOM, call ConnectRPC as application behavior, consume Wails or any privileged API, or select the candidate for production. Player feature migration begins only after the complete wave-e Overseer exit gate—including legacy deletion, temporary-mechanism absence, browser/visual parity, native/binding/resource/package evidence, and ownership sign-off—passes. Wave h remains the only atomic Player production cutover.
+
+## Task-local evidence and RED/GREEN contract
+
+Every implementation task has a locally executable completion check at the point it runs. That check exercises the exact production and test files created or changed by the task and cannot name a Taskfile target, checker, fixture, package script, or generated artifact introduced later. Broader integration, parity, and wave-exit tasks add evidence but cannot be the sole verification of an earlier implementation task.
+
+A test-first RED task is complete only when it records: the expected failing assertion; the accepted failure signature demonstrating absent product behavior; rejection signatures for missing dependencies, configuration, routes, fixtures, browser startup, or other infrastructure failures; the exact RED evidence path; and the explicit later GREEN task. RED evidence is not a prerequisite that demands the test pass. The GREEN task must rerun the same exact assertion and record the passing result.
+
+Tasks are split by one coherent UI, workflow, resource owner, or independently testable behavior. Each slice names exact production files, exact test files, an immediate local verification, matching legacy deletion where applicable, cleanup evidence, the exact ownership-record row, and temporary-mechanism impact. Integration and wave-exit gates are separate. `[P]` is permitted only for disjoint exact files with no shared generated output, lockfile, `Taskfile.yml` section, manifest, entrypoint, `specs/033-frontend-vue-typescript-migration/migration-ownership.md` row, evidence record, or visual baseline, and parallel branches join before shared integration.
+
 ## Preserved Player RPC contract
 
 | RPC | Cardinality | Preserved client responsibility |
@@ -85,6 +95,8 @@ Imperative code is limited to these narrow owners:
 | Presentation streaming | `usePresentationUplink` | AbortControllers, request stream/iterator, mailbox, ready/result/retry timers | Abort/cancel/return iterator; clear mailbox/timers; invalidate generation; ignore late completion; preserve unary fallback |
 
 Subscriptions, document/window listeners, timers, animation frames, observers, audio resources, AbortControllers, streams, and temporary nodes are registered immediately with the owning Vue scope and released in `onScopeDispose`/`onUnmounted` as appropriate.
+
+The exact creation owner, owning file and selector/root/entry/config, permitted scope, expiry wave, unconditional removal task, and executable absence check for every temporary compiler config, candidate document/entry, Vite selection, Playwright selection, staging/leaf root, callback bridge, legacy script tag, listener, timer, observer, stream, and audio owner is governed by `specs/033-frontend-vue-typescript-migration/migration-ownership.md` §Temporary mechanism register. No task may create an unregistered temporary mechanism.
 
 ## Browser versus native evidence
 

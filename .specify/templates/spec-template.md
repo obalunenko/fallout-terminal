@@ -120,10 +120,18 @@ Mark material ambiguity inline, for example:
 - **Browser tests**: [Playwright journey under `tests/browser/`, or N/A]
 - **Interactive verification**: [Affected `task dev` Overseer/player journey]
 - **Packaging/release verification**: [Affected `task package`, optional `task package:all`, optional manual signed macOS distribution, or N/A]
+- **Task-local completion**: [For each implementation surface, name a completion check executable immediately after that task; a later integration gate cannot be its only verification]
+- **Test-first RED/GREEN**: [Expected failing assertion, accepted absent-behavior signature, rejected infrastructure/configuration signatures, recorded RED evidence, and later GREEN verification, or N/A]
+- **Exact task files**: [Require generated tasks to separate complete repository-relative `Files (modify/create/delete)` from `Read-only inputs`; prohibit basenames, directory inheritance, known-inventory globs, and prose shorthands]
+- **Temporary mechanisms**: [Exact owning file and selector/root/entry/config, creation task, owner, permitted scope, expiry, unconditional removal task, and absence check, or N/A]
+- **Go pre-commit workflow**: [For every task changing Go: `go fix ./...`, review/retain only intentional modernization edits, format, then task-specific Go gates, or N/A]
+- **Node runtime contract**: [If frontend/tooling is affected, state the exact Node version and positive/older/newer self-tests; do not express an exact pin as a minimum]
 
 The repository-wide Go lint baseline is defined by `.golangci.yml` and executed with `task lint`.
 No numeric coverage threshold is currently defined; specify concrete behavioral checks rather than
 inventing one.
+
+For migrations with staged ownership, specify which foundations may be created before feature behavior, what those foundations are prohibited from doing, the complete exit gate that unlocks feature work, and the single production cutover boundary. Preserve required independent application shells without allowing an empty shell to become an early business-behavior or production-ownership exception.
 
 ### Key Entities *(include if feature involves data)*
 
