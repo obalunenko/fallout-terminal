@@ -1,15 +1,29 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.1 -> 8.1.2
-- Modified principles: None
+- Version change: 8.1.2 -> 9.0.0
+- Modified principles:
+  - I. Govern the Accepted Desktop Runtime (Vue application boundaries and trust separation)
+  - II. Make Protobuf the Application Contract Source of Truth (generated TypeScript browser
+    contracts and generator-owned Wails bindings)
+  - III. Use ConnectRPC and Keep State Server-Authoritative (generated TypeScript clients)
+  - IV. Separate Public and Private Capabilities (independent player application boundary)
+  - V. Evolve Schemas Safely and Reproducibly (pinned protoc-gen-es governance)
+  - VII. Complete Cutovers and Remove Superseded Protocols (bounded JS/TS and DOM migration)
 - Added principles: None
-- Added sections: None
+- Added sections:
+  - Frontend Architecture and TypeScript Governance
 - Removed sections: None
 - Modified guidance:
-  - Advance the sole accepted Wails v3 runtime, isolated CLI, frontend runtime, and generated-binding
-    baseline from v3.0.0-beta.13 to mutually compatible v3.0.0-beta.15 pins
+  - Replace the handwritten browser-JavaScript production baseline with two independent Vue 3,
+    strict-TypeScript, Vite-built Single-File Component applications
+  - Define Vue DOM ownership, Composition API defaults, permitted browser adapters, dependency
+    pins, SFC type-check gates, and strict final-cutover rules
+  - Generate public browser protobuf contracts as deterministic TypeScript through pinned
+    protoc-gen-es while preserving Wails-owned generated binding formats
 - Updated templates: None
-- Follow-up TODOs: None
+- Follow-up TODOs:
+  - Update active Speckit Technical Context and Project Structure template guidance for Vue SFC and
+    TypeScript in a follow-up workflow; this constitution command cannot modify dependent templates
 -->
 # Fallout Terminal Constitution
 
@@ -27,12 +41,16 @@ frontend, and generated-binding versions MUST remain mutually compatible and rep
 in their owning dependency graphs.
 
 The root Go module owns application composition, the trusted desktop bridge, and the embedded
-player server. `frontend/` is the single npm workspace: `frontend/overseer/` owns the Vite-built
-browser-JavaScript Overseer interface and private Wails bindings, while `frontend/client/` owns the
-separately built and embedded browser-JavaScript player interface and public generated contracts.
-`internal/` contains application services, domain logic, adapters, and platform integrations.
-Node.js is build, code-generation, and browser-test tooling, not an application runtime. Portable
-distribution profiles are macOS 13+ on Apple Silicon (`darwin/arm64`), Windows 10/11 on
+player server. `frontend/` is the single npm workspace containing two independent Vue 3
+applications written as strict TypeScript Single-File Components and compiled by Vite.
+`frontend/overseer/` owns the privileged Overseer application and private Wails bindings.
+`frontend/client/` owns the separately rooted, separately bundled, and embedded public player
+application and its public generated contracts. Their application roots, entrypoints, bundles,
+dependency edges, and trust boundaries MUST remain separate. `internal/` contains application
+services, domain logic, adapters, and platform integrations. Vue is an exactly pinned production
+browser-runtime dependency. Node.js is build, code-generation, type-check, and browser-test
+tooling, not an application runtime. Portable distribution profiles are macOS 13+ on Apple
+Silicon (`darwin/arm64`), Windows 10/11 on
 `windows/amd64`, Windows 11 on ARM on `windows/arm64`, and the pinned Wails GTK4/WebKitGTK 6.0
 baseline (initially Ubuntu 24.04+ or Debian 13+) on `linux/amd64` and `linux/arm64`. A platform
 support claim means that the governed target-aware package entrypoint produces the target's
@@ -64,8 +82,12 @@ dependencies, compatibility, acceptance, rollback, or release decisions.
   registered desktop service and named events. Wails v3 generated bindings and
   `@wailsio/runtime` MAY implement this private transport. They MUST NOT expose a generic
   dispatcher or arbitrary filesystem, process, or environment access.
-- `frontend/client/` owns the browser player experience and MUST operate without Wails, native desktop, or
-  filesystem APIs and MUST have no path to desktop capabilities.
+- `frontend/overseer/` and `frontend/client/` MUST remain independent Vue 3 application roots with
+  distinct Vite entrypoints and production bundles. Shared code MUST remain capability-neutral and
+  MUST NOT collapse their trust boundaries or create a shared application runtime root.
+- `frontend/client/` owns the browser player experience and MUST operate without Wails, native
+  desktop, or filesystem APIs and MUST have no import, generated-binding, runtime, or indirect
+  dependency path to desktop capabilities.
 - `internal/domain/`, `internal/nav/`, `internal/hack/`, `internal/live/`, and
   `internal/control/` own domain, navigation, hacking, live-state, and coordination behavior.
   Their canonical logic MUST remain transport-independent and server-authoritative.
@@ -115,8 +137,16 @@ observable or serialized structured contract, including:
 - every known field of the version-1 session document; and
 - serializable application runtime, player-server, startup, and tunnel configuration.
 
-Generated Go and ECMAScript types and explicit boundary adapters MUST implement those contracts.
-Application code MUST NOT maintain handwritten duplicates of transport DTOs.
+Generated Go types, public browser TypeScript contracts, and explicit boundary adapters MUST
+implement those contracts. Public browser contracts MUST be generated deterministically through an
+exactly pinned `protoc-gen-es`; application code MUST NOT maintain handwritten duplicates of
+transport DTOs.
+
+Wails bindings are framework-generated private transport artifacts, not handwritten application
+contracts. They MUST remain generator-owned in the JavaScript, JSDoc, and declaration-file format
+supported by the pinned Wails generator and MUST NOT be manually converted, rewritten, or edited.
+Structured application payloads carried by those bindings remain governed by protobuf schemas and
+explicit adapters.
 
 Secret fields MAY exist only in narrow private mutation inputs and the one-time
 generated-player-password result permitted by Secret and Credential Governance. Secret fields MUST
@@ -139,7 +169,7 @@ structured application messages or state.
 ### III. Use ConnectRPC and Keep State Server-Authoritative
 
 All network RPC communication MUST use ConnectRPC with code generated from the governed schemas for
-Go and ECMAScript. Handwritten JSON wire envelopes, handwritten RPC routers, and duplicated network
+Go and TypeScript. Handwritten JSON wire envelopes, handwritten RPC routers, and duplicated network
 transport DTOs are prohibited.
 
 Browser-originated canonical mutations MUST retain unary RPCs as the portable default.
@@ -186,6 +216,11 @@ public-access endpoint MUST NEVER expose native dialogs, arbitrary file access, 
 opening, `ForceHackSuccess`, provider credentials, private hacking candidates, passwords, random
 outcomes, secret words, or any equivalent trusted capability or secret state.
 
+The public player Vue application MUST retain its own application root, Vite entrypoint, bundle,
+and dependency boundary. It MUST NOT import the Overseer application, Wails runtime or bindings, or
+any adapter capable of invoking native operations. Capability-neutral shared presentation code MAY
+be used only when dependency validation proves that it cannot reach a private capability.
+
 The private Wails bridge MAY remain the transport for trusted desktop-only operations, but every
 structured request, result, event, runtime-status payload, and serializable configuration value
 crossing it MUST have a protobuf-defined contract and an explicit adapter. The Overseer frontend
@@ -216,10 +251,13 @@ of public-access availability and MUST NOT be forced through the provider policy
   new versioned package or an explicit, documented migration.
 
 Code generation MUST be deterministic and reproducible. Generator and protobuf runtime versions
-MUST be pinned. Generated files MUST NOT be edited manually, and generation MUST produce no
-unexplained working-tree drift. Once the repository establishes a protobuf compatibility baseline,
-CI MUST run Buf formatting and linting, generation-drift checks, and breaking-change checks against
-that baseline.
+MUST be pinned. Public browser contracts MUST be emitted as TypeScript by an exactly pinned
+`protoc-gen-es` and MUST compile under the repository's strict TypeScript configuration. Wails
+bindings MUST remain in the pinned Wails generator's supported generated JavaScript, JSDoc, and
+declaration-file format. Generated files MUST NOT be edited manually, and generation MUST produce
+no unexplained working-tree drift. Once the repository establishes a protobuf compatibility
+baseline, CI MUST run Buf formatting and linting, generation-drift checks, and breaking-change
+checks against that baseline.
 
 ### VI. Preserve Portable Session JSON Version 1
 
@@ -252,6 +290,14 @@ Temporary coexistence MUST have a bounded migration plan, an owner, parity crite
 gate. Permanent dual protocols are prohibited unless an explicit, separately specified
 compatibility requirement identifies the consumers, duration, verification, and retirement policy.
 
+A legacy-DOM/Vue or JavaScript/TypeScript transition MAY exist only inside an approved migration
+plan that defines its owner, bounded duration, parity gates, and removal gates. Every rendered DOM
+subtree MUST have exactly one owner at every migration stage: either Vue or the identified legacy
+renderer. Cross-mutation of a subtree is prohibited. The accepted final cutover MUST remove the
+legacy application renderer, handwritten browser-JavaScript application modules, dual entrypoints,
+compatibility shims, and temporary ownership switches after parity is proven. Generator-owned Wails
+JavaScript bindings are not legacy application modules and remain governed by Principle II.
+
 Completed historical specifications and rollback records MUST retain their original targets and
 MUST NOT be rewritten as though they governed the accepted architecture. A new migration MAY use
 temporary coexistence only within its bounded plan and MUST remove every superseded runtime,
@@ -269,7 +315,7 @@ that form or proxy a parallel workflow graph.
 - Root composition and `internal/platform/` adapters MAY depend on the repository's exactly pinned
   `github.com/wailsapp/wails/v3` v3.0.0-beta.15 runtime because they are the Wails v3 composition and
   platform boundaries. No other `internal/` package MAY import Wails.
-- Protobuf schema modules are upstream contract dependencies. Generated Go and ECMAScript outputs
+- Protobuf schema modules are upstream contract dependencies. Generated Go and TypeScript outputs
   MUST depend only on pinned generators and runtimes and MUST be consumed through explicit boundary
   adapters.
 - `internal/domain/`, `internal/nav/`, `internal/hack/`, `internal/live/`, `internal/control/`,
@@ -297,14 +343,15 @@ that form or proxy a parallel workflow graph.
   the pinned Wails updater API, and narrowly owned HTTP, filesystem, or process integrations.
   `internal/version/` MUST remain dependency-free application identity logic and MUST NOT derive a
   release version from mutable runtime state.
-- `frontend/overseer/` MAY call only the narrow registered desktop service through generated Wails bindings
-  and consume named events through `@wailsio/runtime`. Every structured bridge payload MUST
-  originate from a protobuf schema and pass through an explicit adapter; a generic dispatch surface
-  is prohibited.
-- `frontend/client/` MAY use browser APIs, generated ECMAScript Connect clients, server-streaming
+- `frontend/overseer/` MAY call only the narrow registered desktop service through generator-owned
+  Wails bindings and consume named events through `@wailsio/runtime`. Every structured bridge
+  payload MUST originate from a protobuf schema and pass through an explicit adapter; a generic
+  dispatch surface is prohibited. The Wails-generated JavaScript, JSDoc, and declaration files MUST
+  remain unedited outputs of the pinned generator.
+- `frontend/client/` MAY use browser APIs, generated TypeScript Connect clients, server-streaming
   responses, constitution-authorized optional client-streaming presentation intents, and static
-  HTTP assets. It MUST NOT depend on Wails, filesystem APIs, private services, or handwritten RPC
-  envelopes.
+  HTTP assets. It MUST NOT depend on Wails, `@wailsio/runtime`, Wails-generated bindings,
+  filesystem APIs, private services, or handwritten RPC envelopes.
 - Repository Go build orchestration, package manifests, plist files, framework-generated binding
   metadata, other third-party tool configuration, and non-serializable injected dependencies MUST
   remain native to their owning tools or language and MUST NOT acquire parallel protobuf
@@ -316,17 +363,52 @@ that form or proxy a parallel workflow graph.
   package APIs.
 - Every runtime, generator, or build dependency MUST have a concrete need recorded in the plan and
   be pinned reproducibly in its owning production module, isolated Go development-tool module,
-  Buf configuration, or appropriate npm lockfile. The `github.com/wailsapp/wails/v3` runtime
-  module, isolated `wails3` tool module, `@wailsio/runtime` package, and its Vite plugin subpath MUST
-  use mutually compatible exact versions. All owning `go.mod`, `go.sum`, and npm package lockfiles
-  MUST be committed. Reproducible builds and CI MUST reject `@latest`, floating prerelease
-  versions, uncommitted tool-module resolution, and any unrecorded Go-module, CLI, or frontend-
-  runtime version mismatch.
+  Buf configuration, or appropriate npm lockfile. The direct `vue`, `typescript`,
+  `@vitejs/plugin-vue`, and `vue-tsc` dependencies MUST use exact versions without ranges, and the
+  frontend lockfile MUST be committed. The public browser protobuf generator and runtime MUST also
+  be exactly pinned. The `github.com/wailsapp/wails/v3` runtime module, isolated `wails3` tool
+  module, `@wailsio/runtime` package, and its Vite plugin subpath MUST use mutually compatible exact
+  versions. All owning `go.mod`, `go.sum`, and npm package lockfiles MUST be committed. Reproducible
+  builds and CI MUST reject `@latest`, floating prerelease versions, uncommitted tool-module
+  resolution, semver ranges on governed direct frontend dependencies, and any unrecorded Go-module,
+  CLI, generator, TypeScript-tooling, or frontend-runtime version mismatch.
 - An exactly pinned embedded provider SDK MAY be a production/runtime dependency in the root Go
   module only when its concrete need, license, compatibility, module graph, reproducibility, and
   removal of any superseded runtime are recorded in the feature plan. The constitution does not
   mandate any vendor or provider; each feature plan MUST justify the selected provider/runtime
   against these boundary, security, dependency, lifecycle, and removal rules.
+
+## Frontend Architecture and TypeScript Governance
+
+The production frontend consists of two independent Vue 3 applications: the privileged Overseer
+application and the public player application. Both MUST be implemented as strict TypeScript
+Single-File Components and compiled by Vite. The Composition API with
+`<script setup lang="ts">` MUST be the default component style. A component MAY use another Vue
+style only when a narrow technical constraint is recorded in the governing plan or code comment;
+preference or legacy familiarity is not sufficient.
+
+Vue MUST own every rendered DOM subtree in the accepted production baseline. Application code MUST
+express rendering and state-driven DOM updates through Vue components, templates, reactivity, and
+lifecycle APIs. Narrow Vue-owned composables, adapters, and directives MAY integrate Web Audio,
+focus and measurement, CRT or typewriter timing, hacking-board geometry, and streaming. Such an
+integration MUST have a bounded responsibility and lifecycle, MUST clean up owned browser resources,
+and MUST NOT independently render or mutate Vue-owned descendants. Direct DOM access is permitted
+only at these browser-boundary seams or during the bounded migration authorized by Principle VII.
+
+Strict TypeScript settings and repository SFC type-check gates MUST cover both application roots,
+their shared capability-neutral modules, and generated public browser contracts. Broad `any`,
+`@ts-nocheck`, unexplained suppression directives, and type assertions used only to bypass errors
+are prohibited. Unknown boundary data MUST be narrowed or validated. A focused suppression or
+assertion MAY be used only when the compiler cannot represent a proven invariant, its scope is
+minimal, and its rationale is documented next to the use.
+
+Vue is a pinned browser runtime dependency. TypeScript, Node.js, Vite,
+`@vitejs/plugin-vue`, `vue-tsc`, protobuf generation, and browser-test packages are development,
+code-generation, type-check, build, or test tooling and MUST NOT become an application runtime or
+server-side JavaScript tier. The accepted baseline does not require Pinia, Vue Router, Nuxt, a
+component library, or a CSS framework. A feature MAY add one only after its specification and plan
+demonstrate a concrete need, trust-boundary fit, exact dependency pin, bundle impact, and why Vue
+and browser primitives are insufficient.
 
 ## Secret and Credential Governance
 
@@ -464,20 +546,26 @@ Applicable commands MUST succeed before a change is considered complete:
 - `go test ./...` succeeds.
 - `go test -race ./...` succeeds for changes affecting concurrent runtime, player, live, control,
   session, stream, startup, or tunnel behavior.
-- `npm ci --prefix frontend` installs the single locked frontend workspace, and
-  `npm run build:overseer --prefix frontend` succeeds for Overseer, bridge, embedding, or packaging
+- `npm ci --prefix frontend` installs the single locked frontend workspace, and the repository SFC
+  type-check gate succeeds under strict TypeScript by invoking the exactly pinned `vue-tsc` across
+  both application roots, shared modules, and generated browser contracts.
+- Frontend dependency validation confirms exact direct pins for `vue`, `typescript`,
+  `@vitejs/plugin-vue`, and `vue-tsc`, a committed lockfile, and no player dependency path to Wails
+  or native capabilities.
+- `npm run build:overseer --prefix frontend` succeeds for Overseer, bridge, embedding, or packaging
   changes.
 - `npm run build:client --prefix frontend` succeeds for player-client, embedding, generated
-  ECMAScript, asset, or packaging changes.
+  TypeScript, asset, or packaging changes.
 - `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` succeed for affected player
   journeys when the required local environment is available.
 - `task dev` is the canonical repository-root development entrypoint and passes affected
   interactive Overseer/client journeys without a separately started frontend or player server. It
   MUST delegate to the owned Go application plan and MUST NOT create a separate frontend or player
   server.
-- `go tool -modfile=tools/wails/go.mod wails3 generate bindings -clean -d frontend/overseer/bindings ./...` succeeds and produces
-  no unexplained working-tree drift; both generated bindings and protobuf generation remain
-  deterministic and MUST NOT be edited manually.
+- `go tool -modfile=tools/wails/go.mod wails3 generate bindings -clean -d frontend/overseer/bindings ./...`
+  succeeds and produces no unexplained working-tree drift. Generated Wails JavaScript, JSDoc, and
+  declaration files remain in the generator-supported format; Wails binding and protobuf generation
+  are deterministic, and their outputs MUST NOT be edited manually.
 - `task build` succeeds after both `frontend/overseer/` and `frontend/client/` production builds
   succeed; accepted distribution GOOS/GOARCH inputs MUST reach the same typed Go target plan.
 - `task package` succeeds and produces the existing self-contained macOS Apple Silicon application
@@ -506,7 +594,8 @@ Schema and RPC changes MUST additionally verify:
 - deterministic regeneration and a clean generation-drift check;
 - Buf breaking-change detection against the established protobuf baseline once that baseline
   exists;
-- generated Go and ECMAScript compilation;
+- generated Go and strict TypeScript compilation, including deterministic pinned `protoc-gen-es`
+  output;
 - protobuf-aware Go comparisons and applicable message conformance checks;
 - unary mutation validation and rejection behavior;
 - server-stream ordering, revision handling, cancellation, disconnection, and reconnection;
@@ -514,6 +603,17 @@ Schema and RPC changes MUST additionally verify:
   descriptors and payloads; and
 - version-1 JSON round trips, established field names, defaults, and preservation of compatible
   unknown JSON fields for session-contract changes.
+
+Frontend changes MUST additionally verify:
+
+- strict `vue-tsc` SFC checks for both applications and any affected shared modules;
+- exact governed dependency pins and committed-lockfile reproducibility;
+- distinct Overseer and player roots, entrypoints, bundles, and dependency graphs;
+- absence of Wails and native-capability imports from the player graph;
+- Vue ownership of rendered DOM subtrees and cleanup of browser-boundary composables, adapters, and
+  directives; and
+- for migration work, recorded parity evidence, single ownership per DOM subtree, and satisfaction
+  of the approved legacy-DOM and JavaScript removal gates before final cutover.
 
 Public-access and secret-handling changes MUST additionally verify:
 
@@ -537,8 +637,10 @@ module from the pinned Task graph. It MUST enforce Buf formatting/linting, gener
 generated-code compilation when protobuf schemas are present, and MUST add the breaking-change gate
 when a protobuf baseline exists.
 A separate non-release GitHub Actions quality workflow MUST run for pull requests and main-branch
-pushes and enforce the configured Go tests, Go vet, frontend clean builds, player-client clean
-build, startup contracts, exact Wails pin consistency, and clean Wails v3 binding generation. It
+pushes and enforce the configured Go tests, Go vet, strict repository SFC type checks, exact
+frontend pins and lockfile integrity, frontend clean builds, player-client clean build, startup
+contracts, exact Wails pin consistency, deterministic `protoc-gen-es` output, and clean Wails v3
+binding generation. It
 MAY build the current-host application as a quality check but MUST NOT publish release assets.
 The five-target release matrix MUST run only after a qualifying SemVer tag passes preflight and
 MUST gate publication only on target compilation, non-empty archive creation, executable presence,
@@ -554,47 +656,63 @@ MUST be reported, not claimed.
 Reviews MUST verify production module boundaries, protobuf contract coverage, schema evolution,
 generated-file integrity, persistence compatibility, authoritative synchronization, privileged-
 interface exposure, provider-endpoint authentication, secret non-disclosure, secure-store
-isolation, macOS storage behavior, local/LAN failure isolation, stale-completion rejection, final
-cutover cleanup, and owned-resource shutdown.
+isolation, macOS storage behavior, local/LAN failure isolation, stale-completion rejection, strict
+TypeScript integrity, Vue DOM ownership, separate frontend trust boundaries, final cutover cleanup,
+and owned-resource shutdown.
 
 ## Development Workflow
 
 1. Branch from `develop` into a dedicated feature branch.
 2. Specify user-visible behavior, independently testable scenarios, affected public and private
-   capabilities, and every application-owned structured contract.
+   capabilities, and every application-owned structured contract. Active Speckit Technical Context
+   and Project Structure guidance MUST identify Vue 3, strict TypeScript SFCs, Vite, the two
+   application roots and bundles, their trust boundaries, generated TypeScript contracts, and the
+   player application's prohibition on Wails or native capabilities.
 3. Update versioned protobuf schemas first, identifying RPC cardinality, presence, variants, stable
    field numbers, compatibility, and any version-1 JSON adapter impact before implementation.
 4. Plan every affected producer, consumer, adapter, state owner, persistence rule, security
    boundary, generated artifact, cutover, rollback of the feature change, parity gate, package
    gate, and dependency-pin consistency gate. A migration that needs temporary coexistence MUST
-   identify its owner, expiry, parity criteria, immutable rollback reference, and removal gate.
+   identify its owner, expiry, parity criteria, immutable rollback reference, removal gate, and
+   single owner for each DOM subtree at every stage. A frontend migration MUST also map legacy
+   JavaScript and DOM producers to their Vue SFC or Vue-owned integration replacements.
    Public-access plans MUST also identify provider/runtime selection, secure-store ownership,
    secret lifetime, endpoint authentication ownership, local fallback, and shutdown obligations.
 5. Run `make tools` only to bootstrap all isolated Go tool modules, then use the pinned Task graph
-   for repository workflows. Regenerate pinned Go and ECMAScript code deterministically through
-   the isolated `tools/<tool>` modules; never edit generated files or install an unpinned global Go
-   tool.
+   for repository workflows. Regenerate pinned Go and public TypeScript code deterministically
+   through the isolated `tools/<tool>` modules, using pinned `protoc-gen-es` for public browser
+   contracts. Regenerate Wails bindings only through the pinned Wails generator and preserve its
+   supported JavaScript, JSDoc, and declaration-file output. Never edit generated files or install
+   an unpinned global Go tool.
 6. Implement the smallest coherent vertical slice. Keep generated types at boundaries, domain logic
    transport-independent, canonical browser mutations unary by default, live updates
    server-streamed, and private capabilities outside the public player service. A browser
    client-stream MAY carry only the optional high-frequency presentation intents permitted by
-   Principle III and MUST preserve its unary fallback.
+   Principle III and MUST preserve its unary fallback. Vue MUST own each rendered subtree in a
+   completed slice; approved transition slices MUST preserve exactly one Vue or legacy owner per
+   subtree.
 7. Run the automated and interactive verification defined in the plan. Go tests MUST follow the
    governed assertion, table-driven, `t.Context()`, and protobuf-comparison conventions. Run all
    applicable Buf, generation-drift, breaking-change, streaming, privilege-separation, and
-   session-compatibility gates. Public-access changes MUST also run secure-store failure, secret-
-   leak, lifecycle-race, stale-completion, protected-endpoint publication, local-fallback, and
-   packaged double-click gates. Record unavailable conditional checks honestly as `NOT RUN`.
+   session-compatibility gates. Frontend changes MUST also run strict SFC type checks, exact-pin and
+   lockfile validation, independent-bundle checks, player capability-boundary checks, and applicable
+   DOM-ownership, parity, and removal gates. Public-access changes MUST also run secure-store
+   failure, secret-leak, lifecycle-race, stale-completion, protected-endpoint publication,
+   local-fallback, and packaged double-click gates. Record unavailable conditional checks honestly
+   as `NOT RUN`.
 8. Prove parity and pass package and rollback gates, then remove superseded transports,
    dependencies, fixtures, tests, and active documentation unless a separate compatibility
    requirement explicitly retains them. A cutover MUST remove every superseded runtime import,
-   CLI or configuration path, generated binding, and dual-runtime switch before the replacement
-   becomes accepted production architecture.
-9. Update README, schema documentation, fixtures, compatibility specifications, and historical
-   records when setup, operation, or governed behavior changes. Development, generation, CI,
-   packaging, and release workflows MUST use the root Taskfile and continue to resolve every Go
-   tool through its checked-in isolated module. Make MUST remain limited to the all-tool bootstrap;
-   lower-level Go commands remain implementation seams, not a second documented workflow graph.
+   CLI or configuration path, legacy JavaScript module, legacy DOM renderer, temporary ownership
+   switch, generated binding, and dual-runtime switch before the replacement becomes accepted
+   production architecture.
+9. Update active README, schema documentation, fixtures, and compatibility documentation when
+   setup, operation, or governed behavior changes. Completed historical specifications and rollback
+   records MUST NOT be rewritten; new migration records MUST reference them as immutable history.
+   Development, generation, CI, packaging, and release workflows MUST use the root Taskfile and
+   continue to resolve every Go tool through its checked-in isolated module. Make MUST remain
+   limited to the all-tool bootstrap; lower-level Go commands remain implementation seams, not a
+   second documented workflow graph.
 
 ## Governance
 
@@ -617,6 +735,8 @@ listed in the plan's Complexity Tracking table with a concrete rationale, an own
 duration, and a rejected simpler alternative. Reviewers MUST reject unrecorded exceptions,
 manually edited generated files, schema-breaking field reuse, public capability or secret leakage,
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
-workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
+workflow aliases, broad `any`, `@ts-nocheck`, unexplained TypeScript suppressions, assertions used
+only to bypass errors, player imports of Wails or native capabilities, mixed DOM ownership, and
+permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.1.2 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-28
+**Version**: 9.0.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-30
