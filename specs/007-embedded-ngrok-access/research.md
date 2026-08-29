@@ -328,8 +328,8 @@ prevents a requested-domain failure from being disguised as success on another U
 
 **Alternatives considered**:
 
-- Keep `fallout-terminal.ngrok.app` as a default: rejected because it is not owned by every user and
-  contradicts optional-domain behavior.
+- Keep any repository-wide fixed host as a default: rejected because it is not owned by every user
+  and contradicts optional-domain behavior.
 - Fall back from a requested reserved domain to a random URL: rejected because it hides an
   ownership/availability error and surprises the user.
 

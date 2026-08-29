@@ -57,7 +57,7 @@ func TestWailsV3ApplicationOptionsServeOnlyOverseerAssetsAndQuitWithLastWindow(t
 		"index.html":  {Data: []byte("<!doctype html><title>OVERSEER</title>")},
 		"overseer.js": {Data: []byte("export const overseer = true;")},
 	}
-	options := wailsApplicationOptions(assets)
+	options := wailsApplicationOptions(assets, func(application.SecondInstanceData) {})
 	require.Equal(t, "Fallout Terminal", options.Name)
 	require.Equal(t, "Fallout Terminal — Overseer Control", options.Description)
 	require.Equal(t, "FalloutTerminalWindow", options.Windows.WndClass)
@@ -81,6 +81,29 @@ func TestWailsV3ApplicationOptionsServeOnlyOverseerAssetsAndQuitWithLastWindow(t
 	require.NoError(t, err)
 	assert.Contains(t, string(body), "OVERSEER")
 	assert.NotContains(t, string(body), "characterSelect", "the private Wails asset host must not serve the public player application")
+}
+
+func TestWailsApplicationOptionsEnableSingleInstanceLaunches(t *testing.T) {
+	t.Parallel()
+
+	var received application.SecondInstanceData
+	options := wailsApplicationOptions(fstest.MapFS{}, func(data application.SecondInstanceData) {
+		received = data
+	})
+	require.NotNil(t, options.SingleInstance)
+	require.Equal(t, "com.vaulttec.fallout-terminal", options.SingleInstance.UniqueID)
+	require.Zero(t, options.SingleInstance.ExitCode)
+	require.Nil(t, options.SingleInstance.AdditionalData)
+	require.NotZero(t, options.SingleInstance.EncryptionKey)
+	require.NotNil(t, options.SingleInstance.OnSecondInstanceLaunch)
+
+	launch := application.SecondInstanceData{
+		Args:           []string{"Fallout Terminal", "--untrusted"},
+		WorkingDir:     "/untrusted",
+		AdditionalData: map[string]string{"untrusted": "value"},
+	}
+	options.SingleInstance.OnSecondInstanceLaunch(launch)
+	require.Equal(t, launch, received)
 }
 
 func TestWailsSaveSessionBindingRetainsBothRealDemoTerminals(t *testing.T) {
@@ -134,6 +157,42 @@ func TestOverseerWindowOptionsPreserveAcceptedSingleWindowContract(t *testing.T)
 	require.False(t, options.AllowSimpleEventEmit)
 	require.False(t, options.Windows.DisableIcon)
 	requirePNGIcon(t, options.Linux.Icon)
+}
+
+func TestOverseerWindowActivationRestoresAndFocusesReadyWindow(t *testing.T) {
+	t.Parallel()
+
+	target := &recordingOverseerWindowActivator{}
+	activation := &overseerWindowActivation{}
+	activation.bind(target)
+
+	launch := application.SecondInstanceData{
+		Args:           []string{"Fallout Terminal", "--untrusted"},
+		WorkingDir:     "/untrusted",
+		AdditionalData: map[string]string{"untrusted": "value"},
+	}
+	for range 3 {
+		activation.handleSecondInstanceLaunch(launch)
+	}
+
+	require.Equal(t, []string{"restore", "focus", "restore", "focus", "restore", "focus"}, target.callsSnapshot())
+}
+
+func TestOverseerWindowActivationCoalescesLaunchesUntilWindowBinding(t *testing.T) {
+	t.Parallel()
+
+	activation := &overseerWindowActivation{}
+	var launches sync.WaitGroup
+	for range 64 {
+		launches.Go(func() {
+			activation.handleSecondInstanceLaunch(application.SecondInstanceData{})
+		})
+	}
+	launches.Wait()
+
+	target := &recordingOverseerWindowActivator{}
+	activation.bind(target)
+	require.Equal(t, []string{"restore", "focus"}, target.callsSnapshot())
 }
 
 func TestOverseerWindowCloseRegistersOnlyTheCurrentPlatformFallbackAndQuitsExactlyOnce(t *testing.T) {
@@ -402,6 +461,52 @@ func TestWailsEventSinkUsesInjectedManagerForExactTypedEventNames(t *testing.T) 
 	require.Error(t, newWailsEventSink(nil).Emit(serverInfoEvent, domain.ServerInfo{}))
 }
 
+func TestWailsServicesRegisterApprovalNotificationsBeforeCoreLifecycle(t *testing.T) {
+	t.Parallel()
+	host := &recordingWailsServiceRegistrar{}
+	notifications := newApprovalNotificationService(t.Context(), &fakeApprovalNativeNotifier{})
+	core := NewAppWithDependencies(t.Context(), AppDependencies{CoordinationObserver: notifications})
+
+	registerWailsServices(t.Context(), host, core)
+
+	require.Len(t, host.services, 3)
+	_, notificationOK := host.services[0].Instance().(*approvalNotificationService)
+	_, lifecycleOK := host.services[1].Instance().(*wailsLifecycleService)
+	_, desktopOK := host.services[2].Instance().(*desktopService)
+	require.True(t, notificationOK)
+	require.True(t, lifecycleOK)
+	require.True(t, desktopOK)
+}
+
+func TestApprovalNotificationLifecycleFailuresDoNotAbortWailsStartup(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name string
+		fake *fakeApprovalNativeNotifier
+	}{
+		{name: "startup failure", fake: &fakeApprovalNativeNotifier{startupErr: errors.New("unavailable")}},
+		{name: "category failure", fake: &fakeApprovalNativeNotifier{categoryErr: errors.New("unsupported")}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			service := newApprovalNotificationService(t.Context(), test.fake)
+			require.NoError(t, service.ServiceStartup(t.Context(), application.ServiceOptions{}))
+			require.NoError(t, service.ServiceShutdown())
+			require.Eventually(t, func() bool { return test.fake.snapshot().shutdownCalls == 1 }, time.Second, time.Millisecond)
+		})
+	}
+}
+
+type recordingWailsServiceRegistrar struct {
+	services []application.Service
+}
+
+func (host *recordingWailsServiceRegistrar) RegisterService(service application.Service) {
+	host.services = append(host.services, service)
+}
+
+func (*recordingWailsServiceRegistrar) Quit() {}
+
 type lifecycleContextKey struct{}
 
 func requirePNGIcon(t *testing.T, icon []byte) {
@@ -417,6 +522,29 @@ type recordingOverseerWindowCloseRegistrar struct {
 	hookCallbacks    []func(*application.WindowEvent)
 	nativeEventTypes []events.WindowEventType
 	nativeCallbacks  []func(*application.WindowEvent)
+}
+
+type recordingOverseerWindowActivator struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (window *recordingOverseerWindowActivator) Restore() {
+	window.mu.Lock()
+	defer window.mu.Unlock()
+	window.calls = append(window.calls, "restore")
+}
+
+func (window *recordingOverseerWindowActivator) Focus() {
+	window.mu.Lock()
+	defer window.mu.Unlock()
+	window.calls = append(window.calls, "focus")
+}
+
+func (window *recordingOverseerWindowActivator) callsSnapshot() []string {
+	window.mu.Lock()
+	defer window.mu.Unlock()
+	return append([]string(nil), window.calls...)
 }
 
 func (registrar *recordingOverseerWindowCloseRegistrar) RegisterHook(

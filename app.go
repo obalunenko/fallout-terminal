@@ -31,12 +31,13 @@ const (
 )
 
 var (
-	errApplicationContextRequired = errors.New("application context is required")
-	errApplicationShutdown        = errors.New("application shutdown")
-	errApplicationStartupComplete = errors.New("application startup complete")
-	errApplicationStartupTimeout  = errors.New("application startup timed out")
-	errApplicationCleanupComplete = errors.New("application cleanup complete")
-	errApplicationCleanupTimeout  = errors.New("application cleanup timed out")
+	errApplicationContextRequired       = errors.New("application context is required")
+	errApplicationShutdown              = errors.New("application shutdown")
+	errApplicationStartupComplete       = errors.New("application startup complete")
+	errApplicationStartupTimeout        = errors.New("application startup timed out")
+	errApplicationCleanupComplete       = errors.New("application cleanup complete")
+	errApplicationCleanupTimeout        = errors.New("application cleanup timed out")
+	errPublicAccessClipboardUnavailable = errors.New("system clipboard is unavailable")
 )
 
 // SessionService is the lifecycle boundary for the ordered persistence worker.
@@ -154,6 +155,11 @@ type Browser interface {
 	OpenURL(string) error
 }
 
+// ClipboardWriter is the native-only boundary for one-shot trusted text.
+type ClipboardWriter interface {
+	SetText(string) bool
+}
+
 // PlayerServer owns the in-process HTTP/Connect listener.
 type PlayerServer interface {
 	Start(context.Context) (domain.ServerInfo, error)
@@ -189,7 +195,7 @@ type PublicAccessSettingsStore interface {
 }
 
 // PublicAccessCore owns the embedded endpoint lifecycle and its secret-free
-// state. App exposes only the five trusted desktop methods around this core.
+// state. App exposes only trusted desktop methods around this core.
 type PublicAccessCore interface {
 	Initialize(context.Context) tunnelservice.PublicAccessSnapshot
 	Snapshot() tunnelservice.PublicAccessSnapshot
@@ -209,25 +215,33 @@ type ApplicationUpdateService interface {
 	ResolveRestart(context.Context, string, updateservice.RestartDecision) updateservice.CommandResult
 }
 
+// coordinationStateObserver receives accepted private coordination snapshots
+// for root-owned side effects that are not part of the frontend event bridge.
+type coordinationStateObserver interface {
+	observeCoordinationState(*domain.MasterCoordinationState)
+}
+
 // AppDependencies contains constructed services. Construction acquires no
 // external resources; Start owns acquisition in contract order.
 type AppDependencies struct {
-	Sessions        SessionService
-	PlayerConfigs   PlayerConfigService
-	Live            LiveService
-	Coordination    CoordinationService
-	Player          PlayerServer
-	Desktop         DesktopRuntime
-	Browser         Browser
-	Events          EventSink
-	PublicSettings  PublicAccessSettingsStore
-	PublicSecrets   tunnelservice.SecretStore
-	PublicAccess    PublicAccessCore
-	Updates         ApplicationUpdateService
-	PasswordEntropy io.Reader
-	Logger          logger.Logger
-	StartupTimeout  time.Duration
-	ShutdownTimeout time.Duration
+	Sessions             SessionService
+	PlayerConfigs        PlayerConfigService
+	Live                 LiveService
+	Coordination         CoordinationService
+	Player               PlayerServer
+	Desktop              DesktopRuntime
+	Browser              Browser
+	Clipboard            ClipboardWriter
+	Events               EventSink
+	PublicSettings       PublicAccessSettingsStore
+	PublicSecrets        tunnelservice.SecretStore
+	PublicAccess         PublicAccessCore
+	Updates              ApplicationUpdateService
+	CoordinationObserver coordinationStateObserver
+	PasswordEntropy      io.Reader
+	Logger               logger.Logger
+	StartupTimeout       time.Duration
+	ShutdownTimeout      time.Duration
 }
 
 // RuntimeStatus is the synchronous startup/status snapshot used to avoid
@@ -652,6 +666,49 @@ func (app *App) GetPublicAccess() PublicAccessSnapshot {
 	}
 	app.loadPublicAccessLocked(app.contextSnapshot())
 	return app.publicAccessSnapshotLocked()
+}
+
+// CopyPublicAccessCredentials writes the saved player login and password to
+// the native clipboard without returning the password through the desktop API.
+func (app *App) CopyPublicAccessCredentials() (result CommandResult) {
+	defer func() {
+		app.recordOperation("public-access.credentials-share", operationOutcome(result.OK, false), nil)
+	}()
+	app.publicAccessCommandMu.Lock()
+	defer app.publicAccessCommandMu.Unlock()
+
+	ctx := app.contextSnapshot()
+	var preferences tunnelservice.PublicAccessPreferences
+	if app.deps.PublicAccess != nil {
+		snapshot := app.deps.PublicAccess.Snapshot()
+		app.acceptPublicAccessSnapshot(snapshot, false)
+		preferences = snapshot.Preferences
+	} else {
+		app.loadPublicAccessLocked(ctx)
+		app.mu.RLock()
+		preferences = app.publicAccessPreferences
+		app.mu.RUnlock()
+	}
+	normalized, err := preferences.Normalized()
+	if err != nil {
+		return routeCommandResult(CommandResult{Error: tunnelservice.ErrorValidation.SafeMessage()})
+	}
+	if app.deps.Clipboard == nil {
+		return routeCommandResult(CommandResult{Error: errPublicAccessClipboardUnavailable.Error()})
+	}
+	err = tunnelservice.WithPlayerPassword(ctx, app.deps.PublicSecrets, func(password []byte) error {
+		if !app.deps.Clipboard.SetText("Логин: " + normalized.Username + "\nПароль: " + string(password)) {
+			return errPublicAccessClipboardUnavailable
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, errPublicAccessClipboardUnavailable) {
+			return routeCommandResult(CommandResult{Error: errPublicAccessClipboardUnavailable.Error()})
+		}
+		return routeCommandResult(CommandResult{Error: publicAccessSecretCategory(err).SafeMessage()})
+	}
+	return routeCommandResult(CommandResult{OK: true})
 }
 
 // SavePublicAccessSettings validates the complete proposed revision before
@@ -2432,6 +2489,9 @@ func (app *App) publishCoordinationState(state *domain.MasterCoordinationState) 
 	app.mu.Unlock()
 	if app.deps.Events != nil {
 		app.emitEvent(coordinationStateEvent, routeCoordinationEvent(domain.CloneMasterCoordinationState(clone)))
+	}
+	if app.deps.CoordinationObserver != nil {
+		app.deps.CoordinationObserver.observeCoordinationState(domain.CloneMasterCoordinationState(clone))
 	}
 }
 

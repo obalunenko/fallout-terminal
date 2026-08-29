@@ -800,9 +800,7 @@ func TestTerminalGroupReplacementPublishesCanonicalSessionBeforeCoordinationAndR
 		},
 	}
 	coordination := &recordingTerminalGroupCoordinationService{
-		recordingCoordinationService: recordingCoordinationService{
-			state: &domain.MasterCoordinationState{Revision: 21},
-		},
+		state:            &domain.MasterCoordinationState{Revision: 21},
 		recorder:         recorder,
 		replacementState: canonicalState,
 		mutation: &controlservice.TerminalGroupMutation{
@@ -1112,10 +1110,10 @@ func TestTerminalGroupReplacementStaleFailureReturnsLatestProjectionsWithoutPubl
 	})
 	canonicalState := &domain.MasterCoordinationState{Revision: 32}
 	coordination := &recordingTerminalGroupCoordinationService{
-		recordingCoordinationService: recordingCoordinationService{state: canonicalState},
-		recorder:                     recorder,
-		replacementState:             canonicalState,
-		err:                          errors.New("coordination revision changed; review the latest group state"),
+		state:            canonicalState,
+		recorder:         recorder,
+		replacementState: canonicalState,
+		err:              errors.New("coordination revision changed; review the latest group state"),
 	}
 	sessions := &loggingSessionCommands{active: sessionservice.ActiveSession{
 		Path: "/Campaigns/latest-grouped.json", Session: &canonicalSession,
@@ -1160,8 +1158,8 @@ func TestTerminalGroupReplacementUsesCanonicalStoreRejectionProjection(t *testin
 	})
 	canonicalState := &domain.MasterCoordinationState{Revision: 44}
 	coordination := &recordingTerminalGroupCoordinationService{
-		recordingCoordinationService: recordingCoordinationService{state: canonicalState},
-		replacementState:             canonicalState,
+		state:            canonicalState,
+		replacementState: canonicalState,
 		mutation: &controlservice.TerminalGroupMutation{
 			Revision: 19,
 			Session:  canonicalSession,
@@ -1986,6 +1984,44 @@ func TestCoordinationStatusReplaysDisconnectedControllerWithoutChangingClaimOrRo
 	published.Sessions[0].Connected = true
 	published.Roster[0].Name = "mutated"
 	assertDisconnectedControllerSnapshot(t, app.GetRuntimeStatus().CoordinationState, controllerID, characterID)
+}
+
+func TestCoordinationPublicationObservesAcceptedDetachedStateAfterFrontendEvent(t *testing.T) {
+	t.Parallel()
+	recorder := &callRecorder{}
+	observer := &mutatingCoordinationObserver{recorder: recorder}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Events: events, CoordinationObserver: observer,
+	})
+	state := commandApprovalState(5, "request-current", domain.CommandApprovalModeOrdinary)
+
+	app.publishCoordinationState(state)
+	app.publishCoordinationState(commandApprovalState(4, "request-regressing", domain.CommandApprovalModeOrdinary))
+
+	require.Equal(t, []string{"event:coordination-state", "observer:coordination-state"}, recorder.Calls())
+	require.Len(t, observer.states, 1)
+	require.Equal(t, uint64(999), observer.states[0].Revision, "the observer owns its detached mutable copy")
+	require.Equal(t, uint64(5), app.GetRuntimeStatus().CoordinationState.Revision)
+	records := events.Records()
+	require.Len(t, records, 1)
+	published, ok := records[0].Payload.(*domain.MasterCoordinationState)
+	require.True(t, ok)
+	require.Equal(t, uint64(5), published.Revision)
+}
+
+type mutatingCoordinationObserver struct {
+	recorder *callRecorder
+	states   []*domain.MasterCoordinationState
+}
+
+func (observer *mutatingCoordinationObserver) observeCoordinationState(state *domain.MasterCoordinationState) {
+	observer.recorder.Add("observer:coordination-state")
+	state.Revision = 999
+	if state.PendingCommandExecution != nil {
+		state.PendingCommandExecution.CommandName = "mutated observer"
+	}
+	observer.states = append(observer.states, state)
 }
 
 func assertDisconnectedControllerSnapshot(t *testing.T, state *domain.MasterCoordinationState, sessionID domain.LogicalSessionID, characterID domain.CharacterID) {
@@ -3940,6 +3976,19 @@ func (settings *fallbackMatrixSettings) Save(preferences tunnelservice.PublicAcc
 	return nil
 }
 
+type recordingClipboard struct {
+	accept bool
+	text   string
+}
+
+func (clipboard *recordingClipboard) SetText(text string) bool {
+	if !clipboard.accept {
+		return false
+	}
+	clipboard.text = text
+	return true
+}
+
 type fallbackMatrixEndpoint struct {
 	mu         sync.Mutex
 	url        *url.URL
@@ -4207,6 +4256,66 @@ func TestActivePublicAccessMutationsDelegateAsProtectedReconfigureWithoutMixedRe
 
 	calls := recorder.Calls()
 	assert.Less(t, slices.Index(calls, "public:reconfigure"), slices.Index(calls, "event:"+publicAccessStatusEvent))
+}
+
+func TestCopyPublicAccessCredentialsWritesNativeClipboardWithoutSecretResult(t *testing.T) {
+	t.Parallel()
+
+	preferences := tunnelservice.DefaultPublicAccessPreferences()
+	preferences.Username = "wastelanders"
+	settings := &fallbackMatrixSettings{preferences: preferences}
+	secrets := testutil.NewFakeSecretStore()
+	password := "synthetic-player-share-value"
+	require.NoError(t, secrets.Replace(t.Context(), tunnelservice.PlayerBasicAuthPassword, []byte(password)))
+	clipboard := &recordingClipboard{accept: true}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		PublicSettings: settings,
+		PublicSecrets:  secrets,
+		Clipboard:      clipboard,
+	})
+
+	result := app.CopyPublicAccessCredentials()
+	require.True(t, result.OK, result.Error)
+	assert.Equal(t, "Логин: wastelanders\nПароль: "+password, clipboard.text)
+	assert.True(t, secrets.LastUseCleared())
+	raw, err := json.Marshal(result)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), password)
+}
+
+func TestCopyPublicAccessCredentialsReturnsSafeFailures(t *testing.T) {
+	t.Parallel()
+
+	password := "synthetic-player-share-value"
+	for _, test := range []struct {
+		name            string
+		storeError      error
+		clipboardAccept bool
+	}{
+		{name: "secure store locked", storeError: tunnelservice.ErrSecretStoreLocked, clipboardAccept: true},
+		{name: "clipboard unavailable"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			preferences := tunnelservice.DefaultPublicAccessPreferences()
+			settings := &fallbackMatrixSettings{preferences: preferences}
+			secrets := testutil.NewFakeSecretStore()
+			require.NoError(t, secrets.Replace(t.Context(), tunnelservice.PlayerBasicAuthPassword, []byte(password)))
+			secrets.UseError = test.storeError
+			clipboard := &recordingClipboard{accept: test.clipboardAccept}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				PublicSettings: settings,
+				PublicSecrets:  secrets,
+				Clipboard:      clipboard,
+			})
+
+			result := app.CopyPublicAccessCredentials()
+			require.False(t, result.OK)
+			assert.NotEmpty(t, result.Error)
+			assert.NotContains(t, result.Error, password)
+			assert.Empty(t, clipboard.text)
+		})
+	}
 }
 
 func TestPartialPublicAccessMutationFailureUsesReconciledPresenceAndNeverRestartsMixedRevision(t *testing.T) {

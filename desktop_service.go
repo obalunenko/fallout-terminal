@@ -153,6 +153,10 @@ func (service *desktopService) GetPublicAccess() PublicAccessSnapshot {
 	return service.core.GetPublicAccess()
 }
 
+func (service *desktopService) CopyPublicAccessCredentials() CommandResult {
+	return service.core.CopyPublicAccessCredentials()
+}
+
 func (service *desktopService) SavePublicAccessSettings(payload SavePublicAccessSettingsPayload) PublicAccessCommandResult {
 	return service.core.SavePublicAccessSettings(payload)
 }

@@ -262,14 +262,19 @@ def fill_required(ctx: dict, feature_dir: Path, branch: str) -> None:
     ctx.setdefault("branch", branch)
 
 
-def _open_ctx_or_none(feature_dir: Path, step: str = "") -> tuple[dict, list, str] | None:
+def _open_ctx_or_none(
+    feature_dir: Path, step: str = "", *, allow_completed: bool = False,
+) -> tuple[dict, list, str] | None:
     """Read the context for a finish/journal write, returning `(ctx, log, branch)`
     primed (required keys filled, log migrated forward), or None for a spec that is
-    already shipped (completed/archived) and must be left untouched. The shared
+    already shipped (completed/archived) and must be left untouched. A caller may
+    explicitly allow `completed` for folding a validated late task finish; archived
+    specs remain immutable. The shared
     read + cross-step-terminal guard + canonical_log + fill_required preamble of
     journal_finish / journal_task_finish / materialize_log."""
     ctx = read_ctx(feature_dir / ".spec-context.json")
-    if ctx.get("status") in CROSS_STEP_TERMINAL:
+    status = ctx.get("status")
+    if status in CROSS_STEP_TERMINAL and not (allow_completed and status == "completed"):
         # Only the journal paths (which pass a step) announce the skip; materialize
         # passes step="" and stays silent, as it did before this preamble was shared.
         if step:

@@ -26,6 +26,7 @@ const wailsShutdownTimeout = 5 * time.Second
 const (
 	wailsApplicationName        = "Fallout Terminal"
 	wailsApplicationDescription = "Fallout Terminal — Overseer Control"
+	wailsSingleInstanceID       = "com.vaulttec.fallout-terminal"
 	wailsWindowsWindowClass     = "FalloutTerminalWindow"
 	wailsLinuxProgramName       = "fallout-terminal"
 )
@@ -49,8 +50,11 @@ func init() {
 	application.RegisterEvent[ApplicationUpdateSnapshot](applicationUpdateStatusEvent)
 }
 
-func newWailsApplication(overseerAssets fs.FS) *application.App {
-	return application.New(wailsApplicationOptions(overseerAssets))
+func newWailsApplication(
+	overseerAssets fs.FS,
+	onSecondInstanceLaunch func(application.SecondInstanceData),
+) *application.App {
+	return application.New(wailsApplicationOptions(overseerAssets, onSecondInstanceLaunch))
 }
 
 // newApplicationUpdateManager composes discovery only for a versioned,
@@ -169,12 +173,21 @@ func newApplicationUpdateAttemptID() string {
 	return fmt.Sprintf("attempt-%x", time.Now().UnixNano())
 }
 
-func wailsApplicationOptions(overseerAssets fs.FS) application.Options {
+func wailsApplicationOptions(
+	overseerAssets fs.FS,
+	onSecondInstanceLaunch func(application.SecondInstanceData),
+) application.Options {
 	return application.Options{
 		Name:                        wailsApplicationName,
 		Description:                 wailsApplicationDescription,
 		Icon:                        wailsApplicationIcon(),
 		DisableDefaultSignalHandler: true,
+		SingleInstance: &application.SingleInstanceOptions{
+			UniqueID:               wailsSingleInstanceID,
+			OnSecondInstanceLaunch: onSecondInstanceLaunch,
+			ExitCode:               0,
+			EncryptionKey:          wailsSingleInstanceEncryptionKey(),
+		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(overseerAssets),
 		},
@@ -194,6 +207,57 @@ func wailsApplicationOptions(overseerAssets fs.FS) application.Options {
 
 func wailsApplicationIcon() []byte {
 	return append([]byte(nil), embeddedWailsApplicationIcon...)
+}
+
+// wailsSingleInstanceEncryptionKey returns a copy of the embedded application
+// key so every process can authenticate activation messages before configuration
+// or credential stores are available. The callback still ignores payload data.
+func wailsSingleInstanceEncryptionKey() [32]byte {
+	return [32]byte{
+		0x9e, 0x56, 0x30, 0xdc, 0x83, 0x95, 0x19, 0x83,
+		0x1d, 0x9a, 0xbb, 0x2f, 0xe7, 0x99, 0x7a, 0x01,
+		0x82, 0x59, 0xf2, 0x07, 0x87, 0x4e, 0x42, 0x13,
+		0xda, 0x93, 0x12, 0xc1, 0x53, 0x14, 0xd7, 0x82,
+	}
+}
+
+type overseerWindowActivator interface {
+	Restore()
+	Focus()
+}
+
+type overseerWindowActivation struct {
+	mu      sync.Mutex
+	window  overseerWindowActivator
+	pending bool
+}
+
+func (activation *overseerWindowActivation) bind(window overseerWindowActivator) {
+	activation.mu.Lock()
+	activation.window = window
+	pending := activation.pending
+	activation.pending = false
+	activation.mu.Unlock()
+	if pending {
+		restoreAndFocusOverseerWindow(window)
+	}
+}
+
+func (activation *overseerWindowActivation) handleSecondInstanceLaunch(_ application.SecondInstanceData) {
+	activation.mu.Lock()
+	window := activation.window
+	if window == nil {
+		activation.pending = true
+		activation.mu.Unlock()
+		return
+	}
+	activation.mu.Unlock()
+	restoreAndFocusOverseerWindow(window)
+}
+
+func restoreAndFocusOverseerWindow(window overseerWindowActivator) {
+	window.Restore()
+	window.Focus()
 }
 
 func newOverseerWindow(host *application.App) *application.WebviewWindow {
@@ -399,6 +463,11 @@ func (service *wailsLifecycleService) ServiceShutdown() error {
 }
 
 func registerWailsServices(ctx context.Context, host wailsServiceRegistrar, core *App) {
+	if core != nil {
+		if notifications, ok := core.deps.CoordinationObserver.(*approvalNotificationService); ok {
+			host.RegisterService(application.NewService(notifications))
+		}
+	}
 	host.RegisterService(application.NewService(newWailsLifecycleService(ctx, core, host.Quit)))
 	host.RegisterService(application.NewService(newDesktopService(core)))
 }

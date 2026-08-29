@@ -40,6 +40,7 @@ func TestPrepareApplicationUnitValidatesManifestBeforeAdjacentStaging(t *testing
 	assert.Equal(t, installedUnit, prepared.InstalledUnit)
 	assert.Equal(t, filepath.Dir(installedUnit), filepath.Dir(prepared.StagedUnit))
 	assert.FileExists(t, filepath.Join(prepared.StagedUnit, "Fallout Terminal"))
+	assert.FileExists(t, filepath.Join(prepared.StagedUnit, portableLaunchGuideFilename))
 }
 
 func TestPrepareApplicationUnitRejectsManifestIdentityBeforeStaging(t *testing.T) {

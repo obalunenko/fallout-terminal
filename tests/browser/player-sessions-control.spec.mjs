@@ -60,6 +60,19 @@ async function selectFirstAvailable(page) {
   return name.trim();
 }
 
+async function submitUnsuccessfulHackGuess(controller, observers = []) {
+  const initialAttempts = await controller.locator('#attemptsLine').textContent();
+  await controller.locator('.hcell.word').first().click();
+  await expect.poll(async () => controller.locator('#attemptsLine').textContent()).not.toBe(initialAttempts);
+  const retainedAttempts = await controller.locator('#attemptsLine').textContent();
+  await Promise.all(observers.map(observer =>
+    expect(observer.locator('#attemptsLine')).toHaveText(retainedAttempts)));
+}
+
+async function expectNoPlayerNotice(pages) {
+  await Promise.all(pages.map(page => expect(page.locator('#playerNotice')).toBeHidden()));
+}
+
 function typedPlayerRequests(page) {
   const requests = [];
   page.on('request', request => {
@@ -774,6 +787,95 @@ test('rapid hacking hover keeps one presentation in flight and follows with only
   expect(diagnostics.cues, JSON.stringify(diagnostics)).toHaveLength(1);
   expect(diagnostics.cues[0]).toContain('/sounds/multiple/');
   await observerContext.close();
+});
+
+test('late unary hacking presentation rejection cannot outlive trusted success', async ({ browser, request }) => {
+  const controllerContext = await browser.newContext();
+  const observerContext = await browser.newContext();
+  await controllerContext.route(`**${PLAYER_SERVICE}PresentationUplink`, route => route.abort());
+  await installPlayerDiagnostics(controllerContext);
+  await installPlayerDiagnostics(observerContext);
+  const controller = await controllerContext.newPage();
+  const observer = await observerContext.newPage();
+  await Promise.all([controller.goto('/'), observer.goto('/')]);
+  await Promise.all([controller, observer].map(page => expect(page.locator('#connOverlay')).toBeHidden()));
+  await selectFirstAvailable(controller);
+  await selectFirstAvailable(observer);
+  await expect(observer.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+  expect((await request.post('/__fixture/local/crt/hacking')).status()).toBe(204);
+  await Promise.all([controller, observer].map(page => expect(page.locator('#hackBoard')).toBeVisible()));
+  await submitUnsuccessfulHackGuess(controller, [observer]);
+
+  let unaryPresentationRequests = 0;
+  controller.on('request', observed => {
+    if (observed.url().endsWith(`${PLAYER_SERVICE}SetPresentation`)) unaryPresentationRequests += 1;
+  });
+  expect((await request.post('/__fixture/presentation-uplinks/close')).status()).toBe(204);
+  await controller.waitForTimeout(100);
+  expect((await request.post('/__fixture/edge/presentation-gate/arm-unary')).status()).toBe(204);
+  await controller.locator('.hcell.word').last().hover();
+  await expect.poll(() => unaryPresentationRequests).toBe(1);
+  await expect.poll(async () => (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(204);
+  expect((await request.post('/__fixture/force-hack')).status()).toBe(204);
+  await expectNoPlayerNotice([controller, observer]);
+
+  expect((await request.post('/__fixture/edge/presentation-gate/release')).status()).toBe(204);
+  await expect.poll(async () => (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(409);
+  await controller.waitForTimeout(100);
+  await expect(controller.locator('#hackHeader')).toBeVisible();
+  await expectNoPlayerNotice([controller, observer]);
+  await Promise.all([controller, observer].map(page =>
+    expect(page.locator('#termList')).toBeVisible({ timeout: 5000 })));
+  await expectNoPlayerNotice([controller, observer]);
+
+  await observerContext.close();
+  await controllerContext.close();
+});
+
+test('late streamed hacking presentation rejection cannot outlive trusted success', async ({ browser, request }) => {
+  const edgeStatus = await request.get('/__fixture/edge/status');
+  const protectedOrigin = (await edgeStatus.json()).publicUrl;
+  const contextOptions = {
+    httpCredentials: { username: 'players', password: 'password-long-enough' },
+    ignoreHTTPSErrors: true,
+  };
+  const controllerContext = await browser.newContext(contextOptions);
+  const observerContext = await browser.newContext(contextOptions);
+  await installPlayerDiagnostics(controllerContext);
+  await installPlayerDiagnostics(observerContext);
+  const controller = await controllerContext.newPage();
+  const observer = await observerContext.newPage();
+  let presentationUplinks = 0;
+  controller.on('request', observed => {
+    if (observed.url().endsWith(`${PLAYER_SERVICE}PresentationUplink`)) presentationUplinks += 1;
+  });
+  await Promise.all([controller.goto(`${protectedOrigin}/`), observer.goto(`${protectedOrigin}/`)]);
+  await Promise.all([controller, observer].map(page => expect(page.locator('#connOverlay')).toBeHidden()));
+  await selectFirstAvailable(controller);
+  await selectFirstAvailable(observer);
+  await expect(observer.locator('#roleBadge')).toContainText('НАБЛЮДАТЕЛЬ');
+  await expect.poll(() => presentationUplinks).toBeGreaterThanOrEqual(1);
+  expect((await request.post('/__fixture/edge/hacking')).status()).toBe(204);
+  await Promise.all([controller, observer].map(page => expect(page.locator('#hackBoard')).toBeVisible()));
+  await submitUnsuccessfulHackGuess(controller, [observer]);
+
+  expect((await request.post('/__fixture/edge/presentation-gate/arm')).status()).toBe(204);
+  await controller.locator('.hcell.word').last().hover();
+  await expect.poll(async () => (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(204);
+  expect((await request.post('/__fixture/force-hack')).status()).toBe(204);
+  await expectNoPlayerNotice([controller, observer]);
+
+  expect((await request.post('/__fixture/edge/presentation-gate/release')).status()).toBe(204);
+  await expect.poll(async () => (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(409);
+  await controller.waitForTimeout(100);
+  await expect(controller.locator('#hackHeader')).toBeVisible();
+  await expectNoPlayerNotice([controller, observer]);
+  await Promise.all([controller, observer].map(page =>
+    expect(page.locator('#termList')).toBeVisible({ timeout: 5000 })));
+  await expectNoPlayerNotice([controller, observer]);
+
+  await observerContext.close();
+  await controllerContext.close();
 });
 
 test('public stream rotation preserves one final authoritative menu and hacking cue', async ({ browser, request }) => {

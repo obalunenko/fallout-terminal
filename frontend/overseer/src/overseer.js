@@ -120,27 +120,53 @@ const terminalSwitchStatus = document.getElementById('terminalSwitchStatus');
 const terminalSwitchError = document.getElementById('terminalSwitchError');
 const terminalSwitchButtons = Array.from(document.querySelectorAll('[data-switch-decision]'));
 const publicAccessSection = document.getElementById('publicAccessSection');
+const publicAccessStateRow = document.querySelector('.public-access-state-row');
+const publicAccessSettingsDialog = document.getElementById('publicAccessSettingsDialog');
+const publicAccessSetupRequired = document.getElementById('publicAccessSetupRequired');
+const publicAccessSettingsError = document.getElementById('publicAccessSettingsError');
+const publicAccessGuide = document.getElementById('publicAccessGuide');
 const publicAccessForm = document.getElementById('publicAccessForm');
-const publicAccessEnabledPreference = document.getElementById('publicAccessEnabledPreference');
 const publicAccessDomain = document.getElementById('publicAccessDomain');
-const publicAccessUsername = document.getElementById('publicAccessUsername');
+const publicAccessUsernameSummary = document.getElementById('publicAccessUsernameSummary');
+const publicAccessPasswordMask = document.getElementById('publicAccessPasswordMask');
+const publicAccessProviderSetup = document.getElementById('publicAccessProviderSetup');
+const publicAccessProviderConfigured = document.getElementById('publicAccessProviderConfigured');
 const publicAccessProviderToken = document.getElementById('publicAccessProviderToken');
-const publicAccessPlayerPassword = document.getElementById('publicAccessPlayerPassword');
-const publicAccessDeleteProviderToken = document.getElementById('publicAccessDeleteProviderToken');
-const publicAccessDeletePlayerPassword = document.getElementById('publicAccessDeletePlayerPassword');
 const publicAccessProviderPresence = document.getElementById('publicAccessProviderPresence');
 const publicAccessPasswordPresence = document.getElementById('publicAccessPasswordPresence');
+const publicAccessNgrokDocLinks = document.querySelectorAll('[data-ngrok-doc-url]');
+const publicAccessProviderTokenDialog = document.getElementById('publicAccessProviderTokenDialog');
+const publicAccessProviderTokenForm = document.getElementById('publicAccessProviderTokenForm');
+const publicAccessReplacementProviderToken = document.getElementById('publicAccessReplacementProviderToken');
+const publicAccessProviderTokenError = document.getElementById('publicAccessProviderTokenError');
+const publicAccessPlayerCredentialsDialog = document.getElementById('publicAccessPlayerCredentialsDialog');
+const publicAccessPlayerCredentialsForm = document.getElementById('publicAccessPlayerCredentialsForm');
+const publicAccessReplacementUsername = document.getElementById('publicAccessReplacementUsername');
+const publicAccessReplacementPlayerPassword = document.getElementById('publicAccessReplacementPlayerPassword');
+const publicAccessReplacementPlayerPasswordHint = document.getElementById('publicAccessReplacementPlayerPasswordHint');
+const publicAccessPlayerCredentialsError = document.getElementById('publicAccessPlayerCredentialsError');
 const publicAccessStatus = document.getElementById('publicAccessStatus');
 const publicAccessError = document.getElementById('publicAccessError');
 const publicAccessURL = document.getElementById('publicAccessURL');
 const publicAccessCopyStatus = document.getElementById('publicAccessCopyStatus');
+const publicAccessSettingsCopyStatus = document.getElementById('publicAccessSettingsCopyStatus');
 const btnSavePublicAccess = document.getElementById('btnSavePublicAccess');
-const btnGeneratePlayerPassword = document.getElementById('btnGeneratePlayerPassword');
 const btnStartPublicAccess = document.getElementById('btnStartPublicAccess');
 const btnStopPublicAccess = document.getElementById('btnStopPublicAccess');
 const btnCopyPublicURL = document.getElementById('btnCopyPublicURL');
-const btnCopyPublicUsername = document.getElementById('btnCopyPublicUsername');
-const btnCopyManualPassword = document.getElementById('btnCopyManualPassword');
+const btnOpenPublicAccessSettings = document.getElementById('btnOpenPublicAccessSettings');
+const btnClosePublicAccessSettings = document.getElementById('btnClosePublicAccessSettings');
+const btnCancelPublicAccessSettings = document.getElementById('btnCancelPublicAccessSettings');
+const btnOpenPublicAccessProviderToken = document.getElementById('btnOpenPublicAccessProviderToken');
+const btnCancelPublicAccessProviderToken = document.getElementById('btnCancelPublicAccessProviderToken');
+const btnSavePublicAccessProviderToken = document.getElementById('btnSavePublicAccessProviderToken');
+const btnDeletePublicAccessProviderToken = document.getElementById('btnDeletePublicAccessProviderToken');
+const btnOpenPublicAccessPlayerCredentials = document.getElementById('btnOpenPublicAccessPlayerCredentials');
+const btnSharePublicAccessCredentials = document.getElementById('btnSharePublicAccessCredentials');
+const btnCancelPublicAccessPlayerCredentials = document.getElementById('btnCancelPublicAccessPlayerCredentials');
+const btnSavePublicAccessPlayerCredentials = document.getElementById('btnSavePublicAccessPlayerCredentials');
+const btnDeletePublicAccessPlayerCredentials = document.getElementById('btnDeletePublicAccessPlayerCredentials');
+const btnGeneratePlayerPassword = document.getElementById('btnGeneratePlayerPassword');
 const generatedPasswordDialog = document.getElementById('generatedPasswordDialog');
 const generatedPasswordValue = document.getElementById('generatedPasswordValue');
 const btnCopyGeneratedPassword = document.getElementById('btnCopyGeneratedPassword');
@@ -173,6 +199,9 @@ let pendingTerminalSwitch = null;
 let startupStatus = null;
 let publicAccessSnapshot = null;
 let publicAccessCommandPending = false;
+let publicAccessSettingsDialogOpener = null;
+let publicAccessProviderTokenDialogOpener = null;
+let publicAccessPlayerCredentialsDialogOpener = null;
 let sessionStateCommandPending = false;
 let commandExecutionDialogRequestID = null;
 let commandExecutionDecisionRequestID = null;
@@ -760,11 +789,40 @@ function publicAccessFailureMessage(status) {
     || 'ПУБЛИЧНЫЙ ДОСТУП НЕДОСТУПЕН';
 }
 
-function renderSecretPresence(element, presence) {
+function renderSecretPresence(element, presence, presentLabel = 'СОХРАНЕН') {
   element.dataset.presence = presence;
   element.textContent = presence === 'present'
-    ? 'СОХРАНЕН'
+    ? presentLabel
     : presence === 'absent' ? 'НЕ СОХРАНЕН' : 'НЕДОСТУПЕН';
+}
+
+function publicAccessDisplayURL(preferences, status) {
+  if (status.state === 'ready' && status.publicUrl) return status.publicUrl;
+  if (status.state === 'error') return '';
+  const reservedDomain = String(preferences.reservedDomain || '').trim();
+  if (!reservedDomain) return '';
+  return /^https?:\/\//i.test(reservedDomain) ? reservedDomain : `https://${reservedDomain}`;
+}
+
+function syncPublicAccessPlayerCredentialControls() {
+  const configured = publicAccessSnapshot?.playerPasswordPresence === 'present';
+  const transitioning = publicAccessSnapshot?.status?.state === 'starting' ||
+    publicAccessSnapshot?.status?.state === 'stopping';
+  const disabled = publicAccessCommandPending || transitioning;
+  const username = publicAccessReplacementUsername.value.trim();
+  const password = publicAccessReplacementPlayerPassword.value;
+  const passwordValid = password === '' || Array.from(password).length >= 8;
+  publicAccessReplacementUsername.disabled = disabled;
+  publicAccessReplacementPlayerPassword.disabled = disabled;
+  btnGeneratePlayerPassword.disabled = disabled;
+  btnCancelPublicAccessPlayerCredentials.disabled = publicAccessCommandPending;
+  btnDeletePublicAccessPlayerCredentials.hidden = !configured;
+  btnDeletePublicAccessPlayerCredentials.disabled = disabled || !configured;
+  btnSavePublicAccessPlayerCredentials.disabled = disabled || username === '' ||
+    !passwordValid || (!configured && password === '');
+  publicAccessReplacementPlayerPasswordHint.textContent = configured
+    ? 'Оставьте пустым, чтобы сохранить текущий пароль.'
+    : 'Введите пароль не короче 8 символов или сгенерируйте новый.';
 }
 
 function renderPublicAccess(snapshot) {
@@ -781,13 +839,21 @@ function renderPublicAccess(snapshot) {
   publicAccessSnapshot = snapshot;
   const preferences = snapshot.preferences || {};
   const status = snapshot.status || {};
-  publicAccessEnabledPreference.checked = preferences.enabledPreference === true;
   publicAccessDomain.value = preferences.reservedDomain || '';
-  publicAccessUsername.value = preferences.username || 'players';
-  renderSecretPresence(publicAccessProviderPresence, snapshot.providerTokenPresence);
+  publicAccessUsernameSummary.textContent = preferences.username || 'players';
+  const providerTokenConfigured = snapshot.providerTokenPresence === 'present';
+  const playerPasswordConfigured = snapshot.playerPasswordPresence === 'present';
+  publicAccessProviderSetup.hidden = providerTokenConfigured;
+  publicAccessProviderConfigured.hidden = !providerTokenConfigured;
+  if (providerTokenConfigured) publicAccessProviderToken.value = '';
+  renderSecretPresence(publicAccessProviderPresence, snapshot.providerTokenPresence, 'НАСТРОЕН');
   renderSecretPresence(publicAccessPasswordPresence, snapshot.playerPasswordPresence);
+  publicAccessPasswordPresence.hidden = playerPasswordConfigured;
+  publicAccessPasswordMask.hidden = !playerPasswordConfigured;
+  publicAccessPasswordMask.textContent = playerPasswordConfigured ? '*****' : '';
   publicAccessStatus.textContent = publicAccessStateLabels[status.state] || 'ЗАГРУЗКА…';
   publicAccessStatus.dataset.state = status.state || 'loading';
+  publicAccessStateRow.dataset.state = status.state || 'loading';
   publicAccessStatus.dataset.generation = String(Number(status.generation || 0));
   publicAccessStatus.dataset.settingsRevision = String(Number(status.settingsRevision || preferences.revision || 0));
   const publicFailure = publicAccessFailureMessage(status);
@@ -795,26 +861,40 @@ function renderPublicAccess(snapshot) {
     ? `${publicFailure} · ЛОКАЛЬНЫЙ РЕЖИМ ПРОДОЛЖАЕТ РАБОТАТЬ`
     : '';
   publicAccessError.hidden = publicAccessError.textContent === '';
-  publicAccessURL.textContent = status.state === 'ready' ? (status.publicUrl || '') : '';
-  btnCopyPublicURL.hidden = publicAccessURL.textContent === '';
+  const displayURL = publicAccessDisplayURL(preferences, status);
+  publicAccessURL.textContent = displayURL || 'ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА';
+  publicAccessURL.dataset.available = String(Boolean(displayURL));
+  btnCopyPublicURL.hidden = !displayURL;
   const transitioning = status.state === 'starting' || status.state === 'stopping';
   const disabled = publicAccessCommandPending || transitioning;
   for (const control of [
-    publicAccessEnabledPreference, publicAccessDomain, publicAccessUsername,
-    publicAccessProviderToken, publicAccessPlayerPassword,
-    publicAccessDeleteProviderToken, publicAccessDeletePlayerPassword,
-    btnSavePublicAccess, btnGeneratePlayerPassword,
+    publicAccessDomain, publicAccessProviderToken, publicAccessReplacementProviderToken,
+    btnSavePublicAccess,
+    btnOpenPublicAccessProviderToken, btnSavePublicAccessProviderToken,
+    btnDeletePublicAccessProviderToken, btnOpenPublicAccessPlayerCredentials,
   ]) control.disabled = disabled;
+  const stopping = status.state === 'ready' || status.state === 'stopping';
+  btnStartPublicAccess.hidden = stopping;
+  btnStopPublicAccess.hidden = !stopping;
+  btnStartPublicAccess.textContent = status.state === 'starting' ? 'ЗАПУСК…' : 'ВКЛЮЧИТЬ ДОСТУП';
+  btnStopPublicAccess.textContent = status.state === 'stopping' ? 'ОСТАНОВКА…' : 'ОСТАНОВИТЬ ДОСТУП';
   btnStartPublicAccess.disabled = disabled || status.state === 'ready';
   btnStopPublicAccess.disabled = disabled || status.state === 'stopped';
-  btnCopyManualPassword.disabled = disabled || publicAccessPlayerPassword.value === '';
+  btnOpenPublicAccessSettings.disabled = disabled;
+  btnClosePublicAccessSettings.disabled = publicAccessCommandPending;
+  btnCancelPublicAccessSettings.disabled = publicAccessCommandPending;
+  btnCancelPublicAccessProviderToken.disabled = publicAccessCommandPending;
+  btnSavePublicAccessProviderToken.disabled = disabled || publicAccessReplacementProviderToken.value.trim() === '';
+  btnSharePublicAccessCredentials.disabled = disabled || !playerPasswordConfigured ||
+    publicAccessUsernameSummary.textContent.trim() === '';
+  syncPublicAccessPlayerCredentialControls();
 }
 
 function publicAccessRevision() {
   return Number(publicAccessSnapshot?.preferences?.revision || 0);
 }
 
-async function copyTransientText(value, successMessage) {
+async function copyTransientText(value, successMessage, statusElement = publicAccessCopyStatus) {
   if (!value) return false;
   let copied = false;
   try {
@@ -830,11 +910,213 @@ async function copyTransientText(value, successMessage) {
     copied = await desktopAPI.writeClipboardText(value);
   }
   if (copied) {
-    publicAccessCopyStatus.textContent = successMessage;
+    statusElement.textContent = successMessage;
     return true;
   }
-  publicAccessCopyStatus.textContent = 'НЕ УДАЛОСЬ СКОПИРОВАТЬ';
+  statusElement.textContent = 'НЕ УДАЛОСЬ СКОПИРОВАТЬ';
   return false;
+}
+
+function showPublicAccessSettings({ setupRequired = false } = {}) {
+  if (publicAccessCommandPending) return;
+  publicAccessSettingsDialogOpener = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : btnOpenPublicAccessSettings;
+  publicAccessSetupRequired.hidden = !setupRequired;
+  if (setupRequired) publicAccessGuide.open = true;
+  publicAccessSettingsError.textContent = '';
+  publicAccessSettingsError.hidden = true;
+  publicAccessSettingsCopyStatus.textContent = '';
+  publicAccessSettingsDialog.hidden = false;
+  if (typeof publicAccessSettingsDialog.showModal === 'function' && !publicAccessSettingsDialog.open) {
+    publicAccessSettingsDialog.showModal();
+  } else {
+    publicAccessSettingsDialog.setAttribute('open', '');
+  }
+  queueMicrotask(() => btnClosePublicAccessSettings.focus());
+}
+
+function hidePublicAccessSettings() {
+  if (publicAccessCommandPending) return;
+  if (typeof publicAccessSettingsDialog.close === 'function' && publicAccessSettingsDialog.open) {
+    publicAccessSettingsDialog.close();
+  } else {
+    publicAccessSettingsDialog.removeAttribute('open');
+  }
+  publicAccessSettingsDialog.hidden = true;
+  publicAccessSetupRequired.hidden = true;
+  publicAccessSettingsError.textContent = '';
+  publicAccessSettingsError.hidden = true;
+  publicAccessSettingsCopyStatus.textContent = '';
+  publicAccessProviderToken.value = '';
+  renderPublicAccess(publicAccessSnapshot);
+  const opener = publicAccessSettingsDialogOpener;
+  publicAccessSettingsDialogOpener = null;
+  if (opener?.isConnected) opener.focus();
+}
+
+function publicAccessNonSecretDraft() {
+  return {
+    reservedDomain: publicAccessDomain.value,
+  };
+}
+
+function restorePublicAccessNonSecretDraft(draft) {
+  publicAccessDomain.value = draft.reservedDomain;
+}
+
+function confirmActivePublicAccessChange() {
+  return publicAccessSnapshot?.status?.state !== 'ready' || window.confirm(
+    'ПУБЛИЧНЫЙ ДОСТУП АКТИВЕН. ИЗМЕНЕНИЕ ОСТАНОВИТ И ПЕРЕЗАПУСТИТ ССЫЛКУ. ПРОДОЛЖИТЬ?',
+  );
+}
+
+function showPublicAccessProviderTokenDialog() {
+  if (publicAccessCommandPending || publicAccessSnapshot?.providerTokenPresence !== 'present') return;
+  publicAccessProviderTokenDialogOpener = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : btnOpenPublicAccessProviderToken;
+  publicAccessReplacementProviderToken.value = '';
+  publicAccessProviderTokenError.textContent = '';
+  publicAccessProviderTokenError.hidden = true;
+  publicAccessProviderTokenDialog.hidden = false;
+  if (typeof publicAccessProviderTokenDialog.showModal === 'function' && !publicAccessProviderTokenDialog.open) {
+    publicAccessProviderTokenDialog.showModal();
+  } else {
+    publicAccessProviderTokenDialog.setAttribute('open', '');
+  }
+  queueMicrotask(() => publicAccessReplacementProviderToken.focus());
+}
+
+function hidePublicAccessProviderTokenDialog() {
+  if (publicAccessCommandPending) return;
+  if (typeof publicAccessProviderTokenDialog.close === 'function' && publicAccessProviderTokenDialog.open) {
+    publicAccessProviderTokenDialog.close();
+  } else {
+    publicAccessProviderTokenDialog.removeAttribute('open');
+  }
+  publicAccessProviderTokenDialog.hidden = true;
+  publicAccessReplacementProviderToken.value = '';
+  publicAccessProviderTokenError.textContent = '';
+  publicAccessProviderTokenError.hidden = true;
+  const opener = publicAccessProviderTokenDialogOpener;
+  publicAccessProviderTokenDialogOpener = null;
+  if (opener?.isConnected && !opener.closest('[hidden]')) {
+    opener.focus();
+  } else {
+    publicAccessProviderToken.focus();
+  }
+}
+
+async function runPublicAccessProviderTokenMutation({ replacementProviderToken = '', deleteProviderToken = false }) {
+  if (publicAccessCommandPending || !confirmActivePublicAccessChange()) return;
+  const preferences = publicAccessSnapshot?.preferences || {};
+  const draft = publicAccessNonSecretDraft();
+  const request = {
+    expectedRevision: publicAccessRevision(),
+    enabledPreference: false,
+    reservedDomain: preferences.reservedDomain || '',
+    username: preferences.username || 'players',
+    replacementProviderToken,
+    deleteProviderToken,
+    replacementPlayerPassword: '',
+    deletePlayerPassword: false,
+  };
+  publicAccessProviderTokenError.textContent = '';
+  publicAccessProviderTokenError.hidden = true;
+  publicAccessCommandPending = true;
+  renderPublicAccess(publicAccessSnapshot);
+  const pending = desktopAPI.savePublicAccessSettings(request);
+  publicAccessReplacementProviderToken.value = '';
+  request.replacementProviderToken = '';
+  const result = await pending;
+  publicAccessCommandPending = false;
+  renderPublicAccess(result.snapshot || publicAccessSnapshot);
+  restorePublicAccessNonSecretDraft(draft);
+  if (!result.ok) {
+    publicAccessProviderTokenError.textContent = result.error || 'НЕ УДАЛОСЬ ИЗМЕНИТЬ ТОКЕН NGROK';
+    publicAccessProviderTokenError.hidden = false;
+    return;
+  }
+  hidePublicAccessProviderTokenDialog();
+}
+
+function showPublicAccessPlayerCredentialsDialog() {
+  if (publicAccessCommandPending) return;
+  publicAccessPlayerCredentialsDialogOpener = document.activeElement instanceof HTMLElement
+    ? document.activeElement
+    : btnOpenPublicAccessPlayerCredentials;
+  publicAccessReplacementUsername.value = publicAccessSnapshot?.preferences?.username || 'players';
+  publicAccessReplacementPlayerPassword.value = '';
+  publicAccessPlayerCredentialsError.textContent = '';
+  publicAccessPlayerCredentialsError.hidden = true;
+  syncPublicAccessPlayerCredentialControls();
+  publicAccessPlayerCredentialsDialog.hidden = false;
+  if (typeof publicAccessPlayerCredentialsDialog.showModal === 'function' && !publicAccessPlayerCredentialsDialog.open) {
+    publicAccessPlayerCredentialsDialog.showModal();
+  } else {
+    publicAccessPlayerCredentialsDialog.setAttribute('open', '');
+  }
+  queueMicrotask(() => publicAccessReplacementUsername.focus());
+}
+
+function hidePublicAccessPlayerCredentialsDialog() {
+  if (publicAccessCommandPending) return;
+  if (typeof publicAccessPlayerCredentialsDialog.close === 'function' && publicAccessPlayerCredentialsDialog.open) {
+    publicAccessPlayerCredentialsDialog.close();
+  } else {
+    publicAccessPlayerCredentialsDialog.removeAttribute('open');
+  }
+  publicAccessPlayerCredentialsDialog.hidden = true;
+  publicAccessReplacementPlayerPassword.value = '';
+  publicAccessPlayerCredentialsError.textContent = '';
+  publicAccessPlayerCredentialsError.hidden = true;
+  const opener = publicAccessPlayerCredentialsDialogOpener;
+  publicAccessPlayerCredentialsDialogOpener = null;
+  if (opener?.isConnected && !opener.closest('[hidden]')) {
+    opener.focus();
+  } else {
+    btnOpenPublicAccessPlayerCredentials.focus();
+  }
+}
+
+async function runPublicAccessPlayerCredentialMutation({
+  username,
+  replacementPlayerPassword = '',
+  deletePlayerPassword = false,
+}) {
+  if (publicAccessCommandPending || !confirmActivePublicAccessChange()) return;
+  const preferences = publicAccessSnapshot?.preferences || {};
+  const mainDraft = publicAccessNonSecretDraft();
+  const request = {
+    expectedRevision: publicAccessRevision(),
+    enabledPreference: false,
+    reservedDomain: preferences.reservedDomain || '',
+    username,
+    replacementProviderToken: '',
+    deleteProviderToken: false,
+    replacementPlayerPassword,
+    deletePlayerPassword,
+  };
+  publicAccessPlayerCredentialsError.textContent = '';
+  publicAccessPlayerCredentialsError.hidden = true;
+  publicAccessCommandPending = true;
+  renderPublicAccess(publicAccessSnapshot);
+  const pending = desktopAPI.savePublicAccessSettings(request);
+  publicAccessReplacementPlayerPassword.value = '';
+  request.replacementPlayerPassword = '';
+  const result = await pending;
+  publicAccessCommandPending = false;
+  renderPublicAccess(result.snapshot || publicAccessSnapshot);
+  restorePublicAccessNonSecretDraft(mainDraft);
+  if (!result.ok) {
+    publicAccessReplacementUsername.value = username;
+    publicAccessPlayerCredentialsError.textContent = result.error || 'НЕ УДАЛОСЬ СОХРАНИТЬ ДАННЫЕ ИГРОКОВ';
+    publicAccessPlayerCredentialsError.hidden = false;
+    syncPublicAccessPlayerCredentialControls();
+    return;
+  }
+  hidePublicAccessPlayerCredentialsDialog();
 }
 
 function showGeneratedPassword(oneTimeValue) {
@@ -847,11 +1129,10 @@ function showGeneratedPassword(oneTimeValue) {
     btnDismissGeneratedPassword.onclick = null;
     generatedPasswordDialog.oncancel = null;
     if (generatedPasswordDialog.open) generatedPasswordDialog.close();
-    publicAccessPlayerPassword.value = '';
     btnGeneratePlayerPassword.focus();
   };
   btnCopyGeneratedPassword.onclick = async () => {
-    await copyTransientText(transientValue, 'ПАРОЛЬ СКОПИРОВАН');
+    await copyTransientText(transientValue, 'ПАРОЛЬ СКОПИРОВАН', publicAccessSettingsCopyStatus);
     clearAndClose();
   };
   btnDismissGeneratedPassword.onclick = clearAndClose;
@@ -869,53 +1150,34 @@ desktopAPI.onPublicAccessStatus(renderPublicAccess);
 publicAccessForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   if (publicAccessCommandPending) return;
-  if (publicAccessSnapshot?.status?.state === 'ready' &&
-    !window.confirm('ПУБЛИЧНЫЙ ДОСТУП АКТИВЕН. СОХРАНЕНИЕ ОСТАНОВИТ И ПЕРЕЗАПУСТИТ ССЫЛКУ. ПРОДОЛЖИТЬ?')) return;
+  if (!confirmActivePublicAccessChange()) return;
   const request = {
     expectedRevision: publicAccessRevision(),
-    enabledPreference: publicAccessEnabledPreference.checked,
+    enabledPreference: false,
     reservedDomain: publicAccessDomain.value,
-    username: publicAccessUsername.value,
+    username: publicAccessSnapshot?.preferences?.username || 'players',
     replacementProviderToken: publicAccessProviderToken.value,
-    deleteProviderToken: publicAccessDeleteProviderToken.checked,
-    replacementPlayerPassword: publicAccessPlayerPassword.value,
-    deletePlayerPassword: publicAccessDeletePlayerPassword.checked,
+    deleteProviderToken: false,
+    replacementPlayerPassword: '',
+    deletePlayerPassword: false,
   };
+  publicAccessSettingsError.textContent = '';
+  publicAccessSettingsError.hidden = true;
   publicAccessCommandPending = true;
   renderPublicAccess(publicAccessSnapshot);
   const pending = desktopAPI.savePublicAccessSettings(request);
   publicAccessProviderToken.value = '';
-  publicAccessPlayerPassword.value = '';
   request.replacementProviderToken = '';
-  request.replacementPlayerPassword = '';
   const result = await pending;
   publicAccessCommandPending = false;
-  publicAccessDeleteProviderToken.checked = false;
-  publicAccessDeletePlayerPassword.checked = false;
   renderPublicAccess(result.snapshot || publicAccessSnapshot);
   if (!result.ok) {
-    publicAccessError.textContent = result.error || 'НЕ УДАЛОСЬ СОХРАНИТЬ НАСТРОЙКИ';
-    publicAccessError.hidden = false;
-  }
-});
-
-btnGeneratePlayerPassword.addEventListener('click', async () => {
-  if (publicAccessCommandPending) return;
-  if (publicAccessSnapshot?.status?.state === 'ready' &&
-    !window.confirm('ПУБЛИЧНЫЙ ДОСТУП АКТИВЕН. НОВЫЙ ПАРОЛЬ ОСТАНОВИТ И ПЕРЕЗАПУСТИТ ССЫЛКУ. ПРОДОЛЖИТЬ?')) return;
-  publicAccessCommandPending = true;
-  renderPublicAccess(publicAccessSnapshot);
-  const result = await desktopAPI.generatePlayerPassword({ expectedRevision: publicAccessRevision() });
-  publicAccessCommandPending = false;
-  if (!result.ok || !result.generatedPassword) {
-    renderPublicAccess(publicAccessSnapshot);
-    publicAccessError.textContent = result.error || 'НЕ УДАЛОСЬ СОЗДАТЬ ПАРОЛЬ';
-    publicAccessError.hidden = false;
+    publicAccessDomain.value = request.reservedDomain;
+    publicAccessSettingsError.textContent = result.error || 'НЕ УДАЛОСЬ СОХРАНИТЬ НАСТРОЙКИ';
+    publicAccessSettingsError.hidden = false;
     return;
   }
-  showGeneratedPassword(result.generatedPassword);
-  const refreshed = await desktopAPI.getPublicAccess();
-  renderPublicAccess(refreshed);
+  hidePublicAccessSettings();
 });
 
 async function runPublicAccessLifecycle(command) {
@@ -931,15 +1193,105 @@ async function runPublicAccessLifecycle(command) {
   }
 }
 
-btnStartPublicAccess.addEventListener('click', () => runPublicAccessLifecycle(desktopAPI.startPublicAccess));
-btnStopPublicAccess.addEventListener('click', () => runPublicAccessLifecycle(desktopAPI.stopPublicAccess));
-btnCopyPublicURL.addEventListener('click', () => copyTransientText(publicAccessURL.textContent, 'URL СКОПИРОВАН'));
-btnCopyPublicUsername.addEventListener('click', () => copyTransientText(publicAccessUsername.value, 'ИМЯ СКОПИРОВАНО'));
-btnCopyManualPassword.addEventListener('click', () => copyTransientText(publicAccessPlayerPassword.value, 'ВВЕДЁННЫЙ ПАРОЛЬ СКОПИРОВАН'));
-publicAccessPlayerPassword.addEventListener('input', () => {
-  btnCopyManualPassword.disabled = publicAccessCommandPending || publicAccessPlayerPassword.value === '';
+btnStartPublicAccess.addEventListener('click', () => {
+  const configured = publicAccessSnapshot?.providerTokenPresence === 'present'
+    && publicAccessSnapshot?.playerPasswordPresence === 'present';
+  if (!configured) {
+    showPublicAccessSettings({ setupRequired: true });
+    return;
+  }
+  void runPublicAccessLifecycle(desktopAPI.startPublicAccess);
 });
-
+btnStopPublicAccess.addEventListener('click', () => runPublicAccessLifecycle(desktopAPI.stopPublicAccess));
+btnOpenPublicAccessSettings.addEventListener('click', () => showPublicAccessSettings());
+btnClosePublicAccessSettings.addEventListener('click', hidePublicAccessSettings);
+btnCancelPublicAccessSettings.addEventListener('click', hidePublicAccessSettings);
+publicAccessSettingsDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  hidePublicAccessSettings();
+});
+btnOpenPublicAccessProviderToken.addEventListener('click', showPublicAccessProviderTokenDialog);
+btnCancelPublicAccessProviderToken.addEventListener('click', hidePublicAccessProviderTokenDialog);
+publicAccessProviderTokenDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  hidePublicAccessProviderTokenDialog();
+});
+publicAccessProviderTokenForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const replacementProviderToken = publicAccessReplacementProviderToken.value;
+  if (!replacementProviderToken.trim()) return;
+  void runPublicAccessProviderTokenMutation({ replacementProviderToken });
+});
+btnDeletePublicAccessProviderToken.addEventListener('click', () => {
+  void runPublicAccessProviderTokenMutation({ deleteProviderToken: true });
+});
+publicAccessReplacementProviderToken.addEventListener('input', () => {
+  btnSavePublicAccessProviderToken.disabled = publicAccessCommandPending ||
+    publicAccessReplacementProviderToken.value.trim() === '';
+});
+btnOpenPublicAccessPlayerCredentials.addEventListener('click', showPublicAccessPlayerCredentialsDialog);
+btnCancelPublicAccessPlayerCredentials.addEventListener('click', hidePublicAccessPlayerCredentialsDialog);
+publicAccessPlayerCredentialsDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  hidePublicAccessPlayerCredentialsDialog();
+});
+publicAccessPlayerCredentialsForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const username = publicAccessReplacementUsername.value.trim();
+  const replacementPlayerPassword = publicAccessReplacementPlayerPassword.value;
+  const configured = publicAccessSnapshot?.playerPasswordPresence === 'present';
+  if (!username) return;
+  if ((!configured && replacementPlayerPassword === '') ||
+    (replacementPlayerPassword !== '' && Array.from(replacementPlayerPassword).length < 8)) {
+    publicAccessPlayerCredentialsError.textContent = 'ПАРОЛЬ ДОЛЖЕН СОДЕРЖАТЬ НЕ МЕНЕЕ 8 СИМВОЛОВ';
+    publicAccessPlayerCredentialsError.hidden = false;
+    return;
+  }
+  void runPublicAccessPlayerCredentialMutation({ username, replacementPlayerPassword });
+});
+btnDeletePublicAccessPlayerCredentials.addEventListener('click', () => {
+  void runPublicAccessPlayerCredentialMutation({ username: 'players', deletePlayerPassword: true });
+});
+publicAccessReplacementUsername.addEventListener('input', syncPublicAccessPlayerCredentialControls);
+publicAccessReplacementPlayerPassword.addEventListener('input', syncPublicAccessPlayerCredentialControls);
+btnGeneratePlayerPassword.addEventListener('click', async () => {
+  if (publicAccessCommandPending) return;
+  if (!confirmActivePublicAccessChange()) return;
+  publicAccessCommandPending = true;
+  renderPublicAccess(publicAccessSnapshot);
+  const result = await desktopAPI.generatePlayerPassword({ expectedRevision: publicAccessRevision() });
+  publicAccessCommandPending = false;
+  if (!result.ok || !result.generatedPassword) {
+    renderPublicAccess(publicAccessSnapshot);
+    publicAccessPlayerCredentialsError.textContent = result.error || 'НЕ УДАЛОСЬ СОЗДАТЬ ПАРОЛЬ';
+    publicAccessPlayerCredentialsError.hidden = false;
+    return;
+  }
+  showGeneratedPassword(result.generatedPassword);
+  const refreshed = await desktopAPI.getPublicAccess();
+  renderPublicAccess(refreshed);
+});
+btnCopyPublicURL.addEventListener('click', () => {
+  if (publicAccessURL.dataset.available !== 'true') return;
+  void copyTransientText(publicAccessURL.textContent, 'URL СКОПИРОВАН');
+});
+btnSharePublicAccessCredentials.addEventListener('click', async () => {
+  if (publicAccessCommandPending || publicAccessSnapshot?.playerPasswordPresence !== 'present') return;
+  publicAccessSettingsCopyStatus.textContent = '';
+  publicAccessCommandPending = true;
+  renderPublicAccess(publicAccessSnapshot);
+  const result = await desktopAPI.copyPublicAccessCredentials();
+  publicAccessCommandPending = false;
+  renderPublicAccess(publicAccessSnapshot);
+  publicAccessSettingsCopyStatus.textContent = result.ok
+    ? 'ЛОГИН И ПАРОЛЬ СКОПИРОВАНЫ'
+    : (result.error || 'НЕ УДАЛОСЬ СКОПИРОВАТЬ ДАННЫЕ ИГРОКОВ');
+});
+for (const link of publicAccessNgrokDocLinks) {
+  link.addEventListener('click', () => {
+    void desktopAPI.openUrl(link.dataset.ngrokDocUrl);
+  });
+}
 // ── Start screen: open / new session ───────────────────────
 btnOpenSession.addEventListener('click', async () => {
   const res = await desktopAPI.openSession();

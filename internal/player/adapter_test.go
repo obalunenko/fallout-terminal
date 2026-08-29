@@ -279,6 +279,25 @@ func TestTerminalNavigationProjectionContainsOnlyPlayerSafeRouteMetadata(t *test
 	require.NotContains(t, string(encoded), "private-request-identity")
 }
 
+func TestForwardTransitionRejectionReusesCommandPresentationWithoutPendingNavigation(t *testing.T) {
+	state := &domain.PublicLiveState{
+		TerminalID: "terminal-a", TerminalName: "Terminal A",
+		Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT"},
+		Nav:  domain.NavState{Path: []string{"root"}, Mode: "list"},
+		CommandExecution: &domain.CommandExecutionPresentation{
+			Phase: domain.CommandExecutionPhaseRejected, CommandID: "open-terminal-b",
+		},
+	}
+
+	got := LiveToProto(state)
+	require.Nil(t, got.GetTerminalNavigation())
+	require.Equal(t,
+		playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_REJECTED,
+		got.GetCommandExecution().GetPhase(),
+	)
+	require.Equal(t, "open-terminal-b", got.GetCommandExecution().GetCommandNodeId())
+}
+
 // The runtime projection types are introduced by the implementation wave
 // after these RED tests. Reflection keeps the package buildable while still
 // pinning their required field names, pointer presence, and string enum values.

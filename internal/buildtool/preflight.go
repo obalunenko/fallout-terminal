@@ -148,7 +148,7 @@ func portablePreflightEnvironment() []string {
 	if runtime.GOOS == goosDarwin {
 		overrides["MACOSX_DEPLOYMENT_TARGET"] = environmentOrDefault("MACOSX_DEPLOYMENT_TARGET", minimumMacOS)
 		overrides["CGO_CFLAGS"] = environmentOrDefault("CGO_CFLAGS", "-mmacosx-version-min="+overrides["MACOSX_DEPLOYMENT_TARGET"])
-		overrides["CGO_LDFLAGS"] = environmentOrDefault("CGO_LDFLAGS", "-mmacosx-version-min="+overrides["MACOSX_DEPLOYMENT_TARGET"])
+		overrides["CGO_LDFLAGS"] = environmentOrDefault("CGO_LDFLAGS", macOSCGOLinkerFlags(overrides["MACOSX_DEPLOYMENT_TARGET"]))
 	}
 	return mergeEnvironment(base, overrides)
 }

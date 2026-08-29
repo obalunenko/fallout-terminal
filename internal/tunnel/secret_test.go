@@ -111,6 +111,32 @@ func TestScopedPublicAccessSecretUseClearsCallbackBuffersAndRedactsStoreErrors(t
 	assert.NotContains(t, err.Error(), "synthetic-provider-value")
 }
 
+func TestScopedPlayerPasswordUseReadsOnlyPasswordAndClearsCallbackBuffer(t *testing.T) {
+	t.Parallel()
+
+	store := newObservingSecretStore()
+	store.values[ProviderAccountToken] = []byte("synthetic-provider-value")
+	store.values[PlayerBasicAuthPassword] = []byte("synthetic-player-value")
+	var captured []byte
+	require.NoError(t, WithPlayerPassword(t.Context(), store, func(password []byte) error {
+		captured = password
+		assert.Equal(t, []byte("synthetic-player-value"), password)
+		return nil
+	}))
+	assert.Equal(t, []SecretRef{PlayerBasicAuthPassword}, store.requestedRefs)
+	assert.Equal(t, make([]byte, len(captured)), captured, "callback password buffer was not cleared")
+
+	store.values[PlayerBasicAuthPassword] = []byte("short")
+	err := WithPlayerPassword(t.Context(), store, func([]byte) error { return nil })
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "short")
+
+	store.useErr = errors.New("synthetic-player-value was rejected by a backend")
+	err = WithPlayerPassword(t.Context(), store, func([]byte) error { return nil })
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "synthetic-player-value")
+}
+
 func TestDevelopmentOverrideUsesNonEmptyEnvironmentSecretsPerFieldWithoutMutationOrReadback(t *testing.T) {
 	providerOverride := "generated-" + strings.Repeat("p", 32)
 	passwordOverride := "generated-" + strings.Repeat("w", 16)
@@ -168,6 +194,7 @@ type observingSecretStore struct {
 	replacedRefs               []SecretRef
 	deletedRefs                []SecretRef
 	observedReplacementBuffers [][]byte
+	requestedRefs              []SecretRef
 	useErr                     error
 }
 
@@ -199,6 +226,7 @@ func (store *observingSecretStore) WithSecrets(_ context.Context, refs []SecretR
 	if store.useErr != nil {
 		return store.useErr
 	}
+	store.requestedRefs = append(store.requestedRefs, refs...)
 	use := &SecretUse{}
 	for _, ref := range refs {
 		switch ref {

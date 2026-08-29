@@ -808,16 +808,50 @@ button {
 
 /* ── Public access ─────────────────────────────────────── */
 .public-access {
-  flex: 0 1 58%;
-  min-height: 230px;
+  flex: 0 0 auto;
+  max-height: 52%;
   overflow-y: auto;
   border-top: 1px solid #2a3520;
   background: #0a0d08;
 }
 .public-access[hidden] { display: none; }
 .public-access-heading { margin: 0; color: #ffe08a; }
+.public-access-compact { padding: 11px 12px 12px; }
+.public-access-state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
+}
+.public-access-state-marker {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border: 1px solid #6f9a5f;
+  background: #253018;
+}
+.public-access-state-row[data-state="ready"] .public-access-state-marker {
+  border-color: #9fe89a;
+  border-radius: 50%;
+  background: #6fae55;
+}
+.public-access-state-row[data-state="starting"] .public-access-state-marker,
+.public-access-state-row[data-state="stopping"] .public-access-state-marker {
+  border-color: #d0a63a;
+  background: #8c702c;
+}
+.public-access-state-row[data-state="error"] .public-access-state-marker {
+  border-color: #ff9a7a;
+  background: #8a3a2a;
+}
+.public-access-address-label {
+  margin-top: 10px;
+  color: #6f9a5f;
+  font-size: 9px;
+  letter-spacing: .7px;
+}
 .public-access-guide {
-  margin: 8px 12px 0;
+  margin: 0 0 16px;
   border: 1px solid #3a4a30;
   background: #0d110a;
   color: #9fe89a;
@@ -842,42 +876,100 @@ button {
 }
 .public-access-guide code,
 .public-access-guide strong { color: #d8ffb8; }
-.public-access-form,
-.public-access-output { padding: 10px 12px; }
-.public-access-form { display: grid; gap: 6px; }
+.public-access-form { display: grid; gap: 14px; }
 .public-access-form .field-label-inline { margin: 5px 0 0; }
-.public-access-preference {
-  display: flex;
-  align-items: flex-start;
+.public-access-settings-group {
+  display: grid;
   gap: 7px;
-  color: #b9ffb0;
-  font-size: 11px;
-  line-height: 1.35;
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid #3a4a30;
 }
-.public-access input[type="checkbox"] { accent-color: #6fae55; }
+.public-access-settings-group legend {
+  padding: 0 8px;
+  color: #9fe89a;
+  font-size: 10px;
+  letter-spacing: .7px;
+}
+.public-access-settings-dialog input[type="checkbox"] { accent-color: #6fae55; }
+.public-access-provider-setup { display: grid; gap: 7px; }
+.public-access-provider-setup[hidden] { display: none; }
+.public-access-credential-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.public-access-credential-row[hidden] { display: none; }
+.public-access-credential-row .field-label-inline { margin: 0; }
+.public-access-credential-status {
+  color: #6f9a5f;
+  font-size: 9px;
+  letter-spacing: .5px;
+}
 .public-access-hint {
   color: #566b49;
   font-size: 9px;
   line-height: 1.35;
 }
-.public-access-labelled-row,
-.public-access-presence-row,
-.public-access-url-row {
+
+.public-access-doc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+}
+
+.public-access-doc-link {
+  padding: 0;
+  border: 0;
+  color: #9fe89a;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.public-access-doc-link:hover,
+.public-access-doc-link:focus-visible {
+  color: #ffe08a;
+}
+.public-access-player-summary {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #253018;
+  background: #060804;
+}
+.public-access-player-summary-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+}
+.public-access-player-summary-row .field-label-inline { margin: 0; }
+.public-access-player-summary-value,
+.public-access-player-password-mask {
+  color: #d8ffb8;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.public-access-player-password-mask {
+  color: #ffe08a;
+  letter-spacing: 2px;
+}
+.public-access-player-password-mask[hidden] { display: none; }
+.public-access-password-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
-.public-access-labelled-row .field-label-inline { flex: 1; }
-.public-access-presence-row {
-  color: #6f9a5f;
-  font-size: 9px;
-  line-height: 1.3;
-}
-.public-access-presence-row label { text-align: right; }
-.public-access-copy-manual { justify-self: start; }
+.public-access-password-row .btn { min-width: 0; }
 .public-access-actions,
-.public-access-runtime-actions,
+.public-access-provider-token-actions,
+.public-access-player-summary-actions,
+.public-access-player-credentials-actions,
 .generated-password-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -885,6 +977,9 @@ button {
   margin-top: 6px;
 }
 .public-access-actions .btn,
+.public-access-provider-token-actions .btn,
+.public-access-player-summary-actions .btn,
+.public-access-player-credentials-actions .btn,
 .public-access-runtime-actions .btn,
 .generated-password-actions .btn {
   min-width: 0;
@@ -892,7 +987,6 @@ button {
   overflow-wrap: anywhere;
   line-height: 1.2;
 }
-.public-access-output { padding-top: 0; }
 #publicAccessStatus { color: #9fe89a; font-size: 11px; letter-spacing: .6px; }
 #publicAccessError {
   margin-top: 7px;
@@ -904,9 +998,82 @@ button {
   overflow-wrap: anywhere;
 }
 #publicAccessError[hidden] { display: none; }
-.public-access-url-row { margin-top: 7px; align-items: flex-start; }
-#publicAccessURL { color: #7fc0ff; font-size: 10px; overflow-wrap: anywhere; }
+.public-access-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  margin-top: 5px;
+}
+#publicAccessURL {
+  min-height: 31px;
+  padding: 7px 8px;
+  border: 1px solid #3a4a30;
+  background: #060804;
+  color: #7fc0ff;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.public-access-runtime-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  margin-top: 9px;
+}
+.public-access-runtime-actions .btn,
+.public-access-settings-trigger { width: 100%; min-height: 34px; }
+.public-access-settings-trigger { margin-top: 7px; }
 .public-access-copy-status { min-height: 15px; margin-top: 5px; color: #6f9a5f; font-size: 9px; }
+.public-access-settings-dialog {
+  width: min(680px, calc(100vw - 32px));
+}
+.public-access-provider-token-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+.public-access-player-credentials-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+.public-access-provider-token-form,
+.public-access-player-credentials-form {
+  display: grid;
+  gap: 8px;
+}
+.public-access-provider-token-delete,
+.public-access-player-credentials-delete {
+  justify-self: start;
+  margin-top: 8px;
+}
+.public-access-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #2a3520;
+}
+.public-access-settings-header > div { min-width: 0; }
+.public-access-settings-header .terminal-switch-dialog-description { margin-bottom: 0; }
+.public-access-setup-required,
+.public-access-settings-error {
+  margin: 14px 0 0;
+  padding: 8px;
+  border: 1px solid #d0a63a;
+  background: #181407;
+  color: #ffe08a;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.public-access-settings-error {
+  border-color: #8a3a2a;
+  background: #1d0e0a;
+  color: #ff9a7a;
+}
+.public-access-setup-required[hidden],
+.public-access-settings-error[hidden] { display: none; }
+.public-access-settings-dialog .public-access-guide { margin-top: 16px; }
+.public-access-settings-dialog :is(input, button, summary):focus-visible {
+  outline: 2px solid #ffe08a;
+  outline-offset: 2px;
+}
 .generated-password-value {
   display: block;
   min-height: 42px;
@@ -1586,7 +1753,11 @@ button {
   .selected-terminal-actions,
   .editor-publish-actions { flex-wrap: wrap; }
   .public-access-actions,
+  .public-access-provider-token-actions,
+  .public-access-player-summary-actions,
+  .public-access-player-credentials-actions,
   .public-access-runtime-actions { grid-template-columns: 1fr; }
+  .public-access-password-row { grid-template-columns: 1fr; }
   .player-management-row { grid-template-columns: 1fr; }
   .player-management-row-actions { justify-content: flex-end; }
   .logical-session-dialog-header { align-items: stretch; flex-direction: column; }
@@ -1645,6 +1816,8 @@ button {
   .terminal-switch-actions { grid-template-columns: 1fr; }
   .terminal-switch-actions .btn { min-height: 40px; }
   .dialog-actions { grid-template-columns: 1fr; }
+  .public-access-settings-header { align-items: stretch; flex-direction: column; }
+  .public-access-settings-header > .btn { align-self: flex-end; }
   .terminal-settings-menu-panel {
     position: fixed;
     inset: auto 10px 10px;

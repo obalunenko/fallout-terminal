@@ -1,0 +1,367 @@
+{
+  "workflow": "companion",
+  "specName": "compact public access",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T14:49:08.055Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T14:51:09.452Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T14:51:09.589Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T14:51:09.725Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T14:51:09.863Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T14:51:10.001Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T14:51:29.304Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T14:53:01.477Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T14:53:59.035Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T14:54:38.552Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T14:56:01.213Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T14:56:19.329Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T14:57:23.900Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:11:21.654Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:12:11.621Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T15:12:11.766Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:14:43.173Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:24:42.129Z"
+    }
+  ],
+  "unattended": true,
+  "last_action": "all 10 tasks done — builds, Go gates, and 183 browser tests pass",
+  "coverage": {
+    "FR-001": {
+      "title": "Replace the always-visible form with a compact public-access surface.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::Start and Stop map exact lifecycle states and never expose a pre-ready URL"
+      ]
+    },
+    "FR-002": {
+      "title": "Show the active public URL or configured reserved domain when available.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::relaunch restores only non-secret settings and presence without auto-start",
+        "tests/browser/public-access-settings.spec.mjs::failed domain state is redacted URL-free and rendered as error"
+      ]
+    },
+    "FR-003": {
+      "title": "Offer accessible URL copying only when an address is available.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::random and reserved ready outcomes are copied without reconstructing saved password",
+        "tests/browser/public-access-settings.spec.mjs::copy falls back to the native runtime when WebView clipboard permission is unavailable"
+      ]
+    },
+    "FR-004": {
+      "title": "Present one lifecycle action appropriate to the current state.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::Start and Stop map exact lifecycle states and never expose a pre-ready URL"
+      ]
+    },
+    "FR-005": {
+      "title": "Move all existing configuration controls into a modal settings dialog.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::settings form is labelled keyboard reachable and defaults without revealing secrets"
+      ]
+    },
+    "FR-006": {
+      "title": "Follow established modal dismissal and focus behavior.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::settings form is labelled keyboard reachable and defaults without revealing secrets"
+      ]
+    },
+    "FR-007": {
+      "title": "Route enable attempts without saved secrets to settings without starting.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::first enable opens required setup without requesting tunnel startup"
+      ]
+    },
+    "FR-008": {
+      "title": "Close settings after successful save and retain it after failed save.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::save replaces secrets without echo and clears transient fields",
+        "tests/browser/public-access-settings.spec.mjs::active mutation failure stays URL-free redacted and keeps transition actions usable for retry"
+      ]
+    },
+    "FR-009": {
+      "title": "Preserve existing safety, password, clipboard, and snapshot behavior.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs",
+        "tests/browser/public-access-fallback.spec.mjs"
+      ]
+    },
+    "FR-010": {
+      "title": "Preserve backend contracts, secret storage, tunnel lifecycle, and surrounding layout.",
+      "tests": [
+        "internal/platform/assets_test.go::TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets"
+      ]
+    }
+  },
+  "size": "normal",
+  "classification": {
+    "projectedFiles": 6,
+    "projectedTasks": 10,
+    "scopeSignal": "none",
+    "verdict": "normal"
+  },
+  "context": [
+    "area: frontend/overseer public-access panel and dialog",
+    "area: internal/platform embedded frontend asset checks",
+    "constraint: preserve the native public-access API and secure secret handling"
+  ],
+  "intent": "Make everyday public-access control compact while moving rare ngrok and credential settings into a familiar modal dialog.",
+  "expectations": [
+    "No changes to native tunnel lifecycle, desktop API contracts, or secure credential storage.",
+    "No redesign of the surrounding Overseer layout."
+  ],
+  "approach": "Move configuration into an established modal pattern and reduce the main panel to status, effective address, one lifecycle action, copy, and settings.",
+  "currentTask": "T010",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Moved public-access configuration into an accessible modal and left a compact lifecycle surface.",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Styled the compact panel and responsive settings modal with existing terminal dialog conventions.",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Rendered effective domain, one state-aware lifecycle action, transitions, and safe URL copying in the compact panel.",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Implemented modal open, dismissal, focus restoration, secure field clearing, and save-result behavior.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Routed first-use enable attempts to the expanded setup dialog without invoking tunnel startup.",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Extended Go asset contracts for compact markup, modal placement, lifecycle states, and first-use routing.",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Built both frontend workspaces, passed the focused asset test, and confirmed a whitespace-clean scoped diff.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "frontend/overseer/src/overseer.js",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Ran go fix, gofmt, task vet, task test, and task test:race successfully.",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Kept configured domains visible in valid states while suppressing misleading addresses on public-access failure.",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Aligned public-access Playwright journeys with the modal workflow and passed the full 185-test browser suite.",
+      "files": [
+        "tests/browser/public-access-settings.spec.mjs",
+        "tests/browser/public-access-fallback.spec.mjs"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Production frontend build",
+      "command": "task frontend:build",
+      "result": "Overseer and player Vite builds passed",
+      "warnings": []
+    },
+    {
+      "what": "Focused embedded asset contract",
+      "command": "go test ./internal/platform -run TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets -count=1",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "Repository Go quality gates",
+      "command": "task vet; task test; task test:race",
+      "result": "all passed",
+      "warnings": []
+    },
+    {
+      "what": "Full browser workflow",
+      "command": "task browser:test",
+      "result": "183 passed, 2 live-ngrok tests skipped",
+      "warnings": [
+        "NO_COLOR ignored because FORCE_COLOR is set",
+        "expected local TLS handshake diagnostics during fallback journeys"
+      ]
+    },
+    {
+      "what": "Scoped simplification review",
+      "command": "git diff review",
+      "result": "removed redundant modal padding and selector overrides; no further simplification needed",
+      "warnings": []
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Keep the existing start and stop controls but render exactly one according to lifecycle state.",
+      "why": "Preserves established handlers and accessibility IDs while delivering one visible action.",
+      "rejected": "Replace both controls with one dynamically rebound button."
+    },
+    {
+      "decision": "Show a configured domain while stopped or transitioning, but suppress it after an error.",
+      "why": "The compact panel remains useful before startup without presenting a failed domain as shareable.",
+      "rejected": "Show the configured domain in every non-ready state."
+    }
+  ],
+  "concerns": [
+    {
+      "note": "The existing Playwright surface raised the actual scope above the five-file fast-path guardrail; convergence added and completed T009-T010, and classification was corrected to normal.",
+      "step": "implement"
+    }
+  ],
+  "step_summaries": {
+    "implement": {
+      "summary": "Shipped a compact public-access panel with modal configuration, first-use guidance, effective-domain display, and full regression coverage."
+    }
+  }
+}

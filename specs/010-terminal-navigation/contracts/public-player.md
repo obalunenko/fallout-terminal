@@ -55,7 +55,7 @@ message LiveTerminal {
 
 - Создание pending публикует более новую revision с тем же active terminal и `terminal_navigation.pending`.
 - Approve публикует одну более новую revision: новый `PlayerState.active_terminal_id`, полную `TerminalPresentation`, обновлённый route depth и no pending.
-- Reject публикует одну revision, которая только убирает pending; active terminal, nav и route совпадают с pre-request state.
+- Reject forward-перехода публикует одну revision, которая убирает navigation pending и добавляет для exact source command существующий `command_execution = REJECTED`; active terminal, nav и route совпадают с pre-request state. Reject terminal-return убирает pending без command presentation и сохраняет прежнее непосредственное восстановление current root screen.
 - Stale approve убирает pending и оставляет active/nav/route без изменений.
 - `PersonalizedSnapshot` всегда содержит текущие active terminal, pending и route projection; reconnect не восстанавливает client-local экран.
 - Existing strictly-monotonic stream revision, overflow close и resubscribe baseline остаются без изменений.
@@ -64,6 +64,7 @@ message LiveTerminal {
 
 - На root list при `return_target` client показывает межтерминальный back control с target terminal name. В folder/entry/command screen существующий back остаётся intra-terminal.
 - Pending показывает общий status перехода/возврата и делает shared controls inert; server-side conflict check остаётся окончательным.
+- После reject forward-перехода общий command renderer показывает «Ошибка доступа» controller, observers и reconnect до `Back`/`Enter` controller, затем синхронно возвращает неизменённое source menu.
 - Controller не меняет terminal/nav оптимистически; `pendingSharedAction` ждёт unary result и accepted stream revision.
 - Observer видит ту же projection, но его controls остаются read-only.
 

@@ -131,7 +131,7 @@ Errors may contain safe corrective guidance. They never contain request bytes, l
 
 ## Same-origin, Basic Auth, and static resources
 
-- The page, generated client, RPC paths, sound manifest, and sound/static assets share the current origin on local port `3690` and `fallout-terminal.ngrok.app`.
+- The page, generated client, RPC paths, sound manifest, and sound/static assets share the current origin on local port `3690` and the active provider-assigned or explicitly configured public endpoint.
 - Browser `Origin`, when present, must match the request host; no wildcard CORS response is emitted.
 - Invalid Basic Auth is rejected by protected public access with HTTP `401` before static or RPC capability handling.
 - `SoundManifestRequest` contains only the `SoundCategory` enum. Successful values return that category and sorted safe relative assets for `ambient`, `hack-good`, `hack-bad`, `menu-focus`, `single`, `multiple`, `enter`, or `charscroll`, filtered to `.mp3`, `.wav`, `.ogg`, `.m4a`, or `.webm`.

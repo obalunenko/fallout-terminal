@@ -1,0 +1,506 @@
+{
+  "workflow": "companion",
+  "specName": "public access sharing",
+  "branch": "029-compact-public-access",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T22:05:06.107Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T22:06:22.526Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T22:06:36.944Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:07:39.880Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:08:32.307Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T22:08:33.152Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T22:08:52.721Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:09:35.544Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T22:09:35.811Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T22:09:45.561Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:10:20.893Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:10:49.175Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:11:48.962Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:12:55.456Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:13:15.903Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:13:39.528Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:14:06.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:14:33.631Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:15:45.433Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:18:41.584Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:20:20.428Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T22:21:11.714Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T22:29:30.037Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T22:34:40.429Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T22:34:40.499Z"
+    }
+  ],
+  "unattended": true,
+  "coverage": {
+    "FR-001": {
+      "title": "The public-access settings window MUST show the saved player login as read-only summary information rather than an inline editing field.",
+      "tasks": [
+        "T007",
+        "T009",
+        "T012",
+        "T013"
+      ],
+      "tests": "internal/platform/assets_test.go,tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-002": {
+      "title": "When a saved player password is present, the settings window MUST display exactly ***** regardless of the password's actual length.",
+      "tasks": [
+        "T007",
+        "T009",
+        "T012",
+        "T013"
+      ],
+      "tests": "internal/platform/assets_test.go,tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-003": {
+      "title": "When a saved player password is absent or unavailable, the settings window MUST communicate that state without displaying the fixed mask.",
+      "tasks": [
+        "T007",
+        "T009",
+        "T012",
+        "T013"
+      ],
+      "tests": "tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-004": {
+      "title": "Player-login editing MUST occur in a dedicated modal dialog patterned after the existing ngrok token dialog.",
+      "tasks": [
+        "T010",
+        "T012",
+        "T013"
+      ],
+      "tests": "internal/platform/assets_test.go,tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-005": {
+      "title": "The player-credential dialog MUST support replacing the login and password together, changing the login while preserving an existing password, deleting the saved credential pair, and cancelling without mutation.",
+      "tasks": [
+        "T010",
+        "T013"
+      ],
+      "tests": "tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-006": {
+      "title": "Deleting saved player credentials MUST remove the saved password and restore the default player login.",
+      "tasks": [
+        "T010",
+        "T013"
+      ],
+      "tests": "tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-007": {
+      "title": "Every credential-dialog close path MUST clear transient password values and restore focus appropriately.",
+      "tasks": [
+        "T010",
+        "T013"
+      ],
+      "tests": "tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-008": {
+      "title": "The settings window MUST provide one Share action that is enabled only when a valid saved login and password are available.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T013"
+      ],
+      "tests": "tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-009": {
+      "title": "The Share action MUST copy one readable value containing both the saved login and saved password.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T004",
+        "T005",
+        "T006",
+        "T011",
+        "T013"
+      ],
+      "tests": "app_test.go,tests/browser/public-access-settings.spec.mjs,tests/browser/desktop-api.spec.mjs"
+    },
+    "FR-010": {
+      "title": "The saved password MUST be read only inside a bounded trusted operation that writes the clipboard, clears temporary buffers, and returns only success or a safe error to the page.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T004",
+        "T013"
+      ],
+      "tests": "internal/tunnel/secret_test.go,app_test.go,tests/browser/desktop-api.spec.mjs"
+    },
+    "FR-011": {
+      "title": "The implementation MUST preserve active-access confirmation, stale-snapshot suppression, generated-password handling, credential validation, and local/LAN failure isolation.",
+      "tasks": [
+        "T009",
+        "T010",
+        "T011",
+        "T013",
+        "T014"
+      ],
+      "tests": "tests/browser/public-access-settings.spec.mjs"
+    },
+    "FR-012": {
+      "title": "Automated checks MUST cover fixed masking, configured and unconfigured dialogs, replacement, preservation, deletion, cancellation, sharing success, and secure-store or clipboard failure.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T012",
+        "T013",
+        "T014"
+      ],
+      "tests": "internal/tunnel/secret_test.go,app_test.go,internal/platform/assets_test.go,tests/browser/public-access-settings.spec.mjs,tests/browser/desktop-api.spec.mjs"
+    }
+  },
+  "size": "normal",
+  "classification": {
+    "projectedFiles": 10,
+    "projectedTasks": 9,
+    "scopeSignal": "none",
+    "verdict": "normal"
+  },
+  "context": [
+    "area: public-access native service, Overseer settings UI, generated bindings, and browser fixtures",
+    "constraint: saved password mask is exactly *****",
+    "constraint: Go changes follow repository cleanup and validation rules"
+  ],
+  "intent": "Let game masters safely manage and share saved player login credentials from public-access settings.",
+  "expectations": [
+    "ngrok token management, domain configuration, and explicit public-access lifecycle behavior remain unchanged"
+  ],
+  "last_action": "feature completed after full verification",
+  "approach": "Move player credential editing into a focused dialog and add a native one-shot share command that writes the scoped secure password directly to the clipboard without returning it to the browser.",
+  "decisions": [
+    {
+      "decision": "Write saved player credentials to the clipboard inside the native boundary",
+      "why": "The page receives no stored password while the requested one-click share flow remains possible",
+      "rejected": "Returning the password through a desktop result for JavaScript clipboard handling"
+    },
+    {
+      "decision": "Manage login and password as one child-dialog unit",
+      "why": "They form one Basic Auth credential pair and match the established token-management interaction",
+      "rejected": "Leaving login editing inline while moving only password editing"
+    },
+    {
+      "decision": "Reuse CommandResult and avoid protobuf changes",
+      "why": "Sharing is a private native side effect with no reusable data payload",
+      "rejected": "Adding a serializable secret-bearing credential response"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Designed a native clipboard share boundary plus focused player-credential dialog across existing public-access layers",
+      "key_finding": "The Wails host already exposes an injectable ClipboardManager, so the saved password never needs to enter JavaScript"
+    },
+    "tasks": {
+      "summary": "14 tasks across native secret handling, three user-story phases, and final verification with explicit dependency waves"
+    },
+    "implement": {
+      "summary": "Implemented and verified fixed saved-password masking, focused credential management, and native login/password sharing without exposing the password to JavaScript",
+      "key_finding": "The password remains inside a scoped secure-store callback and the Wails clipboard boundary; desktop results carry only success or safe error state",
+      "risks": "Clipboard contents are intentionally readable by the operating system after an explicit Share action"
+    }
+  },
+  "currentTask": "T014",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added failing scoped player-password tests for exact ref use, validation, buffer clearing, and redacted storage errors",
+      "files": [
+        "internal/tunnel/secret_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Implemented bounded player-password-only secure-store access with validation, clearing, and redacted errors",
+      "files": [
+        "internal/tunnel/secret.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added failing native credential-copy tests for formatting, clipboard success, storage failure, clipboard failure, buffer clearing, and secret-free results",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Implemented native credential sharing through an injected clipboard seam with normalized login, scoped password access, safe errors, and secret-free results",
+      "files": [
+        "app.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Wired the Wails native clipboard manager into App composition",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Exposed CopyPublicAccessCredentials through the private desktop service and expanded the exact Go allowlist to 39 methods",
+      "files": [
+        "desktop_service.go",
+        "app_contract_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Replaced inline player credential fields with a read-only login/password summary and Edit/Share actions",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Styled the read-only credential summary, fixed password mask, and responsive Edit/Share action grid",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Rendered authoritative saved login, exact five-asterisk mask, absence states, and share availability while keeping main settings mutations credential-neutral",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added the focused player-credential dialog with login replacement, password preservation/replacement, generation, pair deletion, cancellation, focus restoration, and transient-secret cleanup",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Regenerated the 39-method Wails binding, added the secret-free frontend facade and fixture command, and connected Share to the native clipboard outcome",
+      "files": [
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/src/desktop-api.js",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/fixtures/desktop-bindings.js",
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Updated embedded asset contracts for the read-only summary, exact mask, Edit/Share actions, and focused credential dialog",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Updated browser contracts for the credential dialog, fixed five-star mask, native credential sharing, stale results, failures, and accessibility; focused Playwright suites pass.",
+      "files": [
+        "tests/browser/public-access-settings.spec.mjs",
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Validated fixed masking, credential editing, and native sharing with go fix, gofmt, focused and full Go tests, vet, race detector, deterministic bindings, secret-leak checks, frontend builds, and the complete browser suite.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    }
+  },
+  "telemetryInstanceId": "c4f629b2-8e33-4d61-8e6f-137be17c6fb1",
+  "verified": [
+    {
+      "what": "Go modernization and formatting",
+      "result": "passed",
+      "command": "go fix ./...; task fmt:check"
+    },
+    {
+      "what": "Go static analysis and tests",
+      "result": "passed",
+      "command": "task vet; task test; task test:race"
+    },
+    {
+      "what": "Private desktop surface and secret confinement",
+      "result": "passed",
+      "command": "task bindings:check; scripts/secret-leak-check.sh"
+    },
+    {
+      "what": "Production frontend builds",
+      "result": "passed",
+      "command": "task frontend:build"
+    },
+    {
+      "what": "Browser journeys",
+      "result": "188 passed, 2 expected ngrok integrations skipped",
+      "command": "npm test --prefix tests/browser"
+    }
+  ]
+}

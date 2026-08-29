@@ -37,6 +37,7 @@ const APP_METHODS = Object.freeze({
   endBroadcast: desktopService.EndBroadcast,
   openUrl: desktopService.OpenURL,
   getPublicAccess: desktopService.GetPublicAccess,
+  copyPublicAccessCredentials: desktopService.CopyPublicAccessCredentials,
   savePublicAccessSettings: desktopService.SavePublicAccessSettings,
   generatePlayerPassword: desktopService.GeneratePlayerPassword,
   startPublicAccess: desktopService.StartPublicAccess,
@@ -679,6 +680,7 @@ const desktopAPI = {
   getPublicAccess: () => command(APP_METHODS.getPublicAccess)
     .then(normalizePublicAccessSnapshot)
     .then(retainLatestPublicAccessSnapshot),
+  copyPublicAccessCredentials: () => command(APP_METHODS.copyPublicAccessCredentials),
   savePublicAccessSettings: (request) => {
     const source = request && typeof request === 'object' ? request : {};
     const nativeRequest = {

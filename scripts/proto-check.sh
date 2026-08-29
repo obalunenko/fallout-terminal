@@ -8,7 +8,7 @@ export GOCACHE="${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache}"
 if [[ "$(go env GOOS)" == darwin ]]; then
   export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
   export CGO_CFLAGS="${CGO_CFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
-  export CGO_LDFLAGS="${CGO_LDFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET}}"
+  export CGO_LDFLAGS="${CGO_LDFLAGS:--mmacosx-version-min=${MACOSX_DEPLOYMENT_TARGET} -Wl,-no_warn_duplicate_libraries}"
 fi
 
 generated_revision() {

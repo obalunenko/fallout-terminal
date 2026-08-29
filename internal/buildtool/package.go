@@ -3,8 +3,10 @@ package buildtool
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 const productionProfile = "production"
@@ -71,8 +73,11 @@ func newPackagePlan(target Target, host Host, version ReleaseVersion) (PackagePl
 		checksumPath:   checksumPath,
 		version:        version,
 		temporaryPaths: append([]string(nil), temporaryPaths...),
+		failureCleanupPath: append(
+			[]string{stageRoot, outputPath, checksumPath},
+			temporaryPaths...,
+		),
 	}
-	plan.failureCleanupPath = append([]string{stageRoot, outputPath, checksumPath}, temporaryPaths...)
 	plan.actions = portablePackageActions(plan)
 	return plan, nil
 }
@@ -188,6 +193,7 @@ func portablePackageActions(plan PackagePlan) []Step {
 		preflightStep("verify "+plan.target.String()+" native build prerequisites", verifyNativeBuildPrerequisites, plan.target),
 		Step{Name: "remove previous " + plan.target.String() + " staging directory", Operation: removeTree, Path: plan.stageRoot},
 		Step{Name: "create portable application root", Operation: makeDirectory, Path: plan.payloadRoot, Mode: 0o755},
+		Step{Name: "install portable launch guide", Operation: copyFile, Source: portableLaunchGuideFilename, Destination: filepath.Join(plan.payloadRoot, portableLaunchGuideFilename), Mode: 0o444},
 		Step{Name: "create portable resource directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
 		Step{Name: "install portable application icon", Operation: copyFile, Source: filepath.Join("build", "appicon.png"), Destination: filepath.Join(resources, "appicon.png"), Mode: 0o444},
 		Step{Name: "install portable third-party notices", Operation: copyFile, Source: "THIRD_PARTY_NOTICES.md", Destination: filepath.Join(resources, "THIRD_PARTY_NOTICES.md"), Mode: 0o444},
@@ -256,6 +262,7 @@ func darwinPortablePackageActions(plan PackagePlan) []Step {
 		preflightStep("verify "+plan.target.String()+" native build prerequisites", verifyNativeBuildPrerequisites, plan.target),
 		Step{Name: "remove previous " + plan.target.String() + " staging directory", Operation: removeTree, Path: plan.stageRoot},
 		Step{Name: "create portable application root", Operation: makeDirectory, Path: plan.payloadRoot, Mode: 0o755},
+		Step{Name: "install portable launch guide", Operation: copyFile, Source: portableLaunchGuideFilename, Destination: filepath.Join(plan.payloadRoot, portableLaunchGuideFilename), Mode: 0o444},
 		Step{Name: "create Darwin application executable directory", Operation: makeDirectory, Path: macOS, Mode: 0o755},
 		Step{Name: "create Darwin bundled session directory", Operation: makeDirectory, Path: filepath.Join(resources, "sessions"), Mode: 0o755},
 		versionTemplateStep(
@@ -292,22 +299,14 @@ func cloneStep(step Step) Step {
 	step.Arguments = append([]string(nil), step.Arguments...)
 	if step.Environment != nil {
 		environment := make(map[string]string, len(step.Environment))
-		for key, value := range step.Environment {
-			environment[key] = value
-		}
+		maps.Copy(environment, step.Environment)
 		step.Environment = environment
 	}
 	return step
 }
 
 func resolvePackageCleanupPath(root string, plan PackagePlan, path string) (string, error) {
-	owned := false
-	for _, allowed := range plan.failureCleanupPath {
-		if path == allowed {
-			owned = true
-			break
-		}
-	}
+	owned := slices.Contains(plan.failureCleanupPath, path)
 	if !owned {
 		return "", fmt.Errorf("refusing to remove package path outside the %s cleanup allowlist: %q", plan.target, path)
 	}
@@ -316,13 +315,11 @@ func resolvePackageCleanupPath(root string, plan PackagePlan, path string) (stri
 
 func ownedRemovalPath(root, resolved string) bool {
 	cleanRoot := filepath.Clean(root)
-	for _, path := range []string{
+	if slices.Contains([]string{
 		filepath.Join(cleanRoot, "build", "bin", applicationName+".app"),
 		filepath.Join(cleanRoot, developmentBundle()),
-	} {
-		if resolved == path {
-			return true
-		}
+	}, resolved) {
+		return true
 	}
 	for _, target := range PortableTargets() {
 		stage := filepath.Join(cleanRoot, "build", "bin", target.OS()+"-"+target.Arch(), "stage")

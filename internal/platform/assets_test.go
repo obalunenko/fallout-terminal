@@ -298,7 +298,7 @@ func readBrowserFileDescriptor(t *testing.T, root, name string) (*descriptorpb.F
 	require.NoError(t, proto.Unmarshal(encoded, descriptor))
 	dependencies := make([]string, 0)
 	if rawDependencies := strings.TrimSpace(string(match[2])); rawDependencies != "" {
-		for _, dependency := range strings.Split(rawDependencies, ",") {
+		for dependency := range strings.SplitSeq(rawDependencies, ",") {
 			dependencies = append(dependencies, strings.TrimSpace(dependency))
 		}
 	}
@@ -487,25 +487,95 @@ func TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets(t 
 	javascript := read("frontend/overseer/src/overseer.js")
 
 	for _, fragment := range []string{
-		`id="publicAccessSection"`, `for="publicAccessDomain"`, `for="publicAccessUsername"`,
-		`for="publicAccessProviderToken"`, `for="publicAccessPlayerPassword"`,
-		`id="publicAccessProviderToken" type="password"`, `id="publicAccessPlayerPassword" type="password"`,
+		`id="publicAccessSection"`, `class="public-access-compact"`, `ПУБЛИЧНЫЙ АДРЕС`,
+		`id="btnStartPublicAccess" type="button">ВКЛЮЧИТЬ ДОСТУП</button>`,
+		`id="btnStopPublicAccess" type="button" hidden>ОСТАНОВИТЬ ДОСТУП</button>`,
+		`id="btnOpenPublicAccessSettings" type="button">НАСТРОЙКИ…</button>`,
+		`id="publicAccessSettingsDialog" aria-modal="true"`,
+		`id="btnClosePublicAccessSettings" type="button">ЗАКРЫТЬ</button>`,
+		`id="publicAccessSetupRequired" role="status" aria-live="polite" hidden`,
+		`id="publicAccessConnectionGroup"`, `ПОДКЛЮЧЕНИЕ NGROK`,
+		`id="publicAccessProviderConfigured" hidden`,
+		`id="btnOpenPublicAccessProviderToken" type="button">ИЗМЕНИТЬ ТОКЕН</button>`,
+		`id="publicAccessPlayerLoginGroup"`, `ВХОД ДЛЯ ИГРОКОВ`,
+		`for="publicAccessDomain"`, `id="publicAccessUsernameSummary"`,
+		`Пустое поле — случайный хост от ngrok`,
+		`id="btnOpenNgrokAutoAssignedDomainDocs" type="button">СЛУЧАЙНЫЕ ХОСТЫ · NGROK</button>`,
+		`id="btnOpenNgrokFixedDomainDocs" type="button">ФИКСИРОВАННЫЕ ХОСТЫ · NGROK</button>`,
+		`https://ngrok.com/docs/gateway/domains/#auto-assigned-domains`,
+		`https://ngrok.com/docs/gateway/domains/#domains`,
+		`id="publicAccessPasswordMask"`, `id="publicAccessPasswordPresence"`,
+		`id="btnOpenPublicAccessPlayerCredentials" type="button">ИЗМЕНИТЬ ДАННЫЕ</button>`,
+		`id="btnSharePublicAccessCredentials" type="button" disabled>ПОДЕЛИТЬСЯ</button>`,
+		`for="publicAccessProviderToken"`, `id="publicAccessProviderToken" type="password"`,
+		`id="btnGeneratePlayerPassword" type="button">СГЕНЕРИРОВАТЬ</button>`,
+		`id="btnCancelPublicAccessSettings" type="button">ОТМЕНА</button>`,
+		`id="publicAccessProviderTokenDialog" aria-modal="true"`,
+		`id="publicAccessReplacementProviderToken" type="password"`,
+		`Сохранённый токен нельзя посмотреть`, `СОХРАНИТЬ ТОКЕН`, `УДАЛИТЬ СОХРАНЁННЫЙ ТОКЕН`,
+		`id="publicAccessPlayerCredentialsDialog" aria-modal="true"`,
+		`id="publicAccessReplacementUsername" type="text"`,
+		`id="publicAccessReplacementPlayerPassword" type="password"`,
+		`id="btnSavePublicAccessPlayerCredentials" type="submit">СОХРАНИТЬ ДАННЫЕ</button>`,
+		`id="btnDeletePublicAccessPlayerCredentials" type="button">УДАЛИТЬ СОХРАНЁННЫЕ ДАННЫЕ</button>`,
 		`id="publicAccessGuide"`, `КАК НАСТРОИТЬ ЧЕРЕЗ NGROK`,
-		`СОХРАНИТЬ ДОСТУП`, `ВКЛЮЧИТЬ`, `Basic Auth`,
+		`СОХРАНИТЬ НАСТРОЙКИ`, `Basic Auth`,
 		`id="publicAccessStatus" role="status" aria-live="polite"`,
 		`id="publicAccessError" role="alert" aria-live="assertive"`,
 		`id="generatedPasswordDialog"`, `aria-modal="true"`,
 	} {
 		assert.Contains(t, html, fragment)
 	}
+	sectionStart := strings.Index(html, `id="publicAccessSection"`)
+	dialogStart := strings.Index(html, `id="publicAccessSettingsDialog"`)
+	require.NotEqual(t, -1, sectionStart)
+	require.NotEqual(t, -1, dialogStart)
+	require.Less(t, sectionStart, dialogStart)
+	assert.NotContains(t, html[sectionStart:dialogStart], `id="publicAccessForm"`,
+		"public-access configuration must not remain inline in the compact section")
+	connectionStart := strings.Index(html, `id="publicAccessConnectionGroup"`)
+	playerLoginStart := strings.Index(html, `id="publicAccessPlayerLoginGroup"`)
+	actionsStart := strings.Index(html, `class="public-access-actions"`)
+	require.NotEqual(t, -1, connectionStart)
+	require.NotEqual(t, -1, playerLoginStart)
+	require.NotEqual(t, -1, actionsStart)
+	assert.Less(t, connectionStart, playerLoginStart)
+	assert.Less(t, playerLoginStart, actionsStart)
+	for _, removed := range []string{
+		`id="publicAccessBehaviorGroup"`,
+		`id="publicAccessEnabledPreference"`,
+		`Включать публичный доступ при запуске приложения`,
+	} {
+		assert.NotContains(t, html+javascript, removed)
+	}
 	for _, forbidden := range []string{"RevealSecret", "GetSecret", ">REVEAL<", ">ПОКАЗАТЬ ПАРОЛЬ<"} {
 		assert.NotContains(t, html+javascript, forbidden)
 	}
-	assert.Contains(t, html, `id="publicAccessUsername"`)
+	assert.Contains(t, html, `id="publicAccessUsernameSummary"`)
 	assert.Contains(t, html, `value="players"`)
 	assert.Contains(t, css, ".public-access")
-	assert.Contains(t, javascript, "generatePlayerPassword")
-	assert.Contains(t, javascript, "public-access-status")
+	for _, fragment := range []string{
+		"generatePlayerPassword",
+		"public-access-status",
+		"publicAccessDisplayURL",
+		"showPublicAccessSettings({ setupRequired: true })",
+		"publicAccessSnapshot?.providerTokenPresence === 'present'",
+		"publicAccessSnapshot?.playerPasswordPresence === 'present'",
+		"publicAccessProviderSetup.hidden = providerTokenConfigured",
+		"showPublicAccessProviderTokenDialog",
+		"runPublicAccessProviderTokenMutation",
+		"showPublicAccessPlayerCredentialsDialog",
+		"runPublicAccessPlayerCredentialMutation",
+		"publicAccessPasswordMask.textContent = playerPasswordConfigured ? '*****' : ''",
+		"desktopAPI.copyPublicAccessCredentials()",
+		"desktopAPI.openUrl(link.dataset.ngrokDocUrl)",
+		"deleteProviderToken: true",
+		"btnStartPublicAccess.hidden = stopping",
+		"btnStopPublicAccess.hidden = !stopping",
+		"hidePublicAccessSettings()",
+	} {
+		assert.Contains(t, javascript, fragment)
+	}
 	assert.Contains(t, read("frontend/overseer/src/desktop-api.js"), "Clipboard.SetText")
 }
 
@@ -2253,13 +2323,23 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 		"//go:embed all:frontend/client/dist\nvar clientSource embed.FS",
 		`fs.Sub(overseerSource, "frontend/overseer/dist")`,
 		`fs.Sub(clientSource, "frontend/client/dist")`,
+		"windowActivation := &overseerWindowActivation{}",
+		"newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)",
 		"composeApplication(rootContext, host, clientAssets)",
+		"windowActivation.bind(newOverseerWindow(host))",
 	}
 	for _, fragment := range requiredFragments {
 		assert.Falsef(t, !strings.Contains(source, fragment),
 			"main.go is missing production asset wiring %q", fragment)
 
 	}
+	hostConstruction := strings.Index(source,
+		"newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)")
+	applicationComposition := strings.Index(source, "composeApplication(rootContext, host, clientAssets)")
+	require.NotEqual(t, -1, hostConstruction)
+	require.NotEqual(t, -1, applicationComposition)
+	assert.Less(t, hostConstruction, applicationComposition,
+		"single-instance ownership must be acquired before application services are composed")
 	assert.True(t, regexp.MustCompile(`Assets:\s+clientAssets`).MatchString(source),
 		"main.go is missing production player asset wiring")
 	assert.False(t, strings.Contains(source, "//go:embed all:frontend/overseer/dist all:frontend/client/dist") ||
@@ -2270,7 +2350,7 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 	require.NoError(t, err)
 	hostSource := string(hostRaw)
 	for _, fragment := range []string{
-		"application.New(wailsApplicationOptions(overseerAssets))",
+		"application.New(wailsApplicationOptions(overseerAssets, onSecondInstanceLaunch))",
 		"Handler: application.AssetFileServerFS(overseerAssets)",
 		"ApplicationShouldTerminateAfterLastWindowClosed: true",
 		"host.Window.NewWithOptions(overseerWindowOptions())",
@@ -2396,11 +2476,14 @@ func TestActiveWailsV3DocumentsStaySeparateFromHistoricalEvidence(t *testing.T) 
 	readmeRaw, err := os.ReadFile(filepath.Join(root, "README.md"))
 	require.NoError(t, err)
 	readme := string(readmeRaw)
-	assert.Contains(t, readme, "specs/006-wails-v3-migration/quickstart.md")
 	assert.Contains(t, readme, "docs/wails-v3-migration-rollback.md")
-	assert.Contains(t, readme, "неизменяемые исторические evidence")
-	assert.Contains(t, readme, "specs/001-wails-v2-migration/")
-	assert.Contains(t, readme, "docs/wails-migration-rollback.md")
+
+	rollbackRaw, err := os.ReadFile(filepath.Join(root, "docs", "wails-v3-migration-rollback.md"))
+	require.NoError(t, err)
+	rollback := string(rollbackRaw)
+	assert.Contains(t, rollback, "specs/006-wails-v3-migration/")
+	assert.Contains(t, rollback, "specs/001-wails-v2-migration/")
+	assert.Contains(t, rollback, "docs/wails-migration-rollback.md")
 
 	scannerRaw, err := os.ReadFile(filepath.Join(root, "scripts", "wails-v3-cutover-check.sh"))
 	require.NoError(t, err)

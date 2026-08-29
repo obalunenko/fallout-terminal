@@ -105,12 +105,15 @@ const state = globalThis.__desktopFixtureState ??= {
   savePublicAccessPromise: null,
   resolveSavePublicAccess: null,
   pendingSavePublicAccess: null,
+  publicAccessCredentialShareError: '',
   clipboardText: '',
   authoringSession: stateChangingAuthoringSession(),
   authoringRevision: 1,
   terminalActionNextResults: new Map(),
   terminalActionDeferred: new Map(),
 };
+let playerPassword = 'synthetic-player-share-value';
+let pendingPlayerPassword = null;
 if (!state.authoringSession) state.authoringSession = stateChangingAuthoringSession();
 if (!Number.isSafeInteger(state.authoringRevision)) state.authoringRevision = 1;
 if (!(state.terminalActionNextResults instanceof Map)) state.terminalActionNextResults = new Map();
@@ -365,18 +368,23 @@ globalThis.__desktopFixture = {
     state.clipboardText = '';
     return value;
   },
+  failNextPublicAccessCredentialShare(error = 'The secure credential store is unavailable.') {
+    state.publicAccessCredentialShareError = error;
+  },
   deferSavePublicAccess() {
     state.savePublicAccessPromise = new Promise(resolve => { state.resolveSavePublicAccess = resolve; });
   },
   resolveSavePublicAccess(result = state.pendingSavePublicAccess) {
     if (result?.snapshot) {
       state.publicAccess = structuredClone(result.snapshot);
+      if (result.ok && pendingPlayerPassword !== null) playerPassword = pendingPlayerPassword;
       persistPublicAccess();
     }
     state.resolveSavePublicAccess?.(result);
     state.resolveSavePublicAccess = null;
     state.savePublicAccessPromise = null;
     state.pendingSavePublicAccess = null;
+    pendingPlayerPassword = null;
   },
 };
 
@@ -517,6 +525,21 @@ export function GetPublicAccess() {
   return state.publicAccessPromise ?? Promise.resolve(snapshot());
 }
 
+export function CopyPublicAccessCredentials() {
+  state.calls.push({ method: 'CopyPublicAccessCredentials', args: [] });
+  if (state.publicAccessCredentialShareError) {
+    const error = state.publicAccessCredentialShareError;
+    state.publicAccessCredentialShareError = '';
+    return Promise.resolve({ ok: false, error });
+  }
+  const username = state.publicAccess.preferences.username;
+  if (state.publicAccess.playerPasswordPresence !== 'present' || !username || !playerPassword) {
+    return Promise.resolve({ ok: false, error: 'Player credentials are unavailable.' });
+  }
+  state.clipboardText = `Логин: ${username}\nПароль: ${playerPassword}`;
+  return Promise.resolve({ ok: true });
+}
+
 export function SavePublicAccessSettings(request) {
   const proposed = request && typeof request === 'object' ? request : {};
   const providerReplacement = proposed.replacementProviderToken;
@@ -546,10 +569,15 @@ export function SavePublicAccessSettings(request) {
     status: { state: 'disabled', generation: state.publicAccess.status.generation + 1, settingsRevision: revision },
   };
   const result = { ok: true, snapshot: structuredClone(nextPublicAccess) };
+  const nextPlayerPassword = proposed.deletePlayerPassword
+    ? ''
+    : (passwordReplacement || playerPassword);
   if (state.savePublicAccessPromise) {
     state.pendingSavePublicAccess = result;
+    pendingPlayerPassword = nextPlayerPassword;
     return state.savePublicAccessPromise;
   }
+  playerPassword = nextPlayerPassword;
   state.publicAccess = nextPublicAccess;
   persistPublicAccess();
   return Promise.resolve(result);
@@ -560,6 +588,7 @@ export function GeneratePlayerPassword(request) {
   const revision = state.publicAccess.preferences.revision + 1;
   state.publicAccess.preferences.revision = revision;
   state.publicAccess.playerPasswordPresence = 'present';
+  playerPassword = 'synthetic-one-time-generated-value';
   state.publicAccess.status = { state: 'disabled', generation: state.publicAccess.status.generation + 1, settingsRevision: revision };
   persistPublicAccess({ preserveVisiblePreferences: true });
   return Promise.resolve({ ok: true, generatedPassword: 'synthetic-one-time-generated-value', settingsRevision: revision });
@@ -604,7 +633,21 @@ export async function DeleteCharacter(payload) {
 export const AssignCharacter = (...args) => record('AssignCharacter', args);
 export const CopyDemo = (...args) => record('CopyDemo', args);
 export const EndBroadcast = (...args) => record('EndBroadcast', args);
-export const ForceHackSuccess = (...args) => record('ForceHackSuccess', args);
+export function ForceHackSuccess(...args) {
+  if (!terminalNavigationFixtureActive()) return record('ForceHackSuccess', args);
+  state.calls.push({ method: 'ForceHackSuccess', args: structuredClone(args) });
+  return fetch('/__fixture/terminal-navigation/force-hack', { method: 'POST' }).then(async response => {
+    if (response.ok) {
+      emitFixtureEvent('hack-state', {
+        solved: true, failed: false, attemptsLeft: 3, attemptsMax: 4,
+      });
+    }
+    return {
+      ok: response.ok,
+      error: response.ok ? '' : (await response.text()).trim(),
+    };
+  });
+}
 export const LoadReferencedPlayerConfig = (...args) => record('LoadReferencedPlayerConfig', args);
 export const MoveCharacter = (...args) => record('MoveCharacter', args);
 export const NewPlayerConfig = (...args) => record('NewPlayerConfig', args);

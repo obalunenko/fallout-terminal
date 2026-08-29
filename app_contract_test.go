@@ -76,7 +76,7 @@ func TestApplicationUpdateSnapshotProtoNativeRoundTripEveryState(t *testing.T) {
 				AvailableVersion: "2.19.0",
 				ReleaseNotes:     "Safe release notes",
 				BytesDownloaded:  1024,
-				DownloadSize:     applicationUpdateUint64Pointer(2048),
+				DownloadSize:     new(uint64(2048)),
 			}, native)
 		})
 	}
@@ -223,10 +223,6 @@ func TestApplicationUpdateCommandResultProtoNativeRoundTripPreservesOptionalErro
 	semantic = applicationUpdateCommandResultToPrivate(withoutError)
 	require.False(t, semantic.ProtoReflect().Has(semantic.ProtoReflect().Descriptor().Fields().ByName("error")))
 	require.Equal(t, withoutError, applicationUpdateCommandResultFromPrivate(semantic))
-}
-
-func applicationUpdateUint64Pointer(value uint64) *uint64 {
-	return &value
 }
 
 func applicationUpdateMapKeys[V any](values map[string]V) []string {
@@ -761,14 +757,14 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
 		"RequestTerminalActivation", "UpdateLiveTerminal", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState", "ResetTerminalCommandStates",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
-		"StartBroadcast", "EndBroadcast", "OpenURL", "GetPublicAccess", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
+		"StartBroadcast", "EndBroadcast", "OpenURL", "GetPublicAccess", "CopyPublicAccessCredentials", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
 	}
 	serviceType := reflect.TypeFor[*desktopService]()
 	actualMethods := make([]string, 0, serviceType.NumMethod())
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 38)
+	require.Len(t, actualMethods, 39)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -812,7 +808,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 38)
+	require.Len(t, forwarded, 39)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

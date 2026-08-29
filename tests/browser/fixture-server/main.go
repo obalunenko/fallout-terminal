@@ -896,15 +896,14 @@ type fixtureEdge struct {
 type fixturePresentationGateState struct {
 	release     chan struct{}
 	blocked     chan struct{}
+	unary       bool
 	canceled    bool
 	releaseOnce sync.Once
 	blockedOnce sync.Once
 }
 
-// fixturePresentationGate makes the public-stream cancellation journey
-// deterministic: it pauses exactly one connection-bound presentation before
-// canonical dispatch, then lets the fixture rotate the uplink and reject that
-// obsolete work so the browser must transfer its newest target to unary.
+// fixturePresentationGate makes presentation races deterministic: it pauses
+// exactly one streamed or unary presentation before canonical dispatch.
 type fixturePresentationGate struct {
 	*control.Service
 	context context.Context
@@ -913,11 +912,20 @@ type fixturePresentationGate struct {
 }
 
 func (gate *fixturePresentationGate) arm() {
+	gate.armTransport(false)
+}
+
+func (gate *fixturePresentationGate) armUnary() {
+	gate.armTransport(true)
+}
+
+func (gate *fixturePresentationGate) armTransport(unary bool) {
 	gate.cancel()
 	gate.mu.Lock()
 	gate.state = &fixturePresentationGateState{
 		release: make(chan struct{}),
 		blocked: make(chan struct{}),
+		unary:   unary,
 	}
 	gate.mu.Unlock()
 }
@@ -930,6 +938,16 @@ func (gate *fixturePresentationGate) cancel() {
 	}
 	gate.state.canceled = true
 	gate.state.releaseOnce.Do(func() { close(gate.state.release) })
+}
+
+func (gate *fixturePresentationGate) release() {
+	gate.mu.Lock()
+	state := gate.state
+	gate.mu.Unlock()
+	if state == nil {
+		return
+	}
+	state.releaseOnce.Do(func() { close(state.release) })
 }
 
 func (gate *fixturePresentationGate) cancelAfter(delay time.Duration) {
@@ -968,11 +986,23 @@ func (gate *fixturePresentationGate) reset() {
 }
 
 func (gate *fixturePresentationGate) DispatchPlayerAction(connectionID domain.ConnectionID, command domain.RuntimeCommand) domain.ActionResult {
+	return gate.dispatchPresentation(command, false, func() domain.ActionResult {
+		return gate.Service.DispatchPlayerAction(connectionID, command)
+	})
+}
+
+func (gate *fixturePresentationGate) DispatchPlayerActionForRecognition(handle domain.RecognitionHandle, command domain.RuntimeCommand) domain.ActionResult {
+	return gate.dispatchPresentation(command, true, func() domain.ActionResult {
+		return gate.Service.DispatchPlayerActionForRecognition(handle, command)
+	})
+}
+
+func (gate *fixturePresentationGate) dispatchPresentation(command domain.RuntimeCommand, unary bool, dispatch func() domain.ActionResult) domain.ActionResult {
 	gate.mu.Lock()
 	state := gate.state
 	gate.mu.Unlock()
-	if command.Kind != domain.RuntimeCommandPresentation || state == nil {
-		return gate.Service.DispatchPlayerAction(connectionID, command)
+	if command.Kind != domain.RuntimeCommandPresentation || state == nil || state.unary != unary {
+		return dispatch()
 	}
 
 	state.blockedOnce.Do(func() { close(state.blocked) })
@@ -995,7 +1025,7 @@ func (gate *fixturePresentationGate) DispatchPlayerAction(connectionID domain.Co
 			Revision:  gate.Service.Snapshot().Revision,
 		}
 	}
-	return gate.Service.DispatchPlayerAction(connectionID, command)
+	return dispatch()
 }
 
 type fixtureEdgeStatus struct {
@@ -1848,6 +1878,14 @@ export async function RequestTerminalActivation(payload) {
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(stateChangingApprovalSession(nil))
 	})
+	mux.HandleFunc("GET /__fixture/state-changing-command-approval/audit", func(response http.ResponseWriter, _ *http.Request) {
+		executeWrites, completed := approvalStore.audit()
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]any{
+			"executeWrites": executeWrites,
+			"completed":     completed,
+		})
+	})
 	mux.HandleFunc("POST /__fixture/state-changing-command-approval/reset", func(response http.ResponseWriter, _ *http.Request) {
 		approvalStore.reset()
 		if _, err := service.EndBroadcast(); err != nil {
@@ -2057,6 +2095,13 @@ export async function RequestTerminalActivation(payload) {
 		}
 		response.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /__fixture/force-hack", func(response http.ResponseWriter, _ *http.Request) {
+		if _, ok := service.ForceHackSuccess(); !ok {
+			http.Error(response, "active terminal has no unfinished hack", http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /__fixture/local/hacking", func(response http.ResponseWriter, _ *http.Request) {
 		edge.activateHacking(response)
 	})
@@ -2128,6 +2173,10 @@ export async function RequestTerminalActivation(payload) {
 		connectPlayer.CloseSubscriptions()
 		response.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /__fixture/presentation-uplinks/close", func(response http.ResponseWriter, _ *http.Request) {
+		presentationHub.CloseUplinks(errors.New("fixture presentation uplinks closed"))
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /__fixture/public-access/failure/", func(response http.ResponseWriter, request *http.Request) {
 		kind := strings.TrimPrefix(request.URL.Path, "/__fixture/public-access/failure/")
 		snapshot, ok := edge.publicFailure(kind)
@@ -2164,11 +2213,19 @@ export async function RequestTerminalActivation(payload) {
 		presentationGate.arm()
 		response.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /__fixture/edge/presentation-gate/arm-unary", func(response http.ResponseWriter, _ *http.Request) {
+		presentationGate.armUnary()
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /__fixture/edge/presentation-gate/blocked", func(response http.ResponseWriter, _ *http.Request) {
 		if !presentationGate.isBlocked() {
 			response.WriteHeader(http.StatusConflict)
 			return
 		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/edge/presentation-gate/release", func(response http.ResponseWriter, _ *http.Request) {
+		presentationGate.release()
 		response.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /__fixture/edge/presentation-gate/cancel-uplinks", func(response http.ResponseWriter, _ *http.Request) {
@@ -2290,6 +2347,10 @@ func stateChangingApprovalTarget() domain.TerminalTarget {
 				{
 					ID: "renderer-reference", Type: domain.NodeEntry, Name: "ЭТАЛОН РЕНДЕРА",
 					Description: fixtureCommandResult,
+				},
+				{
+					ID: "diagnostics", Type: domain.NodeCommand, Name: "Запустить диагностику",
+					Text: "Диагностика завершена.",
 				},
 				{
 					ID: "doors", Type: domain.NodeCommand, Name: "Открыть двери",

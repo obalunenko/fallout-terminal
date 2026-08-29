@@ -52,7 +52,7 @@ Neither file contains recognition handles, logical sessions, physical connection
 | Coordination | replay-cache limit `256`, identifier limits, recognition minting policy |
 | Browser | reconnect delay three seconds, only recognition-handle storage key semantics |
 | Paths | Documents session directory, bundled demo, Application Support metadata, selected session/player-config paths as private values |
-| Tunnel | enabled, binary, domain `fallout-terminal.ngrok.app`, port, local URL, startup timeout, policy parent, credential pair as a private ephemeral message |
+| Tunnel | enabled, binary, optional fixed domain, port, local URL, startup timeout, policy parent, credential pair as a private ephemeral message |
 | Startup/shutdown | listener-before-desktop order, optional tunnel acquisition, reverse-order idempotent cleanup, owned-process grace period |
 
 Defaults and environment/argument precedence remain implementation behavior in explicit adapters; protobuf definitions do not read environment variables or launch processes.

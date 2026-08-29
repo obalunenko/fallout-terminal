@@ -17,12 +17,12 @@ import (
 )
 
 func TestControllerPresentationIsRuntimeOwnedAndProjected(t *testing.T) {
-	runtimeType := reflect.TypeOf(domain.TerminalRuntime{})
+	runtimeType := reflect.TypeFor[domain.TerminalRuntime]()
 	runtimeField, ok := runtimeType.FieldByName("Presentation")
 	require.True(t, ok, "TerminalRuntime must own controller presentation")
 	require.Equal(t, "ControllerTerminalPresentation", runtimeField.Type.Name())
 
-	publicType := reflect.TypeOf(domain.PublicLiveState{})
+	publicType := reflect.TypeFor[domain.PublicLiveState]()
 	publicField, ok := publicType.FieldByName("Presentation")
 	require.True(t, ok, "PublicLiveState must project controller presentation")
 	require.Equal(t, runtimeField.Type, publicField.Type)
@@ -342,6 +342,52 @@ func TestAcceptedPatternPublishesOnceAfterMutationAndDuplicatePublishesNever(t *
 	require.Falsef(t, len(published) != 1 || random.calls.Load() != beforeCalls,
 		"duplicate request published or consumed RNG: publications=%d calls=%d->%d", len(published), beforeCalls, random.calls.Load())
 
+}
+
+func TestApplyHackPatternSerializesPublicationBeforeNextTransition(t *testing.T) {
+	random := newCountingRandom(1)
+	service := New(random, fixedWords{})
+	service.generationIDs = &sequenceGenerationIDs{values: []string{"generation-ordered"}}
+	initial := service.Set("terminal-1", "Overseer", testTree(), 1, "WELCOME")
+	require.GreaterOrEqual(t, len(initial.Hack.Patterns), 2)
+	firstPatternID := initial.Hack.Patterns[0].ID
+	secondPatternID := initial.Hack.Patterns[1].ID
+	random.value.Store(99)
+
+	firstPublishStarted := make(chan struct{})
+	releaseFirstPublish := make(chan struct{})
+	publicationOrder := make(chan string, 2)
+	firstDone := make(chan bool, 1)
+	go func() {
+		firstDone <- service.ApplyHackPattern(firstPatternID, func(*domain.PublicHackState) {
+			close(firstPublishStarted)
+			<-releaseFirstPublish
+			publicationOrder <- firstPatternID
+		})
+	}()
+	<-firstPublishStarted
+
+	mutexHeld := !service.mu.TryLock()
+	if !mutexHeld {
+		service.mu.Unlock()
+	}
+
+	secondStarted := make(chan struct{})
+	secondDone := make(chan bool, 1)
+	go func() {
+		close(secondStarted)
+		secondDone <- service.ApplyHackPattern(secondPatternID, func(*domain.PublicHackState) {
+			publicationOrder <- secondPatternID
+		})
+	}()
+	<-secondStarted
+	close(releaseFirstPublish)
+
+	require.True(t, <-firstDone)
+	require.True(t, <-secondDone)
+	require.True(t, mutexHeld, "publication callback ran after releasing the live-service mutex")
+	require.Equal(t, firstPatternID, <-publicationOrder)
+	require.Equal(t, secondPatternID, <-publicationOrder)
 }
 
 func TestTerminalRuntimeLifecycleCreatesUpdatesAndProjectsDetachedCheckpoints(t *testing.T) {

@@ -7,7 +7,7 @@ vars:
   APP_ARGS: '{{default "" .APP_ARGS}}'
   NODE_MINIMUM_VERSION: '26.8.1'
   MACOS_MINIMUM_VERSION: '13.0'
-  DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}} CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} CGO_LDFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}}{{end}}'
+  DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}} CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} CGO_LDFLAGS="-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} -Wl,-no_warn_duplicate_libraries"{{end}}'
   SPECKIT_INSTALL: scripts/install-speckit.sh
   SPECKIT_UPDATE_CHECK: scripts/check-speckit-updates.py
   SPECKIT_VERSION: '1.0.1'
@@ -26,11 +26,6 @@ tasks:
     desc: Build and run the complete application in development mode.
     cmds:
       - '{{.GO}} run ./cmd/build dev {{.APP_ARGS}}'
-
-  run:
-    desc: Build and run the application.
-    cmds:
-      - '{{.GO}} run ./cmd/build run {{.APP_ARGS}}'
 
   prepare:
     desc: Verify and build protobuf, client, bindings, and Overseer assets.
@@ -211,6 +206,11 @@ tasks:
     cmds:
       - python3 scripts/test_check_speckit_updates.py
 
+  companion:test:
+    desc: Run the network-free Companion lifecycle regression tests.
+    cmds:
+      - python3 -m unittest discover -s .specify/extensions/companion/scripts -p 'test_*.py'
+
   fmt:
     desc: Format all Go sources.
     cmds:
@@ -259,7 +259,7 @@ tasks:
       - '{{.DARWIN_CGO_ENV}} {{.GO}} test ./internal/platform -run "Test(WailsV3|Taskfile|QualityWorkflow|PortableRelease|Distribution)"'
 
   wails:pins:check:
-    desc: Verify the exact Wails v3.0.0-beta.13 and frontend 3.0.0-beta.13 pins.
+    desc: Verify the exact Wails v3.0.0-beta.15 and frontend 3.0.0-beta.15 pins.
     cmds:
       - scripts/wails-v3-contract-check.sh
 
@@ -291,7 +291,6 @@ tasks:
       - task: test
       - task: vet
       - task: frontend:build
-      - task: startup:check
       - task: wails:pins:check
       - task: bindings:check
       - task: proto:format:check
@@ -341,6 +340,7 @@ tasks:
       - task: proto:breaking
       - task: bindings:check
       - task: speckit:update:test
+      - task: companion:test
 
   release:macos:preflight:
     desc: Validate Developer ID and notarization prerequisites.

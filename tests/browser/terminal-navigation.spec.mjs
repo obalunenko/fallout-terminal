@@ -70,6 +70,19 @@ async function finishHack(request, player) {
   await expect(player.locator('#termList')).toBeVisible();
 }
 
+async function submitUnsuccessfulGuess(controller, observers = []) {
+  const initialAttempts = await controller.locator('#attemptsLine').textContent();
+  await controller.locator('.hcell.word').first().click();
+  await expect.poll(async () => controller.locator('#attemptsLine').textContent()).not.toBe(initialAttempts);
+  const retainedAttempts = await controller.locator('#attemptsLine').textContent();
+  await Promise.all(observers.map(observer =>
+    expect(observer.locator('#attemptsLine')).toHaveText(retainedAttempts)));
+}
+
+async function expectNoPlayerNotice(pages) {
+  await Promise.all(pages.map(page => expect(page.locator('#playerNotice')).toBeHidden()));
+}
+
 async function coordinationSnapshot(request) {
   const response = await request.get(`${FIXTURE}/state`);
   expect(response.ok()).toBe(true);
@@ -97,6 +110,16 @@ async function expectPendingTransitionSurface(page, timeout = 2000) {
   await expect(page.locator('#termPrompt')).toBeVisible({ timeout });
   await expect(page.locator('#backBtn')).toBeHidden({ timeout });
   await expect(page.locator('#playerNotice')).toBeHidden({ timeout });
+}
+
+async function expectRejectedCommandSurface(page, controller, timeout = 2000) {
+  await expect(page.locator('#termEntry')).toBeVisible({ timeout });
+  await page.keyboard.press('Shift');
+  await expect(page.locator('#entryBody')).toHaveText('Ошибка доступа', { timeout });
+  await expect(page.locator('#termList')).toBeHidden({ timeout });
+  await expect(page.locator('#termOutput')).toBeHidden({ timeout });
+  if (controller) await expect(page.locator('#backBtn')).toBeVisible({ timeout });
+  else await expect(page.locator('#backBtn')).toBeHidden({ timeout });
 }
 
 test.beforeEach(async ({ request }) => {
@@ -487,6 +510,16 @@ for (const command of [
             await expect(participant.page.locator('#termList')).toBeHidden();
           }));
         } else {
+          await expectRejectedCommandSurface(controller.page, true);
+          await expectRejectedCommandSurface(firstObserver.page, false);
+          await expectRejectedCommandSurface(secondObserver.page, false);
+
+          await secondObserver.context.close();
+          secondObserver = await openParticipant(browser, retainedToken);
+          await expectRejectedCommandSurface(secondObserver.page, false);
+
+          if (decision === 'reject') await controller.page.locator('#backBtn').click();
+          else await controller.page.keyboard.press('Enter');
           await Promise.all([controller, firstObserver, secondObserver].map(async participant => {
             await expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 });
             await expect(participant.page.locator('#termList')).toHaveText(sourceMenu);
@@ -549,10 +582,25 @@ test('direct pending replaces every player menu with the inert record surface ac
         await Promise.all([controller, firstObserver, secondObserver].map(participant =>
           expect(participant.page.locator('#hackHeader')).toBeVisible({ timeout: 2000 })));
       } else {
+        await expectRejectedCommandSurface(controller.page, true);
+        await expectRejectedCommandSurface(firstObserver.page, false);
+        await expectRejectedCommandSurface(secondObserver.page, false);
+
+        await secondObserver.context.close();
+        secondObserver = await openParticipant(browser, retainedToken);
+        await expectRejectedCommandSurface(secondObserver.page, false);
+
+        const rejected = await coordinationSnapshot(request);
+        expect(rejected.broadcast.activeTerminalId).toBe('residential');
+        expect(rejected.pendingTerminalNavigation).toBeNull();
+
+        if (decision === 'reject') await controller.page.locator('#backBtn').click();
+        else await controller.page.keyboard.press('Enter');
         await Promise.all([controller, firstObserver, secondObserver].map(async participant => {
           await expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 });
           await expect(participant.page.locator('#termList')).toHaveText(sourceMenu);
           await expect(participant.page.locator('#termEntry')).toBeHidden();
+          await expect(participant.page.getByRole('button', { name: /НАЗАД В/i })).toHaveCount(0);
         }));
       }
     } finally {
@@ -667,6 +715,121 @@ test('an unfinished destination hack resumes with the exact retained progress', 
     await expect(player.page.locator('#hackLog')).toHaveText(retainedLog);
   } finally {
     await player.context.close();
+    await overseerContext.close();
+  }
+});
+
+test('trusted success stays unambiguous when the unsuccessful guess result arrives before the solved snapshot', async ({ browser, request }) => {
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  const controller = await openParticipant(browser);
+  const observer = await openParticipant(browser);
+  try {
+    await approveForwardTransition(overseer, controller.page);
+    await expect(observer.page.locator('#hackHeader')).toBeVisible();
+    await submitUnsuccessfulGuess(controller.page, [observer.page]);
+    await expectNoPlayerNotice([controller.page, observer.page]);
+
+    expect((await request.post(`${FIXTURE}/force-hack`)).ok()).toBe(true);
+    await expectNoPlayerNotice([controller.page, observer.page]);
+    await Promise.all([controller.page, observer.page].map(page =>
+      expect(page.locator('#termList')).toBeVisible({ timeout: 5000 })));
+    await expectNoPlayerNotice([controller.page, observer.page]);
+  } finally {
+    await controller.context.close();
+    await observer.context.close();
+    await overseerContext.close();
+  }
+});
+
+test('first-guess presentation cannot reject after the private Overseer solve', async ({ browser, request }) => {
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  const controller = await openParticipant(browser);
+  const observer = await openParticipant(browser);
+  try {
+    await approveForwardTransition(overseer, controller.page);
+    await expect(observer.page.locator('#hackHeader')).toBeVisible();
+    await overseer.locator('.term-row', { hasText: 'Терминал охраны' }).click();
+    await expect(overseer.locator('#editingTermName')).toHaveText('Терминал охраны');
+    await overseer.evaluate(() => {
+      globalThis.__desktopFixture.emit('hack-state', {
+        solved: false, failed: false, attemptsLeft: 3, attemptsMax: 4,
+      });
+    });
+    await expect(overseer.locator('#btnHackSuccess')).toBeEnabled();
+
+    expect((await request.post('/__fixture/presentation-uplinks/close')).status()).toBe(204);
+    await controller.page.waitForTimeout(100);
+    expect((await request.post('/__fixture/edge/presentation-gate/arm-unary')).status()).toBe(204);
+    const initialAttempts = await controller.page.locator('#attemptsLine').textContent();
+    await controller.page.locator('.hcell.word').first().click();
+    await expect.poll(async () => controller.page.locator('#attemptsLine').textContent()).not.toBe(initialAttempts);
+    await expect.poll(async () =>
+      (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(204);
+
+    await overseer.locator('#btnHackSuccess').click();
+    await expect(overseer.locator('#btnHackSuccess')).toBeDisabled();
+    await expectNoPlayerNotice([controller.page, observer.page]);
+
+    expect((await request.post('/__fixture/edge/presentation-gate/release')).status()).toBe(204);
+    await expect.poll(async () =>
+      (await request.get('/__fixture/edge/presentation-gate/blocked')).status()).toBe(409);
+    await controller.page.waitForTimeout(100);
+    await expect(controller.page.locator('#hackHeader')).toBeVisible();
+    await expectNoPlayerNotice([controller.page, observer.page]);
+    await Promise.all([controller.page, observer.page].map(page =>
+      expect(page.locator('#termList')).toBeVisible({ timeout: 5000 })));
+    await expectNoPlayerNotice([controller.page, observer.page]);
+  } finally {
+    await controller.context.close();
+    await observer.context.close();
+    await overseerContext.close();
+  }
+});
+
+test('late shared hacking rejection cannot outlive a trusted solved snapshot', async ({ browser, request }) => {
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  const controller = await openParticipant(browser);
+  const observer = await openParticipant(browser);
+  let releaseGuess;
+  const guessGate = new Promise(resolve => { releaseGuess = resolve; });
+  let delayedGuessObserved = false;
+  let delayedGuessFinished;
+  const guessFinished = new Promise(resolve => { delayedGuessFinished = resolve; });
+  try {
+    await approveForwardTransition(overseer, controller.page);
+    await expect(observer.page.locator('#hackHeader')).toBeVisible();
+    await submitUnsuccessfulGuess(controller.page, [observer.page]);
+    await controller.page.route('**/fallout.terminal.player.v1.PlayerService/Guess', async route => {
+      delayedGuessObserved = true;
+      await guessGate;
+      const result = await route.fetch();
+      await route.fulfill({ response: result });
+      delayedGuessFinished();
+    });
+
+    await controller.page.locator('.hcell.word').last().click();
+    await expect.poll(() => delayedGuessObserved).toBe(true);
+    expect((await request.post(`${FIXTURE}/force-hack`)).ok()).toBe(true);
+    await expectNoPlayerNotice([controller.page, observer.page]);
+
+    releaseGuess();
+    await guessFinished;
+    await controller.page.waitForTimeout(100);
+    await expect(controller.page.locator('#hackHeader')).toBeVisible();
+    await expectNoPlayerNotice([controller.page, observer.page]);
+    await Promise.all([controller.page, observer.page].map(page =>
+      expect(page.locator('#termList')).toBeVisible({ timeout: 5000 })));
+    await expectNoPlayerNotice([controller.page, observer.page]);
+  } finally {
+    releaseGuess?.();
+    await controller.context.close();
+    await observer.context.close();
     await overseerContext.close();
   }
 });

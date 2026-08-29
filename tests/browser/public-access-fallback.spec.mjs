@@ -202,7 +202,7 @@ test('all public failures leave local gameplay live and a later public generatio
     const snapshot = await response.json();
     await overseer.evaluate(value => __desktopFixture.emit('public-access-status', value), snapshot);
     await expect(overseer.locator('#publicAccessStatus')).toHaveText('ОШИБКА');
-    await expect(overseer.locator('#publicAccessURL')).toHaveText('');
+    await expect(overseer.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
     await expect(overseer.locator('#publicAccessError')).toContainText('ЛОКАЛЬНЫЙ РЕЖИМ ПРОДОЛЖАЕТ РАБОТАТЬ');
 
     await expect(player.locator('#connOverlay')).toBeHidden();

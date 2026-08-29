@@ -33,6 +33,24 @@ use **Keychain**. Because the portable app is unsigned, Finder may block the fir
 confirming the archive came from the expected release, use **System Settings → Privacy & Security →
 Open Anyway**. Signed/notarized packages are a separate manual maintainer option.
 
+## Overseer approval notifications
+
+When a player command needs approval, the Overseer keeps showing the existing in-app prompt and
+also attempts to show a system notification with **ОДОБРИТЬ** and **ОТКЛОНИТЬ** actions. System
+notifications are optional: denied permission, an unavailable notification service, or any native
+delivery error leaves the in-app approval flow available and authoritative.
+
+- **macOS:** notification authorization is requested by the system on first use. Reliable native
+  delivery requires launching the packaged application bundle; distribution builds should be
+  signed for normal end-user notification behavior.
+- **Windows:** interactive toast actions are supported. The pinned native backend cannot remove an
+  already delivered toast, so a resolved toast may remain visible, but its stale actions are inert.
+- **Linux:** the graphical session must provide a freedesktop notification daemon over the user's
+  D-Bus session. If it is absent, delivery fails locally and the in-app prompt remains usable.
+
+Matching-host approve and reject checks are manual acceptance evidence. Record them as `PASS` only
+when they were actually exercised on that platform; otherwise record `NOT RUN`.
+
 ## Extract and launch
 
 Fully extract the chosen archive so resources remain beside the executable:
@@ -42,7 +60,7 @@ Fully extract the chosen archive so resources remain beside the executable:
 - macOS: open the extracted `Fallout Terminal.app` bundle.
 
 Do not run from an archive viewer or copy only the executable. The bundled demos, icon, third-party
-notices, and artifact manifest are part of the application resource tree.
+notices, `RUNNING.md`, and artifact manifest are part of the governed application package.
 
 ## Sessions, settings, and credentials
 
@@ -73,4 +91,5 @@ and LAN sessions remain available.
 - **Secure storage is unavailable:** unlock Windows Credential Manager, Secret Service, or Keychain
   for the signed-in user. Retry credentials afterward; do not create a plaintext fallback.
 - **Sessions do not save:** check the resolved Documents directory and the platform settings path.
-  Keep the extracted application directory read-only and preserve its resources.
+  Do not save sessions inside the extracted application directory; preserve its resources and keep
+  the directory writable when using self-update.

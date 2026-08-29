@@ -25,14 +25,14 @@ import (
 )
 
 func TestControllerPresentationCommandCarriesSemanticContext(t *testing.T) {
-	commandType := reflect.TypeOf(domain.RuntimeCommand{})
+	commandType := reflect.TypeFor[domain.RuntimeCommand]()
 	field, ok := commandType.FieldByName("Presentation")
 	require.True(t, ok, "RuntimeCommand must expose Presentation")
 	require.NotEqual(t, reflect.Invalid, field.Type.Kind())
 	_, ok = field.Type.FieldByName("ContextKey")
 	require.True(t, ok, "presentation command must carry the semantic context precondition")
 
-	runtimeType := reflect.TypeOf(domain.TerminalRuntime{})
+	runtimeType := reflect.TypeFor[domain.TerminalRuntime]()
 	_, ok = runtimeType.FieldByName("Presentation")
 	require.True(t, ok, "coordinator-owned runtime must retain presentation across reassignment")
 }
@@ -86,7 +86,7 @@ func TestControllerPresentationAuthorizationReassignmentAndProjection(t *testing
 }
 
 func TestControllerPresentationAndReassignmentShareCommitOrderAcross100Interleavings(t *testing.T) {
-	for trial := 0; trial < 100; trial++ {
+	for trial := range 100 {
 		t.Run(fmt.Sprintf("trial-%03d", trial), func(t *testing.T) {
 			fixture := newUS2Fixture(t, live.New(nil, nil))
 			projection, _, ok := fixture.service.CurrentLiveForSession(fixture.controllerSession)
@@ -1430,6 +1430,16 @@ func TestUniversalCommandApprovalMatrixCreatesOnePendingBeforeAnyModeEffect(t *t
 				fixture.service.DispatchPlayerAction(fixture.controllerConnection, competing).Reason)
 			require.Zero(t, fixture.runtime.Calls())
 			require.Zero(t, store.ExecuteCalls())
+
+			if test.transition {
+				rejected, err := fixture.service.ResolveTerminalNavigation(pendingID, domain.TerminalNavigationReject)
+				require.NoError(t, err)
+				require.Nil(t, rejected.PendingTerminalNavigation)
+				require.Equal(t, activeBefore, *rejected.Broadcast.ActiveTerminalID)
+				require.Equal(t, &domain.CommandExecutionPresentation{
+					Phase: domain.CommandExecutionPhaseRejected, CommandID: fixture.commandID,
+				}, canonicalTerminal(t, fixture.service, fixture.terminalID).CommandExecution)
+			}
 		})
 	}
 }
@@ -1479,13 +1489,35 @@ func TestOrdinaryAndCompletedCommandDecisionsPreserveModeSpecificEffects(t *test
 			require.Nil(t, state.PendingCommandExecution)
 			require.Zero(t, store.ExecuteCalls())
 			after := canonicalTerminal(t, fixture.service, fixture.terminalID)
-			require.Nil(t, after.CommandExecution)
+			if test.decision == domain.CommandExecutionReject {
+				require.Equal(t, &domain.CommandExecutionPresentation{
+					Phase:     domain.CommandExecutionPhaseRejected,
+					CommandID: fixture.commandID,
+				}, after.CommandExecution)
+			} else {
+				require.Nil(t, after.CommandExecution)
+			}
 			require.Equal(t, before.CommandStates, after.CommandStates)
 			if test.decision == domain.CommandExecutionApprove {
 				require.NotNil(t, after.Nav.CommandNodeID)
 				require.Equal(t, fixture.commandID, *after.Nav.CommandNodeID)
 			} else {
 				require.Equal(t, before.Nav, after.Nav)
+				acknowledged := fixture.service.DispatchPlayerAction(
+					fixture.controllerConnection,
+					domain.RuntimeCommand{
+						RequestID:   "acknowledge-" + domain.RequestID(test.name),
+						BroadcastID: fixture.broadcastID,
+						TerminalID:  fixture.terminalID,
+						Kind:        domain.RuntimeCommandNavigate,
+						Action:      "back",
+					},
+				)
+				require.True(t, acknowledged.Accepted)
+				afterAcknowledgement := canonicalTerminal(t, fixture.service, fixture.terminalID)
+				require.Nil(t, afterAcknowledgement.CommandExecution)
+				require.Equal(t, before.Nav, afterAcknowledgement.Nav)
+				require.Equal(t, before.CommandStates, afterAcknowledgement.CommandStates)
 			}
 		})
 	}
@@ -3558,10 +3590,39 @@ func TestLinkedCommandCreatesOneReplaySafePendingAndResolvesAtomically(t *testin
 	competing.Action, competing.NodeID = "back", ""
 	assert.Equal(t, domain.ActionReasonConflict, fixture.service.DispatchPlayerAction(fixture.controllerConnection, competing).Reason)
 
+	sourceBeforeReject := canonicalTerminal(t, fixture.service, fixture.terminalID)
 	rejected, err := fixture.service.ResolveTerminalNavigation(first.RequestID, domain.TerminalNavigationReject)
 	require.NoError(t, err)
 	require.Nil(t, rejected.PendingTerminalNavigation)
 	require.Equal(t, fixture.terminalID, *rejected.Broadcast.ActiveTerminalID)
+	rejectedSource := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	require.Equal(t, sourceBeforeReject.Nav, rejectedSource.Nav)
+	require.Equal(t, sourceBeforeReject.Hack, rejectedSource.Hack)
+	require.Equal(t, sourceBeforeReject.CommandStates, rejectedSource.CommandStates)
+	require.Equal(t, &domain.CommandExecutionPresentation{
+		Phase: domain.CommandExecutionPhaseRejected, CommandID: "linked-command",
+	}, rejectedSource.CommandExecution)
+	fixture.service.mu.RLock()
+	assert.Empty(t, fixture.service.runtime.Broadcast.Route)
+	assert.NotContains(t, fixture.service.runtime.Broadcast.TerminalRuntimes, "terminal-b")
+	fixture.service.mu.RUnlock()
+
+	rejectedReconnect, err := fixture.service.AttachSubscription("linked-rejected-reconnect", &handle)
+	require.NoError(t, err)
+	require.NotNil(t, rejectedReconnect.Terminal.Live)
+	require.Equal(t, &domain.CommandExecutionPresentation{
+		Phase: domain.CommandExecutionPhaseRejected, CommandID: "linked-command",
+	}, rejectedReconnect.Terminal.Live.CommandExecution)
+	fixture.service.DetachConnection("linked-rejected-reconnect")
+
+	acknowledged := fixture.service.DispatchPlayerAction(fixture.controllerConnection, domain.RuntimeCommand{
+		RequestID: "linked-reject-ack", BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+		Kind: domain.RuntimeCommandNavigate, Action: "back", PayloadFingerprint: "linked-reject-ack",
+	})
+	require.True(t, acknowledged.Accepted)
+	acknowledgedSource := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	require.Nil(t, acknowledgedSource.CommandExecution)
+	require.Equal(t, sourceBeforeReject.Nav, acknowledgedSource.Nav)
 
 	command.RequestID, command.PayloadFingerprint = "linked-request-approve", "linked-fingerprint-approve"
 	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, command).Accepted)
@@ -4564,6 +4625,15 @@ func (runtime *recordingTerminalRuntime) Apply(state *domain.TerminalRuntime, co
 			<-release
 		})
 	}
+	if state.CommandExecution != nil {
+		if state.CommandExecution.Phase != domain.CommandExecutionPhaseRejected ||
+			command.Kind != domain.RuntimeCommandNavigate || command.Action != "back" {
+			return nil, false
+		}
+		state.CommandExecution = nil
+		state.Nav = nav.ApplyAction(state.Nav, state.Tree, command.Action, command.NodeID)
+		return publicTerminalRuntime(state), true
+	}
 
 	switch command.Kind {
 	case domain.RuntimeCommandNavigate:
@@ -4717,10 +4787,15 @@ func testTerminalRuntime(terminalID string) *domain.TerminalRuntime {
 }
 
 func publicTerminalRuntime(state *domain.TerminalRuntime) *domain.PublicLiveState {
+	var commandExecution *domain.CommandExecutionPresentation
+	if state.CommandExecution != nil {
+		presentation := *state.CommandExecution
+		commandExecution = &presentation
+	}
 	return &domain.PublicLiveState{
 		TerminalID: state.TerminalID, TerminalName: state.TerminalName,
 		Tree: state.Tree, HackLevel: state.HackLevel, IntroText: state.IntroText,
-		Nav: state.Nav, Hack: hack.PublicState(state.Hack),
+		Nav: state.Nav, Hack: hack.PublicState(state.Hack), CommandExecution: commandExecution,
 	}
 }
 
