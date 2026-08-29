@@ -2,8 +2,8 @@
   "workflow": "companion",
   "specName": "Vue and TypeScript Frontend Migration",
   "branch": "033-frontend-vue-typescript-migration",
-  "currentStep": "plan",
-  "status": "planned",
+  "currentStep": "tasks",
+  "status": "ready-to-implement",
   "history": [
     {
       "step": "specify",
@@ -46,159 +46,516 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-08-29T21:02:38.471Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-29T21:35:17.662Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-29T21:57:13.502Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-29T21:57:58.690Z"
     }
   ],
   "last_action": "living specs evaluated — skipped (not configured)",
   "coverage": {
     "FR-001": {
-      "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`."
+      "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
+      "tasks": [
+        "T034",
+        "T066",
+        "T111",
+        "T130"
+      ]
     },
     "FR-002": {
-      "title": "The migration MUST preserve the exact rendered appearance, CSS behavior, user-visible text, accessibility semantics, keyboard behavior, pointer behavior, focus restoration, CRT and typewriter timing, and audio behavior of both current production interfaces."
+      "title": "The migration MUST preserve the exact rendered appearance, CSS behavior, user-visible text, accessibility semantics, keyboard behavior, pointer behavior, focus restoration, CRT and typewriter timing, and audio behavior of both current production interfaces.",
+      "tasks": [
+        "T015",
+        "T061",
+        "T077",
+        "T121",
+        "T134"
+      ]
     },
     "FR-003": {
-      "title": "The public player application MUST preserve connection, reconnect, multi-tab recognition and session initialization, terminal presentation and navigation, hacking rendering and input, sound, and presentation-uplink behavior."
+      "title": "The public player application MUST preserve connection, reconnect, multi-tab recognition and session initialization, terminal presentation and navigation, hacking rendering and input, sound, and presentation-uplink behavior.",
+      "tasks": [
+        "T081",
+        "T095",
+        "T111",
+        "T120"
+      ]
     },
     "FR-004": {
-      "title": "The privileged Overseer application MUST preserve desktop API adaptation, presentation control, public-access control, update presentation, terminal authoring, player and session management, and terminal grouping behavior."
+      "title": "The privileged Overseer application MUST preserve desktop API adaptation, presentation control, public-access control, update presentation, terminal authoring, player and session management, and terminal grouping behavior.",
+      "tasks": [
+        "T033",
+        "T045",
+        "T062",
+        "T076"
+      ]
     },
     "FR-005": {
-      "title": "The two applications MUST remain separate build and trust boundaries with separate entry points, bundles, dependency-facing adapters, and no shared cross-boundary application store."
+      "title": "The two applications MUST remain separate build and trust boundaries with separate entry points, bundles, dependency-facing adapters, and no shared cross-boundary application store.",
+      "tasks": [
+        "T039",
+        "T066",
+        "T111",
+        "T127"
+      ]
     },
     "FR-006": {
-      "title": "Vue MUST be the sole owner of every rendered production document subtree at final acceptance."
+      "title": "Vue MUST be the sole owner of every rendered production document subtree at final acceptance.",
+      "tasks": [
+        "T066",
+        "T073",
+        "T111",
+        "T114",
+        "T142"
+      ]
     },
     "FR-007": {
-      "title": "Imperative production code MAY be used only in narrow Vue-owned composables, adapters, or directives for Web Audio, focus, element measurement, CRT and typewriter timing, hacking-board fitting and pointer geometry, and presentation streaming."
+      "title": "Imperative production code MAY be used only in narrow Vue-owned composables, adapters, or directives for Web Audio, focus, element measurement, CRT and typewriter timing, hacking-board fitting and pointer geometry, and presentation streaming.",
+      "tasks": [
+        "T047",
+        "T096",
+        "T099",
+        "T102",
+        "T104"
+      ]
     },
     "FR-008": {
-      "title": "Application state and presentation MUST use typed component properties and events together with Vue reactive references, reactive objects, and derived values, without adding Pinia, Vue Router, Nuxt, JSX, a component library, or a CSS framework."
+      "title": "Application state and presentation MUST use typed component properties and events together with Vue reactive references, reactive objects, and derived values, without adding Pinia, Vue Router, Nuxt, JSX, a component library, or a CSS framework.",
+      "tasks": [
+        "T034",
+        "T062",
+        "T083",
+        "T095"
+      ]
     },
     "FR-009": {
-      "title": "The root frontend workspace and both application workspace manifests MUST expose strict Single-File Component type-check and build commands that reject production JavaScript type-check fallbacks, while each application's commands remain independently runnable inside the governed workspace."
+      "title": "The root frontend workspace and both application workspace manifests MUST expose strict Single-File Component type-check and build commands that reject production JavaScript type-check fallbacks, while each application's commands remain independently runnable inside the governed workspace.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T074",
+        "T118",
+        "T130"
+      ]
     },
     "FR-010": {
-      "title": "Final handwritten production source in `frontend/client` and `frontend/overseer/src` MUST contain no `.js` application module, legacy application bootstrap, temporary mount switch, or mixed ownership of rendered document subtrees; generated Wails bindings, dependencies, build output, and `tests/browser/*.mjs` are excluded from this prohibition."
+      "title": "Final handwritten production source in `frontend/client` and `frontend/overseer/src` MUST contain no `.js` application module, legacy application bootstrap, temporary mount switch, or mixed ownership of rendered document subtrees; generated Wails bindings, dependencies, build output, and `tests/browser/*.mjs` are excluded from this prohibition.",
+      "tasks": [
+        "T073",
+        "T114",
+        "T127",
+        "T142"
+      ]
     },
     "FR-011": {
-      "title": "The repository MUST retain one npm workspace rooted at `frontend/`, one committed `frontend/package-lock.json`, one governed clean-install workflow, and separate `frontend/overseer/package.json` and `frontend/client/package.json` workspace manifests, without per-application lockfiles or competing install workflows."
+      "title": "The repository MUST retain one npm workspace rooted at `frontend/`, one committed `frontend/package-lock.json`, one governed clean-install workflow, and separate `frontend/overseer/package.json` and `frontend/client/package.json` workspace manifests, without per-application lockfiles or competing install workflows.",
+      "tasks": [
+        "T002",
+        "T007",
+        "T127",
+        "T129"
+      ]
     },
     "FR-012": {
-      "title": "The public protobuf browser contracts MUST be generated as deterministic checked-in generator-owned TypeScript using the existing exactly pinned `protoc-gen-es` with `target=ts`."
+      "title": "The public protobuf browser contracts MUST be generated as deterministic checked-in generator-owned TypeScript using the existing exactly pinned `protoc-gen-es` with `target=ts`.",
+      "tasks": [
+        "T016",
+        "T017",
+        "T022",
+        "T132"
+      ]
     },
     "FR-013": {
-      "title": "Generated protobuf browser contracts and generated Wails bindings MUST NOT be manually edited."
+      "title": "Generated protobuf browser contracts and generated Wails bindings MUST NOT be manually edited.",
+      "tasks": [
+        "T017",
+        "T019",
+        "T133"
+      ]
     },
     "FR-014": {
-      "title": "Generator-owned Wails bindings MUST remain unedited in the pinned generator's supported JavaScript, JSDoc, and declaration format, MUST NOT be manually migrated to TypeScript, and MUST be consumed only through a handwritten typed desktop adapter."
+      "title": "Generator-owned Wails bindings MUST remain unedited in the pinned generator's supported JavaScript, JSDoc, and declaration format, MUST NOT be manually migrated to TypeScript, and MUST be consumed only through a handwritten typed desktop adapter.",
+      "tasks": [
+        "T032",
+        "T033",
+        "T040",
+        "T133"
+      ]
     },
     "FR-015": {
-      "title": "The typed desktop adapter and player transport boundary MUST runtime-validate localStorage values, Wails events and command results, DOM and browser inputs, clipboard results, and other external values before trusted use; generated protobuf decoding supplies structural wire validation while existing adapters and Go services retain semantic validation and authorization."
+      "title": "The typed desktop adapter and player transport boundary MUST runtime-validate localStorage values, Wails events and command results, DOM and browser inputs, clipboard results, and other external values before trusted use; generated protobuf decoding supplies structural wire validation while existing adapters and Go services retain semantic validation and authorization.",
+      "tasks": [
+        "T029",
+        "T033",
+        "T071",
+        "T086",
+        "T103",
+        "T126"
+      ]
     },
     "FR-016": {
-      "title": "Production TypeScript MUST contain no broad untyped values, file-wide type-check disabling, blanket assertions, or unexplained compiler or linter suppressions."
+      "title": "Production TypeScript MUST contain no broad untyped values, file-wide type-check disabling, blanket assertions, or unexplained compiler or linter suppressions.",
+      "tasks": [
+        "T003",
+        "T010",
+        "T072",
+        "T115",
+        "T127"
+      ]
     },
     "FR-017": {
-      "title": "ConnectRPC MUST remain the application network transport with every existing RPC name, protobuf message meaning, field number, RPC path, wire encoding, cardinality, Connect error behavior, typed action result, request limit, authorization rule, and public or private capability boundary unchanged, and no public health, reflection, status, or administration RPC may be added."
+      "title": "ConnectRPC MUST remain the application network transport with every existing RPC name, protobuf message meaning, field number, RPC path, wire encoding, cardinality, Connect error behavior, typed action result, request limit, authorization rule, and public or private capability boundary unchanged, and no public health, reflection, status, or administration RPC may be added.",
+      "tasks": [
+        "T024",
+        "T081",
+        "T101",
+        "T132"
+      ]
     },
     "FR-018": {
-      "title": "The player application MUST preserve complete-snapshot-first reconnect behavior, strictly increasing applicable revisions, stale-state suppression, slow-stream termination and recovery, correlated pending-action behavior, and server-authoritative canonical state."
+      "title": "The player application MUST preserve complete-snapshot-first reconnect behavior, strictly increasing applicable revisions, stale-state suppression, slow-stream termination and recovery, correlated pending-action behavior, and server-authoritative canonical state.",
+      "tasks": [
+        "T081",
+        "T085",
+        "T100",
+        "T116"
+      ]
     },
     "FR-019": {
-      "title": "The player application MUST preserve one logical session across qualifying concurrent tabs, one physical stream per connected tab, recognition-handle opacity, lease recovery, and established session-initialization coordination."
+      "title": "The player application MUST preserve one logical session across qualifying concurrent tabs, one physical stream per connected tab, recognition-handle opacity, lease recovery, and established session-initialization coordination.",
+      "tasks": [
+        "T082",
+        "T087",
+        "T116"
+      ]
     },
     "FR-020": {
-      "title": "The player application MUST preserve controller-only immediate presentation feedback, observer read-only behavior, latest-value presentation backpressure, request cancellation, authoritative convergence, and functionally equivalent unary fallback behavior for unsupported or failed presentation streaming."
+      "title": "The player application MUST preserve controller-only immediate presentation feedback, observer read-only behavior, latest-value presentation backpressure, request cancellation, authoritative convergence, and functionally equivalent unary fallback behavior for unsupported or failed presentation streaming.",
+      "tasks": [
+        "T085",
+        "T101",
+        "T102",
+        "T116"
+      ]
     },
     "FR-021": {
-      "title": "The migration MUST preserve terminal navigation, hacking attempts and outcomes, target geometry, board fitting, special-pattern behavior, presentation cues, ambient sound, input sounds, and gesture-based audio activation without optimistic mutation of canonical gameplay state."
+      "title": "The migration MUST preserve terminal navigation, hacking attempts and outcomes, target geometry, board fitting, special-pattern behavior, presentation cues, ambient sound, input sounds, and gesture-based audio activation without optimistic mutation of canonical gameplay state.",
+      "tasks": [
+        "T095",
+        "T096",
+        "T099",
+        "T109",
+        "T120"
+      ]
     },
     "FR-022": {
-      "title": "The Overseer application MUST preserve authoritative revision comparisons, stale-result suppression, event subscription lifetimes, command correlation, confirmation atomicity, and idempotent handling across all privileged workflows."
+      "title": "The Overseer application MUST preserve authoritative revision comparisons, stale-result suppression, event subscription lifetimes, command correlation, confirmation atomicity, and idempotent handling across all privileged workflows.",
+      "tasks": [
+        "T033",
+        "T047",
+        "T064",
+        "T076"
+      ]
     },
     "FR-023": {
-      "title": "Existing session and player-configuration JSON MUST load and save with identical supported fields, defaults, compatibility behavior, and business meaning."
+      "title": "Existing session and player-configuration JSON MUST load and save with identical supported fields, defaults, compatibility behavior, and business meaning.",
+      "tasks": [
+        "T068",
+        "T069",
+        "T070",
+        "T125"
+      ]
     },
     "FR-024": {
-      "title": "Existing Go APIs, Wails method contracts, desktop event names and payload meaning, ConnectRPC services, protobuf schemas, persistence contracts, and server behavior MUST remain unchanged except for deterministic browser-code generation required by this migration."
+      "title": "Existing Go APIs, Wails method contracts, desktop event names and payload meaning, ConnectRPC services, protobuf schemas, persistence contracts, and server behavior MUST remain unchanged except for deterministic browser-code generation required by this migration.",
+      "tasks": [
+        "T024",
+        "T040",
+        "T068",
+        "T132",
+        "T133"
+      ]
     },
     "FR-025": {
-      "title": "The Wails v3 capability allowlist and the public/private security boundary MUST remain no broader than the production baseline."
+      "title": "The Wails v3 capability allowlist and the public/private security boundary MUST remain no broader than the production baseline.",
+      "tasks": [
+        "T039",
+        "T054",
+        "T115",
+        "T122",
+        "T137"
+      ]
     },
     "FR-026": {
-      "title": "Local, LAN, and protected public access MUST retain current startup, authentication, same-origin, reconnect, credential, clipboard, tunnel, and failure-isolation behavior."
+      "title": "Local, LAN, and protected public access MUST retain current startup, authentication, same-origin, reconnect, credential, clipboard, tunnel, and failure-isolation behavior.",
+      "tasks": [
+        "T053",
+        "T054",
+        "T076",
+        "T122",
+        "T137"
+      ]
     },
     "FR-027": {
-      "title": "Overseer update discovery and decision presentation MUST retain current state ordering, cumulative information, deferral, restart, failure-isolation, and secret-redaction behavior."
+      "title": "Overseer update discovery and decision presentation MUST retain current state ordering, cumulative information, deferral, restart, failure-isolation, and secret-redaction behavior.",
+      "tasks": [
+        "T045",
+        "T046",
+        "T076"
+      ]
     },
     "FR-028": {
-      "title": "Terminal authoring, player and session management, and terminal grouping MUST retain current validation, modal, confirmation, accessibility, persistence, focus, and atomic no-partial-change guarantees."
+      "title": "Terminal authoring, player and session management, and terminal grouping MUST retain current validation, modal, confirmation, accessibility, persistence, focus, and atomic no-partial-change guarantees.",
+      "tasks": [
+        "T047",
+        "T049",
+        "T051",
+        "T063",
+        "T076"
+      ]
     },
     "FR-029": {
-      "title": "The migration MUST preserve separate public and privileged build outputs, existing embedding locations, required fonts and sounds, executable startup behavior, package inventory, and supported Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64 packages."
+      "title": "The migration MUST preserve separate public and privileged build outputs, existing embedding locations, required fonts and sounds, executable startup behavior, package inventory, and supported Windows amd64, Windows arm64, Linux amd64, Linux arm64, and macOS arm64 packages.",
+      "tasks": [
+        "T013",
+        "T078",
+        "T119",
+        "T123",
+        "T138"
+      ]
     },
     "FR-030": {
-      "title": "Existing Playwright browser and visual journeys MUST remain `.mjs` files, run through the existing production-fidelity fixture architecture, preserve their selectors, snapshots, and behavior, and MUST NOT be presented as evidence of a real packaged Wails runtime."
+      "title": "Existing Playwright browser and visual journeys MUST remain `.mjs` files, run through the existing production-fidelity fixture architecture, preserve their selectors, snapshots, and behavior, and MUST NOT be presented as evidence of a real packaged Wails runtime.",
+      "tasks": [
+        "T014",
+        "T038",
+        "T067",
+        "T120",
+        "T134"
+      ]
     },
     "FR-031": {
-      "title": "Every intermediate migration revision MUST be buildable and covered by its applicable automated tests."
+      "title": "Every intermediate migration revision MUST be buildable and covered by its applicable automated tests.",
+      "tasks": [
+        "T015",
+        "T027",
+        "T044",
+        "T061",
+        "T079",
+        "T094",
+        "T110",
+        "T124"
+      ]
     },
     "FR-032": {
-      "title": "During intermediate coexistence, legacy code MAY own a subtree adjacent to a Vue mount, but each rendered document subtree MUST have exactly one owner; legacy code MUST NOT query, render, replace, mutate, or bind handlers inside a Vue-owned subtree, and Vue code MUST NOT mutate a legacy-owned subtree."
+      "title": "During intermediate coexistence, legacy code MAY own a subtree adjacent to a Vue mount, but each rendered document subtree MUST have exactly one owner; legacy code MUST NOT query, render, replace, mutate, or bind handlers inside a Vue-owned subtree, and Vue code MUST NOT mutate a legacy-owned subtree.",
+      "tasks": [
+        "T001",
+        "T057",
+        "T079",
+        "T089",
+        "T105",
+        "T117",
+        "T142"
+      ]
     },
     "FR-033": {
-      "title": "Every migration wave MUST record its Vue mount boundaries and remaining legacy ownership, and intermediate JavaScript and TypeScript coexistence MUST remain bounded by that tracked migration inventory without weakening the final production compiler configuration."
+      "title": "Every migration wave MUST record its Vue mount boundaries and remaining legacy ownership, and intermediate JavaScript and TypeScript coexistence MUST remain bounded by that tracked migration inventory without weakening the final production compiler configuration.",
+      "tasks": [
+        "T015",
+        "T027",
+        "T044",
+        "T061",
+        "T079",
+        "T094",
+        "T110",
+        "T124",
+        "T142"
+      ]
     },
     "FR-034": {
-      "title": "Final acceptance MUST include deterministic checks for strict Vue Single-File Component compilation, generated protobuf drift, forbidden legacy production files and temporary switches, forbidden type-system escape hatches, both production builds, Wails binding integrity, native embedding and startup, embedded resources, supported package contents, and the complete existing quality suite."
+      "title": "Final acceptance MUST include deterministic checks for strict Vue Single-File Component compilation, generated protobuf drift, forbidden legacy production files and temporary switches, forbidden type-system escape hatches, both production builds, Wails binding integrity, native embedding and startup, embedded resources, supported package contents, and the complete existing quality suite.",
+      "tasks": [
+        "T070",
+        "T126",
+        "T127",
+        "T128",
+        "T132",
+        "T133",
+        "T136",
+        "T137"
+      ]
     },
     "FR-035": {
-      "title": "Active developer and release documentation, dependency workflows, build scripts, generation scripts, validation scripts, and continuous-integration checks MUST describe and enforce the migrated applications."
+      "title": "Active developer and release documentation, dependency workflows, build scripts, generation scripts, validation scripts, and continuous-integration checks MUST describe and enforce the migrated applications.",
+      "tasks": [
+        "T007",
+        "T011",
+        "T070",
+        "T126",
+        "T139",
+        "T140",
+        "T141"
+      ]
     },
     "FR-036": {
-      "title": "Historical completed specifications and their recorded evidence MUST remain unchanged."
+      "title": "Historical completed specifications and their recorded evidence MUST remain unchanged.",
+      "tasks": [
+        "T139",
+        "T141",
+        "T142"
+      ]
     },
     "FR-037": {
-      "title": "The migration MUST preserve all existing production-supported packages and MUST NOT introduce an additional runtime service, public endpoint, native capability, or browser privilege."
+      "title": "The migration MUST preserve all existing production-supported packages and MUST NOT introduce an additional runtime service, public endpoint, native capability, or browser privilege.",
+      "tasks": [
+        "T039",
+        "T115",
+        "T122",
+        "T137",
+        "T138"
+      ]
     },
     "FR-038": {
-      "title": "The dependency and build configuration MUST permit each application to be type-checked and built independently inside the single governed npm workspace while retaining one shared dependency installation, one lockfile, and one workspace-wide validation path."
+      "title": "The dependency and build configuration MUST permit each application to be type-checked and built independently inside the single governed npm workspace while retaining one shared dependency installation, one lockfile, and one workspace-wide validation path.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T013",
+        "T129",
+        "T130",
+        "T131"
+      ]
     },
     "FR-039": {
-      "title": "Production build outputs MUST exclude TypeScript source, handwritten production JavaScript source, development-only tooling, source maps not already governed for release, and generated artifacts not required at runtime."
+      "title": "Production build outputs MUST exclude TypeScript source, handwritten production JavaScript source, development-only tooling, source maps not already governed for release, and generated artifacts not required at runtime.",
+      "tasks": [
+        "T013",
+        "T075",
+        "T119",
+        "T128",
+        "T131",
+        "T138"
+      ]
     },
     "FR-040": {
-      "title": "Every deterministic check introduced by the migration MUST fail with an actionable identification of the stale, forbidden, missing, or mismatched artifact."
+      "title": "Every deterministic check introduced by the migration MUST fail with an actionable identification of the stale, forbidden, missing, or mismatched artifact.",
+      "tasks": [
+        "T008",
+        "T019",
+        "T029",
+        "T127",
+        "T128",
+        "T143"
+      ]
     },
     "FR-041": {
-      "title": "Both application workspace manifests MUST declare the same exact compatible `vue` runtime version, resolved once in `frontend/package-lock.json`."
+      "title": "Both application workspace manifests MUST declare the same exact compatible `vue` runtime version, resolved once in `frontend/package-lock.json`.",
+      "tasks": [
+        "T002",
+        "T008",
+        "T127",
+        "T129"
+      ]
     },
     "FR-042": {
-      "title": "TypeScript, `@vitejs/plugin-vue`, and `vue-tsc` MUST be exact direct development dependencies in their plan-determined workspace ownership, and the migration MUST NOT upgrade unrelated dependencies."
+      "title": "TypeScript, `@vitejs/plugin-vue`, and `vue-tsc` MUST be exact direct development dependencies in their plan-determined workspace ownership, and the migration MUST NOT upgrade unrelated dependencies.",
+      "tasks": [
+        "T002",
+        "T008",
+        "T127",
+        "T129"
+      ]
     },
     "FR-043": {
-      "title": "Migration work MUST begin with Vue and TypeScript infrastructure plus bounded temporary legacy checking before application component cutover."
+      "title": "Migration work MUST begin with Vue and TypeScript infrastructure plus bounded temporary legacy checking before application component cutover.",
+      "tasks": [
+        "T001",
+        "T004",
+        "T015"
+      ]
     },
     "FR-044": {
-      "title": "Deterministic public browser generation MUST switch to `protoc-gen-es` `target=ts` before shared declarations, application shells, or typed transport consumers are completed."
+      "title": "Deterministic public browser generation MUST switch to `protoc-gen-es` `target=ts` before application-owned declarations, application shells, or typed transport consumers are completed.",
+      "tasks": [
+        "T016",
+        "T017",
+        "T027",
+        "T132"
+      ]
     },
     "FR-045": {
-      "title": "Shared declarations, both Vue shells, and the typed desktop API adapter MUST be established before Overseer leaf components and composables are migrated."
+      "title": "The shared strict compiler policy, application-owned declarations, both Vue shells, and the typed desktop API adapter MUST be established before Overseer leaf components and composables are migrated; no shared authored application declaration module or type-only cross-boundary application contract may be introduced.",
+      "tasks": [
+        "T030",
+        "T031",
+        "T034",
+        "T044"
+      ]
     },
     "FR-046": {
-      "title": "The Overseer leaf components and composables MUST be migrated and the Overseer legacy bootstrap MUST be fully removed before the main Player application cutover begins."
+      "title": "The Overseer leaf components and composables MUST be migrated and the Overseer legacy bootstrap MUST be fully removed before the main Player application cutover begins.",
+      "tasks": [
+        "T045",
+        "T061",
+        "T073",
+        "T079"
+      ]
     },
     "FR-047": {
-      "title": "The Player cutover MUST establish its shell, identity, transport, session-initialization, navigation, and presentation components before migrating hacking, CRT and typewriter, sound, and presentation-uplink adapters."
+      "title": "The Player cutover MUST establish its shell, identity, transport, session-initialization, navigation, and presentation components before migrating hacking, CRT and typewriter, sound, and presentation-uplink adapters.",
+      "tasks": [
+        "T080",
+        "T081",
+        "T095",
+        "T110"
+      ]
     },
     "FR-048": {
-      "title": "The Player legacy application MUST be fully cut over before final strict cleanup, complete verification, packaging, and active-documentation updates begin."
+      "title": "The Player legacy application MUST be fully cut over before final strict cleanup, complete verification, packaging, and active-documentation updates begin.",
+      "tasks": [
+        "T111",
+        "T114",
+        "T124",
+        "T139"
+      ]
     },
     "FR-049": {
-      "title": "Changing generated browser output from `target=js` to `target=ts` MUST NOT change protobuf schemas, descriptors, field numbers, wire encoding, RPC paths, Go-generated contracts, service behavior, or public and private capability boundaries."
+      "title": "Changing generated browser output from `target=js` to `target=ts` MUST NOT change protobuf schemas, descriptors, field numbers, wire encoding, RPC paths, Go-generated contracts, service behavior, or public and private capability boundaries.",
+      "tasks": [
+        "T016",
+        "T024",
+        "T027",
+        "T132"
+      ]
     },
     "FR-050": {
-      "title": "Every permitted imperative integration MUST register lifecycle cleanup for its timers, animation frames, subscriptions, audio nodes, abort controllers, streams, observers, and document or window listeners."
+      "title": "Every permitted imperative integration MUST register lifecycle cleanup for its timers, animation frames, subscriptions, audio nodes, abort controllers, streams, observers, and document or window listeners.",
+      "tasks": [
+        "T047",
+        "T087",
+        "T104",
+        "T114",
+        "T117"
+      ]
     }
   },
   "size": "oversized",
@@ -270,6 +627,9 @@
     "plan": {
       "summary": "Planned nine-wave behavior-preserving migration to two strict Vue applications with exact pins, deterministic TypeScript contracts, typed Wails isolation, explicit DOM ownership, and complete final removal gates",
       "key_finding": "The safe cutover shape is Overseer-first with complete leaf ownership and an atomic Player production transfer; the exact Vue 3.5.42/TS 6.0.3/plugin 6.0.8/vue-tsc 3.3.11 stack works while TypeScript 7 does not."
+    },
+    "tasks": {
+      "summary": "144 dependency-ordered tasks across mandatory waves a-i, five user stories, ten canonical frontend targets, complete FR-001-FR-050 and SC-001-SC-012 traceability"
     }
   }
 }
