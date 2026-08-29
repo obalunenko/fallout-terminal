@@ -57,7 +57,7 @@ func run(ctx context.Context, root string, arguments []string) error {
 	action := arguments[0]
 	actionArguments := arguments[1:]
 	switch action {
-	case "dev", "run":
+	case "dev":
 		if containsTargetFlag(actionArguments) {
 			return newUsageError("--target is supported only for build and package")
 		}
@@ -125,7 +125,7 @@ func run(ctx context.Context, root string, arguments []string) error {
 	default:
 		return newUsageError(
 			fmt.Sprintf(
-				"unknown action %q (want dev, build, package, package-all-docker, validate-release-tag, inspect-release-archive, inspect-release-inventory, run, or prepare)",
+				"unknown action %q (want dev, build, package, package-all-docker, validate-release-tag, inspect-release-archive, inspect-release-inventory, or prepare)",
 				action,
 			),
 		)
@@ -301,7 +301,8 @@ func newUsageError(message string) error {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
-	fmt.Fprintln(os.Stderr, "  go run ./cmd/build <dev|run> [application arguments]")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/build")
+	fmt.Fprintln(os.Stderr, "    dev [application arguments]")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build <build|package> [--target GOOS/GOARCH]")
 	fmt.Fprintln(os.Stderr, "    explicit targets: windows/amd64, windows/arm64, linux/amd64, linux/arm64, darwin/arm64")
 	fmt.Fprintln(os.Stderr, "  go run ./cmd/build package-container --target GOOS/GOARCH")

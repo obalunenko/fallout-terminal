@@ -51,7 +51,6 @@ func TestQualityWorkflowIsReadOnlyAndSeparatedFromReleaseAutomation(t *testing.T
 		"test",
 		"vet",
 		"frontend:build",
-		"startup:check",
 		"wails:pins:check",
 		"bindings:check",
 		"proto:format:check",

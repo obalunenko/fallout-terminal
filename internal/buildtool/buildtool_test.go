@@ -112,7 +112,7 @@ func TestPreparationOrderIsLockedForEveryActionAndTarget(t *testing.T) {
 		"build Overseer frontend",
 	}
 
-	for _, action := range []string{"prepare", "build", "dev", "run", "package"} {
+	for _, action := range []string{"prepare", "build", "dev", "package"} {
 		t.Run(action, func(t *testing.T) {
 			steps, err := Plan(action, nil)
 			require.NoError(t, err)
@@ -196,48 +196,44 @@ func TestImplicitAndExplicitDarwinBuildPlansRemainDistinct(t *testing.T) {
 }
 
 func TestDevelopmentPlansAssembleAndLaunchOwnedApplicationIdentity(t *testing.T) {
-	for _, action := range []string{"dev", "run"} {
-		t.Run(action, func(t *testing.T) {
-			steps, err := Plan(action, []string{"--fixture"})
-			require.NoError(t, err)
+	steps, err := Plan("dev", []string{"--fixture"})
+	require.NoError(t, err)
 
-			positions := make(map[string]int, len(steps))
-			for index, step := range steps {
-				positions[step.Name] = index
-			}
+	positions := make(map[string]int, len(steps))
+	for index, step := range steps {
+		positions[step.Name] = index
+	}
 
-			for _, name := range []string{
-				"remove previous development application bundle",
-				"install development application metadata",
-				"install development application icon",
-				"compile macOS arm64 application",
-				"run development application",
-			} {
-				assert.Contains(t, positions, name)
-			}
-			assert.Less(t, positions["install development application metadata"], positions["compile macOS arm64 application"])
-			assert.Less(t, positions["install development application icon"], positions["compile macOS arm64 application"])
-			assert.Less(t, positions["compile macOS arm64 application"], positions["run development application"])
+	for _, name := range []string{
+		"remove previous development application bundle",
+		"install development application metadata",
+		"install development application icon",
+		"compile macOS arm64 application",
+		"run development application",
+	} {
+		assert.Contains(t, positions, name)
+	}
+	assert.Less(t, positions["install development application metadata"], positions["compile macOS arm64 application"])
+	assert.Less(t, positions["install development application icon"], positions["compile macOS arm64 application"])
+	assert.Less(t, positions["compile macOS arm64 application"], positions["run development application"])
 
-			metadata := steps[positions["install development application metadata"]]
-			assert.Equal(t, filepath.Join("build", "darwin", "Info.dev.plist"), metadata.Source)
-			assert.Equal(t, filepath.Join("build", "dev", applicationName+".app", "Contents", "Info.plist"), metadata.Destination)
+	metadata := steps[positions["install development application metadata"]]
+	assert.Equal(t, filepath.Join("build", "darwin", "Info.dev.plist"), metadata.Source)
+	assert.Equal(t, filepath.Join("build", "dev", applicationName+".app", "Contents", "Info.plist"), metadata.Destination)
 
-			icon := steps[positions["install development application icon"]]
-			assert.Contains(t, icon.Arguments, filepath.Join("build", "appicon.png"))
-			assert.Contains(t, icon.Arguments, filepath.Join("build", "dev", applicationName+".app", "Contents", "Resources", "icon.icns"))
+	icon := steps[positions["install development application icon"]]
+	assert.Contains(t, icon.Arguments, filepath.Join("build", "appicon.png"))
+	assert.Contains(t, icon.Arguments, filepath.Join("build", "dev", applicationName+".app", "Contents", "Resources", "icon.icns"))
 
-			launch := steps[positions["run development application"]]
-			assert.Equal(t, filepath.Join("build", "dev", applicationName+".app", "Contents", "MacOS", applicationName), launch.Program)
-			assert.Equal(t, []string{"--fixture"}, launch.Arguments)
+	launch := steps[positions["run development application"]]
+	assert.Equal(t, filepath.Join("build", "dev", applicationName+".app", "Contents", "MacOS", applicationName), launch.Program)
+	assert.Equal(t, []string{"--fixture"}, launch.Arguments)
 
-			productionBundle := filepath.Join("build", "bin", applicationName+".app")
-			for _, step := range steps {
-				for _, value := range append([]string{step.Program, step.Path, step.Source, step.Destination}, step.Arguments...) {
-					assert.NotEqual(t, productionBundle, value, "development action must not mutate or launch the production package")
-				}
-			}
-		})
+	productionBundle := filepath.Join("build", "bin", applicationName+".app")
+	for _, step := range steps {
+		for _, value := range append([]string{step.Program, step.Path, step.Source, step.Destination}, step.Arguments...) {
+			assert.NotEqual(t, productionBundle, value, "development action must not mutate or launch the production package")
+		}
 	}
 }
 
@@ -444,8 +440,12 @@ func TestPackagePlanPreservesCanonicalFrontendAndOfflineResourceOwnership(t *tes
 }
 
 func TestUnknownActionIsRejected(t *testing.T) {
-	_, err := Plan("task", nil)
-	require.Error(t, err)
+	for _, action := range []string{"run", "task"} {
+		t.Run(action, func(t *testing.T) {
+			_, err := Plan(action, nil)
+			require.Error(t, err)
+		})
+	}
 }
 
 func mustParseTarget(t *testing.T, goos, goarch string) Target {

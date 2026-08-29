@@ -9,7 +9,6 @@ The normal development and verification entrypoints are:
 
 ```text
 task dev
-task run
 task prepare
 task build
 task package
