@@ -1,7 +1,7 @@
 # BUG-002 Reproduction Evidence
 
 **Captured**: 2026-08-13
-**Public endpoint**: configured `https://fallout-terminal.ngrok.app`
+**Public endpoint**: configured `https://fixed-host.example`
 **Credential handling**: Basic Auth values were supplied only through process environment and are omitted from this record.
 
 ## Reproduction
@@ -24,7 +24,7 @@ first snapshot, stored an opaque recognition handle, and hid the overlay.
 ## Boundary isolation
 
 Redacted ngrok inspection showed that the public request preserved the expected
-Host and Origin (`fallout-terminal.ngrok.app`), carried Connect protocol version
+Host and Origin (`fixed-host.example`), carried Connect protocol version
 `1`, and eventually recorded HTTP `200` with
 `application/connect+proto`. The recorded request duration matched browser
 cancellation rather than first-snapshot delivery.

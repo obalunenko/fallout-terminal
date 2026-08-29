@@ -8,6 +8,9 @@ from acceptance by USER-SOAK-DECISION on 2026-08-15; any completed soak result
 below is historical and non-gating.
 The Electron-to-Wails record in `docs/wails-migration-rollback.md` is immutable
 historical evidence and is not a rollback authority for this migration.
+The completed migration artifacts in `specs/006-wails-v3-migration/` and the
+earlier Wails v2 artifacts in `specs/001-wails-v2-migration/` are historical
+evidence rather than active operating instructions.
 
 ## Ownership and Expiry
 

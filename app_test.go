@@ -3976,6 +3976,19 @@ func (settings *fallbackMatrixSettings) Save(preferences tunnelservice.PublicAcc
 	return nil
 }
 
+type recordingClipboard struct {
+	accept bool
+	text   string
+}
+
+func (clipboard *recordingClipboard) SetText(text string) bool {
+	if !clipboard.accept {
+		return false
+	}
+	clipboard.text = text
+	return true
+}
+
 type fallbackMatrixEndpoint struct {
 	mu         sync.Mutex
 	url        *url.URL
@@ -4243,6 +4256,66 @@ func TestActivePublicAccessMutationsDelegateAsProtectedReconfigureWithoutMixedRe
 
 	calls := recorder.Calls()
 	assert.Less(t, slices.Index(calls, "public:reconfigure"), slices.Index(calls, "event:"+publicAccessStatusEvent))
+}
+
+func TestCopyPublicAccessCredentialsWritesNativeClipboardWithoutSecretResult(t *testing.T) {
+	t.Parallel()
+
+	preferences := tunnelservice.DefaultPublicAccessPreferences()
+	preferences.Username = "wastelanders"
+	settings := &fallbackMatrixSettings{preferences: preferences}
+	secrets := testutil.NewFakeSecretStore()
+	password := "synthetic-player-share-value"
+	require.NoError(t, secrets.Replace(t.Context(), tunnelservice.PlayerBasicAuthPassword, []byte(password)))
+	clipboard := &recordingClipboard{accept: true}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		PublicSettings: settings,
+		PublicSecrets:  secrets,
+		Clipboard:      clipboard,
+	})
+
+	result := app.CopyPublicAccessCredentials()
+	require.True(t, result.OK, result.Error)
+	assert.Equal(t, "Логин: wastelanders\nПароль: "+password, clipboard.text)
+	assert.True(t, secrets.LastUseCleared())
+	raw, err := json.Marshal(result)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), password)
+}
+
+func TestCopyPublicAccessCredentialsReturnsSafeFailures(t *testing.T) {
+	t.Parallel()
+
+	password := "synthetic-player-share-value"
+	for _, test := range []struct {
+		name            string
+		storeError      error
+		clipboardAccept bool
+	}{
+		{name: "secure store locked", storeError: tunnelservice.ErrSecretStoreLocked, clipboardAccept: true},
+		{name: "clipboard unavailable"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			preferences := tunnelservice.DefaultPublicAccessPreferences()
+			settings := &fallbackMatrixSettings{preferences: preferences}
+			secrets := testutil.NewFakeSecretStore()
+			require.NoError(t, secrets.Replace(t.Context(), tunnelservice.PlayerBasicAuthPassword, []byte(password)))
+			secrets.UseError = test.storeError
+			clipboard := &recordingClipboard{accept: test.clipboardAccept}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				PublicSettings: settings,
+				PublicSecrets:  secrets,
+				Clipboard:      clipboard,
+			})
+
+			result := app.CopyPublicAccessCredentials()
+			require.False(t, result.OK)
+			assert.NotEmpty(t, result.Error)
+			assert.NotContains(t, result.Error, password)
+			assert.Empty(t, clipboard.text)
+		})
+	}
 }
 
 func TestPartialPublicAccessMutationFailureUsesReconciledPresenceAndNeverRestartsMixedRevision(t *testing.T) {

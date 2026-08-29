@@ -1,0 +1,304 @@
+{
+  "workflow": "companion",
+  "specName": "manual public access",
+  "branch": "029-compact-public-access",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T21:45:47.855Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T21:47:00.334Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T21:47:00.401Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T21:47:00.467Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T21:47:00.544Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T21:47:00.606Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T21:47:27.821Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T21:47:38.565Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T21:47:51.089Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T21:48:36.569Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T21:49:18.371Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T21:53:17.850Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T21:54:36.217Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T21:54:36.288Z"
+    }
+  ],
+  "unattended": true,
+  "last_action": "all 6 tasks done — frontend, Go, and 188 browser tests pass; 2 external ngrok checks skipped",
+  "coverage": {
+    "FR-001": {
+      "title": "The public-access settings dialog must contain only the ngrok connection and player-login groups before its footer.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T004",
+        "T005"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets",
+        "tests/browser/public-access-settings.spec.mjs::settings form is labelled keyboard reachable and defaults without revealing secrets"
+      ]
+    },
+    "FR-002": {
+      "title": "The settings dialog must not display a behavior group or automatic-start option.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T004",
+        "T005"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets",
+        "tests/browser/public-access-settings.spec.mjs::settings form is labelled keyboard reachable and defaults without revealing secrets"
+      ]
+    },
+    "FR-003": {
+      "title": "Application launch must leave public access stopped regardless of a saved startup preference.",
+      "tasks": [
+        "T003",
+        "T005"
+      ],
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::legacy automatic-start preference is inert and new saves disable it"
+      ]
+    },
+    "FR-004": {
+      "title": "Enable and stop must remain explicit main-window actions.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T005"
+      ],
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::Start and Stop map exact lifecycle states and never expose a pre-ready URL"
+      ]
+    },
+    "FR-005": {
+      "title": "Settings and credential saves must not independently change public-access state outside confirmed active reconfiguration.",
+      "tasks": [
+        "T003",
+        "T005"
+      ],
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::legacy automatic-start preference is inert and new saves disable it",
+        "tests/browser/public-access-settings.spec.mjs::active edits require confirmation and render stopped-to-starting replacement with disabled actions"
+      ]
+    },
+    "FR-006": {
+      "title": "The former startup preference must remain inert and new mutations must write it disabled.",
+      "tasks": [
+        "T003",
+        "T005"
+      ],
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::legacy automatic-start preference is inert and new saves disable it"
+      ]
+    },
+    "FR-007": {
+      "title": "Automated checks must cover the simplified dialog, legacy preference, saves, and explicit lifecycle controls.",
+      "tasks": [
+        "T004",
+        "T005",
+        "T006"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets",
+        "tests/browser/public-access-settings.spec.mjs"
+      ]
+    }
+  },
+  "size": "simple",
+  "classification": {
+    "projectedFiles": 5,
+    "projectedTasks": 6,
+    "scopeSignal": "smaller",
+    "verdict": "simple"
+  },
+  "context": [
+    "area: public-access Overseer settings dialog and browser presentation tests",
+    "constraint: preserve protobuf and persisted-field compatibility while removing automatic-start UX",
+    "constraint: public access changes only through explicit main-window controls"
+  ],
+  "intent": "Make public access strictly manual and remove the ineffective automatic-start setting from the dialog.",
+  "expectations": [
+    "No protobuf field removal or renumbering",
+    "No credential, tunnel-provider, domain-validation, or player-login behavior changes"
+  ],
+  "approach": "Remove the behavior UI and its controller state, always submit the compatibility preference as disabled, and verify explicit lifecycle control.",
+  "step_summaries": {
+    "tasks": {
+      "summary": "6 tasks in two phases: remove the behavior UI, retire its controller state, update contracts, and validate."
+    },
+    "implement": {
+      "summary": "Removed automatic-start UX and controller state; public access is now operated explicitly from the main window with compatibility-safe false mutations."
+    }
+  },
+  "currentTask": "T006",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Removed the behavior fieldset and automatic-start checkbox from the public-access settings dialog.",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Removed the obsolete behavior-preference layout rule while retaining checkbox styling used by credential deletion.",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Removed automatic-start state from the controller and made all settings mutations submit the compatibility preference as disabled.",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Updated the embedded asset contract to require two settings groups and reject the removed automatic-start UI and controller identifier.",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Updated browser journeys to require two settings groups, ignore legacy automatic-start values, save the compatibility flag as false, and retain explicit Start/Stop actions.",
+      "files": [
+        "tests/browser/public-access-settings.spec.mjs"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Validated frontend build, focused asset contract, full browser suite, go fix, formatting, vet, lint, unit tests, and race tests against SC-001 through SC-004.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "frontend production build",
+      "command": "task frontend:build",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "focused embedded asset contract",
+      "command": "go test ./internal/platform -run TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets -count=1",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "browser presentation journeys",
+      "command": "task browser:test",
+      "result": "188 passed, 2 opt-in external-ngrok tests skipped",
+      "warnings": [
+        "expected local TLS handshake noise from negative browser probes",
+        "NO_COLOR ignored because FORCE_COLOR is set"
+      ]
+    },
+    {
+      "what": "Go modernization and quality gates",
+      "command": "go fix ./...; task fmt:check; task vet; task lint; task test; task test:race",
+      "result": "passed; lint reported 0 issues",
+      "warnings": []
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Retain enabled_preference in serialized and private contracts but force it false from all Overseer settings mutations.",
+      "why": "This removes the ineffective UX and guarantees manual operation without an unnecessary protobuf or persistence migration.",
+      "rejected": "Removing and reserving the protobuf fields, which would expand scope without changing observable behavior."
+    }
+  ]
+}

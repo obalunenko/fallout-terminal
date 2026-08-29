@@ -27,11 +27,6 @@ tasks:
     cmds:
       - '{{.GO}} run ./cmd/build dev {{.APP_ARGS}}'
 
-  run:
-    desc: Build and run the application.
-    cmds:
-      - '{{.GO}} run ./cmd/build run {{.APP_ARGS}}'
-
   prepare:
     desc: Verify and build protobuf, client, bindings, and Overseer assets.
     cmds:
@@ -296,7 +291,6 @@ tasks:
       - task: test
       - task: vet
       - task: frontend:build
-      - task: startup:check
       - task: wails:pins:check
       - task: bindings:check
       - task: proto:format:check

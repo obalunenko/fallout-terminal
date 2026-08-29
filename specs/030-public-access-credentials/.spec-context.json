@@ -1,0 +1,336 @@
+{
+  "workflow": "companion",
+  "specName": "public access credentials",
+  "branch": "029-compact-public-access",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T15:52:29.280Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T15:54:21.757Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T15:54:21.894Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T15:54:22.033Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T15:54:22.169Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T15:54:22.307Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-28T15:55:41.383Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:56:56.916Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:56:57.185Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T15:59:22.758Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T16:10:09.502Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T16:10:09.786Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-28T16:10:58.227Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-28T16:10:58.374Z"
+    }
+  ],
+  "unattended": true,
+  "last_action": "all 6 tasks done — frontend build, Go gates, and 188 browser tests pass; 2 opt-in ngrok tests not run",
+  "coverage": {
+    "FR-001": {
+      "title": "The settings dialog groups controls in connection, player login, behavior, and footer order.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::settings form is labelled keyboard reachable and defaults without revealing secrets"
+      ],
+      "tasks": [
+        "T001",
+        "T002",
+        "T004",
+        "T005"
+      ]
+    },
+    "FR-002": {
+      "title": "Configured token presence hides the token input and shows status plus change action.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::development override prefill is presence-only and does not save or start implicitly",
+        "tests/browser/public-access-settings.spec.mjs::configured token is replaced in a focused dialog without secret readback"
+      ],
+      "tasks": [
+        "T001",
+        "T003",
+        "T004",
+        "T005"
+      ]
+    },
+    "FR-003": {
+      "title": "Absent or unknown token presence shows an initial password-style token input.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::unknown token presence uses the safe initial-entry state",
+        "tests/browser/public-access-settings.spec.mjs::save replaces secrets without echo and clears transient fields"
+      ],
+      "tasks": [
+        "T001",
+        "T003",
+        "T005"
+      ]
+    },
+    "FR-004": {
+      "title": "The change-token modal offers replacement, deletion, and cancellation without secret readback.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::configured token is replaced in a focused dialog without secret readback"
+      ],
+      "tasks": [
+        "T001",
+        "T003",
+        "T004",
+        "T005"
+      ]
+    },
+    "FR-005": {
+      "title": "Token mutation success closes and refreshes; failure stays open with an error.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::configured token can be deleted without affecting the player password",
+        "tests/browser/public-access-settings.spec.mjs::token replacement failure stays open clears the secret and preserves the settings draft"
+      ],
+      "tasks": [
+        "T003",
+        "T005"
+      ]
+    },
+    "FR-006": {
+      "title": "Token modal dismissal clears transient input, submits nothing, and restores focus.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::token dialog dismissal clears transient input and submits no mutation"
+      ],
+      "tasks": [
+        "T003",
+        "T005"
+      ]
+    },
+    "FR-007": {
+      "title": "Password generation is adjacent to its field and save is the sole primary footer action.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::settings form is labelled keyboard reachable and defaults without revealing secrets",
+        "tests/browser/public-access-settings.spec.mjs::generated password is copied once dismissed and removed from DOM references"
+      ],
+      "tasks": [
+        "T001",
+        "T002",
+        "T003",
+        "T005"
+      ]
+    },
+    "FR-008": {
+      "title": "Existing confirmation, stale-result, one-time password, clipboard, and fallback behavior remains intact.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs::cancelled active deletion sends no mutation and saved secrets are never reconstructed",
+        "tests/browser/public-access-settings.spec.mjs::newer reconfigure event wins over a stale command result and stale secret fields stay empty"
+      ],
+      "tasks": [
+        "T003",
+        "T005",
+        "T006"
+      ]
+    },
+    "FR-009": {
+      "title": "Saved credentials remain presence-only with replacement and deletion operations.",
+      "tests": [
+        "internal/platform/assets_test.go::TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets",
+        "tests/browser/public-access-settings.spec.mjs::configured token is replaced in a focused dialog without secret readback"
+      ],
+      "tasks": [
+        "T003",
+        "T004",
+        "T005"
+      ]
+    },
+    "FR-010": {
+      "title": "Automated checks cover all credential presence and token mutation outcomes.",
+      "tests": [
+        "tests/browser/public-access-settings.spec.mjs"
+      ],
+      "tasks": [
+        "T004",
+        "T005",
+        "T006"
+      ]
+    }
+  },
+  "size": "simple",
+  "classification": {
+    "projectedFiles": 5,
+    "projectedTasks": 6,
+    "scopeSignal": "none",
+    "verdict": "simple"
+  },
+  "context": [
+    "area: public-access settings HTML, CSS, JavaScript, asset checks, and Playwright journeys",
+    "constraint: saved secrets remain presence-only and existing tunnel contracts stay unchanged"
+  ],
+  "intent": "Make configured public-access credentials understandable and deliberately editable without exposing stored secrets.",
+  "expectations": [
+    "No protobuf, secure-store, public-access service, or tunnel lifecycle contract changes."
+  ],
+  "approach": "Group settings by user task, replace the configured token input with a presence summary, and route replacement or deletion through a focused modal using existing mutations.",
+  "currentTask": "T006",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added three ordered settings groups, configured-token summary, and focused token-management dialog.",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Styled grouped settings, adjacent password actions, credential status, and token-management modal.",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Implemented configured-versus-missing token rendering and focused replacement, deletion, dismissal, confirmation, draft-preservation, and cleanup flows.",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Extended Go asset assertions for grouped settings, configured-token summary, token modal, secret handling, and visual order.",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Expanded Playwright coverage across configured, absent, unknown, replace, delete, dismiss, failure, active-access, and stale-result token flows.",
+      "files": [
+        "tests/browser/public-access-settings.spec.mjs"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Validated frontend builds, focused asset contracts, all Go gates, 190 browser journeys, and patch hygiene; simplification review found no remaining complexity issues.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "frontend production build",
+      "command": "task frontend:build",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "focused public-access asset contract",
+      "command": "go test ./internal/platform -run TestOverseerPublicAccessControlsAreAccessibleAndNeverExposeStoredSecrets -count=1",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "repository Go gates",
+      "command": "go fix ./...; task vet; task test; task test:race",
+      "result": "passed",
+      "warnings": []
+    },
+    {
+      "what": "browser journeys",
+      "command": "task browser:test",
+      "result": "188 passed, 2 opt-in external ngrok tests not run",
+      "warnings": [
+        "expected TLS probe diagnostics from the local fixture"
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Reuse SavePublicAccessSettings for focused token replacement and deletion while preserving unsaved non-secret form drafts.",
+      "why": "Keeps secure-store and tunnel restart authority in the existing backend contract.",
+      "rejected": "Add a new credential-specific desktop API or expose the stored token."
+    }
+  ],
+  "step_summaries": {
+    "implement": {
+      "summary": "Grouped public-access settings and added presence-only configured-token management with complete automated coverage."
+    }
+  }
+}

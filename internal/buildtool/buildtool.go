@@ -67,13 +67,13 @@ func Plan(action string, applicationArguments []string) ([]Step, error) {
 		return preparePlan(), nil
 	case "build":
 		return append(preparePlan(), implicitBuildSteps(target)...), nil
-	case "dev", "run":
+	case "dev":
 		steps := append(preparePlan(), developmentSteps()...)
 		return append(steps, commandStep("run development application", developmentExecutable(), applicationArguments...)), nil
 	case "package":
 		return implicitPackagePlan()
 	default:
-		return nil, fmt.Errorf("unknown action %q (want dev, build, package, run, or prepare)", action)
+		return nil, fmt.Errorf("unknown action %q (want dev, build, package, or prepare)", action)
 	}
 }
 
@@ -90,7 +90,7 @@ func PlanForTarget(action string, target Target, applicationArguments []string) 
 		return preparePlan(), nil
 	case "build":
 		return append(preparePlan(), buildSteps(target)...), nil
-	case "dev", "run":
+	case "dev":
 		if target != DefaultTarget() {
 			return nil, fmt.Errorf("action %q is available only for %s, got %s", action, DefaultTarget(), target)
 		}
@@ -106,7 +106,7 @@ func PlanForTarget(action string, target Target, applicationArguments []string) 
 		}
 		return implicitPackagePlan()
 	default:
-		return nil, fmt.Errorf("unknown action %q (want dev, build, package, run, or prepare)", action)
+		return nil, fmt.Errorf("unknown action %q (want dev, build, package, or prepare)", action)
 	}
 }
 

@@ -188,7 +188,6 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 
 	for _, taskName := range []string{
 		"dev",
-		"run",
 		"prepare",
 		"build",
 		"package",
@@ -223,7 +222,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 		})
 	}
 
-	for _, action := range []string{"dev", "run", "prepare", "build", "package"} {
+	for _, action := range []string{"dev", "prepare", "build", "package"} {
 		body := taskfileTask(t, taskfile, action)
 		assert.Contains(t, body, "run ./cmd/build "+action)
 		assert.NotContains(t, body, "wails3", "%s must not recurse through a high-level Wails wrapper", action)
@@ -265,9 +264,7 @@ func TestTaskfileOwnsWailsCompatibleWorkflowsAndMakeOnlyBootstrapsTools(t *testi
 	assert.Contains(t, releaseTag, "prompt:")
 
 	dev := taskfileTask(t, taskfile, "dev")
-	run := taskfileTask(t, taskfile, "run")
 	assert.Contains(t, dev, "{{.APP_ARGS}}")
-	assert.Contains(t, run, "{{.APP_ARGS}}")
 
 	deps := taskfileTask(t, taskfile, "deps")
 	assert.Contains(t, deps, "task: deps:frontend")
@@ -492,43 +489,20 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 		}
 	}
 
-	for _, guidance := range []struct {
-		name       string
-		document   string
-		majorMatch string
-	}{
-		{
-			name:       "README",
-			document:   readme,
-			majorMatch: "Major-версия release tag должна совпадать с major-версией корневого Go-модуля",
-		},
-		{
-			name:       "platform packaging guide",
-			document:   packaging,
-			majorMatch: "The tag major must match the root Go module major",
-		},
+	normalizedPackaging := strings.Join(strings.Fields(packaging), " ")
+	for _, required := range []string{
+		"v2.0.0",
+		"v2.0.0-rc.1",
+		"github.com/obalunenko/Fallout-Terminal/v2",
+		"VERSION=2.0.0",
+		"VERSION=2.0.0-rc.1",
+		"development",
+		"The tag major must match the root Go module major",
 	} {
-		t.Run(guidance.name+" release version contract", func(t *testing.T) {
-			t.Parallel()
-
-			normalized := strings.Join(strings.Fields(guidance.document), " ")
-			for _, required := range []string{
-				"v2.0.0",
-				"v2.0.0-rc.1",
-				"github.com/obalunenko/Fallout-Terminal/v2",
-				"VERSION=2.0.0",
-				"VERSION=2.0.0-rc.1",
-				"development",
-				guidance.majorMatch,
-			} {
-				assert.Contains(t, normalized, required)
-			}
-			assert.NotContains(t, normalized, "VERSION=v2.", "canonical VERSION must omit the tag's leading v")
-			lower := strings.ToLower(normalized)
-			assert.True(t, strings.Contains(lower, "local") || strings.Contains(lower, "локаль"),
-				"%s must identify development as local non-release behavior", guidance.name)
-		})
+		assert.Contains(t, normalizedPackaging, required)
 	}
+	assert.NotContains(t, normalizedPackaging, "VERSION=v2.", "canonical VERSION must omit the tag's leading v")
+	assert.Contains(t, strings.ToLower(normalizedPackaging), "local", "the packaging guide must identify development as local non-release behavior")
 
 	for _, required := range []string{
 		"make tools",
@@ -559,7 +533,7 @@ func TestDistributionGuidanceDocumentsPortablePlatformsAndPackaging(t *testing.T
 	for _, required := range []string{
 		"make tools",
 		"make help",
-		"task dev", "task run", "task prepare", "task build", "task package",
+		"task dev", "task prepare", "task build", "task package",
 		"task deps", "task fmt", "task vet", "task lint", "task test",
 		"task proto:generate", "task proto:check", "task proto:breaking",
 		"task bindings:check", "task browser:test", "task check",

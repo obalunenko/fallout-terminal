@@ -102,7 +102,7 @@ func TestInspectReleaseArchiveRequiresCanonicalExpectedVersion(t *testing.T) {
 	}
 }
 
-func TestRunRetainsLocalDockerActionAndRejectsObsoleteRemoteActions(t *testing.T) {
+func TestRunRetainsLocalDockerActionAndRejectsObsoleteActions(t *testing.T) {
 	t.Parallel()
 
 	err := run(t.Context(), t.TempDir(), []string{"package-all-docker", "--unsupported"})
@@ -110,7 +110,7 @@ func TestRunRetainsLocalDockerActionAndRejectsObsoleteRemoteActions(t *testing.T
 	require.ErrorAs(t, err, &commandUsageError)
 	assert.NotContains(t, err.Error(), "unknown action")
 
-	for _, action := range []string{"package-all", "release-candidate"} {
+	for _, action := range []string{"run", "package-all", "release-candidate"} {
 		err := run(t.Context(), t.TempDir(), []string{action})
 		require.ErrorAs(t, err, &commandUsageError)
 		assert.Contains(t, err.Error(), "unknown action")

@@ -41,7 +41,7 @@ scan_active_tree() {
   local found=0
   local env_argument_pattern='NGROK_(BIN|ENABLED|DOMAIN|USERNAME|PASSWORD|BASIC_AUTH)|--ngrok([-=[:space:]]|$)'
   local process_pattern='NewProcessRunner|ProcessRunner|OwnedProcess|darwinOwnerGuardScript|tunnel-guardian|exec\.Command(Context)?\([^\n]*ngrok|LookPath\([^\n]*ngrok'
-  local legacy_config_pattern='DefaultDomain|PolicyParent|fallout-terminal\.ngrok\.app'
+  local legacy_config_pattern='DefaultDomain|PolicyParent'
   local launch_pattern='NGROK_[A-Z_]+=.*(go run|Fallout Terminal\.app)|ngrok[[:space:]]+http([[:space:]]|$)'
   local root_tunnel_seam_pattern='TunnelEnabled|startTunnelLocked|tunnelStartupFailureMessage|tunnelAddressFailureMessage|public tunnel is enabled but not configured'
 
@@ -92,7 +92,7 @@ scan_package() {
     record_match 'bundled-provider-executable' "${bundled_provider#"${repository_root}"/}"
     return 1
   fi
-  if [[ -x "${executable_path}" ]] && strings "${executable_path}" | grep -Eq 'NGROK_BIN|fallout-terminal\.ngrok\.app|tunnel-guardian'; then
+  if [[ -x "${executable_path}" ]] && strings "${executable_path}" | grep -Eq 'NGROK_BIN|DefaultDomain|tunnel-guardian'; then
     record_match 'packaged-legacy-runtime-string' "${executable_path#"${repository_root}"/}"
     return 1
   fi

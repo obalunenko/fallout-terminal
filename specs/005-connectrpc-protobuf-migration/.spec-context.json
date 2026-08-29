@@ -2407,7 +2407,7 @@
       ]
     },
     "FR-105": {
-      "title": "Protected public access MUST retain domain `fallout-terminal.ngrok.app`, credential-pair validation, and fail-closed Basic Auth.",
+      "title": "Protected public access MUST retain a provider-assigned public endpoint when no fixed domain is configured, credential-pair validation, and fail-closed Basic Auth.",
       "tasks": [
         "T019",
         "T096",

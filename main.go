@@ -229,6 +229,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		Player:               player,
 		Desktop:              desktop,
 		Browser:              desktop,
+		Clipboard:            host.Clipboard,
 		Events:               events,
 		PublicSettings:       effectivePublicSettings,
 		PublicSecrets:        effectivePublicSecrets,
