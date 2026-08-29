@@ -2,8 +2,8 @@
   "workflow": "companion",
   "specName": "Vue and TypeScript Frontend Migration",
   "branch": "033-frontend-vue-typescript-migration",
-  "currentStep": "specify",
-  "status": "specified",
+  "currentStep": "plan",
+  "status": "planned",
   "history": [
     {
       "step": "specify",
@@ -18,6 +18,34 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-08-29T20:20:40.986Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-29T20:42:39.593Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-29T20:53:59.323Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-29T21:00:50.374Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-29T21:02:38.471Z"
     }
   ],
   "last_action": "living specs evaluated — skipped (not configured)",
@@ -194,5 +222,54 @@
     "No Go API, protobuf service, persistence, authentication, tunnel, update-policy, or security-boundary change.",
     "No combined application, shared cross-boundary store, routing system, meta-framework, JSX layer, component library, or CSS framework.",
     "No rewrite of historical completed specifications or archived evidence."
-  ]
+  ],
+  "approach": "Migrate Overseer first and Player second through nine bounded ownership waves, preserving every protocol and presentation baseline while Vue assumes one complete subtree at a time. Keep one npm workspace, strict app-specific TypeScript checks, deterministic target=ts browser contracts, unchanged Wails bindings behind a typed runtime-validating adapter, and remove all temporary compatibility at final cutover.",
+  "decisions": [
+    {
+      "decision": "Pin vue 3.5.42, TypeScript 6.0.3, @vitejs/plugin-vue 6.0.8, and vue-tsc 3.3.11 exactly",
+      "why": "The exact stack passed strict SFC, generated TypeScript, Wails adapter, and Vite compatibility checks with existing Vite and Node pins; TypeScript 7 failed vue-tsc startup",
+      "rejected": "Floating ranges, TypeScript 7.0.2, and unrelated dependency upgrades"
+    },
+    {
+      "decision": "Own TypeScript, plugin-vue, and vue-tsc at the frontend workspace root while both application manifests own exact vue 3.5.42",
+      "why": "One shared installed toolchain and lockfile serves independently runnable app checks/builds without duplicated tool versions",
+      "rejected": "Per-application lockfiles or duplicate compiler/plugin declarations"
+    },
+    {
+      "decision": "Generate exactly five checked-in browser contract files with protoc-gen-es target=ts and import_extension=js",
+      "why": "The pinned generator preserves ESM runtime specifiers and strict Vite/TypeScript resolution without changing schemas, descriptors, Go output, or wire contracts",
+      "rejected": "target=ts+js, js+dts, extensionless imports, or a second checked-in compiled tree"
+    },
+    {
+      "decision": "Consume unchanged Wails JavaScript through a synchronized TypeScript/Vite alias and one unknown-validating desktop adapter",
+      "why": "The generator emits no desktopservice.d.ts and direct strict TypeScript imports fail without prohibited allowJs; the alias fixture compiled and built without weakening strictness",
+      "rejected": "Editing bindings, permanent allowJs/checkJs, generated secondary declarations, @ts-ignore, or any"
+    },
+    {
+      "decision": "Finish the Overseer production cutover before implementing Player production ownership and transfer Player DOM ownership atomically",
+      "why": "Overseer body-sibling leaves are separable, while Player transport, timing, geometry, audio, and presentation state are tightly coupled and unsafe to split across one document",
+      "rejected": "Mixed Vue parents with legacy descendants or incremental Player subtree cross-mutation"
+    },
+    {
+      "decision": "Build the Overseer browser fixture from production SFCs with a typed fake DesktopPort",
+      "why": "Raw source rewriting cannot execute SFC/TypeScript, while port injection preserves production code and keeps browser evidence distinct from Wails evidence",
+      "rejected": "Legacy fixture UI, dynamic SFC compilation in Go, or treating browser doubles as native runtime evidence"
+    },
+    {
+      "decision": "Require byte-identical Vite output trees across repeated clean builds",
+      "why": "Phase 0 produced identical current Overseer and Player output digests across two isolated Vite 8.1.5 builds",
+      "rejected": "Manifest-only equivalence after reproducible bytes were demonstrated"
+    },
+    {
+      "decision": "Omit data-model.md and create build-generation plus trust-evidence contracts",
+      "why": "No persistent or canonical model changes; build, generation, typing, fixture, trust, and evidence interfaces do change and benefit from explicit contracts",
+      "rejected": "Duplicating unchanged protobuf and persistence models or omitting cross-tool contracts"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned nine-wave behavior-preserving migration to two strict Vue applications with exact pins, deterministic TypeScript contracts, typed Wails isolation, explicit DOM ownership, and complete final removal gates",
+      "key_finding": "The safe cutover shape is Overseer-first with complete leaf ownership and an atomic Player production transfer; the exact Vue 3.5.42/TS 6.0.3/plugin 6.0.8/vue-tsc 3.3.11 stack works while TypeScript 7 does not."
+    }
+  }
 }
