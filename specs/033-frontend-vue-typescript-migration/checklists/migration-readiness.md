@@ -111,7 +111,7 @@ The groupings below account for every functional requirement and identify its pr
 
 ## Notes
 
-- Reassessment completed 2026-08-30: all 40 requirement-quality items are checked and the revised planning artifacts are ready for `$speckit-tasks`; the existing `tasks.md` is intentionally not implementation-ready until regeneration.
+- Reassessment completed 2026-08-30: all 40 requirement-quality decisions remain checked and `tasks.md` has been regenerated with the final executable-verification corrections. Readiness remains conditional on the final `$speckit-analyze`; implementation is forbidden until that analysis returns `READY` with zero blocking findings.
 - No application code, generated file, approved architecture, product behavior, persistence contract, protobuf schema, Go API, RPC, authentication behavior, tunnel behavior, update policy, or security boundary is changed by this checklist.
 - The immutable rollback commit `06696ee1c7155a1bb1135ef46ec91445dd73a2a4` exists and is an ancestor of the assessed planning revision.
 - The retained resolution notes record planning-readiness findings and their disposition; they are not claims about application behavior.
