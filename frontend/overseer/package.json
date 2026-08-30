@@ -4,17 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --config vite.config.ts",
+    "build": "vite build --config vite.config.ts",
     "test": "npm test --prefix ../../tests/browser -- state-changing-command-authoring.spec.mjs state-changing-command-approval.spec.mjs desktop-api.spec.mjs"
   },
   "devDependencies": {
     "vite": "8.1.5"
   },
   "engines": {
-    "node": ">=26.8.1"
+    "node": "26.8.1"
   },
   "dependencies": {
-    "@wailsio/runtime": "3.0.0-beta.15"
+    "@wailsio/runtime": "3.0.0-beta.15",
+    "vue": "3.5.42"
   }
 }

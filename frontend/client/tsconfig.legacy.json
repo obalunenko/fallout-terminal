@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false
+  },
+  "files": [
+    "client.js",
+    "sound.js",
+    "presentation-uplink.js"
+  ]
+}

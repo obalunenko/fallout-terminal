@@ -1,0 +1,6 @@
+Task: T003
+Expected assertion: AssertionError: expected Node.js 26.8.2 to be rejected
+Product command: /var/folders/wk/s1x28gs57cq3p8w24449bf340000gn/T//fallout-node-policy-product.HP1iaV
+Product exit status: 1
+--- captured stdout/stderr ---
+AssertionError: expected Node.js 26.8.2 to be rejected

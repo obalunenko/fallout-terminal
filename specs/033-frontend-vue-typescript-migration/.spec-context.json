@@ -2,8 +2,8 @@
   "workflow": "companion",
   "specName": "Vue and TypeScript Frontend Migration",
   "branch": "033-frontend-vue-typescript-migration",
-  "currentStep": "tasks",
-  "status": "ready-to-implement",
+  "currentStep": "implement",
+  "status": "implementing",
   "history": [
     {
       "step": "specify",
@@ -67,6 +67,77 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-08-29T21:57:58.690Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-08-30T03:52:13.527Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T03:53:17.404Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T03:54:48.030Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T04:00:46.061Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T04:01:50.695Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T04:03:20.732Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T04:06:00.118Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T04:06:47.344Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T04:07:11.812Z"
     }
   ],
   "last_action": "living specs evaluated — skipped (not configured)",
@@ -1516,5 +1587,99 @@
       "command": "FR/SC/CHK counts, ten target inventory, eight RPC rows, eighteen exact temporary rows, normalized legacy tsconfig names, git diff --check",
       "warnings": "implementation executability requires regenerated tasks"
     }
-  ]
+  ],
+  "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
+  "currentTask": "T009",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Recorded rollback authority, full legacy DOM/lifecycle ownership, and four expiring legacy mechanisms",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Captured successful Node preflight, clean workspace install, two legacy builds, protobuf drift, and Wails binding baseline",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T002-bootstrap.md"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added governed expected-RED, exact focused-browser, status-aware no-match, and Node RED contract helpers with deterministic self-tests",
+      "files": [
+        "scripts/frontend-task-contract-check.sh",
+        "scripts/frontend-expected-red-check.sh",
+        "scripts/frontend-focused-browser-check.sh",
+        "scripts/frontend-assert-no-match.sh",
+        "tests/fixtures/frontend-expected-red/expected-product-failure.sh",
+        "tests/fixtures/frontend-expected-red/unrelated-failure.sh",
+        "tests/fixtures/frontend-expected-red/infrastructure-failure.sh",
+        "tests/fixtures/frontend-focused-browser/one-match.spec.mjs",
+        "tests/fixtures/frontend-focused-browser/multiple-match.spec.mjs",
+        "tests/fixtures/frontend-no-match/no-match.txt",
+        "tests/fixtures/frontend-no-match/forbidden-match.txt",
+        "specs/033-frontend-vue-typescript-migration/evidence/T003-node-red.txt"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Made Node 26.8.1 exact in Task, workspace engines, active docs, and GREEN version-matrix validation; confirmed existing CI and quickstart pins",
+      "files": [
+        "Taskfile.yml",
+        "frontend/package.json",
+        "frontend/client/package.json",
+        "frontend/overseer/package.json",
+        "scripts/frontend-task-contract-check.sh",
+        "README.md",
+        "CONTRIBUTING.md"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Pinned Vue 3.5.42 in both apps and TypeScript 6.0.3, plugin-vue 6.0.8, and vue-tsc 3.3.11 at the workspace root with one regenerated lockfile",
+      "files": [
+        "frontend/package.json",
+        "frontend/client/package.json",
+        "frontend/overseer/package.json",
+        "frontend/package-lock.json"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Established strict capability-neutral TypeScript policy, empty application programs, and an isolated compiler/policy diagnostic matrix",
+      "files": [
+        "frontend/tsconfig.base.json",
+        "frontend/client/tsconfig.json",
+        "frontend/overseer/tsconfig.json",
+        "scripts/frontend-compiler-fixture-check.sh",
+        "tests/fixtures/frontend-compiler/tsconfig.valid.json",
+        "tests/fixtures/frontend-compiler/valid/strict.ts",
+        "tests/fixtures/frontend-compiler/valid/StrictFixture.vue",
+        "tests/fixtures/frontend-compiler/valid/application-owned.d.ts",
+        "tests/fixtures/frontend-compiler/invalid/invalid-props.vue",
+        "tests/fixtures/frontend-compiler/invalid/invalid-emits.vue",
+        "tests/fixtures/frontend-compiler/invalid/invalid-unchecked-index.ts",
+        "tests/fixtures/frontend-compiler/invalid/invalid-exact-optional.ts",
+        "tests/fixtures/frontend-compiler/invalid/invalid-any.ts",
+        "tests/fixtures/frontend-compiler/invalid/invalid-suppression.ts",
+        "tests/fixtures/frontend-compiler/invalid/invalid-cross-boundary-import.ts"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added a compile-only Overseer legacy TypeScript program bounded to overseer.js and desktop-api.js with the existing wave-e expiry row",
+      "files": [
+        "frontend/overseer/tsconfig.legacy.json"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added a compile-only Player legacy TypeScript program bounded to client.js, sound.js, and presentation-uplink.js with the existing wave-h expiry row",
+      "files": [
+        "frontend/client/tsconfig.legacy.json"
+      ]
+    }
+  }
 }

@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false
+  },
+  "files": [
+    "src/overseer.js",
+    "src/desktop-api.js"
+  ]
+}

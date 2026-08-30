@@ -5,7 +5,7 @@ vars:
   NODE: '{{default "node" .NODE}}'
   NPM: '{{default "npm" .NPM}}'
   APP_ARGS: '{{default "" .APP_ARGS}}'
-  NODE_MINIMUM_VERSION: '26.8.1'
+  NODE_VERSION: '26.8.1'
   MACOS_MINIMUM_VERSION: '13.0'
   DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}} CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} CGO_LDFLAGS="-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} -Wl,-no_warn_duplicate_libraries"{{end}}'
   SPECKIT_INSTALL: scripts/install-speckit.sh
@@ -145,24 +145,16 @@ tasks:
       - task: deps:browser
 
   node:check:
-    desc: Verify the executing Node.js runtime satisfies the project minimum.
+    desc: Verify the executing Node.js runtime matches the project pin exactly.
     run: once
     silent: true
     cmds:
       - |
         {{.NODE}} -e '
-          const minimumText = "{{.NODE_MINIMUM_VERSION}}";
-          const minimum = minimumText.split(".").map(Number);
-          const current = process.versions.node.split(".").slice(0, 3).map(Number);
-          let comparison = 0;
-          for (let index = 0; index < minimum.length; index += 1) {
-            if (current[index] !== minimum[index]) {
-              comparison = current[index] - minimum[index];
-              break;
-            }
-          }
-          if (comparison < 0) {
-            console.error(`Node.js ${minimumText} or newer is required; found ${process.version}. Run "nvm use" from the repository root.`);
+          const expected = "{{.NODE_VERSION}}";
+          const actual = process.versions.node;
+          if (actual !== expected) {
+            console.error(`Node.js ${expected} is required; found ${process.version}. Run "nvm use" from the repository root.`);
             process.exit(1);
           }
         '
