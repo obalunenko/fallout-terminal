@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="./overseer.css">
 </head>
 <body>
+<div id="legacyOverseerRoot" style="height:100%">
 
 <!-- ── START SCREEN ─────────────────────────────────────── -->
 <div class="start-screen" id="startScreen">
@@ -180,51 +181,6 @@
 
   </div><!-- /main -->
 </div><!-- /layout -->
-
-<aside class="application-update-status-panel" id="applicationUpdateStatusPanel" aria-label="Обновление приложения" hidden>
-  <div class="application-update-status-copy">
-    <div class="application-update-status" id="applicationUpdateStatus" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div class="application-update-error" id="applicationUpdateError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <progress class="application-update-progress" id="applicationUpdateProgress" aria-label="Подготовка обновления приложения" hidden></progress>
-  </div>
-  <button class="btn btn-mini btn-accent" id="btnShowApplicationUpdate" type="button" aria-haspopup="dialog" aria-controls="applicationUpdateDialog" hidden>ПОКАЗАТЬ ОБНОВЛЕНИЕ</button>
-</aside>
-
-<dialog class="application-update-dialog" id="applicationUpdateDialog" aria-modal="true" aria-labelledby="applicationUpdateDialogTitle" aria-describedby="applicationUpdateDialogDescription applicationUpdateReleaseNotes" hidden>
-  <div class="application-update-dialog-panel">
-    <h2 class="application-update-dialog-title" id="applicationUpdateDialogTitle">ДОСТУПНО ОБНОВЛЕНИЕ</h2>
-    <p class="application-update-dialog-description" id="applicationUpdateDialogDescription">Обновление начнёт загружаться только после вашего подтверждения. Можно продолжить работу с текущей версией.</p>
-    <dl class="application-update-versions">
-      <div>
-        <dt>УСТАНОВЛЕНА</dt>
-        <dd id="applicationUpdateInstalledVersion">—</dd>
-      </div>
-      <div>
-        <dt>ДОСТУПНА</dt>
-        <dd id="applicationUpdateAvailableVersion">—</dd>
-      </div>
-    </dl>
-    <section class="application-update-release" aria-labelledby="applicationUpdateReleaseNotesHeading">
-      <h3 id="applicationUpdateReleaseNotesHeading">ИСТОРИЯ ИЗМЕНЕНИЙ</h3>
-      <div class="application-update-release-notes" id="applicationUpdateReleaseNotes"></div>
-    </section>
-    <div class="application-update-actions" role="group" aria-label="Решение об обновлении приложения">
-      <button class="btn btn-primary" id="btnAcceptApplicationUpdate" type="button">ОБНОВИТЬ СЕЙЧАС</button>
-      <button class="btn btn-secondary" id="btnDeferApplicationUpdate" type="button">ПРОДОЛЖИТЬ БЕЗ ОБНОВЛЕНИЯ</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog class="application-update-dialog application-update-restart-dialog" id="applicationUpdateRestartDialog" aria-modal="true" aria-labelledby="applicationUpdateRestartDialogTitle" aria-describedby="applicationUpdateRestartDialogDescription" hidden>
-  <div class="application-update-dialog-panel">
-    <h2 class="application-update-dialog-title" id="applicationUpdateRestartDialogTitle">ОБНОВЛЕНИЕ ГОТОВО</h2>
-    <p class="application-update-dialog-description" id="applicationUpdateRestartDialogDescription">Перезапустите приложение, чтобы применить подготовленное обновление. Перезапуск можно отложить и продолжить текущую работу.</p>
-    <div class="application-update-actions" role="group" aria-label="Решение о перезапуске приложения">
-      <button class="btn btn-primary" id="btnRestartApplicationUpdate" type="button">ПЕРЕЗАПУСТИТЬ И ОБНОВИТЬ</button>
-      <button class="btn btn-secondary" id="btnPostponeApplicationUpdate" type="button">ПЕРЕЗАПУСТИТЬ ПОЗЖЕ</button>
-    </div>
-  </div>
-</dialog>
 
 <dialog class="terminal-group-dialog terminal-group-draft-dialog" id="terminalGroupDraftDialog" aria-modal="true" aria-labelledby="terminalGroupDraftDialogTitle" aria-describedby="terminalGroupDraftDialogDescription terminalGroupError" hidden>
   <form class="terminal-group-dialog-panel" id="terminalGroupDraftForm" novalidate>
@@ -501,22 +457,6 @@
   </div>
 </dialog>
 
-<dialog class="terminal-switch-dialog" id="terminalSwitchDialog" aria-modal="true" aria-labelledby="terminalSwitchDialogTitle" aria-describedby="terminalSwitchDialogDescription terminalSwitchStatus terminalSwitchError" hidden>
-  <div class="terminal-switch-dialog-panel">
-    <h2 class="terminal-switch-dialog-title" id="terminalSwitchDialogTitle">НЕЗАВЕРШЁННЫЙ ВЗЛОМ</h2>
-    <p class="terminal-switch-dialog-description" id="terminalSwitchDialogDescription">
-      Перед переключением терминала выберите, что сделать с текущей головоломкой.
-    </p>
-    <div class="terminal-switch-actions" role="group" aria-label="Решение для незавершённой головоломки">
-      <button class="btn btn-primary" id="btnPreserveTerminalSwitch" type="button" data-switch-decision="preserve">СОХРАНИТЬ И ПЕРЕКЛЮЧИТЬ</button>
-      <button class="btn btn-danger terminal-switch-discard" id="btnDiscardTerminalSwitch" type="button" data-switch-decision="discard">СБРОСИТЬ И ПЕРЕКЛЮЧИТЬ</button>
-      <button class="btn btn-secondary" id="btnCancelTerminalSwitch" type="button" data-switch-decision="cancel">ОСТАТЬСЯ В ТЕРМИНАЛЕ</button>
-    </div>
-    <div class="terminal-switch-status" id="terminalSwitchStatus" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div class="terminal-switch-error" id="terminalSwitchError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-  </div>
-</dialog>
-
 <dialog class="terminal-switch-dialog public-access-settings-dialog" id="publicAccessSettingsDialog" aria-modal="true" aria-labelledby="publicAccessSettingsDialogTitle" aria-describedby="publicAccessSettingsDialogDescription publicAccessSetupRequired" hidden>
   <div class="terminal-switch-dialog-panel">
     <header class="public-access-settings-header">
@@ -643,7 +583,11 @@
   </div>
 </dialog>
 
+</div>
+<div id="overseerVueLeaves" style="display:contents"></div>
+
 <script type="module" src="./desktop-api.js"></script>
+<script type="module" src="./main.ts"></script>
 <script type="module" src="./overseer.js"></script>
 </body>
 </html>

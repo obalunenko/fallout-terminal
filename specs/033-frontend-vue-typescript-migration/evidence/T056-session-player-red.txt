@@ -1,0 +1,38 @@
+Task: T056
+Expected assertion: AssertionError: closed or rebound dialog ignores stale result and releases listener
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/player-management.spec.mjs closed\ or\ rebound\ dialog\ ignores\ stale\ result\ and\ releases\ listener
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  player-management.spec.mjs:25:1 › closed or rebound dialog ignores stale result and releases listener
+Total: 1 test in 1 file
+[WebServer] (node:30424) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:30451) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:30453) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: closed or rebound dialog ignores stale result and releases listener
+  ✘  1 tests/browser/player-management.spec.mjs:25:1 › closed or rebound dialog ignores stale result and releases listener (98ms)
+
+
+  1) tests/browser/player-management.spec.mjs:25:1 › closed or rebound dialog ignores stale result and releases listener
+
+    Error: Vue-owned session/player lifecycle is not implemented
+
+      27 |   if (await vueDialog.count() === 0) {
+      28 |     process.stderr.write('AssertionError: closed or rebound dialog ignores stale result and releases listener\n');
+    > 29 |     throw new Error('Vue-owned session/player lifecycle is not implemented');
+         |           ^
+      30 |   }
+      31 |   await expect(vueDialog).toHaveAttribute('data-stale-result-guard', 'released');
+      32 | });
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/player-management.spec.mjs:29:11
+
+    Error Context: tests/browser/test-results/player-management-closed-o-588cd-esult-and-releases-listener/error-context.md
+
+  1 failed
+    tests/browser/player-management.spec.mjs:25:1 › closed or rebound dialog ignores stale result and releases listener

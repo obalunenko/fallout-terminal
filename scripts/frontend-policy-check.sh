@@ -107,6 +107,79 @@ NODE
   printf '%s\n' 'frontend policy check: PASS: repository manifests, lockfile, compiler policy, and Player dependency boundary satisfy the wave-a contract'
 }
 
+reject_player_foundation_match() {
+  local description="$1"
+  local pattern="$2"
+  shift 2
+
+  local output status
+  set +e
+  output="$(LC_ALL=C grep -Eni -- "$pattern" "$@" 2>&1)"
+  status=$?
+  set -e
+
+  case "$status" in
+    0)
+      fail "Player foundation contains prohibited ${description}: ${output%%$'\n'*}"
+      return 1
+      ;;
+    1)
+      return 0
+      ;;
+    *)
+      fail "Player foundation ${description} scan failed: $output"
+      return 1
+      ;;
+  esac
+}
+
+check_player_foundation_files() {
+  local label="$1"
+  shift
+  local file
+
+  [[ "$#" -gt 0 ]] || { fail 'Player foundation scan requires at least one file'; return 1; }
+  for file in "$@"; do
+    [[ -f "$file" && -r "$file" ]] || {
+      fail "Player foundation file is missing or unreadable: ${file#"$repository_root/"}"
+      return 1
+    }
+  done
+
+  reject_player_foundation_match 'Overseer import' \
+    'frontend/overseer|(^|[^[:alnum:]_])overseer/' "$@"
+  reject_player_foundation_match 'Wails runtime capability' \
+    '@wailsio/runtime|(^|[^[:alnum:]_])wails([^[:alnum:]_]|$)' "$@"
+  reject_player_foundation_match 'generated binding import' \
+    '(^|[/._-])bindings?([/._-]|$)' "$@"
+  reject_player_foundation_match 'native or filesystem capability' \
+    'node:fs|filesystem|(^|[^[:alnum:]_])(internal|native)/' "$@"
+  reject_player_foundation_match 'private protobuf capability' \
+    '(^|[/._-])private([/._-]|$)|private_pb' "$@"
+  reject_player_foundation_match 'cross-application type contract' \
+    'cross[-_ ]?app|shared/application-types|shared-app-types' "$@"
+  reject_player_foundation_match 'shared application store' \
+    'shared[-_/ ]?(application[-_/ ]?)?(state|store)|createSharedStore' "$@"
+  reject_player_foundation_match 'ConnectRPC or subscription behavior' \
+    '@connectrpc|createClient|(^|[^[:alnum:]_])(Subscribe|subscription)([^[:alnum:]_]|$)' "$@"
+  reject_player_foundation_match 'production DOM lookup or selection' \
+    'document\.querySelector|document\.getElementById\([^)]*(screen|connOverlay|crt)|replaceChildren|productionSelection|legacyPlayerRoot|client\.js' "$@"
+
+  printf 'frontend policy check: PASS: %s contains no privileged, cross-application, business-behavior, or production-DOM edge across %d readable file(s)\n' \
+    "$label" "$#"
+}
+
+check_player_foundation() {
+  check_player_foundation_files 'real Player foundation' \
+    "$repository_root/frontend/client/src/env.d.ts" \
+    "$repository_root/frontend/client/src/models/player-view-state.ts" \
+    "$repository_root/frontend/client/src/ports/player-transport.ts" \
+    "$repository_root/frontend/client/src/App.vue" \
+    "$repository_root/frontend/client/src/mount.ts" \
+    "$repository_root/frontend/client/test-fixtures/index.html" \
+    "$repository_root/frontend/client/test-fixtures/candidate-main.ts"
+}
+
 expect_fixture_failure() {
   local fixture="$1"
   local expected="$2"
@@ -122,6 +195,21 @@ expect_fixture_failure() {
   }
 }
 
+expect_player_foundation_failure() {
+  local fixture="$1"
+  local expected="$2"
+  local output status
+  set +e
+  output="$(check_player_foundation_files "fixture ${fixture#"$repository_root/"}" "$fixture" 2>&1)"
+  status=$?
+  set -e
+  ((status != 0)) && [[ "$output" == *"$expected"* ]] || {
+    printf '%s\n' "$output" >&2
+    fail "Player foundation fixture did not fail with expected diagnostic: $expected"
+    return 1
+  }
+}
+
 self_test() {
   check_repository
   check_fixture "$fixture_root/valid-policy.txt"
@@ -129,19 +217,32 @@ self_test() {
   expect_fixture_failure "$fixture_root/invalid-lockfile.txt" 'frontend/package-lock.json must be the only frontend lockfile'
   expect_fixture_failure "$fixture_root/invalid-player-dependency.txt" 'Player dependency boundary includes a privileged dependency'
   expect_fixture_failure "$fixture_root/invalid-type-escape.txt" 'production source contains a prohibited type escape'
-  printf '%s\n' 'frontend policy check self-test: PASS: valid policy accepted and pin, lockfile, Player-boundary, and type-escape violations rejected actionably'
+  check_player_foundation_files 'valid Player foundation fixture' "$fixture_root/valid-player-foundation.txt"
+  expect_player_foundation_failure "$fixture_root/invalid-player-wails.txt" 'prohibited Wails runtime capability'
+  expect_player_foundation_failure "$fixture_root/invalid-player-bindings.txt" 'prohibited generated binding import'
+  expect_player_foundation_failure "$fixture_root/invalid-player-native-filesystem.txt" 'prohibited native or filesystem capability'
+  expect_player_foundation_failure "$fixture_root/invalid-player-private.txt" 'prohibited private protobuf capability'
+  expect_player_foundation_failure "$fixture_root/invalid-cross-app-type.txt" 'prohibited cross-application type contract'
+  expect_player_foundation_failure "$fixture_root/invalid-cross-app-store.txt" 'prohibited shared application store'
+  expect_player_foundation_failure "$fixture_root/invalid-player-connectrpc.txt" 'prohibited ConnectRPC or subscription behavior'
+  expect_player_foundation_failure "$fixture_root/invalid-player-production-dom.txt" 'prohibited production DOM lookup or selection'
+  printf '%s\n' 'frontend policy check self-test: PASS: general policy and all Player-foundation capability boundaries accept valid fixtures and reject exact violations actionably'
 }
 
 case "${1:-}" in
   --self-test)
-    [[ "$#" == 1 ]] || { fail 'usage: frontend-policy-check.sh [--self-test]'; exit 2; }
+    [[ "$#" == 1 ]] || { fail 'usage: frontend-policy-check.sh [--self-test|--check-player-foundation]'; exit 2; }
     self_test
+    ;;
+  --check-player-foundation)
+    [[ "$#" == 1 ]] || { fail 'usage: frontend-policy-check.sh [--self-test|--check-player-foundation]'; exit 2; }
+    check_player_foundation
     ;;
   '')
     check_repository
     ;;
   *)
-    fail 'usage: frontend-policy-check.sh [--self-test]'
+    fail 'usage: frontend-policy-check.sh [--self-test|--check-player-foundation]'
     exit 2
     ;;
 esac

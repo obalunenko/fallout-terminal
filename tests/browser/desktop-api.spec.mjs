@@ -32,18 +32,48 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('desktop adapter rejected fixture has no-state-change assertion', async ({ page }) => {
-  const fixture = boundaryManifest.fixtures.find(candidate =>
-    candidate.fixtureId === 'desktop-invalid-runtime-status-rejected');
-  expect(fixture).toBeDefined();
-  const legacyObservation = await page.evaluate(() => ({
-    callCount: __desktopFixture.calls.length,
-    typedAdapterAvailable: typeof window.__typedDesktopAdapter === 'object',
-  }));
+  const requiredFixtures = [
+    'desktop-invalid-runtime-status-rejected',
+    'desktop-invalid-server-info-event-rejected',
+    'desktop-invalid-clipboard-input-rejected',
+    'desktop-valid-clipboard-input-accepted',
+  ];
+  expect(boundaryManifest.fixtures
+    .filter(candidate => requiredFixtures.includes(candidate.fixtureId))
+    .map(candidate => candidate.fixtureId)
+    .sort()).toEqual([...requiredFixtures].sort());
 
-  if (!legacyObservation.typedAdapterAvailable) {
-    process.stderr.write('AssertionError: desktop adapter rejected fixture has no-state-change assertion\n');
-    throw new Error('typed desktop adapter rejection assertion is not implemented');
-  }
+  await page.evaluate(() => __desktopFixture.setStatus('invalid-runtime-status'));
+  await installTypedAdapter(page);
+  const observation = await page.evaluate(async () => {
+    const observed = [];
+    const release = __typedDesktopAdapter.onServerInfo(value => observed.push(value));
+    __desktopFixture.emit('server-info', { url: 99, tunnel: false });
+    const rejectedStatus = await __typedDesktopAdapter.getRuntimeStatus();
+    const rejectedClipboard = await __typedDesktopAdapter.writeClipboardText('');
+    const clipboardAfterRejection = __desktopFixture.takeClipboardText();
+    const acceptedClipboard = await __typedDesktopAdapter.writeClipboardText('candidate clipboard');
+    const clipboardAfterAcceptance = __desktopFixture.takeClipboardText();
+    release();
+    release();
+    return {
+      acceptedClipboard,
+      clipboardAfterAcceptance,
+      clipboardAfterRejection,
+      observed,
+      rejectedClipboard,
+      rejectedStatus,
+      releaseCount: __desktopFixture.releaseCount('server-info'),
+    };
+  });
+
+  expect(observation.rejectedStatus).toEqual({ ok: false });
+  expect(observation.observed).toEqual([]);
+  expect(observation.rejectedClipboard).toBe(false);
+  expect(observation.clipboardAfterRejection).toBe('');
+  expect(observation.acceptedClipboard).toBe(true);
+  expect(observation.clipboardAfterAcceptance).toBe('candidate clipboard');
+  expect(observation.releaseCount).toBe(1);
 });
 
 test('desktop adapter validates results, ordering and exact-once release', async ({ page }) => {

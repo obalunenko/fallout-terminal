@@ -27,13 +27,18 @@ async function installPlayerDiagnostics(context) {
   }, TOKEN_KEY);
 }
 
+async function mountOverseerCandidate(page) {
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?command-approval'));
+}
+
 async function openApprovalJourney(browser) {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const playerContext = await browser.newContext();
   await installPlayerDiagnostics(playerContext);
 
   const overseer = await overseerContext.newPage();
   await overseer.goto(OVERSEER_URL);
+  await mountOverseerCandidate(overseer);
   await overseer.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(overseer.locator('#mainLayout')).toBeVisible();
 
@@ -234,6 +239,34 @@ async function expectOrdinaryRejectionJourney(browser, reject, acknowledge) {
 
 test.beforeEach(async ({ request }) => {
   await resetApprovalFixture(request);
+});
+
+test('duplicate/stale request resolves exactly once', async ({ browser }) => {
+  const journey = await openApprovalJourney(browser);
+  try {
+    await chooseStateChangingCommand(journey);
+    const vueDialog = journey.overseer.locator('#overseerVueLeaves #commandExecutionDialog');
+    if (await vueDialog.count() === 0) {
+      process.stderr.write('AssertionError: duplicate/stale request resolves exactly once\n');
+      throw new Error('Vue-owned command approval is not implemented');
+    }
+
+    await vueDialog.locator('#btnApproveCommandExecution').evaluate((button) => {
+      button.click();
+      button.click();
+    });
+    await expect.poll(() => resolveCalls(journey.overseer)).toHaveLength(1);
+    expect(await journey.overseer.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
+    const released = await journey.overseer.evaluate(() => {
+      __overseerVueFixture.unmount();
+      return __desktopFixture.releaseCount('coordination-state');
+    });
+    expect(released).toBeGreaterThan(0);
+    await journey.overseer.evaluate(() => __overseerVueFixture.unmount());
+    expect(await journey.overseer.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
+  } finally {
+    await closeApprovalJourney(journey);
+  }
 });
 
 test('canonical approval input has explicit folder, entry, ordinary, and initial state-changing commands', async ({ request }) => {
@@ -487,6 +520,7 @@ test('pending, rejected, and completed command states match the selected-record 
     await journey.player.locator('#backBtn').click();
 
     await journey.overseer.reload();
+    await mountOverseerCandidate(journey.overseer);
     await journey.overseer.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
     await expect(journey.overseer.locator('#mainLayout')).toBeVisible();
     await journey.player.locator('.term-row', { hasText: 'Двери открыты' }).click();

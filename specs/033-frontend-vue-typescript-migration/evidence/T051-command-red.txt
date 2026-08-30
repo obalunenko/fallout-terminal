@@ -1,0 +1,38 @@
+Task: T051
+Expected assertion: AssertionError: duplicate/stale request resolves exactly once
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/state-changing-command-approval.spec.mjs duplicate/stale\ request\ resolves\ exactly\ once
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  state-changing-command-approval.spec.mjs:239:1 › duplicate/stale request resolves exactly once
+Total: 1 test in 1 file
+[WebServer] (node:8067) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8095) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:8096) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: duplicate/stale request resolves exactly once
+  ✘  1 tests/browser/state-changing-command-approval.spec.mjs:239:1 › duplicate/stale request resolves exactly once (574ms)
+
+
+  1) tests/browser/state-changing-command-approval.spec.mjs:239:1 › duplicate/stale request resolves exactly once
+
+    Error: Vue-owned command approval is not implemented
+
+      244 |     if (await vueDialog.count() === 0) {
+      245 |       process.stderr.write('AssertionError: duplicate/stale request resolves exactly once\n');
+    > 246 |       throw new Error('Vue-owned command approval is not implemented');
+          |             ^
+      247 |     }
+      248 |
+      249 |     await vueDialog.locator('#btnApproveCommandExecution').evaluate((button) => {
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/state-changing-command-approval.spec.mjs:246:13
+
+    Error Context: tests/browser/test-results/state-changing-command-app-79808-quest-resolves-exactly-once/error-context.md
+
+  1 failed
+    tests/browser/state-changing-command-approval.spec.mjs:239:1 › duplicate/stale request resolves exactly once

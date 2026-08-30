@@ -1,0 +1,1 @@
+import { AdminState } from '../gen/private/admin_pb.js';

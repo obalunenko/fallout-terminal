@@ -8,7 +8,98 @@
       "expectedResult": "reject",
       "trustedOutcome": "no-state-change",
       "wave": "c",
-      "focusedTest": "tests/browser/desktop-api.spec.mjs"
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop adapter rejected fixture has no-state-change assertion"
+    },
+    {
+      "boundaryClass": "Wails method result",
+      "fixtureId": "desktop-valid-runtime-status-accepted",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "detached-runtime-projection",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop adapter validates results, ordering and exact-once release"
+    },
+    {
+      "boundaryClass": "Wails event payload",
+      "fixtureId": "desktop-invalid-server-info-event-rejected",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop adapter validates results, ordering and exact-once release"
+    },
+    {
+      "boundaryClass": "Wails event payload",
+      "fixtureId": "desktop-valid-server-info-event-accepted",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "detached-server-info-projection",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop adapter validates results, ordering and exact-once release"
+    },
+    {
+      "boundaryClass": "Wails revisioned event payload",
+      "fixtureId": "desktop-stale-coordination-revision-rejected",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "newer-state-retained",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "all four listeners precede the snapshot and newer wrapped events win per field"
+    },
+    {
+      "boundaryClass": "Wails revisioned event payload",
+      "fixtureId": "desktop-newer-coordination-revision-accepted",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "monotonic-revision-projection",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "all four listeners precede the snapshot and newer wrapped events win per field"
+    },
+    {
+      "boundaryClass": "Wails event lifecycle",
+      "fixtureId": "desktop-event-release-exact-once",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "exact-once-release",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "release is exact-once, suppresses pending snapshot callbacks, and hot disposal releases old listeners"
+    },
+    {
+      "boundaryClass": "Clipboard input",
+      "fixtureId": "desktop-invalid-clipboard-input-rejected",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop adapter rejected fixture has no-state-change assertion"
+    },
+    {
+      "boundaryClass": "Clipboard input",
+      "fixtureId": "desktop-valid-clipboard-input-accepted",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "clipboard-write",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop adapter rejected fixture has no-state-change assertion"
+    },
+    {
+      "boundaryClass": "Wails capability inventory",
+      "fixtureId": "desktop-method-event-inventory-accepted",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "39-method-seven-event-inventory",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs",
+      "focusedTitle": "desktop facade retains one v2 service with 39 methods and seven named events"
     }
   ]
 }

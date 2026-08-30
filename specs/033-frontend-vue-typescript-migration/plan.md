@@ -253,11 +253,25 @@ Switch only `proto/buf.gen.es.yaml` to `target=ts`, preserve `import_extension=j
 
 ### Wave c — Shared compiler policy, application-owned declarations, both Vue shells, and typed desktop API
 
+**Bugfix**: 2026-08-30 — BUG-001 The isolated Player candidate root uses `frontend/client/test-fixtures/index.html`, allowing Vite's exact root build to remain configuration-neutral until T107 owns candidate-mode Vite and Playwright selection.
+
 Establish the shared strict compiler policy in `frontend/tsconfig.base.json`, then create application-owned environment/global/transport/view declarations, both empty Vue roots and mount functions in isolated candidate/fixture documents, and the typed Wails alias/desktop adapter. Establish the production-code/bootstrap injection seam for the Overseer browser fixture. Player work is limited to capability-neutral declarations and public ports, an empty shell, mount function, isolated candidate/test HTML and entry, and dependency/boundary policy fixtures. It must not implement recognition, RPC calls, subscription/reconnect, session initialization, identity, navigation, hacking, timing, audio, presentation uplink, or another business workflow; it must not touch production Player DOM or selection. Do not create a shared authored application declaration or type module.
 
 **Exit**: independent and workspace strict checks; both empty candidate shells build; the wave-c desktop/Wails subset of the reviewed boundary manifest passes for malformed values, ordering, subscriptions, clipboard, and method/event integrity; Player graph has no privileged dependency or business-behavior implementation; production Player remains wholly legacy-selected.
 
 ### Wave d — Overseer leaf components and composables
+
+**Bugfix**: 2026-08-30 — BUG-002 The application-update GREEN slice includes `App.vue`, `mount.ts`, and `index.html` for task-local root integration and atomic legacy-markup removal; the later family join remains the explicit single-owner review gate.
+
+**Bugfix**: 2026-08-30 — BUG-003 The first GREEN leaf test imports the governed Vite-transformed candidate entry into the raw coexistence page, mounting production SFCs with its existing fixture-backed desktop port while legacy-adjacent controls remain fixture-server-owned; the isolated candidate document retains the typed fake.
+
+**Bugfix**: 2026-08-30 — BUG-004 The command-approval GREEN slice reuses that task-local App/candidate/browser seam with the fixture-backed desktop port; T070 remains the approval-family ownership review gate.
+
+**Bugfix**: 2026-08-30 — BUG-005 The terminal-navigation approval GREEN slice reuses the existing App/candidate coexistence seam with the fixture-backed desktop port and updates the prior aggregate coordination-cleanup assertion so it remains valid with multiple exact-once subscribers; T070 remains the approval-family ownership review gate.
+
+**Bugfix**: 2026-08-30 — BUG-006 The terminal-switch GREEN slice owns its production-document markup removal and routes legacy activation results through the existing typed coexistence bridge, with the same bridge constructed for raw candidate-fixture injection; T070 remains the approval-family ownership review gate.
+
+**Bugfix**: 2026-08-30 — BUG-007 The command-state reset GREEN slice reuses the existing App and typed coexistence bridge so legacy promise callers receive one correlated Vue confirmation result.
 
 Migrate complete Overseer leaf families in reviewable slices: application-update presentation; each approval or confirmation workflow; session controls; player-configuration controls; logical-session management; player management; terminal groups; public-access lifecycle; credential/clipboard dialogs; broadcast termination; and hacking controls. Task generation splits independently implementable components and composables rather than bundling whole families. Each implementation slice moves complete DOM/handlers/focus/pending state into Vue, removes its exact legacy counterpart immediately, updates the ownership record, and passes a locally executable strict/build/focused test before the next slice. Broader family parity remains a separate integration task.
 

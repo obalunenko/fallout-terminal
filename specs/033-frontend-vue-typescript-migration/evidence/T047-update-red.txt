@@ -1,0 +1,38 @@
+Task: T047
+Expected assertion: AssertionError: Vue update offer preserves cumulative revision and focus
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/application-update.spec.mjs Vue\ update\ offer\ preserves\ cumulative\ revision\ and\ focus
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  application-update.spec.mjs:57:1 › Vue update offer preserves cumulative revision and focus
+Total: 1 test in 1 file
+[WebServer] (node:246) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:287) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:289) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: Vue update offer preserves cumulative revision and focus
+  ✘  1 tests/browser/application-update.spec.mjs:57:1 › Vue update offer preserves cumulative revision and focus (88ms)
+
+
+  1) tests/browser/application-update.spec.mjs:57:1 › Vue update offer preserves cumulative revision and focus
+
+    Error: Vue-owned application update offer is not implemented
+
+      62 |   if (await vueDialog.count() === 0) {
+      63 |     process.stderr.write('AssertionError: Vue update offer preserves cumulative revision and focus\n');
+    > 64 |     throw new Error('Vue-owned application update offer is not implemented');
+         |           ^
+      65 |   }
+      66 |
+      67 |   await expect(vueLeaves.locator('#applicationUpdateStatusPanel')).toHaveAttribute('data-revision', '2');
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/application-update.spec.mjs:64:11
+
+    Error Context: tests/browser/test-results/application-update-Vue-upd-cb8ad-mulative-revision-and-focus/error-context.md
+
+  1 failed
+    tests/browser/application-update.spec.mjs:57:1 › Vue update offer preserves cumulative revision and focus

@@ -22,6 +22,15 @@ async function openPlayerManagement(page) {
   return dialog;
 }
 
+test('closed or rebound dialog ignores stale result and releases listener', async ({ page }) => {
+  const vueDialog = page.locator('#overseerVueLeaves #playerManagementDialog');
+  if (await vueDialog.count() === 0) {
+    process.stderr.write('AssertionError: closed or rebound dialog ignores stale result and releases listener\n');
+    throw new Error('Vue-owned session/player lifecycle is not implemented');
+  }
+  await expect(vueDialog).toHaveAttribute('data-stale-result-guard', 'released');
+});
+
 async function addPlayer(dialog, { name, intelligence, hackerPerkAvailable }) {
   await dialog.locator('#playerNameInput').fill(name);
   await dialog.locator('#playerIntelligenceInput').fill(String(intelligence));

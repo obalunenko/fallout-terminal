@@ -1,0 +1,4 @@
+import { mountPlayerCandidate } from '../src/mount.js';
+
+const root = document.getElementById('playerApp');
+if (root instanceof HTMLElement) mountPlayerCandidate(root, { transport });

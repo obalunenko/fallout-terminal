@@ -1,0 +1,1 @@
+import { Start } from './bindings/desktop-service.js';

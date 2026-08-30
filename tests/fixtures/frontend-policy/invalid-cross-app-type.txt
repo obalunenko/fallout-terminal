@@ -1,0 +1,1 @@
+import type { ApplicationState } from '@shared/application-types';

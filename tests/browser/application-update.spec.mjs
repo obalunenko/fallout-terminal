@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ bypassCSP: true });
+
 const availableUpdate = Object.freeze({
   revision: 2,
   attemptId: 'attempt-discovery',
@@ -17,6 +19,7 @@ const availableUpdate = Object.freeze({
 async function openUpdateFixture(page) {
   await page.goto('/__fixture/public-access-settings');
   await expect(page.locator('#mainLayout')).toBeVisible();
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?coexistence'));
   await expect.poll(() => page.evaluate(() => __desktopFixture.timeline
     .some(entry => entry.method === 'event:on:application-update-status'))).toBe(true);
 }
@@ -52,6 +55,48 @@ async function expectNonfatalUpdateFailure(page, {
 
 test.beforeEach(async ({ page }) => {
   await openUpdateFixture(page);
+});
+
+test('Vue update offer preserves cumulative revision and focus', async ({ page }) => {
+  await emitUpdate(page, availableUpdate);
+
+  const vueLeaves = page.locator('#overseerVueLeaves');
+  const vueDialog = vueLeaves.locator('#applicationUpdateDialog');
+  if (await vueDialog.count() === 0) {
+    process.stderr.write('AssertionError: Vue update offer preserves cumulative revision and focus\n');
+    throw new Error('Vue-owned application update offer is not implemented');
+  }
+
+  await expect(vueLeaves.locator('#applicationUpdateStatusPanel')).toHaveAttribute('data-revision', '2');
+  await expect(vueDialog).toBeVisible();
+  await expect(vueLeaves.locator('#applicationUpdateInstalledVersion')).toHaveText('2.0.0');
+  await expect(vueLeaves.locator('#applicationUpdateAvailableVersion')).toHaveText('2.1.0');
+  await expect(vueLeaves.locator('#btnDeferApplicationUpdate')).toBeFocused();
+
+  await emitUpdate(page, {
+    ...availableUpdate,
+    revision: 1,
+    attemptId: 'attempt-stale-failure',
+    state: 'failed',
+    failedStage: 'check',
+    errorMessage: 'stale failure',
+    recoveryAction: 'must stay hidden',
+  });
+  await expect(vueLeaves.locator('#applicationUpdateStatusPanel')).toHaveAttribute('data-revision', '2');
+  await expect(vueDialog).toBeVisible();
+  await expect(vueLeaves.locator('#btnDeferApplicationUpdate')).toBeFocused();
+});
+
+test('Vue update unmount releases its subscription exactly once', async ({ page }) => {
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('application-update-status'))).toBe(0);
+
+  await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    __overseerVueFixture.unmount();
+  });
+
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('application-update-status'))).toBe(1);
+  await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
 });
 
 test('discovery stays nonblocking and presents one complete versioned offer', async ({ page }) => {

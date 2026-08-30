@@ -1,6 +1,14 @@
 'use strict';
 
 const desktopAPI = window.desktopAPI;
+const legacyOverseerRoot = document.getElementById('legacyOverseerRoot');
+if (!(legacyOverseerRoot instanceof HTMLElement)) {
+  throw new Error('Legacy Overseer root is unavailable');
+}
+
+function publishLegacyProjection(message) {
+  return globalThis.__overseerCoexistenceBridge?.legacyToVue(message) === true;
+}
 
 // ── State ─────────────────────────────────────────────────
 const state = {
@@ -22,169 +30,151 @@ function uid(prefix) {
 }
 
 // ── DOM refs ──────────────────────────────────────────────
-const startScreen      = document.getElementById('startScreen');
-const startStatus      = document.getElementById('startStatus');
-const btnOpenSession   = document.getElementById('btnOpenSession');
-const btnNewSession    = document.getElementById('btnNewSession');
-const mainLayout        = document.getElementById('mainLayout');
-const sessionFileLabel  = document.getElementById('sessionFileLabel');
-const serverUrlEl       = document.getElementById('serverUrl');
-const clientCountEl     = document.getElementById('clientCount');
-const termList          = document.getElementById('termList');
-const saveStatus        = document.getElementById('saveStatus');
-const editingTermName   = document.getElementById('editingTermName');
-const liveFlag          = document.getElementById('liveFlag');
-const btnMakeLive       = document.getElementById('btnMakeLive');
-const btnPublish        = document.getElementById('btnPublish');
-const terminalSettingsMenu = document.getElementById('terminalSettingsMenu');
-const btnReapplySettings = document.getElementById('btnReapplySettings');
-const treeView          = document.getElementById('treeView');
-const nodeForm          = document.getElementById('nodeForm');
-const toolbarHint       = document.getElementById('toolbarHint');
-const btnAddFolder      = document.getElementById('btnAddFolder');
-const btnAddCommand     = document.getElementById('btnAddCommand');
-const btnAddEntry       = document.getElementById('btnAddEntry');
-const btnAddTerminal    = document.getElementById('btnAddTerminal');
-const btnCreateTerminalGroup = document.getElementById('btnCreateTerminalGroup');
-const terminalGroupError = document.getElementById('terminalGroupError');
-const terminalGroupDraftDialog = document.getElementById('terminalGroupDraftDialog');
-const terminalGroupDraftForm = document.getElementById('terminalGroupDraftForm');
-const terminalGroupNameInput = document.getElementById('terminalGroupNameInput');
-const terminalGroupTerminalChoices = document.querySelector('#terminalGroupTerminalChoices .terminal-group-terminal-choice-list');
-const terminalGroupTerminalChoiceTemplate = document.getElementById('terminalGroupTerminalChoiceTemplate');
-const terminalGroupDestinationSelect = document.getElementById('terminalGroupDestinationSelect');
-const terminalGroupImpactDialog = document.getElementById('terminalGroupImpactDialog');
-const terminalGroupImpactSummary = document.getElementById('terminalGroupImpactSummary');
-const terminalGroupImpactError = document.getElementById('terminalGroupImpactError');
+const startScreen      = legacyOverseerRoot.querySelector('#startScreen');
+const startStatus      = legacyOverseerRoot.querySelector('#startStatus');
+const btnOpenSession   = legacyOverseerRoot.querySelector('#btnOpenSession');
+const btnNewSession    = legacyOverseerRoot.querySelector('#btnNewSession');
+const mainLayout        = legacyOverseerRoot.querySelector('#mainLayout');
+const sessionFileLabel  = legacyOverseerRoot.querySelector('#sessionFileLabel');
+const serverUrlEl       = legacyOverseerRoot.querySelector('#serverUrl');
+const clientCountEl     = legacyOverseerRoot.querySelector('#clientCount');
+const termList          = legacyOverseerRoot.querySelector('#termList');
+const saveStatus        = legacyOverseerRoot.querySelector('#saveStatus');
+const editingTermName   = legacyOverseerRoot.querySelector('#editingTermName');
+const liveFlag          = legacyOverseerRoot.querySelector('#liveFlag');
+const btnMakeLive       = legacyOverseerRoot.querySelector('#btnMakeLive');
+const btnPublish        = legacyOverseerRoot.querySelector('#btnPublish');
+const terminalSettingsMenu = legacyOverseerRoot.querySelector('#terminalSettingsMenu');
+const btnReapplySettings = legacyOverseerRoot.querySelector('#btnReapplySettings');
+const treeView          = legacyOverseerRoot.querySelector('#treeView');
+const nodeForm          = legacyOverseerRoot.querySelector('#nodeForm');
+const toolbarHint       = legacyOverseerRoot.querySelector('#toolbarHint');
+const btnAddFolder      = legacyOverseerRoot.querySelector('#btnAddFolder');
+const btnAddCommand     = legacyOverseerRoot.querySelector('#btnAddCommand');
+const btnAddEntry       = legacyOverseerRoot.querySelector('#btnAddEntry');
+const btnAddTerminal    = legacyOverseerRoot.querySelector('#btnAddTerminal');
+const btnCreateTerminalGroup = legacyOverseerRoot.querySelector('#btnCreateTerminalGroup');
+const terminalGroupError = legacyOverseerRoot.querySelector('#terminalGroupError');
+const terminalGroupDraftDialog = legacyOverseerRoot.querySelector('#terminalGroupDraftDialog');
+const terminalGroupDraftForm = legacyOverseerRoot.querySelector('#terminalGroupDraftForm');
+const terminalGroupNameInput = legacyOverseerRoot.querySelector('#terminalGroupNameInput');
+const terminalGroupTerminalChoices = legacyOverseerRoot.querySelector('#terminalGroupTerminalChoices .terminal-group-terminal-choice-list');
+const terminalGroupTerminalChoiceTemplate = legacyOverseerRoot.querySelector('#terminalGroupTerminalChoiceTemplate');
+const terminalGroupDestinationSelect = legacyOverseerRoot.querySelector('#terminalGroupDestinationSelect');
+const terminalGroupImpactDialog = legacyOverseerRoot.querySelector('#terminalGroupImpactDialog');
+const terminalGroupImpactSummary = legacyOverseerRoot.querySelector('#terminalGroupImpactSummary');
+const terminalGroupImpactError = legacyOverseerRoot.querySelector('#terminalGroupImpactError');
 const amendTerminalGroupChangeButton = terminalGroupImpactDialog.querySelector('[data-action="amend-terminal-group-change"]');
-const btnStopBroadcast  = document.getElementById('btnStopBroadcast');
-const createTerminalDialog = document.getElementById('createTerminalDialog');
-const createTerminalForm = document.getElementById('createTerminalForm');
-const createTerminalName = document.getElementById('createTerminalName');
-const createTerminalError = document.getElementById('createTerminalError');
-const btnCancelCreateTerminal = document.getElementById('btnCancelCreateTerminal');
-const btnConfirmCreateTerminal = document.getElementById('btnConfirmCreateTerminal');
-const takeOffAirDialog = document.getElementById('takeOffAirDialog');
-const takeOffAirError = document.getElementById('takeOffAirError');
-const btnCancelTakeOffAir = document.getElementById('btnCancelTakeOffAir');
-const btnConfirmTakeOffAir = document.getElementById('btnConfirmTakeOffAir');
-const hackStatus        = document.getElementById('hackStatus');
-const hackStatusLine    = document.getElementById('hackStatusLine');
-const btnHackSuccess    = document.getElementById('btnHackSuccess');
-const btnResetFailedHack = document.getElementById('btnResetFailedHack');
-const hackLevelSelect   = document.getElementById('hackLevelSelect');
-const introTextArea     = document.getElementById('introTextArea');
-const btnApplySettings  = document.getElementById('btnApplySettings');
-const termSettings      = document.getElementById('termSettings');
-const broadcastSummary = document.getElementById('broadcastSummary');
-const coordinationPanel = document.getElementById('coordinationPanel');
-const playerConfigStatus = document.getElementById('playerConfigStatus');
-const playerConfigError = document.getElementById('playerConfigError');
-const btnOpenPlayerConfig = document.getElementById('btnOpenPlayerConfig');
-const btnNewPlayerConfig = document.getElementById('btnNewPlayerConfig');
-const btnManagePlayers = document.getElementById('btnManagePlayers');
-const btnStartBroadcast = document.getElementById('btnStartBroadcast');
-const btnEndBroadcast = document.getElementById('btnEndBroadcast');
-const endBroadcastDialog = document.getElementById('endBroadcastDialog');
-const btnCancelEndBroadcast = document.getElementById('btnCancelEndBroadcast');
-const btnConfirmEndBroadcast = document.getElementById('btnConfirmEndBroadcast');
-const coordinationStatus = document.getElementById('coordinationStatus');
-const coordinationError = document.getElementById('coordinationError');
-const activeLogicalSessionCount = document.getElementById('activeLogicalSessionCount');
-const btnManageLogicalSessions = document.getElementById('btnManageLogicalSessions');
-const logicalSessionDialog = document.getElementById('logicalSessionDialog');
-const btnCloseLogicalSessions = document.getElementById('btnCloseLogicalSessions');
-const logicalSessionDialogStatus = document.getElementById('logicalSessionDialogStatus');
-const logicalSessionDialogError = document.getElementById('logicalSessionDialogError');
-const logicalSessionList = document.getElementById('logicalSessionList');
-const logicalSessionRowTemplate = document.getElementById('logicalSessionRowTemplate');
-const playerManagementDialog = document.getElementById('playerManagementDialog');
-const playerManagementMode = document.getElementById('playerManagementMode');
-const playerManagementRoster = document.getElementById('playerManagementRoster');
-const playerManagementEmpty = document.getElementById('playerManagementEmpty');
-const playerManagementAddForm = document.getElementById('playerManagementAddForm');
-const playerNameInput = document.getElementById('playerNameInput');
-const playerIntelligenceInput = document.getElementById('playerIntelligenceInput');
-const playerHackerPerkAvailability = document.getElementById('playerHackerPerkAvailability');
-const btnAddPlayer = document.getElementById('btnAddPlayer');
-const playerManagementStatus = document.getElementById('playerManagementStatus');
-const playerManagementError = document.getElementById('playerManagementError');
-const btnClosePlayerManagement = document.getElementById('btnClosePlayerManagement');
-const playerManagementRowTemplate = document.getElementById('playerManagementRowTemplate');
-const playerDeleteDialog = document.getElementById('playerDeleteDialog');
-const playerDeleteDialogDescription = document.getElementById('playerDeleteDialogDescription');
-const btnConfirmPlayerDelete = document.getElementById('btnConfirmPlayerDelete');
-const btnCancelPlayerDelete = document.getElementById('btnCancelPlayerDelete');
-const terminalSwitchDialog = document.getElementById('terminalSwitchDialog');
-const terminalSwitchStatus = document.getElementById('terminalSwitchStatus');
-const terminalSwitchError = document.getElementById('terminalSwitchError');
-const terminalSwitchButtons = Array.from(document.querySelectorAll('[data-switch-decision]'));
-const publicAccessSection = document.getElementById('publicAccessSection');
-const publicAccessStateRow = document.querySelector('.public-access-state-row');
-const publicAccessSettingsDialog = document.getElementById('publicAccessSettingsDialog');
-const publicAccessSetupRequired = document.getElementById('publicAccessSetupRequired');
-const publicAccessSettingsError = document.getElementById('publicAccessSettingsError');
-const publicAccessGuide = document.getElementById('publicAccessGuide');
-const publicAccessForm = document.getElementById('publicAccessForm');
-const publicAccessDomain = document.getElementById('publicAccessDomain');
-const publicAccessUsernameSummary = document.getElementById('publicAccessUsernameSummary');
-const publicAccessPasswordMask = document.getElementById('publicAccessPasswordMask');
-const publicAccessProviderSetup = document.getElementById('publicAccessProviderSetup');
-const publicAccessProviderConfigured = document.getElementById('publicAccessProviderConfigured');
-const publicAccessProviderToken = document.getElementById('publicAccessProviderToken');
-const publicAccessProviderPresence = document.getElementById('publicAccessProviderPresence');
-const publicAccessPasswordPresence = document.getElementById('publicAccessPasswordPresence');
-const publicAccessNgrokDocLinks = document.querySelectorAll('[data-ngrok-doc-url]');
-const publicAccessProviderTokenDialog = document.getElementById('publicAccessProviderTokenDialog');
-const publicAccessProviderTokenForm = document.getElementById('publicAccessProviderTokenForm');
-const publicAccessReplacementProviderToken = document.getElementById('publicAccessReplacementProviderToken');
-const publicAccessProviderTokenError = document.getElementById('publicAccessProviderTokenError');
-const publicAccessPlayerCredentialsDialog = document.getElementById('publicAccessPlayerCredentialsDialog');
-const publicAccessPlayerCredentialsForm = document.getElementById('publicAccessPlayerCredentialsForm');
-const publicAccessReplacementUsername = document.getElementById('publicAccessReplacementUsername');
-const publicAccessReplacementPlayerPassword = document.getElementById('publicAccessReplacementPlayerPassword');
-const publicAccessReplacementPlayerPasswordHint = document.getElementById('publicAccessReplacementPlayerPasswordHint');
-const publicAccessPlayerCredentialsError = document.getElementById('publicAccessPlayerCredentialsError');
-const publicAccessStatus = document.getElementById('publicAccessStatus');
-const publicAccessError = document.getElementById('publicAccessError');
-const publicAccessURL = document.getElementById('publicAccessURL');
-const publicAccessCopyStatus = document.getElementById('publicAccessCopyStatus');
-const publicAccessSettingsCopyStatus = document.getElementById('publicAccessSettingsCopyStatus');
-const btnSavePublicAccess = document.getElementById('btnSavePublicAccess');
-const btnStartPublicAccess = document.getElementById('btnStartPublicAccess');
-const btnStopPublicAccess = document.getElementById('btnStopPublicAccess');
-const btnCopyPublicURL = document.getElementById('btnCopyPublicURL');
-const btnOpenPublicAccessSettings = document.getElementById('btnOpenPublicAccessSettings');
-const btnClosePublicAccessSettings = document.getElementById('btnClosePublicAccessSettings');
-const btnCancelPublicAccessSettings = document.getElementById('btnCancelPublicAccessSettings');
-const btnOpenPublicAccessProviderToken = document.getElementById('btnOpenPublicAccessProviderToken');
-const btnCancelPublicAccessProviderToken = document.getElementById('btnCancelPublicAccessProviderToken');
-const btnSavePublicAccessProviderToken = document.getElementById('btnSavePublicAccessProviderToken');
-const btnDeletePublicAccessProviderToken = document.getElementById('btnDeletePublicAccessProviderToken');
-const btnOpenPublicAccessPlayerCredentials = document.getElementById('btnOpenPublicAccessPlayerCredentials');
-const btnSharePublicAccessCredentials = document.getElementById('btnSharePublicAccessCredentials');
-const btnCancelPublicAccessPlayerCredentials = document.getElementById('btnCancelPublicAccessPlayerCredentials');
-const btnSavePublicAccessPlayerCredentials = document.getElementById('btnSavePublicAccessPlayerCredentials');
-const btnDeletePublicAccessPlayerCredentials = document.getElementById('btnDeletePublicAccessPlayerCredentials');
-const btnGeneratePlayerPassword = document.getElementById('btnGeneratePlayerPassword');
-const generatedPasswordDialog = document.getElementById('generatedPasswordDialog');
-const generatedPasswordValue = document.getElementById('generatedPasswordValue');
-const btnCopyGeneratedPassword = document.getElementById('btnCopyGeneratedPassword');
-const btnDismissGeneratedPassword = document.getElementById('btnDismissGeneratedPassword');
-const applicationUpdateStatusPanel = document.getElementById('applicationUpdateStatusPanel');
-const applicationUpdateStatus = document.getElementById('applicationUpdateStatus');
-const applicationUpdateError = document.getElementById('applicationUpdateError');
-const applicationUpdateProgress = document.getElementById('applicationUpdateProgress');
-const btnShowApplicationUpdate = document.getElementById('btnShowApplicationUpdate');
-const applicationUpdateDialog = document.getElementById('applicationUpdateDialog');
-const applicationUpdateInstalledVersion = document.getElementById('applicationUpdateInstalledVersion');
-const applicationUpdateAvailableVersion = document.getElementById('applicationUpdateAvailableVersion');
-const applicationUpdateReleaseNotes = document.getElementById('applicationUpdateReleaseNotes');
-const btnAcceptApplicationUpdate = document.getElementById('btnAcceptApplicationUpdate');
-const btnDeferApplicationUpdate = document.getElementById('btnDeferApplicationUpdate');
-const applicationUpdateRestartDialog = document.getElementById('applicationUpdateRestartDialog');
-const btnRestartApplicationUpdate = document.getElementById('btnRestartApplicationUpdate');
-const btnPostponeApplicationUpdate = document.getElementById('btnPostponeApplicationUpdate');
+const btnStopBroadcast  = legacyOverseerRoot.querySelector('#btnStopBroadcast');
+const createTerminalDialog = legacyOverseerRoot.querySelector('#createTerminalDialog');
+const createTerminalForm = legacyOverseerRoot.querySelector('#createTerminalForm');
+const createTerminalName = legacyOverseerRoot.querySelector('#createTerminalName');
+const createTerminalError = legacyOverseerRoot.querySelector('#createTerminalError');
+const btnCancelCreateTerminal = legacyOverseerRoot.querySelector('#btnCancelCreateTerminal');
+const btnConfirmCreateTerminal = legacyOverseerRoot.querySelector('#btnConfirmCreateTerminal');
+const takeOffAirDialog = legacyOverseerRoot.querySelector('#takeOffAirDialog');
+const takeOffAirError = legacyOverseerRoot.querySelector('#takeOffAirError');
+const btnCancelTakeOffAir = legacyOverseerRoot.querySelector('#btnCancelTakeOffAir');
+const btnConfirmTakeOffAir = legacyOverseerRoot.querySelector('#btnConfirmTakeOffAir');
+const hackStatus        = legacyOverseerRoot.querySelector('#hackStatus');
+const hackStatusLine    = legacyOverseerRoot.querySelector('#hackStatusLine');
+const btnHackSuccess    = legacyOverseerRoot.querySelector('#btnHackSuccess');
+const btnResetFailedHack = legacyOverseerRoot.querySelector('#btnResetFailedHack');
+const hackLevelSelect   = legacyOverseerRoot.querySelector('#hackLevelSelect');
+const introTextArea     = legacyOverseerRoot.querySelector('#introTextArea');
+const btnApplySettings  = legacyOverseerRoot.querySelector('#btnApplySettings');
+const termSettings      = legacyOverseerRoot.querySelector('#termSettings');
+const broadcastSummary = legacyOverseerRoot.querySelector('#broadcastSummary');
+const coordinationPanel = legacyOverseerRoot.querySelector('#coordinationPanel');
+const playerConfigStatus = legacyOverseerRoot.querySelector('#playerConfigStatus');
+const playerConfigError = legacyOverseerRoot.querySelector('#playerConfigError');
+const btnOpenPlayerConfig = legacyOverseerRoot.querySelector('#btnOpenPlayerConfig');
+const btnNewPlayerConfig = legacyOverseerRoot.querySelector('#btnNewPlayerConfig');
+const btnManagePlayers = legacyOverseerRoot.querySelector('#btnManagePlayers');
+const btnStartBroadcast = legacyOverseerRoot.querySelector('#btnStartBroadcast');
+const btnEndBroadcast = legacyOverseerRoot.querySelector('#btnEndBroadcast');
+const endBroadcastDialog = legacyOverseerRoot.querySelector('#endBroadcastDialog');
+const btnCancelEndBroadcast = legacyOverseerRoot.querySelector('#btnCancelEndBroadcast');
+const btnConfirmEndBroadcast = legacyOverseerRoot.querySelector('#btnConfirmEndBroadcast');
+const coordinationStatus = legacyOverseerRoot.querySelector('#coordinationStatus');
+const coordinationError = legacyOverseerRoot.querySelector('#coordinationError');
+const activeLogicalSessionCount = legacyOverseerRoot.querySelector('#activeLogicalSessionCount');
+const btnManageLogicalSessions = legacyOverseerRoot.querySelector('#btnManageLogicalSessions');
+const logicalSessionDialog = legacyOverseerRoot.querySelector('#logicalSessionDialog');
+const btnCloseLogicalSessions = legacyOverseerRoot.querySelector('#btnCloseLogicalSessions');
+const logicalSessionDialogStatus = legacyOverseerRoot.querySelector('#logicalSessionDialogStatus');
+const logicalSessionDialogError = legacyOverseerRoot.querySelector('#logicalSessionDialogError');
+const logicalSessionList = legacyOverseerRoot.querySelector('#logicalSessionList');
+const logicalSessionRowTemplate = legacyOverseerRoot.querySelector('#logicalSessionRowTemplate');
+const playerManagementDialog = legacyOverseerRoot.querySelector('#playerManagementDialog');
+const playerManagementMode = legacyOverseerRoot.querySelector('#playerManagementMode');
+const playerManagementRoster = legacyOverseerRoot.querySelector('#playerManagementRoster');
+const playerManagementEmpty = legacyOverseerRoot.querySelector('#playerManagementEmpty');
+const playerManagementAddForm = legacyOverseerRoot.querySelector('#playerManagementAddForm');
+const playerNameInput = legacyOverseerRoot.querySelector('#playerNameInput');
+const playerIntelligenceInput = legacyOverseerRoot.querySelector('#playerIntelligenceInput');
+const playerHackerPerkAvailability = legacyOverseerRoot.querySelector('#playerHackerPerkAvailability');
+const btnAddPlayer = legacyOverseerRoot.querySelector('#btnAddPlayer');
+const playerManagementStatus = legacyOverseerRoot.querySelector('#playerManagementStatus');
+const playerManagementError = legacyOverseerRoot.querySelector('#playerManagementError');
+const btnClosePlayerManagement = legacyOverseerRoot.querySelector('#btnClosePlayerManagement');
+const playerManagementRowTemplate = legacyOverseerRoot.querySelector('#playerManagementRowTemplate');
+const playerDeleteDialog = legacyOverseerRoot.querySelector('#playerDeleteDialog');
+const playerDeleteDialogDescription = legacyOverseerRoot.querySelector('#playerDeleteDialogDescription');
+const btnConfirmPlayerDelete = legacyOverseerRoot.querySelector('#btnConfirmPlayerDelete');
+const btnCancelPlayerDelete = legacyOverseerRoot.querySelector('#btnCancelPlayerDelete');
+const publicAccessSection = legacyOverseerRoot.querySelector('#publicAccessSection');
+const publicAccessStateRow = legacyOverseerRoot.querySelector('.public-access-state-row');
+const publicAccessSettingsDialog = legacyOverseerRoot.querySelector('#publicAccessSettingsDialog');
+const publicAccessSetupRequired = legacyOverseerRoot.querySelector('#publicAccessSetupRequired');
+const publicAccessSettingsError = legacyOverseerRoot.querySelector('#publicAccessSettingsError');
+const publicAccessGuide = legacyOverseerRoot.querySelector('#publicAccessGuide');
+const publicAccessForm = legacyOverseerRoot.querySelector('#publicAccessForm');
+const publicAccessDomain = legacyOverseerRoot.querySelector('#publicAccessDomain');
+const publicAccessUsernameSummary = legacyOverseerRoot.querySelector('#publicAccessUsernameSummary');
+const publicAccessPasswordMask = legacyOverseerRoot.querySelector('#publicAccessPasswordMask');
+const publicAccessProviderSetup = legacyOverseerRoot.querySelector('#publicAccessProviderSetup');
+const publicAccessProviderConfigured = legacyOverseerRoot.querySelector('#publicAccessProviderConfigured');
+const publicAccessProviderToken = legacyOverseerRoot.querySelector('#publicAccessProviderToken');
+const publicAccessProviderPresence = legacyOverseerRoot.querySelector('#publicAccessProviderPresence');
+const publicAccessPasswordPresence = legacyOverseerRoot.querySelector('#publicAccessPasswordPresence');
+const publicAccessNgrokDocLinks = legacyOverseerRoot.querySelectorAll('[data-ngrok-doc-url]');
+const publicAccessProviderTokenDialog = legacyOverseerRoot.querySelector('#publicAccessProviderTokenDialog');
+const publicAccessProviderTokenForm = legacyOverseerRoot.querySelector('#publicAccessProviderTokenForm');
+const publicAccessReplacementProviderToken = legacyOverseerRoot.querySelector('#publicAccessReplacementProviderToken');
+const publicAccessProviderTokenError = legacyOverseerRoot.querySelector('#publicAccessProviderTokenError');
+const publicAccessPlayerCredentialsDialog = legacyOverseerRoot.querySelector('#publicAccessPlayerCredentialsDialog');
+const publicAccessPlayerCredentialsForm = legacyOverseerRoot.querySelector('#publicAccessPlayerCredentialsForm');
+const publicAccessReplacementUsername = legacyOverseerRoot.querySelector('#publicAccessReplacementUsername');
+const publicAccessReplacementPlayerPassword = legacyOverseerRoot.querySelector('#publicAccessReplacementPlayerPassword');
+const publicAccessReplacementPlayerPasswordHint = legacyOverseerRoot.querySelector('#publicAccessReplacementPlayerPasswordHint');
+const publicAccessPlayerCredentialsError = legacyOverseerRoot.querySelector('#publicAccessPlayerCredentialsError');
+const publicAccessStatus = legacyOverseerRoot.querySelector('#publicAccessStatus');
+const publicAccessError = legacyOverseerRoot.querySelector('#publicAccessError');
+const publicAccessURL = legacyOverseerRoot.querySelector('#publicAccessURL');
+const publicAccessCopyStatus = legacyOverseerRoot.querySelector('#publicAccessCopyStatus');
+const publicAccessSettingsCopyStatus = legacyOverseerRoot.querySelector('#publicAccessSettingsCopyStatus');
+const btnSavePublicAccess = legacyOverseerRoot.querySelector('#btnSavePublicAccess');
+const btnStartPublicAccess = legacyOverseerRoot.querySelector('#btnStartPublicAccess');
+const btnStopPublicAccess = legacyOverseerRoot.querySelector('#btnStopPublicAccess');
+const btnCopyPublicURL = legacyOverseerRoot.querySelector('#btnCopyPublicURL');
+const btnOpenPublicAccessSettings = legacyOverseerRoot.querySelector('#btnOpenPublicAccessSettings');
+const btnClosePublicAccessSettings = legacyOverseerRoot.querySelector('#btnClosePublicAccessSettings');
+const btnCancelPublicAccessSettings = legacyOverseerRoot.querySelector('#btnCancelPublicAccessSettings');
+const btnOpenPublicAccessProviderToken = legacyOverseerRoot.querySelector('#btnOpenPublicAccessProviderToken');
+const btnCancelPublicAccessProviderToken = legacyOverseerRoot.querySelector('#btnCancelPublicAccessProviderToken');
+const btnSavePublicAccessProviderToken = legacyOverseerRoot.querySelector('#btnSavePublicAccessProviderToken');
+const btnDeletePublicAccessProviderToken = legacyOverseerRoot.querySelector('#btnDeletePublicAccessProviderToken');
+const btnOpenPublicAccessPlayerCredentials = legacyOverseerRoot.querySelector('#btnOpenPublicAccessPlayerCredentials');
+const btnSharePublicAccessCredentials = legacyOverseerRoot.querySelector('#btnSharePublicAccessCredentials');
+const btnCancelPublicAccessPlayerCredentials = legacyOverseerRoot.querySelector('#btnCancelPublicAccessPlayerCredentials');
+const btnSavePublicAccessPlayerCredentials = legacyOverseerRoot.querySelector('#btnSavePublicAccessPlayerCredentials');
+const btnDeletePublicAccessPlayerCredentials = legacyOverseerRoot.querySelector('#btnDeletePublicAccessPlayerCredentials');
+const btnGeneratePlayerPassword = legacyOverseerRoot.querySelector('#btnGeneratePlayerPassword');
+const generatedPasswordDialog = legacyOverseerRoot.querySelector('#generatedPasswordDialog');
+const generatedPasswordValue = legacyOverseerRoot.querySelector('#generatedPasswordValue');
+const btnCopyGeneratedPassword = legacyOverseerRoot.querySelector('#btnCopyGeneratedPassword');
+const btnDismissGeneratedPassword = legacyOverseerRoot.querySelector('#btnDismissGeneratedPassword');
 
 let serverUrl = null;
 let serverUrlTitle = '';
@@ -195,7 +185,6 @@ let newestDurableRevision = 0;
 let coordinationCommandPending = false;
 let createTerminalSubmitting = false;
 let takeOffAirPending = false;
-let pendingTerminalSwitch = null;
 let startupStatus = null;
 let publicAccessSnapshot = null;
 let publicAccessCommandPending = false;
@@ -203,15 +192,6 @@ let publicAccessSettingsDialogOpener = null;
 let publicAccessProviderTokenDialogOpener = null;
 let publicAccessPlayerCredentialsDialogOpener = null;
 let sessionStateCommandPending = false;
-let commandExecutionDialogRequestID = null;
-let commandExecutionDecisionRequestID = null;
-let commandExecutionDialogMode = null;
-let commandExecutionDialogEpoch = 0;
-const resolvedCommandExecutionRequestIDs = new Set();
-let terminalNavigationDialogRequestID = null;
-let terminalNavigationDecisionRequestID = null;
-let terminalNavigationDialogEpoch = 0;
-const resolvedTerminalNavigationRequestIDs = new Set();
 let logicalSessionDialogOpener = null;
 let playerManagementOpener = null;
 let pendingPlayerDelete = null;
@@ -219,17 +199,6 @@ let terminalGroupDraft = null;
 let pendingTerminalGroupImpact = null;
 let terminalGroupSubmitting = false;
 let terminalGroupDialogOpener = null;
-let applicationUpdateSnapshot = null;
-let applicationUpdateDialogAttemptID = '';
-let applicationUpdateDialogOpener = null;
-let applicationUpdateCommandPending = false;
-let applicationUpdateRestartDialogAttemptID = '';
-let applicationUpdateRestartDialogOpener = null;
-let applicationUpdateRestartCommandPending = false;
-let latestRenderedApplicationUpdateRevision = -1;
-const promptedApplicationUpdateRevisions = new Set();
-const promptedApplicationUpdateRestartRevisions = new Set();
-const suppressedApplicationUpdateAttempts = new Set();
 
 const commandStateActions = document.createElement('div');
 commandStateActions.className = 'settings-row command-state-terminal-actions';
@@ -239,102 +208,33 @@ commandStateActions.innerHTML = `
     СБРОСИТЬ ВСЕ СОСТОЯНИЯ
   </button>`;
 termSettings.appendChild(commandStateActions);
-const btnResetTerminalCommandStates = document.getElementById('btnResetTerminalCommandStates');
+const btnResetTerminalCommandStates = legacyOverseerRoot.querySelector('#btnResetTerminalCommandStates');
 
-const commandExecutionDialog = document.createElement('dialog');
-commandExecutionDialog.className = 'terminal-switch-dialog command-execution-dialog';
-commandExecutionDialog.id = 'commandExecutionDialog';
-commandExecutionDialog.hidden = true;
-commandExecutionDialog.setAttribute('aria-modal', 'true');
-commandExecutionDialog.setAttribute('aria-labelledby', 'commandExecutionDialogTitle');
-commandExecutionDialog.setAttribute('aria-describedby', 'commandExecutionDialogDescription commandExecutionDialogStatus commandExecutionDialogError');
-commandExecutionDialog.innerHTML = `
-  <div class="terminal-switch-dialog-panel">
-    <h2 class="terminal-switch-dialog-title" id="commandExecutionDialogTitle">ПОДТВЕРЖДЕНИЕ КОМАНДЫ</h2>
-    <p class="terminal-switch-dialog-description" id="commandExecutionDialogDescription"></p>
-    <div class="terminal-switch-actions" role="group" aria-label="Решение мастера по выполнению команды" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-      <button class="btn btn-primary" id="btnApproveCommandExecution" type="button">ОДОБРИТЬ</button>
-      <button class="btn btn-danger" id="btnRejectCommandExecution" type="button">ОТКЛОНИТЬ</button>
-    </div>
-    <div class="terminal-switch-status" id="commandExecutionDialogStatus" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div class="terminal-switch-error" id="commandExecutionDialogError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-  </div>`;
-document.body.appendChild(commandExecutionDialog);
-const commandExecutionDialogDescription = document.getElementById('commandExecutionDialogDescription');
-const commandExecutionDialogStatus = document.getElementById('commandExecutionDialogStatus');
-const commandExecutionDialogError = document.getElementById('commandExecutionDialogError');
-const btnApproveCommandExecution = document.getElementById('btnApproveCommandExecution');
-const btnRejectCommandExecution = document.getElementById('btnRejectCommandExecution');
-
-const terminalNavigationDialog = document.createElement('dialog');
-terminalNavigationDialog.className = 'terminal-switch-dialog terminal-navigation-dialog';
-terminalNavigationDialog.id = 'terminalNavigationDialog';
-terminalNavigationDialog.hidden = true;
-terminalNavigationDialog.setAttribute('aria-modal', 'true');
-terminalNavigationDialog.setAttribute('aria-labelledby', 'terminalNavigationDialogTitle');
-terminalNavigationDialog.innerHTML = `
-  <div class="terminal-switch-dialog-panel">
-    <h2 class="terminal-switch-dialog-title" id="terminalNavigationDialogTitle">ПЕРЕХОД МЕЖДУ ТЕРМИНАЛАМИ</h2>
-    <div class="terminal-navigation-summary" id="terminalNavigationSummary"></div>
-    <div class="terminal-switch-actions" role="group" aria-label="Решение мастера по переходу" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-      <button class="btn btn-primary" id="btnApproveTerminalNavigation" type="button">ОДОБРИТЬ</button>
-      <button class="btn btn-danger" id="btnRejectTerminalNavigation" type="button">ОТКЛОНИТЬ</button>
-    </div>
-    <div class="terminal-switch-status" id="terminalNavigationStatus" role="status" aria-live="polite"></div>
-    <div class="terminal-switch-error" id="terminalNavigationError" role="alert" hidden></div>
-  </div>`;
-document.body.appendChild(terminalNavigationDialog);
-const terminalNavigationSummary = document.getElementById('terminalNavigationSummary');
-const terminalNavigationStatus = document.getElementById('terminalNavigationStatus');
-const terminalNavigationError = document.getElementById('terminalNavigationError');
-const btnApproveTerminalNavigation = document.getElementById('btnApproveTerminalNavigation');
-const btnRejectTerminalNavigation = document.getElementById('btnRejectTerminalNavigation');
-
-let resetConfirmationResolve = null;
-const resetConfirmationDialog = document.createElement('dialog');
-resetConfirmationDialog.className = 'terminal-switch-dialog command-state-reset-dialog';
-resetConfirmationDialog.id = 'resetConfirmationDialog';
-resetConfirmationDialog.hidden = true;
-resetConfirmationDialog.setAttribute('aria-modal', 'true');
-resetConfirmationDialog.setAttribute('aria-labelledby', 'resetConfirmationDialogTitle');
-resetConfirmationDialog.setAttribute('aria-describedby', 'resetConfirmationDialogDescription');
-resetConfirmationDialog.innerHTML = `
-  <div class="terminal-switch-dialog-panel">
-    <h2 class="terminal-switch-dialog-title" id="resetConfirmationDialogTitle">ПОДТВЕРЖДЕНИЕ СБРОСА</h2>
-    <p class="terminal-switch-dialog-description" id="resetConfirmationDialogDescription"></p>
-    <div class="terminal-switch-actions" role="group" aria-label="Подтверждение сброса состояния команды" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-      <button class="btn btn-danger" id="btnConfirmCommandStateReset" type="button">ПОДТВЕРДИТЬ</button>
-      <button class="btn" id="btnCancelCommandStateReset" type="button">ОТМЕНИТЬ</button>
-    </div>
-  </div>`;
-document.body.appendChild(resetConfirmationDialog);
-const resetConfirmationDialogDescription = document.getElementById('resetConfirmationDialogDescription');
-const btnConfirmCommandStateReset = document.getElementById('btnConfirmCommandStateReset');
-const btnCancelCommandStateReset = document.getElementById('btnCancelCommandStateReset');
-
-function finishResetConfirmation(confirmed) {
-  const resolve = resetConfirmationResolve;
-  resetConfirmationResolve = null;
-  if (resetConfirmationDialog.open) resetConfirmationDialog.close();
-  resetConfirmationDialog.hidden = true;
-  if (resolve) resolve(confirmed);
-}
-
+let resetConfirmationSequence = 0;
+let resetConfirmationPending = false;
 function confirmCommandStateReset(message) {
-  if (resetConfirmationResolve) return Promise.resolve(false);
-  resetConfirmationDialogDescription.textContent = message;
-  resetConfirmationDialog.hidden = false;
-  resetConfirmationDialog.showModal();
-  btnCancelCommandStateReset.focus();
-  return new Promise(resolve => { resetConfirmationResolve = resolve; });
+  const bridge = globalThis.__overseerCoexistenceBridge;
+  if (resetConfirmationPending || !bridge) return Promise.resolve(false);
+  resetConfirmationSequence += 1;
+  const requestId = `command-state-reset-${resetConfirmationSequence}`;
+  resetConfirmationPending = true;
+  return new Promise((resolve) => {
+    let settled = false;
+    const release = bridge.subscribeVueRequests((response) => {
+      if (response?.kind !== 'command-state-reset-resolved' || response.requestId !== requestId || settled) return;
+      settled = true;
+      release();
+      resetConfirmationPending = false;
+      resolve(response.confirmed === true);
+    });
+    if (!publishLegacyProjection({ kind: 'command-state-reset-required', message, requestId })) {
+      settled = true;
+      release();
+      resetConfirmationPending = false;
+      resolve(false);
+    }
+  });
 }
-
-btnConfirmCommandStateReset.addEventListener('click', () => finishResetConfirmation(true));
-btnCancelCommandStateReset.addEventListener('click', () => finishResetConfirmation(false));
-resetConfirmationDialog.addEventListener('cancel', (event) => {
-  event.preventDefault();
-  finishResetConfirmation(false);
-});
 
 function renderStartupPresentation(status) {
   startupStatus = status && typeof status === 'object' ? status : {};
@@ -430,330 +330,6 @@ if (typeof desktopAPI.onSessionState === 'function') {
   });
 }
 void desktopAPI.getRuntimeStatus().then(renderStartupPresentation);
-
-// ── Application update: nonblocking status and explicit offer ──
-const applicationUpdateStatusLabels = Object.freeze({
-  checking: 'ПРОВЕРКА ОБНОВЛЕНИЙ…',
-  available: 'ДОСТУПНО ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ',
-  deferred: 'ОБНОВЛЕНИЕ ОТЛОЖЕНО ДО СЛЕДУЮЩЕГО ЗАПУСКА',
-  downloading: 'ЗАГРУЗКА ОБНОВЛЕНИЯ…',
-  verifying: 'ПРОВЕРКА ЗАГРУЖЕННОГО ОБНОВЛЕНИЯ…',
-  staging: 'ПОДГОТОВКА ОБНОВЛЕНИЯ…',
-  'ready-to-restart': 'ОБНОВЛЕНИЕ ГОТОВО К ПЕРЕЗАПУСКУ',
-  applying: 'ПРИМЕНЕНИЕ ОБНОВЛЕНИЯ…',
-  failed: 'НЕ УДАЛОСЬ ПОДГОТОВИТЬ ОБНОВЛЕНИЕ',
-});
-const applicationUpdateFailureStageLabels = Object.freeze({
-  check: 'ПРОВЕРКА ОБНОВЛЕНИЙ',
-  download: 'ЗАГРУЗКА ОБНОВЛЕНИЯ',
-  verify: 'ПРОВЕРКА ЗАГРУЖЕННОГО ОБНОВЛЕНИЯ',
-  stage: 'ПОДГОТОВКА ОБНОВЛЕНИЯ',
-  apply: 'ПРИМЕНЕНИЕ ОБНОВЛЕНИЯ',
-  relaunch: 'ПЕРЕЗАПУСК ОБНОВЛЁННОГО ПРИЛОЖЕНИЯ',
-  recovery: 'ВОССТАНОВЛЕНИЕ РАБОЧЕЙ ВЕРСИИ',
-});
-const MAX_APPLICATION_UPDATE_TEXT = 16_384;
-
-function boundedApplicationUpdateText(value, fallback = '') {
-  if (typeof value !== 'string') return fallback;
-  if (value.length <= MAX_APPLICATION_UPDATE_TEXT) return value;
-  return `${value.slice(0, MAX_APPLICATION_UPDATE_TEXT)}\n\n[Описание выпуска сокращено]`;
-}
-
-function applicationUpdatePromptKey(snapshot) {
-  return `${snapshot.attemptId}:${snapshot.revision}`;
-}
-
-function applicationUpdateFailureText(snapshot) {
-  const stage = applicationUpdateFailureStageLabels[snapshot.failedStage]
-    || 'ОБНОВЛЕНИЕ ПРИЛОЖЕНИЯ';
-  const message = boundedApplicationUpdateText(
-    snapshot.errorMessage,
-    'Операция обновления не завершена.',
-  );
-  const recoveryAction = boundedApplicationUpdateText(
-    snapshot.recoveryAction,
-    'Продолжайте работу и повторите попытку при следующем запуске.',
-  );
-  return `ЭТАП: ${stage}.\n${message}\n${recoveryAction}`;
-}
-
-function restoreApplicationUpdateFocus() {
-  const opener = applicationUpdateDialogOpener;
-  applicationUpdateDialogOpener = null;
-  if (opener?.isConnected && typeof opener.focus === 'function') opener.focus();
-}
-
-function closeApplicationUpdateDialog() {
-  applicationUpdateDialogAttemptID = '';
-  if (applicationUpdateDialog.open) applicationUpdateDialog.close();
-  applicationUpdateDialog.hidden = true;
-  queueMicrotask(restoreApplicationUpdateFocus);
-}
-
-function restoreApplicationUpdateRestartFocus() {
-  const opener = applicationUpdateRestartDialogOpener;
-  applicationUpdateRestartDialogOpener = null;
-  if (opener?.isConnected && typeof opener.focus === 'function') opener.focus();
-}
-
-function closeApplicationUpdateRestartDialog() {
-  applicationUpdateRestartDialogAttemptID = '';
-  if (applicationUpdateRestartDialog.open) applicationUpdateRestartDialog.close();
-  applicationUpdateRestartDialog.hidden = true;
-  queueMicrotask(restoreApplicationUpdateRestartFocus);
-}
-
-function renderApplicationUpdateOffer(snapshot) {
-  applicationUpdateInstalledVersion.textContent = boundedApplicationUpdateText(snapshot.installedVersion, '—');
-  applicationUpdateAvailableVersion.textContent = boundedApplicationUpdateText(snapshot.availableVersion, '—');
-  applicationUpdateReleaseNotes.textContent = boundedApplicationUpdateText(
-    snapshot.releaseNotes,
-    'Для этого выпуска описание не предоставлено.',
-  );
-}
-
-function showApplicationUpdateOffer(snapshot, { automatic = false } = {}) {
-  if (!snapshot?.attemptId || snapshot.state !== 'available') return;
-  if (suppressedApplicationUpdateAttempts.has(snapshot.attemptId)) return;
-
-  renderApplicationUpdateOffer(snapshot);
-  if (applicationUpdateDialog.open) {
-    applicationUpdateDialogAttemptID = snapshot.attemptId;
-    return;
-  }
-  if (automatic && document.querySelector('dialog[open]')) {
-    btnShowApplicationUpdate.hidden = false;
-    return;
-  }
-
-  const key = applicationUpdatePromptKey(snapshot);
-  if (automatic && promptedApplicationUpdateRevisions.has(key)) return;
-  promptedApplicationUpdateRevisions.add(key);
-  applicationUpdateDialogAttemptID = snapshot.attemptId;
-  applicationUpdateDialogOpener = document.activeElement;
-  applicationUpdateDialog.hidden = false;
-  applicationUpdateDialog.showModal();
-  btnShowApplicationUpdate.hidden = true;
-  btnDeferApplicationUpdate.focus();
-}
-
-function showApplicationUpdateRestart(snapshot, { automatic = false } = {}) {
-  if (!snapshot?.attemptId || snapshot.state !== 'ready-to-restart') return;
-  if (applicationUpdateRestartDialog.open) {
-    applicationUpdateRestartDialogAttemptID = snapshot.attemptId;
-    return;
-  }
-  if (automatic && document.querySelector('dialog[open]')) {
-    btnShowApplicationUpdate.hidden = false;
-    return;
-  }
-
-  const key = applicationUpdatePromptKey(snapshot);
-  if (automatic && promptedApplicationUpdateRestartRevisions.has(key)) return;
-  promptedApplicationUpdateRestartRevisions.add(key);
-  applicationUpdateRestartDialogAttemptID = snapshot.attemptId;
-  applicationUpdateRestartDialogOpener = document.activeElement;
-  applicationUpdateRestartDialog.hidden = false;
-  applicationUpdateRestartDialog.showModal();
-  btnShowApplicationUpdate.hidden = true;
-  btnPostponeApplicationUpdate.focus();
-}
-
-function renderApplicationUpdateProgress(snapshot, stateName) {
-  const progressVisible = stateName === 'downloading'
-    || stateName === 'verifying'
-    || stateName === 'staging';
-  applicationUpdateProgress.hidden = !progressVisible;
-  applicationUpdateProgress.removeAttribute('max');
-  applicationUpdateProgress.removeAttribute('value');
-  if (!progressVisible) return;
-
-  if (stateName === 'downloading'
-    && Number.isSafeInteger(snapshot.downloadSize)
-    && snapshot.downloadSize > 0) {
-    const downloaded = Number.isSafeInteger(snapshot.bytesDownloaded)
-      ? Math.max(0, Math.min(snapshot.bytesDownloaded, snapshot.downloadSize))
-      : 0;
-    applicationUpdateProgress.max = snapshot.downloadSize;
-    applicationUpdateProgress.value = downloaded;
-    applicationUpdateProgress.setAttribute(
-      'aria-label',
-      `Загрузка обновления: ${downloaded} из ${snapshot.downloadSize} байт`,
-    );
-    return;
-  }
-
-  applicationUpdateProgress.setAttribute(
-    'aria-label',
-    stateName === 'verifying'
-      ? 'Проверка загруженного обновления'
-      : stateName === 'staging'
-        ? 'Подготовка обновления к перезапуску'
-        : 'Загрузка обновления',
-  );
-}
-
-function renderApplicationUpdateSnapshot(snapshot, { prompt = true } = {}) {
-  if (!snapshot || typeof snapshot !== 'object') return;
-  const revision = Number(snapshot.revision);
-  if (!Number.isSafeInteger(revision) || revision < 0) return;
-  if (revision < latestRenderedApplicationUpdateRevision) return;
-  if (revision === latestRenderedApplicationUpdateRevision
-    && applicationUpdateSnapshot
-    && (snapshot.attemptId !== applicationUpdateSnapshot.attemptId
-      || snapshot.state !== applicationUpdateSnapshot.state)) return;
-  latestRenderedApplicationUpdateRevision = revision;
-  applicationUpdateSnapshot = snapshot;
-  const stateName = typeof snapshot.state === 'string' ? snapshot.state : '';
-  const silent = stateName === '' || stateName === 'disabled' || stateName === 'idle' || stateName === 'current';
-  const attemptSuppressed = suppressedApplicationUpdateAttempts.has(snapshot.attemptId);
-
-  applicationUpdateStatusPanel.hidden = silent;
-  applicationUpdateStatusPanel.dataset.state = stateName;
-  applicationUpdateStatus.textContent = applicationUpdateStatusLabels[stateName] || '';
-  renderApplicationUpdateProgress(snapshot, stateName);
-  applicationUpdateError.textContent = stateName === 'failed'
-    ? applicationUpdateFailureText(snapshot)
-    : '';
-  applicationUpdateError.hidden = !applicationUpdateError.textContent;
-  const offerCanOpen = stateName === 'available' && !attemptSuppressed;
-  const restartCanOpen = stateName === 'ready-to-restart';
-  btnShowApplicationUpdate.hidden = (!offerCanOpen && !restartCanOpen)
-    || applicationUpdateDialog.open
-    || applicationUpdateRestartDialog.open;
-  btnShowApplicationUpdate.setAttribute(
-    'aria-controls',
-    restartCanOpen ? 'applicationUpdateRestartDialog' : 'applicationUpdateDialog',
-  );
-
-  if (!offerCanOpen && applicationUpdateDialog.open) closeApplicationUpdateDialog();
-  if (!restartCanOpen && applicationUpdateRestartDialog.open) closeApplicationUpdateRestartDialog();
-
-  if (offerCanOpen) {
-    renderApplicationUpdateOffer(snapshot);
-    if (prompt) showApplicationUpdateOffer(snapshot, { automatic: true });
-  } else if (restartCanOpen && prompt) {
-    showApplicationUpdateRestart(snapshot, { automatic: true });
-  }
-}
-
-function setApplicationUpdateDecisionPending(pending) {
-  applicationUpdateCommandPending = pending;
-  btnAcceptApplicationUpdate.disabled = pending;
-  btnDeferApplicationUpdate.disabled = pending;
-  applicationUpdateDialog.setAttribute('aria-busy', String(pending));
-}
-
-async function resolveApplicationUpdateOffer(decision) {
-  if (applicationUpdateCommandPending) return;
-  const snapshot = applicationUpdateSnapshot;
-  if (!snapshot?.attemptId || snapshot.attemptId !== applicationUpdateDialogAttemptID) return;
-
-  setApplicationUpdateDecisionPending(true);
-  const result = await desktopAPI.resolveApplicationUpdateOffer({
-    attemptId: snapshot.attemptId,
-    decision,
-  });
-  setApplicationUpdateDecisionPending(false);
-
-  if (result?.ok !== true) {
-    renderApplicationUpdateSnapshot(result?.snapshot || snapshot, { prompt: false });
-    applicationUpdateError.textContent = boundedApplicationUpdateText(
-      result?.error,
-      'Не удалось сохранить решение об обновлении.',
-    );
-    applicationUpdateError.hidden = false;
-    btnDeferApplicationUpdate.focus();
-    return;
-  }
-
-  suppressedApplicationUpdateAttempts.add(snapshot.attemptId);
-  closeApplicationUpdateDialog();
-  const resultSnapshot = result?.snapshot;
-  if (resultSnapshot
-    && (resultSnapshot.revision > snapshot.revision
-      || resultSnapshot.state !== snapshot.state)) {
-    renderApplicationUpdateSnapshot(resultSnapshot, { prompt: false });
-    return;
-  }
-  if (decision === 'defer') {
-    renderApplicationUpdateSnapshot({ ...snapshot, state: 'deferred' }, { prompt: false });
-    return;
-  }
-  applicationUpdateStatus.textContent = 'ПОДГОТОВКА ОБНОВЛЕНИЯ ЗАПРОШЕНА…';
-}
-
-function setApplicationUpdateRestartPending(pending) {
-  applicationUpdateRestartCommandPending = pending;
-  btnRestartApplicationUpdate.disabled = pending;
-  btnPostponeApplicationUpdate.disabled = pending;
-  applicationUpdateRestartDialog.setAttribute('aria-busy', String(pending));
-}
-
-async function resolveApplicationUpdateRestart(decision) {
-  if (applicationUpdateRestartCommandPending) return;
-  const snapshot = applicationUpdateSnapshot;
-  if (!snapshot?.attemptId || snapshot.attemptId !== applicationUpdateRestartDialogAttemptID) return;
-
-  setApplicationUpdateRestartPending(true);
-  const result = await desktopAPI.resolveApplicationUpdateRestart({
-    attemptId: snapshot.attemptId,
-    decision,
-  });
-  setApplicationUpdateRestartPending(false);
-
-  if (result?.ok !== true) {
-    renderApplicationUpdateSnapshot(result?.snapshot || snapshot, { prompt: false });
-    applicationUpdateError.textContent = boundedApplicationUpdateText(
-      result?.error,
-      'Не удалось сохранить решение о перезапуске.',
-    );
-    applicationUpdateError.hidden = false;
-    btnPostponeApplicationUpdate.focus();
-    return;
-  }
-
-  closeApplicationUpdateRestartDialog();
-  renderApplicationUpdateSnapshot(result?.snapshot || snapshot, { prompt: false });
-}
-
-btnShowApplicationUpdate.addEventListener('click', () => {
-  if (applicationUpdateSnapshot?.state === 'ready-to-restart') {
-    showApplicationUpdateRestart(applicationUpdateSnapshot);
-    return;
-  }
-  showApplicationUpdateOffer(applicationUpdateSnapshot);
-});
-btnAcceptApplicationUpdate.addEventListener('click', () => {
-  void resolveApplicationUpdateOffer('accept');
-});
-btnDeferApplicationUpdate.addEventListener('click', () => {
-  void resolveApplicationUpdateOffer('defer');
-});
-applicationUpdateDialog.addEventListener('cancel', (event) => {
-  event.preventDefault();
-  void resolveApplicationUpdateOffer('defer');
-});
-applicationUpdateDialog.addEventListener('close', () => {
-  applicationUpdateDialog.hidden = true;
-});
-btnRestartApplicationUpdate.addEventListener('click', () => {
-  void resolveApplicationUpdateRestart('restart');
-});
-btnPostponeApplicationUpdate.addEventListener('click', () => {
-  void resolveApplicationUpdateRestart('postpone');
-});
-applicationUpdateRestartDialog.addEventListener('cancel', (event) => {
-  event.preventDefault();
-  void resolveApplicationUpdateRestart('postpone');
-});
-applicationUpdateRestartDialog.addEventListener('close', () => {
-  applicationUpdateRestartDialog.hidden = true;
-});
-if (typeof desktopAPI.onApplicationUpdateStatus === 'function') {
-  desktopAPI.onApplicationUpdateStatus(renderApplicationUpdateSnapshot);
-}
 
 serverUrlEl.addEventListener('click', async () => {
   const requestedUrl = serverUrl;
@@ -1940,127 +1516,6 @@ function coordinationRevision(coordination) {
   return Number.isSafeInteger(revision) && revision >= 0 ? revision : 0;
 }
 
-function rememberResolvedCommandExecution(requestID) {
-  resolvedCommandExecutionRequestIDs.add(requestID);
-  if (resolvedCommandExecutionRequestIDs.size <= 128) return;
-  const oldest = resolvedCommandExecutionRequestIDs.values().next().value;
-  resolvedCommandExecutionRequestIDs.delete(oldest);
-}
-
-function hideCommandExecutionDialog() {
-  // Any authoritative close invalidates the promise currently resolving this
-  // dialog. Its eventual callback must not overwrite a newer lifecycle state
-  // or dismiss a different request shown in the meantime.
-  commandExecutionDialogEpoch += 1;
-  commandExecutionDecisionRequestID = null;
-  commandExecutionDialogRequestID = null;
-  commandExecutionDialogMode = null;
-  commandExecutionDialog.hidden = true;
-  if (typeof commandExecutionDialog.close === 'function' && commandExecutionDialog.open) {
-    commandExecutionDialog.close();
-  } else {
-    commandExecutionDialog.removeAttribute('open');
-  }
-  btnApproveCommandExecution.disabled = false;
-  btnRejectCommandExecution.disabled = false;
-  commandExecutionDialogStatus.textContent = '';
-  commandExecutionDialogError.textContent = '';
-  commandExecutionDialogError.hidden = true;
-}
-
-function showCommandExecutionDialog(pending) {
-  commandExecutionDialogEpoch += 1;
-  commandExecutionDecisionRequestID = null;
-  commandExecutionDialogRequestID = pending.requestId;
-  commandExecutionDialogMode = pending.mode || null;
-  commandExecutionDialogDescription.textContent = pending.confirmationText;
-  const modeLabels = {
-    ordinary: 'ОБЫЧНАЯ',
-    'state-change': 'ИЗМЕНЕНИЕ СОСТОЯНИЯ',
-    'completed-state-change': 'ЗАВЕРШЁННОЕ ИЗМЕНЕНИЕ СОСТОЯНИЯ',
-  };
-  const mode = modeLabels[pending.mode] || pending.mode || 'НЕИЗВЕСТЕН';
-  const commandName = pending.commandName || pending.commandId || '—';
-  commandExecutionDialogStatus.textContent = `ЗАПРОС: ${pending.requestId} · РЕЖИМ: ${mode} · КОМАНДА: ${commandName}`;
-  commandExecutionDialogError.textContent = '';
-  commandExecutionDialogError.hidden = true;
-  btnApproveCommandExecution.disabled = false;
-  btnRejectCommandExecution.disabled = false;
-  commandExecutionDialog.hidden = false;
-  if (typeof commandExecutionDialog.showModal === 'function' && !commandExecutionDialog.open) {
-    commandExecutionDialog.showModal();
-  } else {
-    commandExecutionDialog.setAttribute('open', '');
-  }
-  btnApproveCommandExecution.focus();
-}
-
-function syncCommandExecutionDialog(coordination) {
-  const pending = coordination?.pendingCommandExecution;
-  const requestID = typeof pending?.requestId === 'string' ? pending.requestId : '';
-  if (!requestID) {
-    if (commandExecutionDialogRequestID) hideCommandExecutionDialog();
-    return;
-  }
-  if (requestID === commandExecutionDecisionRequestID || resolvedCommandExecutionRequestIDs.has(requestID)) {
-    return;
-  }
-  if (requestID === commandExecutionDialogRequestID) return;
-  if (commandExecutionDialogRequestID) hideCommandExecutionDialog();
-  showCommandExecutionDialog(pending);
-}
-
-function rememberResolvedTerminalNavigation(requestID) {
-  resolvedTerminalNavigationRequestIDs.add(requestID);
-  if (resolvedTerminalNavigationRequestIDs.size > 128) {
-    resolvedTerminalNavigationRequestIDs.delete(resolvedTerminalNavigationRequestIDs.values().next().value);
-  }
-}
-
-function hideTerminalNavigationDialog() {
-  terminalNavigationDialogEpoch += 1;
-  terminalNavigationDecisionRequestID = null;
-  terminalNavigationDialogRequestID = null;
-  terminalNavigationDialog.hidden = true;
-  if (terminalNavigationDialog.open) terminalNavigationDialog.close();
-  else terminalNavigationDialog.removeAttribute('open');
-  btnApproveTerminalNavigation.disabled = false;
-  btnRejectTerminalNavigation.disabled = false;
-  terminalNavigationStatus.textContent = '';
-  terminalNavigationError.hidden = true;
-}
-
-function showTerminalNavigationDialog(pending) {
-  terminalNavigationDialogEpoch += 1;
-  terminalNavigationDecisionRequestID = null;
-  terminalNavigationDialogRequestID = pending.requestId;
-  const direction = pending.direction === 'return' ? 'ВОЗВРАТ' : 'ПЕРЕХОД';
-  terminalNavigationSummary.innerHTML = `
-    <div>ЗАПРОС: ${escHtml(pending.requestId)}</div>
-    <div class="terminal-navigation-direction">${direction}</div>
-    <div>ИЗ: ${escHtml(pending.sourceTerminalName || pending.sourceTerminalId || '—')}</div>
-    <div>КОМАНДА: ${escHtml(pending.commandName || pending.commandId || '—')}</div>
-    <div>В: ${escHtml(pending.targetTerminalName || pending.targetTerminalId || '—')}</div>`;
-  terminalNavigationError.hidden = true;
-  terminalNavigationStatus.textContent = 'ИСХОДНЫЙ ТЕРМИНАЛ ОСТАЁТСЯ АКТИВНЫМ ДО РЕШЕНИЯ';
-  terminalNavigationDialog.hidden = false;
-  if (!terminalNavigationDialog.open) terminalNavigationDialog.showModal();
-  btnApproveTerminalNavigation.focus();
-}
-
-function syncTerminalNavigationDialog(coordination) {
-  const pending = coordination?.pendingTerminalNavigation;
-  const requestID = typeof pending?.requestId === 'string' ? pending.requestId : '';
-  if (!requestID) {
-    if (terminalNavigationDialogRequestID) hideTerminalNavigationDialog();
-    return;
-  }
-  if (requestID === terminalNavigationDecisionRequestID || resolvedTerminalNavigationRequestIDs.has(requestID)) return;
-  if (requestID === terminalNavigationDialogRequestID) return;
-  if (terminalNavigationDialogRequestID) hideTerminalNavigationDialog();
-  showTerminalNavigationDialog(pending);
-}
-
 function applyCoordinationState(coordination) {
   if (coordination && state.coordination &&
       coordinationRevision(coordination) <= coordinationRevision(state.coordination)) {
@@ -2068,8 +1523,6 @@ function applyCoordinationState(coordination) {
   }
   state.coordination = coordination || null;
   state.liveTerminalId = coordination?.broadcast?.activeTerminalId || null;
-  syncCommandExecutionDialog(coordination);
-  syncTerminalNavigationDialog(coordination);
   syncTerminalNavigationNotice(coordination);
   return true;
 }
@@ -2093,125 +1546,6 @@ function syncTerminalNavigationNotice(coordination) {
   coordinationError.dataset.kind = 'terminal-navigation';
   setCoordinationStatus(`${labels[notice.reason] || 'ПЕРЕХОД БОЛЬШЕ НЕ ДЕЙСТВИТЕЛЕН'}${detail ? ` · ${detail}` : ''}`, true);
 }
-
-async function resolveTerminalNavigation(decision) {
-  const requestID = terminalNavigationDialogRequestID;
-  if (!requestID || terminalNavigationDecisionRequestID) return null;
-  terminalNavigationDecisionRequestID = requestID;
-  const epoch = terminalNavigationDialogEpoch;
-  btnApproveTerminalNavigation.disabled = true;
-  btnRejectTerminalNavigation.disabled = true;
-  terminalNavigationStatus.textContent = decision === 'approve' ? 'ВЫПОЛНЕНИЕ ПЕРЕХОДА...' : 'ОТКЛОНЕНИЕ ПЕРЕХОДА...';
-  let result;
-  try {
-    result = await desktopAPI.resolveTerminalNavigation({ requestId: requestID, decision });
-  } catch (error) {
-    result = { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
-  if (epoch !== terminalNavigationDialogEpoch || terminalNavigationDecisionRequestID !== requestID) return result;
-  terminalNavigationDecisionRequestID = null;
-  rememberResolvedTerminalNavigation(requestID);
-  if (result?.state) applyCoordinationState(result.state);
-  if (terminalNavigationDialogRequestID === requestID) hideTerminalNavigationDialog();
-  if (result?.ok) {
-    setCoordinationStatus(decision === 'approve' ? 'ПЕРЕХОД ВЫПОЛНЕН' : 'ПЕРЕХОД ОТКЛОНЁН');
-  } else if (result?.state?.terminalNavigationNotice) {
-    syncTerminalNavigationNotice(result.state);
-  } else {
-    setCoordinationStatus(result?.error || 'ПЕРЕХОД НЕ ВЫПОЛНЕН', true);
-  }
-  renderCoordination();
-  return result;
-}
-
-btnApproveTerminalNavigation.addEventListener('click', () => { void resolveTerminalNavigation('approve'); });
-btnRejectTerminalNavigation.addEventListener('click', () => { void resolveTerminalNavigation('reject'); });
-terminalNavigationDialog.addEventListener('keydown', (event) => {
-  if (event.key === 'ArrowLeft') {
-    event.preventDefault();
-    btnApproveTerminalNavigation.focus();
-  } else if (event.key === 'ArrowRight') {
-    event.preventDefault();
-    btnRejectTerminalNavigation.focus();
-  }
-});
-terminalNavigationDialog.addEventListener('cancel', (event) => {
-  event.preventDefault();
-  void resolveTerminalNavigation('reject');
-});
-
-async function resolveCommandExecution(decision) {
-  const requestID = commandExecutionDialogRequestID;
-  if (!requestID || commandExecutionDecisionRequestID) return null;
-
-  const commandMode = commandExecutionDialogMode;
-  commandExecutionDecisionRequestID = requestID;
-  const epoch = commandExecutionDialogEpoch;
-  const startingRevision = coordinationRevision(state.coordination);
-  btnApproveCommandExecution.disabled = true;
-  btnRejectCommandExecution.disabled = true;
-  commandExecutionDialogStatus.textContent = decision === 'approve'
-    ? (commandMode === 'state-change' ? 'СОХРАНЕНИЕ И ВЫПОЛНЕНИЕ...' : 'ВЫПОЛНЕНИЕ КОМАНДЫ...')
-    : 'ОТКЛОНЕНИЕ ЗАПРОСА...';
-  commandExecutionDialogError.textContent = '';
-  commandExecutionDialogError.hidden = true;
-
-  let result;
-  try {
-    result = await desktopAPI.resolveCommandExecution({ requestId: requestID, decision });
-  } catch (error) {
-    result = { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
-
-  if (epoch !== commandExecutionDialogEpoch || commandExecutionDecisionRequestID !== requestID) {
-    return result;
-  }
-  commandExecutionDecisionRequestID = null;
-  const resultRevision = coordinationRevision(result?.state);
-  if (resultRevision > 0 && resultRevision < coordinationRevision(state.coordination)) {
-    return result;
-  }
-  if (!result?.state && coordinationRevision(state.coordination) > startingRevision &&
-      state.coordination?.pendingCommandExecution?.requestId !== requestID) {
-    return result;
-  }
-
-  rememberResolvedCommandExecution(requestID);
-  if (result?.state) applyCoordinationState(result.state);
-  if (commandExecutionDialogRequestID === requestID) hideCommandExecutionDialog();
-
-  if (!result?.ok) {
-    setCoordinationStatus(result?.error || 'СОСТОЯНИЕ КОМАНДЫ НЕ УДАЛОСЬ СОХРАНИТЬ', true);
-  } else if (decision === 'approve') {
-    setCoordinationStatus(commandMode === 'state-change'
-      ? 'КОМАНДА ВЫПОЛНЕНА И СОХРАНЕНА'
-      : 'КОМАНДА ВЫПОЛНЕНА');
-  } else {
-    setCoordinationStatus('ЗАПРОС ОТКЛОНЁН');
-  }
-  renderCoordination();
-  return result;
-}
-
-btnApproveCommandExecution.addEventListener('click', () => {
-  void resolveCommandExecution('approve');
-});
-btnRejectCommandExecution.addEventListener('click', () => {
-  void resolveCommandExecution('reject');
-});
-commandExecutionDialog.addEventListener('keydown', (event) => {
-  if (event.key === 'ArrowLeft') {
-    event.preventDefault();
-    btnApproveCommandExecution.focus();
-  } else if (event.key === 'ArrowRight') {
-    event.preventDefault();
-    btnRejectCommandExecution.focus();
-  }
-});
-commandExecutionDialog.addEventListener('cancel', (event) => {
-  event.preventDefault();
-  void resolveCommandExecution('reject');
-});
 
 function setCoordinationStatus(message, isError = false) {
   coordinationStatus.textContent = isError ? '' : (message || '');
@@ -2276,30 +1610,26 @@ async function runCoordinationCommand(command, successMessage, pendingMessage) {
   return result;
 }
 
-function showTerminalSwitchDecision(result) {
-  pendingTerminalSwitch = result?.switchId || null;
-  if (!pendingTerminalSwitch) return;
-  terminalSwitchStatus.textContent = 'ИСХОДНЫЙ ТЕРМИНАЛ ОСТАЁТСЯ АКТИВНЫМ ДО ВЫБОРА';
-  terminalSwitchError.textContent = '';
-  terminalSwitchError.hidden = true;
-  terminalSwitchDialog.hidden = false;
-  if (typeof terminalSwitchDialog.showModal === 'function' && !terminalSwitchDialog.open) {
-    terminalSwitchDialog.showModal();
-  } else {
-    terminalSwitchDialog.setAttribute('open', '');
-  }
-  terminalSwitchButtons[0]?.focus();
+function publishTerminalSwitchRequest(result) {
+  const switchId = typeof result?.switchId === 'string' ? result.switchId : '';
+  if (!switchId) return;
+  publishLegacyProjection({ kind: 'terminal-switch-required', switchId });
 }
 
-function hideTerminalSwitchDecision() {
-  pendingTerminalSwitch = null;
-  terminalSwitchDialog.hidden = true;
-  if (typeof terminalSwitchDialog.close === 'function' && terminalSwitchDialog.open) {
-    terminalSwitchDialog.close();
-  } else {
-    terminalSwitchDialog.removeAttribute('open');
-  }
+function dismissTerminalSwitchRequest() {
+  publishLegacyProjection({ kind: 'terminal-switch-dismissed' });
 }
+
+function applyTerminalSwitchResolution(message) {
+  if (message?.kind !== 'terminal-switch-resolved' || !message.result?.ok) return;
+  const result = message.result;
+  if (result.state) applyCoordinationState(result.state);
+  if (result.status === 'activated' || result.status === 'cleared') state.liveHack = null;
+  setCoordinationStatus(message.decision === 'cancel' ? 'ПЕРЕКЛЮЧЕНИЕ ОТМЕНЕНО' : 'РЕШЕНИЕ ПРИМЕНЕНО');
+  renderAll();
+}
+
+globalThis.__overseerCoexistenceBridge?.subscribeVueRequests(applyTerminalSwitchResolution);
 
 function showEndBroadcastConfirmation() {
   endBroadcastDialog.hidden = false;
@@ -2354,7 +1684,7 @@ function hideTakeOffAirConfirmation({ restoreFocus = true } = {}) {
 async function runTerminalSwitchRequest(command, completedMessage, pendingMessage) {
   const result = await runCoordinationCommand(command, completedMessage, pendingMessage);
   if (result?.ok && result.status === 'decision-required' && result.switchId) {
-    showTerminalSwitchDecision(result);
+    publishTerminalSwitchRequest(result);
   }
   return result;
 }
@@ -2521,10 +1851,10 @@ function closeTerminalActionMenus({ restoreFocus = false } = {}) {
   return true;
 }
 
-document.addEventListener('click', event => {
+legacyOverseerRoot.addEventListener('click', event => {
   if (!event.target.closest('.terminal-action-menu')) closeTerminalActionMenus();
 });
-document.addEventListener('keydown', event => {
+legacyOverseerRoot.addEventListener('keydown', event => {
   if (event.key === 'Escape' && closeTerminalActionMenus({ restoreFocus: true })) event.preventDefault();
 });
 
@@ -2617,13 +1947,13 @@ function populateTerminalChoices(selectedIDs = []) {
 }
 
 function configureTerminalGroupDraft(mode) {
-  const terminalChoicesFieldset = document.getElementById('terminalGroupTerminalChoices');
-  const destinationLabel = document.querySelector('label[for="terminalGroupDestinationSelect"]');
+  const terminalChoicesFieldset = legacyOverseerRoot.querySelector('#terminalGroupTerminalChoices');
+  const destinationLabel = legacyOverseerRoot.querySelector('label[for="terminalGroupDestinationSelect"]');
   const reviewButton = terminalGroupDraftDialog.querySelector('[data-action="review-terminal-group-change"]');
   const renameButton = terminalGroupDraftDialog.querySelector('[data-action="save-terminal-group-rename"]');
   terminalChoicesFieldset.hidden = mode !== 'create';
   terminalGroupNameInput.hidden = mode === 'move';
-  document.querySelector('label[for="terminalGroupNameInput"]').hidden = mode === 'move';
+  legacyOverseerRoot.querySelector('label[for="terminalGroupNameInput"]').hidden = mode === 'move';
   terminalGroupDestinationSelect.hidden = mode !== 'move';
   destinationLabel.hidden = mode !== 'move';
   reviewButton.hidden = mode === 'rename';
@@ -3365,7 +2695,7 @@ function renderNodeForm() {
 
   nodeForm.innerHTML = html;
 
-  const validationError = document.getElementById('nodeValidationError');
+  const validationError = legacyOverseerRoot.querySelector('#nodeValidationError');
   const showValidationError = (message, field) => {
     validationError.textContent = message;
     validationError.hidden = false;
@@ -3373,9 +2703,9 @@ function renderNodeForm() {
   };
 
   if (node.type === 'command') {
-    const mode = document.getElementById('fldCommandMode');
-    const fields = document.getElementById('stateChangeFields');
-    const transitionFields = document.getElementById('terminalTransitionFields');
+    const mode = legacyOverseerRoot.querySelector('#fldCommandMode');
+    const fields = legacyOverseerRoot.querySelector('#stateChangeFields');
+    const transitionFields = legacyOverseerRoot.querySelector('#terminalTransitionFields');
     mode.addEventListener('change', () => {
       fields.hidden = mode.value !== 'state-change';
       transitionFields.hidden = mode.value !== 'terminal-transition';
@@ -3384,8 +2714,8 @@ function renderNodeForm() {
     });
   }
 
-  document.getElementById('btnApplyNode').addEventListener('click', () => {
-    const nameEl = document.getElementById('fldName');
+  legacyOverseerRoot.querySelector('#btnApplyNode').addEventListener('click', () => {
+    const nameEl = legacyOverseerRoot.querySelector('#fldName');
     const name = nameEl.value.trim();
     if (!name) {
       showValidationError(
@@ -3396,13 +2726,13 @@ function renderNodeForm() {
     }
 
     if (node.type === 'command') {
-      const commandMode = document.getElementById('fldCommandMode').value;
-      const textEl = document.getElementById('fldText');
+      const commandMode = legacyOverseerRoot.querySelector('#fldCommandMode').value;
+      const textEl = legacyOverseerRoot.querySelector('#fldText');
       let nextStateChange = null;
       let nextTerminalTransition = null;
       if (commandMode === 'state-change') {
-        const completedNameEl = document.getElementById('fldCompletedName');
-        const confirmationTextEl = document.getElementById('fldConfirmationText');
+        const completedNameEl = legacyOverseerRoot.querySelector('#fldCompletedName');
+        const confirmationTextEl = legacyOverseerRoot.querySelector('#fldConfirmationText');
         if (!completedNameEl.value.trim()) {
           showValidationError('УКАЖИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', completedNameEl);
           return;
@@ -3421,7 +2751,7 @@ function renderNodeForm() {
         };
       }
       if (commandMode === 'terminal-transition') {
-        const targetEl = document.getElementById('fldTerminalTransitionTarget');
+        const targetEl = legacyOverseerRoot.querySelector('#fldTerminalTransitionTarget');
         const targetID = targetEl.value;
         if (!targetID || targetID === term.id || !state.session.terminals.some(candidate => candidate.id === targetID)) {
           showValidationError('ВЫБЕРИТЕ ДРУГОЙ СУЩЕСТВУЮЩИЙ ТЕРМИНАЛ', targetEl);
@@ -3437,14 +2767,14 @@ function renderNodeForm() {
     }
 
     node.name = name;
-    if (node.type === 'entry')   node.description = document.getElementById('fldText').value;
+    if (node.type === 'entry')   node.description = legacyOverseerRoot.querySelector('#fldText').value;
     autosave();
     renderTree();
     renderNodeForm();
     renderToolbarHint();
   });
 
-  const btnResetCommandState = document.getElementById('btnResetCommandState');
+  const btnResetCommandState = legacyOverseerRoot.querySelector('#btnResetCommandState');
   if (btnResetCommandState) {
     btnResetCommandState.disabled = sessionStateCommandPending;
     btnResetCommandState.addEventListener('click', async () => {
@@ -3465,7 +2795,7 @@ function renderNodeForm() {
     });
   }
 
-  document.getElementById('btnDeleteNode').addEventListener('click', () => {
+  legacyOverseerRoot.querySelector('#btnDeleteNode').addEventListener('click', () => {
     const childCount = (node.type === 'folder' && node.children) ? node.children.length : 0;
     const msg = childCount > 0
       ? `Удалить "${node.name}" вместе со всем содержимым (${childCount} элемент(ов))?`
@@ -3626,7 +2956,7 @@ btnConfirmEndBroadcast.addEventListener('click', async () => {
     return;
   }
   hideEndBroadcastConfirmation({ restoreFocus: false });
-  hideTerminalSwitchDecision();
+  dismissTerminalSwitchRequest();
   state.liveHack = null;
   renderAll();
   btnStartBroadcast.focus();
@@ -3808,7 +3138,7 @@ btnConfirmTakeOffAir.addEventListener('click', async () => {
   }
   if (result.status === 'decision-required' && result.switchId) {
     hideTakeOffAirConfirmation({ restoreFocus: false });
-    showTerminalSwitchDecision(result);
+    publishTerminalSwitchRequest(result);
     return;
   }
   if (result.status !== 'cleared') {
@@ -3826,31 +3156,6 @@ btnConfirmTakeOffAir.addEventListener('click', async () => {
   renderHackStatus();
   if (!btnEndBroadcast.hidden) btnEndBroadcast.focus();
 });
-
-for (const button of terminalSwitchButtons) {
-  button.addEventListener('click', async () => {
-    if (!pendingTerminalSwitch || coordinationCommandPending) return;
-    const decision = button.dataset.switchDecision;
-    terminalSwitchButtons.forEach(control => { control.disabled = true; });
-    terminalSwitchStatus.textContent = 'ПРИМЕНЕНИЕ РЕШЕНИЯ...';
-    terminalSwitchError.hidden = true;
-    const result = await runCoordinationCommand(
-      () => desktopAPI.resolveTerminalSwitch({ switchId: pendingTerminalSwitch, decision }),
-      decision === 'cancel' ? 'ПЕРЕКЛЮЧЕНИЕ ОТМЕНЕНО' : 'РЕШЕНИЕ ПРИМЕНЕНО',
-      'ПРИМЕНЕНИЕ РЕШЕНИЯ...'
-    );
-    terminalSwitchButtons.forEach(control => { control.disabled = false; });
-    if (!result?.ok) {
-      terminalSwitchError.textContent = result?.error || 'РЕШЕНИЕ ОТКЛОНЕНО';
-      terminalSwitchError.hidden = false;
-      terminalSwitchStatus.textContent = 'ИСХОДНЫЙ ТЕРМИНАЛ ОСТАЁТСЯ АКТИВНЫМ';
-      return;
-    }
-    if (result.status === 'activated' || result.status === 'cleared') state.liveHack = null;
-    hideTerminalSwitchDecision();
-    renderAll();
-  });
-}
 
 btnHackSuccess.addEventListener('click', () => {
   if (!state.liveHack || state.liveHack.solved || state.liveHack.failed) return;
@@ -3875,3 +3180,5 @@ btnResetFailedHack.addEventListener('click', async () => {
   );
   if (!result?.ok) renderHackStatus();
 });
+
+publishLegacyProjection({ kind: 'legacy-ready' });

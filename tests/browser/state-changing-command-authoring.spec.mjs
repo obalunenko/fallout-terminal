@@ -5,8 +5,15 @@ const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 const TERMINAL_ID = 'terminal-stateful';
 const BUNDLED_DEMO_URL = new URL('../../sessions/demo.json', import.meta.url);
 
+test.use({ bypassCSP: true });
+
+async function mountOverseerCandidate(page) {
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?terminal-switch-authoring'));
+}
+
 async function openAuthoringFixture(page) {
   await page.goto(FIXTURE_URL);
+  await mountOverseerCandidate(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
   await expect(page.locator('#editingTermName')).toHaveText('Терминал охраны');

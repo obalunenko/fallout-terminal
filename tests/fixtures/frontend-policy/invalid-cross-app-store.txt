@@ -1,0 +1,1 @@
+import { sharedApplicationStore } from '@shared/application-state';

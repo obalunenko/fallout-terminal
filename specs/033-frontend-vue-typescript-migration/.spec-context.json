@@ -394,9 +394,137 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-30T10:18:05.393Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:43:34.148Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:49:11.141Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:49:53.860Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:52:56.386Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:02:07.019Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:14:23.720Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:16:01.412Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:35:02.893Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:36:46.923Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T050",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:50:41.964Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T051",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T11:51:24.736Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T052",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T14:08:14.016Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T053",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T14:30:59.049Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T054",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T15:07:56.278Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T055",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T16:21:55.774Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T056",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T16:23:14.873Z"
     }
   ],
-  "last_action": "T041 halted — candidate-index.html cannot satisfy the mandated Vite root/index.html lookup without changing out-of-inventory files",
+  "last_action": "Implemented and materialized through T056; next dependency is T057 session document controls.",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -1818,6 +1946,11 @@
         "Remove template corrections",
         "Rewrite constitution or historical artifacts"
       ]
+    },
+    {
+      "decision": "Use frontend/client/test-fixtures/index.html as the isolated Player candidate root",
+      "why": "Vite root builds resolve index.html without modifying the production config before T107",
+      "rejected": "Keep candidate-index.html and prematurely add candidate selection to read-only vite.config.ts"
     }
   ],
   "step_summaries": {
@@ -1862,10 +1995,92 @@
       "command": "go test ./tests/browser/fixture-server && npm test --prefix tests/browser -- connectrpc-player.spec.mjs",
       "result": "PASS: Go package compiled; Playwright 11 passed and 2 provider-dependent tests skipped",
       "warnings": []
+    },
+    {
+      "what": "T041 local verification",
+      "command": "task frontend:typecheck:client && npx --prefix frontend vite build frontend/client/test-fixtures --config frontend/client/vite.config.ts --mode candidate --outDir <tmp>",
+      "result": "FAILED: Vite cannot resolve frontend/client/test-fixtures/index.html because the required task file is candidate-index.html",
+      "warnings": []
+    },
+    {
+      "what": "BUG-001 / T041 repaired candidate contract",
+      "command": "task frontend:typecheck:client && npx --prefix frontend vite build frontend/client/test-fixtures --config frontend/client/vite.config.ts --mode candidate --outDir <tmp> && frontend-assert-no-match",
+      "result": "PASS: strict typecheck, isolated candidate index.html build, and unchanged production selection",
+      "warnings": [
+        "Vite noted the temporary outDir was outside the project root and therefore was not auto-emptied; the directory was newly created and removed by the task trap"
+      ]
+    },
+    {
+      "what": "T048 exact strict, candidate-build, and focused GREEN gate",
+      "command": "task frontend:typecheck:overseer && candidate Vite build && focused application-update assertion",
+      "result": "PASS: strict typecheck, 21-module candidate build, 1/1 focused test",
+      "warnings": [
+        "Playwright web servers reported the existing NO_COLOR/FORCE_COLOR warning"
+      ]
+    },
+    {
+      "what": "T048 production build and legacy update-owner absence",
+      "command": "task frontend:build:overseer; frontend no-match scan; git diff --check",
+      "result": "PASS: production build, zero legacy update matches, clean diff whitespace",
+      "warnings": []
+    },
+    {
+      "what": "T048 full application-update parity and cleanup",
+      "command": "npm test --prefix tests/browser -- application-update.spec.mjs",
+      "result": "PASS: 16/16 tests",
+      "warnings": [
+        "Playwright web servers reported the existing NO_COLOR/FORCE_COLOR warning"
+      ]
+    },
+    {
+      "what": "T052 exact command-approval migration gate",
+      "command": "task frontend:typecheck:overseer; candidate vite build; focused browser assertion duplicate/stale request resolves exactly once",
+      "result": "PASS: typecheck clean, 26-module candidate build, 1/1 focused test",
+      "warnings": [
+        "Playwright NO_COLOR/FORCE_COLOR warning is benign"
+      ]
+    },
+    {
+      "what": "T053 exact terminal-navigation migration gate",
+      "command": "task frontend:typecheck:overseer; candidate vite build; focused stale/repeated decision assertion; legacy identifier no-match; git diff --check",
+      "result": "PASS: typecheck clean, 29-module candidate build, 1/1 focused test, legacy owner absent, clean diff",
+      "warnings": [
+        "Playwright NO_COLOR/FORCE_COLOR warning is benign"
+      ]
+    },
+    {
+      "what": "T053 full browser regressions",
+      "command": "npm test --prefix tests/browser -- terminal-navigation.spec.mjs; npm test --prefix tests/browser -- state-changing-command-approval.spec.mjs",
+      "result": "PASS: terminal navigation 23/23; command approval 11/11",
+      "warnings": [
+        "Playwright NO_COLOR/FORCE_COLOR warning is benign"
+      ]
+    },
+    {
+      "what": "T054 terminal-switch migration gate and regressions",
+      "command": "task frontend:typecheck:overseer; candidate vite build; focused terminal-switch test; full state-changing-command-authoring suite; exact legacy no-match; git diff --check",
+      "result": "PASS: typecheck clean, 32-module candidate build, focused 1/1, authoring 13/13, legacy owner absent, clean diff",
+      "warnings": [
+        "Playwright NO_COLOR/FORCE_COLOR warning is benign"
+      ]
+    },
+    {
+      "what": "T055 command-state reset migration gate and regressions",
+      "command": "task frontend:typecheck:overseer; candidate vite build; focused reset test; full state-changing-command-sync suite; focused real reset journey; exact legacy no-match; git diff --check",
+      "result": "PASS: typecheck clean, 34-module candidate build, focused 1/1, sync 4/4, real reset 1/1, legacy owner absent, clean diff",
+      "warnings": [
+        "Playwright NO_COLOR/FORCE_COLOR warning is benign"
+      ]
+    },
+    {
+      "what": "T056 governed session/player lifecycle RED",
+      "command": "scripts/frontend-expected-red-check.sh --task T056 --evidence specs/033-frontend-vue-typescript-migration/evidence/T056-session-player-red.txt --expect AssertionError... -- scripts/frontend-focused-browser-check.sh tests/browser/player-management.spec.mjs closed-or-rebound...",
+      "result": "PASS: only the sanctioned assertion was accepted and exact evidence was written",
+      "warnings": []
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T040",
+  "currentTask": "T056",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2231,6 +2446,191 @@
         "frontend/client/src/App.vue",
         "frontend/client/src/mount.ts"
       ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Registered the conventional isolated Player candidate root and verified a configuration-neutral Vite build with unchanged production selection",
+      "files": [
+        "frontend/client/test-fixtures/index.html",
+        "frontend/client/test-fixtures/candidate-main.ts",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Added exact Player foundation policy fixtures and a seven-file capability-neutral source scan with actionable boundary diagnostics",
+      "files": [
+        "tests/fixtures/frontend-policy/valid-player-foundation.txt",
+        "tests/fixtures/frontend-policy/invalid-player-wails.txt",
+        "tests/fixtures/frontend-policy/invalid-player-bindings.txt",
+        "tests/fixtures/frontend-policy/invalid-player-native-filesystem.txt",
+        "tests/fixtures/frontend-policy/invalid-player-private.txt",
+        "tests/fixtures/frontend-policy/invalid-cross-app-type.txt",
+        "tests/fixtures/frontend-policy/invalid-cross-app-store.txt",
+        "tests/fixtures/frontend-policy/invalid-player-connectrpc.txt",
+        "tests/fixtures/frontend-policy/invalid-player-production-dom.txt",
+        "scripts/frontend-policy-check.sh"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Proved independent and workspace strict compilation, both legacy production builds, both isolated empty candidate builds, and policy compliance",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T043-candidates.md"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Turned the desktop boundary RED green with invalid-result/event/clipboard no-state-change assertions and a complete self-checking wave-c mapping manifest",
+      "files": [
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/frontend-boundary-manifest.spec.mjs",
+        "tests/browser/fixtures/frontend-boundary-manifest.json"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "Closed wave c with strict candidate builds, complete desktop boundary mappings, binding and policy gates, 192 passing browser tests, two expected credential skips, and immutable snapshots",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T045-wave-c.md"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "Created sibling legacy and Vue leaf roots, scoped all legacy DOM queries and handlers to its root, and added a detached typed data-only coexistence bridge",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/main.ts",
+        "frontend/overseer/src/mount.ts",
+        "frontend/overseer/src/overseer.js",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Recorded governed RED for Vue application-update offer cumulative revision and focus parity.",
+      "files": [
+        "tests/browser/application-update.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T047-update-red.txt"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Migrated application-update status, offer, and restart ownership to typed Vue leaves with cumulative revision gates, exact-once decisions, focus restoration, and unmount cleanup.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/mount.ts",
+        "frontend/overseer/src/components/ApplicationUpdateStatus.vue",
+        "frontend/overseer/src/components/ApplicationUpdateOfferDialog.vue",
+        "frontend/overseer/src/components/ApplicationUpdateRestartDialog.vue",
+        "frontend/overseer/src/composables/useApplicationUpdate.ts",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "frontend/overseer/test-fixtures/fake-desktop-port.ts",
+        "tests/browser/application-update.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Recorded governed RED for connected-only dialog focus restoration and queued restore cancellation after unmount.",
+      "files": [
+        "tests/browser/overseer-dialog-focus.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T049-focus-red.txt"
+      ]
+    },
+    "T050": {
+      "status": "DONE",
+      "did": "Implemented reusable Vue dialog focus controller/directive with connected-only restoration, Escape/cancel routing, queued-work cancellation, and exact listener cleanup.",
+      "files": [
+        "frontend/overseer/src/composables/useDialogFocus.ts",
+        "frontend/overseer/src/directives/dialog-focus.ts",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T051": {
+      "status": "DONE",
+      "did": "Recorded governed RED for Vue command-approval correlation and duplicate/stale exact-once resolution.",
+      "files": [
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T051-command-red.txt"
+      ]
+    },
+    "T052": {
+      "status": "DONE",
+      "did": "Migrated command-execution approval to Vue with revision/request correlation, exact-once decisions, shared focus lifecycle, and subscription cleanup.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/CommandExecutionDialog.vue",
+        "frontend/overseer/src/composables/useCommandApproval.ts",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T053": {
+      "status": "DONE",
+      "did": "Migrated terminal-navigation approval to Vue with stale/repeated decision suppression, focus and cancel handling, exact-once cleanup, and removal of the legacy dialog lifecycle.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/TerminalNavigationDialog.vue",
+        "frontend/overseer/src/composables/useTerminalNavigationApproval.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "tests/browser/terminal-navigation.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-005.md"
+      ]
+    },
+    "T054": {
+      "status": "DONE",
+      "did": "Migrated terminal-switch approval to Vue through the typed coexistence bridge, preserving exact-once decisions, focus restoration, authoritative result handoff, and unmount cleanup while removing legacy markup and handlers.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/TerminalSwitchDialog.vue",
+        "frontend/overseer/src/composables/useTerminalSwitch.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/main.ts",
+        "frontend/overseer/src/mount.ts",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "tests/browser/overseer-terminal-switch.spec.mjs",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-006.md"
+      ]
+    },
+    "T055": {
+      "status": "DONE",
+      "did": "Migrated command-state reset confirmation to a Vue-owned, bridge-correlated dialog with atomic idempotent decisions, legacy-compatible focus, bounded stale suppression, and cleanup.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/CommandStateResetDialog.vue",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/state-changing-command-sync.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-007.md"
+      ]
+    },
+    "T056": {
+      "status": "DONE",
+      "did": "Recorded the governed RED for closed or rebound session/player dialogs ignoring stale results and releasing listeners.",
+      "files": [
+        "tests/browser/player-management.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T056-session-player-red.txt"
+      ]
     }
   },
   "concerns": [
@@ -2240,6 +2640,10 @@
     },
     {
       "note": "T041 local gate is internally inconsistent: it requires candidate-index.html while its Vite command resolves test-fixtures/index.html, and frontend/client/vite.config.ts is read-only for T041. Vite fails UNRESOLVED_ENTRY; resolving this requires a task/spec correction.",
+      "step": "implement"
+    },
+    {
+      "note": "T041 is internally inconsistent: its exact Vite root requires test-fixtures/index.html, but its modifiable inventory requires candidate-index.html and keeps vite.config.ts read-only until T107",
       "step": "implement"
     }
   ]

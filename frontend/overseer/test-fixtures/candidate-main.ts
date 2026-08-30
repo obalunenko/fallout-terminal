@@ -1,9 +1,47 @@
 import '../src/overseer.css';
 
-import { mountOverseerApp } from '../src/mount.js';
+import {
+  createOverseerCoexistenceBridge,
+  mountOverseerApp,
+  mountOverseerLeaves,
+} from '../src/mount.js';
+import type { DesktopPort } from '../src/ports/desktop-port.js';
 import { fakeDesktopPort } from './fake-desktop-port.js';
 
-const root = document.getElementById('overseerApp');
+declare global {
+  interface Window {
+    readonly desktopAPI?: DesktopPort;
+  }
+}
+
+const root = document.getElementById('overseerApp') ?? document.getElementById('overseerVueLeaves');
 if (!(root instanceof HTMLElement)) throw new Error('Overseer candidate root is unavailable');
 
-mountOverseerApp(root, fakeDesktopPort);
+const coexistencePort = root.id === 'overseerVueLeaves' ? window.desktopAPI : undefined;
+if (root.id === 'overseerVueLeaves' && coexistencePort === undefined) {
+  throw new Error('Overseer coexistence desktop port is unavailable');
+}
+
+const bridge = root.id === 'overseerVueLeaves' ? createOverseerCoexistenceBridge() : null;
+if (bridge !== null) {
+  Object.defineProperty(globalThis, '__overseerCoexistenceBridge', {
+    configurable: true,
+    value: bridge,
+  });
+}
+const app = bridge === null
+  ? mountOverseerApp(root, fakeDesktopPort)
+  : mountOverseerLeaves(root, coexistencePort ?? fakeDesktopPort, bridge);
+let mounted = true;
+const browserFixture = Object.freeze({
+  unmount(): void {
+    if (!mounted) return;
+    mounted = false;
+    app.unmount();
+  },
+});
+
+Object.defineProperty(globalThis, '__overseerVueFixture', {
+  configurable: true,
+  value: browserFixture,
+});

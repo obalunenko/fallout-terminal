@@ -5,6 +5,20 @@
 **Status**: Draft
 **Input**: Migrate both production frontends to independently owned, strictly typed component applications while preserving every established user, protocol, security, build, and distribution contract.
 
+**Bugfix**: 2026-08-30 — BUG-001 Clarified that the isolated Player candidate document uses Vite's conventional `frontend/client/test-fixtures/index.html` entry so wave-c task-local builds do not require an early `vite.config.ts` change or alter production selection.
+
+**Bugfix**: 2026-08-30 — BUG-002 Clarified that the T048 update-leaf GREEN slice includes its existing Vue root, mount integration, and production document files so its required focused result is locally achievable without duplicate IDs or mixed ownership under FR-031 and FR-032.
+
+**Bugfix**: 2026-08-30 — BUG-003 Clarified that T048 owns the governed candidate-entry/browser injection seam needed to execute production Vue SFCs inside the raw coexistence fixture with its existing fixture-backed desktop port, without teaching the Go server to compile source; the isolated candidate still uses the typed fake.
+
+**Bugfix**: 2026-08-30 — BUG-004 Clarified that T052 owns the existing App/candidate-entry/browser integration seam required to make its command-approval GREEN result locally observable under FR-031 and FR-032.
+
+**Bugfix**: 2026-08-30 — BUG-005 Clarified that T053 owns the existing App/candidate-entry integration seam and affected aggregate-cleanup regression required to make its terminal-navigation approval GREEN result locally observable while preserving each leaf's focus and exact-once lifecycle contract.
+
+**Bugfix**: 2026-08-30 — BUG-006 Clarified that T054 owns the App/document/candidate and typed coexistence-bridge integration needed to transfer legacy-produced terminal-switch requests into one Vue dialog owner and verify that transfer locally.
+
+**Bugfix**: 2026-08-30 — BUG-007 Clarified that T055 owns the existing App integration required to mount its bridge-correlated command-state reset confirmation leaf.
+
 ## Clarifications
 
 ### Session 2026-08-30

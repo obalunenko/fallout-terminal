@@ -3,8 +3,15 @@ import { expect, test } from '@playwright/test';
 const FIXTURE = '/__fixture/terminal-navigation';
 const OVERSEER = `${FIXTURE}/overseer`;
 
+test.use({ bypassCSP: true });
+
+async function mountOverseerCandidate(page) {
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?terminal-navigation'));
+}
+
 async function openOverseer(page) {
   await page.goto(OVERSEER);
+  await mountOverseerCandidate(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 }
@@ -164,7 +171,7 @@ test('active player identity is an immersive lower system line', async ({ browse
 });
 
 test('lower status stays contained on narrow, short, and hacking surfaces', async ({ browser }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
 
@@ -331,8 +338,42 @@ test('one forward request opens one exact overseer dialog and close rejects it',
   await expect(dialog).toBeHidden();
 });
 
+test('terminal navigation approval rejects stale and repeated decisions', async ({ page, request }) => {
+  await openOverseer(page);
+  const armed = await request.post(`${FIXTURE}/pending-forward`);
+  expect(armed.ok()).toBe(true);
+  const pending = await coordinationSnapshot(request);
+  const dialog = page.locator('#overseerVueLeaves #terminalNavigationDialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#btnApproveTerminalNavigation')).toBeFocused();
+
+  await dialog.locator('#btnApproveTerminalNavigation').evaluate((button) => {
+    button.click();
+    button.click();
+  });
+  await expect.poll(() => page.evaluate(() => __desktopFixture.calls
+    .filter(call => call.method === 'ResolveTerminalNavigation'))).toHaveLength(1);
+  await expect(dialog).toBeHidden();
+
+  await page.evaluate((stale) => {
+    __desktopFixture.emit('coordination-state', stale);
+  }, pending);
+  await expect(dialog).toBeHidden();
+  expect(await page.evaluate(() => __desktopFixture.calls
+    .filter(call => call.method === 'ResolveTerminalNavigation'))).toHaveLength(1);
+
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
+  const released = await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    return __desktopFixture.releaseCount('coordination-state');
+  });
+  expect(released).toBeGreaterThan(0);
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
+});
+
 test('approved first entry opens the destination hack at root without a terminal-switch decision', async ({ browser }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const player = await openPlayer(browser);
@@ -347,7 +388,7 @@ test('approved first entry opens the destination hack at root without a terminal
 });
 
 test('same-group forward remains pending for controller and observer until one Overseer approval', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const controller = await openParticipant(browser);
@@ -397,7 +438,7 @@ test('same-group forward remains pending for controller and observer until one O
 });
 
 test('cross-group forward attempts by controller and observer have zero navigation effect', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const controller = await openParticipant(browser);
@@ -447,7 +488,7 @@ for (const command of [
 ]) {
   test(`${command.mode} command preserves its approve/reject/close result across controller, observers, and reconnect`, async ({ browser, request }) => {
     const runDecision = async decision => {
-      const overseerContext = await browser.newContext();
+      const overseerContext = await browser.newContext({ bypassCSP: true });
       const overseer = await overseerContext.newPage();
       await openOverseer(overseer);
       const controller = await openParticipant(browser);
@@ -544,7 +585,7 @@ for (const command of [
 
 test('direct pending replaces every player menu with the inert record surface across reconnect and decisions', async ({ browser, request }) => {
   const runDecision = async decision => {
-    const overseerContext = await browser.newContext();
+    const overseerContext = await browser.newContext({ bypassCSP: true });
     const overseer = await overseerContext.newPage();
     await openOverseer(overseer);
     const controller = await openParticipant(browser);
@@ -620,7 +661,7 @@ test('direct pending replaces every player menu with the inert record surface ac
 
 test('return pending replaces every player menu with the inert record surface across reconnect and decisions', async ({ browser, request }) => {
   const runDecision = async decision => {
-    const overseerContext = await browser.newContext();
+    const overseerContext = await browser.newContext({ bypassCSP: true });
     const overseer = await overseerContext.newPage();
     await openOverseer(overseer);
     const controller = await openParticipant(browser);
@@ -693,7 +734,7 @@ test('return pending replaces every player menu with the inert record surface ac
 });
 
 test('an unfinished destination hack resumes with the exact retained progress', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const player = await openPlayer(browser);
@@ -720,7 +761,7 @@ test('an unfinished destination hack resumes with the exact retained progress', 
 });
 
 test('trusted success stays unambiguous when the unsuccessful guess result arrives before the solved snapshot', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const controller = await openParticipant(browser);
@@ -744,7 +785,7 @@ test('trusted success stays unambiguous when the unsuccessful guess result arriv
 });
 
 test('first-guess presentation cannot reject after the private Overseer solve', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const controller = await openParticipant(browser);
@@ -791,7 +832,7 @@ test('first-guess presentation cannot reject after the private Overseer solve', 
 });
 
 test('late shared hacking rejection cannot outlive a trusted solved snapshot', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const controller = await openParticipant(browser);
@@ -835,7 +876,7 @@ test('late shared hacking rejection cannot outlive a trusted solved snapshot', a
 });
 
 test('root return stays pending on reject, then restores the nested source menu on approve', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const player = await openPlayer(browser);
@@ -868,7 +909,7 @@ test('root return stays pending on reject, then restores the nested source menu 
 });
 
 test('deleted source folder falls back to root without losing the terminal route', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const player = await openPlayer(browser);
@@ -889,7 +930,7 @@ test('deleted source folder falls back to root without losing the terminal route
 });
 
 test('controller and two observers reconnect during pending and converge before new-broadcast cleanup', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const controller = await openParticipant(browser);
@@ -930,7 +971,7 @@ test('controller and two observers reconnect during pending and converge before 
 });
 
 test('stale target approval fails safely and keeps the source terminal active', async ({ browser, request }) => {
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const player = await openPlayer(browser);
@@ -949,7 +990,7 @@ test('stale target approval fails safely and keeps the source terminal active', 
 
 test('A to B to C returns unwind exactly B then A', async ({ browser, request }) => {
 	expect((await request.post(`${FIXTURE}/group-full-route`)).ok()).toBe(true);
-  const overseerContext = await browser.newContext();
+  const overseerContext = await browser.newContext({ bypassCSP: true });
   const overseer = await overseerContext.newPage();
   await openOverseer(overseer);
   const player = await openPlayer(browser);
