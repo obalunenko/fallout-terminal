@@ -94,7 +94,7 @@
         "T155",
         "T160",
         "T176",
-        "T194"
+        "T195"
       ]
     },
     "FR-002": {
@@ -258,7 +258,7 @@
         "T173",
         "T175",
         "T186",
-        "T194"
+        "T195"
       ]
     },
     "FR-006": {
@@ -501,7 +501,7 @@
         "T167",
         "T177",
         "T186",
-        "T194"
+        "T195"
       ]
     },
     "FR-018": {
@@ -697,7 +697,7 @@
         "T180",
         "T181",
         "T186",
-        "T194"
+        "T195"
       ]
     },
     "FR-025": {
@@ -909,7 +909,8 @@
         "T190",
         "T191",
         "T192",
-        "T194"
+        "T194",
+        "T195"
       ]
     },
     "FR-032": {
@@ -1017,7 +1018,8 @@
         "T183",
         "T192",
         "T193",
-        "T194"
+        "T194",
+        "T195"
       ]
     },
     "FR-035": {
@@ -1047,7 +1049,7 @@
         "T191",
         "T192",
         "T193",
-        "T194"
+        "T195"
       ]
     },
     "FR-036": {
@@ -1060,7 +1062,7 @@
         "T190",
         "T191",
         "T192",
-        "T194"
+        "T195"
       ]
     },
     "FR-037": {
@@ -1154,7 +1156,8 @@
         "T177",
         "T191",
         "T193",
-        "T194"
+        "T194",
+        "T195"
       ]
     },
     "FR-041": {
@@ -1304,7 +1307,7 @@
         "T028",
         "T030",
         "T177",
-        "T194"
+        "T195"
       ]
     },
     "FR-050": {
@@ -1497,7 +1500,7 @@
       "details": "Executable wave-a bootstrap; exhaustive Player foundation boundary; task-local RED/GREEN checks; per-task Go workflow; exact path, consumer, and temporary inventories; exact Node contract; granular slices; direct traceability; safe optional parallelism; bounded active-template maintenance."
     },
     "tasks": {
-      "summary": "194 executable tasks across nine strict waves a-i; complete direct FR/SC/CHK coverage, 18 temporary mechanisms, 10 canonical targets, acyclic dependencies and verification, exact consumer ordering, and Definition-of-Done traceability."
+      "summary": "195 tasks across setup, foundational waves a-c, user-story waves d-h, and final wave i; 14 governed RED/GREEN pairs and complete FR/SC/CHK traceability"
     }
   },
   "verified": [
