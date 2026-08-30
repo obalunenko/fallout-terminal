@@ -522,9 +522,49 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-30T16:23:14.873Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T057",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T17:09:17.917Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T058",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T17:25:58.457Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T059",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T17:43:14.742Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T060",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T17:52:42.196Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T061",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T17:59:42.215Z"
     }
   ],
-  "last_action": "Implemented and materialized through T056; next dependency is T057 session document controls.",
+  "last_action": "T061 complete and validated; T062 BUG-013 scope patched, code implementation next",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -606,6 +646,10 @@
         "T162",
         "T163",
         "T179"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::player management rows reject stale save and release modal resources",
+        "tests/browser/player-management.spec.mjs::player-management regression suite excluding T061 sentinel"
       ]
     },
     "FR-003": {
@@ -683,6 +727,10 @@
         "T096",
         "T106",
         "T179"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::closed or rebound dialog ignores stale result and releases listener",
+        "tests/browser/player-management.spec.mjs::uses custom deletion confirmation cancels without a call then confirms with latest revision"
       ]
     },
     "FR-005": {
@@ -1113,6 +1161,10 @@
         "T097",
         "T106",
         "T179"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::closed or rebound dialog ignores stale result and releases listener",
+        "tests/browser/player-management.spec.mjs::uses custom deletion confirmation cancels without a call then confirms with latest revision"
       ]
     },
     "FR-023": {
@@ -1125,6 +1177,9 @@
         "T088",
         "T106",
         "T171"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::player configuration preserves references and validation"
       ]
     },
     "FR-024": {
@@ -1246,6 +1301,10 @@
         "T093",
         "T106",
         "T179"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::closed or rebound dialog ignores stale result and releases listener",
+        "tests/browser/player-management.spec.mjs::uses custom deletion confirmation cancels without a call then confirms with latest revision"
       ]
     },
     "FR-029": {
@@ -1366,6 +1425,9 @@
         "T192",
         "T194",
         "T195"
+      ],
+      "tests": [
+        "tests/browser/player-sessions-control.spec.mjs::session document controls preserve open new save close and stale completion"
       ]
     },
     "FR-032": {
@@ -1399,6 +1461,9 @@
         "T169",
         "T173",
         "T192"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::player configuration preserves references and validation"
       ]
     },
     "FR-033": {
@@ -1839,6 +1904,10 @@
         "T162",
         "T169",
         "T192"
+      ],
+      "tests": [
+        "tests/browser/player-management.spec.mjs::closed or rebound dialog ignores stale result and releases listener",
+        "tests/browser/player-management.spec.mjs::uses custom deletion confirmation cancels without a call then confirms with latest revision"
       ]
     }
   },
@@ -1951,6 +2020,41 @@
       "decision": "Use frontend/client/test-fixtures/index.html as the isolated Player candidate root",
       "why": "Vite root builds resolve index.html without modifying the production config before T107",
       "rejected": "Keep candidate-index.html and prematurely add candidate selection to read-only vite.config.ts"
+    },
+    {
+      "decision": "Vue owns session document commands and sends only a validated session plus non-empty file path through the typed coexistence bridge to the remaining legacy renderer.",
+      "why": "This removes duplicate DOM and command ownership now while preserving document rendering and autosave until their scheduled migration slices.",
+      "rejected": "Cross-root DOM access or retaining legacy open/new click handlers."
+    },
+    {
+      "decision": "Legacy publishes detached coordination projections and a generic open request; Vue owns keyed logical-session rows, modal lifecycle, validation, and revision-aware commands.",
+      "why": "This preserves the legacy shell summary during coexistence while removing all dialog/template/rendering ownership and preventing stale completions from rebinding the modal.",
+      "rejected": "Cross-root DOM mutation or retaining the legacy logical-session renderer."
+    },
+    {
+      "decision": "Mount player-configuration controls through one Teleport into the existing coordination-panel leaf while keeping the same Vue app/root.",
+      "why": "Preserves layout and exact public selectors while transferring subtree ownership without introducing a second Vue root.",
+      "rejected": "A second Vue app mounted directly into the legacy panel."
+    },
+    {
+      "decision": "Attach the legacy coexistence bridge after Vue mounts and replay retained startup/coordination projections then.",
+      "why": "Composable subscriptions must exist before retained state is delivered; this also makes candidate rebinding deterministic.",
+      "rejected": "Delivering retained projections before mount and losing initial state."
+    },
+    {
+      "decision": "Keep delete confirmation temporarily legacy-owned behind detached bridge messages while moving the parent dialog and rows atomically to Vue.",
+      "why": "T061 explicitly owns delete-confirmation migration; the bridge preserves current focus and mutation behavior without mixed DOM ownership.",
+      "rejected": "Moving T061 work early or retaining legacy row DOM queries."
+    },
+    {
+      "decision": "Reset the add form only after an authoritative successful result.",
+      "why": "Preserves user drafts on rejection and matches the established atomic-save behavior.",
+      "rejected": "Clearing inputs immediately when submission starts."
+    },
+    {
+      "decision": "Keep authoritative coordination application in the temporary legacy bridge while Vue owns delete request, modal lifecycle, pending state, stale guards, and focus.",
+      "why": "Preserves one coordination authority until atomic Overseer cutover without retaining any legacy delete DOM ownership.",
+      "rejected": "Duplicating coordination state mutation inside both owners."
     }
   ],
   "step_summaries": {
@@ -2077,10 +2181,138 @@
       "command": "scripts/frontend-expected-red-check.sh --task T056 --evidence specs/033-frontend-vue-typescript-migration/evidence/T056-session-player-red.txt --expect AssertionError... -- scripts/frontend-focused-browser-check.sh tests/browser/player-management.spec.mjs closed-or-rebound...",
       "result": "PASS: only the sanctioned assertion was accepted and exact evidence was written",
       "warnings": []
+    },
+    {
+      "what": "T057 strict and retained legacy compiler checks",
+      "command": "task frontend:typecheck:overseer && npx --prefix frontend tsc --noEmit -p frontend/overseer/tsconfig.legacy.json",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "T057 governed Overseer candidate build",
+      "command": "npx --prefix frontend vite build frontend/overseer/test-fixtures --config frontend/overseer/vite.config.ts --mode candidate",
+      "result": "PASS: 37 modules transformed",
+      "warnings": []
+    },
+    {
+      "what": "T057 exact session-document lifecycle browser contract",
+      "command": "scripts/frontend-focused-browser-check.sh tests/browser/player-sessions-control.spec.mjs session document controls preserve open new save close and stale completion",
+      "result": "PASS: exact one selected; 1 passed",
+      "warnings": [
+        "NO_COLOR ignored because FORCE_COLOR is set"
+      ]
+    },
+    {
+      "what": "Affected startup status regression",
+      "command": "scripts/frontend-focused-browser-check.sh tests/browser/application-update.spec.mjs offline discovery failure is actionable and never becomes a startup failure",
+      "result": "PASS: exact one selected; 1 passed",
+      "warnings": [
+        "NO_COLOR ignored because FORCE_COLOR is set"
+      ]
+    },
+    {
+      "what": "T057 legacy handler absence and artifact consistency",
+      "command": "frontend-assert-no-match plus 195-task BUG-008 consistency checks and git diff --check",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "T058 strict, retained legacy compiler, and candidate build",
+      "command": "task frontend:typecheck:overseer; legacy tsc; candidate Vite build",
+      "result": "PASS: 42 modules transformed",
+      "warnings": []
+    },
+    {
+      "what": "T058 exact logical-session stale lifecycle contract",
+      "command": "scripts/frontend-focused-browser-check.sh tests/browser/player-sessions-control.spec.mjs logical-session rows ignore stale close and rebind",
+      "result": "PASS: exact one selected; 1 passed",
+      "warnings": [
+        "NO_COLOR ignored because FORCE_COLOR is set",
+        "one sandboxed attempt could not bind localhost; approved rerun passed"
+      ]
+    },
+    {
+      "what": "Logical-session established dialog, mobile, and correction regressions",
+      "command": "focused state-changing authoring and player-management assertions",
+      "result": "PASS: reactive dialog, seven-session mobile scroll, and four correction actions",
+      "warnings": [
+        "NO_COLOR ignored because FORCE_COLOR is set"
+      ]
+    },
+    {
+      "what": "T058 legacy renderer absence and BUG-009 consistency",
+      "command": "status-aware no-match, nine patched bug reports, 195 task definitions, git diff --check",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "T059 Overseer strict and legacy coexistence typechecks",
+      "command": "task frontend:typecheck:overseer; npx --prefix frontend tsc --noEmit -p frontend/overseer/tsconfig.legacy.json",
+      "result": "pass",
+      "warnings": []
+    },
+    {
+      "what": "T059 exact candidate build",
+      "command": "npx --prefix frontend vite build frontend/overseer/test-fixtures --config frontend/overseer/vite.config.ts --mode candidate --outDir <temporary>",
+      "result": "pass; 45 modules transformed",
+      "warnings": []
+    },
+    {
+      "what": "T059 player-configuration reference and validation browser contract",
+      "command": "scripts/frontend-focused-browser-check.sh tests/browser/player-management.spec.mjs player configuration preserves references and validation",
+      "result": "1 passed",
+      "warnings": [
+        "Node FORCE_COLOR warning judged benign"
+      ]
+    },
+    {
+      "what": "T059 adjacent coexistence regressions",
+      "command": "focused player-management correction, session-document, logical-session, and application-update local-control assertions",
+      "result": "4 passed",
+      "warnings": [
+        "Node FORCE_COLOR warning judged benign"
+      ]
+    },
+    {
+      "what": "T060 strict and legacy typechecks plus candidate build",
+      "command": "task frontend:typecheck:overseer; legacy tsc; candidate vite build",
+      "result": "pass; 50 modules transformed",
+      "warnings": []
+    },
+    {
+      "what": "T060 governed stale-save and cleanup contract",
+      "command": "scripts/frontend-focused-browser-check.sh tests/browser/player-management.spec.mjs player management rows reject stale save and release modal resources",
+      "result": "1 passed",
+      "warnings": [
+        "Node FORCE_COLOR warning judged benign"
+      ]
+    },
+    {
+      "what": "T060 applicable player-management regressions",
+      "command": "npm test --prefix tests/browser -- player-management.spec.mjs --grep-invert closed or rebound dialog ignores stale result and releases listener",
+      "result": "14 passed",
+      "warnings": [
+        "T061 RED sentinel intentionally excluded",
+        "Node FORCE_COLOR warning judged benign"
+      ]
+    },
+    {
+      "what": "T061 typechecks and candidate build",
+      "command": "strict typecheck; legacy tsc; candidate vite build",
+      "result": "pass; 52 modules transformed",
+      "warnings": []
+    },
+    {
+      "what": "T061 former T056 RED sentinel and delete atomicity/focus regression",
+      "command": "two focused player-management Playwright assertions",
+      "result": "2 passed",
+      "warnings": [
+        "Node FORCE_COLOR warning judged benign"
+      ]
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T056",
+  "currentTask": "T061",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2630,6 +2862,97 @@
       "files": [
         "tests/browser/player-management.spec.mjs",
         "specs/033-frontend-vue-typescript-migration/evidence/T056-session-player-red.txt"
+      ]
+    },
+    "T057": {
+      "status": "DONE",
+      "did": "Migrated validated open/new session controls to Vue with startup projection, stale-unmount suppression, and legacy renderer handoff.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/SessionControls.vue",
+        "frontend/overseer/src/composables/useSessionDocument.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "tests/browser/fixtures/desktop-bindings.js",
+        "tests/browser/player-sessions-control.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-008.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md"
+      ]
+    },
+    "T058": {
+      "status": "DONE",
+      "did": "Migrated logical-session dialog and stable keyed rows to Vue with revision-aware commands, focus restoration, stale close/rebind suppression, and cleanup.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/LogicalSessionDialog.vue",
+        "frontend/overseer/src/components/LogicalSessionRow.vue",
+        "frontend/overseer/src/composables/useLogicalSessions.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/player-management.spec.mjs",
+        "tests/browser/player-sessions-control.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-009.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md"
+      ]
+    },
+    "T059": {
+      "status": "DONE",
+      "did": "Migrated player-configuration document controls into one Vue-owned leaf with authoritative revision, session-reference, validation, broadcast-blocking, player-dialog handoff, and cleanup behavior; removed matching legacy ownership.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/PlayerConfigControls.vue",
+        "frontend/overseer/src/composables/usePlayerConfiguration.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "tests/browser/fixtures/desktop-bindings.js",
+        "tests/browser/player-management.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-010.md"
+      ]
+    },
+    "T060": {
+      "status": "DONE",
+      "did": "Migrated the player-management modal, success-gated add form, stable profile rows, validation, revision and lifecycle guards, read-only behavior, focus restoration, and cleanup into Vue; removed the exact legacy dialog renderer and listeners while retaining the T061 delete-confirmation handoff.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/PlayerManagementDialog.vue",
+        "frontend/overseer/src/components/PlayerProfileRow.vue",
+        "frontend/overseer/src/composables/usePlayerManagement.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/player-management.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-011.md"
+      ]
+    },
+    "T061": {
+      "status": "DONE",
+      "did": "Migrated player-delete confirmation into a Vue-owned, idempotent modal with expected-revision payloads, stale lifecycle rejection, exact focus restoration, authoritative result handoff, and subscription cleanup; removed all legacy dialog markup and listeners and turned T056 GREEN.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/PlayerDeleteDialog.vue",
+        "frontend/overseer/src/components/PlayerManagementDialog.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-012.md"
       ]
     }
   },

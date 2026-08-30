@@ -7,6 +7,7 @@ import {
 
 const TOKEN_KEY = 'fallout-terminal.player-token';
 const PLAYER_SERVICE = '/fallout.terminal.player.v1.PlayerService/';
+const OVERSEER_AUTHORING_FIXTURE = '/__fixture/state-changing-command-authoring';
 
 test.beforeEach(async ({ request }) => {
   const response = await request.post('/__fixture/reset');
@@ -48,6 +49,11 @@ async function openPlayer(page, storedToken = null, options = {}) {
   await page.goto('/');
   await expect(page.locator('#connOverlay')).toBeHidden();
   await expect.poll(() => page.evaluate(() => window.__webSocketConstructions)).toBe(0);
+}
+
+async function mountOverseerCandidate(page, instance) {
+  await page.goto(OVERSEER_AUTHORING_FIXTURE);
+  await page.evaluate(key => import(`http://127.0.0.1:34120/candidate-main.ts?session-document-${key}`), instance);
 }
 
 async function selectFirstAvailable(page) {
@@ -121,6 +127,142 @@ function trackFirstPartyPageDiagnostics(page) {
     };
   };
 }
+
+test('session document controls preserve open new save close and stale completion', async ({ browser }) => {
+  const context = await browser.newContext({ bypassCSP: true });
+
+  const openPage = await context.newPage();
+  await mountOverseerCandidate(openPage, 'open');
+  await openPage.locator('#btnOpenSession').click();
+  await expect(openPage.locator('#mainLayout')).toBeVisible();
+  await expect(openPage.locator('#sessionFileLabel')).toHaveText('/private/tmp/fallout-state-changing-authoring.json');
+  await openPage.locator('#hackLevelSelect').selectOption('1');
+  await openPage.locator('#btnApplySettings').click();
+  await expect.poll(() => openPage.evaluate(() => (
+    __desktopFixture.calls.filter(call => call.method === 'SaveSession').length
+  ))).toBe(1);
+
+  const newPage = await context.newPage();
+  await mountOverseerCandidate(newPage, 'new');
+  await newPage.locator('#btnNewSession').click();
+  await expect(newPage.locator('#mainLayout')).toBeVisible();
+  await expect(newPage.locator('#sessionFileLabel')).toHaveText('/private/tmp/fallout-state-changing-authoring-new.json');
+  await expect.poll(() => newPage.evaluate(() => (
+    __desktopFixture.calls.filter(call => call.method === 'NewSession').length
+  ))).toBe(1);
+
+  const stalePage = await context.newPage();
+  let releaseSession;
+  const sessionGate = new Promise(resolve => { releaseSession = resolve; });
+  let sessionRequested = false;
+  await stalePage.route(`**${OVERSEER_AUTHORING_FIXTURE}/session`, async route => {
+    sessionRequested = true;
+    await sessionGate;
+    await route.continue();
+  });
+  await mountOverseerCandidate(stalePage, 'stale');
+  await stalePage.locator('#btnOpenSession').click();
+  await expect.poll(() => sessionRequested).toBe(true);
+  await stalePage.evaluate(() => {
+    __overseerVueFixture.unmount();
+    __overseerVueFixture.unmount();
+  });
+  await expect(stalePage.locator('#overseerVueLeaves')).toBeEmpty();
+
+  const sessionResponse = stalePage.waitForResponse(response => (
+    response.url().endsWith(`${OVERSEER_AUTHORING_FIXTURE}/session`)
+  ));
+  releaseSession();
+  await sessionResponse;
+  await stalePage.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(stalePage.locator('#mainLayout')).toBeHidden();
+
+  await context.close();
+});
+
+test('logical-session rows ignore stale close and rebind', async ({ browser }) => {
+  const context = await browser.newContext({ bypassCSP: true });
+  const page = await context.newPage();
+  await mountOverseerCandidate(page, 'logical-sessions');
+  await page.locator('#btnOpenSession').click();
+  await expect(page.locator('#mainLayout')).toBeVisible();
+
+  const roster = [
+    { id: 'character-1', name: 'Амата', claimedBySessionId: 'session-1' },
+    { id: 'character-2', name: 'Буч', claimedBySessionId: '' },
+  ];
+  const sessions = [
+    {
+      id: 'session-1', fallbackName: 'Убежище 101', connected: true, role: 'active',
+      character: { id: 'character-1', name: 'Амата' },
+    },
+    {
+      id: 'session-2', fallbackName: 'Пип-Бой гостя', connected: true, role: 'observer', character: null,
+    },
+  ];
+  const emitCoordination = (revision, nextSessions) => page.evaluate(({ nextRevision, nextRoster, values }) => {
+    __desktopFixture.emit('coordination-state', {
+      revision: nextRevision,
+      broadcast: { id: 'broadcast-logical', activeTerminalId: 'terminal-stateful' },
+      playerConfig: { name: 'Игроки', filePath: '/private/tmp/players.json' },
+      roster: nextRoster,
+      sessions: values,
+    });
+  }, { nextRevision: revision, nextRoster: roster, values: nextSessions });
+
+  await emitCoordination(90, sessions);
+  const opener = page.locator('#btnManageLogicalSessions');
+  const dialog = page.locator('#logicalSessionDialog');
+  await opener.click();
+  await expect(dialog).toBeVisible();
+  const retainedRow = dialog.locator('[data-session-id="session-2"]');
+  await retainedRow.evaluate(element => { element.dataset.stableMarker = 'retained'; });
+  await emitCoordination(91, [sessions[1], sessions[0]]);
+  await expect(retainedRow).toHaveAttribute('data-stable-marker', 'retained');
+
+  await page.evaluate(() => {
+    const row = document.querySelector('[data-session-id="session-2"]');
+    const input = row.querySelector('.session-name-input');
+    input.value = 'Закрытая сессия';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    row.querySelector('.session-rename').click();
+    document.querySelector('#btnCloseLogicalSessions').click();
+  });
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+
+  await opener.click();
+  await expect(dialog).toBeVisible();
+  await page.evaluate(({ nextRoster }) => {
+    const row = document.querySelector('[data-session-id="session-2"]');
+    const input = row.querySelector('.session-name-input');
+    input.value = 'Устаревшая сессия';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    row.querySelector('.session-rename').click();
+    __desktopFixture.emit('coordination-state', {
+      revision: 92,
+      broadcast: { id: 'broadcast-logical', activeTerminalId: 'terminal-stateful' },
+      playerConfig: { name: 'Игроки', filePath: '/private/tmp/players.json' },
+      roster: nextRoster,
+      sessions: [{
+        id: 'session-3', fallbackName: 'Новая сессия', connected: true, role: 'observer', character: null,
+      }],
+    });
+  }, { nextRoster: roster });
+  await expect(dialog.locator('[data-session-id="session-2"]')).toHaveCount(0);
+  await expect(dialog.locator('[data-session-id="session-3"]')).toHaveCount(1);
+  await expect(page.locator('#logicalSessionDialogStatus')).toBeEmpty();
+  await expect(page.locator('#logicalSessionDialogError')).toBeHidden();
+
+  await page.evaluate(() => {
+    const row = document.querySelector('[data-session-id="session-3"]');
+    row.querySelector('.session-rename').click();
+    __overseerVueFixture.unmount();
+  });
+  await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
+
+  await context.close();
+});
 
 test('initial player page has no first-party console or static-request diagnostics', async ({ page }) => {
   const diagnostics = trackFirstPartyPageDiagnostics(page);

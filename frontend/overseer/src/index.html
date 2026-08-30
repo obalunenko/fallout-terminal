@@ -9,19 +9,6 @@
 <body>
 <div id="legacyOverseerRoot" style="height:100%">
 
-<!-- ── START SCREEN ─────────────────────────────────────── -->
-<div class="start-screen" id="startScreen">
-  <div class="start-box">
-    <div class="start-title">FALLOUT TERMINAL</div>
-    <div class="start-sub">OVERSEER CONTROL — VAULT-TEC R&amp;D</div>
-    <div class="start-actions">
-      <button class="btn btn-primary" id="btnOpenSession">ОТКРЫТЬ СЕССИЮ</button>
-      <button class="btn btn-secondary" id="btnNewSession">НОВАЯ СЕССИЯ</button>
-    </div>
-    <div class="start-status" id="startStatus" data-state="starting" role="status" aria-live="polite" aria-atomic="true">ЗАПУСК ЛОКАЛЬНОГО СЕРВЕРА…</div>
-  </div>
-</div>
-
 <!-- ── MAIN LAYOUT ──────────────────────────────────────── -->
 <div class="layout" id="mainLayout" style="display:none">
 
@@ -61,16 +48,7 @@
           <button class="btn btn-danger full-w" id="btnStopBroadcast" type="button" hidden>СНЯТЬ С ЭФИРА</button>
         </div>
 
-        <section class="coord-group player-config-management" aria-labelledby="playerConfigHeading">
-          <h2 class="coord-group-title" id="playerConfigHeading">КОНФИГУРАЦИЯ ИГРОКОВ</h2>
-          <div class="player-config-status" id="playerConfigStatus" role="status" aria-live="polite" aria-atomic="true">НЕ ВЫБРАНА</div>
-          <div class="player-config-actions" role="group" aria-label="Выбор конфигурации игроков">
-            <button class="btn btn-mini" id="btnOpenPlayerConfig" type="button">ВЫБРАТЬ ФАЙЛ</button>
-            <button class="btn btn-mini btn-secondary" id="btnNewPlayerConfig" type="button">СОЗДАТЬ ФАЙЛ</button>
-            <button class="btn btn-mini btn-secondary" id="btnManagePlayers" type="button" disabled>УПРАВЛЯТЬ ИГРОКАМИ</button>
-          </div>
-          <div class="player-config-error" id="playerConfigError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-        </section>
+        <section id="playerConfigVueLeaf" class="coord-group player-config-management" aria-labelledby="playerConfigHeading"></section>
 
         <section class="coord-group session-management" aria-labelledby="logicalSessionsHeading">
           <h2 class="coord-group-title" id="logicalSessionsHeading">ЛОГИЧЕСКИЕ СЕССИИ</h2>
@@ -274,149 +252,6 @@
   </div>
 </dialog>
 
-<dialog class="logical-session-dialog" id="logicalSessionDialog" aria-modal="true" aria-labelledby="logicalSessionDialogTitle" aria-describedby="logicalSessionDialogStatus logicalSessionDialogError" hidden>
-  <div class="logical-session-dialog-panel">
-    <header class="logical-session-dialog-header">
-      <div>
-        <h2 class="logical-session-dialog-title" id="logicalSessionDialogTitle">ЛОГИЧЕСКИЕ СЕССИИ</h2>
-        <p class="logical-session-dialog-description">ПОДРОБНАЯ ИНФОРМАЦИЯ И УПРАВЛЕНИЕ РАСПОЗНАННЫМИ СЕССИЯМИ</p>
-      </div>
-      <button class="btn btn-secondary" id="btnCloseLogicalSessions" type="button">ЗАКРЫТЬ</button>
-    </header>
-
-    <div class="session-list logical-session-dialog-list" id="logicalSessionList" role="list" aria-label="Распознанные логические сессии">
-      <div class="session-empty" role="listitem">СЕССИИ НЕ ПОДКЛЮЧЕНЫ</div>
-    </div>
-
-    <div class="logical-session-dialog-feedback" aria-label="Состояние операций с логическими сессиями">
-      <div class="logical-session-dialog-status" id="logicalSessionDialogStatus" role="status" aria-live="polite" aria-atomic="true"></div>
-      <div class="logical-session-dialog-error" id="logicalSessionDialogError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    </div>
-  </div>
-
-  <template id="logicalSessionRowTemplate">
-    <article class="session-row logical-session-row" role="listitem" data-session-id="" data-connected="false" data-role="unassigned">
-      <header class="session-summary">
-        <span class="session-primary-name">—</span>
-        <span class="session-presence" data-presence="disconnected">ОТКЛЮЧЕН</span>
-        <span class="session-role" data-session-role="unassigned">БЕЗ РОЛИ</span>
-      </header>
-      <div class="session-identity">
-        <span class="session-character-name">ПЕРСОНАЖ НЕ НАЗНАЧЕН</span>
-        <span class="session-fallback-label">—</span>
-      </div>
-      <div class="session-controls" role="group" aria-label="Исправление логической сессии и назначения">
-        <label class="field-label-inline session-name-field">
-          МЕТКА СЕССИИ
-          <input class="field-input session-name-input" name="sessionFallbackName" type="text" maxlength="80" autocomplete="off">
-        </label>
-        <button class="btn btn-mini session-rename" type="button" data-action="rename-logical-session">ПЕРЕИМЕНОВАТЬ СЕССИЮ</button>
-        <div class="session-assignment-controls" data-unassigned-only>
-          <label class="field-label-inline">
-            НАЗНАЧИТЬ ПЕРСОНАЖА
-            <select class="field-input session-character-select" name="assignCharacter"></select>
-          </label>
-          <button class="btn btn-mini session-assign" type="button" data-action="assign-character">НАЗНАЧИТЬ</button>
-        </div>
-        <div class="session-claimed-controls" data-assigned-only hidden>
-          <button class="btn btn-mini session-release" type="button" data-action="release-character">ОСВОБОДИТЬ ПЕРСОНАЖА</button>
-          <button class="btn btn-mini session-controller" type="button" data-action="set-active-controller">СДЕЛАТЬ УПРАВЛЯЮЩИМ</button>
-          <div class="session-move-controls">
-            <label class="field-label-inline">
-              ПЕРЕМЕСТИТЬ В СЕССИЮ
-              <select class="field-input session-move-session-select" name="moveCharacterToSession"></select>
-            </label>
-            <button class="btn btn-mini session-move" type="button" data-action="move-character">ПЕРЕМЕСТИТЬ</button>
-          </div>
-        </div>
-      </div>
-    </article>
-  </template>
-</dialog>
-
-<dialog class="player-management-dialog" id="playerManagementDialog" aria-modal="true" aria-readonly="false" aria-labelledby="playerManagementDialogTitle" aria-describedby="playerManagementMode playerManagementStatus playerManagementError" hidden>
-  <div class="player-management-dialog-panel">
-    <header class="player-management-dialog-header">
-      <div>
-        <h2 class="player-management-dialog-title" id="playerManagementDialogTitle">УПРАВЛЕНИЕ ИГРОКАМИ</h2>
-        <p class="player-management-mode" id="playerManagementMode" role="status" aria-live="polite" aria-atomic="true">РЕДАКТИРОВАНИЕ ДОСТУПНО</p>
-      </div>
-      <button class="btn btn-secondary" id="btnClosePlayerManagement" type="button">ЗАКРЫТЬ</button>
-    </header>
-
-    <section class="player-management-roster-section" aria-labelledby="playerManagementRosterHeading">
-      <h3 class="player-management-section-title" id="playerManagementRosterHeading">СПИСОК ИГРОКОВ</h3>
-      <div class="player-management-roster" id="playerManagementRoster" role="list" aria-label="Подробный список игроков"></div>
-      <p class="player-management-empty" id="playerManagementEmpty">ИГРОКИ ЕЩЁ НЕ ДОБАВЛЕНЫ</p>
-    </section>
-
-    <form class="player-management-add-form" id="playerManagementAddForm" aria-labelledby="playerManagementAddHeading" aria-describedby="playerManagementStatus playerManagementError">
-      <h3 class="player-management-section-title" id="playerManagementAddHeading">ДОБАВИТЬ ИГРОКА</h3>
-      <div class="player-management-field-grid">
-        <label class="field-label-inline" for="playerNameInput">
-          ИМЯ
-          <input class="field-input" id="playerNameInput" name="playerName" type="text" maxlength="80" autocomplete="off" required>
-        </label>
-        <label class="field-label-inline" for="playerIntelligenceInput">
-          ИНТЕЛЛЕКТ
-          <input class="field-input" id="playerIntelligenceInput" name="playerIntelligence" type="number" min="1" max="10" step="1" inputmode="numeric" required>
-        </label>
-        <label class="field-label-inline" for="playerHackerPerkAvailability">
-          ПЕРК «ХАКЕР»
-          <select class="field-input" id="playerHackerPerkAvailability" name="playerHackerPerkAvailable" required>
-            <option value="" selected>ВЫБЕРИТЕ ЗНАЧЕНИЕ</option>
-            <option value="false">НЕДОСТУПЕН</option>
-            <option value="true">ДОСТУПЕН</option>
-          </select>
-        </label>
-      </div>
-      <button class="btn btn-primary" id="btnAddPlayer" type="submit">ДОБАВИТЬ ИГРОКА</button>
-    </form>
-
-    <div class="player-management-feedback" aria-label="Состояние операций со списком игроков">
-      <div class="player-management-status" id="playerManagementStatus" role="status" aria-live="polite" aria-atomic="true"></div>
-      <div class="player-management-error" id="playerManagementError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    </div>
-  </div>
-
-  <template id="playerManagementRowTemplate">
-    <article class="player-management-row" role="listitem" data-character-id="">
-      <div class="player-management-row-fields">
-        <label class="field-label-inline">
-          ИМЯ
-          <input class="field-input player-name-input" name="playerName" type="text" maxlength="80" autocomplete="off" required>
-        </label>
-        <label class="field-label-inline">
-          ИНТЕЛЛЕКТ
-          <input class="field-input player-intelligence-input" name="playerIntelligence" type="number" min="1" max="10" step="1" inputmode="numeric" required>
-        </label>
-        <label class="field-label-inline">
-          ПЕРК «ХАКЕР»
-          <select class="field-input player-hacker-perk-availability" name="playerHackerPerkAvailable" required>
-            <option value="">ВЫБЕРИТЕ ЗНАЧЕНИЕ</option>
-            <option value="false">НЕДОСТУПЕН</option>
-            <option value="true">ДОСТУПЕН</option>
-          </select>
-        </label>
-      </div>
-      <div class="player-management-row-actions" role="group" aria-label="Изменение игрока">
-        <button class="btn btn-primary player-save" type="button">СОХРАНИТЬ</button>
-        <button class="btn btn-danger player-delete" type="button">УДАЛИТЬ</button>
-      </div>
-    </article>
-  </template>
-</dialog>
-
-<dialog class="terminal-switch-dialog player-delete-dialog" id="playerDeleteDialog" aria-modal="true" aria-labelledby="playerDeleteDialogTitle" aria-describedby="playerDeleteDialogDescription" hidden>
-  <div class="terminal-switch-dialog-panel">
-    <h2 class="terminal-switch-dialog-title" id="playerDeleteDialogTitle">УДАЛИТЬ ИГРОКА?</h2>
-    <p class="terminal-switch-dialog-description" id="playerDeleteDialogDescription"></p>
-    <div class="player-delete-actions" role="group" aria-label="Подтверждение удаления игрока">
-      <button class="btn btn-danger" id="btnConfirmPlayerDelete" type="button">УДАЛИТЬ ИГРОКА</button>
-      <button class="btn btn-secondary" id="btnCancelPlayerDelete" type="button">ОТМЕНА</button>
-    </div>
-  </div>
-</dialog>
 
 <dialog class="terminal-switch-dialog create-terminal-dialog" id="createTerminalDialog" aria-modal="true" aria-labelledby="createTerminalDialogTitle" aria-describedby="createTerminalDialogDescription createTerminalError" hidden>
   <form class="terminal-switch-dialog-panel" id="createTerminalForm" method="dialog" novalidate>

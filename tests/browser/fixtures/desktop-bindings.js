@@ -285,9 +285,58 @@ function authoringSessionResult() {
   };
 }
 
+async function authoringDocumentResult(filePath) {
+  const result = await authoringFixtureCommand('session');
+  return {
+    canceled: false,
+    ok: true,
+    filePath,
+    session: structuredClone(result.session),
+  };
+}
+
+async function playerConfigDocumentResult(method, filePath) {
+  state.calls.push({ method, args: [] });
+  const playerConfig = {
+    name: method === 'NewPlayerConfig' ? 'Новые игроки' : 'Игроки теста',
+    filePath,
+  };
+  const currentCoordination = playerManagementFixtureActive()
+    ? await playerManagementFixtureCommand('state')
+    : structuredClone(state.status.coordinationState);
+  const nextRevision = Math.max(
+    Number(currentCoordination?.revision ?? 0),
+    Number(state.playerConfigRevision ?? 0),
+  ) + 1;
+  state.playerConfigRevision = nextRevision;
+  const session = {
+    ...structuredClone(state.authoringSession),
+    playerConfig: filePath.split('/').at(-1),
+  };
+  state.authoringSession = session;
+  persistAuthoringState();
+  return {
+    canceled: false,
+    config: playerConfig,
+    ok: true,
+    session: structuredClone(session),
+    state: {
+      ...currentCoordination,
+      revision: nextRevision,
+      playerConfig,
+    },
+  };
+}
+
 globalThis.__desktopFixture = {
   calls: state.calls,
   timeline: state.calls,
+  authoringSession() {
+    return structuredClone(state.authoringSession);
+  },
+  playerConfigRevision() {
+    return Number(state.playerConfigRevision ?? 0);
+  },
   async authoringDurableState() {
     if (authoringFixtureActive()) await authoringFixtureCommand('session');
     return {
@@ -648,11 +697,29 @@ export function ForceHackSuccess(...args) {
     };
   });
 }
-export const LoadReferencedPlayerConfig = (...args) => record('LoadReferencedPlayerConfig', args);
+export function LoadReferencedPlayerConfig() {
+  if (!authoringFixtureActive() && !playerManagementFixtureActive()) {
+    return record('LoadReferencedPlayerConfig', []);
+  }
+  const reference = typeof state.authoringSession.playerConfig === 'string'
+    ? state.authoringSession.playerConfig
+    : 'fixture-players.json';
+  return playerConfigDocumentResult('LoadReferencedPlayerConfig', `/private/tmp/${reference}`);
+}
 export const MoveCharacter = (...args) => record('MoveCharacter', args);
-export const NewPlayerConfig = (...args) => record('NewPlayerConfig', args);
-export const NewSession = (...args) => record('NewSession', args);
-export const OpenPlayerConfig = (...args) => record('OpenPlayerConfig', args);
+export function NewPlayerConfig() {
+  if (!authoringFixtureActive() && !playerManagementFixtureActive()) return record('NewPlayerConfig', []);
+  return playerConfigDocumentResult('NewPlayerConfig', '/private/tmp/new-players.json');
+}
+export async function NewSession(...args) {
+  if (!authoringFixtureActive()) return record('NewSession', args);
+  state.calls.push({ method: 'NewSession', args: [] });
+  return authoringDocumentResult('/private/tmp/fallout-state-changing-authoring-new.json');
+}
+export function OpenPlayerConfig() {
+  if (!authoringFixtureActive() && !playerManagementFixtureActive()) return record('OpenPlayerConfig', []);
+  return playerConfigDocumentResult('OpenPlayerConfig', '/private/tmp/open-players.json');
+}
 export async function OpenSession(...args) {
 	if (!authoringFixtureActive() && !stateChangingLifecycleBase()) return record('OpenSession', args);
   state.calls.push({ method: 'OpenSession', args: [] });
@@ -680,12 +747,7 @@ export async function OpenSession(...args) {
 			session: response.ok ? await response.json() : null,
 		}));
 	}
-  const result = await authoringFixtureCommand('session');
-  return {
-    ok: true,
-    filePath: '/private/tmp/fallout-state-changing-authoring.json',
-    session: structuredClone(result.session),
-  };
+  return authoringDocumentResult('/private/tmp/fallout-state-changing-authoring.json');
 }
 export const OpenURL = (...args) => record('OpenURL', args);
 export const ReleaseCharacter = (...args) => record('ReleaseCharacter', args);

@@ -4,6 +4,12 @@
 
 **Authoritative inputs**: the clarified feature specification and Fallout Terminal Constitution 9.0.0
 
+**Bugfix**: 2026-08-30 — BUG-011 Updated wave-d player-management integration scope from bugfix patch.
+
+**Bugfix**: 2026-08-30 — BUG-012 Updated wave-d player-delete integration scope from bugfix patch.
+
+**Bugfix**: 2026-08-30 — BUG-013 Updated wave-d terminal-group dialog integration scope from bugfix patch.
+
 **Immutable pre-migration rollback commit**: `06696ee1c7155a1bb1135ef46ec91445dd73a2a4`
 
 ## Summary
@@ -272,6 +278,12 @@ Establish the shared strict compiler policy in `frontend/tsconfig.base.json`, th
 **Bugfix**: 2026-08-30 — BUG-006 The terminal-switch GREEN slice owns its production-document markup removal and routes legacy activation results through the existing typed coexistence bridge, with the same bridge constructed for raw candidate-fixture injection; T070 remains the approval-family ownership review gate.
 
 **Bugfix**: 2026-08-30 — BUG-007 The command-state reset GREEN slice reuses the existing App and typed coexistence bridge so legacy promise callers receive one correlated Vue confirmation result.
+
+**Bugfix**: 2026-08-30 — BUG-008 The session-document GREEN slice owns its start-screen markup transfer plus the existing App/candidate bridge and deterministic browser-fixture seams; later document-state consumers remain legacy-owned until their scheduled slices.
+
+**Bugfix**: 2026-08-30 — BUG-009 The logical-session GREEN slice owns its App integration, production dialog/template markup transfer, focused browser assertion, and candidate injection for the existing correction regression; the existing candidate bridge and desktop fixture need no expansion.
+
+**Bugfix**: 2026-08-30 — BUG-010 The player-configuration GREEN slice owns an explicit Vue leaf target at the legacy panel position plus App, post-mount candidate replay, deterministic document-result fixture, and focused browser integration; no second Vue root or cross-owner mutation is introduced.
 
 Migrate complete Overseer leaf families in reviewable slices: application-update presentation; each approval or confirmation workflow; session controls; player-configuration controls; logical-session management; player management; terminal groups; public-access lifecycle; credential/clipboard dialogs; broadcast termination; and hacking controls. Task generation splits independently implementable components and composables rather than bundling whole families. Each implementation slice moves complete DOM/handlers/focus/pending state into Vue, removes its exact legacy counterpart immediately, updates the ownership record, and passes a locally executable strict/build/focused test before the next slice. Broader family parity remains a separate integration task.
 

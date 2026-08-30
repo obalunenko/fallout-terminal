@@ -19,6 +19,18 @@
 
 **Bugfix**: 2026-08-30 — BUG-007 Clarified that T055 owns the existing App integration required to mount its bridge-correlated command-state reset confirmation leaf.
 
+**Bugfix**: 2026-08-30 — BUG-008 Clarified that T057 owns the App/document/candidate bridge and browser-fixture integration required to mount and verify its session document controls locally.
+
+**Bugfix**: 2026-08-30 — BUG-009 Clarified that T058 owns the App/document/browser integration required to mount, transfer, and verify its logical-session dialog and rows across the focused lifecycle and existing correction regressions.
+
+**Bugfix**: 2026-08-30 — BUG-010 Clarified that T059 owns its App/document/candidate/fixture/browser integration and one explicit Vue-owned player-configuration leaf target inside the otherwise legacy coordination panel; the target remains a disjoint subtree of the existing Vue application, not a new root.
+
+**Bugfix**: 2026-08-30 — BUG-011 Clarified that T060 owns the existing App/document/browser integration required to mount, transfer, and verify the player-management dialog and profile rows.
+
+**Bugfix**: 2026-08-30 — BUG-012 Clarified that T061 owns the existing App/document integration required to mount the player-delete confirmation and remove its legacy dialog markup.
+
+**Bugfix**: 2026-08-30 — BUG-013 Clarified that T062 owns the existing App/document integration and focused browser assertion required to migrate the terminal-group dialog family.
+
 ## Clarifications
 
 ### Session 2026-08-30

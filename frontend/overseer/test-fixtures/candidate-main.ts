@@ -4,12 +4,14 @@ import {
   createOverseerCoexistenceBridge,
   mountOverseerApp,
   mountOverseerLeaves,
+  type OverseerCoexistenceBridge,
 } from '../src/mount.js';
 import type { DesktopPort } from '../src/ports/desktop-port.js';
 import { fakeDesktopPort } from './fake-desktop-port.js';
 
 declare global {
   interface Window {
+    readonly __attachOverseerLegacyBridge?: (bridge: OverseerCoexistenceBridge) => void;
     readonly desktopAPI?: DesktopPort;
   }
 }
@@ -32,6 +34,7 @@ if (bridge !== null) {
 const app = bridge === null
   ? mountOverseerApp(root, fakeDesktopPort)
   : mountOverseerLeaves(root, coexistencePort ?? fakeDesktopPort, bridge);
+if (bridge !== null) window.__attachOverseerLegacyBridge?.(bridge);
 let mounted = true;
 const browserFixture = Object.freeze({
   unmount(): void {

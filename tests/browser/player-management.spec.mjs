@@ -4,11 +4,17 @@ const FIXTURE = '/__fixture/player-management';
 const INITIAL_REVISION = 41;
 
 test.describe.configure({ mode: 'serial' });
+test.use({ bypassCSP: true });
+
+async function mountOverseerCandidate(page) {
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?logical-session-player-management'));
+}
 
 test.beforeEach(async ({ request, page }) => {
   const reset = await request.post(`${FIXTURE}/reset`);
   expect(reset.status()).toBe(204);
   await page.goto(FIXTURE);
+  await mountOverseerCandidate(page);
   await expect(page.locator('#mainLayout')).toBeVisible();
   await expect(page.locator('#btnManagePlayers')).toBeEnabled();
 });
@@ -29,6 +35,75 @@ test('closed or rebound dialog ignores stale result and releases listener', asyn
     throw new Error('Vue-owned session/player lifecycle is not implemented');
   }
   await expect(vueDialog).toHaveAttribute('data-stale-result-guard', 'released');
+});
+
+test('player configuration preserves references and validation', async ({ page, request }) => {
+  const target = page.locator('#playerConfigVueLeaf');
+  await expect(target.locator('#btnOpenPlayerConfig')).toHaveCount(1);
+  await expect(target.locator('#btnNewPlayerConfig')).toHaveCount(1);
+
+  await target.locator('#btnOpenPlayerConfig').click();
+  await expect.poll(() => page.evaluate(() => (
+    __desktopFixture.calls.filter(call => call.method === 'OpenPlayerConfig').length
+  ))).toBe(1);
+  await expect(target.locator('#playerConfigStatus')).toContainText('/private/tmp/open-players.json');
+  const associatedSession = await page.evaluate(() => __desktopFixture.authoringSession());
+  expect(associatedSession.playerConfig).toBe('open-players.json');
+  await page.evaluate(session => window.desktopAPI.saveSession(session), associatedSession);
+  await expect.poll(() => page.evaluate(() => (
+    __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]?.playerConfig
+  ))).toBe('open-players.json');
+
+  await target.locator('#btnNewPlayerConfig').click();
+  await expect.poll(() => page.evaluate(() => (
+    __desktopFixture.calls.filter(call => call.method === 'NewPlayerConfig').length
+  ))).toBe(1);
+  await expect(target.locator('#playerConfigStatus')).toContainText('/private/tmp/new-players.json');
+
+  await target.locator('#btnManagePlayers').click();
+  await expect(page.locator('#playerManagementDialog')).toBeVisible();
+  await page.locator('#btnClosePlayerManagement').click();
+
+  await setBroadcast(request, page, true);
+  await expect(target.locator('#btnOpenPlayerConfig')).toBeDisabled();
+  await expect(target.locator('#btnNewPlayerConfig')).toBeDisabled();
+  await expect(target.locator('#playerConfigError')).toBeHidden();
+
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(target).toBeEmpty();
+});
+
+test('player management rows reject stale save and release modal resources', async ({ page }) => {
+  let releaseUpdate;
+  const updateGate = new Promise(resolve => { releaseUpdate = resolve; });
+  let observeUpdate;
+  const updateObserved = new Promise(resolve => { observeUpdate = resolve; });
+  await page.route('**/__fixture/player-management/update', async route => {
+    observeUpdate();
+    await updateGate;
+    await route.continue();
+  });
+
+  let dialog = await openPlayerManagement(page);
+  await addPlayer(dialog, { name: 'Piper', intelligence: 8, hackerPerkAvailable: false });
+  let row = dialog.locator('[data-character-id="fixture-player-1"]');
+  await row.locator('.player-name-input').fill('Stale Draft');
+  await row.locator('.player-intelligence-input').fill('9');
+  await row.locator('.player-hacker-perk-availability').selectOption('true');
+  await row.locator('.player-save').click();
+  await updateObserved;
+
+  await dialog.locator('#btnClosePlayerManagement').click();
+  dialog = await openPlayerManagement(page);
+  releaseUpdate();
+  await expect(dialog.locator('[data-character-id="fixture-player-1"] .player-name-input')).toHaveValue('Stale Draft');
+  await expect(dialog.locator('#playerManagementStatus')).toHaveText('');
+  await expect(dialog.locator('#playerManagementError')).toBeHidden();
+
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(page.locator('#playerManagementDialog')).toHaveCount(0);
+  await page.evaluate(() => __overseerCoexistenceBridge.legacyToVue({ kind: 'player-management-open-request' }));
+  await expect(page.locator('#playerManagementDialog')).toHaveCount(0);
 });
 
 async function addPlayer(dialog, { name, intelligence, hackerPerkAvailable }) {
@@ -55,6 +130,8 @@ async function setBroadcast(request, page, active) {
   });
   expect(response.ok()).toBe(true);
   const coordination = await response.json();
+  const playerConfigRevision = await page.evaluate(() => __desktopFixture.playerConfigRevision());
+  coordination.revision = Math.max(coordination.revision, playerConfigRevision + 1);
   await page.evaluate(value => __desktopFixture.emit('coordination-state', value), coordination);
   return coordination;
 }
@@ -200,6 +277,7 @@ test('renders the authoritative add result and restores its persisted profile af
   await dialog.locator('#btnClosePlayerManagement').click();
   await expect(dialog).toBeHidden();
   await page.reload();
+  await mountOverseerCandidate(page);
   await expect(page.locator('#mainLayout')).toBeVisible();
   dialog = await openPlayerManagement(page);
 
