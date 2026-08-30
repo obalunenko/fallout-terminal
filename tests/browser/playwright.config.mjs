@@ -15,12 +15,19 @@ export default defineConfig({
     headless: true,
     ignoreHTTPSErrors: true,
   },
-  webServer: {
-    command: 'npm run build:client --prefix ../../frontend && go run ./fixture-server',
-    env: {
-      GOCACHE: browserFixtureGoCache,
+  webServer: [
+    {
+      command: 'npm run build:client --prefix ../../frontend && go run ./fixture-server',
+      env: {
+        GOCACHE: browserFixtureGoCache,
+      },
+      url: 'http://127.0.0.1:34119/__fixture/desktop-api',
+      reuseExistingServer: false,
     },
-    url: 'http://127.0.0.1:34119/__fixture/desktop-api',
-    reuseExistingServer: false,
-  },
+    {
+      command: '../../frontend/node_modules/.bin/vite ../../frontend/overseer/test-fixtures --config ../../frontend/overseer/vite.config.ts --mode candidate --host 127.0.0.1 --port 34120 --strictPort',
+      url: 'http://127.0.0.1:34120',
+      reuseExistingServer: false,
+    },
+  ],
 });

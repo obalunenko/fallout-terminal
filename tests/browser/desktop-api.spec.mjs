@@ -1,10 +1,30 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import ts from '../../frontend/node_modules/typescript/lib/typescript.js';
 
 const boundaryManifest = JSON.parse(await readFile(
   new URL('./fixtures/frontend-boundary-manifest.json', import.meta.url),
   'utf8',
 ));
+const typedAdapterSource = await readFile(
+  new URL('../../frontend/overseer/src/adapters/desktop-api.ts', import.meta.url),
+  'utf8',
+);
+
+async function installTypedAdapter(page) {
+  const source = ts.transpileModule(typedAdapterSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+      verbatimModuleSyntax: true,
+    },
+  }).outputText.replace("'#wails-service'", "'/__fixture/desktop-bindings.js'");
+  await page.addScriptTag({
+    type: 'module',
+    content: `${source}\nglobalThis.__typedDesktopAdapter = desktopPort;`,
+  });
+  await expect.poll(() => page.evaluate(() => typeof window.__typedDesktopAdapter)).toBe('object');
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/__fixture/desktop-api');
@@ -24,6 +44,60 @@ test('desktop adapter rejected fixture has no-state-change assertion', async ({ 
     process.stderr.write('AssertionError: desktop adapter rejected fixture has no-state-change assertion\n');
     throw new Error('typed desktop adapter rejection assertion is not implemented');
   }
+});
+
+test('desktop adapter validates results, ordering and exact-once release', async ({ page }) => {
+  await page.evaluate(() => __desktopFixture.setStatus('invalid-runtime-status'));
+  await installTypedAdapter(page);
+
+  const result = await page.evaluate(async () => {
+    const before = __desktopFixture.timeline.length;
+    const rejected = await __typedDesktopAdapter.getRuntimeStatus();
+    __desktopFixture.setStatus({
+      serverInfo: { url: 'http://127.0.0.1:3690', tunnel: false },
+      clientCount: 1,
+      hackState: { attemptsLeft: 3 },
+      coordinationState: { revision: 1 },
+    });
+    const observed = [];
+    const releases = [
+      __typedDesktopAdapter.onServerInfo(value => observed.push(value)),
+      __typedDesktopAdapter.onClientCount(() => {}),
+      __typedDesktopAdapter.onHackState(() => {}),
+      __typedDesktopAdapter.onCoordinationState(() => {}),
+    ];
+    __desktopFixture.emit('server-info', { url: 99, tunnel: false });
+    __desktopFixture.emit('server-info', { url: 'https://valid.example', tunnel: true });
+    await Promise.resolve();
+    releases[0]();
+    releases[0]();
+    const request = { version: 1, nested: { retained: true } };
+    const pending = __typedDesktopAdapter.saveSession(request);
+    request.nested.retained = false;
+    const saved = await pending;
+    return {
+      rejected,
+      saved,
+      observed,
+      timeline: __desktopFixture.timeline.slice(before).map(entry => entry.method),
+      releaseCount: __desktopFixture.releaseCount('server-info'),
+      retained: __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1).args[0],
+    };
+  });
+
+  expect(result.rejected).toEqual({ ok: false });
+  expect(result.observed).toEqual([{ url: 'https://valid.example', tunnel: true }]);
+  expect(result.timeline.slice(0, 5)).toEqual([
+    'GetRuntimeStatus',
+    'event:on:server-info',
+    'event:on:client-count',
+    'event:on:hack-state',
+    'event:on:coordination-state',
+  ]);
+  expect(result.timeline[5]).toBe('GetRuntimeStatus');
+  expect(result.releaseCount).toBe(1);
+  expect(result.saved.ok).toBe(true);
+  expect(result.retained.nested.retained).toBe(true);
 });
 
 test('desktop facade retains one v2 service with 39 methods and seven named events', async ({ page }) => {

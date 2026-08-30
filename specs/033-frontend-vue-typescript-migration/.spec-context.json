@@ -338,9 +338,65 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-30T09:57:58.409Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:06:24.832Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:11:33.636Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:12:44.319Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:14:10.567Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:14:58.101Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:17:16.545Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T10:18:05.393Z"
     }
   ],
-  "last_action": "T033 complete — 33/195 tasks; next T034 Wails alias synchronization",
+  "last_action": "T041 halted — candidate-index.html cannot satisfy the mandated Vite root/index.html lookup without changing out-of-inventory files",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -1809,7 +1865,7 @@
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T033",
+  "currentTask": "T040",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2113,11 +2169,77 @@
         "frontend/overseer/src/models/overseer-view-state.ts",
         "frontend/overseer/src/ports/desktop-port.ts"
       ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Added an Overseer-only untrusted Wails alias synchronized to all 39 generated methods and seven events",
+      "files": [
+        "frontend/overseer/src/adapters/wails-service.d.ts",
+        "frontend/overseer/vite.config.ts",
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Implemented the sole typed Wails adapter with untrusted-result validation, detached requests, ordered subscriptions, and exact-once cleanup",
+      "files": [
+        "frontend/overseer/src/adapters/desktop-api.ts",
+        "tests/browser/desktop-api.spec.mjs",
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Created a permanent deterministic browser-only DesktopPort fake with typed events and exact-once listener release",
+      "files": [
+        "frontend/overseer/test-fixtures/fake-desktop-port.ts"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Created the empty Overseer SFC and explicit typed-root mount with a governed compiler-AST contract checker",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/mount.ts",
+        "scripts/frontend-typescript-mount-contract-check.mjs"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Created and registered the isolated Overseer candidate document and typed fake-port entry",
+      "files": [
+        "frontend/overseer/test-fixtures/index.html",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "Added mode-gated Overseer candidate Vite and Playwright selection with production-output isolation evidence",
+      "files": [
+        "frontend/overseer/vite.config.ts",
+        "tests/browser/playwright.config.mjs",
+        "tests/browser/overseer-candidate-smoke.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T039-overseer-candidate-selection.md"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "Created the empty capability-neutral Player SFC and candidate-only typed mount bridge",
+      "files": [
+        "frontend/client/src/App.vue",
+        "frontend/client/src/mount.ts"
+      ]
     }
   },
   "concerns": [
     {
       "note": "T022 requires adding explicit Player/Overseer strict steps while its local go test gate hard-codes the old five-step plan in files reserved for dependent T023; T022 cannot satisfy both its Files boundary and required verification.",
+      "step": "implement"
+    },
+    {
+      "note": "T041 local gate is internally inconsistent: it requires candidate-index.html while its Vite command resolves test-fixtures/index.html, and frontend/client/vite.config.ts is read-only for T041. Vite fails UNRESOLVED_ENTRY; resolving this requires a task/spec correction.",
       "step": "implement"
     }
   ]

@@ -20,29 +20,41 @@ function preserveGoEmbedMarker(): Plugin {
   };
 }
 
-export default defineConfig({
-  root: 'src',
-  base: './',
-  plugins: [
-    vue(),
-    wails(fileURLToPath(new URL('./bindings', import.meta.url))),
-    {
-      name: 'preserve-legacy-entry-marker',
-      transformIndexHtml: {
-        order: 'pre',
-        handler(html) {
-          if (!html.includes('src="./overseer.js"')) {
-            return html;
-          }
+export default defineConfig(({ mode }) => {
+  const candidate = mode === 'candidate';
 
-          return html.replace('</head>', '  <!-- Vite source entry: overseer.js -->\n</head>');
-        },
+  return {
+    root: candidate ? 'test-fixtures' : 'src',
+    base: './',
+    resolve: {
+      alias: {
+        '#wails-service': fileURLToPath(new URL(
+          './bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js',
+          import.meta.url,
+        )),
       },
     },
-    preserveGoEmbedMarker(),
-  ],
-  build: {
-    outDir: '../dist',
-    emptyOutDir: true,
-  },
+    plugins: [
+      vue(),
+      ...(candidate ? [] : [wails(fileURLToPath(new URL('./bindings', import.meta.url)))]),
+      {
+        name: 'preserve-legacy-entry-marker',
+        transformIndexHtml: {
+          order: 'pre',
+          handler(html) {
+            if (!html.includes('src="./overseer.js"')) {
+              return html;
+            }
+
+            return html.replace('</head>', '  <!-- Vite source entry: overseer.js -->\n</head>');
+          },
+        },
+      },
+      preserveGoEmbedMarker(),
+    ],
+    build: {
+      outDir: '../dist',
+      emptyOutDir: true,
+    },
+  };
 });

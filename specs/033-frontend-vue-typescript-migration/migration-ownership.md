@@ -79,6 +79,12 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 
 **Removal criteria**: Candidate-only entrypoints are either promoted to the production entrypoint or deleted at their application's cutover. The typed Wails alias declaration remains only as the final adapter boundary and must stay synchronized with binding integrity; no global `window.desktopAPI` compatibility surface survives wave e unless a browser-test-only port implements the same typed interface outside production source.
 
+**T038 candidate activation**: `frontend/overseer/test-fixtures/index.html` now solely owns its isolated `#overseerApp` root through `candidate-main.ts`, `mountOverseerApp`, and the permanent browser-only fake `DesktopPort`. The candidate remains governed by the T038/T090 temporary-register row and has no production document, route, or Vite selection.
+
+**T039 candidate selection**: Vite candidate mode and the Playwright-only server at `127.0.0.1:34120` select the isolated Overseer document. Production mode continues to select `frontend/overseer/src/index.html` and its legacy scripts; candidate selection remains governed by the T039/T090 temporary-register rows and is not native or embedding evidence.
+
+**T041 Player candidate activation**: `frontend/client/test-fixtures/candidate-index.html` solely owns its isolated `#playerApp` root through `candidate-main.ts` and `mountPlayerCandidate`. The entry supplies only the capability-neutral idle transport required by the empty shell. Production Player selection remains the legacy document and `client.js`; the candidate document/entry remain governed by the T041/T156 temporary-register rows.
+
 ## Wave d — Overseer leaf components and composables
 
 **Vue mount boundaries**: One production `#overseerVueLeaves` root owns only complete body-sibling leaf subtrees migrated in reviewed slices. The preferred order is application-update status/offer/restart, then approval/confirmation dialogs, then player/session/group and public-access dialog families. Each slice moves the complete element, descendants, handlers, focus rules, and pending state together. Player has no production Vue mount.
