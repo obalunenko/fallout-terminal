@@ -238,12 +238,48 @@ tasks:
     cmds:
       - '{{.DARWIN_CGO_ENV}} {{.GO}} test -race ./...'
 
+  frontend:typecheck:
+    desc: Type-check both frontend applications without installing dependencies.
+    cmds:
+      - task: frontend:typecheck:overseer
+      - task: frontend:typecheck:client
+
+  frontend:typecheck:overseer:
+    desc: Type-check only the Overseer application without installing dependencies.
+    cmds:
+      - '{{.NPM}} run typecheck:overseer --prefix frontend'
+
+  frontend:typecheck:client:
+    desc: Type-check only the Player application without installing dependencies.
+    cmds:
+      - '{{.NPM}} run typecheck:client --prefix frontend'
+
   frontend:build:
-    desc: Install locked frontend dependencies and build both production interfaces.
+    desc: Install locked frontend dependencies and build both production applications.
     cmds:
       - task: deps:frontend
+      - task: frontend:build:overseer
+      - task: frontend:build:client
+
+  frontend:build:overseer:
+    desc: Build only the Overseer application without installing dependencies.
+    cmds:
       - '{{.NPM}} run build:overseer --prefix frontend'
+
+  frontend:build:client:
+    desc: Build only the Player application without installing dependencies.
+    cmds:
       - '{{.NPM}} run build:client --prefix frontend'
+
+  frontend:policy:check:
+    desc: Verify frontend dependency, source, type-safety, and trust-boundary policy.
+    cmds:
+      - scripts/frontend-policy-check.sh
+
+  frontend:reproducible:check:
+    desc: Build both frontend applications twice and compare exact output-tree manifests.
+    cmds:
+      - scripts/reproducible-build-check.sh --frontend
 
   startup:check:
     desc: Run repository startup and workflow-surface contracts.

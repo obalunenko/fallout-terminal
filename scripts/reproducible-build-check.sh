@@ -15,6 +15,88 @@ fail() {
   exit 1
 }
 
+file_mode_and_size() {
+  local file="$1"
+  if stat -f '%Lp %z' "$file" >/dev/null 2>&1; then
+    stat -f '%Lp %z' "$file"
+  else
+    stat -c '%a %s' "$file"
+  fi
+}
+
+tree_manifest() {
+  local path="$1"
+  local destination="$2"
+  local file relative mode_size digest
+  [[ -d "$path" && -r "$path" ]] || fail "missing or unreadable build output: $path"
+  : >"$destination"
+  while IFS= read -r -d '' file; do
+    relative="${file#"$path/"}"
+    mode_size="$(file_mode_and_size "$file")"
+    digest="$(shasum -a 256 "$file" | awk '{print $1}')"
+    printf '%s\t%s\t%s\n' "$relative" "$mode_size" "$digest" >>"$destination"
+  done < <(find "$path" -type f -print0 | LC_ALL=C sort -z)
+  [[ -s "$destination" ]] || fail "build output contains no files: $path"
+}
+
+compare_trees() {
+  local first="$1"
+  local second="$2"
+  local label="$3"
+  local first_manifest="$temporary/${label}.first.manifest"
+  local second_manifest="$temporary/${label}.second.manifest"
+  tree_manifest "$first" "$first_manifest"
+  tree_manifest "$second" "$second_manifest"
+  if ! cmp -s "$first_manifest" "$second_manifest"; then
+    diff -u "$first_manifest" "$second_manifest" >&2 || true
+    fail "frontend reproducibility mismatch in $label"
+  fi
+  printf 'reproducible build check: PASS: %s manifest %s\n' \
+    "$label" "$(shasum -a 256 "$first_manifest" | awk '{print $1}')"
+}
+
+capture_frontend_build() {
+  local destination="$1"
+  npm run build:overseer --prefix frontend
+  npm run build:client --prefix frontend
+  mkdir -p "$destination/overseer" "$destination/player"
+  cp -R frontend/overseer/dist/. "$destination/overseer/"
+  cp -R frontend/client/dist/. "$destination/player/"
+}
+
+check_frontend_reproducibility() {
+  local scratch="$temporary/frontend"
+  mkdir -p "$scratch/first" "$scratch/second"
+  capture_frontend_build "$scratch/first"
+  capture_frontend_build "$scratch/second"
+  compare_trees "$scratch/first/overseer" "$scratch/second/overseer" overseer-vite
+  compare_trees "$scratch/first/player" "$scratch/second/player" player-vite
+  rm -rf "$scratch"
+}
+
+frontend_self_test() {
+  local scratch="$temporary/self-test"
+  local output status
+  check_frontend_reproducibility
+
+  mkdir -p "$scratch/expected" "$scratch/matching" "$scratch/mismatched"
+  cp tests/fixtures/frontend-reproducibility/expected-tree.txt "$scratch/expected/tree.txt"
+  cp tests/fixtures/frontend-reproducibility/expected-tree.txt "$scratch/matching/tree.txt"
+  cp tests/fixtures/frontend-reproducibility/mismatched-tree.txt "$scratch/mismatched/tree.txt"
+  compare_trees "$scratch/expected" "$scratch/matching" fixture-equal
+
+  set +e
+  output="$(compare_trees "$scratch/expected" "$scratch/mismatched" fixture-mismatch 2>&1)"
+  status=$?
+  set -e
+  ((status != 0)) && [[ "$output" == *'frontend reproducibility mismatch in fixture-mismatch'* ]] \
+    || fail 'deliberate copied-tree mismatch was not rejected actionably'
+
+  rm -rf "$scratch"
+  [[ ! -e "$scratch" ]] || fail 'self-test scratch directory was not removed'
+  printf '%s\n' 'reproducible build check self-test: PASS: two Vite builds matched and a deliberate copied-tree mismatch failed actionably'
+}
+
 tree_digest() {
   local path="$1"
   [[ -e "${path}" ]] || fail "missing build output: ${path}"
@@ -50,6 +132,24 @@ run_once() {
   scripts/verify-macos-app.sh "${application_bundle}"
   scripts/hash-macos-app.sh "${application_bundle}" >"${temporary}/${run}.app"
 }
+
+case "${1:-}" in
+  --frontend)
+    [[ "$#" == 1 ]] || fail 'usage: reproducible-build-check.sh [--frontend|--self-test]'
+    check_frontend_reproducibility
+    exit
+    ;;
+  --self-test)
+    [[ "$#" == 1 ]] || fail 'usage: reproducible-build-check.sh [--frontend|--self-test]'
+    frontend_self_test
+    exit
+    ;;
+  '')
+    ;;
+  *)
+    fail 'usage: reproducible-build-check.sh [--frontend|--self-test]'
+    ;;
+esac
 
 scripts/tool-modules-check.sh
 scripts/wails-v3-contract-check.sh

@@ -16,5 +16,5 @@ plugins:
       - protoc-gen-es
     out: frontend/client/gen
     opt:
-      - target=js
+      - target=ts
       - import_extension=js

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "build": "vite build --config vite.config.ts",
     "test": "npm test --prefix ../../tests/browser -- state-changing-command-authoring.spec.mjs state-changing-command-approval.spec.mjs desktop-api.spec.mjs"
   },

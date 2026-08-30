@@ -1,0 +1,7 @@
+pins=typescript:6.0.2,@vitejs/plugin-vue:6.0.8,vue:3.5.42
+workspaces=client,overseer
+lockfiles=frontend/package-lock.json
+install=task frontend:build>deps:frontend>npm ci --prefix frontend
+exclusions=frontend/overseer/bindings/**,frontend/client/gen/**,frontend/node_modules/**,frontend/client/dist/**,frontend/overseer/dist/**
+player_dependencies=@bufbuild/protobuf,@connectrpc/connect,@connectrpc/connect-web,vue
+source=const state: string = 'ready'

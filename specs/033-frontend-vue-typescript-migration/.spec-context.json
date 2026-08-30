@@ -138,9 +138,113 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-30T04:07:11.812Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T06:09:19.148Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T06:57:43.784Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T06:58:52.809Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T07:02:06.117Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T07:03:37.665Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T07:03:56.762Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T07:05:24.815Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:05:20.138Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:05:55.068Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:06:27.567Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:07:57.915Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:10:04.784Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:11:45.756Z"
     }
   ],
-  "last_action": "living specs evaluated — skipped (not configured)",
+  "last_action": "halted before T022 — task/test dependency contradiction; 21/195 complete",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -1586,10 +1690,30 @@
       "result": "PASS",
       "command": "FR/SC/CHK counts, ten target inventory, eight RPC rows, eighteen exact temporary rows, normalized legacy tsconfig names, git diff --check",
       "warnings": "implementation executability requires regenerated tasks"
+    },
+    {
+      "what": "Wave-a frontend exit gate",
+      "command": "task frontend:typecheck && task frontend:build && task frontend:policy:check && task frontend:reproducible:check && npm test --prefix tests/browser -- connectrpc-player.spec.mjs crt-rendering.spec.mjs",
+      "result": "PASS: strict/build/policy/reproducibility passed; Playwright 41 passed and 2 provider-dependent tests skipped; immutable snapshots clean",
+      "warnings": [
+        "Initial sandboxed fixture-server bind was denied; permitted rerun passed"
+      ]
+    },
+    {
+      "what": "TypeScript protobuf generation and drift",
+      "command": "scripts/proto-check.sh && scripts/proto-drift-test.sh --target frontend/client/gen/fallout/terminal/player/v1/player_pb.ts --expect-diagnostic generated-protobuf-drift",
+      "result": "PASS: exact five TypeScript contracts deterministic; deliberate target drift rejected and restored",
+      "warnings": []
+    },
+    {
+      "what": "Fixture server TypeScript contract consumer",
+      "command": "go test ./tests/browser/fixture-server && npm test --prefix tests/browser -- connectrpc-player.spec.mjs",
+      "result": "PASS: Go package compiled; Playwright 11 passed and 2 provider-dependent tests skipped",
+      "warnings": []
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T009",
+  "currentTask": "T022",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1680,6 +1804,130 @@
       "files": [
         "frontend/client/tsconfig.legacy.json"
       ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Converted the Overseer Vite config to TypeScript while preserving Wails, asset, embed-marker, and legacy entry semantics with output provenance.",
+      "files": [
+        "frontend/overseer/vite.config.ts",
+        "frontend/overseer/vite.config.js",
+        "frontend/overseer/package.json"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Converted the Player Vite config to TypeScript with Vue support, CLI-safe output handling, preserved sound/font assets, and public-only emitted content.",
+      "files": [
+        "frontend/client/vite.config.ts",
+        "frontend/client/vite.config.js",
+        "frontend/client/package.json"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Added six canonical isolated frontend typecheck/build targets and private workspace scripts, with dependency installation owned only by the aggregate build.",
+      "files": [
+        "Taskfile.yml",
+        "frontend/package.json",
+        "frontend/client/package.json",
+        "frontend/overseer/package.json"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added an executable frontend policy checker with real manifest/lock/compiler validation and actionable positive/negative fixture coverage.",
+      "files": [
+        "scripts/frontend-policy-check.sh",
+        "tests/fixtures/frontend-policy/valid-policy.txt",
+        "tests/fixtures/frontend-policy/invalid-pin.txt",
+        "tests/fixtures/frontend-policy/invalid-lockfile.txt",
+        "tests/fixtures/frontend-policy/invalid-player-dependency.txt",
+        "tests/fixtures/frontend-policy/invalid-type-escape.txt"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Extended the reproducibility checker with two-build Vite tree manifests, actionable copied-tree mismatch diagnostics, and cleanup-proven self-tests.",
+      "files": [
+        "scripts/reproducible-build-check.sh",
+        "tests/fixtures/frontend-reproducibility/expected-tree.txt",
+        "tests/fixtures/frontend-reproducibility/mismatched-tree.txt"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added canonical frontend policy and reproducibility Task targets, each delegating once to its proven checker without installing dependencies.",
+      "files": [
+        "Taskfile.yml"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Extended the frontend task contract self-test to prove the exact eight-target inventory, Node pin, isolated dispatch, install ownership, order, and failure propagation.",
+      "files": [
+        "scripts/frontend-task-contract-check.sh"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Closed Wave a with unchanged legacy production ownership, strict/build/policy/reproducibility gates, 41 focused browser passes, and immutable snapshots.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T016-wave-a.md"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Switched only protoc-gen-es browser output to target=ts while retaining .js import specifiers; protobuf format, lint, and breaking invariants passed.",
+      "files": [
+        "proto/buf.gen.es.yaml"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Regenerated exactly five protoc-gen-es v2.13.0 TypeScript contracts with .js specifiers, removed the five JS outputs, and preserved schema/Go generated bytes.",
+      "files": [
+        "frontend/client/gen/fallout/terminal/player/v1/hacking_pb.ts",
+        "frontend/client/gen/fallout/terminal/player/v1/navigation_pb.ts",
+        "frontend/client/gen/fallout/terminal/player/v1/player_pb.ts",
+        "frontend/client/gen/fallout/terminal/player/v1/sound_pb.ts",
+        "frontend/client/gen/fallout/terminal/player/v1/terminal_pb.ts",
+        "frontend/client/gen/fallout/terminal/player/v1/hacking_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/navigation_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/player_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/sound_pb.js",
+        "frontend/client/gen/fallout/terminal/player/v1/terminal_pb.js"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Updated protobuf generation/check scripts to enforce exact TypeScript inventory, pinned provenance, .js imports, public-only isolation, drift detection, and two clean tree equality.",
+      "files": [
+        "scripts/proto-generate.sh",
+        "scripts/proto-check.sh"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Moved the governed drift probe to player_pb.ts, rejected the exact expected drift, restored all owned protobuf bytes, and closed the same-command ledger mechanism.",
+      "files": [
+        "scripts/proto-drift-test.sh",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T020-proto-drift.txt"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Made the browser fixture server validate and consume the exact generated TypeScript contract inventory before serving the compiled Player bundle; focused Go and ConnectRPC gates passed.",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
     }
-  }
+  },
+  "concerns": [
+    {
+      "note": "T022 requires adding explicit Player/Overseer strict steps while its local go test gate hard-codes the old five-step plan in files reserved for dependent T023; T022 cannot satisfy both its Files boundary and required verification.",
+      "step": "implement"
+    }
+  ]
 }

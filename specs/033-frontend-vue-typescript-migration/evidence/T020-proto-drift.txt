@@ -1,0 +1,8 @@
+Task: T020
+Target: frontend/client/gen/fallout/terminal/player/v1/player_pb.ts
+Expected diagnostic: generated protobuf drift: frontend/client/gen/fallout/terminal/player/v1/player_pb.ts
+Pre-command Git object: 6fa19fd589ad213eef2d7eed9f338004ee5c1d68
+Post-command Git object: 6fa19fd589ad213eef2d7eed9f338004ee5c1d68
+Result: PASS
+
+The governed probe appended a deliberate comment only to the exact generated TypeScript target. `scripts/proto-check.sh` returned nonzero with the checked-in-generation drift classification and named the exact target. Infrastructure, dependency, configuration, permission, timeout, unexpected-success, and unrelated-diagnostic signatures were not accepted. The target and complete owned protobuf input/output manifest were restored byte-for-byte before the command returned.

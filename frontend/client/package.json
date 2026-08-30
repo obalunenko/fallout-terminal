@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "generate": "../../scripts/proto-generate.sh --sync-revision",
-    "dev": "vite",
-    "build": "vite build"
+    "dev": "vite --config vite.config.ts",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "build": "vite build --config vite.config.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.13.0",

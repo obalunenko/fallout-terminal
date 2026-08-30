@@ -71,6 +71,117 @@ node_version_self_test() {
   printf '%s\n' 'frontend task contract check: PASS: Node.js 26.8.1 accepted; 26.8.0 and 26.8.2 rejected actionably'
 }
 
+summary_commands() {
+  task -d "$repository_root" --summary "$1" | sed -n '/^commands:$/,$p'
+}
+
+require_summary() {
+  local target="$1"
+  local expected="$2"
+  local actual
+  actual="$(summary_commands "$target")"
+  [[ "$actual" == "$expected" ]] || {
+    printf 'expected summary for %s:\n%s\nactual:\n%s\n' "$target" "$expected" "$actual" >&2
+    fail "$target does not delegate through the required isolated command graph"
+    return 1
+  }
+}
+
+check_target_inventory() {
+  local expected_count="$1"
+  local inventory expected_inventory actual_count
+  inventory="$(task -d "$repository_root" --list-all --json | node -e '
+    let input = "";
+    process.stdin.on("data", (chunk) => { input += chunk; });
+    process.stdin.on("end", () => {
+      const tasks = JSON.parse(input).tasks
+        .map(({ name }) => name)
+        .filter((name) => name.startsWith("frontend:"))
+        .sort();
+      process.stdout.write(tasks.join("\n"));
+    });
+  ')"
+  expected_inventory="$(printf '%s\n' \
+    frontend:build \
+    frontend:build:client \
+    frontend:build:overseer \
+    frontend:policy:check \
+    frontend:reproducible:check \
+    frontend:typecheck \
+    frontend:typecheck:client \
+    frontend:typecheck:overseer | LC_ALL=C sort)"
+  actual_count="$(wc -l <<<"$inventory" | tr -d ' ')"
+  [[ "$actual_count" == "$expected_count" ]] || { fail "expected $expected_count frontend targets; found $actual_count"; return 1; }
+  [[ "$inventory" == "$expected_inventory" ]] || {
+    printf 'expected frontend targets:\n%s\nactual:\n%s\n' "$expected_inventory" "$inventory" >&2
+    fail 'frontend target inventory differs from the wave-a contract'
+    return 1
+  }
+}
+
+check_dispatch_contracts() {
+  local temporary_root fake_npm log output status
+  temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/fallout-frontend-task-contract.XXXXXX")"
+  fake_npm="$temporary_root/npm"
+  log="$temporary_root/npm.log"
+  trap 'rm -rf "$temporary_root"' RETURN
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -euo pipefail' \
+    'printf "%s\n" "$*" >>"$FRONTEND_TASK_LOG"' \
+    'if [[ -n "${FRONTEND_FAIL_COMMAND:-}" && "$*" == "$FRONTEND_FAIL_COMMAND" ]]; then exit 23; fi' \
+    >"$fake_npm"
+  chmod +x "$fake_npm"
+
+  local target expected
+  while IFS='|' read -r target expected; do
+    : >"$log"
+    FRONTEND_TASK_LOG="$log" task -d "$repository_root" "$target" NPM="$fake_npm" >/dev/null
+    [[ "$(<"$log")" == "$expected" ]] || { fail "$target crossed an application or install boundary"; return 1; }
+  done <<'CASES'
+frontend:typecheck:overseer|run typecheck:overseer --prefix frontend
+frontend:typecheck:client|run typecheck:client --prefix frontend
+frontend:build:overseer|run build:overseer --prefix frontend
+frontend:build:client|run build:client --prefix frontend
+CASES
+
+  : >"$log"
+  FRONTEND_TASK_LOG="$log" task -d "$repository_root" frontend:typecheck NPM="$fake_npm" >/dev/null
+  [[ "$(<"$log")" == $'run typecheck:overseer --prefix frontend\nrun typecheck:client --prefix frontend' ]] || {
+    fail 'aggregate typecheck dependency order or isolation is incorrect'
+    return 1
+  }
+
+  : >"$log"
+  set +e
+  output="$(FRONTEND_TASK_LOG="$log" FRONTEND_FAIL_COMMAND='run build:overseer --prefix frontend' \
+    task -d "$repository_root" frontend:build NPM="$fake_npm" 2>&1)"
+  status=$?
+  set -e
+  ((status != 0)) || { fail 'aggregate build swallowed a focused build failure'; return 1; }
+  [[ "$(<"$log")" == $'ci --prefix frontend\nrun build:overseer --prefix frontend' ]] || {
+    printf '%s\n' "$output" >&2
+    fail 'aggregate build did not install once, stop on failure, and preserve build order'
+    return 1
+  }
+
+  rm -rf "$temporary_root"
+  trap - RETURN
+}
+
+full_self_test() {
+  local expected_target_count="$1"
+  node_version_self_test
+  check_target_inventory "$expected_target_count"
+  require_summary frontend:typecheck $'commands:\n - Task: frontend:typecheck:overseer\n - Task: frontend:typecheck:client'
+  require_summary frontend:build $'commands:\n - Task: deps:frontend\n - Task: frontend:build:overseer\n - Task: frontend:build:client'
+  require_summary frontend:policy:check $'commands:\n - scripts/frontend-policy-check.sh'
+  require_summary frontend:reproducible:check $'commands:\n - scripts/reproducible-build-check.sh --frontend'
+  check_dispatch_contracts
+  printf 'frontend task contract check self-test: PASS: exact %s-target inventory, isolation, install ownership, order, and failure propagation verified\n' \
+    "$expected_target_count"
+}
+
 if [[ "${1:-}" == '--source-only' ]]; then
   return 0 2>/dev/null || exit 0
 fi
@@ -80,8 +191,15 @@ case "${1:-}" in
     [[ "$#" == 1 ]] || { fail 'usage: frontend-task-contract-check.sh --node-version-self-test'; exit 2; }
     node_version_self_test
     ;;
+  --self-test)
+    [[ "$#" == 3 && "${2:-}" == '--expected-target-count' && "${3:-}" =~ ^[0-9]+$ ]] || {
+      fail 'usage: frontend-task-contract-check.sh --self-test --expected-target-count COUNT'
+      exit 2
+    }
+    full_self_test "$3"
+    ;;
   *)
-    fail 'usage: frontend-task-contract-check.sh --node-version-self-test'
+    fail 'usage: frontend-task-contract-check.sh --node-version-self-test | --self-test --expected-target-count COUNT'
     exit 2
     ;;
 esac
