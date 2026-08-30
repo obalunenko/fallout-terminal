@@ -122,7 +122,7 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 	}{
 		{"cmd/build/main.go", []string{"buildtool.Run", "package-all-docker", "validate-release-tag", "inspect-release-archive", "inspect-release-inventory"}},
 		{"internal/buildtool/buildtool.go", []string{"scripts", "verifyProtobufAndGeneratedClients", "tools/wails/go.mod", "frontend/overseer/bindings", "GOARCH", "arm64", "13.0", `applicationName+".app"`}},
-		{"internal/buildtool/preflight.go", []string{"verifyGeneratedContracts", "tools/buf/go.mod", "generate Go protobuf contracts", "build generated browser client"}},
+		{"internal/buildtool/preflight.go", []string{"verifyGeneratedContracts", "tools/buf/go.mod", "generate Go protobuf contracts", "verifyPlayerFrontend", "verifyOverseerFrontend"}},
 		{"internal/buildtool/docker.go", []string{"PackageAllDocker", "packageDarwinAggregateBundle", "darwin-arm64", "linux/", "SOURCE_REVISION", "atomically publish Docker package matrix"}},
 		{
 			"build/docker/Dockerfile.package",

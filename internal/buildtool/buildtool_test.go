@@ -87,6 +87,10 @@ func TestBuildPlanHasOneOrderedOwnerAndPortableToolInvocation(t *testing.T) {
 			"step %q invokes a Taskfile tool: %q", want, command)
 	}
 	bindings := steps[3]
+	assert.Equal(t, runPreflight, steps[2].Operation)
+	assert.Equal(t, verifyPlayerFrontend, steps[2].preflight)
+	assert.Equal(t, runPreflight, steps[4].Operation)
+	assert.Equal(t, verifyOverseerFrontend, steps[4].preflight)
 	assert.Equal(t, "go", bindings.Program)
 	assert.Equal(t, []string{
 		"tool",
@@ -101,6 +105,47 @@ func TestBuildPlanHasOneOrderedOwnerAndPortableToolInvocation(t *testing.T) {
 	}, bindings.Arguments, "the Wails generator must resolve through its portable repository-owned tool module")
 	got := steps[len(steps)-1].Arguments
 	assert.Equal(t, filepath.Join("build", "bin", applicationName), got[len(got)-2])
+}
+
+func TestBrowserGeneratedContractInventoryRequiresExactTypeScriptFiles(t *testing.T) {
+	tests := []struct {
+		name      string
+		files     []string
+		wantError string
+	}{
+		{
+			name:  "exact TypeScript inventory",
+			files: browserGeneratedContractFiles,
+		},
+		{
+			name:      "stale JavaScript output",
+			files:     append(append([]string(nil), browserGeneratedContractFiles...), "player_pb.js"),
+			wantError: "player_pb.js",
+		},
+		{
+			name:      "missing TypeScript output",
+			files:     browserGeneratedContractFiles[1:],
+			wantError: "hacking_pb.ts",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			directory := filepath.Join(root, "frontend", "client", "gen", "fallout", "terminal", "player", "v1")
+			require.NoError(t, os.MkdirAll(directory, 0o755))
+			for _, name := range test.files {
+				require.NoError(t, os.WriteFile(filepath.Join(directory, name), []byte("generated fixture"), 0o600))
+			}
+
+			err := verifyBrowserGeneratedContracts(root)
+			if test.wantError == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, test.wantError)
+		})
+	}
 }
 
 func TestPreparationOrderIsLockedForEveryActionAndTarget(t *testing.T) {

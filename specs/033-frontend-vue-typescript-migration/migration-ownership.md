@@ -52,6 +52,8 @@ The Frontend Migration team owns every temporary mechanism in this record. The i
 
 **Removal criteria**: All `_pb.js` generated files and every script/import/probe assumption that checked them are replaced in the same wave. No parallel `target=js`, `target=js+dts`, or checked-in compiled-JavaScript output remains.
 
+**Wave-b exit evidence (T030)**: The complete Wave-b gate passed on 2026-08-30. Generation emits exactly the five reviewed `_pb.ts` contracts with pinned provenance and `.js` ESM specifiers; no generated `_pb.js`, declaration sidecar, or parallel compiled tree remains checked in. The Player strict program includes exactly those five contracts, while both production documents and all application DOM/lifecycle behavior remain wholly legacy-owned. Protobuf generation, drift, schema/Go-output integrity, all eight RPC contracts, public authorization and limits, the unchanged Player build, focused ConnectRPC behavior, and immutable CRT visuals passed. The T020 deliberate-drift mechanism remains closed, and no temporary Wave-b mechanism remains open.
+
 ## Wave c — Shared compiler policy, application-owned declarations, both Vue shells, and typed desktop API
 
 **Vue mount boundaries**:

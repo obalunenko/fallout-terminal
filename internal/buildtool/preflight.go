@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -18,8 +19,18 @@ type preflightKind uint8
 
 const (
 	verifyProtobufAndGeneratedClients preflightKind = iota + 1
+	verifyPlayerFrontend
+	verifyOverseerFrontend
 	verifyNativeBuildPrerequisites
 )
+
+var browserGeneratedContractFiles = []string{
+	"hacking_pb.ts",
+	"navigation_pb.ts",
+	"player_pb.ts",
+	"sound_pb.ts",
+	"terminal_pb.ts",
+}
 
 type preflightCommand struct {
 	name      string
@@ -32,6 +43,10 @@ func executePreflight(ctx context.Context, root string, kind preflightKind, targ
 	switch kind {
 	case verifyProtobufAndGeneratedClients:
 		return verifyGeneratedContracts(ctx, root)
+	case verifyPlayerFrontend:
+		return verifyFrontend(ctx, root, "Player", "client")
+	case verifyOverseerFrontend:
+		return verifyFrontend(ctx, root, "Overseer", "overseer")
 	case verifyNativeBuildPrerequisites:
 		return verifyNativePrerequisites(ctx, root, target)
 	default:
@@ -50,6 +65,9 @@ func verifyGeneratedContracts(ctx context.Context, root string) error {
 		return err
 	}
 
+	if err := verifyBrowserGeneratedContracts(root); err != nil {
+		return fmt.Errorf("inspect checked-in generated browser contracts: %w", err)
+	}
 	checkedInRevision, err := generatedTreeRevision(root)
 	if err != nil {
 		return fmt.Errorf("inspect checked-in generated contracts: %w", err)
@@ -61,6 +79,9 @@ func verifyGeneratedContracts(ctx context.Context, root string) error {
 	if err := runPreflightCommands(ctx, root, environment, generation); err != nil {
 		return err
 	}
+	if err := verifyBrowserGeneratedContracts(root); err != nil {
+		return fmt.Errorf("inspect first generated browser contracts: %w", err)
+	}
 	firstRevision, err := generatedTreeRevision(root)
 	if err != nil {
 		return fmt.Errorf("inspect first generated contracts: %w", err)
@@ -70,6 +91,9 @@ func verifyGeneratedContracts(ctx context.Context, root string) error {
 	}
 	if err := runPreflightCommands(ctx, root, environment, generation); err != nil {
 		return err
+	}
+	if err := verifyBrowserGeneratedContracts(root); err != nil {
+		return fmt.Errorf("inspect second generated browser contracts: %w", err)
 	}
 	secondRevision, err := generatedTreeRevision(root)
 	if err != nil {
@@ -84,9 +108,34 @@ func verifyGeneratedContracts(ctx context.Context, root string) error {
 		{name: "test session and player configuration contracts", program: "go", arguments: []string{"test", "./internal/session", "./internal/playerconfig"}},
 		{name: "test platform protobuf contracts", program: "go", arguments: []string{"test", "./internal/platform", "-run", "^TestProtobuf"}},
 		{name: "test private protobuf boundaries", program: "go", arguments: []string{"test", ".", "-run", "^TestPrivate"}},
-		{name: "build generated browser client", program: "npm", arguments: []string{"run", "build:client", "--prefix", "frontend"}},
 	}
 	return runPreflightCommands(ctx, root, environment, verification)
+}
+
+func verifyFrontend(ctx context.Context, root, application, scriptSuffix string) error {
+	commands := []preflightCommand{
+		{name: "type-check " + application + " frontend", program: "npm", arguments: []string{"run", "typecheck:" + scriptSuffix, "--prefix", "frontend"}},
+		{name: "build " + application + " frontend", program: "npm", arguments: []string{"run", "build:" + scriptSuffix, "--prefix", "frontend"}},
+	}
+	return runPreflightCommands(ctx, root, portablePreflightEnvironment(), commands)
+}
+
+func verifyBrowserGeneratedContracts(root string) error {
+	directory := filepath.Join(root, "frontend", "client", "gen", "fallout", "terminal", "player", "v1")
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return err
+	}
+
+	files := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		files = append(files, entry.Name())
+	}
+	sort.Strings(files)
+	if !slices.Equal(files, browserGeneratedContractFiles) {
+		return fmt.Errorf("generated browser contract inventory is %q, want %q", files, browserGeneratedContractFiles)
+	}
+	return nil
 }
 
 func verifyNativePrerequisites(ctx context.Context, root string, target Target) error {

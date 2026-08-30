@@ -169,6 +169,25 @@ func TestPortablePackagePlanUsesTargetNativeCompilationAndIsolatedStaging(t *tes
 	}
 }
 
+func TestPortablePackageMatrixRemainsFiveNativePlans(t *testing.T) {
+	targets := PortableTargets()
+	require.Equal(t, []string{
+		"windows/amd64",
+		"windows/arm64",
+		"linux/amd64",
+		"linux/arm64",
+		"darwin/arm64",
+	}, targetStrings(targets))
+
+	for _, target := range targets {
+		t.Run(target.String(), func(t *testing.T) {
+			plan := mustPackagePlan(t, target)
+			assert.Equal(t, target, plan.Target())
+			assert.NotEmpty(t, plan.Actions())
+		})
+	}
+}
+
 func TestPortablePackagePlanIncludesExactRuntimeResourceInventory(t *testing.T) {
 	t.Parallel()
 
@@ -449,6 +468,14 @@ func portableTestTargets(t *testing.T) []Target {
 		mustParseTarget(t, goosLinux, goarchARM64),
 		mustParseTarget(t, goosLinux, goarchAMD64),
 	}
+}
+
+func targetStrings(targets []Target) []string {
+	names := make([]string, len(targets))
+	for index, target := range targets {
+		names[index] = target.String()
+	}
+	return names
 }
 
 func mustPackagePlan(t *testing.T, target Target) PackagePlan {

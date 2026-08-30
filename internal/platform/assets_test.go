@@ -171,7 +171,7 @@ func TestProtobufContractShapeAndSeparation(t *testing.T) {
 	}
 }
 
-func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
+func TestAssetsGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 	t.Parallel()
 
 	type contractFile struct {
@@ -193,11 +193,11 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 		"fallout/terminal/config/v1/public_access.proto":      contract("config", "configv1", ""),
 		"fallout/terminal/persistence/v1/player_config.proto": contract("persistence", "persistencev1", ""),
 		"fallout/terminal/persistence/v1/session.proto":       contract("persistence", "persistencev1", ""),
-		"fallout/terminal/player/v1/hacking.proto":            contract("player", "playerv1", "hacking_pb.js"),
-		"fallout/terminal/player/v1/navigation.proto":         contract("player", "playerv1", "navigation_pb.js"),
-		"fallout/terminal/player/v1/player.proto":             contract("player", "playerv1", "player_pb.js"),
-		"fallout/terminal/player/v1/sound.proto":              contract("player", "playerv1", "sound_pb.js"),
-		"fallout/terminal/player/v1/terminal.proto":           contract("player", "playerv1", "terminal_pb.js"),
+		"fallout/terminal/player/v1/hacking.proto":            contract("player", "playerv1", "hacking_pb.ts"),
+		"fallout/terminal/player/v1/navigation.proto":         contract("player", "playerv1", "navigation_pb.ts"),
+		"fallout/terminal/player/v1/player.proto":             contract("player", "playerv1", "player_pb.ts"),
+		"fallout/terminal/player/v1/sound.proto":              contract("player", "playerv1", "sound_pb.ts"),
+		"fallout/terminal/player/v1/terminal.proto":           contract("player", "playerv1", "terminal_pb.ts"),
 		"fallout/terminal/private/v1/coordination.proto":      contract("private", "privatev1", ""),
 		"fallout/terminal/private/v1/desktop.proto":           contract("private", "privatev1", ""),
 		"fallout/terminal/private/v1/public_access.proto":     contract("private", "privatev1", ""),
@@ -268,13 +268,17 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
-	gotBrowserPaths, err := filepath.Glob(filepath.Join(root, "frontend", "client", "gen", "fallout", "terminal", "player", "v1", "*_pb.js"))
+	generatedDirectory := filepath.Join(root, "frontend", "client", "gen", "fallout", "terminal", "player", "v1")
+	gotBrowserPaths, err := filepath.Glob(filepath.Join(generatedDirectory, "*_pb.ts"))
 	require.NoError(t, err)
 	gotBrowserFiles := make([]string, 0, len(gotBrowserPaths))
 	for _, path := range gotBrowserPaths {
 		gotBrowserFiles = append(gotBrowserFiles, filepath.Base(path))
 	}
 	require.Equal(t, wantBrowserFiles, gotBrowserFiles, "browser descriptor inventory changed")
+	staleJavaScript, err := filepath.Glob(filepath.Join(generatedDirectory, "*_pb.js"))
+	require.NoError(t, err)
+	require.Empty(t, staleJavaScript, "stale generated JavaScript must not remain beside TypeScript contracts")
 }
 
 func sortedMapKeys[T any](files map[string]T) []string {
@@ -2309,7 +2313,7 @@ func TestBundledDemoManifestIsValidAndResolvesFromResources(t *testing.T) {
 
 }
 
-func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
+func TestAssetsProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 	t.Parallel()
 
 	root := assetRepositoryRoot(t)
@@ -2363,11 +2367,13 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 	assert.NotContains(t, hostSource, "PlayerService")
 	assert.Equal(t, 1, strings.Count(hostSource, "host.Window.NewWithOptions("))
 
-	viteConfig, err := os.ReadFile(filepath.Join(root, "frontend", "overseer", "vite.config.js"))
+	viteConfig, err := os.ReadFile(filepath.Join(root, "frontend", "overseer", "vite.config.ts"))
 	if err != nil {
 		require.NoError(t, err)
 	}
-	assert.False(t, !strings.Contains(string(viteConfig), `./dist/.keep`),
+	assert.Contains(t, string(viteConfig), "preserveGoEmbedMarker",
+		"Vite build does not define the go:embed marker preservation plugin")
+	assert.Contains(t, string(viteConfig), "writeFileSync(resolve(outputDirectory, '.keep'), '')",
 		"Vite build does not restore frontend/overseer/dist/.keep after emptyOutDir")
 
 }

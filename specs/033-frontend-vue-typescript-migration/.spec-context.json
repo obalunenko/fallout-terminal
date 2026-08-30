@@ -242,9 +242,105 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-30T09:11:45.756Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:25:27.546Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:27:09.714Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:28:18.925Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:49:03.146Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:49:45.242Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:50:10.282Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:51:29.736Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:51:53.625Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:54:39.362Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:56:18.997Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:56:56.523Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T09:57:58.409Z"
     }
   ],
-  "last_action": "halted before T022 — task/test dependency contradiction; 21/195 complete",
+  "last_action": "T033 complete — 33/195 tasks; next T034 Wails alias synchronization",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -1713,7 +1809,7 @@
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T022",
+  "currentTask": "T033",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1921,6 +2017,101 @@
       "did": "Made the browser fixture server validate and consume the exact generated TypeScript contract inventory before serving the compiled Player bundle; focused Go and ConnectRPC gates passed.",
       "files": [
         "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added exact generated TypeScript inventory checks and ordered strict Player/Overseer typecheck-plus-build preflights without changing package plans",
+      "files": [
+        "internal/buildtool/buildtool.go",
+        "internal/buildtool/preflight.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Added buildtool tests for strict frontend preflight ordering, exact generated TypeScript inventory, stale JavaScript rejection, and all five package plans",
+      "files": [
+        "internal/buildtool/buildtool_test.go",
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Updated asset contracts to decode the exact five generated TypeScript files, reject stale JavaScript, and verify separate Player/Overseer embeds with the TypeScript Vite config",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Made Linux/Windows package probes validate exact generated TypeScript, reject stale source JavaScript, compile an isolated probe runtime, and added platform self-tests (Windows NOT RUN on macOS)",
+      "files": [
+        "scripts/verify-linux-package.sh",
+        "scripts/verify-windows-package.ps1"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Verified both CI workflows already enforce exact Node, the sole frontend lockfile cache, generated TypeScript through Task-owned quality/package graphs, and no competing direct npm entrypoint",
+      "files": [
+        "none"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Populated the strict Player compiler program with exactly the five generated TypeScript contracts and verified the unchanged legacy production build",
+      "files": [
+        "frontend/client/tsconfig.json"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Added direct eight-RPC descriptor/procedure/cardinality/type/limit/error assertions and expanded edge authorization coverage to every Player RPC",
+      "files": [
+        "internal/player/public_stream_test.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Verified the unchanged focused ConnectRPC browser journey: 11 passed and 2 conditional live-ngrok cases skipped, with no test edit required",
+      "files": [
+        "none"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Closed Wave b with exact five-file TypeScript inventory, unchanged legacy DOM ownership, deterministic protobuf/RPC/browser/visual evidence, and no remaining Wave-b temporary mechanism",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T030-wave-b.md"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Added the desktop boundary manifest skeleton and governed RED assertion; only the exact missing no-state-change signature was accepted and recorded for T044 GREEN",
+      "files": [
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/fixtures/frontend-boundary-manifest.json",
+        "tests/browser/frontend-boundary-manifest.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T031-desktop-boundary-red.txt"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Created the first real Player-owned strict declarations and public transport/view-state ports; all three compile and pass the exact capability-neutral boundary scan",
+      "files": [
+        "frontend/client/src/env.d.ts",
+        "frontend/client/src/models/player-view-state.ts",
+        "frontend/client/src/ports/player-transport.ts"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Created Overseer-owned environment/view projections and a complete typed DesktopPort for all legacy facade commands, seven events, clipboard, and unknown-backed external records",
+      "files": [
+        "frontend/overseer/src/env.d.ts",
+        "frontend/overseer/src/models/overseer-view-state.ts",
+        "frontend/overseer/src/ports/desktop-port.ts"
       ]
     }
   },

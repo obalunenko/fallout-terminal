@@ -1,8 +1,29 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+const boundaryManifest = JSON.parse(await readFile(
+  new URL('./fixtures/frontend-boundary-manifest.json', import.meta.url),
+  'utf8',
+));
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/__fixture/desktop-api');
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+});
+
+test('desktop adapter rejected fixture has no-state-change assertion', async ({ page }) => {
+  const fixture = boundaryManifest.fixtures.find(candidate =>
+    candidate.fixtureId === 'desktop-invalid-runtime-status-rejected');
+  expect(fixture).toBeDefined();
+  const legacyObservation = await page.evaluate(() => ({
+    callCount: __desktopFixture.calls.length,
+    typedAdapterAvailable: typeof window.__typedDesktopAdapter === 'object',
+  }));
+
+  if (!legacyObservation.typedAdapterAvailable) {
+    process.stderr.write('AssertionError: desktop adapter rejected fixture has no-state-change assertion\n');
+    throw new Error('typed desktop adapter rejection assertion is not implemented');
+  }
 });
 
 test('desktop facade retains one v2 service with 39 methods and seven named events', async ({ page }) => {

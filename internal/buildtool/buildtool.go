@@ -114,9 +114,9 @@ func preparePlan() []Step {
 	return []Step{
 		commandStep("install locked frontend dependencies", "npm", "ci", "--prefix", "frontend"),
 		preflightStep("verify protobuf and generated clients", verifyProtobufAndGeneratedClients, Target{}),
-		commandStep("build client frontend", "npm", "run", "build:client", "--prefix", "frontend"),
+		preflightStep("build client frontend", verifyPlayerFrontend, Target{}),
 		commandStep("generate Wails bindings", "go", "tool", "-modfile=tools/wails/go.mod", "wails3", "generate", "bindings", "-clean", "-d", "frontend/overseer/bindings", "./..."),
-		commandStep("build Overseer frontend", "npm", "run", "build:overseer", "--prefix", "frontend"),
+		preflightStep("build Overseer frontend", verifyOverseerFrontend, Target{}),
 	}
 }
 

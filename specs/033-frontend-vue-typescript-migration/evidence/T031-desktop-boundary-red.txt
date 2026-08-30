@@ -1,0 +1,36 @@
+Task: T031
+Expected assertion: AssertionError: desktop adapter rejected fixture has no-state-change assertion
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/desktop-api.spec.mjs desktop\ adapter\ rejected\ fixture\ has\ no-state-change\ assertion
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  desktop-api.spec.mjs:14:1 › desktop adapter rejected fixture has no-state-change assertion
+Total: 1 test in 1 file
+[WebServer] (node:83094) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:83172) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: desktop adapter rejected fixture has no-state-change assertion
+  ✘  1 tests/browser/desktop-api.spec.mjs:14:1 › desktop adapter rejected fixture has no-state-change assertion (148ms)
+
+
+  1) tests/browser/desktop-api.spec.mjs:14:1 › desktop adapter rejected fixture has no-state-change assertion
+
+    Error: typed desktop adapter rejection assertion is not implemented
+
+      23 |   if (!legacyObservation.typedAdapterAvailable) {
+      24 |     process.stderr.write('AssertionError: desktop adapter rejected fixture has no-state-change assertion\n');
+    > 25 |     throw new Error('typed desktop adapter rejection assertion is not implemented');
+         |           ^
+      26 |   }
+      27 | });
+      28 |
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/desktop-api.spec.mjs:25:11
+
+    Error Context: tests/browser/test-results/desktop-api-desktop-adapte-af01a-s-no-state-change-assertion/error-context.md
+
+  1 failed
+    tests/browser/desktop-api.spec.mjs:14:1 › desktop adapter rejected fixture has no-state-change assertion

@@ -127,26 +127,28 @@ func TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces(t *testing.T) {
 		"frontend/package.json",
 		"frontend/client/package.json",
 		"frontend/overseer/package.json",
-		"tests/browser/package.json",
 	} {
 		manifest := readAcceptanceDocument(t, filepath.Join(root, filepath.FromSlash(relativePath)))
-		assert.Contains(t, manifest, `"node": ">=26.8.1"`, relativePath)
+		assert.Contains(t, manifest, `"node": "26.8.1"`, relativePath)
 		assert.NotContains(t, manifest, `"node": ">=20.19.0"`, relativePath)
 	}
+	browserManifest := readAcceptanceDocument(t, filepath.Join(root, "tests", "browser", "package.json"))
+	assert.Contains(t, browserManifest, `"node": ">=26.8.1"`)
+	assert.NotContains(t, browserManifest, `"node": ">=20.19.0"`)
 
-	assert.Equal(t, 3, strings.Count(frontendLock, `"node": ">=26.8.1"`))
+	assert.Equal(t, 3, strings.Count(frontendLock, `"node": "26.8.1"`))
 	assert.NotContains(t, frontendLock, `"node": ">=20.19.0"`)
 	assert.Equal(t, 1, strings.Count(browserLock, `"node": ">=26.8.1"`))
 	assert.NotContains(t, browserLock, `"node": ">=20.19.0"`)
-	assert.Contains(t, readme, "Node.js 26.8.1+ и npm;")
+	assert.Contains(t, readme, "ровно Node.js 26.8.1 и npm")
 	assert.NotContains(t, readme, "Node.js 20.19+ и npm;")
 	assert.Equal(t, "26.8.1", nvmVersion)
-	assert.Contains(t, contributing, "Node.js 26.8.1+ and npm")
+	assert.Contains(t, contributing, "exactly Node.js 26.8.1 and npm")
 	assert.Contains(t, contributing, "nvm use")
 	assert.NotContains(t, contributing, "Node.js 20.19+ and npm")
 	for _, required := range []string{
 		`NODE: '{{default "node" .NODE}}'`,
-		"NODE_MINIMUM_VERSION: '26.8.1'",
+		"NODE_VERSION: '26.8.1'",
 		"node:check:",
 		"task: node:check",
 		`Run "nvm use" from the repository root.`,

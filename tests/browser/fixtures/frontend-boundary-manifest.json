@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "boundaryClass": "Wails method result",
+      "fixtureId": "desktop-invalid-runtime-status-rejected",
+      "owner": "frontend/overseer/src/adapters/desktop-api.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "c",
+      "focusedTest": "tests/browser/desktop-api.spec.mjs"
+    }
+  ]
+}

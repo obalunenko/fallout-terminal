@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -29,6 +30,48 @@ const (
 	edgeTestUsername = "players"
 	edgeTestPassword = "synthetic-player-input"
 )
+
+func TestPlayerRPCContractInventoryIsStable(t *testing.T) {
+	t.Parallel()
+
+	type rpcContract struct {
+		name            protoreflect.Name
+		procedure       string
+		input           protoreflect.FullName
+		output          protoreflect.FullName
+		clientStreaming bool
+		serverStreaming bool
+	}
+	contracts := []rpcContract{
+		{name: "Subscribe", procedure: playerv1connect.PlayerServiceSubscribeProcedure, input: "fallout.terminal.player.v1.SubscribeRequest", output: "fallout.terminal.player.v1.SubscriptionMessage", serverStreaming: true},
+		{name: "SelectCharacter", procedure: playerv1connect.PlayerServiceSelectCharacterProcedure, input: "fallout.terminal.player.v1.SelectCharacterRequest", output: "fallout.terminal.player.v1.ActionResult"},
+		{name: "Navigate", procedure: playerv1connect.PlayerServiceNavigateProcedure, input: "fallout.terminal.player.v1.NavigateRequest", output: "fallout.terminal.player.v1.ActionResult"},
+		{name: "Guess", procedure: playerv1connect.PlayerServiceGuessProcedure, input: "fallout.terminal.player.v1.GuessRequest", output: "fallout.terminal.player.v1.ActionResult"},
+		{name: "ActivatePattern", procedure: playerv1connect.PlayerServiceActivatePatternProcedure, input: "fallout.terminal.player.v1.ActivatePatternRequest", output: "fallout.terminal.player.v1.ActionResult"},
+		{name: "SetPresentation", procedure: playerv1connect.PlayerServiceSetPresentationProcedure, input: "fallout.terminal.player.v1.SetPresentationRequest", output: "fallout.terminal.player.v1.ActionResult"},
+		{name: "PresentationUplink", procedure: playerv1connect.PlayerServicePresentationUplinkProcedure, input: "fallout.terminal.player.v1.PresentationUplinkRequest", output: "fallout.terminal.player.v1.PresentationUplinkResponse", clientStreaming: true},
+		{name: "SoundManifest", procedure: playerv1connect.PlayerServiceSoundManifestProcedure, input: "fallout.terminal.player.v1.SoundManifestRequest", output: "fallout.terminal.player.v1.SoundManifestResponse"},
+	}
+
+	service := playerv1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService")
+	require.NotNil(t, service)
+	require.Equal(t, protoreflect.FullName(playerv1connect.PlayerServiceName), service.FullName())
+	require.Equal(t, len(contracts), service.Methods().Len())
+	for index, contract := range contracts {
+		method := service.Methods().Get(index)
+		assert.Equal(t, contract.name, method.Name())
+		assert.Equal(t, "/"+playerv1connect.PlayerServiceName+"/"+string(contract.name), contract.procedure)
+		assert.Equal(t, contract.input, method.Input().FullName())
+		assert.Equal(t, contract.output, method.Output().FullName())
+		assert.Equal(t, contract.clientStreaming, method.IsStreamingClient())
+		assert.Equal(t, contract.serverStreaming, method.IsStreamingServer())
+		assert.True(t, supportedRPCRequestPath(contract.procedure, "/"+playerv1connect.PlayerServiceName+"/"))
+	}
+	require.Equal(t, 4<<10, MaxUncompressedMessageBytes)
+	require.Equal(t, 8<<10, MaxEncodedBodyBytes)
+	require.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(publicConnectError(ErrResourceExhausted)))
+	require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(publicConnectError(errors.New("invalid public request"))))
+}
 
 func TestFirstPublicSnapshotRestoresControllerPresentation(t *testing.T) {
 	domainSnapshot := &domain.PersonalizedSnapshot{
@@ -255,8 +298,14 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 
 	for _, path := range []string{
 		"/", "/client.js",
-		"/fallout.terminal.player.v1.PlayerService/SoundManifest",
-		"/fallout.terminal.player.v1.PlayerService/Subscribe",
+		playerv1connect.PlayerServiceSubscribeProcedure,
+		playerv1connect.PlayerServiceSelectCharacterProcedure,
+		playerv1connect.PlayerServiceNavigateProcedure,
+		playerv1connect.PlayerServiceGuessProcedure,
+		playerv1connect.PlayerServiceActivatePatternProcedure,
+		playerv1connect.PlayerServiceSetPresentationProcedure,
+		playerv1connect.PlayerServicePresentationUplinkProcedure,
+		playerv1connect.PlayerServiceSoundManifestProcedure,
 	} {
 		for _, credentials := range []struct{ username, password string }{{}, {username: edgeTestUsername, password: "synthetic-wrong-input"}} {
 			request, requestErr := http.NewRequestWithContext(t.Context(), http.MethodPost, ingress.URL().String()+path, bytes.NewReader([]byte{0, 0, 0, 0, 0}))
