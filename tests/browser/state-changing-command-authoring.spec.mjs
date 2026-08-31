@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 const TERMINAL_ID = 'terminal-stateful';
 const BUNDLED_DEMO_URL = new URL('../../sessions/demo.json', import.meta.url);
+const AUTHORING_COMPOSABLE_URL = new URL('../../frontend/overseer/src/composables/useTerminalAuthoring.ts', import.meta.url);
+const LEGACY_OVERSEER_URL = new URL('../../frontend/overseer/src/overseer.js', import.meta.url);
 
 test.use({ bypassCSP: true });
 
@@ -85,6 +87,70 @@ test.beforeEach(async ({ page }) => {
   await openAuthoringFixture(page);
 });
 
+test('terminal tree preserves recursive stable keys and node validation', async ({ page }) => {
+  const stableCommand = page.locator('[data-node-key="emergency-lights"]');
+  await stableCommand.evaluate(element => { element.dataset.stabilityMarker = 'preserved'; });
+
+  await page.locator('#btnAddFolder').click();
+  const newFolder = page.locator('[data-node-id^="n_"]', { hasText: 'Новая папка' }).first();
+  const folderRow = newFolder.locator(':scope > .tree-row');
+  await expect(folderRow).toBeFocused();
+  const folderID = await newFolder.getAttribute('data-node-id');
+  expect(folderID).toBeTruthy();
+
+  await page.locator('#btnAddEntry').click();
+  const nestedEntry = newFolder.locator(':scope > .tree-children > [data-node-id^="n_"]', { hasText: 'Новая запись' });
+  await expect(nestedEntry).toHaveCount(1);
+  await expect(nestedEntry.locator(':scope > .tree-row')).toBeFocused();
+  await expect(stableCommand).toHaveAttribute('data-stability-marker', 'preserved');
+
+  await stableCommand.click();
+  const form = page.locator('#nodeForm');
+  const savesBeforeValidation = await desktopCallCount(page, 'SaveSession');
+  await form.getByLabel('ИСХОДНОЕ НАЗВАНИЕ').fill('  ');
+  await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await expect(form.getByRole('alert')).toContainText(/исходн.*назван/i);
+  await expect(form.getByLabel('ИСХОДНОЕ НАЗВАНИЕ')).toBeFocused();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeValidation);
+
+  await expect(page.locator('#legacyOverseerRoot #terminalTreeVueLeaf #treeView')).toHaveCount(1);
+  await expect(page.locator('#legacyOverseerRoot #nodeEditorVueLeaf #nodeForm')).toHaveCount(1);
+});
+
+test('terminal authoring integrates typed state without DOM inspection', async ({ page }) => {
+  const revisions = await page.evaluate(() => ({
+    create: Number(document.querySelector('#createTerminalDialog')?.dataset.createRevision),
+    editor: Number(document.querySelector('#terminalEditorVueLeaf [data-editor-revision]')?.dataset.editorRevision),
+    groups: Number(document.querySelector('#termList [data-group-revision]')?.dataset.groupRevision),
+    selection: Number(document.querySelector('#termList [data-selection-revision]')?.dataset.selectionRevision),
+    tree: Number(document.querySelector('#treeView')?.dataset.treeRevision),
+  }));
+  expect(new Set(Object.values(revisions)).size).toBe(1);
+  expect(revisions.editor).toBeGreaterThan(0);
+
+  await selectCommand(page, 'Включить аварийный свет');
+  const updated = await page.evaluate(() => [
+    Number(document.querySelector('#terminalEditorVueLeaf [data-editor-revision]')?.dataset.editorRevision),
+    Number(document.querySelector('#termList [data-group-revision]')?.dataset.groupRevision),
+    Number(document.querySelector('#termList [data-selection-revision]')?.dataset.selectionRevision),
+    Number(document.querySelector('#treeView')?.dataset.treeRevision),
+  ]);
+  expect(new Set(updated).size).toBe(1);
+  expect(updated[0]).toBeGreaterThan(revisions.editor);
+
+  const [composableSource, legacySource] = await Promise.all([
+    readFile(AUTHORING_COMPOSABLE_URL, 'utf8'),
+    readFile(LEGACY_OVERSEER_URL, 'utf8'),
+  ]);
+  expect(composableSource).not.toMatch(/document\.|querySelector|legacyOverseerRoot/);
+  expect(legacySource).not.toMatch(/terminal(?:Selection|Group|Editor|Tree)Projection|createTerminalProjection/);
+  expect(legacySource).toContain("kind: 'terminal-authoring-snapshot'");
+
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(page.locator('#terminalEditorVueLeaf [data-editor-revision]')).toHaveCount(0);
+  await expect(page.locator('#treeView')).toHaveCount(0);
+});
+
 test('terminal actions follow selected-terminal, editor, and broadcast context', async ({ page }) => {
   const makeLive = page.locator('#btnMakeLive');
   const liveFlag = page.locator('#liveFlag');
@@ -125,6 +191,114 @@ test('terminal actions follow selected-terminal, editor, and broadcast context',
   await settings.getByRole('button', { name: 'ПЕРЕПРИМЕНИТЬ НАСТРОЙКИ' }).click();
   await expect.poll(() => desktopCallCount(page, 'RequestTerminalActivation')).toBe(2);
   await expect(settings).not.toHaveAttribute('open', '');
+});
+
+test('terminal action menu editor and settings preserve validation and atomic save', async ({ page }) => {
+  const row = page.locator(`.term-row[data-terminal-id="${TERMINAL_ID}"]`);
+  const trigger = row.locator('[data-action-menu-trigger="terminal"]');
+  const menu = row.locator(':scope > .terminal-action-menu > .terminal-action-menu-panel');
+  let saveCount = await desktopCallCount(page, 'SaveSession');
+
+  await trigger.click();
+  await expect(menu).toBeVisible();
+  await page.locator('.tree-hdr').click();
+  await expect(menu).toBeHidden();
+
+  await trigger.click();
+  await menu.locator('[data-action="rename-terminal"]').click();
+  const rename = row.locator('.terminal-rename-input');
+  await expect(rename).toBeFocused();
+  await rename.fill('   ');
+  await rename.press('Enter');
+  await expect(rename).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCount);
+  await expect(page.locator('#editingTermName')).toHaveText('Терминал охраны');
+
+  await trigger.click();
+  await menu.locator('[data-action="rename-terminal"]').click();
+  await rename.fill('Не сохранять это имя');
+  await rename.press('Escape');
+  await expect(rename).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCount);
+
+  await trigger.click();
+  await menu.locator('[data-action="rename-terminal"]').click();
+  await rename.fill('Терминал охраны — обновлён');
+  await rename.press('Enter');
+  saveCount += 1;
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCount);
+  await expect(row.locator('.term-row-name')).toHaveText('Терминал охраны — обновлён');
+  await expect(page.locator('#editingTermName')).toHaveText('Терминал охраны — обновлён');
+
+  const hackLevel = page.locator('#hackLevelSelect');
+  const introText = page.locator('#introTextArea');
+  await hackLevel.selectOption('4');
+  await introText.fill('Новый атомарный текст терминала');
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCount);
+  const beforeApply = await lastDesktopCall(page, 'SaveSession');
+  expect(beforeApply.args[0].terminals.find(terminal => terminal.id === TERMINAL_ID)).not.toMatchObject({
+    hackLevel: 4,
+    introText: 'Новый атомарный текст терминала',
+  });
+
+  await page.locator('#btnApplySettings').click();
+  saveCount += 1;
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCount);
+  expect((await lastDesktopCall(page, 'SaveSession')).args[0].terminals
+    .find(terminal => terminal.id === TERMINAL_ID)).toMatchObject({
+    hackLevel: 4,
+    introText: 'Новый атомарный текст терминала',
+  });
+
+  const editorRevision = Number(await page.locator('.tree-hdr[data-editor-revision]')
+    .getAttribute('data-editor-revision'));
+  const selectionRevision = Number(await page.locator('#termList > [data-selection-revision]')
+    .getAttribute('data-selection-revision'));
+  await page.evaluate(({ currentEditorRevision, currentSelectionRevision, terminalID }) => {
+    __overseerCoexistenceBridge.vueToLegacy({
+      action: 'apply-settings',
+      hackLevel: 1,
+      introText: 'STALE SETTINGS',
+      kind: 'terminal-editor-action-request',
+      revision: currentEditorRevision - 1,
+      terminalID,
+    });
+    __overseerCoexistenceBridge.vueToLegacy({
+      action: 'rename-terminal',
+      kind: 'terminal-action-request',
+      name: 'STALE NAME',
+      revision: currentSelectionRevision - 1,
+      terminalID,
+    });
+  }, {
+    currentEditorRevision: editorRevision,
+    currentSelectionRevision: selectionRevision,
+    terminalID: TERMINAL_ID,
+  });
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCount);
+  await expect(page.locator('#editingTermName')).toHaveText('Терминал охраны — обновлён');
+  await expect(hackLevel).toHaveValue('4');
+  await expect(introText).toHaveValue('Новый атомарный текст терминала');
+
+  await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    __overseerVueFixture.unmount();
+    window.dispatchEvent(new CustomEvent('overseer-terminal-action-menu-open', { detail: 'late' }));
+    __overseerCoexistenceBridge.legacyToVue({
+      broadcastActive: true,
+      kind: 'terminal-editor-snapshot',
+      pending: false,
+      publishAcknowledgement: 99,
+      resetPending: false,
+      revision: Number.MAX_SAFE_INTEGER,
+      terminal: null,
+    });
+  });
+  await expect(page.locator('#terminalEditorVueLeaf')).toBeEmpty();
+  await expect(page.locator('#terminalSettingsVueLeaf')).toBeEmpty();
+  await expect(page.locator('#termList > .terminal-group')).toHaveCount(0);
 });
 
 test('logical-session details and controls live in a reactive keyboard-accessible dialog', async ({ page }) => {
@@ -300,7 +474,7 @@ test('publishing uses only the live-content command and preserves active identit
   await expect(publish).toBeHidden();
 });
 
-test('terminal creation validates a name and mutates the session only after confirmation', async ({ page }) => {
+test('create-terminal dialog preserves validation atomicity and focus', async ({ page }) => {
   const createButton = page.locator('#btnAddTerminal');
   const dialog = page.getByRole('dialog', { name: 'СОЗДАТЬ ТЕРМИНАЛ' });
   const nameInput = page.locator('#createTerminalName');
@@ -315,6 +489,17 @@ test('terminal creation validates a name and mutates the session only after conf
   await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBefore);
 
   await createButton.click();
+  const currentRevision = Number(await dialog.getAttribute('data-create-revision'));
+  await page.evaluate((revision) => {
+    __overseerCoexistenceBridge.vueToLegacy({
+      action: 'create',
+      kind: 'create-terminal-action-request',
+      name: 'Устаревший терминал',
+      revision: revision - 1,
+    });
+  }, currentRevision);
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBefore);
   await dialog.getByRole('button', { name: 'СОЗДАТЬ ТЕРМИНАЛ' }).click();
   await expect(page.locator('#createTerminalError')).toHaveText('УКАЖИТЕ НАЗВАНИЕ ТЕРМИНАЛА');
   await expect(dialog).toBeVisible();
@@ -333,6 +518,11 @@ test('terminal creation validates a name and mutates the session only after conf
     introText: '',
   }));
   expect(await desktopCallCount(page, 'RequestTerminalActivation')).toBe(0);
+
+  await createButton.click();
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(page.locator('#createTerminalDialog')).toHaveCount(0);
 });
 
 test('take-off-air always confirms, exposes failures, and chains unfinished progress', async ({ page }) => {

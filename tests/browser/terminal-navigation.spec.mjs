@@ -134,6 +134,64 @@ test.beforeEach(async ({ request }) => {
   expect(response.ok()).toBe(true);
 });
 
+test('terminal selection preserves stable rows stale suppression and focus', async ({ page }) => {
+  await openOverseer(page);
+
+  const list = page.locator('#termList');
+  const rows = list.locator('.term-row');
+  await expect(rows).toHaveCount(3);
+  const terminalIDs = await rows.evaluateAll(elements => elements.map(element => element.dataset.terminalId));
+  expect(new Set(terminalIDs).size).toBe(terminalIDs.length);
+  await expect(rows.locator('.terminal-action-menu-trigger')).toHaveCount(terminalIDs.length);
+
+  const target = rows.nth(1);
+  const targetID = await target.getAttribute('data-terminal-id');
+  const originalTarget = await target.elementHandle();
+  await target.focus();
+  await target.press('Enter');
+  await expect(target).toHaveAttribute('aria-current', 'true');
+  await expect(target).toBeFocused();
+  expect(await target.evaluate((element, original) => element === original, originalTarget)).toBe(true);
+
+  const projection = list.locator('[data-selection-revision]');
+  const revision = Number(await projection.getAttribute('data-selection-revision'));
+  await page.evaluate(({ currentRevision, selectedTerminalID }) => {
+    __overseerCoexistenceBridge.legacyToVue({
+      kind: 'terminal-selection-snapshot',
+      revision: currentRevision - 1,
+      terminals: [{
+        groupID: 'stale-group',
+        groupName: 'STALE GROUP',
+        id: 'stale-terminal',
+        live: false,
+        name: 'STALE TERMINAL',
+        selected: selectedTerminalID === 'stale-terminal',
+      }],
+    });
+  }, { currentRevision: revision, selectedTerminalID: targetID });
+  await expect(rows).toHaveCount(terminalIDs.length);
+  await expect(list.locator('[data-terminal-id="stale-terminal"]')).toHaveCount(0);
+  await expect(target).toHaveAttribute('aria-current', 'true');
+
+  await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    __overseerVueFixture.unmount();
+    __overseerCoexistenceBridge.legacyToVue({
+      kind: 'terminal-selection-snapshot',
+      revision: Number.MAX_SAFE_INTEGER,
+      terminals: [{
+        groupID: 'late-group',
+        groupName: 'LATE GROUP',
+        id: 'late-terminal',
+        live: false,
+        name: 'LATE TERMINAL',
+        selected: false,
+      }],
+    });
+  });
+  await expect(list.locator('.term-row')).toHaveCount(0);
+});
+
 test('active player identity is an immersive lower system line', async ({ browser }) => {
   const context = await browser.newContext();
   const page = await context.newPage();

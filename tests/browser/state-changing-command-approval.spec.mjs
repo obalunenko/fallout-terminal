@@ -241,6 +241,38 @@ test.beforeEach(async ({ request }) => {
   await resetApprovalFixture(request);
 });
 
+test('approval and reset leaves have one owner and exact-once cleanup', async ({ browser }) => {
+  const context = await browser.newContext({ bypassCSP: true });
+  const page = await context.newPage();
+  try {
+    await page.goto(OVERSEER_URL);
+    await mountOverseerCandidate(page);
+    await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
+    await expect(page.locator('#mainLayout')).toBeVisible();
+    for (const id of [
+      'commandExecutionDialog',
+      'terminalNavigationDialog',
+      'terminalSwitchDialog',
+      'resetConfirmationDialog',
+    ]) {
+      await expect(page.locator(`#${id}`)).toHaveCount(1);
+      await expect(page.locator(`#legacyOverseerRoot #${id}`)).toHaveCount(0);
+    }
+
+    expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
+    const released = await page.evaluate(() => {
+      __overseerVueFixture.unmount();
+      return __desktopFixture.releaseCount('coordination-state');
+    });
+    expect(released).toBeGreaterThan(0);
+    await page.evaluate(() => __overseerVueFixture.unmount());
+    expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
+    await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
+  } finally {
+    await context.close();
+  }
+});
+
 test('duplicate/stale request resolves exactly once', async ({ browser }) => {
   const journey = await openApprovalJourney(browser);
   try {

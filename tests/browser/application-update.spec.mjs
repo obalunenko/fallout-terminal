@@ -67,6 +67,14 @@ test('Vue update offer preserves cumulative revision and focus', async ({ page }
     throw new Error('Vue-owned application update offer is not implemented');
   }
 
+  for (const id of [
+    'applicationUpdateStatusPanel',
+    'applicationUpdateDialog',
+    'applicationUpdateRestartDialog',
+  ]) {
+    await expect(page.locator(`#${id}`)).toHaveCount(1);
+  }
+
   await expect(vueLeaves.locator('#applicationUpdateStatusPanel')).toHaveAttribute('data-revision', '2');
   await expect(vueDialog).toBeVisible();
   await expect(vueLeaves.locator('#applicationUpdateInstalledVersion')).toHaveText('2.0.0');

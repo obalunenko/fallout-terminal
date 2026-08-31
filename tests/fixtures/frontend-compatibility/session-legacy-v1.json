@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "name": "Legacy compatibility session",
+  "playerConfig": "player-config-legacy-v1.json",
+  "legacySessionNote": {
+    "preserve": true
+  },
+  "terminals": [
+    {
+      "id": "legacy-terminal",
+      "name": "Legacy Terminal",
+      "legacyTerminalNote": 42,
+      "root": {
+        "id": "root",
+        "type": "folder",
+        "name": "ROOT",
+        "legacyRootNote": [
+          1,
+          2
+        ],
+        "children": [
+          {
+            "id": "legacy-entry",
+            "type": "entry",
+            "name": "LEGACY LOG",
+            "description": "Legacy defaults remain meaningful.",
+            "legacyEntryNote": {
+              "nested": "preserve"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

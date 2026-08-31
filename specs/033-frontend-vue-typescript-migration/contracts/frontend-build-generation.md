@@ -86,10 +86,10 @@ Both Vite output trees must be byte-identical across two clean builds of one sou
 - one representative legacy version-1 session document;
 - one current player-configuration document;
 - one legacy player-configuration document;
-- compatible unknown fields in both document types; and
+- compatible unknown fields in session documents, plus strict unknown-field rejection and absent legacy attribute defaults in player configurations; and
 - existing cross-file player-configuration reference behavior.
 
-Each fixture opens through the migrated Overseer application boundary, renders and permits an edit without changing established meaning, saves, reopens, and compares supported fields, defaults, references, and compatible unknown fields. The gate fails on loss, silent normalization, relocation, or business-meaning change. Task generation must inventory and name the exact reviewed fixture paths. It reuses current repository fixtures and the existing Go version-1 codecs wherever suitable and does not establish a duplicate persistence format.
+Each valid fixture opens through the migrated Overseer application boundary, renders and permits an edit without changing established meaning, saves, reopens, and compares supported fields, defaults, references, preserved session extras, and player-config validation behavior. The gate fails on loss, silent normalization, relocation, validation weakening, or business-meaning change. Task generation must inventory and name the exact reviewed fixture paths. It reuses current repository fixtures and the existing Go version-1 codecs wherever suitable and does not establish a duplicate persistence format.
 
 ## Frontend boundary fixture gate
 

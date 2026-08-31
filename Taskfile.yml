@@ -271,6 +271,11 @@ tasks:
     cmds:
       - '{{.NPM}} run build:client --prefix frontend'
 
+  frontend:compatibility:check:
+    desc: Verify current and legacy session/player-config persistence compatibility through the browser fixture boundary.
+    cmds:
+      - scripts/frontend-focused-browser-check.sh tests/browser/persistence-compatibility.spec.mjs 'legacy/current session and player config round-trip through migrated boundary'
+
   frontend:policy:check:
     desc: Verify frontend dependency, source, type-safety, and trust-boundary policy.
     cmds:

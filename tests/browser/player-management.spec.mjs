@@ -28,6 +28,32 @@ async function openPlayerManagement(page) {
   return dialog;
 }
 
+test('session player and group leaves have one owner and release resources', async ({ page }) => {
+  const dialogIDs = [
+    'logicalSessionDialog',
+    'playerManagementDialog',
+    'playerDeleteDialog',
+    'terminalGroupDraftDialog',
+    'terminalGroupImpactDialog',
+  ];
+  for (const id of dialogIDs) {
+    await expect(page.locator(`#${id}`)).toHaveCount(1);
+    await expect(page.locator(`#legacyOverseerRoot #${id}`)).toHaveCount(0);
+  }
+  await expect(page.locator('#playerConfigVueLeaf #btnManagePlayers')).toHaveCount(1);
+
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
+  const released = await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    return __desktopFixture.releaseCount('coordination-state');
+  });
+  expect(released).toBeGreaterThan(0);
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
+  await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
+  await expect(page.locator('#playerConfigVueLeaf')).toBeEmpty();
+});
+
 test('closed or rebound dialog ignores stale result and releases listener', async ({ page }) => {
   const vueDialog = page.locator('#overseerVueLeaves #playerManagementDialog');
   if (await vueDialog.count() === 0) {

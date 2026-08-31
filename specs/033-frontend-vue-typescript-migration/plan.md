@@ -10,6 +10,24 @@
 
 **Bugfix**: 2026-08-30 — BUG-013 Updated wave-d terminal-group dialog integration scope from bugfix patch.
 
+**Bugfix**: 2026-08-30 — BUG-014 Updated wave-d public-access panel/dialog integration and focused Teleport-leaf scope from bugfix patch.
+
+**Bugfix**: 2026-08-31 — BUG-015 Updated the Wave-d full-parity correction scope for canonical public-access snapshots, closed-dialog accessibility, and candidate fixture mounting.
+
+**Bugfix**: 2026-08-31 — BUG-016 Updated the Wave-e runtime-shell integration scope for the production header target and typed acquired-session filename.
+
+**Bugfix**: 2026-08-31 — BUG-017 Updated Wave-e terminal/sidebar/authoring/tree/dialog slices with their explicit App/document integration seams.
+
+**Bugfix**: 2026-08-31 — BUG-018 Updated the Wave-e terminal-group integration so post-acquisition runtime status supplies the authoritative saved session revision before reviewed group mutations are enabled and verified canonically.
+
+**Bugfix**: 2026-08-31 — BUG-019 Updated the Wave-e terminal action-menu integration to include its existing row mount, validated terminal-selection projection, and adjacent group-menu coordination owners.
+
+**Bugfix**: 2026-08-31 — BUG-020 Updated the Wave-e broadcast/dialog/hacking slices with their explicit App/document integration seams.
+
+**Bugfix**: 2026-08-31 — BUG-021 Updated the Wave-e confirmation-dialog integration scope so its async lifecycle owner can enforce stale-completion suppression.
+
+**Bugfix**: 2026-08-31 — BUG-022 Corrected the persistence gate to preserve session extras while proving player-configuration legacy defaults and strict unknown-field rejection, matching the established version-1 codecs.
+
 **Immutable pre-migration rollback commit**: `06696ee1c7155a1bb1135ef46ec91445dd73a2a4`
 
 ## Summary
@@ -222,7 +240,7 @@ The root Taskfile remains the only public frontend workflow owner. These future 
 | `task frontend:policy:check` | Own forbidden production source, prohibited type escapes, single-lockfile policy, Player dependency boundaries, temporary-mechanism inventory, and final-cutover policy. |
 | `task frontend:reproducible:check` | Own two-build byte comparison and actionable sorted tree-digest evidence for both Vite outputs. |
 
-`task frontend:compatibility:check` uses a production-fidelity fixture set containing one representative current session document, one representative legacy version-1 session document, one current player-configuration document, one legacy player-configuration document, compatible unknown fields in both document types, and the established cross-file player-configuration reference behavior. It opens each document through the migrated Overseer boundary, renders and edits without changing established meaning, saves, reopens, and compares supported fields, defaults, references, and compatible unknown fields. It rejects any loss, silent normalization, relocation, or business-meaning change. Task generation must inventory and record the exact reviewed fixture paths, reusing repository version-1 fixtures and Go codecs where suitable rather than inventing a duplicate persistence representation.
+`task frontend:compatibility:check` uses a production-fidelity fixture set containing one representative current session document, one representative legacy version-1 session document, one current player-configuration document, one legacy player-configuration document, compatible session unknown fields, legacy player-attribute defaults, strict player-config unknown-field rejection, and the established cross-file player-configuration reference behavior. It opens each valid document through the migrated Overseer boundary, renders and edits without changing established meaning, saves, reopens, and compares supported fields, defaults, references, preserved session extras, and strict player-config validation. It rejects any loss, silent normalization, relocation, validation weakening, or business-meaning change. Task generation must inventory and record the exact reviewed fixture paths, reusing repository version-1 fixtures and Go codecs where suitable rather than inventing a duplicate persistence representation.
 
 `task frontend:boundary:check` consumes one reviewed manifest planned at `tests/browser/fixtures/frontend-boundary-manifest.json`. Each manifest entry records its boundary class, fixture identifier, owning adapter or composable, expected accept/reject result, expected trusted projection or no-state-change outcome, applicable migration wave, and focused test file. The population covers Wails/native named events, Wails command results, localStorage/storage-event records, DOM/form inputs, pointer/keyboard-derived values, ConnectRPC-decoded semantic network values, clipboard outcomes, sound-manifest/asset values, and presentation-stream capability/results. The gate runs every manifest entry, rejects every listed invalid fixture before trusted state mutation, accepts every listed valid fixture, and fails when an entry lacks a test mapping. This is complete for the reviewed manifest only; it does not claim every theoretically possible invalid value.
 

@@ -105,6 +105,7 @@ check_target_inventory() {
     frontend:build \
     frontend:build:client \
     frontend:build:overseer \
+    frontend:compatibility:check \
     frontend:policy:check \
     frontend:reproducible:check \
     frontend:typecheck \
@@ -175,6 +176,7 @@ full_self_test() {
   check_target_inventory "$expected_target_count"
   require_summary frontend:typecheck $'commands:\n - Task: frontend:typecheck:overseer\n - Task: frontend:typecheck:client'
   require_summary frontend:build $'commands:\n - Task: deps:frontend\n - Task: frontend:build:overseer\n - Task: frontend:build:client'
+  require_summary frontend:compatibility:check $'commands:\n - scripts/frontend-focused-browser-check.sh tests/browser/persistence-compatibility.spec.mjs '\''legacy/current session and player config round-trip through migrated boundary'\'''
   require_summary frontend:policy:check $'commands:\n - scripts/frontend-policy-check.sh'
   require_summary frontend:reproducible:check $'commands:\n - scripts/reproducible-build-check.sh --frontend'
   check_dispatch_contracts

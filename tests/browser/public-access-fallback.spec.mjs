@@ -7,6 +7,40 @@ import {
 
 const PLAYER_SERVICE = '/fallout.terminal.player.v1.PlayerService/';
 
+test.use({ bypassCSP: true });
+
+test('public-access status preserves fail-closed ordering and unsubscribe', async ({ page }) => {
+  await page.goto('/__fixture/public-access-settings');
+  await page.evaluate(() => __desktopFixture.deferPublicAccess());
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?public-access-status'));
+  await page.evaluate(() => {
+    __desktopFixture.emit('public-access-status', {
+      preferences: { version: 1, username: 'players', revision: 4 },
+      providerTokenPresence: 'present',
+      playerPasswordPresence: 'present',
+      status: { state: 'ready', generation: 5, settingsRevision: 4, publicUrl: 'https://new.example' },
+    });
+    __desktopFixture.resolvePublicAccess({
+      preferences: { version: 1, username: 'players', revision: 3 },
+      providerTokenPresence: 'absent',
+      playerPasswordPresence: 'absent',
+      status: { state: 'stopped', generation: 4, settingsRevision: 3 },
+    });
+  });
+  const panel = page.locator('#publicAccessVueLeaf #publicAccessSection');
+  await expect(panel).toHaveAttribute('data-fail-closed-ordering', 'enforced');
+  await expect(panel).toHaveAttribute('data-subscription-cleanup', 'released');
+  await expect(panel).toHaveAttribute('data-generation', '5');
+  await expect(panel).toHaveAttribute('data-settings-revision', '4');
+  await expect(panel.locator('#publicAccessStatus')).toHaveText('ГОТОВ');
+  await expect(panel.locator('#publicAccessURL')).toHaveText('https://new.example');
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(0);
+
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(panel).toHaveCount(0);
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(1);
+});
+
 async function installLocalDiagnostics(context) {
   await context.addInitScript(() => {
     window.__fallbackAudioPlays = 0;
@@ -189,6 +223,7 @@ test('all public failures leave local gameplay live and a later public generatio
 
   const overseer = await browser.newPage();
   await overseer.goto('/__fixture/public-access-settings');
+  await overseer.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?public-access-failure-recovery'));
   await expect(overseer.locator('#publicAccessSection')).toBeVisible();
 
   const failures = [

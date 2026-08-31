@@ -1,0 +1,39 @@
+Task: T063
+Expected assertion: AssertionError: one-time credential clears on close and clipboard failure stays isolated
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/public-access-settings.spec.mjs one-time\ credential\ clears\ on\ close\ and\ clipboard\ failure\ stays\ isolated
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  public-access-settings.spec.mjs:74:1 › one-time credential clears on close and clipboard failure stays isolated
+Total: 1 test in 1 file
+[WebServer] (node:60209) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:60230) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:60231) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: one-time credential clears on close and clipboard failure stays isolated
+  ✘  1 tests/browser/public-access-settings.spec.mjs:74:1 › one-time credential clears on close and clipboard failure stays isolated (116ms)
+
+
+  1) tests/browser/public-access-settings.spec.mjs:74:1 › one-time credential clears on close and clipboard failure stays isolated
+
+    Error: Vue-owned public-access lifecycle is not implemented
+
+      42 | function missingVueLifecycle(message) {
+      43 |   process.stderr.write(`AssertionError: ${message}\n`);
+    > 44 |   throw new Error('Vue-owned public-access lifecycle is not implemented');
+         |         ^
+      45 | }
+      46 |
+      47 | test('public-access settings preserve validation focus and stale-save rejection', async ({ page }) => {
+        at missingVueLifecycle (/Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/public-access-settings.spec.mjs:44:9)
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/public-access-settings.spec.mjs:78:5
+
+    Error Context: tests/browser/test-results/public-access-settings-one-fc2ef-oard-failure-stays-isolated/error-context.md
+
+  1 failed
+    tests/browser/public-access-settings.spec.mjs:74:1 › one-time credential clears on close and clipboard failure stays isolated

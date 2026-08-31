@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "name": "Current compatibility session",
+  "playerConfig": "player-config-current-v1.json",
+  "compatibilityNote": {
+    "generation": "current",
+    "preserve": true
+  },
+  "terminals": [
+    {
+      "id": "current-overseer",
+      "name": "Current Overseer",
+      "hackLevel": 0,
+      "introText": "CURRENT SESSION",
+      "terminalNote": 17,
+      "root": {
+        "id": "root",
+        "type": "folder",
+        "name": "ROOT",
+        "nodeNote": [
+          "preserve",
+          "current"
+        ],
+        "children": [
+          {
+            "id": "current-status",
+            "type": "command",
+            "name": "STATUS",
+            "text": "All current systems nominal.",
+            "commandNote": {
+              "preserve": "nested"
+            },
+            "stateChange": {
+              "completedName": "STATUS CHECKED",
+              "confirmationText": "Check current status?"
+            }
+          },
+          {
+            "id": "current-transition",
+            "type": "command",
+            "name": "OPEN SECURITY",
+            "terminalTransition": {
+              "targetTerminalId": "current-security"
+            }
+          }
+        ]
+      },
+      "commandStates": {
+        "current-status": {
+          "completedName": "STATUS CHECKED",
+          "resultText": "All current systems nominal."
+        }
+      }
+    },
+    {
+      "id": "current-security",
+      "name": "Current Security",
+      "hackLevel": 3,
+      "introText": "AUTHORIZED PERSONNEL ONLY",
+      "root": {
+        "id": "root",
+        "type": "folder",
+        "name": "ROOT",
+        "children": [
+          {
+            "id": "current-log",
+            "type": "entry",
+            "name": "SECURITY LOG",
+            "description": "No incidents recorded."
+          }
+        ]
+      }
+    }
+  ],
+  "terminalGroups": [
+    {
+      "id": "current-group",
+      "name": "Current group",
+      "terminalIds": [
+        "current-overseer",
+        "current-security"
+      ]
+    }
+  ]
+}

@@ -562,6 +562,222 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-30T17:59:42.215Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T062",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T18:31:07.415Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T063",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T18:32:32.542Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T064",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T19:40:00.300Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T065",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T19:54:15.636Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T066",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T19:59:14.291Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T067",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:45:13.347Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T068",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:50:03.487Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T069",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:51:09.805Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T070",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:52:45.775Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T071",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:54:29.412Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T072",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:56:56.848Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T073",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T20:57:23.712Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T074",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T21:26:54.666Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T075",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T21:28:09.703Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T076",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T21:30:44.969Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T077",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T21:38:28.654Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T078",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-30T22:07:10.509Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T079",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T05:50:34.759Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T080",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T09:03:01.690Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T081",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T09:40:19.130Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T082",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T09:48:54.952Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T083",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T10:07:57.739Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T084",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T10:53:45.627Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T085",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T11:04:55.239Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T086",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T11:41:23.316Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T087",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T12:02:52.462Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T088",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T12:19:51.761Z"
     }
   ],
   "last_action": "T061 complete and validated; T062 BUG-013 scope patched, code implementation next",
@@ -2312,7 +2528,7 @@
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T061",
+  "currentTask": "T088",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -2954,6 +3170,362 @@
         "specs/033-frontend-vue-typescript-migration/tasks.md",
         "specs/033-frontend-vue-typescript-migration/bugs/BUG-012.md"
       ]
+    },
+    "T062": {
+      "status": "DONE",
+      "did": "Migrated terminal-group draft and impact dialogs to Vue with atomic typed-port submission, stale-result guards, and focus-safe bridge cleanup",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/TerminalGroupDraftDialog.vue",
+        "frontend/overseer/src/components/TerminalGroupImpactDialog.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T063": {
+      "status": "DONE",
+      "did": "Added governed public-access RED contracts and captured the sole expected missing one-time credential/clipboard lifecycle assertion",
+      "files": [
+        "tests/browser/public-access-settings.spec.mjs",
+        "tests/browser/public-access-fallback.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T063-public-access-red.txt"
+      ]
+    },
+    "T064": {
+      "status": "DONE",
+      "did": "Migrated the public-access status panel to Vue with fail-closed tuple ordering, isolated lifecycle and clipboard errors, detached legacy-settings handoff, and exact subscription cleanup",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/PublicAccessPanel.vue",
+        "frontend/overseer/src/composables/usePublicAccess.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/public-access-fallback.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T065": {
+      "status": "DONE",
+      "did": "Migrated public-access settings to a Vue-owned validated modal with transient-token clearing, authoritative stale-save handling, exact focus restoration, and typed child-dialog handoffs",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/PublicAccessSettingsDialog.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/public-access-settings.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T066": {
+      "status": "DONE",
+      "did": "Migrated provider-token replacement and deletion to a Vue-owned modal with immediate redaction, close/unmount clearing, failure focus, and authoritative snapshot handoff",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/ProviderTokenDialog.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/public-access-settings.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T067": {
+      "status": "DONE",
+      "did": "Migrated player credential editing, deletion, generation handoff, and native sharing to Vue with transient-password clearing, validation, failure focus, and authoritative snapshot handoff",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/PlayerCredentialsDialog.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/public-access-settings.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T068": {
+      "status": "DONE",
+      "did": "Migrated the one-time generated-password modal and clipboard fallback to Vue with input/result validation, isolated failure status, timer cancellation, transient clearing, and focus restoration; turned T063 GREEN",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/GeneratedPasswordDialog.vue",
+        "frontend/overseer/src/composables/useClipboard.ts",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/desktop-api.js",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T069": {
+      "status": "DONE",
+      "did": "Joined the application-update status, offer, and restart leaves under one Vue state owner with unique IDs, cumulative revision filtering, stable focus, and exact-once subscription cleanup",
+      "files": [
+        "tests/browser/application-update.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T070": {
+      "status": "DONE",
+      "did": "Joined approval, navigation, switch, and reset leaves under one Vue owner with unique IDs, no legacy copies, shared focus lifecycle, and idempotent cleanup",
+      "files": [
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T071": {
+      "status": "DONE",
+      "did": "Joined session, player-configuration, logical-session, player-management/delete, and terminal-group leaves under one Vue owner with unique dialogs and idempotent resource cleanup",
+      "files": [
+        "tests/browser/player-management.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T072": {
+      "status": "DONE",
+      "did": "Joined all public-access and credential Vue leaves under one snapshot owner; proved unique ownership, exact subscription cleanup, and secret disposal.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/mount.ts",
+        "tests/browser/public-access-settings.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T073": {
+      "status": "DONE",
+      "did": "Passed the strict Overseer typecheck, production build, and frontend policy gate for all integrated Wave-d leaves.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T073-wave-d-build.md"
+      ]
+    },
+    "T074": {
+      "status": "DONE",
+      "did": "Restored full Wave-d browser parity under BUG-015 by consolidating public-access snapshot ownership, preserving closed-dialog accessibility, and mounting candidate fixtures; final gate passed 213 with two credential-gated skips and unchanged CRT snapshots.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/composables/usePublicAccess.ts",
+        "frontend/overseer/src/components/GeneratedPasswordDialog.vue",
+        "tests/browser/public-access-fallback.spec.mjs",
+        "tests/browser/public-access-settings.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T074-wave-d-parity.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-015.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md"
+      ]
+    },
+    "T075": {
+      "status": "DONE",
+      "did": "Closed Wave d with an empty migrated-ID scan across legacy/bootstrap owners, exact remaining-handler inventory, 15 passing cleanup/boundary tests, and full browser parity evidence.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T075-wave-d.md"
+      ]
+    },
+    "T076": {
+      "status": "DONE",
+      "did": "Recorded the governed runtime-shell RED; only the exact missing Vue shell assertion was accepted and the harness rejected unrelated failure classes.",
+      "files": [
+        "tests/browser/overseer-runtime-shell.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T076-shell-red.txt"
+      ]
+    },
+    "T077": {
+      "status": "DONE",
+      "did": "Migrated the Overseer start/runtime shell and header to Vue with a governed Teleport target, typed session filename, ordered runtime projections, native URL handoff, and exact subscription cleanup; T076 turned GREEN.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/StartScreen.vue",
+        "frontend/overseer/src/components/OverseerLayout.vue",
+        "frontend/overseer/src/components/RuntimeHeader.vue",
+        "frontend/overseer/src/composables/useDesktopRuntime.ts",
+        "frontend/overseer/src/composables/useRuntimeStatus.ts",
+        "frontend/overseer/src/composables/useSessionDocument.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/overseer-runtime-shell.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-016.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md"
+      ]
+    },
+    "T078": {
+      "status": "DONE",
+      "did": "Migrated terminal selection to keyed Vue rows with revision-gated detached projections, stable keyboard focus, stale suppression, and idempotent bridge cleanup.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/TerminalSidebar.vue",
+        "frontend/overseer/src/components/TerminalRow.vue",
+        "frontend/overseer/src/composables/useTerminalSelection.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/terminal-navigation.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T078-terminal-selection.md"
+      ]
+    },
+    "T079": {
+      "status": "DONE",
+      "did": "Migrated the terminal group hierarchy to keyed Vue rows with validated revision-gated projections, atomic canonical actions, stable collapse/focus, exact listener cleanup, and the BUG-018 post-open revision handoff.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/components/TerminalSidebar.vue",
+        "frontend/overseer/src/components/TerminalGroupList.vue",
+        "frontend/overseer/src/components/TerminalGroupRow.vue",
+        "frontend/overseer/src/composables/useTerminalGroups.ts",
+        "frontend/overseer/src/composables/useSessionDocument.ts",
+        "frontend/overseer/src/desktop-api.js",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-018.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T079-terminal-groups.md"
+      ]
+    },
+    "T080": {
+      "status": "DONE",
+      "did": "Migrated terminal row actions and the selected-terminal editor/settings workflow to Vue with local validated drafts, revision-gated requests, exact menu/focus cleanup, atomic saves, and component-owned publish timing.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/TerminalActionMenu.vue",
+        "frontend/overseer/src/components/TerminalEditor.vue",
+        "frontend/overseer/src/components/TerminalSettings.vue",
+        "frontend/overseer/src/components/TerminalRow.vue",
+        "frontend/overseer/src/components/TerminalGroupList.vue",
+        "frontend/overseer/src/components/TerminalGroupRow.vue",
+        "frontend/overseer/src/composables/useTerminalSelection.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-019.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T080-terminal-editor.md"
+      ]
+    },
+    "T081": {
+      "status": "DONE",
+      "did": "Migrated the complete terminal tree and node editor to Vue-owned recursive keyed components with structurally validated increasing snapshots, revision-bound actions, local field validation, stable focus, and component cleanup; removed all legacy tree/node DOM rendering and handlers while retaining detached domain persistence and canonical reset dispatch.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/TerminalTree.vue",
+        "frontend/overseer/src/components/TerminalTreeNode.vue",
+        "frontend/overseer/src/components/NodeEditor.vue",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T081-terminal-tree.md"
+      ]
+    },
+    "T082": {
+      "status": "DONE",
+      "did": "Migrated the complete create-terminal dialog to Vue with revision filtering, stale-request suppression, local validation, modal and focus lifecycle, pending atomicity, and unmount cleanup; retained only terminal-domain creation and persistence in the legacy bridge.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/CreateTerminalDialog.vue",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T082-create-terminal-dialog.md"
+      ]
+    },
+    "T083": {
+      "status": "DONE",
+      "did": "Integrated all migrated terminal-authoring surfaces behind one typed useTerminalAuthoring state boundary, atomic combined snapshot, shared monotonic revision gate, filtered component bridge, and single subscription cleanup; removed five separate legacy authoring projection slots and counters.",
+      "files": [
+        "frontend/overseer/src/composables/useTerminalAuthoring.ts",
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T083-terminal-authoring-integration.md"
+      ]
+    },
+    "T084": {
+      "status": "DONE",
+      "did": "Migrated the complete broadcast/coordination control panel to Vue with ordered authoritative revisions, same-revision pending/status updates, confirmation requests, owned focus restoration, and bridge cleanup; removed all matching legacy control DOM ownership and recorded BUG-020 for the required App/document seam.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/BroadcastControls.vue",
+        "frontend/overseer/src/composables/useBroadcastControls.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/overseer-broadcast-controls.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T084-broadcast-controls.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-020.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md"
+      ]
+    },
+    "T085": {
+      "status": "DONE",
+      "did": "Migrated take-off-air and end-broadcast confirmations to distinct Vue native-dialog owners with exact-once pending gates, lifecycle/revision applicability, stale-completion suppression, focus restoration, error focus, and unmount cleanup; removed all matching legacy dialog code and patched BUG-021 to include the async lifecycle owner.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/TakeOffAirDialog.vue",
+        "frontend/overseer/src/components/EndBroadcastDialog.vue",
+        "frontend/overseer/src/composables/useBroadcastControls.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/overseer-broadcast-controls.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T085-broadcast-dialogs.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-021.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md"
+      ]
+    },
+    "T086": {
+      "status": "DONE",
+      "did": "Migrated Overseer hacking controls to an exclusive Vue panel and composable with monotonic authoritative revisions, stale-event and stale-completion suppression, no optimistic hack mutation, detached reset payloads, duplicate gates, and exact unmount cleanup; removed the legacy renderer, subscription, DOM queries, and handlers.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/components/HackControlPanel.vue",
+        "frontend/overseer/src/composables/useHackControls.ts",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/overseer-hack-controls.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T086-hack-controls.md"
+      ]
+    },
+    "T087": {
+      "status": "DONE",
+      "did": "Added the exact current/legacy session and player-config compatibility fixtures plus a single governed persistence-boundary RED assertion; patched BUG-022 so the gate preserves session extras while retaining canonical player-config legacy defaults and strict unknown-field rejection.",
+      "files": [
+        "tests/browser/persistence-compatibility.spec.mjs",
+        "tests/fixtures/frontend-compatibility/session-current-v1.json",
+        "tests/fixtures/frontend-compatibility/session-legacy-v1.json",
+        "tests/fixtures/frontend-compatibility/player-config-current-v1.json",
+        "tests/fixtures/frontend-compatibility/player-config-legacy-v1.json",
+        "specs/033-frontend-vue-typescript-migration/evidence/T087-compatibility-red.txt",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-022.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/contracts/frontend-build-generation.md",
+        "specs/033-frontend-vue-typescript-migration/contracts/trust-and-evidence-boundaries.md",
+        "specs/033-frontend-vue-typescript-migration/quickstart.md"
+      ]
+    },
+    "T088": {
+      "status": "DONE",
+      "did": "Implemented the canonical persistence compatibility browser route and Go checker, round-tripping four reviewed documents through version-1 codecs, preserving session extras/references, proving legacy player defaults and strict unknown rejection, and exercising current/legacy session render-edit-save-reopen through the migrated Overseer boundary; added the isolated ninth frontend task target.",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/persistence-compatibility.spec.mjs",
+        "Taskfile.yml",
+        "scripts/frontend-task-contract-check.sh"
+      ]
     }
   },
   "concerns": [
@@ -2968,6 +3540,11 @@
     {
       "note": "T041 is internally inconsistent: its exact Vite root requires test-fixtures/index.html, but its modifiable inventory requires candidate-index.html and keeps vite.config.ts read-only until T107",
       "step": "implement"
+    },
+    {
+      "note": "BUG-023: T089/T090 remove the only remaining Overseer application-state owner while 24 Vue sources still depend on its bridge, and T090 deletes a candidate entry imported by 15 read-only retained browser suites. A typed application controller plus expanded production/test inventories must be authorized before atomic cutover.",
+      "step": "implement",
+      "kind": "blocking-scope-conflict"
     }
   ]
 }

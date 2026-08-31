@@ -1,0 +1,38 @@
+Task: T076
+Expected assertion: AssertionError: Vue runtime shell preserves start/main/status semantics and releases runtime subscription
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/overseer-runtime-shell.spec.mjs Vue\ runtime\ shell\ preserves\ start/main/status\ semantics\ and\ releases\ runtime\ subscription
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  overseer-runtime-shell.spec.mjs:7:1 › Vue runtime shell preserves start/main/status semantics and releases runtime subscription
+Total: 1 test in 1 file
+[WebServer] (node:86977) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:87004) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:87005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: Vue runtime shell preserves start/main/status semantics and releases runtime subscription
+  ✘  1 tests/browser/overseer-runtime-shell.spec.mjs:7:1 › Vue runtime shell preserves start/main/status semantics and releases runtime subscription (105ms)
+
+
+  1) tests/browser/overseer-runtime-shell.spec.mjs:7:1 › Vue runtime shell preserves start/main/status semantics and releases runtime subscription
+
+    Error: Vue-owned Overseer runtime shell is not implemented
+
+      13 |   if (await runtimeHeader.count() === 0) {
+      14 |     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
+    > 15 |     throw new Error('Vue-owned Overseer runtime shell is not implemented');
+         |           ^
+      16 |   }
+      17 |
+      18 |   await expect(page.locator('#startScreen')).toHaveCount(1);
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/overseer-runtime-shell.spec.mjs:15:11
+
+    Error Context: tests/browser/test-results/overseer-runtime-shell-Vue-cc171-leases-runtime-subscription/error-context.md
+
+  1 failed
+    tests/browser/overseer-runtime-shell.spec.mjs:7:1 › Vue runtime shell preserves start/main/status semantics and releases runtime subscription

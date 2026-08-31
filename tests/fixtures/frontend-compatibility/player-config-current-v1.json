@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "Current compatibility players",
+  "roster": [
+    {
+      "id": "current-hacker",
+      "name": "Current Hacker",
+      "intelligence": 9,
+      "hackerPerkAvailable": true
+    },
+    {
+      "id": "current-guard",
+      "name": "Current Guard",
+      "intelligence": 4,
+      "hackerPerkAvailable": false
+    }
+  ]
+}

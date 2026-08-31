@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -44,6 +45,31 @@ var expectedGeneratedPlayerContracts = [...]string{
 	"player_pb.ts",
 	"sound_pb.ts",
 	"terminal_pb.ts",
+}
+
+var compatibilityFixtureNames = [...]string{
+	"session-current-v1.json",
+	"session-legacy-v1.json",
+	"player-config-current-v1.json",
+	"player-config-legacy-v1.json",
+}
+
+type fixtureCompatibilityResult struct {
+	Fixture                 string `json:"fixture"`
+	Kind                    string `json:"kind"`
+	Location                string `json:"location"`
+	NameBefore              string `json:"nameBefore"`
+	NameAfter               string `json:"nameAfter"`
+	PlayerConfigReference   string `json:"playerConfigReference,omitempty"`
+	SessionExtrasPreserved  bool   `json:"sessionExtrasPreserved,omitempty"`
+	LegacyDefaultsPreserved bool   `json:"legacyDefaultsPreserved,omitempty"`
+	UnknownFieldsRejected   bool   `json:"unknownFieldsRejected,omitempty"`
+}
+
+type fixtureCompatibilityResponse struct {
+	OK        bool                         `json:"ok"`
+	Error     string                       `json:"error,omitempty"`
+	Documents []fixtureCompatibilityResult `json:"documents,omitempty"`
 }
 
 type ids struct{ next atomic.Uint64 }
@@ -440,6 +466,13 @@ func (store *fixtureAuthoringStore) reset() {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	store.session = stateChangingAuthoringSession()
+	store.revision = 1
+}
+
+func (store *fixtureAuthoringStore) load(session domain.Session) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.session = cloneFixtureSession(session)
 	store.revision = 1
 }
 
@@ -1209,6 +1242,114 @@ func restartStateChangingBroadcast(service *control.Service, target domain.Termi
 	return activateLifecycleTerminal(service, target)
 }
 
+func checkSessionCompatibility(fixturePath, fixtureName string) (fixtureCompatibilityResult, error) {
+	raw, err := os.ReadFile(fixturePath)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("read %s: %w", fixtureName, err)
+	}
+	opened, err := domain.DecodeSession(raw)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("open %s: %w", fixtureName, err)
+	}
+	edited := opened
+	edited.Name += " · compatibility edit"
+	saved, err := domain.EncodeSession(edited)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("save %s: %w", fixtureName, err)
+	}
+	reopened, err := domain.DecodeSession(saved)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("reopen %s: %w", fixtureName, err)
+	}
+	if !reflect.DeepEqual(edited, reopened) {
+		return fixtureCompatibilityResult{}, fmt.Errorf("%s changed meaning across save and reopen", fixtureName)
+	}
+	if filepath.Base(fixturePath) != fixtureName {
+		return fixtureCompatibilityResult{}, fmt.Errorf("%s moved from its reviewed location", fixtureName)
+	}
+	return fixtureCompatibilityResult{
+		Fixture:                fixtureName,
+		Kind:                   "session",
+		Location:               filepath.ToSlash(fixturePath),
+		NameBefore:             opened.Name,
+		NameAfter:              reopened.Name,
+		PlayerConfigReference:  reopened.PlayerConfig,
+		SessionExtrasPreserved: reflect.DeepEqual(opened.Extra, reopened.Extra),
+	}, nil
+}
+
+func checkPlayerConfigCompatibility(fixturePath, fixtureName string) (fixtureCompatibilityResult, error) {
+	raw, err := os.ReadFile(fixturePath)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("read %s: %w", fixtureName, err)
+	}
+	opened, err := domain.DecodePlayerConfig(raw)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("open %s: %w", fixtureName, err)
+	}
+	edited := opened
+	edited.Name += " · compatibility edit"
+	saved, err := domain.EncodePlayerConfig(edited)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("save %s: %w", fixtureName, err)
+	}
+	reopened, err := domain.DecodePlayerConfig(saved)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("reopen %s: %w", fixtureName, err)
+	}
+	if !reflect.DeepEqual(edited, reopened) {
+		return fixtureCompatibilityResult{}, fmt.Errorf("%s changed meaning across save and reopen", fixtureName)
+	}
+	var unknown map[string]any
+	if err := json.Unmarshal(raw, &unknown); err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("prepare strictness check for %s: %w", fixtureName, err)
+	}
+	unknown["unexpectedCompatibilityField"] = true
+	unknownRaw, err := json.Marshal(unknown)
+	if err != nil {
+		return fixtureCompatibilityResult{}, fmt.Errorf("encode strictness check for %s: %w", fixtureName, err)
+	}
+	_, unknownErr := domain.DecodePlayerConfig(unknownRaw)
+	legacyDefaultsPreserved := true
+	if fixtureName == "player-config-legacy-v1.json" {
+		legacyDefaultsPreserved = len(reopened.Roster) == 3 &&
+			reopened.Roster[0].Intelligence == 1 && !reopened.Roster[0].HackerPerkAvailable &&
+			reopened.Roster[1].Intelligence == 8 && !reopened.Roster[1].HackerPerkAvailable &&
+			reopened.Roster[2].Intelligence == 1 && reopened.Roster[2].HackerPerkAvailable
+	}
+	if unknownErr == nil || !legacyDefaultsPreserved {
+		return fixtureCompatibilityResult{}, fmt.Errorf("%s changed strict validation or legacy defaults", fixtureName)
+	}
+	return fixtureCompatibilityResult{
+		Fixture:                 fixtureName,
+		Kind:                    "player-config",
+		Location:                filepath.ToSlash(fixturePath),
+		NameBefore:              opened.Name,
+		NameAfter:               reopened.Name,
+		LegacyDefaultsPreserved: legacyDefaultsPreserved,
+		UnknownFieldsRejected:   true,
+	}, nil
+}
+
+func checkPersistenceCompatibility(fixtureDirectory string) fixtureCompatibilityResponse {
+	results := make([]fixtureCompatibilityResult, 0, len(compatibilityFixtureNames))
+	for _, fixtureName := range compatibilityFixtureNames {
+		fixturePath := filepath.Join(fixtureDirectory, fixtureName)
+		var result fixtureCompatibilityResult
+		var err error
+		if strings.HasPrefix(fixtureName, "session-") {
+			result, err = checkSessionCompatibility(fixturePath, fixtureName)
+		} else {
+			result, err = checkPlayerConfigCompatibility(fixturePath, fixtureName)
+		}
+		if err != nil {
+			return fixtureCompatibilityResponse{Error: err.Error()}
+		}
+		results = append(results, result)
+	}
+	return fixtureCompatibilityResponse{OK: true, Documents: results}
+}
+
 func main() {
 	rootContext := context.Background()
 	ctx, stop := signal.NotifyContext(rootContext, os.Interrupt, syscall.SIGTERM)
@@ -1328,6 +1469,64 @@ func run(ctx context.Context) error {
 		return err
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /__fixture/persistence-compatibility", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprint(response, `<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Overseer persistence compatibility</title>
+<body><main id="overseerCompatibilityBoundary">
+<h1>Overseer persistence compatibility</h1>
+<button id="runCompatibility" type="button">RUN COMPATIBILITY CHECK</button>
+<output id="compatibilityStatus" role="status"></output>
+<ol id="compatibilityDocuments"></ol>
+</main>
+<script type="module">
+const button = document.querySelector("#runCompatibility");
+const status = document.querySelector("#compatibilityStatus");
+const documents = document.querySelector("#compatibilityDocuments");
+button.addEventListener("click", async () => {
+  button.disabled = true;
+  status.textContent = "CHECKING";
+  const response = await fetch("/__fixture/persistence-compatibility/check", { method: "POST" });
+  const result = await response.json();
+  documents.replaceChildren(...(result.documents ?? []).map(documentResult => {
+    const item = document.createElement("li");
+    item.dataset.fixture = documentResult.fixture;
+    item.dataset.kind = documentResult.kind;
+    item.textContent = documentResult.fixture + " · " + documentResult.nameBefore + " → " + documentResult.nameAfter;
+    return item;
+  }));
+  status.textContent = result.ok ? "PASS" : "FAIL · " + (result.error ?? "unknown error");
+  button.disabled = false;
+});
+</script></body></html>`)
+	})
+	mux.HandleFunc("POST /__fixture/persistence-compatibility/check", func(response http.ResponseWriter, _ *http.Request) {
+		result := checkPersistenceCompatibility(filepath.Clean("../fixtures/frontend-compatibility"))
+		response.Header().Set("Content-Type", "application/json")
+		if !result.OK {
+			response.WriteHeader(http.StatusUnprocessableEntity)
+		}
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/persistence-compatibility/load/{fixture}", func(response http.ResponseWriter, request *http.Request) {
+		fixtureName := request.PathValue("fixture")
+		if fixtureName != "session-current-v1.json" && fixtureName != "session-legacy-v1.json" {
+			http.Error(response, "unknown compatibility session fixture", http.StatusNotFound)
+			return
+		}
+		raw, readErr := os.ReadFile(filepath.Join("../fixtures/frontend-compatibility", fixtureName))
+		if readErr != nil {
+			http.Error(response, "compatibility session fixture is unavailable", http.StatusInternalServerError)
+			return
+		}
+		session, decodeErr := domain.DecodeSession(raw)
+		if decodeErr != nil {
+			http.Error(response, "compatibility session fixture is invalid", http.StatusUnprocessableEntity)
+			return
+		}
+		authoringStore.load(session)
+		response.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /__fixture/desktop-api", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(response, `<!doctype html><meta charset="utf-8">

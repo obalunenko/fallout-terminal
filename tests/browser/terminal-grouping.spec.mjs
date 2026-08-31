@@ -4,6 +4,8 @@ const FIXTURE = '/__fixture/terminal-grouping';
 const OVERSEER = `${FIXTURE}/overseer`;
 const PLAYER_TOKEN_KEY = 'fallout-terminal.player-token';
 
+test.use({ bypassCSP: true });
+
 async function resetFixture(request, scenario) {
   const response = await request.post(`${FIXTURE}/reset`, { data: { scenario } });
   expect(response.ok()).toBe(true);
@@ -32,8 +34,14 @@ async function fixtureStatus(request) {
 
 async function openOverseer(page) {
   await page.goto(OVERSEER);
+  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+  await mountOverseerCandidate(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
+}
+
+async function mountOverseerCandidate(page) {
+  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?terminal-grouping'));
 }
 
 async function openParticipant(browser, token = '') {
@@ -201,6 +209,115 @@ function candidateMembership(groups, terminals) {
     .join(' · ');
 }
 
+test('terminal group list preserves order atomicity and stable keys', async ({ page, request }) => {
+  await resetFixture(request, 'ordered');
+  const initial = await fixtureSession(request);
+  await openOverseer(page);
+
+  expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
+  const north = groupRow(page, 'north-route');
+  const originalNorth = await north.elementHandle();
+  const toggle = north.locator('[data-action="toggle-terminal-group"]');
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(terminalRow(page, 'gamma')).toBeHidden();
+
+  const initialRevision = Number(await page.locator('#termList > [data-group-revision]')
+    .getAttribute('data-group-revision'));
+  await page.evaluate(({ revision, groups }) => {
+    __overseerCoexistenceBridge.legacyToVue({
+      groups: groups.toReversed(),
+      kind: 'terminal-groups-snapshot',
+      revision: revision - 1,
+    });
+  }, {
+    revision: initialRevision,
+    groups: initial.terminalGroups.map(group => ({
+      id: group.id,
+      name: `STALE ${group.name}`,
+      terminalIDs: group.terminalIds,
+    })),
+  });
+  expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-saved-revision', '1');
+
+  await chooseGroupAction(page, 'north-route', 'move-terminal-group-down');
+  await expect(groupImpactDialog(page)).toBeVisible();
+  expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
+  await expect.poll(() => mutationCallCount(page)).toBe(0);
+  await groupImpactDialog(page).locator('[data-action="cancel-terminal-group-change"]').click();
+  await expect(groupImpactDialog(page)).toBeHidden();
+  await expect(groupActionTrigger(page, 'north-route')).toBeFocused();
+  expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
+
+  await chooseGroupAction(page, 'north-route', 'move-terminal-group-down');
+  await confirmGroupImpact(page);
+  await expect.poll(() => mutationCallCount(page)).toBe(1);
+  const saved = await fixtureSession(request);
+  expect(await renderedGroups(page)).toEqual(expectedGroups(saved));
+  expect(saved.terminalGroups.map(group => group.id)).toEqual([
+    initial.terminalGroups[0].id,
+    initial.terminalGroups[2].id,
+    initial.terminalGroups[1].id,
+    ...initial.terminalGroups.slice(3).map(group => group.id),
+  ]);
+  expect(await north.evaluate((element, original) => element === original, originalNorth)).toBe(true);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    __overseerVueFixture.unmount();
+    __overseerCoexistenceBridge.legacyToVue({
+      groups: [{ id: 'late', name: 'LATE', terminalIDs: ['late-terminal'] }],
+      kind: 'terminal-groups-snapshot',
+      revision: Number.MAX_SAFE_INTEGER,
+    });
+  });
+  await expect(groupRows(page)).toHaveCount(0);
+});
+
+test('terminal-group draft and impact dialogs preserve atomicity and focus', async ({ page, request }) => {
+  await resetFixture(request, 'canonical');
+  const initial = await fixtureSession(request);
+  await openOverseer(page);
+
+  const trigger = page.locator('#btnCreateTerminalGroup');
+  const draft = groupDraftDialog(page);
+  const impact = groupImpactDialog(page);
+  await trigger.focus();
+  await trigger.click();
+  await expect(draft).toBeVisible();
+  await expect(draft).toHaveAttribute('data-stale-result-guard', 'released');
+  await draft.locator('[data-action="review-terminal-group-change"]').click();
+  await expect(draft.locator('#terminalGroupDraftError')).toContainText('УКАЖИТЕ УНИКАЛЬНОЕ НАЗВАНИЕ');
+  await expect.poll(() => mutationCallCount(page)).toBe(0);
+
+  await draft.locator('[name="groupName"]').fill('Северный маршрут');
+  await draft.locator('[name="terminalIds"][value="security"]').check();
+  await draft.locator('[name="terminalIds"][value="vault"]').check();
+  await reviewGroupDraft(page);
+  await expect(impact).toHaveAttribute('data-stale-result-guard', 'released');
+  await expect(impact.locator('[data-impact="membership"]')).toContainText('Северный маршрут');
+  await impact.locator('[data-action="cancel-terminal-group-change"]').click();
+  await expect(impact).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(await renderedGroups(page)).toEqual(expectedGroups(initial));
+  await expect.poll(() => mutationCallCount(page)).toBe(0);
+
+  await trigger.click();
+  await draft.locator('[name="groupName"]').fill('Северный маршрут');
+  await draft.locator('[name="terminalIds"][value="security"]').check();
+  await draft.locator('[name="terminalIds"][value="vault"]').check();
+  await reviewGroupDraft(page);
+  await confirmGroupImpact(page);
+  await expect.poll(() => mutationCallCount(page)).toBe(1);
+  await expect(trigger).toBeFocused();
+  const saved = await fixtureSession(request);
+  expect(saved.terminalGroups).toEqual((await activeFixtureSession(request)).terminalGroups);
+  await expect(groupRows(page)).toHaveCount(saved.terminalGroups.length);
+});
+
 test('renders groups as the only high-level terminal representation with exact-one membership', async ({ page, request }) => {
   await resetFixture(request, 'canonical');
   const session = await fixtureSession(request);
@@ -335,6 +452,7 @@ test('preserves group and member order across a terminal save and reopen', async
   expect(saved.terminalGroups.slice(0, initial.terminalGroups.length)).toEqual(initial.terminalGroups);
 
   await page.reload();
+  await mountOverseerCandidate(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
   expect(await renderedGroups(page)).toEqual(expectedGroups(saved));

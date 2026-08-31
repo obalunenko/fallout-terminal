@@ -31,6 +31,24 @@
 
 **Bugfix**: 2026-08-30 — BUG-013 Clarified that T062 owns the existing App/document integration and focused browser assertion required to migrate the terminal-group dialog family.
 
+**Bugfix**: 2026-08-30 — BUG-014 Clarified that T064–T068 own their existing App/document integration seams so each public-access panel or dialog can become the sole mounted Vue owner, and that T064 may align its focused assertion with the governed in-layout Teleport leaf.
+
+**Bugfix**: 2026-08-31 — BUG-015 Clarified that T074 may correct full-parity drift by consolidating public-access command/event projections under one composable snapshot, preserving the historical closed/generated-dialog accessibility behavior, and mounting the candidate in the established raw fallback fixture journey.
+
+**Bugfix**: 2026-08-31 — BUG-016 Clarified that T077 owns the production header-to-Teleport-target replacement and may expose the existing session-document composable's acquired filename as readonly typed state for the Vue runtime header.
+
+**Bugfix**: 2026-08-31 — BUG-017 Clarified that T078–T082 own their existing App/document integration seams for immediate GREEN verification and that T079 may extend the preceding sidebar composition.
+
+**Bugfix**: 2026-08-31 — BUG-018 Clarified that an opened Overseer document's authoritative saved revision must cross the typed session-document boundary before terminal-group confirmation can issue a canonical mutation; an accepted reorder must be observed rather than inferred from command invocation alone.
+
+**Bugfix**: 2026-08-31 — BUG-019 Clarified that T080 replaces the temporary action trigger inside the existing terminal-row owner, may extend the validated terminal-selection projection with current revision/member-position data for stale-safe actions, and owns alignment with the adjacent group menu's shared close/focus contract.
+
+**Bugfix**: 2026-08-31 — BUG-020 Clarified that T084–T086 own their established App/document integration seams so broadcast controls, confirmation dialogs, and hacking controls can replace their exact legacy subtrees with one observable Vue owner.
+
+**Bugfix**: 2026-08-31 — BUG-021 Clarified that T085 may finalize the broadcast composable's lifecycle applicability so stale confirmation completions cannot close or refocus newer dialog state.
+
+**Bugfix**: 2026-08-31 — BUG-022 Clarified that persistence compatibility preserves unknown fields for session JSON while retaining strict unknown-field rejection and absent legacy attribute defaults for player-configuration JSON, matching the two existing version-1 codecs.
+
 ## Clarifications
 
 ### Session 2026-08-30

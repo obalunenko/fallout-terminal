@@ -1,6 +1,6 @@
 import { inject, onUnmounted, readonly, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerCoexistenceBridgeKey } from '../mount.js';
 import type { DesktopDocumentResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -10,20 +10,11 @@ function isRecord(value: unknown): value is DesktopRecord {
 
 export function useSessionDocument(port: DesktopPort) {
   const bridge = inject(overseerCoexistenceBridgeKey, null);
-  const fatal = ref(false);
+  const documentPath = ref('');
   const loaded = ref(false);
   const pending = ref(false);
   const error = ref('');
-  const startupState = ref('starting');
-  const status = ref('ЗАПУСК ЛОКАЛЬНОГО СЕРВЕРА…');
   let active = true;
-
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
-    if (message.kind !== 'startup-status') return;
-    fatal.value = message.fatal === true;
-    startupState.value = typeof message.state === 'string' ? message.state : 'starting';
-    status.value = typeof message.text === 'string' ? message.text : '';
-  }
 
   async function acquire(command: () => Promise<DesktopDocumentResult>): Promise<void> {
     if (pending.value) return;
@@ -48,30 +39,37 @@ export function useSessionDocument(port: DesktopPort) {
       error.value = result.error || 'ДОКУМЕНТ СЕССИИ НЕ ЗАГРУЖЕН';
       return;
     }
+    let sessionRevision = 0;
+    try {
+      const status = await port.getRuntimeStatus();
+      const savedRevision = Number(status.savedRevision);
+      if (Number.isSafeInteger(savedRevision) && savedRevision >= 0) sessionRevision = savedRevision;
+    } catch {
+      // Document acquisition remains usable when optional status presentation is unavailable.
+    }
+    if (!active) return;
     if (bridge?.vueToLegacy({
       filePath,
       kind: 'session-document-loaded',
       session: result.session,
+      sessionRevision,
     }) !== true) {
       error.value = 'ДОКУМЕНТ СЕССИИ НЕ ПЕРЕДАН ПРИЛОЖЕНИЮ';
       return;
     }
+    documentPath.value = filePath;
     loaded.value = true;
   }
 
-  const release = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
   onUnmounted(() => {
     active = false;
-    release();
   });
 
   return {
     error: readonly(error),
-    fatal: readonly(fatal),
+    filePath: readonly(documentPath),
     loaded: readonly(loaded),
     pending: readonly(pending),
-    startupState: readonly(startupState),
-    status: readonly(status),
     create: () => acquire(() => port.newSession()),
     open: () => acquire(() => port.openSession()),
   };

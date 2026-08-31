@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+test.use({ bypassCSP: true });
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/__fixture/public-access-settings');
+  await mountOverseerCandidate(page);
   await expect(page.locator('#publicAccessSection')).toBeVisible();
 });
 
@@ -32,6 +35,222 @@ async function openPlayerCredentialsDialog(page) {
   await expect(dialog).toBeVisible();
   return dialog;
 }
+
+async function mountOverseerCandidate(page) {
+  await page.evaluate(async () => {
+    if (!globalThis.__overseerVueFixture) {
+      await import('http://127.0.0.1:34120/candidate-main.ts?public-access-settings');
+    }
+  });
+}
+
+function missingVueLifecycle(message) {
+  process.stderr.write(`AssertionError: ${message}\n`);
+  throw new Error('Vue-owned public-access lifecycle is not implemented');
+}
+
+test('public-access settings preserve validation focus and stale-save rejection', async ({ page }) => {
+  const dialog = page.locator('#overseerVueLeaves #publicAccessSettingsDialog');
+  if (await dialog.count() === 0) {
+    missingVueLifecycle('public-access settings preserve validation focus and stale-save rejection');
+  }
+  await expect(dialog).toHaveAttribute('data-stale-result-guard', 'released');
+  const trigger = page.locator('#btnOpenPublicAccessSettings');
+  await trigger.click();
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#btnClosePublicAccessSettings')).toBeFocused();
+
+  const domain = page.getByLabel('Зарезервированный домен');
+  const callsBefore = await page.evaluate(() => __desktopFixture.calls
+    .filter(call => call.method === 'SavePublicAccessSettings').length);
+  await domain.fill('https://invalid.example/path');
+  await page.locator('#btnSavePublicAccess').click();
+  await expect(page.locator('#publicAccessSettingsError')).toContainText('БЕЗ HTTPS://');
+  await expect(domain).toBeFocused();
+  expect(await page.evaluate(() => __desktopFixture.calls
+    .filter(call => call.method === 'SavePublicAccessSettings').length)).toBe(callsBefore);
+
+  await page.evaluate(() => __desktopFixture.deferSavePublicAccess());
+  await domain.fill('requested.example');
+  await page.locator('#publicAccessProviderToken').fill('transient-stale-token');
+  await page.locator('#btnSavePublicAccess').click();
+  await page.evaluate(() => __desktopFixture.emit('public-access-status', {
+    preferences: { version: 1, enabledPreference: false, reservedDomain: 'newer.example', username: 'newer', revision: 2 },
+    providerTokenPresence: 'present',
+    playerPasswordPresence: 'present',
+    status: { state: 'disabled', generation: 5, settingsRevision: 2 },
+  }));
+  await page.evaluate(() => __desktopFixture.resolveSavePublicAccess({
+    ok: true,
+    snapshot: {
+      preferences: { version: 1, enabledPreference: false, reservedDomain: 'stale.example', username: 'stale', revision: 1 },
+      providerTokenPresence: 'present',
+      playerPasswordPresence: 'absent',
+      status: { state: 'disabled', generation: 4, settingsRevision: 1 },
+    },
+  }));
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('#publicAccessURL')).toHaveText('https://newer.example');
+  await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('newer');
+  await expect(page.locator('#publicAccessProviderToken')).toHaveValue('');
+  await expect(page.locator('body')).not.toContainText('transient-stale-token');
+  await expect(trigger).toBeFocused();
+  await page.evaluate(() => __desktopFixture.emit('public-access-status', {
+    preferences: { version: 1, enabledPreference: false, reservedDomain: 'newer.example', username: 'newer', revision: 3 },
+    providerTokenPresence: 'absent',
+    playerPasswordPresence: 'present',
+    status: { state: 'disabled', generation: 6, settingsRevision: 3 },
+  }));
+  await trigger.click();
+  await page.locator('#publicAccessProviderToken').fill('transient-unmount-token');
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('transient-unmount-token');
+});
+
+test('provider token is redacted and cleared on close and unmount', async ({ page }) => {
+  const dialog = page.locator('#overseerVueLeaves #publicAccessProviderTokenDialog');
+  if (await dialog.count() === 0) {
+    missingVueLifecycle('provider token is redacted and cleared on close and unmount');
+  }
+  await expect(dialog).toHaveAttribute('data-secret-lifecycle', 'cleared');
+  await page.evaluate(() => __desktopFixture.emit('public-access-status', {
+    preferences: { version: 1, enabledPreference: false, reservedDomain: 'vault.example', username: 'players', revision: 1 },
+    providerTokenPresence: 'present',
+    playerPasswordPresence: 'present',
+    status: { state: 'disabled', generation: 1, settingsRevision: 1 },
+  }));
+  await page.locator('#btnOpenPublicAccessSettings').click();
+  const trigger = page.locator('#btnOpenPublicAccessProviderToken');
+  await trigger.click();
+  const token = page.locator('#publicAccessReplacementProviderToken');
+  await expect(dialog).toBeVisible();
+  await expect(token).toBeFocused();
+  await token.fill('transient-dismissed-provider-token');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(token).toHaveValue('');
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('body')).not.toContainText('transient-dismissed-provider-token');
+
+  await trigger.click();
+  await page.evaluate(() => __desktopFixture.deferSavePublicAccess());
+  await token.fill('transient-failed-provider-token');
+  await page.locator('#btnSavePublicAccessProviderToken').click();
+  await page.evaluate(() => __desktopFixture.resolveSavePublicAccess({
+    ok: false,
+    error: 'Secure storage is unavailable.',
+    snapshot: {
+      preferences: { version: 1, enabledPreference: false, reservedDomain: 'vault.example', username: 'players', revision: 1 },
+      providerTokenPresence: 'present',
+      playerPasswordPresence: 'present',
+      status: { state: 'disabled', generation: 2, settingsRevision: 1 },
+    },
+  }));
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#publicAccessProviderTokenError')).toContainText('Secure storage');
+  await expect(token).toHaveValue('');
+  await expect(token).toBeFocused();
+  await expect(page.locator('body')).not.toContainText('transient-failed-provider-token');
+
+  await token.fill('transient-unmount-provider-token');
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('transient-unmount-provider-token');
+});
+
+test('player credentials remain transient and clear on close', async ({ page }) => {
+  const dialog = page.locator('#overseerVueLeaves #publicAccessPlayerCredentialsDialog');
+  if (await dialog.count() === 0) {
+    missingVueLifecycle('player credentials remain transient and clear on close');
+  }
+  await expect(dialog).toHaveAttribute('data-secret-lifecycle', 'cleared');
+  await page.locator('#btnOpenPublicAccessSettings').click();
+  const trigger = page.locator('#btnOpenPublicAccessPlayerCredentials');
+  await trigger.click();
+  const username = page.locator('#publicAccessReplacementUsername');
+  const password = page.locator('#publicAccessReplacementPlayerPassword');
+  await expect(dialog).toBeVisible();
+  await expect(username).toBeFocused();
+  await username.fill('dismissed-player');
+  await password.fill('transient-dismissed-player-password');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(password).toHaveValue('');
+  await expect(trigger).toBeFocused();
+  await expect(page.locator('body')).not.toContainText('transient-dismissed-player-password');
+
+  await trigger.click();
+  await username.fill('friends');
+  await password.fill('short');
+  await expect(page.locator('#btnSavePublicAccessPlayerCredentials')).toBeDisabled();
+  await expect(password).toHaveAttribute('minlength', '8');
+  await expect(password).toBeFocused();
+
+  await page.evaluate(() => __desktopFixture.deferSavePublicAccess());
+  await password.fill('transient-failed-player-password');
+  await page.locator('#btnSavePublicAccessPlayerCredentials').click();
+  await expect(password).toHaveValue('');
+  await page.evaluate(() => __desktopFixture.resolveSavePublicAccess({
+    ok: false,
+    error: 'Player credential storage is unavailable.',
+    snapshot: {
+      preferences: { version: 1, enabledPreference: false, reservedDomain: '', username: 'players', revision: 0 },
+      providerTokenPresence: 'absent',
+      playerPasswordPresence: 'absent',
+      status: { state: 'disabled', generation: 1, settingsRevision: 0 },
+    },
+  }));
+  await expect(dialog).toBeVisible();
+  await expect(username).toHaveValue('friends');
+  await expect(page.locator('#publicAccessPlayerCredentialsError')).toContainText('storage is unavailable');
+  await expect(password).toBeFocused();
+  await expect(page.locator('body')).not.toContainText('transient-failed-player-password');
+
+  await password.fill('transient-unmount-player-password');
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('transient-unmount-player-password');
+});
+
+test('one-time credential clears on close and clipboard failure stays isolated', async ({ page }) => {
+  await mountOverseerCandidate(page);
+  const dialog = page.locator('#overseerVueLeaves #generatedPasswordDialog');
+  if (await dialog.count() === 0) {
+    missingVueLifecycle('one-time credential clears on close and clipboard failure stays isolated');
+  }
+  await expect(dialog).toHaveAttribute('data-secret-lifecycle', 'cleared');
+  await expect(dialog).toHaveAttribute('data-clipboard-failure', 'isolated');
+});
+
+test('public-access and credential leaves have one owner and clear secrets', async ({ page }) => {
+  const ids = [
+    'publicAccessSection',
+    'publicAccessSettingsDialog',
+    'publicAccessProviderTokenDialog',
+    'publicAccessPlayerCredentialsDialog',
+    'generatedPasswordDialog',
+  ];
+  for (const id of ids) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  for (const id of ids.slice(1)) {
+    await expect(page.locator(`#legacyOverseerRoot #${id}`)).toHaveCount(0);
+  }
+
+  await page.locator('#btnOpenPublicAccessSettings').click();
+  await page.locator('#publicAccessProviderToken').fill('join-transient-provider-token');
+  await page.locator('#btnOpenPublicAccessPlayerCredentials').click();
+  await page.locator('#publicAccessReplacementPlayerPassword').fill('join-transient-player-password');
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(0);
+  const released = await page.evaluate(() => {
+    __overseerVueFixture.unmount();
+    return __desktopFixture.releaseCount('public-access-status');
+  });
+  expect(released).toBe(1);
+  await page.evaluate(() => __overseerVueFixture.unmount());
+  expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(released);
+  for (const id of ids) await expect(page.locator(`#${id}`)).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText(/join-transient-(provider-token|player-password)/);
+});
 
 test('settings form is labelled, keyboard reachable, and defaults without revealing secrets', async ({ page }) => {
   const dialog = await openPublicAccessSettings(page);
@@ -131,6 +350,8 @@ test('development override prefill is presence-only and does not save or start i
     .filter(call => call.method === 'SavePublicAccessSettings'));
   expect(saveCallsAfterGenerate).toEqual([]);
   await page.reload();
+  await mountOverseerCandidate(page);
+  await expect(page.locator('#publicAccessSection')).toBeVisible();
   await openPublicAccessSettings(page);
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');
   await expect(page.locator('#publicAccessUsernameSummary')).toHaveText('players');

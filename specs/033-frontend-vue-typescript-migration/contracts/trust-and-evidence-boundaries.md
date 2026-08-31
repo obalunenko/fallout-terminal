@@ -56,13 +56,13 @@ All paths remain `/fallout.terminal.player.v1.PlayerService/<RPC>`, binary Conne
 - Controller-only local presentation is transient, context-keyed, non-authoritative, bounded, and reconciled with server updates; observers remain read-only.
 - Client-streaming presentation is optional. Backpressure is latest-value, cancellation is explicit, and any unsupported or failed path returns to `SetPresentation` without losing basic operation.
 - Overseer command/result and named-event adapters preserve listener-before-getter ordering, exact-once release, correlation/idempotency, tuple/revision comparisons, confirmation atomicity, and stale completion suppression.
-- Session and player-configuration JSON retain their exact version-1 fields, defaults, compatible unknown-field behavior, and business meaning.
+- Session and player-configuration JSON retain their exact version-1 fields, defaults, document-specific unknown-field behavior, and business meaning: session extras survive while player-config unknowns remain rejected.
 
 ## Persistence compatibility evidence
 
-`task frontend:compatibility:check` is the production-fidelity FR-023/SC-007 evidence gate in Overseer wave e and final wave i. Its reviewed fixture set contains one current and one legacy version-1 session, one current and one legacy player configuration, compatible unknown fields in both document types, and established cross-file player-configuration references. Task generation records the exact repository fixture paths and reuses the existing version-1 Go codecs where suitable instead of defining another persistence representation.
+`task frontend:compatibility:check` is the production-fidelity FR-023/SC-007 evidence gate in Overseer wave e and final wave i. Its reviewed fixture set contains one current and one legacy version-1 session, one current and one legacy player configuration, compatible session unknown fields, legacy player-attribute defaults, strict player-config unknown-field rejection, and established cross-file player-configuration references. Task generation records the exact repository fixture paths and reuses the existing version-1 Go codecs where suitable instead of defining another persistence representation.
 
-Each fixture opens through the migrated Overseer application boundary, renders and permits an edit without changing established meaning, saves, reopens, and compares supported fields, defaults, references, compatible unknown fields, and location. Loss, silent normalization, relocation, or business-meaning change fails the gate. Browser evidence proves the migrated application-boundary journey; existing Go codec tests separately retain persistence-format authority.
+Each valid fixture opens through the migrated Overseer application boundary, renders and permits an edit without changing established meaning, saves, reopens, and compares supported fields, defaults, references, preserved session extras, player-config validation, and location. Loss, silent normalization, relocation, validation weakening, or business-meaning change fails the gate. Browser evidence proves the migrated application-boundary journey; existing Go codec tests separately retain persistence-format authority.
 
 ## External runtime validation
 
