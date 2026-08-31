@@ -165,3 +165,9 @@ task speckit:update:check
 ## Происхождение
 
 Проект основан на [Hobbit041/Fallout-Terminal](https://github.com/Hobbit041/Fallout-Terminal) и после миграции с Electron на Go/Wails развивается самостоятельно. Атрибуция приведена в [NOTICE.md](NOTICE.md).
+
+## Лицензия
+
+Проект распространяется по [лицензии MIT](LICENSE). Сведения о происхождении и атрибуции приведены в [NOTICE.md](NOTICE.md).
+
+Это неофициальный фанатский проект, не связанный с Bethesda Softworks и ZeniMax Media и не одобренный ими. Права на Fallout принадлежат их правообладателям.
