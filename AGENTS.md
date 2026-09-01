@@ -1,5 +1,9 @@
 # Project Instructions
 
+## Repository search tools
+
+- Do not use or introduce ripgrep (`rg`). Use `git grep` for tracked repository content and `grep`/`find` when untracked files must be included.
+
 ## Go style and quality
 
 - Apply [Google's Go Style Guide](https://google.github.io/styleguide/go/) when creating, modifying, simplifying, or reviewing Go code. Use the [core guide](https://google.github.io/styleguide/go/guide) as the canonical baseline, [style decisions](https://google.github.io/styleguide/go/decisions) as subordinate normative guidance, and [best practices](https://google.github.io/styleguide/go/best-practices) as advisory guidance.

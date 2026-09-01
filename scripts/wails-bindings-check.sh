@@ -69,7 +69,7 @@ for event in server-info client-count hack-state coordination-state session-stat
 done
 
 alias_owners="$temporary/alias-owners"
-rg -l "#wails-service" frontend/overseer | LC_ALL=C sort >"$alias_owners"
+git grep -l -F '#wails-service' -- frontend/overseer | LC_ALL=C sort >"$alias_owners"
 while IFS= read -r owner; do
     case "$owner" in
         frontend/overseer/src/adapters/desktop-api.ts|frontend/overseer/src/adapters/wails-service.d.ts|frontend/overseer/vite.config.ts) ;;
@@ -78,7 +78,11 @@ while IFS= read -r owner; do
 done <"$alias_owners"
 grep -qx frontend/overseer/src/adapters/wails-service.d.ts "$alias_owners"
 grep -qx frontend/overseer/vite.config.ts "$alias_owners"
-! rg -n "#wails-service|@wailsio/runtime|frontend/overseer/bindings" frontend/client
+! git grep -n \
+    -e '#wails-service' \
+    -e '@wailsio/runtime' \
+    -e 'frontend/overseer/bindings' \
+    -- frontend/client
 
 typed_adapter=frontend/overseer/src/adapters/desktop-api.ts
 if test -f "$typed_adapter"; then
