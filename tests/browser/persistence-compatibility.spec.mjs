@@ -1,17 +1,19 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const assertion = 'legacy/current session and player config round-trip through migrated boundary';
 const authoringURL = '/__fixture/state-changing-command-authoring';
 
 test.use({ bypassCSP: true });
 
-async function mountCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?persistence-compatibility'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?persistence-compatibility');
 }
 
 async function openCompatibilitySession(page) {
   await page.goto(authoringURL);
-  await mountCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 }

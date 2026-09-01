@@ -1,14 +1,16 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 test.use({ bypassCSP: true });
 
 const expectedAssertion = 'Vue runtime shell preserves start/main/status semantics and releases runtime subscription';
 
 test(expectedAssertion, async ({ page }) => {
   await page.goto('/__fixture/state-changing-command-authoring');
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?runtime-shell'));
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?runtime-shell');
 
-  const vueRoot = page.locator('#overseerVueLeaves');
+  const vueRoot = page.locator('#overseerApp');
   const runtimeHeader = page.locator('#runtimeHeaderVueLeaf #runtimeHeader');
   if (await runtimeHeader.count() === 0) {
     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
@@ -52,14 +54,14 @@ test(expectedAssertion, async ({ page }) => {
   }))).toEqual({ clientCount: 0, serverInfo: 0 });
 
   const released = await page.evaluate(() => {
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
     return {
       clientCount: __desktopFixture.releaseCount('client-count'),
       serverInfo: __desktopFixture.releaseCount('server-info'),
     };
   });
   expect(released).toEqual({ clientCount: 1, serverInfo: 1 });
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   expect(await page.evaluate(() => ({
     clientCount: __desktopFixture.releaseCount('client-count'),
     serverInfo: __desktopFixture.releaseCount('server-info'),

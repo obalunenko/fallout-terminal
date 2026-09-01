@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onUnmounted, ref } from 'vue';
 
 import type { PublicAccessViewSnapshot } from '../composables/usePublicAccess.js';
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -21,7 +21,7 @@ const token = ref('');
 const error = ref('');
 const open = ref(false);
 const pending = ref(false);
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 let active = true;
 let invocation = 0;
 let opener: HTMLElement | null = null;
@@ -97,7 +97,7 @@ function close(restoreFocus = true): void {
   const target = opener;
   opener = null;
   if (restoreFocus && target?.isConnected === true) target.focus();
-  else if (restoreFocus) bridge?.legacyToVue({ kind: 'public-access-settings-focus-provider' });
+  else if (restoreFocus) controller?.publish({ kind: 'public-access-settings-focus-provider' });
 }
 
 async function mutate(deleteProviderToken = false): Promise<void> {
@@ -126,7 +126,7 @@ async function mutate(deleteProviderToken = false): Promise<void> {
   pending.value = false;
   const next = commandSnapshot(result.snapshot);
   if (next !== null) emit('snapshot', next);
-  bridge?.vueToLegacy({ kind: 'public-access-settings-command-finished', result });
+  controller?.dispatch({ kind: 'public-access-settings-command-finished', result });
   if (result.ok !== true) {
     error.value = typeof result.error === 'string' && result.error !== ''
       ? result.error
@@ -143,7 +143,7 @@ function cancel(event?: Event): void {
   close();
 }
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind === 'public-access-provider-token-open') void show();
 });
 

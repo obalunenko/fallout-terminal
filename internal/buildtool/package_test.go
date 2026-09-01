@@ -188,6 +188,38 @@ func TestPortablePackageMatrixRemainsFiveNativePlans(t *testing.T) {
 	}
 }
 
+func TestFivePortablePackagePlansPreserveVuePreparationAndRuntimeContents(t *testing.T) {
+	wantPreparation := []string{
+		"install locked frontend dependencies",
+		"verify protobuf and generated clients",
+		"build client frontend",
+		"generate Wails bindings",
+		"build Overseer frontend",
+	}
+	targets := PortableTargets()
+	require.Len(t, targets, 5)
+	for _, target := range targets {
+		t.Run(target.String(), func(t *testing.T) {
+			actions := mustPackagePlan(t, target).Actions()
+			require.Greater(t, len(actions), len(wantPreparation))
+			assert.Equal(t, wantPreparation, stepNames(actions[:len(wantPreparation)]))
+			assert.Equal(t, verifyPlayerFrontend, actions[2].preflight)
+			assert.Equal(t, verifyOverseerFrontend, actions[4].preflight)
+
+			text := packageActionText(actions)
+			assert.Contains(t, text, "frontend/overseer/bindings")
+			for _, resource := range []string{"THIRD_PARTY_NOTICES.md", filepath.Join("sessions", "demo.json"), filepath.Join("sessions", "demo-players.json")} {
+				assert.Contains(t, text, resource)
+			}
+			assert.NotContains(t, text, "overseer.js")
+			assert.NotContains(t, text, "desktop-api.js")
+			assert.NotContains(t, text, "client.js")
+			assert.NotContains(t, text, "presentation-uplink.js")
+			assert.NotContains(t, text, "candidate-main")
+		})
+	}
+}
+
 func TestPortablePackagePlanIncludesExactRuntimeResourceInventory(t *testing.T) {
 	t.Parallel()
 

@@ -1,6 +1,6 @@
 import { computed, inject, onUnmounted, readonly, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopDocumentResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -9,7 +9,7 @@ function isRecord(value: unknown): value is DesktopRecord {
 }
 
 export function usePlayerConfiguration(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const active = ref(false);
   const broadcastActive = ref(false);
   const externalPending = ref(false);
@@ -41,7 +41,7 @@ export function usePlayerConfiguration(port: DesktopPort) {
       : `${typeof config.name === 'string' ? config.name : 'Игроки'} · ${typeof config.filePath === 'string' ? config.filePath : ''}`;
   }
 
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+  function handleControllerMessage(message: OverseerControllerMessage): void {
     if (message.kind === 'coordination-state') {
       applyCoordination(isRecord(message.coordination) ? message.coordination : null, message.pending === true);
       return;
@@ -59,7 +59,7 @@ export function usePlayerConfiguration(port: DesktopPort) {
     const expectedRevision = revision.value;
     localPending.value = true;
     error.value = '';
-    bridge?.vueToLegacy({ expectedRevision, kind: 'player-configuration-command-started' });
+    controller?.dispatch({ expectedRevision, kind: 'player-configuration-command-started' });
     let result: DesktopDocumentResult;
     try {
       result = await command();
@@ -81,7 +81,7 @@ export function usePlayerConfiguration(port: DesktopPort) {
     } else {
       status.value = successMessage;
     }
-    bridge?.vueToLegacy({
+    controller?.dispatch({
       expectedRevision,
       kind: 'player-configuration-command-finished',
       result,
@@ -89,7 +89,7 @@ export function usePlayerConfiguration(port: DesktopPort) {
     });
   }
 
-  const release = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+  const release = controller?.subscribeState(handleControllerMessage) ?? (() => {});
   onUnmounted(() => {
     mounted = false;
     generation += 1;
@@ -101,7 +101,7 @@ export function usePlayerConfiguration(port: DesktopPort) {
     blocked: readonly(blocked),
     create: () => run(() => port.newPlayerConfig(), 'КОНФИГУРАЦИЯ ИГРОКОВ СОЗДАНА'),
     error: readonly(error),
-    manage: () => { bridge?.vueToLegacy({ kind: 'player-management-open-request' }); },
+    manage: () => { controller?.dispatch({ kind: 'player-management-open-request' }); },
     open: () => run(() => port.openPlayerConfig(), 'КОНФИГУРАЦИЯ ИГРОКОВ ВЫБРАНА'),
     status: readonly(status),
   };

@@ -55,6 +55,102 @@ check_fixture() {
     "${fixture#"$repository_root/"}"
 }
 
+reject_overseer_source_match() {
+  local description="$1"
+  local pattern="$2"
+  shift 2
+
+  local output status
+  set +e
+  output="$(LC_ALL=C grep -Eni -- "$pattern" "$@" 2>&1)"
+  status=$?
+  set -e
+
+  case "$status" in
+    0)
+      fail "Overseer source contains prohibited ${description}: ${output%%$'\n'*}"
+      return 1
+      ;;
+    1)
+      return 0
+      ;;
+    *)
+      fail "Overseer ${description} scan failed: $output"
+      return 1
+      ;;
+  esac
+}
+
+check_overseer_values() {
+  local source_path="$1"
+  local source="$2"
+
+  if [[ "$source_path" == frontend/overseer/src/*.js ]]; then
+    fail "Overseer authored JavaScript is prohibited: $source_path"
+    return 1
+  fi
+  if LC_ALL=C grep -Eqi \
+    'legacy[-_ ]?overseer|legacyOverseer|candidate-main|overseer[-_/.]*candidate|test[-_/.]*fixtures|overseerVueLeaves|typedCoexistence|coexistenceBridge|legacyToVue|vueToLegacy|mountOverseerLeaves' \
+    <<<"$source"; then
+    fail 'Overseer source contains a prohibited legacy, candidate, root, or bridge identifier'
+    return 1
+  fi
+  if LC_ALL=C grep -Eqi \
+    'document\.(querySelector|getElementById)\([^)]*(legacyOverseerRoot|overseerVueLeaves|playerApp)' \
+    <<<"$source"; then
+    fail 'Overseer source contains prohibited cross-application DOM ownership'
+    return 1
+  fi
+  if LC_ALL=C grep -Eqi \
+    '(^|[^[:alnum:]_])any([^[:alnum:]_]|$)|@ts-(nocheck|ignore|expect-error)|as[[:space:]]+unknown[[:space:]]+as|as[[:space:]]+any|<any>|eslint-disable|biome-ignore|@vue-ignore' \
+    <<<"$source"; then
+    fail 'Overseer source contains a prohibited broad assertion or suppression'
+    return 1
+  fi
+}
+
+check_overseer_repository() {
+  local source_root="$repository_root/frontend/overseer/src"
+  local bindings_root="$repository_root/frontend/overseer/bindings"
+  local -a authored_javascript source_files
+  local file
+
+  authored_javascript=()
+  while IFS= read -r file; do authored_javascript+=("$file"); done \
+    < <(find "$source_root" -type f -name '*.js' -print | LC_ALL=C sort)
+  if ((${#authored_javascript[@]} > 0)); then
+    fail "Overseer authored JavaScript is prohibited: ${authored_javascript[0]#"$repository_root/"}"
+    return 1
+  fi
+  [[ -f "$bindings_root/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js" ]] || {
+    fail 'path-exact Wails binding exclusion target is missing'
+    return 1
+  }
+  source_files=()
+  while IFS= read -r file; do source_files+=("$file"); done \
+    < <(find "$source_root" -type f \
+      \( -name '*.ts' -o -name '*.vue' -o -name '*.html' \) -print | LC_ALL=C sort)
+  ((${#source_files[@]} > 0)) || { fail 'Overseer source scan found no readable inputs'; return 1; }
+  reject_overseer_source_match 'legacy, candidate, root, or bridge identifier' \
+    'legacy[-_ ]?overseer|legacyOverseer|candidate-main|overseer[-_/.]*candidate|test[-_/.]*fixtures|overseerVueLeaves|typedCoexistence|coexistenceBridge|legacyToVue|vueToLegacy|mountOverseerLeaves' \
+    "${source_files[@]}"
+  reject_overseer_source_match 'cross-application DOM ownership' \
+    'document\.(querySelector|getElementById)\([^)]*(legacyOverseerRoot|overseerVueLeaves|playerApp)' \
+    "${source_files[@]}"
+  reject_overseer_source_match 'broad assertion or suppression' \
+    '(^|[^[:alnum:]_])any([^[:alnum:]_]|$)|@ts-(nocheck|ignore|expect-error)|as[[:space:]]+unknown[[:space:]]+as|as[[:space:]]+any|<any>|eslint-disable|biome-ignore|@vue-ignore' \
+    "${source_files[@]}"
+  printf 'frontend policy check: PASS: final Overseer source has no authored JavaScript, temporary ownership, cross-DOM edge, broad escape, or suppression; only %s is excluded path-exactly\n' \
+    "${bindings_root#"$repository_root/"}/**"
+}
+
+check_overseer_fixture() {
+  local fixture="$1"
+  check_overseer_values \
+    "$(fixture_value path "$fixture")" \
+    "$(fixture_value source "$fixture")"
+}
+
 check_repository() {
   node - "$repository_root" <<'NODE'
 const fs = require('node:fs');
@@ -104,6 +200,8 @@ NODE
   "$repository_root/scripts/frontend-assert-no-match.sh" \
     'allowJs|checkJs|@ts-(nocheck|ignore|expect-error)|(^|[^[:alnum:]_])any([^[:alnum:]_]|$)' \
     frontend/tsconfig.base.json frontend/client/tsconfig.json frontend/overseer/tsconfig.json
+  check_overseer_repository
+  check_player_repository
   printf '%s\n' 'frontend policy check: PASS: repository manifests, lockfile, compiler policy, and Player dependency boundary satisfy the wave-a contract'
 }
 
@@ -176,8 +274,76 @@ check_player_foundation() {
     "$repository_root/frontend/client/src/ports/player-transport.ts" \
     "$repository_root/frontend/client/src/App.vue" \
     "$repository_root/frontend/client/src/mount.ts" \
-    "$repository_root/frontend/client/test-fixtures/index.html" \
-    "$repository_root/frontend/client/test-fixtures/candidate-main.ts"
+    "$repository_root/frontend/client/src/main.ts"
+}
+
+check_player_source_values() {
+  local source_path="$1"
+  local source="$2"
+
+  if [[ "$source_path" == frontend/client/*.js || "$source_path" == frontend/client/src/*.js ||
+    "$source_path" == frontend/client/src/**/*.js ]]; then
+    fail "Player authored JavaScript is prohibited: $source_path"
+    return 1
+  fi
+  if LC_ALL=C grep -Eqi \
+    "from[[:space:]]+['\"][^'\"]*(overseer|@wailsio|wails|bindings?|native|private|internal|shared[-_/ ]?(application[-_/ ]?)?(state|store))|import[[:space:]]*\\([^)]*(overseer|@wailsio|wails|bindings?|native|private|internal)" \
+    <<<"$source"; then
+    fail 'Player source contains a prohibited privileged or cross-application import edge'
+    return 1
+  fi
+  if LC_ALL=C grep -Eqi \
+    "candidate([-_/.]*(main|player|mount|bridge|selection|root|index))|player[-_/.]*candidate|test[-_/.]*fixtures|legacyPlayer|playerLegacy|staging(Mount|Bridge)|temporaryMount|client\\.js([\"']|$)|(^|[/\"'])sound\\.js([\"']|$)|presentation-uplink\\.js" \
+    <<<"$source"; then
+    fail 'Player source contains a prohibited legacy, alternate-root, or staging identifier'
+    return 1
+  fi
+  if LC_ALL=C grep -Eqi \
+    '(^|[^[:alnum:]_])any([^[:alnum:]_]|$)|@ts-(nocheck|ignore|expect-error)|as[[:space:]]+unknown[[:space:]]+as|as[[:space:]]+any|<any>|eslint-disable|biome-ignore|@vue-ignore' \
+    <<<"$source"; then
+    fail 'Player source contains a prohibited broad assertion or suppression'
+    return 1
+  fi
+}
+
+check_player_repository() {
+  local source_root="$repository_root/frontend/client/src"
+  local -a authored_javascript source_files
+  local file relative source
+
+  authored_javascript=()
+  while IFS= read -r file; do authored_javascript+=("$file"); done \
+    < <(find "$repository_root/frontend/client" \
+      \( -path "$repository_root/frontend/client/dist" -o -path "$repository_root/frontend/client/gen" -o \
+        -path "$repository_root/frontend/client/node_modules" \) -prune -o \
+      -type f -name '*.js' -print | LC_ALL=C sort)
+  if ((${#authored_javascript[@]} > 0)); then
+    fail "Player authored JavaScript is prohibited: ${authored_javascript[0]#"$repository_root/"}"
+    return 1
+  fi
+
+  source_files=(
+    "$repository_root/frontend/client/index.html"
+    "$repository_root/frontend/client/tsconfig.json"
+    "$repository_root/frontend/client/vite.config.ts"
+  )
+  while IFS= read -r file; do source_files+=("$file"); done \
+    < <(find "$source_root" -type f \( -name '*.ts' -o -name '*.vue' \) -print | LC_ALL=C sort)
+  for file in "${source_files[@]}"; do
+    [[ -f "$file" && -r "$file" ]] || { fail "Player source is missing or unreadable: ${file#"$repository_root/"}"; return 1; }
+    relative="${file#"$repository_root/"}"
+    source="$(<"$file")"
+    check_player_source_values "$relative" "$source"
+  done
+  printf 'frontend policy check: PASS: final Player source has no authored JavaScript, privileged/cross-application edge, alternate root, staging mechanism, broad escape, or suppression across %d readable file(s)\n' \
+    "${#source_files[@]}"
+}
+
+check_player_source_fixture() {
+  local fixture="$1"
+  check_player_source_values \
+    "$(fixture_value path "$fixture")" \
+    "$(fixture_value source "$fixture")"
 }
 
 expect_fixture_failure() {
@@ -210,6 +376,36 @@ expect_player_foundation_failure() {
   }
 }
 
+expect_overseer_fixture_failure() {
+  local fixture="$1"
+  local expected="$2"
+  local output status
+  set +e
+  output="$(check_overseer_fixture "$fixture" 2>&1)"
+  status=$?
+  set -e
+  ((status != 0)) && [[ "$output" == *"$expected"* ]] || {
+    printf '%s\n' "$output" >&2
+    fail "Overseer fixture did not fail with expected diagnostic: $expected"
+    return 1
+  }
+}
+
+expect_player_source_fixture_failure() {
+  local fixture="$1"
+  local expected="$2"
+  local output status
+  set +e
+  output="$(check_player_source_fixture "$fixture" 2>&1)"
+  status=$?
+  set -e
+  ((status != 0)) && [[ "$output" == *"$expected"* ]] || {
+    printf '%s\n' "$output" >&2
+    fail "Player source fixture did not fail with expected diagnostic: $expected"
+    return 1
+  }
+}
+
 self_test() {
   check_repository
   check_fixture "$fixture_root/valid-policy.txt"
@@ -226,7 +422,12 @@ self_test() {
   expect_player_foundation_failure "$fixture_root/invalid-cross-app-store.txt" 'prohibited shared application store'
   expect_player_foundation_failure "$fixture_root/invalid-player-connectrpc.txt" 'prohibited ConnectRPC or subscription behavior'
   expect_player_foundation_failure "$fixture_root/invalid-player-production-dom.txt" 'prohibited production DOM lookup or selection'
-  printf '%s\n' 'frontend policy check self-test: PASS: general policy and all Player-foundation capability boundaries accept valid fixtures and reject exact violations actionably'
+  expect_overseer_fixture_failure "$fixture_root/invalid-overseer-legacy.txt" 'prohibited legacy, candidate, root, or bridge identifier'
+  expect_overseer_fixture_failure "$fixture_root/invalid-generated-name-disguise.txt" 'Overseer authored JavaScript is prohibited'
+  expect_player_source_fixture_failure "$fixture_root/invalid-player-legacy.txt" 'prohibited legacy, alternate-root, or staging identifier'
+  expect_player_source_fixture_failure "$fixture_root/invalid-player-transitive-wails.txt" 'prohibited privileged or cross-application import edge'
+  expect_player_source_fixture_failure "$fixture_root/invalid-player-candidate.txt" 'prohibited legacy, alternate-root, or staging identifier'
+  printf '%s\n' 'frontend policy check self-test: PASS: general, Player-foundation, final Player, and final Overseer boundaries accept valid inputs and reject exact violations actionably'
 }
 
 case "${1:-}" in

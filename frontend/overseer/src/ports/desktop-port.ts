@@ -13,7 +13,7 @@ export type DesktopEventListener<T> = (value: Readonly<T>) => void;
 export interface DesktopPort {
   onServerInfo(listener: DesktopEventListener<DesktopRecord>): DesktopUnsubscribe;
   onClientCount(listener: DesktopEventListener<number>): DesktopUnsubscribe;
-  onHackState(listener: DesktopEventListener<DesktopRecord>): DesktopUnsubscribe;
+  onHackState(listener: DesktopEventListener<DesktopRecord | null>): DesktopUnsubscribe;
   onCoordinationState(listener: DesktopEventListener<DesktopRecord>): DesktopUnsubscribe;
   onSessionState(listener: DesktopEventListener<DesktopRecord>): DesktopUnsubscribe;
   onPublicAccessStatus(listener: DesktopEventListener<DesktopPublicAccessSnapshot>): DesktopUnsubscribe;

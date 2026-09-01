@@ -289,11 +289,28 @@ an independent state owner.
 
 ## Frontend Boundaries
 
+The production frontend has exactly two Vue 3/strict-TypeScript ownership graphs. They share only
+the `frontend/` npm install/lock boundary, pinned compiler/build tools, and capability-neutral base
+compiler policy; they do not share application state, adapters, authored declarations, or a
+runtime store.
+
+| Application | Sole mount and entry | Bundle / consumer | Application boundary |
+|---|---|---|---|
+| Overseer | `#overseerApp` via `frontend/overseer/src/main.ts` | `frontend/overseer/dist`, embedded only by the private Wails host | Components and controllers depend on the typed `DesktopPort`; `frontend/overseer/src/adapters/desktop-api.ts` is the sole authored Wails binding/runtime consumer. |
+| Player | `#playerApp` via `frontend/client/src/main.ts` | `frontend/client/dist`, served only by the public player HTTP server | Components and composables depend on Player-owned ports and generated public ConnectRPC clients; no Wails, private protobuf, Overseer, filesystem, credential, or native path exists. |
+
+Each root has one mount owner and one teardown owner. Legacy/candidate mounts, shared callback
+bridges, mixed DOM ownership, and handwritten production JavaScript entrypoints are absent. Local
+Vue state may model drafts, focus, rendering, and pending requests, but it never creates a second
+authority: Go remains the sole owner of shared gameplay, revisions, roles, approvals, persistence,
+and trusted mutations. Observer input stays inert, controller requests remain revision-gated, and
+both applications converge only from authoritative results/events/streams.
+
 ### Overseer
 
 `frontend/overseer/` is the trusted native interface. It may invoke only the narrow desktop
 service registered by the Go application and consume named application events. Wails-generated
-bindings implement that private transport boundary.
+bindings implement that private transport boundary behind `DesktopPort`.
 
 The desktop bridge must not expose a generic dispatcher or arbitrary filesystem, process, or
 environment access. Values received from the frontend are validated again at the privileged Go

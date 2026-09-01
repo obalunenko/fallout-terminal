@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 
 test.use({ bypassCSP: true });
 
-async function mountCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?hack-controls'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?hack-controls');
 }
 
 async function openFixture(page) {
   await page.goto(FIXTURE_URL);
-  await mountCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 }
@@ -124,8 +126,8 @@ test('Overseer hacking controls preserve authoritative revisions and cleanup', a
 
   const releasesBefore = await page.evaluate(() => __desktopFixture.releaseCount('hack-state'));
   await page.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
     __desktopFixture.emit('hack-state', {
       attemptsLeft: 0,
       attemptsMax: 4,
@@ -134,6 +136,6 @@ test('Overseer hacking controls preserve authoritative revisions and cleanup', a
       solved: false,
     });
   });
-  await expect(page.locator('#hackControlsVueLeaf')).toBeEmpty();
+  await expect(page.locator('#overseerApp')).toBeEmpty();
   expect(await page.evaluate(() => __desktopFixture.releaseCount('hack-state'))).toBe(releasesBefore + 1);
 });

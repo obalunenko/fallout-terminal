@@ -1,0 +1,40 @@
+Task: T146
+Expected assertion: AssertionError: latest-value mailbox cancels stale stream and falls back unary without losing operation
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/player-candidate-uplink.spec.mjs latest-value\ mailbox\ cancels\ stale\ stream\ and\ falls\ back\ unary\ without\ losing\ operation
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  player-candidate-uplink.spec.mjs:14:1 › latest-value mailbox cancels stale stream and falls back unary without losing operation
+Total: 1 test in 1 file
+[WebServer] (node:67899) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:67911) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:67916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:67918) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: latest-value mailbox cancels stale stream and falls back unary without losing operation
+  ✘  1 tests/browser/player-candidate-uplink.spec.mjs:14:1 › latest-value mailbox cancels stale stream and falls back unary without losing operation (0ms)
+
+
+  1) tests/browser/player-candidate-uplink.spec.mjs:14:1 › latest-value mailbox cancels stale stream and falls back unary without losing operation
+
+    Error: Player candidate presentation uplink lifecycle is not implemented
+
+      15 |   if (!existsSync(uplinkModulePath)) {
+      16 |     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
+    > 17 |     throw new Error('Player candidate presentation uplink lifecycle is not implemented');
+         |           ^
+      18 |   }
+      19 | });
+      20 |
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/player-candidate-uplink.spec.mjs:17:11
+
+    Error Context: tests/browser/test-results/player-candidate-uplink-la-73239-ry-without-losing-operation/error-context.md
+
+  1 failed
+    tests/browser/player-candidate-uplink.spec.mjs:14:1 › latest-value mailbox cancels stale stream and falls back unary without losing operation

@@ -60,7 +60,7 @@ type MutableRecord = Record<string, unknown>;
 type StatusField = 'serverInfo' | 'clientCount' | 'hackState' | 'coordinationState' | 'sessionState';
 
 interface StatusSubscription {
-  readonly deliver: (value: unknown) => void;
+  readonly deliver: (value: unknown, source: 'event' | 'snapshot') => void;
 }
 
 function isRecord(value: unknown): value is MutableRecord {
@@ -113,6 +113,18 @@ async function command<TArgs extends unknown[]>(
   return commandResult(await invoke(binding, ...args));
 }
 
+async function terminalCommand<TArgs extends unknown[]>(
+  binding: (...args: TArgs) => Promise<unknown>,
+  ...args: TArgs
+): Promise<DesktopCommandResult> {
+  const result = await command(binding, ...args);
+  return Object.freeze({
+    ...result,
+    status: typeof result.status === 'string' ? result.status : '',
+    switchId: typeof result.switchId === 'string' ? result.switchId : '',
+  });
+}
+
 function documentResult(value: unknown): DesktopDocumentResult {
   const result = commandResult(value);
   if (!result.ok) return Object.freeze({ ...result, canceled: false, session: null });
@@ -138,24 +150,44 @@ function runtimeStatus(value: unknown): DesktopRuntimeStatus {
   return Object.freeze({ ...record, ok: record.ok !== false });
 }
 
-function eventRecord(value: unknown): DesktopRecord | null {
-  return detachedRecord(value);
+function eventRecord(value: unknown): DesktopRecord | undefined {
+  return detachedRecord(value) ?? undefined;
 }
 
-function serverInfo(value: unknown): DesktopRecord | null {
+function nullableEventRecord(value: unknown): DesktopRecord | null | undefined {
+  return value === null ? null : eventRecord(value);
+}
+
+let latestServerInfo: DesktopRecord | null = null;
+
+function serverInfo(value: unknown): DesktopRecord | undefined {
   const record = detachedRecord(value);
   if (record === null || typeof record.url !== 'string' || typeof record.tunnel !== 'boolean') {
-    return null;
+    return undefined;
   }
-  if (record.port !== undefined && !Number.isInteger(record.port)) return null;
+  if (record.port !== undefined && !Number.isInteger(record.port)) return undefined;
   for (const field of ['ip', 'localUrl', 'tunnelError']) {
-    if (record[field] !== undefined && typeof record[field] !== 'string') return null;
+    if (record[field] !== undefined && typeof record[field] !== 'string') return undefined;
   }
-  return record;
+  const previousLocalUrl = typeof latestServerInfo?.localUrl === 'string'
+    ? latestServerInfo.localUrl
+    : latestServerInfo?.tunnel === false && typeof latestServerInfo.url === 'string'
+      ? latestServerInfo.url
+      : '';
+  const suppliedLocalUrl = typeof record.localUrl === 'string' ? record.localUrl : '';
+  latestServerInfo = Object.freeze({
+    ip: typeof record.ip === 'string' ? record.ip : '',
+    port: Number.isInteger(record.port) ? record.port : 0,
+    url: record.url,
+    localUrl: suppliedLocalUrl || (record.tunnel ? previousLocalUrl : record.url),
+    tunnel: record.tunnel,
+    tunnelError: typeof record.tunnelError === 'string' ? record.tunnelError : '',
+  });
+  return latestServerInfo;
 }
 
-function eventCount(value: unknown): number | null {
-  return Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : null;
+function eventCount(value: unknown): number | undefined {
+  return Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : undefined;
 }
 
 function publicAccessSnapshot(value: unknown): DesktopPublicAccessSnapshot | null {
@@ -208,7 +240,7 @@ function beginRuntimeSnapshot(): void {
     if (!isRecord(value)) return;
     for (const field of requiredStatusFields) {
       for (const subscription of statusSubscriptions.get(field) ?? []) {
-        subscription.deliver(value[field]);
+        subscription.deliver(value[field], 'snapshot');
       }
     }
   });
@@ -217,30 +249,33 @@ function beginRuntimeSnapshot(): void {
 function subscribeStatus<T>(
   eventName: keyof desktopService.WailsDesktopEventMap,
   field: StatusField,
-  project: (value: unknown) => T | null,
+  project: (value: unknown) => T | undefined,
   listener: DesktopEventListener<T>,
 ): DesktopUnsubscribe {
   if (typeof listener !== 'function') throw new TypeError(`${eventName} listener must be a function`);
   let active = true;
+  let eventDelivered = false;
   let latestRevision = -1;
   const bucket = statusSubscriptions.get(field) ?? new Set<StatusSubscription>();
   const subscription: StatusSubscription = {
-    deliver(value: unknown) {
+    deliver(value: unknown, source: 'event' | 'snapshot') {
       if (!active) return;
       const projected = project(value);
-      if (projected === null) return;
+      if (projected === undefined) return;
+      if (source === 'snapshot' && eventDelivered) return;
       if (field === 'coordinationState') {
         const record = isRecord(projected) ? projected : null;
         const revision = record?.revision;
         if (!Number.isSafeInteger(revision) || Number(revision) <= latestRevision) return;
         latestRevision = Number(revision);
       }
+      if (source === 'event') eventDelivered = true;
       listener(projected);
     },
   };
   bucket.add(subscription);
   statusSubscriptions.set(field, bucket);
-  const releaseRuntime = Events.On(eventName, event => subscription.deliver(eventData(event)));
+  const releaseRuntime = Events.On(eventName, event => subscription.deliver(eventData(event), 'event'));
   const unsubscribe = (): void => {
     if (!active) return;
     active = false;
@@ -259,21 +294,30 @@ function subscribeSnapshot<T>(
   getter: () => Promise<unknown>,
   listener: DesktopEventListener<T>,
   version: (value: T) => readonly number[],
+  eventWinsEqual = false,
 ): DesktopUnsubscribe {
   if (typeof listener !== 'function') throw new TypeError(`${eventName} listener must be a function`);
   let active = true;
   let latest: readonly number[] = [];
-  const deliver = (value: unknown): void => {
+  let latestSource: 'event' | 'getter' | null = null;
+  const deliver = (value: unknown, source: 'event' | 'getter'): void => {
     if (!active) return;
     const projected = project(value);
     if (projected === null) return;
     const candidate = version(projected);
-    if (latest.length > 0 && candidate.every((part, index) => part <= (latest[index] ?? -1))) return;
+    const comparison = candidate.reduce((result, part, index) => {
+      if (result !== 0) return result;
+      const baseline = latest[index] ?? -1;
+      return part === baseline ? 0 : part > baseline ? 1 : -1;
+    }, 0);
+    if (latest.length > 0 && (comparison < 0 || (comparison === 0
+      && !(eventWinsEqual && source === 'event' && latestSource === 'getter')))) return;
     latest = candidate;
+    latestSource = source;
     listener(projected);
   };
-  const releaseRuntime = Events.On(eventName, event => deliver(eventData(event)));
-  void invoke(getter).then(deliver);
+  const releaseRuntime = Events.On(eventName, event => deliver(eventData(event), 'event'));
+  void invoke(getter).then(value => deliver(value, 'getter'));
   const unsubscribe = (): void => {
     if (!active) return;
     active = false;
@@ -298,7 +342,7 @@ function clearSecrets(request: DesktopRecord): void {
 const typedDesktopPort: DesktopPort = {
   onServerInfo: listener => subscribeStatus('server-info', 'serverInfo', serverInfo, listener),
   onClientCount: listener => subscribeStatus('client-count', 'clientCount', eventCount, listener),
-  onHackState: listener => subscribeStatus('hack-state', 'hackState', eventRecord, listener),
+  onHackState: listener => subscribeStatus('hack-state', 'hackState', nullableEventRecord, listener),
   onCoordinationState: listener => subscribeStatus('coordination-state', 'coordinationState', eventRecord, listener),
   onSessionState: listener => subscribeStatus('session-state', 'sessionState', eventRecord, listener),
   onPublicAccessStatus: listener => subscribeSnapshot(
@@ -307,6 +351,7 @@ const typedDesktopPort: DesktopPort = {
     APP_METHODS.getPublicAccess,
     listener,
     value => [value.generation, value.settingsRevision],
+    true,
   ),
   onApplicationUpdateStatus: listener => subscribeSnapshot(
     'application-update-status',
@@ -333,10 +378,10 @@ const typedDesktopPort: DesktopPort = {
   loadReferencedPlayerConfig: () => documentCommand(APP_METHODS.loadReferencedPlayerConfig),
   newPlayerConfig: () => documentCommand(APP_METHODS.newPlayerConfig),
   openPlayerConfig: () => documentCommand(APP_METHODS.openPlayerConfig),
-  requestTerminalActivation: request => command(APP_METHODS.requestTerminalActivation, cloneRequest(request)),
-  updateLiveTerminal: request => command(APP_METHODS.updateLiveTerminal, cloneRequest(request)),
-  requestTerminalClear: () => command(APP_METHODS.requestTerminalClear),
-  resolveTerminalSwitch: request => command(APP_METHODS.resolveTerminalSwitch, cloneRequest(request)),
+  requestTerminalActivation: request => terminalCommand(APP_METHODS.requestTerminalActivation, cloneRequest(request)),
+  updateLiveTerminal: request => terminalCommand(APP_METHODS.updateLiveTerminal, cloneRequest(request)),
+  requestTerminalClear: () => terminalCommand(APP_METHODS.requestTerminalClear),
+  resolveTerminalSwitch: request => terminalCommand(APP_METHODS.resolveTerminalSwitch, cloneRequest(request)),
   resolveCommandExecution: request => command(APP_METHODS.resolveCommandExecution, cloneRequest(request)),
   resolveTerminalNavigation: request => command(APP_METHODS.resolveTerminalNavigation, cloneRequest(request)),
   forceHackSuccess: () => command(APP_METHODS.forceHackSuccess),
@@ -376,4 +421,5 @@ export function disposeDesktopPort(): void {
   for (const release of [...releases]) release();
   statusSubscriptions.clear();
   runtimeSnapshotStarted = false;
+  latestServerInfo = null;
 }

@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const TOKEN_KEY = 'fallout-terminal.player-token';
 const FIXTURE = '/__fixture/state-changing-command-sync';
 const OVERSEER_URL = `${FIXTURE}/overseer`;
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?command-state-reset'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?command-state-reset');
 }
 
 async function postLifecycle(request, action) {
@@ -42,7 +44,7 @@ async function openOverseer(browser) {
   const context = await browser.newContext({ bypassCSP: true });
   const page = await context.newPage();
   await page.goto(OVERSEER_URL);
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
   return { context, page };
@@ -174,21 +176,21 @@ test('command-state reset is atomic idempotent and focus-safe', async ({ browser
   try {
     await overseer.page.evaluate(() => {
       globalThis.__resetDecisions = [];
-      __overseerCoexistenceBridge.subscribeVueRequests((message) => {
+      __overseerAppFixture.controller.subscribeState((message) => {
         if (message.kind === 'command-state-reset-resolved') __resetDecisions.push(message);
       });
     });
     const opener = overseer.page.locator('#btnAddTerminal');
     await opener.focus();
     await overseer.page.evaluate(() => {
-      __overseerCoexistenceBridge.legacyToVue({
+      __overseerAppFixture.controller.publish({
         kind: 'command-state-reset-required',
         message: 'Сбросить выполненное состояние команды "Двери открыты"?',
         requestId: 'reset-focused-1',
       });
     });
 
-    const dialog = overseer.page.locator('#overseerVueLeaves #resetConfirmationDialog');
+    const dialog = overseer.page.locator('#overseerApp #resetConfirmationDialog');
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('#btnCancelCommandStateReset')).toBeFocused();
     await dialog.locator('#btnConfirmCommandStateReset').evaluate((button) => {
@@ -202,7 +204,7 @@ test('command-state reset is atomic idempotent and focus-safe', async ({ browser
     ]);
 
     await overseer.page.evaluate(() => {
-      __overseerCoexistenceBridge.legacyToVue({
+      __overseerAppFixture.controller.publish({
         kind: 'command-state-reset-required',
         message: 'stale',
         requestId: 'reset-focused-1',

@@ -1,0 +1,27 @@
+/absolute/index.html|absolute path
+../index.html|traversal component
+assets/../index.js|traversal component
+./assets/index.js|not normalized
+assets//index.js|not normalized
+candidate.css|candidate artifact
+candidate/asset.js|candidate component
+assets/player-candidate.js|candidate artifact
+test-fixtures/entry.js|test-fixtures component
+assets/source.ts|authored source extension
+assets/source.tsx|authored source extension
+assets/source.vue|authored source extension
+assets/index.js.map|source map
+client.js|removed Player bootstrap
+assets/sound.js|removed Player bootstrap
+presentation-uplink.js|removed Player bootstrap
+overseer/asset.js|privileged component
+assets/player-wails.js|privileged component
+bindings/asset.js|privileged component
+native/asset.js|privileged component
+private/asset.js|privileged component
+internal/asset.js|privileged component
+dev/asset.js|development or test component
+test/asset.js|development or test component
+proto/player.proto|protobuf or generated-source component
+gen/player_pb.js|protobuf or generated-source component
+sounds/README.txt|unsupported runtime path

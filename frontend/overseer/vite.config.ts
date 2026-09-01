@@ -21,37 +21,34 @@ function preserveGoEmbedMarker(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const candidate = mode === 'candidate';
+  const browserTest = mode === 'browser-test';
+  const productionRoot = fileURLToPath(new URL('./src', import.meta.url)); // root: frontend/overseer/src
+  const browserBindings = fileURLToPath(new URL('../../tests/browser/fixtures/desktop-bindings.js', import.meta.url));
 
   return {
-    root: candidate ? 'test-fixtures' : 'src',
+    root: productionRoot,
     base: './',
     resolve: {
       alias: {
-        '#wails-service': fileURLToPath(new URL(
-          './bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js',
-          import.meta.url,
-        )),
+        '#wails-service': browserTest
+          ? browserBindings
+          : fileURLToPath(new URL(
+            './bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js',
+            import.meta.url,
+          )),
+        ...(browserTest ? { '@wailsio/runtime': browserBindings } : {}),
       },
     },
     plugins: [
       vue(),
-      ...(candidate ? [] : [wails(fileURLToPath(new URL('./bindings', import.meta.url)))]),
-      {
-        name: 'preserve-legacy-entry-marker',
-        transformIndexHtml: {
-          order: 'pre',
-          handler(html) {
-            if (!html.includes('src="./overseer.js"')) {
-              return html;
-            }
-
-            return html.replace('</head>', '  <!-- Vite source entry: overseer.js -->\n</head>');
-          },
-        },
-      },
+      ...(browserTest ? [] : [wails(fileURLToPath(new URL('./bindings', import.meta.url)))]),
       preserveGoEmbedMarker(),
     ],
+    server: {
+      fs: {
+        allow: [fileURLToPath(new URL('../..', import.meta.url))],
+      },
+    },
     build: {
       outDir: '../dist',
       emptyOutDir: true,

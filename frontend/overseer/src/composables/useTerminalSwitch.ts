@@ -1,15 +1,15 @@
 import { inject, onUnmounted, readonly, ref } from 'vue';
 
 import {
-  overseerCoexistenceBridgeKey,
-  type OverseerCoexistenceMessage,
-} from '../mount.js';
+  overseerControllerKey,
+  type OverseerControllerMessage,
+} from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
 const MAX_RESOLVED_REQUESTS = 128;
 
-function messageSwitchId(message: OverseerCoexistenceMessage): string {
+function messageSwitchId(message: OverseerControllerMessage): string {
   return typeof message.switchId === 'string' ? message.switchId : '';
 }
 
@@ -21,7 +21,7 @@ function remember(resolved: Set<string>, switchId: string): void {
 }
 
 export function useTerminalSwitch(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const switchId = ref('');
   const pending = ref(false);
   const error = ref('');
@@ -29,7 +29,7 @@ export function useTerminalSwitch(port: DesktopPort) {
   let active = true;
   let generation = 0;
 
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+  function handleControllerMessage(message: OverseerControllerMessage): void {
     if (message.kind === 'terminal-switch-dismissed') {
       if (switchId.value !== '') generation += 1;
       switchId.value = '';
@@ -71,7 +71,7 @@ export function useTerminalSwitch(port: DesktopPort) {
     remember(resolved, requestId);
     generation += 1;
     switchId.value = '';
-    bridge?.vueToLegacy({
+    controller?.dispatch({
       decision,
       kind: 'terminal-switch-resolved',
       result,
@@ -79,7 +79,7 @@ export function useTerminalSwitch(port: DesktopPort) {
     });
   }
 
-  const release = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+  const release = controller?.subscribeState(handleControllerMessage) ?? (() => {});
   onUnmounted(() => {
     active = false;
     generation += 1;

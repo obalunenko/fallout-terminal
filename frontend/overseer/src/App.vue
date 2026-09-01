@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { inject, nextTick, onMounted, onUnmounted, ref } from 'vue';
+
 import ApplicationUpdateOfferDialog from './components/ApplicationUpdateOfferDialog.vue';
 import ApplicationUpdateRestartDialog from './components/ApplicationUpdateRestartDialog.vue';
 import ApplicationUpdateStatus from './components/ApplicationUpdateStatus.vue';
@@ -42,11 +44,38 @@ import { useSessionDocument } from './composables/useSessionDocument.js';
 import { useTerminalNavigationApproval } from './composables/useTerminalNavigationApproval.js';
 import { useTerminalAuthoring } from './composables/useTerminalAuthoring.js';
 import { useTerminalSwitch } from './composables/useTerminalSwitch.js';
+import { overseerControllerKey } from './controllers/overseer-controller.js';
 import type { DesktopPort } from './ports/desktop-port.js';
 
 const props = defineProps<{
   readonly port: DesktopPort;
 }>();
+
+const teleportTargetsReady = ref(false);
+const nestedTeleportTargetReady = ref(false);
+const sessionStatus = ref<Readonly<{ error: string; revision: number; text: string }>>(Object.freeze({
+  error: '',
+  revision: 0,
+  text: '',
+}));
+const controller = inject(overseerControllerKey, null);
+const releaseSessionStatus = controller?.subscribeState(message => {
+  if (message.kind !== 'session-save-status') return;
+  sessionStatus.value = Object.freeze({
+    error: typeof message.error === 'string' ? message.error : '',
+    revision: Number.isSafeInteger(message.revision) ? Number(message.revision) : 0,
+    text: typeof message.text === 'string' ? message.text : '',
+  });
+});
+
+onUnmounted(() => releaseSessionStatus?.());
+
+onMounted(async () => {
+  await nextTick();
+  teleportTargetsReady.value = true;
+  await nextTick();
+  nestedTeleportTargetReady.value = true;
+});
 
 const update = useApplicationUpdate(props.port);
 const broadcastControls = useBroadcastControls(props.port);
@@ -80,6 +109,36 @@ const terminalSwitch = useTerminalSwitch(props.port);
     @create="sessionDocument.create"
     @open="sessionDocument.open"
   />
+  <div id="mainLayout" class="layout" v-show="sessionDocument.loaded.value">
+    <div id="runtimeHeaderVueLeaf" style="display: contents"></div>
+    <div class="main">
+      <aside class="term-panel">
+        <div class="panel-hdr">ГРУППЫ И ТЕРМИНАЛЫ</div>
+        <div id="termList" class="term-list" role="list" aria-label="Группы терминалов"></div>
+        <div class="term-list-actions" role="group" aria-label="Действия со списком терминалов">
+          <button id="btnAddTerminal" class="btn btn-secondary full-w" type="button" @click="terminalAuthoring.create">+ СОЗДАТЬ ТЕРМИНАЛ</button>
+          <button id="btnCreateTerminalGroup" class="btn btn-secondary full-w" type="button" aria-haspopup="dialog" aria-controls="terminalGroupDraftDialog" @click="terminalAuthoring.createGroup">+ СОЗДАТЬ ГРУППУ</button>
+        </div>
+        <div id="terminalGroupError" class="terminal-group-error" role="alert" aria-live="assertive" aria-atomic="true" :hidden="terminalAuthoring.error.value === ''">{{ terminalAuthoring.error.value }}</div>
+        <div id="broadcastControlsVueLeaf" style="display: contents"></div>
+        <div class="term-footer">
+          <div id="hackControlsVueLeaf" style="display: contents"></div>
+        </div>
+        <div id="saveStatus" class="save-status" :class="{ err: sessionStatus.error !== '' }" v-bind="{ 'data-saved-revision': String(sessionStatus.revision) }" role="status" aria-live="polite" aria-atomic="true">{{ sessionStatus.text }}</div>
+      </aside>
+      <main class="tree-panel">
+        <div id="terminalEditorVueLeaf" style="display: contents"></div>
+        <div id="terminalSettingsVueLeaf" style="display: contents"></div>
+        <div id="terminalTreeVueLeaf" style="display: contents"></div>
+      </main>
+      <aside id="nodePanel" class="node-panel">
+        <div class="panel-hdr">СВОЙСТВА</div>
+        <div id="nodeEditorVueLeaf" style="display: contents"></div>
+        <div id="publicAccessVueLeaf"></div>
+      </aside>
+    </div>
+  </div>
+  <template v-if="teleportTargetsReady">
   <RuntimeHeader
     :client-count="desktopRuntime.clientCount.value"
     :file-path="sessionDocument.filePath.value"
@@ -157,6 +216,7 @@ const terminalSwitch = useTerminalSwitch(props.port);
   <CommandStateResetDialog />
   <CreateTerminalDialog />
   <PlayerConfigControls
+    v-if="nestedTeleportTargetReady"
     :active="playerConfiguration.active.value"
     :blocked="playerConfiguration.blocked.value"
     :error="playerConfiguration.error.value"
@@ -245,5 +305,6 @@ const terminalSwitch = useTerminalSwitch(props.port);
     @discard="terminalSwitch.discard"
     @preserve="terminalSwitch.preserve"
   />
+  </template>
   </OverseerLayout>
 </template>

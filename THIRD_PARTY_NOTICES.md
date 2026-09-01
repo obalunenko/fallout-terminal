@@ -1,10 +1,11 @@
 # Third-Party Notices
 
-This file records the union of modules compiled into the shipped macOS, Windows, and Linux targets,
-plus the pinned Go Task command used to build them. Versions are resolved from the committed Go
-module graphs; checksums are recorded in the corresponding `go.sum` files. The packaged application
-does not download these modules or a provider executable at runtime. Every package graph installs
-this reviewed file unchanged in its resources directory.
+This file records the union of Go modules compiled into the shipped macOS, Windows, and Linux
+targets, the Vue packages bundled into the shipped browser runtimes, plus the pinned Go Task command
+used to build them. Versions are resolved from the committed Go module graphs and frontend lockfile;
+checksums are recorded in the corresponding `go.sum` and `package-lock.json` files. The packaged
+application does not download these modules or a provider executable at runtime. Every package graph
+installs this reviewed file unchanged in its resources directory.
 
 ## Reviewed shipped runtime module inventory
 
@@ -30,6 +31,21 @@ this reviewed file unchanged in its resources directory.
 ## Reviewed build-tool module inventory
 
 - github.com/go-task/task/v3@v3.53.1 — MIT; Copyright (c) 2016 Andrey Nering
+
+## Reviewed shipped frontend runtime inventory
+
+- npm:vue@3.5.42 — MIT; Copyright (c) 2018-present, Yuxi (Evan) You
+- npm:@vue/runtime-dom@3.5.42 — MIT; Copyright (c) 2018-present, Yuxi (Evan) You
+- npm:@vue/runtime-core@3.5.42 — MIT; Copyright (c) 2018-present, Yuxi (Evan) You
+- npm:@vue/reactivity@3.5.42 — MIT; Copyright (c) 2018-present, Yuxi (Evan) You
+- npm:@vue/shared@3.5.42 — MIT; Copyright (c) 2018-present, Yuxi (Evan) You
+
+## Vue.js runtime
+
+The two browser applications bundle the reviewed Vue.js 3.5.42 runtime graph listed above. Vue.js
+and its runtime packages are distributed under the MIT License. Compiler, server-renderer, language
+tooling, and type-only packages are build-time inputs and are not part of this shipped-runtime
+inventory.
 
 ## ngrok-go
 

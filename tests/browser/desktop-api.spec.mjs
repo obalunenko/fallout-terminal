@@ -12,6 +12,7 @@ const typedAdapterSource = await readFile(
 );
 
 async function installTypedAdapter(page) {
+  if (await page.evaluate(() => typeof window.__typedDesktopAdapter === 'object')) return;
   const source = ts.transpileModule(typedAdapterSource, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
@@ -21,14 +22,14 @@ async function installTypedAdapter(page) {
   }).outputText.replace("'#wails-service'", "'/__fixture/desktop-bindings.js'");
   await page.addScriptTag({
     type: 'module',
-    content: `${source}\nglobalThis.__typedDesktopAdapter = desktopPort;`,
+    content: `${source}\nglobalThis.__typedDesktopAdapter = desktopPort; globalThis.__disposeTypedDesktopAdapter = disposeDesktopPort; globalThis.desktopAPI = desktopPort;`,
   });
   await expect.poll(() => page.evaluate(() => typeof window.__typedDesktopAdapter)).toBe('object');
 }
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/__fixture/desktop-api');
-  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+  await installTypedAdapter(page);
 });
 
 test('desktop adapter rejected fixture has no-state-change assertion', async ({ page }) => {
@@ -116,7 +117,14 @@ test('desktop adapter validates results, ordering and exact-once release', async
   });
 
   expect(result.rejected).toEqual({ ok: false });
-  expect(result.observed).toEqual([{ url: 'https://valid.example', tunnel: true }]);
+  expect(result.observed).toEqual([{
+    ip: '',
+    port: 0,
+    url: 'https://valid.example',
+    localUrl: '',
+    tunnel: true,
+    tunnelError: '',
+  }]);
   expect(result.timeline.slice(0, 5)).toEqual([
     'GetRuntimeStatus',
     'event:on:server-info',
@@ -447,8 +455,8 @@ test('release is exact-once, suppresses pending snapshot callbacks, and hot disp
     releases[0]();
     __desktopFixture.emit('server-info', { url: 'http://late.example', tunnel: false });
     __desktopFixture.resolveStatus();
-    await Promise.resolve();
-    await import('/__fixture/desktop-api.js?hot=2');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    __disposeTypedDesktopAdapter();
     await Promise.resolve();
     return {
       callbacks,

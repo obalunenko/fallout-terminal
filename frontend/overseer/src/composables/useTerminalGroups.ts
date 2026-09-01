@@ -1,6 +1,6 @@
 import { inject, onUnmounted, readonly, ref, shallowRef } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 
 export type TerminalGroupAction =
@@ -45,12 +45,12 @@ function parseGroups(value: unknown): readonly TerminalGroupRow[] | null {
 }
 
 export function useTerminalGroups() {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const collapsedGroupIDs = shallowRef<ReadonlySet<string>>(new Set());
   const groups = shallowRef<readonly TerminalGroupRow[]>(Object.freeze([]));
   const revision = ref(-1);
 
-  const release = bridge?.subscribeLegacyState(message => {
+  const release = controller?.subscribeState(message => {
     if (message.kind !== 'terminal-groups-snapshot'
       || !Number.isSafeInteger(message.revision) || Number(message.revision) <= revision.value) return;
     const next = parseGroups(message.groups);
@@ -62,7 +62,7 @@ export function useTerminalGroups() {
   });
 
   function action(groupID: string, requestedAction: TerminalGroupAction): void {
-    bridge?.vueToLegacy({
+    controller?.dispatch({
       action: requestedAction,
       groupID,
       kind: 'terminal-group-action-request',

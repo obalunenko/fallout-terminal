@@ -17,6 +17,29 @@ list_active_files() {
   fi
 }
 
+list_active_matching_files() {
+  local pattern="$1"
+  local file relative
+
+  while IFS= read -r -d '' file; do
+    if [[ "$file" = /* ]]; then
+      relative="${file#"$repository_root"/}"
+    else
+      relative="$file"
+      file="$repository_root/$file"
+    fi
+    case "$relative" in
+      .git/*|specs/*|node_modules/*|frontend/node_modules/*|frontend/client/node_modules/*|frontend/overseer/node_modules/*|tests/*|*_test.go|scripts/secret-leak-check.sh)
+        continue
+        ;;
+    esac
+    [[ -f "$file" && -r "$file" ]] || continue
+    if grep -IlE "$pattern" "$file" >/dev/null 2>&1; then
+      printf '%s\n' "$relative"
+    fi
+  done < <(list_active_files)
+}
+
 scan_canary_file() {
   local canary_file="$1"
   local scan_root="${2:-$repository_root}"
@@ -70,9 +93,8 @@ check_public_contracts() {
 
 check_active_sources() {
   local suspicious
-  suspicious="$(git -C "$repository_root" grep -IlE \
-    '(ngrok[_-]?authtoken|provider[_-]?token|player[_-]?password)[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,}["'"']' \
-    -- ':!specs/**' ':!**/*_test.go' ':!tests/browser/**' ':!scripts/secret-leak-check.sh' 2>/dev/null || true)"
+  suspicious="$(list_active_matching_files \
+    '(ngrok[_-]?authtoken|provider[_-]?token|player[_-]?password)[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{8,}["'"']' || true)"
   [[ -z "$suspicious" ]] || {
     while IFS= read -r file; do
       [[ -n "$file" ]] && printf 'secret leak check: suspicious literal in %s (value redacted)\n' "$file" >&2
@@ -80,14 +102,17 @@ check_active_sources() {
     return 1
   }
 
-  if grep -E '(localStorage|sessionStorage).*(providerToken|playerPassword|generatedPassword)|(providerToken|playerPassword|generatedPassword).*(localStorage|sessionStorage)' \
-    "$repository_root/frontend/overseer/src/"*.js >/dev/null 2>&1; then
+  if grep -ER --include='*.ts' --include='*.vue' \
+    '(localStorage|sessionStorage).*(providerToken|playerPassword|generatedPassword)|(providerToken|playerPassword|generatedPassword).*(localStorage|sessionStorage)' \
+    "$repository_root/frontend/overseer/src" >/dev/null 2>&1; then
     fail 'Overseer frontend persists a public-access secret in browser storage'
   fi
 
-  grep -Fq 'replacementProviderToken' "$repository_root/frontend/overseer/src/overseer.js" ||
+  grep -Fq 'replacementProviderToken' "$repository_root/frontend/overseer/src/components/ProviderTokenDialog.vue" ||
     fail 'Overseer secret mutation flow is not implemented yet'
-  grep -Fq 'generatedPassword' "$repository_root/frontend/overseer/src/overseer.js" ||
+  grep -Fq "token.value = '';" "$repository_root/frontend/overseer/src/components/ProviderTokenDialog.vue" ||
+    fail 'Overseer provider-token input is not cleared after mutation'
+  grep -Fq 'generatedPassword' "$repository_root/frontend/overseer/src/components/PlayerCredentialsDialog.vue" ||
     fail 'one-time generated-password presentation is not implemented yet'
 }
 
@@ -97,14 +122,13 @@ check_generated_password_scope() {
   while IFS= read -r file; do
     [[ -n "$file" ]] || continue
     case "$file" in
-      app.go|app_contract.go|internal/tunnel/secret.go|proto/fallout/terminal/private/v1/public_access.proto|internal/gen/fallout/terminal/private/v1/public_access.pb.go|frontend/overseer/src/desktop-api.js|frontend/overseer/src/overseer.js|frontend/overseer/src/index.html|frontend/overseer/src/overseer.css|frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js)
+      app.go|app_contract.go|internal/tunnel/secret.go|proto/fallout/terminal/private/v1/public_access.proto|internal/gen/fallout/terminal/private/v1/public_access.pb.go|frontend/overseer/src/App.vue|frontend/overseer/src/components/GeneratedPasswordDialog.vue|frontend/overseer/src/components/PlayerCredentialsDialog.vue|frontend/overseer/src/controllers/overseer-controller.ts|frontend/overseer/src/overseer.css|frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js)
         ;;
       *)
         unexpected="${unexpected}${file}"$'\n'
         ;;
     esac
-  done < <(git -C "$repository_root" grep -IlE 'generated[_-]?password|generatedPassword|GeneratedPassword' \
-    -- ':!specs/**' ':!*_test.go' ':!**/*_test.go' ':!tests/**' ':!scripts/secret-leak-check.sh' 2>/dev/null || true)
+  done < <(list_active_matching_files 'generated[_-]?password|generatedPassword|GeneratedPassword')
 
   if [[ -n "$unexpected" ]]; then
     while IFS= read -r file; do
@@ -122,9 +146,9 @@ check_generated_password_scope() {
     return 1
   fi
 
-  grep -Fq "generatedPasswordValue.textContent = '';" "$repository_root/frontend/overseer/src/overseer.js" ||
+  grep -Fq "oneTimeValue.value = '';" "$repository_root/frontend/overseer/src/components/GeneratedPasswordDialog.vue" ||
     fail 'one-time generated-password presentation is not cleared on completion'
-  grep -Fq 'btnCopyGeneratedPassword.onclick = null;' "$repository_root/frontend/overseer/src/overseer.js" ||
+  grep -Fq 'release?.();' "$repository_root/frontend/overseer/src/components/GeneratedPasswordDialog.vue" ||
     fail 'one-time generated-password callback retains its value after completion'
   grep -Fq 'afterGenerated.generatedPassword).toBeUndefined()' \
     "$repository_root/tests/browser/desktop-api.spec.mjs" ||
@@ -171,13 +195,50 @@ check_native_secure_store_scope() {
 
   local category
   for category in secret_store_locked secret_store_denied secret_store_unavailable; do
-    grep -Fq "$category" "$repository_root/frontend/overseer/src/overseer.js" ||
+    grep -Fq "$category" "$repository_root/frontend/overseer/src/composables/usePublicAccess.ts" ||
       { fail "Overseer is missing platform-neutral secure-store wording for $category"; return 1; }
   done
-  if grep -Fiq 'Keychain' "$repository_root/frontend/overseer/src/overseer.js"; then
+  if grep -FiR 'Keychain' "$repository_root/frontend/overseer/src" >/dev/null 2>&1; then
     fail 'Overseer contains macOS-specific credential-store wording'
     return 1
   fi
+}
+
+check_player_bundle_boundary() {
+  local bundle_root="$repository_root/frontend/client/dist"
+  local emitted relative
+  local leaked=0
+
+  [[ -d "$bundle_root" && -f "$bundle_root/.keep" && -f "$bundle_root/index.html" ]] || {
+    fail 'production Player bundle is incomplete'
+    return 1
+  }
+  [[ "$(grep -Foc '<div id="playerApp"></div>' "$bundle_root/index.html")" == 1 ]] || {
+    fail 'production Player bundle does not contain the sole Vue root'
+    return 1
+  }
+  grep -Eq '<script type="module"[^>]+src="\./assets/index-[^"]+\.js"' "$bundle_root/index.html" || {
+    fail 'production Player bundle does not select its emitted module'
+    return 1
+  }
+
+  while IFS= read -r -d '' emitted; do
+    relative="${emitted#"$bundle_root"/}"
+    case "$relative" in
+      *.ts|*.tsx|*.vue|*.map|*/src/*|src/*|*candidate*|*test-fixtures*|*/client.js|client.js|*/sound.js|sound.js|*/presentation-uplink.js|presentation-uplink.js)
+        printf 'secret leak check: forbidden Player bundle path: %s\n' "$relative" >&2
+        leaked=1
+        ;;
+    esac
+    if grep -IlE \
+      'candidate([-_/.]*(main|player|mount|bridge|selection|root|index))|test[-_/.]*fixtures|frontend/client/src|frontend/overseer|wailsjs|fallout/terminal/private|client\.js|sound\.js|presentation-uplink\.js|ngrok[_-]?authtoken|provider(Token|_token)|player(Password|_password)|generatedPassword' \
+      "$emitted" >/dev/null 2>&1; then
+      printf 'secret leak check: forbidden legacy, candidate, source, private, or credential surface in Player bundle: %s\n' "$relative" >&2
+      leaked=1
+    fi
+  done < <(find "$bundle_root" -type f -print0)
+
+  [[ "$leaked" == 0 ]] || return 1
 }
 
 check_tree() {
@@ -188,6 +249,7 @@ check_tree() {
   check_generated_password_scope
   check_development_override_scope
   check_native_secure_store_scope
+  check_player_bundle_boundary
   if [[ -n "$canary_file" ]]; then
     [[ -s "$canary_file" ]] || { fail 'canary file is missing or empty'; return 1; }
     [[ -d "$scan_root" ]] || { fail 'canary scan root is missing or not a directory'; return 1; }

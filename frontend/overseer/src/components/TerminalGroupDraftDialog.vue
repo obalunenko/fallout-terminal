@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject, nextTick, onBeforeUnmount, onUnmounted, ref, watch } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -17,7 +17,7 @@ interface DestinationChoice extends TerminalChoice {
 type DraftMode = 'create' | 'move' | 'rename';
 
 const props = defineProps<{ readonly port: DesktopPort }>();
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const closeButton = ref<HTMLButtonElement | null>(null);
 const destinationGroupId = ref('');
 const destinationSelect = ref<HTMLSelectElement | null>(null);
@@ -89,7 +89,7 @@ function setOpen(nextOpen: boolean): void {
   if (!nextOpen) pending.value = false;
 }
 
-async function submitCandidate(message: OverseerCoexistenceMessage): Promise<void> {
+async function submitCandidate(message: OverseerControllerMessage): Promise<void> {
   if (!open.value || pending.value || !Array.isArray(message.candidate)
     || !Number.isSafeInteger(message.expectedSessionRevision)
     || !Number.isSafeInteger(message.expectedCoordinationRevision)) return;
@@ -106,12 +106,12 @@ async function submitCandidate(message: OverseerCoexistenceMessage): Promise<voi
   } catch (cause) {
     result = { error: cause instanceof Error ? cause.message : String(cause), ok: false };
   }
-  bridge?.vueToLegacy({ kind: 'terminal-group-command-finished', result, source: 'draft' });
+  controller?.dispatch({ kind: 'terminal-group-command-finished', result, source: 'draft' });
   if (!active || requestLifecycle !== lifecycle || !open.value) return;
   pending.value = false;
 }
 
-function handleMessage(message: OverseerCoexistenceMessage): void {
+function handleMessage(message: OverseerControllerMessage): void {
   if (message.kind === 'terminal-group-draft-open') {
     const nextMode = message.mode;
     if (nextMode !== 'create' && nextMode !== 'move' && nextMode !== 'rename') return;
@@ -152,7 +152,7 @@ function close(): void {
 
 function review(): void {
   if (pending.value) return;
-  bridge?.vueToLegacy({
+  controller?.dispatch({
     destinationGroupId: destinationGroupId.value,
     kind: 'terminal-group-draft-reviewed',
     name: name.value,
@@ -162,7 +162,7 @@ function review(): void {
 
 function rename(): void {
   if (pending.value) return;
-  bridge?.vueToLegacy({ kind: 'terminal-group-rename-requested', name: name.value });
+  controller?.dispatch({ kind: 'terminal-group-rename-requested', name: name.value });
 }
 
 async function syncDialog(): Promise<void> {
@@ -176,12 +176,12 @@ async function syncDialog(): Promise<void> {
   }
   else if (!open.value && element.open) {
     element.close();
-    if (restoreOnClose) bridge?.vueToLegacy({ kind: 'terminal-group-draft-closed' });
+    if (restoreOnClose) controller?.dispatch({ kind: 'terminal-group-draft-closed' });
     restoreOnClose = false;
   }
 }
 
-const release = bridge?.subscribeLegacyState(handleMessage) ?? (() => {});
+const release = controller?.subscribeState(handleMessage) ?? (() => {});
 watch(open, () => { void syncDialog(); }, { immediate: true, flush: 'post' });
 onBeforeUnmount(() => { if (dialog.value?.open === true) dialog.value.close(); });
 onUnmounted(() => {

@@ -1,0 +1,40 @@
+Task: T111
+Expected assertion: AssertionError: qualifying tabs converge to one logical session and each owns one stream
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/player-candidate-recognition.spec.mjs qualifying\ tabs\ converge\ to\ one\ logical\ session\ and\ each\ owns\ one\ stream
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  player-candidate-recognition.spec.mjs:12:1 › qualifying tabs converge to one logical session and each owns one stream
+Total: 1 test in 1 file
+[WebServer] (node:40409) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:40438) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:40440) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:40441) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: qualifying tabs converge to one logical session and each owns one stream
+  ✘  1 tests/browser/player-candidate-recognition.spec.mjs:12:1 › qualifying tabs converge to one logical session and each owns one stream (0ms)
+
+
+  1) tests/browser/player-candidate-recognition.spec.mjs:12:1 › qualifying tabs converge to one logical session and each owns one stream
+
+    Error: Player candidate recognition lease lifecycle is not implemented
+
+      13 |   if (!existsSync(recognitionLeaseModulePath)) {
+      14 |     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
+    > 15 |     throw new Error('Player candidate recognition lease lifecycle is not implemented');
+         |           ^
+      16 |   }
+      17 | });
+      18 |
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/player-candidate-recognition.spec.mjs:15:11
+
+    Error Context: tests/browser/test-results/player-candidate-recogniti-2f16d-on-and-each-owns-one-stream/error-context.md
+
+  1 failed
+    tests/browser/player-candidate-recognition.spec.mjs:12:1 › qualifying tabs converge to one logical session and each owns one stream

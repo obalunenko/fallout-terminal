@@ -1,0 +1,2 @@
+path=frontend/client/src/adapters/runtime.ts
+source=export { Events } from '@wailsio/runtime'

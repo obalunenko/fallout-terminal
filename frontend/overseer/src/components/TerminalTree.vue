@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onUnmounted, ref, shallowRef } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 import NodeEditor from './NodeEditor.vue';
 import TerminalTreeNode from './TerminalTreeNode.vue';
@@ -131,14 +131,14 @@ function findNode(root: TerminalTreeNodeView | null, nodeID: string | null): Ter
   return null;
 }
 
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const current = shallowRef<TerminalTreeSnapshot | null>(null);
 const revision = ref(-1);
 const treeViewElement = ref<HTMLElement | null>(null);
 const expandedIDs = computed<ReadonlySet<string>>(() => new Set(current.value?.expandedIDs ?? []));
 const selectedNode = computed(() => findNode(current.value?.root ?? null, current.value?.selectedNodeID ?? null));
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind === 'terminal-tree-focus-request') {
     if (typeof message.nodeID !== 'string') return;
     const nodeID = message.nodeID;
@@ -160,7 +160,7 @@ const release = bridge?.subscribeLegacyState(message => {
 });
 
 function request(action: string, extra: DesktopRecord = {}): void {
-  bridge?.vueToLegacy({
+  controller?.dispatch({
     action,
     ...extra,
     kind: 'terminal-tree-action-request',

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 test.use({ bypassCSP: true });
 
 const availableUpdate = Object.freeze({
@@ -17,9 +19,10 @@ const availableUpdate = Object.freeze({
 });
 
 async function openUpdateFixture(page) {
-  await page.goto('/__fixture/public-access-settings');
+  await page.goto('/__fixture/state-changing-command-authoring');
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?application-update');
+  await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?coexistence'));
   await expect.poll(() => page.evaluate(() => __desktopFixture.timeline
     .some(entry => entry.method === 'event:on:application-update-status'))).toBe(true);
 }
@@ -60,7 +63,7 @@ test.beforeEach(async ({ page }) => {
 test('Vue update offer preserves cumulative revision and focus', async ({ page }) => {
   await emitUpdate(page, availableUpdate);
 
-  const vueLeaves = page.locator('#overseerVueLeaves');
+  const vueLeaves = page.locator('#overseerApp');
   const vueDialog = vueLeaves.locator('#applicationUpdateDialog');
   if (await vueDialog.count() === 0) {
     process.stderr.write('AssertionError: Vue update offer preserves cumulative revision and focus\n');
@@ -99,12 +102,12 @@ test('Vue update unmount releases its subscription exactly once', async ({ page 
   expect(await page.evaluate(() => __desktopFixture.releaseCount('application-update-status'))).toBe(0);
 
   await page.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
   });
 
   expect(await page.evaluate(() => __desktopFixture.releaseCount('application-update-status'))).toBe(1);
-  await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
+  await expect(page.locator('#overseerApp')).toBeEmpty();
 });
 
 test('discovery stays nonblocking and presents one complete versioned offer', async ({ page }) => {
@@ -324,7 +327,7 @@ test('offline discovery failure is actionable and never becomes a startup failur
     recoveryAction,
     stagePattern: /проверк.*обнов/i,
   });
-  await expect(page.locator('#startStatus')).not.toContainText(/запуск не заверш[её]н/i);
+  await expect(page.locator('#startScreen')).toHaveCount(0);
   expect(await page.evaluate(() => __desktopFixture.applicationUpdateDownloadCount())).toBe(0);
 });
 

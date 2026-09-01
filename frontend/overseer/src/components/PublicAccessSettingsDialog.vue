@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onUnmounted, ref, watch } from 'vue';
 
 import type { PublicAccessViewSnapshot } from '../composables/usePublicAccess.js';
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -22,7 +22,7 @@ const reservedDomain = ref('');
 const providerToken = ref('');
 const error = ref('');
 const copyStatus = ref('');
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 let active = true;
 let invocation = 0;
 let opener: HTMLElement | null = null;
@@ -135,11 +135,15 @@ async function save(): Promise<void> {
   const latest = currentVersion();
   if (newer(latest, baseline) && !newer(resultVersion, latest)
     && (resultVersion[0] !== latest[0] || resultVersion[1] !== latest[1])) {
+    if (result.ok === true) {
+      close();
+      return;
+    }
     error.value = 'НАСТРОЙКИ ИЗМЕНИЛИСЬ В ДРУГОЙ ОПЕРАЦИИ. ПРОВЕРЬТЕ ДАННЫЕ И ПОВТОРИТЕ СОХРАНЕНИЕ.';
     domainInput.value?.focus();
     return;
   }
-  bridge?.vueToLegacy({ kind: 'public-access-settings-command-finished', result });
+  controller?.dispatch({ kind: 'public-access-settings-command-finished', result });
   if (result.ok !== true) {
     error.value = typeof result.error === 'string' && result.error !== ''
       ? result.error
@@ -160,7 +164,7 @@ function cancel(event?: Event): void {
   close();
 }
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind === 'public-access-settings-open') {
     void show(message.setupRequired === true);
     return;
@@ -259,7 +263,7 @@ onUnmounted(() => {
               id="btnOpenPublicAccessProviderToken"
               class="btn btn-secondary"
               type="button"
-              @click="bridge?.vueToLegacy({ kind: 'public-access-provider-token-open' })"
+              @click="controller?.dispatch({ kind: 'public-access-provider-token-open' })"
             >ИЗМЕНИТЬ ТОКЕН</button>
           </div>
           <div id="publicAccessProviderPresence" v-bind="{ 'data-presence': snapshot.providerTokenPresence }" class="public-access-credential-status">{{ providerPresence }}</div>
@@ -298,8 +302,8 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="public-access-player-summary-actions" role="group" aria-label="Управление данными входа игроков">
-            <button id="btnOpenPublicAccessPlayerCredentials" class="btn btn-secondary" type="button" @click="bridge?.vueToLegacy({ kind: 'public-access-player-credentials-open' })">ИЗМЕНИТЬ ДАННЫЕ</button>
-            <button id="btnSharePublicAccessCredentials" class="btn btn-primary" type="button" :disabled="!playerConfigured || snapshot.preferences.username.trim() === ''" @click="bridge?.vueToLegacy({ kind: 'public-access-credentials-share' })">ПОДЕЛИТЬСЯ</button>
+            <button id="btnOpenPublicAccessPlayerCredentials" class="btn btn-secondary" type="button" @click="controller?.dispatch({ kind: 'public-access-player-credentials-open' })">ИЗМЕНИТЬ ДАННЫЕ</button>
+            <button id="btnSharePublicAccessCredentials" class="btn btn-primary" type="button" :disabled="!playerConfigured || snapshot.preferences.username.trim() === ''" @click="controller?.dispatch({ kind: 'public-access-credentials-share' })">ПОДЕЛИТЬСЯ</button>
           </div>
           <div id="publicAccessSettingsCopyStatus" class="public-access-copy-status" role="status" aria-live="polite" aria-atomic="true">{{ copyStatus }}</div>
         </fieldset>

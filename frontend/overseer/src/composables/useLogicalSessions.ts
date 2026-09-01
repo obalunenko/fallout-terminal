@@ -1,6 +1,6 @@
 import { inject, onUnmounted, readonly, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -63,7 +63,7 @@ function parsedValues<T>(value: unknown, parse: (item: unknown) => T | null): re
 }
 
 export function useLogicalSessions(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const appController = inject(overseerControllerKey, null);
   const broadcastActive = ref(false);
   const error = ref('');
   const open = ref(false);
@@ -76,7 +76,7 @@ export function useLogicalSessions(port: DesktopPort) {
   let active = true;
   let lifecycle = 0;
 
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+  function handleControllerMessage(message: OverseerControllerMessage): void {
     if (message.kind === 'logical-session-open-request') {
       lifecycle += 1;
       error.value = '';
@@ -124,7 +124,7 @@ export function useLogicalSessions(port: DesktopPort) {
     pending.value = true;
     error.value = '';
     status.value = pendingMessage;
-    bridge?.vueToLegacy({
+    appController?.dispatch({
       expectedRevision,
       kind: 'logical-session-command-started',
       status: pendingMessage,
@@ -153,7 +153,7 @@ export function useLogicalSessions(port: DesktopPort) {
       status.value = '';
       error.value = '';
     }
-    bridge?.vueToLegacy({
+    appController?.dispatch({
       expectedRevision,
       kind: 'logical-session-command-finished',
       result,
@@ -230,7 +230,7 @@ export function useLogicalSessions(port: DesktopPort) {
     );
   }
 
-  const releaseSubscription = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+  const releaseSubscription = appController?.subscribeState(handleControllerMessage) ?? (() => {});
   onUnmounted(() => {
     active = false;
     lifecycle += 1;

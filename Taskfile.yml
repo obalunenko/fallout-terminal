@@ -276,6 +276,11 @@ tasks:
     cmds:
       - scripts/frontend-focused-browser-check.sh tests/browser/persistence-compatibility.spec.mjs 'legacy/current session and player config round-trip through migrated boundary'
 
+  frontend:boundary:check:
+    desc: Verify every reviewed frontend boundary-manifest mapping.
+    cmds:
+      - '{{.NPM}} test --prefix tests/browser -- frontend-boundary-manifest.spec.mjs'
+
   frontend:policy:check:
     desc: Verify frontend dependency, source, type-safety, and trust-boundary policy.
     cmds:
@@ -309,7 +314,7 @@ tasks:
   proto:drift:check:
     desc: Check deterministic protobuf generation drift.
     cmds:
-      - scripts/proto-drift-test.sh
+      - "scripts/proto-drift-test.sh --target frontend/client/gen/fallout/terminal/player/v1/player_pb.ts --expect-diagnostic 'generated protobuf drift: frontend/client/gen/fallout/terminal/player/v1/player_pb.ts'"
 
   proto:generated:check:
     desc: Verify generated Go and browser protobuf code compiles cleanly.

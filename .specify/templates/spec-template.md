@@ -99,6 +99,9 @@ Mark material ambiguity inline, for example:
 
 ### State and Contract Requirements *(include when applicable)*
 
+- **Frontend ownership and type boundary**: [Affected Vue application root, sole DOM/state owner,
+  strict TypeScript/SFC contract, application-owned ports/adapters, generated inputs, forbidden
+  cross-boundary capability paths, and teardown behavior, or N/A]
 - **Session/player-config compatibility**: [Version, default, reference, migration, and backward-compatibility behavior, or N/A]
 - **Wails bridge and event contract**: [Bound method/event, direction, payload, validation, error behavior, and public projection, or N/A]
 - **Protobuf/ConnectRPC contract**: [RPC method and cardinality, generated message, direction, server validation, ordering/revision, publication behavior, and rejection result, or N/A]
@@ -126,12 +129,22 @@ Mark material ambiguity inline, for example:
 - **Temporary mechanisms**: [Exact owning file and selector/root/entry/config, creation task, owner, permitted scope, expiry, unconditional removal task, and absence check, or N/A]
 - **Go pre-commit workflow**: [For every task changing Go: `go fix ./...`, review/retain only intentional modernization edits, format, then task-specific Go gates, or N/A]
 - **Node runtime contract**: [If frontend/tooling is affected, state the exact Node version and positive/older/newer self-tests; do not express an exact pin as a minimum]
+- **Immutable and historical constraints**: [Exact baseline, approved snapshot/generated/source
+  trees, rollback commit, completed artifacts, or historical documents that remain read-only; name
+  the diff/ancestry check, or N/A]
+- **Evidence classification**: [For every exact command record PASS, FAIL, or NOT RUN with host and
+  reason; keep browser/fake, native/runtime, package, provider, signing, and unavailable-host claims
+  separate]
 
 The repository-wide Go lint baseline is defined by `.golangci.yml` and executed with `task lint`.
 No numeric coverage threshold is currently defined; specify concrete behavioral checks rather than
 inventing one.
 
 For migrations with staged ownership, specify which foundations may be created before feature behavior, what those foundations are prohibited from doing, the complete exit gate that unlocks feature work, and the single production cutover boundary. Preserve required independent application shells without allowing an empty shell to become an early business-behavior or production-ownership exception.
+
+Requirements must describe observable behavior and boundaries, not prescribe a product-specific
+component hierarchy or default implementation. Toolchain, ownership, historical, and security
+constraints are normative only when the affected surface makes them applicable.
 
 ### Key Entities *(include if feature involves data)*
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject, nextTick, onUnmounted, ref, watch } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 import TerminalSettings from './TerminalSettings.vue';
 
@@ -34,7 +34,7 @@ function terminal(value: unknown): EditorTerminal | null {
   });
 }
 
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const current = ref<EditorTerminal | null>(null);
 const revision = ref(-1);
 const broadcastActive = ref(false);
@@ -48,7 +48,7 @@ let canonicalSettings = '';
 let publishAcknowledgement = -1;
 let publishTimer: ReturnType<typeof setTimeout> | null = null;
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind === 'terminal-editor-focus-settings') {
     void nextTick(() => document.getElementById('hackLevelSelect')?.focus());
     return;
@@ -85,7 +85,7 @@ watch(() => current.value?.live, live => {
 });
 
 function request(action: string, extra: DesktopRecord = {}): void {
-  bridge?.vueToLegacy({
+  controller?.dispatch({
     action,
     ...extra,
     kind: 'terminal-editor-action-request',

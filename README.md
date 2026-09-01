@@ -107,6 +107,21 @@
 - ровно Node.js 26.8.1 и npm (другая версия отклоняется `task node:check`);
 - нативные компоненты сборки из [руководства по платформам](docs/platform-support.md).
 
+Frontend состоит из двух независимых Vue 3 приложений на строгом TypeScript: нативный приватный
+Overseer монтируется в `#overseerApp`, публичный браузерный Player — в `#playerApp`. У них отдельные
+исходники, состояния, адаптеры и production bundles. Overseer обращается к Wails только через
+типизированный `DesktopPort`; Player использует только публичные ConnectRPC protobuf-контракты.
+Пять Player-модулей `*_pb.ts` генерируются из `proto/` и не редактируются вручную.
+
+Зависимости обоих приложений устанавливаются один раз из workspace `frontend/` по единственному
+`frontend/package-lock.json`:
+
+```bash
+nvm use
+task node:check
+npm ci --prefix frontend
+```
+
 Установите закреплённые Go-инструменты и запустите приложение:
 
 ```bash
@@ -130,11 +145,27 @@ task check    # основные локальные проверки
 ### Дополнительные проверки
 
 ```bash
+task frontend:typecheck:overseer
+task frontend:typecheck:client
+task frontend:typecheck
+task frontend:build:overseer
+task frontend:build:client
+task frontend:build
+task frontend:compatibility:check
+task frontend:boundary:check
+task frontend:policy:check
+task frontend:reproducible:check
 task proto:check
 task proto:breaking
 task bindings:check
 task browser:test
 ```
+
+Это полный набор из десяти канонических frontend-целей Taskfile. Индивидуальные type-check/build
+цели не переустанавливают зависимости; агрегатная `frontend:build` владеет чистой установкой.
+Playwright и снимки дают только браузерные свидетельства. Нативные Wails/embed/resource проверки и
+проверки пакетов выполняются отдельно; недоступный хост, Accessibility, credentials, signing или
+notarization записываются как `NOT RUN`, а не заменяются браузерным результатом.
 
 ### Spec Kit
 
@@ -159,7 +190,9 @@ task speckit:update:check
 
 - [Архитектура](ARCHITECTURE.md) — границы модулей, владельцы состояния и основные runtime-последовательности;
 - [Участие в разработке](CONTRIBUTING.md) — настройка окружения, правила изменений и проверки;
+- [Руководство Wails v3](specs/006-wails-v3-migration/quickstart.md) — активные команды и проверки desktop-host;
 - [Откат Wails v3](docs/wails-v3-migration-rollback.md) — активная процедура возврата на Wails v2;
+- [Исторический откат Electron → Wails v2](docs/wails-migration-rollback.md) — сохранённое свидетельство завершённой миграции;
 - [Политика безопасности](SECURITY.md) — поддерживаемые версии и приватная отправка отчётов об уязвимостях.
 
 ## Происхождение

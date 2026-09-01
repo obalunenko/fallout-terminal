@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 test.use({ bypassCSP: true });
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/__fixture/public-access-settings');
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await expect(page.locator('#publicAccessSection')).toBeVisible();
 });
 
@@ -36,12 +38,12 @@ async function openPlayerCredentialsDialog(page) {
   return dialog;
 }
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(async () => {
-    if (!globalThis.__overseerVueFixture) {
-      await import('http://127.0.0.1:34120/candidate-main.ts?public-access-settings');
+async function mountOverseerFixture(page) {
+  await page.evaluate(async moduleURL => {
+    if (!globalThis.__overseerAppFixture) {
+      await import(moduleURL + '?public-access-settings');
     }
-  });
+  }, overseerAppModuleURL);
 }
 
 function missingVueLifecycle(message) {
@@ -50,7 +52,7 @@ function missingVueLifecycle(message) {
 }
 
 test('public-access settings preserve validation focus and stale-save rejection', async ({ page }) => {
-  const dialog = page.locator('#overseerVueLeaves #publicAccessSettingsDialog');
+  const dialog = page.locator('#overseerApp #publicAccessSettingsDialog');
   if (await dialog.count() === 0) {
     missingVueLifecycle('public-access settings preserve validation focus and stale-save rejection');
   }
@@ -103,13 +105,13 @@ test('public-access settings preserve validation focus and stale-save rejection'
   }));
   await trigger.click();
   await page.locator('#publicAccessProviderToken').fill('transient-unmount-token');
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('transient-unmount-token');
 });
 
 test('provider token is redacted and cleared on close and unmount', async ({ page }) => {
-  const dialog = page.locator('#overseerVueLeaves #publicAccessProviderTokenDialog');
+  const dialog = page.locator('#overseerApp #publicAccessProviderTokenDialog');
   if (await dialog.count() === 0) {
     missingVueLifecycle('provider token is redacted and cleared on close and unmount');
   }
@@ -154,13 +156,13 @@ test('provider token is redacted and cleared on close and unmount', async ({ pag
   await expect(page.locator('body')).not.toContainText('transient-failed-provider-token');
 
   await token.fill('transient-unmount-provider-token');
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('transient-unmount-provider-token');
 });
 
 test('player credentials remain transient and clear on close', async ({ page }) => {
-  const dialog = page.locator('#overseerVueLeaves #publicAccessPlayerCredentialsDialog');
+  const dialog = page.locator('#overseerApp #publicAccessPlayerCredentialsDialog');
   if (await dialog.count() === 0) {
     missingVueLifecycle('player credentials remain transient and clear on close');
   }
@@ -208,14 +210,14 @@ test('player credentials remain transient and clear on close', async ({ page }) 
   await expect(page.locator('body')).not.toContainText('transient-failed-player-password');
 
   await password.fill('transient-unmount-player-password');
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('transient-unmount-player-password');
 });
 
 test('one-time credential clears on close and clipboard failure stays isolated', async ({ page }) => {
-  await mountOverseerCandidate(page);
-  const dialog = page.locator('#overseerVueLeaves #generatedPasswordDialog');
+  await mountOverseerFixture(page);
+  const dialog = page.locator('#overseerApp #generatedPasswordDialog');
   if (await dialog.count() === 0) {
     missingVueLifecycle('one-time credential clears on close and clipboard failure stays isolated');
   }
@@ -231,10 +233,7 @@ test('public-access and credential leaves have one owner and clear secrets', asy
     'publicAccessPlayerCredentialsDialog',
     'generatedPasswordDialog',
   ];
-  for (const id of ids) await expect(page.locator(`#${id}`)).toHaveCount(1);
-  for (const id of ids.slice(1)) {
-    await expect(page.locator(`#legacyOverseerRoot #${id}`)).toHaveCount(0);
-  }
+  for (const id of ids) await expect(page.locator(`#overseerApp #${id}`)).toHaveCount(1);
 
   await page.locator('#btnOpenPublicAccessSettings').click();
   await page.locator('#publicAccessProviderToken').fill('join-transient-provider-token');
@@ -242,11 +241,11 @@ test('public-access and credential leaves have one owner and clear secrets', asy
   await page.locator('#publicAccessReplacementPlayerPassword').fill('join-transient-player-password');
   expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(0);
   const released = await page.evaluate(() => {
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
     return __desktopFixture.releaseCount('public-access-status');
   });
   expect(released).toBe(1);
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(released);
   for (const id of ids) await expect(page.locator(`#${id}`)).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText(/join-transient-(provider-token|player-password)/);
@@ -350,7 +349,7 @@ test('development override prefill is presence-only and does not save or start i
     .filter(call => call.method === 'SavePublicAccessSettings'));
   expect(saveCallsAfterGenerate).toEqual([]);
   await page.reload();
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await expect(page.locator('#publicAccessSection')).toBeVisible();
   await openPublicAccessSettings(page);
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('');

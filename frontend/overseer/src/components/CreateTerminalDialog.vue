@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { inject, nextTick, onUnmounted, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const dialog = ref<HTMLDialogElement | null>(null);
 const nameInput = ref<HTMLInputElement | null>(null);
 const name = ref('');
@@ -16,7 +16,7 @@ function closeNativeDialog(): void {
   if (dialog.value?.open) dialog.value.close();
 }
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind !== 'create-terminal-snapshot'
     || !Number.isSafeInteger(message.revision) || Number(message.revision) <= revision.value) return;
   revision.value = Number(message.revision);
@@ -38,7 +38,7 @@ const release = bridge?.subscribeLegacyState(message => {
 });
 
 function request(action: 'cancel' | 'create', terminalName = ''): void {
-  bridge?.vueToLegacy({
+  controller?.dispatch({
     action,
     kind: 'create-terminal-action-request',
     name: terminalName,

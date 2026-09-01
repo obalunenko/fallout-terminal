@@ -1,16 +1,8 @@
-import { desktopPort } from './adapters/desktop-api.js';
-import {
-  createOverseerCoexistenceBridge,
-  mountOverseerLeaves,
-} from './mount.js';
+import { desktopPort } from './adapters/desktop-api';
+import { mountOverseerApp } from './mount.js';
+import './overseer.css';
 
-const coexistenceBridge = createOverseerCoexistenceBridge();
+const root = document.getElementById('overseerApp');
+if (!(root instanceof HTMLElement)) throw new Error('Overseer application root is unavailable');
 
-const root = document.getElementById('overseerVueLeaves');
-if (!(root instanceof HTMLElement)) throw new Error('Overseer Vue leaf root is unavailable');
-
-Object.defineProperty(globalThis, '__overseerCoexistenceBridge', {
-  configurable: true,
-  value: coexistenceBridge,
-});
-mountOverseerLeaves(root, desktopPort, coexistenceBridge);
+mountOverseerApp(root, desktopPort);

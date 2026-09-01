@@ -51,6 +51,68 @@ function Assert-GeneratedPlayerContracts([string] $Directory) {
     }
 }
 
+function Assert-OverseerBundle([string] $Directory) {
+    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
+        Fail "Overseer bundle directory is missing: $Directory"
+    }
+    $IndexPath = Join-Path $Directory 'index.html'
+    if (-not (Test-Path -LiteralPath $IndexPath -PathType Leaf) -or
+        (Get-Item -LiteralPath $IndexPath).Length -le 0) {
+        Fail "Overseer bundle index is missing or empty: $IndexPath"
+    }
+    $Index = [System.IO.File]::ReadAllText($IndexPath)
+    $RootCount = [regex]::Matches($Index, [regex]::Escape('<div id="overseerApp"></div>')).Count
+    if ($RootCount -ne 1) {
+        Fail 'Overseer bundle index must contain exactly one production root'
+    }
+    if (-not $Index.Contains('type="module"', [StringComparison]::Ordinal)) {
+        Fail 'Overseer bundle index has no module entry'
+    }
+    if (-not $Index.Contains('./assets/', [StringComparison]::Ordinal)) {
+        Fail 'Overseer bundle index has no emitted asset reference'
+    }
+
+    $JavaScriptCount = 0
+    $StylesheetCount = 0
+    $FontCount = 0
+    foreach ($Entry in Get-ChildItem -LiteralPath $Directory -Recurse -Force) {
+        if ($Entry.PSIsContainer) {
+            continue
+        }
+        if (($Entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            Fail "Overseer bundle contains a link or reparse point: $($Entry.FullName)"
+        }
+        $Relative = [System.IO.Path]::GetRelativePath($Directory, $Entry.FullName).Replace('\', '/')
+        $Extension = $Entry.Extension.ToLowerInvariant()
+        switch ($Extension) {
+            '.js' { $JavaScriptCount++ }
+            '.css' { $StylesheetCount++ }
+            '.ttf' { $FontCount++ }
+            { $_ -in @('.ts', '.vue', '.map') } {
+                Fail "Overseer bundle contains authored source or source map: $Relative"
+            }
+        }
+        if ($Relative -match '(?i)(candidate|test-fixtures|overseer\.js$|desktop-api\.js$)') {
+            Fail "Overseer bundle contains a legacy or test-only path: $Relative"
+        }
+        if ($Extension -in @('.html', '.js', '.css')) {
+            $Contents = [System.IO.File]::ReadAllText($Entry.FullName)
+            if ($Contents -match '(?i)(candidate-main|test-fixtures|legacyOverseerRoot|overseerVueLeaves|overseer\.js|desktop-api\.js)') {
+                Fail "Overseer runtime asset contains a legacy, candidate, or source reference: $Relative"
+            }
+        }
+    }
+    if ($JavaScriptCount -eq 0) {
+        Fail 'Overseer bundle has no JavaScript runtime asset'
+    }
+    if ($StylesheetCount -eq 0) {
+        Fail 'Overseer bundle has no stylesheet runtime asset'
+    }
+    if ($FontCount -eq 0) {
+        Fail 'Overseer bundle has no Fixedsys font runtime asset'
+    }
+}
+
 function Build-PlayerProbeContracts([string] $RepositoryRoot, [string] $OutputDirectory) {
     $SourceDirectory = Join-Path $RepositoryRoot 'frontend\client\gen\fallout\terminal\player\v1'
     Assert-GeneratedPlayerContracts $SourceDirectory
@@ -745,7 +807,33 @@ if ($SelfTest) {
         if (-not $Rejected) {
             Fail 'stale generated JavaScript fixture was accepted'
         }
-        Write-Output 'verify-windows-package: generated TypeScript inventory/runtime self-test passed'
+        $OverseerDist = Join-Path $RepositoryRoot 'frontend\overseer\dist'
+        Assert-OverseerBundle $OverseerDist
+        $OverseerFixture = Join-Path $OwnedRoot 'overseer bundle fixture'
+        Copy-Item -LiteralPath $OverseerDist -Destination $OverseerFixture -Recurse
+        Assert-OverseerBundle $OverseerFixture
+        [System.IO.File]::WriteAllText((Join-Path $OverseerFixture 'candidate-main.ts'), 'candidate source')
+        $Rejected = $false
+        try {
+            Assert-OverseerBundle $OverseerFixture
+        } catch {
+            $Rejected = $true
+        }
+        if (-not $Rejected) {
+            Fail 'candidate Overseer source fixture was accepted'
+        }
+        Remove-Item -LiteralPath (Join-Path $OverseerFixture 'candidate-main.ts') -Force
+        [System.IO.File]::WriteAllText((Join-Path $OverseerFixture 'assets\overseer.js'), 'legacy runtime')
+        $Rejected = $false
+        try {
+            Assert-OverseerBundle $OverseerFixture
+        } catch {
+            $Rejected = $true
+        }
+        if (-not $Rejected) {
+            Fail 'legacy Overseer runtime fixture was accepted'
+        }
+        Write-Output 'verify-windows-package: generated TypeScript and Overseer Vue runtime inventory self-test passed'
     } finally {
         Remove-OwnedRoot
     }
@@ -784,6 +872,7 @@ try {
     New-Item -ItemType Directory -Path $ExtractRoot | Out-Null
     New-Item -ItemType Directory -Path $WorkingRoot | Out-Null
     $PlayerProbeServiceModule = Build-PlayerProbeContracts $RepositoryRoot (Join-Path $OwnedRoot 'compiled player contracts')
+    Assert-OverseerBundle (Join-Path $RepositoryRoot 'frontend\overseer\dist')
     $CanaryPath = Join-Path $OwnedRoot 'native credential canaries'
     Invoke-NativeCredentialRoundTrip $RepositoryRoot $CanaryPath
 

@@ -1,0 +1,40 @@
+Task: T108
+Expected assertion: AssertionError: candidate rejects pre-snapshot delta and stale generation, reconnects after fixed delay, cancels prior stream
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/player-candidate-transport.spec.mjs candidate\ rejects\ pre-snapshot\ delta\ and\ stale\ generation\,\ reconnects\ after\ fixed\ delay\,\ cancels\ prior\ stream
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  player-candidate-transport.spec.mjs:12:1 › candidate rejects pre-snapshot delta and stale generation, reconnects after fixed delay, cancels prior stream
+Total: 1 test in 1 file
+[WebServer] (node:36744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36774) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36775) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:36776) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: candidate rejects pre-snapshot delta and stale generation, reconnects after fixed delay, cancels prior stream
+  ✘  1 tests/browser/player-candidate-transport.spec.mjs:12:1 › candidate rejects pre-snapshot delta and stale generation, reconnects after fixed delay, cancels prior stream (0ms)
+
+
+  1) tests/browser/player-candidate-transport.spec.mjs:12:1 › candidate rejects pre-snapshot delta and stale generation, reconnects after fixed delay, cancels prior stream
+
+    Error: Player candidate snapshot-first subscription lifecycle is not implemented
+
+      13 |   if (!existsSync(subscriptionModulePath)) {
+      14 |     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
+    > 15 |     throw new Error('Player candidate snapshot-first subscription lifecycle is not implemented');
+         |           ^
+      16 |   }
+      17 | });
+      18 |
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/player-candidate-transport.spec.mjs:15:11
+
+    Error Context: tests/browser/test-results/player-candidate-transport-5ed36--delay-cancels-prior-stream/error-context.md
+
+  1 failed
+    tests/browser/player-candidate-transport.spec.mjs:12:1 › candidate rejects pre-snapshot delta and stale generation, reconnects after fixed delay, cancels prior stream

@@ -2,7 +2,7 @@
 import { inject, nextTick, onUnmounted, ref } from 'vue';
 
 import { useClipboard } from '../composables/useClipboard.js';
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
 const props = defineProps<{
@@ -14,7 +14,7 @@ const copyButton = ref<HTMLButtonElement | null>(null);
 const oneTimeValue = ref('');
 const open = ref(false);
 const copying = ref(false);
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const clipboard = useClipboard(props.port);
 let active = true;
 let invocation = 0;
@@ -43,7 +43,7 @@ function close(restoreFocus = true): void {
   if (element !== null) element.hidden = true;
   open.value = false;
   clipboard.clear();
-  if (restoreFocus) bridge?.legacyToVue({ kind: 'public-access-player-generate-focus' });
+  if (restoreFocus) controller?.publish({ kind: 'public-access-player-generate-focus' });
 }
 
 async function copyAndClose(): Promise<void> {
@@ -55,7 +55,7 @@ async function copyAndClose(): Promise<void> {
   if (!active || currentInvocation !== invocation) return;
   const status = clipboard.status.value;
   close();
-  bridge?.legacyToVue({ kind: 'public-access-settings-copy-status', status });
+  controller?.publish({ kind: 'public-access-settings-copy-status', status });
 }
 
 function cancel(event?: Event): void {
@@ -63,7 +63,7 @@ function cancel(event?: Event): void {
   close();
 }
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind !== 'public-access-generated-password-open'
     || typeof message.generatedPassword !== 'string' || message.generatedPassword === '') return;
   void show(message.generatedPassword);

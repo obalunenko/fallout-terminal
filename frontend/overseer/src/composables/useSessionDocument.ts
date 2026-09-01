@@ -1,6 +1,6 @@
 import { inject, onUnmounted, readonly, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopDocumentResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -9,7 +9,7 @@ function isRecord(value: unknown): value is DesktopRecord {
 }
 
 export function useSessionDocument(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const documentPath = ref('');
   const loaded = ref(false);
   const pending = ref(false);
@@ -48,7 +48,7 @@ export function useSessionDocument(port: DesktopPort) {
       // Document acquisition remains usable when optional status presentation is unavailable.
     }
     if (!active) return;
-    if (bridge?.vueToLegacy({
+    if (controller?.dispatch({
       filePath,
       kind: 'session-document-loaded',
       session: result.session,

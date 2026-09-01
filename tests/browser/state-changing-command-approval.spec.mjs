@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const TOKEN_KEY = 'fallout-terminal.player-token';
 const FIXTURE = '/__fixture/state-changing-command-approval';
 const OVERSEER_URL = `${FIXTURE}/overseer`;
@@ -27,8 +29,8 @@ async function installPlayerDiagnostics(context) {
   }, TOKEN_KEY);
 }
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?command-approval'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?command-approval');
 }
 
 async function openApprovalJourney(browser) {
@@ -38,7 +40,7 @@ async function openApprovalJourney(browser) {
 
   const overseer = await overseerContext.newPage();
   await overseer.goto(OVERSEER_URL);
-  await mountOverseerCandidate(overseer);
+  await mountOverseerFixture(overseer);
   await overseer.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(overseer.locator('#mainLayout')).toBeVisible();
 
@@ -177,7 +179,11 @@ async function resolveCalls(overseer) {
 async function sourceMenuSnapshot(page) {
   return page.locator('#termList').evaluate((element) => {
     const clone = element.cloneNode(true);
-    for (const row of clone.querySelectorAll('.term-row')) row.classList.remove('sel');
+    for (const row of clone.querySelectorAll('.term-row')) {
+      row.classList.remove('sel');
+      row.removeAttribute('aria-disabled');
+      row.removeAttribute('tabindex');
+    }
     return clone.innerHTML;
   });
 }
@@ -246,7 +252,7 @@ test('approval and reset leaves have one owner and exact-once cleanup', async ({
   const page = await context.newPage();
   try {
     await page.goto(OVERSEER_URL);
-    await mountOverseerCandidate(page);
+    await mountOverseerFixture(page);
     await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
     await expect(page.locator('#mainLayout')).toBeVisible();
     for (const id of [
@@ -255,19 +261,18 @@ test('approval and reset leaves have one owner and exact-once cleanup', async ({
       'terminalSwitchDialog',
       'resetConfirmationDialog',
     ]) {
-      await expect(page.locator(`#${id}`)).toHaveCount(1);
-      await expect(page.locator(`#legacyOverseerRoot #${id}`)).toHaveCount(0);
+      await expect(page.locator(`#overseerApp #${id}`)).toHaveCount(1);
     }
 
     expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
     const released = await page.evaluate(() => {
-      __overseerVueFixture.unmount();
+      __overseerAppFixture.unmount();
       return __desktopFixture.releaseCount('coordination-state');
     });
     expect(released).toBeGreaterThan(0);
-    await page.evaluate(() => __overseerVueFixture.unmount());
+    await page.evaluate(() => __overseerAppFixture.unmount());
     expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
-    await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
+    await expect(page.locator('#overseerApp')).toBeEmpty();
   } finally {
     await context.close();
   }
@@ -277,7 +282,7 @@ test('duplicate/stale request resolves exactly once', async ({ browser }) => {
   const journey = await openApprovalJourney(browser);
   try {
     await chooseStateChangingCommand(journey);
-    const vueDialog = journey.overseer.locator('#overseerVueLeaves #commandExecutionDialog');
+    const vueDialog = journey.overseer.locator('#overseerApp #commandExecutionDialog');
     if (await vueDialog.count() === 0) {
       process.stderr.write('AssertionError: duplicate/stale request resolves exactly once\n');
       throw new Error('Vue-owned command approval is not implemented');
@@ -290,11 +295,11 @@ test('duplicate/stale request resolves exactly once', async ({ browser }) => {
     await expect.poll(() => resolveCalls(journey.overseer)).toHaveLength(1);
     expect(await journey.overseer.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
     const released = await journey.overseer.evaluate(() => {
-      __overseerVueFixture.unmount();
+      __overseerAppFixture.unmount();
       return __desktopFixture.releaseCount('coordination-state');
     });
     expect(released).toBeGreaterThan(0);
-    await journey.overseer.evaluate(() => __overseerVueFixture.unmount());
+    await journey.overseer.evaluate(() => __overseerAppFixture.unmount());
     expect(await journey.overseer.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
   } finally {
     await closeApprovalJourney(journey);
@@ -552,7 +557,7 @@ test('pending, rejected, and completed command states match the selected-record 
     await journey.player.locator('#backBtn').click();
 
     await journey.overseer.reload();
-    await mountOverseerCandidate(journey.overseer);
+    await mountOverseerFixture(journey.overseer);
     await journey.overseer.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
     await expect(journey.overseer.locator('#mainLayout')).toBeVisible();
     await journey.player.locator('.term-row', { hasText: 'Двери открыты' }).click();

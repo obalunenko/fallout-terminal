@@ -49,6 +49,42 @@
 
 **Bugfix**: 2026-08-31 — BUG-022 Clarified that persistence compatibility preserves unknown fields for session JSON while retaining strict unknown-field rejection and absent legacy attribute defaults for player-configuration JSON, matching the two existing version-1 codecs.
 
+**Bugfix**: 2026-08-31 — BUG-023 Clarified that the Overseer production cutover cannot remove the temporary legacy controller or candidate browser entry until a DOM-free typed application controller owns every remaining state/action flow and every retained browser suite mounts the production root through permanent test-only infrastructure.
+
+**Bugfix**: 2026-08-31 — BUG-024 Clarified that final Overseer parity must bootstrap the production TypeScript desktop adapter directly after the removed JavaScript facade, before the later broad fixture-producer migration.
+
+**Bugfix**: 2026-08-31 — BUG-025 Clarified that production adapter parity preserves event-before-snapshot precedence for every runtime field, normalized terminal-switch result defaults, and exact production-adapter disposal.
+
+**Bugfix**: 2026-08-31 — BUG-026 Clarified that final Overseer parity may correct the permanent test harness for fixture routes historically preloaded by legacy HTML rewriting and bootstrap fake bindings before deferring a getter; the broader Go fixture-producer migration remains T096-owned.
+
+**Bugfix**: 2026-08-31 — BUG-027 Clarified that a successful public-access settings result whose snapshot loses to a newer authoritative event must preserve the newer state while still completing close, secret-clearing, and focus restoration.
+
+**Bugfix**: 2026-08-31 — BUG-028 Clarified lexicographic snapshot ordering and live-event precedence over an equal getter snapshot for public access while retaining strict application-update revision ordering.
+
+**Bugfix**: 2026-08-31 — BUG-029 Clarified that player deletion is blocked only by an active broadcast record; null and absent broadcast values both represent the normal inactive state.
+
+**Bugfix**: 2026-08-31 — BUG-030 Clarified final controller parity for null inactive broadcast state, persistent session/reset feedback, persistent safe approval errors, and production-root retained-test cleanup/source assertions.
+
+**Bugfix**: 2026-08-31 — BUG-031 Clarified preservation of specialized terminal-grouping fake commands in the permanent harness until T096 and complete human-readable group impact/rejection presentation.
+
+**Bugfix**: 2026-08-31 — BUG-032 Clarified that terminal-navigation command failures must be dispatched through the application controller so persistent coordination feedback outlives the resolved dialog.
+
+**Bugfix**: 2026-08-31 — BUG-033 Clarified that the Wave-e deterministic secret and Wails cutover scanners must follow the final Vue production owners and must not classify the policy checker's own forbidden-pattern fixtures as active runtime commands.
+
+**Bugfix**: 2026-08-31 — BUG-034 Clarified that the Wave-e Wails cutover gate may restore README's required active Wails v3 quickstart link and historical Electron-to-Wails rollback classification without modifying completed historical artifacts.
+
+**Bugfix**: 2026-08-31 — BUG-035 Clarified that retained broadcast and hacking cleanup suites must assert the permanent production `#overseerApp` root after unmount rather than deleted coexistence leaf targets.
+
+**Bugfix**: 2026-08-31 — BUG-036 Clarified that packaged native reset evidence must traverse the existing Overseer approval boundary before asserting a completed command's frozen Player result.
+
+**Bugfix**: 2026-08-31 — BUG-037 Clarified that the packaged reset verifier must inspect the final Vue-owned success status and saved revision rather than deleted legacy dataset prose.
+
+**Bugfix**: 2026-09-01 — BUG-038 Clarified that final Player candidate removal must migrate retained injected-App suites to a permanent browser-only production-root harness and preserve observer reveal plus immutable Player accessibility/text contracts at the complete Wave-H gate.
+
+**Bugfix**: 2026-09-01 — BUG-039 Clarified that the canonical protobuf drift gate must bind its reviewed generated Player target and exact actionable diagnostic when the complete Wave-i suite runs.
+
+**Bugfix**: 2026-09-01 — BUG-040 Clarified that final Vue asset ownership retires legacy-only Go static-source assertions while retaining production Vue source, built-output, embed, isolation, and browser behavior coverage.
+
 ## Clarifications
 
 ### Session 2026-08-30
@@ -109,6 +145,7 @@ As the Overseer, I can operate the desktop interface for broadcast presentation,
 3. **Given** public access is stopped, transitioning, ready, or failed, **When** the Overseer configures credentials, shares player login details, copies addresses, enables access, or stops access, **Then** the established local/LAN isolation, secret handling, modal behavior, and explicit lifecycle controls remain unchanged.
 4. **Given** an application update is checking, offered, downloading, verifying, staged, deferred, failed, or ready to restart, **When** the Overseer responds, **Then** the current status, decision, failure isolation, and focus behavior are preserved.
 5. **Given** desktop events or command results arrive out of order, malformed, duplicated, or stale, **When** the interface processes them, **Then** only valid and applicable values affect visible state and newer authoritative state is never replaced by older state.
+6. **Given** the production Overseer root replaces the coexistence roots, **When** the legacy controller and candidate entry are removed, **Then** one typed DOM-free application controller owns every remaining session, terminal, group, coordination, dialog, and privileged-command state/action flow, and the retained browser journeys execute through the production root rather than a deleted candidate module.
 
 ---
 
@@ -225,10 +262,17 @@ As a contributor reviewing the migration, I can accept bounded intermediate revi
 - **FR-044**: Deterministic public browser generation MUST switch to `protoc-gen-es` `target=ts` before application-owned declarations, application shells, or typed transport consumers are completed.
 - **FR-045**: The shared strict compiler policy, application-owned declarations, both empty Vue shells, mount functions, isolated candidate/test documents, dependency/boundary policy fixtures, and the typed desktop API adapter MUST be established before Overseer leaf components and composables are migrated; the wave-c Player foundation MUST remain capability-neutral, contain no Player business behavior, remain outside production DOM and selection, and introduce no shared authored application declaration module or type-only cross-boundary application contract.
 - **FR-046**: The Overseer leaf components and composables MUST be migrated, the Overseer legacy bootstrap MUST be fully removed, and the complete wave-e exit gate MUST pass before Player feature migration begins. Player production DOM remains wholly legacy-owned until the atomic wave-h cutover.
+  - **BUG-033 clarification**: The Wave-e exit may update `scripts/secret-leak-check.sh` and `scripts/wails-v3-cutover-check.sh` narrowly to replace deleted Overseer source probes with exact Vue owners and to exclude only checker-source pattern fixtures from active-command scanning; behavior, security boundaries, and failure semantics remain unchanged.
+  - **BUG-034 clarification**: The same exit may restore only the missing active Wails v3 quickstart and historical Electron-to-Wails rollback links in `README.md`; the linked completed artifacts remain immutable.
+  - **BUG-035 clarification**: The complete browser exit may update only the final unmount locators in the retained broadcast and hacking suites from deleted leaf targets to the permanent production root while preserving all revision, action, and exact-once cleanup assertions.
+  - **BUG-036 clarification**: The packaged native reset exit must synchronize the two-Player probe with the Vue command-approval dialog, approve the already-completed state-changing command through the native Overseer, and only then assert the frozen result before reset. This correction changes no command-approval, reset, convergence, navigation, or reopen semantics.
+  - **BUG-037 clarification**: The packaged reset exit must combine Vue-owned reset success and saved-revision Accessibility evidence with the existing disabled reset control, exact canonical file mutation, other-terminal preservation, Player revision convergence, shared navigation, and full-reopen checks. Deleted legacy `overseer.js` dataset prose is not an acceptance signal.
 - **FR-047**: The Player cutover MUST establish its shell, identity, transport, session-initialization, navigation, and presentation components before migrating hacking, CRT and typewriter, sound, and presentation-uplink adapters.
 - **FR-048**: The Player legacy application MUST be fully cut over before final strict cleanup, complete verification, packaging, and active-documentation updates begin.
 - **FR-049**: Changing generated browser output from `target=js` to `target=ts` MUST NOT change protobuf schemas, descriptors, field numbers, wire encoding, RPC paths, Go-generated contracts, service behavior, or public and private capability boundaries.
 - **FR-050**: Every permitted imperative integration MUST register lifecycle cleanup for its timers, animation frames, subscriptions, audio nodes, abort controllers, streams, observers, and document or window listeners.
+- **FR-051**: Before `frontend/overseer/src/overseer.js` or the Overseer candidate entry is removed, one strict typed and DOM-free Overseer application controller MUST replace every remaining legacy projection/action responsibility and every former coexistence-bridge consumer MUST use that controller; all retained Overseer browser suites MUST mount the production `#overseerApp` root through permanent test-only infrastructure that is excluded from production bundles and native evidence.
+  - **BUG-038 clarification**: After Player candidate removal, retained suites that inject Player public ports MUST mount the production `#playerApp` through permanent browser-only infrastructure excluded from production bundles, embeds, packages, and native evidence. The complete Wave-H gate MUST preserve observer-visible authoritative progressive reveal and the historical `#screen` read-only plus status-line text contracts.
 
 ## Key Entities
 

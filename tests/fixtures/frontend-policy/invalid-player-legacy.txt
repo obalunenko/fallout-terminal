@@ -1,0 +1,2 @@
+path=frontend/client/src/main.ts
+source=const legacyPlayerRoot = document.getElementById('playerApp')

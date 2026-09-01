@@ -44,9 +44,9 @@ func executePreflight(ctx context.Context, root string, kind preflightKind, targ
 	case verifyProtobufAndGeneratedClients:
 		return verifyGeneratedContracts(ctx, root)
 	case verifyPlayerFrontend:
-		return verifyFrontend(ctx, root, "Player", "client")
+		return verifyPlayerFrontendBuild(ctx, root)
 	case verifyOverseerFrontend:
-		return verifyFrontend(ctx, root, "Overseer", "overseer")
+		return verifyOverseerFrontendBuild(ctx, root)
 	case verifyNativeBuildPrerequisites:
 		return verifyNativePrerequisites(ctx, root, target)
 	default:
@@ -118,6 +118,82 @@ func verifyFrontend(ctx context.Context, root, application, scriptSuffix string)
 		{name: "build " + application + " frontend", program: "npm", arguments: []string{"run", "build:" + scriptSuffix, "--prefix", "frontend"}},
 	}
 	return runPreflightCommands(ctx, root, portablePreflightEnvironment(), commands)
+}
+
+func verifyOverseerFrontendBuild(ctx context.Context, root string) error {
+	if err := verifyFrontend(ctx, root, "Overseer", "overseer"); err != nil {
+		return err
+	}
+	if err := verifyOverseerFrontendBundle(root); err != nil {
+		return fmt.Errorf("inspect built Overseer frontend: %w", err)
+	}
+	return nil
+}
+
+func verifyPlayerFrontendBuild(ctx context.Context, root string) error {
+	if err := verifyFrontend(ctx, root, "Player", "client"); err != nil {
+		return err
+	}
+	if err := verifyVueFrontendBundle(
+		root,
+		"client",
+		"playerApp",
+		[]string{"client.js", "sound.js", "presentation-uplink.js", "candidate-main", "test-fixtures", ".ts", ".vue"},
+	); err != nil {
+		return fmt.Errorf("inspect built Player frontend: %w", err)
+	}
+	return nil
+}
+
+func verifyOverseerFrontendBundle(root string) error {
+	return verifyVueFrontendBundle(root, "overseer", "overseerApp", []string{"overseer.js", "desktop-api.js"})
+}
+
+func verifyVueFrontendBundle(root, application, rootID string, removed []string) error {
+	dist := filepath.Join(root, "frontend", application, "dist")
+	index, err := os.ReadFile(filepath.Join(dist, "index.html"))
+	if err != nil {
+		return fmt.Errorf("read index.html: %w", err)
+	}
+	document := string(index)
+	rootElement := `<div id="` + rootID + `"></div>`
+	if count := strings.Count(document, rootElement); count != 1 {
+		return fmt.Errorf("index.html contains %d production roots, want exactly one", count)
+	}
+	for _, required := range []string{`type="module"`, `./assets/`} {
+		if !strings.Contains(document, required) {
+			return fmt.Errorf("index.html is missing %q", required)
+		}
+	}
+	for _, name := range removed {
+		if strings.Contains(document, name) {
+			return fmt.Errorf("index.html still references removed bootstrap %q", name)
+		}
+	}
+	marker, err := os.Stat(filepath.Join(dist, ".keep"))
+	if err != nil {
+		return fmt.Errorf("inspect embed marker: %w", err)
+	}
+	if !marker.Mode().IsRegular() {
+		return errors.New("embed marker is not a regular file")
+	}
+	assets, err := os.ReadDir(filepath.Join(dist, "assets"))
+	if err != nil {
+		return fmt.Errorf("read assets: %w", err)
+	}
+	hasJavaScript := false
+	hasCSS := false
+	for _, asset := range assets {
+		if !asset.Type().IsRegular() {
+			continue
+		}
+		hasJavaScript = hasJavaScript || strings.HasSuffix(asset.Name(), ".js")
+		hasCSS = hasCSS || strings.HasSuffix(asset.Name(), ".css")
+	}
+	if !hasJavaScript || !hasCSS {
+		return fmt.Errorf("assets must include JavaScript and CSS bundles (javascript=%t, css=%t)", hasJavaScript, hasCSS)
+	}
+	return nil
 }
 
 func verifyBrowserGeneratedContracts(root string) error {

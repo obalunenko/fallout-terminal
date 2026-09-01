@@ -1,5 +1,6 @@
-import { computed, onUnmounted, readonly, ref, shallowRef } from 'vue';
+import { computed, inject, onUnmounted, readonly, ref, shallowRef } from 'vue';
 
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -61,6 +62,7 @@ function resultState(result: DesktopCommandResult): DesktopRecord | null {
 }
 
 export function useTerminalNavigationApproval(port: DesktopPort) {
+  const controller = inject(overseerControllerKey, null);
   const current = shallowRef<TerminalNavigationRequest | null>(null);
   const pending = ref(false);
   const outcomeError = ref('');
@@ -113,6 +115,7 @@ export function useTerminalNavigationApproval(port: DesktopPort) {
       };
     }
     if (!active || requestGeneration !== generation || current.value?.requestId !== request.requestId) return;
+    controller?.dispatch({ kind: 'terminal-navigation-finished', result });
     pending.value = false;
     remember(resolved, request.requestId);
     const state = resultState(result);

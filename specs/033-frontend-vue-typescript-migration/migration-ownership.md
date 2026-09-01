@@ -161,6 +161,12 @@ The remaining Wave-e legacy inventory is exact. `overseer.js` owns the start/run
 
 ## Wave e — Complete Overseer cutover and remove its legacy bootstrap
 
+**BUG-023 cutover correction**: The production root cannot replace the coexistence roots until T089 installs one DOM-free typed application controller that owns every remaining projection/action retained in `overseer.js` and converts every bridge consumer. T090 cannot delete the candidate entry or port-34120 selection until every retained Overseer suite mounts the production `#overseerApp` through permanent test-only infrastructure. The one-root final boundary and all eight unconditional removal rows remain unchanged.
+
+**T089 production promotion**: Production now selects exactly one `#overseerApp`, `main.ts`, and `mountOverseerApp` path. `controllers/overseer-controller.ts` owns the remaining session, terminal-authoring, grouping, coordination, reset-correlation, dialog-orchestration, public-access ordering, autosave, and privileged-command projections/actions without DOM access; every production component/composable formerly importing the coexistence bridge injects this controller. Candidate-mode and legacy files remain unselected and ledgered only for unconditional T090 removal and retained-suite harness migration.
+
+**T090 unconditional removal**: All eight Overseer temporary mechanisms are closed. The bounded compiler, combined candidate document/entry, candidate Vite selection, candidate Playwright route/smoke, coexistence roots, typed callbacks, legacy script tags, and legacy lifecycle modules are absent. Retained browser suites now load the production `#overseerApp` through `tests/browser/fixtures/overseer-app.ts`; its browser-test adapter aliases are excluded from production builds and native evidence.
+
 **Vue mount boundaries**: The single production `#overseerApp` root owns the entire rendered Overseer application: start/runtime status, application shell, terminal/groups, authoring, coordination, approvals, broadcast/hacking controls, public access, updates, and all dialogs.
 
 **Legacy-owned adjacent subtrees**: None in the Overseer document. Player remains wholly legacy-owned in its separate document.
@@ -180,9 +186,15 @@ The remaining Wave-e legacy inventory is exact. `overseer.js` owns the start/run
 
 **Removal criteria**: Delete `frontend/overseer/src/overseer.js`, `desktop-api.js`, legacy script tags, `#legacyOverseerRoot`, `#overseerVueLeaves`, temporary bridges, temporary mounts, and Overseer legacy-check configuration. The final forbidden-state scan must pass for `frontend/overseer/src` before wave f starts.
 
+**Wave-e exit evidence (T106)**: The complete Wave-e gate passed on 2026-08-31. Production Overseer has one `#overseerApp` root and zero legacy bootstrap, candidate-selection, coexistence-root, bridge, or bounded-legacy-compiler mechanisms. Strict/build/compatibility/policy/reproducibility, all 225 unconditional browser tests, immutable visuals, the 39-method/seven-event binding boundary, Wails/secret/license scanners, focused platform and Player Go gates, Linux verifier self-test, macOS arm64 package verification, and the real packaged approval/reset/convergence/reopen journey passed. The two credential-qualified real-ngrok tests and the Windows matching-host package verifier are the only conditional checks not run; their reasons and follow-up are recorded. Player production remains wholly legacy-owned, its candidate rows remain governed through T156, and no Player feature task ran before this checkpoint.
+
 ## Wave f — Player shell, identity, transport, session, navigation, and presentation foundations
 
 Wave f is the first wave permitted to implement Player business behavior. It cannot begin until every wave-e Overseer exit condition, including removal and absence checks, has passed.
+
+**T107 candidate selection**: Explicit Vite `candidate` mode selects only `frontend/client/test-fixtures/index.html` and its `candidate-main.ts` entry, and the Playwright-only server at `127.0.0.1:34120` exposes that isolated document. Production mode continues to select `frontend/client/index.html` and legacy `client.js`; candidate selection is browser/test evidence only and remains governed by the T107/T156 temporary-register rows. Native embed/resource selection remains deferred to T165/T181 and package-content evidence to T168/T182.
+
+**T124 candidate lifecycle integration**: The isolated `#playerApp` now composes one recognition lease, one snapshot-first subscription, typed projection/identity/authority/action/navigation state, and the shell/identity/menu/footer leaves under a single Vue scope. Generated public ConnectRPC and the validated recognition-storage adapter are injected at the mount boundary; candidate tests may replace only those two explicit ports. First unmount aborts and returns the physical stream and releases the storage listener, and repeated teardown adds no cleanup. Production remains separately selected and wholly legacy-owned.
 
 **Vue mount boundaries**:
 
@@ -205,6 +217,8 @@ Wave f is the first wave permitted to implement Player business behavior. It can
 
 **Removal criteria**: Candidate-only test selection expires in wave h. Foundations advance to wave g only after their complete focused parity suite passes and all timers, subscriptions, AbortControllers, streams, observers, and listeners have registered scope cleanup.
 
+**Wave-f exit evidence (T132)**: Player strict compilation, the exact isolated candidate build and four-file runtime inventory, public-only dependency policy, all 10 transport/recognition/navigation/cleanup candidate tests, all 41 unconditional legacy production ConnectRPC/CRT tests, and immutable snapshot diff passed on 2026-09-01. The two credential-qualified real-ngrok tests were skipped for missing endpoint credentials. Boundary mappings cover valid and invalid decoded-network, recognition-storage, DOM-action, and navigation inputs with no-state-change rejection. Every wave-f AbortController, iterator, reconnect/lease timer, storage listener, observer, RAF/font callback, and focus job has exact teardown evidence. Production remains wholly legacy-selected; Player candidate/staging/Vite/Playwright/legacy temporary rows stay open through T156.
+
 ## Wave g — Player hacking, CRT/typewriter, sound, and presentation-uplink integration
 
 **Vue mount boundaries**: Same two separate documents as wave f. Candidate `#playerApp` now owns its entire candidate document, including hacking, CRT/typewriter, sound, pointer/keyboard geometry, measurement, and presentation uplink. Production remains wholly legacy-owned.
@@ -225,6 +239,14 @@ Wave f is the first wave permitted to implement Player business behavior. It can
 - Complete candidate Player `.mjs` and visual suite without baseline changes; legacy production suite still passes.
 
 **Removal criteria**: Every candidate lifecycle resource has an automated cleanup assertion or observable unmount/reconnect proof. Candidate reaches complete parity and is eligible for the single wave-h production ownership transfer.
+
+**Candidate integration evidence (T151)**: The single candidate `#playerApp` now coordinates authoritative hacking projection/actions, board geometry and input, the 40ms reveal/CRT state, gesture-owned sound, and context-correlated presentation uplink through Vue-scope owners. The focused integration fixture proves the candidate entry has one lifecycle owner and unmount releases subscription and document resources without cross-root mutation.
+
+**Wave-g exit evidence (T154)**: Player strict compilation, the exact 217-module candidate build, policy checks, 11 boundary tests, 26 complete candidate tests, and 41 unconditional legacy ConnectRPC/CRT tests all passed on 2026-09-01. The two credential-qualified real-ngrok journeys were skipped because their external endpoint credentials were unavailable. All immutable snapshots stayed clean. Wave g is closed and only the atomic wave-h production cutover is authorized; every Player temporary mechanism remains registered until unconditional T156 removal.
+
+**T155 atomic production promotion**: `frontend/client/index.html` now selects one `#playerApp` and `/src/main.ts`; `main.ts` performs exactly one `mountPlayerApp` call through the production RPC and recognition-storage adapters. Vue exclusively owns `.crt`, `#screen`, `#connOverlay`, and their descendants in the production document. The old candidate document, selection, declarations, and legacy files remain unselected and ledgered only through unconditional T156 removal.
+
+**T156 unconditional Player removal**: All nine Player mechanisms are closed: bounded legacy compiler; candidate document; candidate entry; alternate Vite selection; alternate Playwright selection and route smoke; staging mount; staging bridge; legacy script tags; and legacy lifecycle owners. Production and browser test serving now select the same Vue root, and no removable Player mechanism remains.
 
 ## Wave h — Complete Player cutover
 
@@ -272,6 +294,18 @@ Wave f is the first wave permitted to implement Player business behavior. It can
 - Credential-dependent, real-provider, signing, notarization, stapling, Gatekeeper, and unavailable matching-host checks are recorded `NOT RUN` unless actually executed.
 
 **Removal criteria**: Zero entries remain in the legacy or temporary inventory; both application roots are sole owners; all final checks pass or conditional checks are honestly recorded `NOT RUN`; documentation describes only the accepted Vue/TypeScript architecture.
+
+**Wave-h exit evidence (T169)**: Player strict compilation, production build, final policy, and the complete 278-journey browser gate passed on 2026-09-01; 276 unconditional journeys passed and the two credential-qualified real-ngrok journeys were skipped. All twelve immutable CRT snapshots remained clean. The matching macOS arm64 package evidence remains PASS, Linux and Windows remain host-qualified `NOT RUN`, and the temporary-mechanism register has no open Overseer or Player mechanism. Wave h is closed and wave i is authorized.
+
+**Wave-i final ownership evidence (T192)**: The final policy gate, exact root counts, register audit,
+rollback ancestry check, and historical-spec diff all passed on 2026-09-01. `#overseerApp` and
+`#playerApp` are the sole production roots in separate bundles and trust domains. All eight
+Overseer mechanisms, all nine Player mechanisms, and the command-local protobuf drift mechanism
+are closed; zero legacy/candidate/mixed owner or prohibited type escape remains. The complete
+browser gate passed with only two credential-qualified real-provider journeys `NOT RUN`; the
+matching darwin/arm64 package passed exact inspection, other matching hosts remain `NOT RUN`, and
+interactive macOS native UI remains `NOT RUN` because Accessibility control was unavailable. No
+browser result is substituted for native or provider evidence.
 
 ## Temporary mechanism register
 

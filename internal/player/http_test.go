@@ -7,8 +7,6 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -274,15 +272,15 @@ func TestHTTPHandlerServesStaticAssetsAndIndexFallback(t *testing.T) {
 			body:        "player-shell",
 		},
 		{
-			name:        "JavaScript asset",
-			path:        "/client.js",
+			name:        "Vue JavaScript bundle",
+			path:        "/assets/index-player.js",
 			status:      http.StatusOK,
 			contentType: "javascript",
-			body:        "player-client",
+			body:        "player-vue-runtime",
 		},
 		{
-			name:        "nested font asset",
-			path:        "/fonts/Fixedsys.ttf",
+			name:        "emitted font asset",
+			path:        "/assets/Fixedsys-player.ttf",
 			status:      http.StatusOK,
 			contentType: "font/ttf",
 			body:        "fake-font",
@@ -316,6 +314,27 @@ func TestHTTPHandlerServesStaticAssetsAndIndexFallback(t *testing.T) {
 			assert.Falsef(t, test.body != "" && !strings.Contains(recorder.Body.String(), test.body),
 				"GET %s body = %q, want it to contain %q", test.path, recorder.Body.String(), test.body)
 
+		})
+	}
+}
+
+func TestHTTPHandlerDoesNotExposePrivilegedOverseerAssets(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHTTPHandler(playerAssets())
+	for _, requestPath := range []string{
+		"/client.js",
+		"/sound.js",
+		"/presentation-uplink.js",
+		"/main.ts",
+		"/overseer.css",
+		"/Fixedsys.ttf",
+		"/assets/overseer.js",
+	} {
+		t.Run(requestPath, func(t *testing.T) {
+			recorder := serveRequest(t, handler, requestPath)
+			require.Equal(t, http.StatusNotFound, recorder.Code)
+			require.NotContains(t, recorder.Body.String(), "overseer-shell")
 		})
 	}
 }
@@ -387,7 +406,7 @@ func TestBrowserRecognitionNeverUsesHTTPURLsOrWeakensOriginAndHeaders(t *testing
 
 	for _, requestPath := range []string{
 		"/?browserToken=" + secretToken,
-		"/client.js?token=" + secretToken,
+		"/assets/index-player.js?token=" + secretToken,
 		"/terminal/root?session=" + secretToken,
 	} {
 		recorder := serveRequest(t, handler, requestPath)
@@ -427,21 +446,10 @@ func TestBrowserRecognitionNeverUsesHTTPURLsOrWeakensOriginAndHeaders(t *testing
 
 	}
 
-	clientScript, err := os.ReadFile(filepath.Join("..", "..", "frontend", "client", "client.js"))
-	if err != nil {
-		require.NoError(t, err)
-	}
-	js := string(clientScript)
-	start := strings.Index(js, "const connectWebTransport = createConnectTransport(")
-	end := strings.Index(js, "const playerRPC = createClient(")
-	require.False(t, start < 0 || end <= start,
-		"player script is missing the same-origin Connect transport boundary")
-
-	urlBoundary := js[start:end]
-	for _, forbidden := range []string{"browserToken", "PLAYER_TOKEN_KEY", "searchParams", "?token", "?session"} {
-		assert.Falsef(t, strings.Contains(urlBoundary, forbidden),
-			"Connect base URL construction exposes recognition material through %q", forbidden)
-
+	bundle := serveRequest(t, handler, "/assets/index-player.js")
+	require.Equal(t, http.StatusOK, bundle.Code)
+	for _, forbidden := range []string{secretToken, "?token", "?session", "overseer-shell"} {
+		assert.NotContains(t, bundle.Body.String(), forbidden)
 	}
 }
 
@@ -449,7 +457,7 @@ func TestHTTPHandlerReturnsNotFoundWhenRequiredAssetsAreMissing(t *testing.T) {
 	t.Parallel()
 
 	handler := NewHTTPHandler(fstest.MapFS{})
-	for _, requestPath := range []string{"/", "/terminal/root", "/client.js"} {
+	for _, requestPath := range []string{"/", "/terminal/root", "/assets/index-player.js"} {
 		t.Run(requestPath, func(t *testing.T) {
 			recorder := serveRequest(t, handler, requestPath)
 			require.Falsef(t, recorder.Code != http.StatusNotFound,
@@ -461,9 +469,9 @@ func TestHTTPHandlerReturnsNotFoundWhenRequiredAssetsAreMissing(t *testing.T) {
 
 func playerAssets() fs.FS {
 	return fstest.MapFS{
-		"index.html":                   {Data: []byte("<!doctype html><title>player-shell</title>")},
-		"client.js":                    {Data: []byte("const client = 'player-client';")},
-		"fonts/Fixedsys.ttf":           {Data: []byte("fake-font")},
+		"index.html":                   {Data: []byte(`<!doctype html><div id="playerApp">player-shell</div><script type="module" src="/assets/index-player.js"></script>`)},
+		"assets/index-player.js":       {Data: []byte("const runtime = 'player-vue-runtime';")},
+		"assets/Fixedsys-player.ttf":   {Data: []byte("fake-font")},
 		"outside.txt":                  {Data: []byte("outside-client-root")},
 		"sounds/ambient/HISS.OGG":      {Data: []byte("ogg")},
 		"sounds/ambient/hum.wav":       {Data: []byte("wav")},

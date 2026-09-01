@@ -58,5 +58,5 @@ jobs:
           sudo apt-get install --yes --no-install-recommends \
             build-essential libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
 
-      - name: Run locked repository quality composition
+      - name: Verify separate public Player and privileged Overseer bundles through Task
         run: go tool -modfile=tools/task/go.mod task ci:quality

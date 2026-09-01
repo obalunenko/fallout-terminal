@@ -1,20 +1,22 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const FIXTURE = '/__fixture/player-management';
 const INITIAL_REVISION = 41;
 
 test.describe.configure({ mode: 'serial' });
 test.use({ bypassCSP: true });
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?logical-session-player-management'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?logical-session-player-management');
 }
 
 test.beforeEach(async ({ request, page }) => {
   const reset = await request.post(`${FIXTURE}/reset`);
   expect(reset.status()).toBe(204);
   await page.goto(FIXTURE);
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await expect(page.locator('#mainLayout')).toBeVisible();
   await expect(page.locator('#btnManagePlayers')).toBeEnabled();
 });
@@ -37,25 +39,24 @@ test('session player and group leaves have one owner and release resources', asy
     'terminalGroupImpactDialog',
   ];
   for (const id of dialogIDs) {
-    await expect(page.locator(`#${id}`)).toHaveCount(1);
-    await expect(page.locator(`#legacyOverseerRoot #${id}`)).toHaveCount(0);
+    await expect(page.locator(`#overseerApp #${id}`)).toHaveCount(1);
   }
   await expect(page.locator('#playerConfigVueLeaf #btnManagePlayers')).toHaveCount(1);
 
   expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
   const released = await page.evaluate(() => {
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
     return __desktopFixture.releaseCount('coordination-state');
   });
   expect(released).toBeGreaterThan(0);
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
-  await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
-  await expect(page.locator('#playerConfigVueLeaf')).toBeEmpty();
+  await expect(page.locator('#overseerApp')).toBeEmpty();
+  await expect(page.locator('#playerConfigVueLeaf')).toHaveCount(0);
 });
 
 test('closed or rebound dialog ignores stale result and releases listener', async ({ page }) => {
-  const vueDialog = page.locator('#overseerVueLeaves #playerManagementDialog');
+  const vueDialog = page.locator('#overseerApp #playerManagementDialog');
   if (await vueDialog.count() === 0) {
     process.stderr.write('AssertionError: closed or rebound dialog ignores stale result and releases listener\n');
     throw new Error('Vue-owned session/player lifecycle is not implemented');
@@ -75,7 +76,7 @@ test('player configuration preserves references and validation', async ({ page, 
   await expect(target.locator('#playerConfigStatus')).toContainText('/private/tmp/open-players.json');
   const associatedSession = await page.evaluate(() => __desktopFixture.authoringSession());
   expect(associatedSession.playerConfig).toBe('open-players.json');
-  await page.evaluate(session => window.desktopAPI.saveSession(session), associatedSession);
+  await page.evaluate(session => __overseerAppFixture.port.saveSession(session), associatedSession);
   await expect.poll(() => page.evaluate(() => (
     __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]?.playerConfig
   ))).toBe('open-players.json');
@@ -95,8 +96,8 @@ test('player configuration preserves references and validation', async ({ page, 
   await expect(target.locator('#btnNewPlayerConfig')).toBeDisabled();
   await expect(target.locator('#playerConfigError')).toBeHidden();
 
-  await page.evaluate(() => __overseerVueFixture.unmount());
-  await expect(target).toBeEmpty();
+  await page.evaluate(() => __overseerAppFixture.unmount());
+  await expect(target).toHaveCount(0);
 });
 
 test('player management rows reject stale save and release modal resources', async ({ page }) => {
@@ -126,9 +127,9 @@ test('player management rows reject stale save and release modal resources', asy
   await expect(dialog.locator('#playerManagementStatus')).toHaveText('');
   await expect(dialog.locator('#playerManagementError')).toBeHidden();
 
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(page.locator('#playerManagementDialog')).toHaveCount(0);
-  await page.evaluate(() => __overseerCoexistenceBridge.legacyToVue({ kind: 'player-management-open-request' }));
+  await page.evaluate(() => __overseerAppFixture.controller.publish({ kind: 'player-management-open-request' }));
   await expect(page.locator('#playerManagementDialog')).toHaveCount(0);
 });
 
@@ -303,7 +304,7 @@ test('renders the authoritative add result and restores its persisted profile af
   await dialog.locator('#btnClosePlayerManagement').click();
   await expect(dialog).toBeHidden();
   await page.reload();
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await expect(page.locator('#mainLayout')).toBeVisible();
   dialog = await openPlayerManagement(page);
 
@@ -429,18 +430,18 @@ test('a live coordination event makes details read-only and crafted active mutat
   await expect(row.locator('.player-delete')).toBeDisabled();
 
   const results = await page.evaluate(async ({ revision }) => ({
-    update: await desktopAPI.updateCharacter({
+    update: await __overseerAppFixture.port.updateCharacter({
       characterId: 'fixture-player-1',
       name: 'Active Draft',
       intelligence: 1,
       hackerPerkAvailable: false,
       expectedRevision: revision,
     }),
-    delete: await desktopAPI.deleteCharacter({
+    delete: await __overseerAppFixture.port.deleteCharacter({
       characterId: 'fixture-player-1',
       expectedRevision: revision,
     }),
-    add: await desktopAPI.addCharacter({
+    add: await __overseerAppFixture.port.addCharacter({
       name: 'Active Addition',
       intelligence: 7,
       hackerPerkAvailable: false,

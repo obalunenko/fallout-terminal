@@ -2,12 +2,12 @@
 import { computed, inject, nextTick, onBeforeUnmount, onUnmounted, ref, watch } from 'vue';
 
 import { dialogFocus } from '../directives/dialog-focus.js';
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
 const props = defineProps<{ readonly port: DesktopPort }>();
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const vDialogFocus = dialogFocus;
 const cancelButton = ref<HTMLButtonElement | null>(null);
 const characterId = ref('');
@@ -22,7 +22,7 @@ let lifecycle = 0;
 const focusBinding = computed(() => ({ active: open.value, initialFocus: () => cancelButton.value, onCancel: cancel }));
 const guardAttributes = Object.freeze({ 'data-stale-result-guard': 'released' });
 
-function handleMessage(message: OverseerCoexistenceMessage): void {
+function handleMessage(message: OverseerControllerMessage): void {
   if (message.kind !== 'player-delete-requested' || typeof message.characterId !== 'string'
     || typeof message.name !== 'string' || !Number.isSafeInteger(message.expectedRevision)) return;
   lifecycle += 1;
@@ -40,7 +40,7 @@ function finish(restoreFocus: boolean): void {
   open.value = false;
   pending.value = false;
   if (restoreFocus && deletedCharacterId !== '') {
-    bridge?.vueToLegacy({ characterId: deletedCharacterId, kind: 'player-delete-focus-request' });
+    controller?.dispatch({ characterId: deletedCharacterId, kind: 'player-delete-focus-request' });
   }
 }
 
@@ -54,14 +54,14 @@ async function confirm(): Promise<void> {
   const requestCharacterId = characterId.value;
   pending.value = true;
   error.value = '';
-  bridge?.vueToLegacy({ expectedRevision: expectedRevision.value, kind: 'player-delete-started' });
+  controller?.dispatch({ expectedRevision: expectedRevision.value, kind: 'player-delete-started' });
   let result: DesktopCommandResult;
   try {
     result = await props.port.deleteCharacter({ characterId: requestCharacterId, expectedRevision: expectedRevision.value });
   } catch (cause) {
     result = { error: cause instanceof Error ? cause.message : String(cause), ok: false };
   }
-  bridge?.vueToLegacy({ kind: 'player-delete-finished', result });
+  controller?.dispatch({ kind: 'player-delete-finished', result });
   if (!active || requestLifecycle !== lifecycle || requestCharacterId !== characterId.value) return;
   pending.value = false;
   if (result.ok) finish(false);
@@ -74,7 +74,7 @@ async function syncDialog(): Promise<void> {
   else if (!open.value && dialog.value?.open === true) dialog.value.close();
 }
 
-const release = bridge?.subscribeLegacyState(handleMessage) ?? (() => {});
+const release = controller?.subscribeState(handleMessage) ?? (() => {});
 watch(open, () => { void syncDialog(); }, { immediate: true, flush: 'post' });
 onBeforeUnmount(() => { if (dialog.value?.open === true) dialog.value.close(); });
 onUnmounted(() => { active = false; lifecycle += 1; release(); });

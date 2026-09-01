@@ -5,6 +5,8 @@ import {
   resetMovementCueDiagnostics,
 } from './helpers/movement-cue-diagnostics.mjs';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const TOKEN_KEY = 'fallout-terminal.player-token';
 const PLAYER_SERVICE = '/fallout.terminal.player.v1.PlayerService/';
 const OVERSEER_AUTHORING_FIXTURE = '/__fixture/state-changing-command-authoring';
@@ -51,9 +53,12 @@ async function openPlayer(page, storedToken = null, options = {}) {
   await expect.poll(() => page.evaluate(() => window.__webSocketConstructions)).toBe(0);
 }
 
-async function mountOverseerCandidate(page, instance) {
+async function mountOverseerFixture(page, instance) {
   await page.goto(OVERSEER_AUTHORING_FIXTURE);
-  await page.evaluate(key => import(`http://127.0.0.1:34120/candidate-main.ts?session-document-${key}`), instance);
+  await page.evaluate(
+    ({ key, moduleURL }) => import(`${moduleURL}?session-document-${key}`),
+    { key: instance, moduleURL: overseerAppModuleURL },
+  );
 }
 
 async function selectFirstAvailable(page) {
@@ -132,7 +137,7 @@ test('session document controls preserve open new save close and stale completio
   const context = await browser.newContext({ bypassCSP: true });
 
   const openPage = await context.newPage();
-  await mountOverseerCandidate(openPage, 'open');
+  await mountOverseerFixture(openPage, 'open');
   await openPage.locator('#btnOpenSession').click();
   await expect(openPage.locator('#mainLayout')).toBeVisible();
   await expect(openPage.locator('#sessionFileLabel')).toHaveText('/private/tmp/fallout-state-changing-authoring.json');
@@ -143,7 +148,7 @@ test('session document controls preserve open new save close and stale completio
   ))).toBe(1);
 
   const newPage = await context.newPage();
-  await mountOverseerCandidate(newPage, 'new');
+  await mountOverseerFixture(newPage, 'new');
   await newPage.locator('#btnNewSession').click();
   await expect(newPage.locator('#mainLayout')).toBeVisible();
   await expect(newPage.locator('#sessionFileLabel')).toHaveText('/private/tmp/fallout-state-changing-authoring-new.json');
@@ -160,14 +165,14 @@ test('session document controls preserve open new save close and stale completio
     await sessionGate;
     await route.continue();
   });
-  await mountOverseerCandidate(stalePage, 'stale');
+  await mountOverseerFixture(stalePage, 'stale');
   await stalePage.locator('#btnOpenSession').click();
   await expect.poll(() => sessionRequested).toBe(true);
   await stalePage.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
   });
-  await expect(stalePage.locator('#overseerVueLeaves')).toBeEmpty();
+  await expect(stalePage.locator('#overseerApp')).toBeEmpty();
 
   const sessionResponse = stalePage.waitForResponse(response => (
     response.url().endsWith(`${OVERSEER_AUTHORING_FIXTURE}/session`)
@@ -183,7 +188,7 @@ test('session document controls preserve open new save close and stale completio
 test('logical-session rows ignore stale close and rebind', async ({ browser }) => {
   const context = await browser.newContext({ bypassCSP: true });
   const page = await context.newPage();
-  await mountOverseerCandidate(page, 'logical-sessions');
+  await mountOverseerFixture(page, 'logical-sessions');
   await page.locator('#btnOpenSession').click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 
@@ -257,9 +262,9 @@ test('logical-session rows ignore stale close and rebind', async ({ browser }) =
   await page.evaluate(() => {
     const row = document.querySelector('[data-session-id="session-3"]');
     row.querySelector('.session-rename').click();
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
   });
-  await expect(page.locator('#overseerVueLeaves')).toBeEmpty();
+  await expect(page.locator('#overseerApp')).toBeEmpty();
 
   await context.close();
 });
@@ -460,7 +465,7 @@ test('observer projection is visibly read-only and emits no typed mutation', asy
   await expect(observer.locator('.term-row:not(.sel)').first()).toHaveCSS('opacity', '0.72');
 
   const before = observerRequests.length;
-  await observer.locator('.term-row', { hasText: 'DOCS' }).click();
+  await observer.locator('.term-row', { hasText: 'DOCS' }).click({ force: true });
   await observer.waitForTimeout(100);
   expect(observerRequests.slice(before).map(request => request.procedure)).not.toContain('Navigate');
   await expect(observer.locator('.term-row', { hasText: 'DOCS' })).toBeVisible();

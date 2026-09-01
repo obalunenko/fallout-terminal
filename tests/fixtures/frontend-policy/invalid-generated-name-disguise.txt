@@ -1,0 +1,2 @@
+path=frontend/overseer/src/generated/desktopservice.js
+source=export const GeneratedBindingDisguise = true

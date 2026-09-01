@@ -2,7 +2,7 @@
 import { inject, nextTick, onMounted, onUnmounted, ref } from 'vue';
 
 import type { TerminalSelectionRow } from '../composables/useTerminalSelection.js';
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 
 const props = defineProps<{
   readonly terminal: TerminalSelectionRow;
@@ -14,7 +14,7 @@ const renaming = ref(false);
 const renameDraft = ref('');
 let cancelingRename = false;
 
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 
 function closeMenu(restoreFocus = false): void {
   if (details.value === null) return;
@@ -47,7 +47,7 @@ function documentKeydown(event: KeyboardEvent): void {
 
 function request(action: string): void {
   closeMenu(true);
-  bridge?.vueToLegacy({
+  controller?.dispatch({
     action,
     kind: 'terminal-action-request',
     revision: props.terminal.revision,
@@ -71,7 +71,7 @@ function commitRename(): void {
   const name = renameDraft.value.trim();
   renaming.value = false;
   if (name !== '' && name !== props.terminal.name) {
-    bridge?.vueToLegacy({
+    controller?.dispatch({
       action: 'rename-terminal',
       kind: 'terminal-action-request',
       name,

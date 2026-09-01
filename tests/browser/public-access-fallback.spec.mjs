@@ -5,14 +5,17 @@ import {
   resetMovementCueDiagnostics,
 } from './helpers/movement-cue-diagnostics.mjs';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const PLAYER_SERVICE = '/fallout.terminal.player.v1.PlayerService/';
 
 test.use({ bypassCSP: true });
 
 test('public-access status preserves fail-closed ordering and unsubscribe', async ({ page }) => {
   await page.goto('/__fixture/public-access-settings');
+  await page.evaluate(() => import('/__fixture/desktop-bindings.js'));
   await page.evaluate(() => __desktopFixture.deferPublicAccess());
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?public-access-status'));
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?public-access-status');
   await page.evaluate(() => {
     __desktopFixture.emit('public-access-status', {
       preferences: { version: 1, username: 'players', revision: 4 },
@@ -36,7 +39,7 @@ test('public-access status preserves fail-closed ordering and unsubscribe', asyn
   await expect(panel.locator('#publicAccessURL')).toHaveText('https://new.example');
   expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(0);
 
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(panel).toHaveCount(0);
   expect(await page.evaluate(() => __desktopFixture.releaseCount('public-access-status'))).toBe(1);
 });
@@ -223,7 +226,7 @@ test('all public failures leave local gameplay live and a later public generatio
 
   const overseer = await browser.newPage();
   await overseer.goto('/__fixture/public-access-settings');
-  await overseer.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?public-access-failure-recovery'));
+  await overseer.evaluate(url => import(url), overseerAppModuleURL + '?public-access-failure-recovery');
   await expect(overseer.locator('#publicAccessSection')).toBeVisible();
 
   const failures = [

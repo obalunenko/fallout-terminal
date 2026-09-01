@@ -100,6 +100,166 @@
       "wave": "c",
       "focusedTest": "tests/browser/desktop-api.spec.mjs",
       "focusedTitle": "desktop facade retains one v2 service with 39 methods and seven named events"
+    },
+    {
+      "boundaryClass": "Decoded Player network message",
+      "fixtureId": "player-invalid-incomplete-snapshot-rejected",
+      "owner": "frontend/client/src/composables/usePlayerProjection.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player decoded-network boundary accepts snapshots and rejects invalid ordering"
+    },
+    {
+      "boundaryClass": "Decoded Player network message",
+      "fixtureId": "player-valid-complete-snapshot-accepted",
+      "owner": "frontend/client/src/composables/usePlayerProjection.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "monotonic-player-projection",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player decoded-network boundary accepts snapshots and rejects invalid ordering"
+    },
+    {
+      "boundaryClass": "Browser recognition storage",
+      "fixtureId": "player-invalid-recognition-record-rejected",
+      "owner": "frontend/client/src/adapters/recognition-storage.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player storage boundary accepts valid records and rejects malformed values"
+    },
+    {
+      "boundaryClass": "Browser recognition storage",
+      "fixtureId": "player-valid-recognition-record-accepted",
+      "owner": "frontend/client/src/adapters/recognition-storage.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "versioned-recognition-projection",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player storage boundary accepts valid records and rejects malformed values"
+    },
+    {
+      "boundaryClass": "Player DOM action input",
+      "fixtureId": "player-unauthorized-dom-action-rejected",
+      "owner": "frontend/client/src/composables/usePlayerActions.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player DOM action boundary accepts authorized IDs and rejects unauthorized input"
+    },
+    {
+      "boundaryClass": "Player DOM action input",
+      "fixtureId": "player-authorized-dom-action-accepted",
+      "owner": "frontend/client/src/composables/usePlayerActions.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "correlated-action-request",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player DOM action boundary accepts authorized IDs and rejects unauthorized input"
+    },
+    {
+      "boundaryClass": "Terminal navigation input",
+      "fixtureId": "player-invalid-navigation-state-rejected",
+      "owner": "frontend/client/src/composables/useTerminalNavigation.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player navigation boundary accepts valid modes and rejects invalid states"
+    },
+    {
+      "boundaryClass": "Terminal navigation input",
+      "fixtureId": "player-valid-navigation-state-accepted",
+      "owner": "frontend/client/src/composables/useTerminalNavigation.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "validated-navigation-projection",
+      "wave": "f",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player navigation boundary accepts valid modes and rejects invalid states"
+    },
+    {
+      "boundaryClass": "Player pointer geometry input",
+      "fixtureId": "player-unauthorized-pointer-target-rejected",
+      "owner": "frontend/client/src/composables/useHackingPointer.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player pointer boundary accepts current geometry and rejects unauthorized input"
+    },
+    {
+      "boundaryClass": "Player pointer geometry input",
+      "fixtureId": "player-current-pointer-target-accepted",
+      "owner": "frontend/client/src/composables/useHackingPointer.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "semantic-target-action",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player pointer boundary accepts current geometry and rejects unauthorized input"
+    },
+    {
+      "boundaryClass": "Player keyboard input",
+      "fixtureId": "player-observer-keyboard-input-rejected",
+      "owner": "frontend/client/src/composables/useTerminalKeyboard.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player keyboard boundary accepts controller input and rejects observer mutation"
+    },
+    {
+      "boundaryClass": "Player keyboard input",
+      "fixtureId": "player-controller-keyboard-input-accepted",
+      "owner": "frontend/client/src/composables/useTerminalKeyboard.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "typed-preview-update",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player keyboard boundary accepts controller input and rejects observer mutation"
+    },
+    {
+      "boundaryClass": "Sound manifest asset",
+      "fixtureId": "player-unsafe-sound-asset-rejected",
+      "owner": "frontend/client/src/adapters/sound-manifest.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-fetch",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player sound manifest boundary accepts safe assets and rejects unsafe paths"
+    },
+    {
+      "boundaryClass": "Sound manifest asset",
+      "fixtureId": "player-safe-sound-asset-accepted",
+      "owner": "frontend/client/src/adapters/sound-manifest.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "same-origin-audio-url",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player sound manifest boundary accepts safe assets and rejects unsafe paths"
+    },
+    {
+      "boundaryClass": "Presentation stream capability/result",
+      "fixtureId": "player-stale-uplink-result-rejected",
+      "owner": "frontend/client/src/adapters/presentation-uplink-transport.ts",
+      "expectedResult": "reject",
+      "trustedOutcome": "no-state-change",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player uplink boundary accepts correlated secure envelopes and rejects stale input"
+    },
+    {
+      "boundaryClass": "Presentation stream capability/result",
+      "fixtureId": "player-correlated-uplink-result-accepted",
+      "owner": "frontend/client/src/adapters/presentation-uplink-transport.ts",
+      "expectedResult": "accept",
+      "trustedOutcome": "correlated-action-result",
+      "wave": "g",
+      "focusedTest": "tests/browser/player-candidate-boundary.spec.mjs",
+      "focusedTitle": "Player uplink boundary accepts correlated secure envelopes and rejects stale input"
     }
   ]
 }

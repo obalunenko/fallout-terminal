@@ -46,6 +46,27 @@ policy, owned-resource cleanup, and the single-process runtime
 
 **Scale/Scope**: One Overseer desktop process, one active broadcast, and [expected connected player-client count or NEEDS CLARIFICATION]
 
+**Files (modify/create/delete)**: [Complete repository-relative writable paths; no bare basenames,
+directory inheritance, known-inventory globs, or prose shorthand]
+
+**Read-only inputs**: [Complete repository-relative paths used for comparison/context but not
+authorized for mutation]
+
+**Producer-before-consumer order**: [Exact DAG showing every checker, target, fixture, generator,
+and artifact exists and has a local check before a consuming task names it]
+
+**Temporary ownership**: [For every temporary mechanism: path plus selector/root/entry/config,
+owner, creation task, permitted scope, expiry, unconditional removal task, and executable absence
+check; otherwise `none`]
+
+**Parallel boundary**: [Disjoint exact paths and join gate, or `sequential`; `[P]` is prohibited
+when branches share generated output, lockfile, Taskfile section, manifest, entrypoint, ownership or
+evidence ledger, or visual baseline]
+
+**Task-local verification**: [Exact command for each changed production/test slice; for Go changes
+include pre-commit `go fix ./...`, modernization diff review, intentional-edits review, formatting,
+and focused Go gates]
+
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research and be re-checked after Phase 1 design.*

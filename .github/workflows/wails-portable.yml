@@ -125,7 +125,7 @@ jobs:
           sudo apt-get install --yes --no-install-recommends \
             build-essential libgtk-4-dev libwebkitgtk-6.0-dev pkg-config
 
-      - name: Build one matching-native portable archive
+      - name: Package separate public Player and privileged Overseer bundles through Task
         shell: bash
         run: go tool -modfile=tools/task/go.mod task package GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} VERSION="$VERSION"
 

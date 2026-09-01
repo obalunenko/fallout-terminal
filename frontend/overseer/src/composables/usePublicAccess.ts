@@ -1,6 +1,6 @@
 import { computed, inject, onUnmounted, readonly, ref, shallowRef } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type {
   DesktopCommandResult,
   DesktopPublicAccessSnapshot,
@@ -134,7 +134,7 @@ function displayURL(snapshot: PublicAccessViewSnapshot): string {
 }
 
 export function usePublicAccess(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const snapshot = shallowRef<PublicAccessViewSnapshot>(EMPTY_SNAPSHOT);
   const loaded = ref(false);
   const pending = ref(false);
@@ -143,8 +143,8 @@ export function usePublicAccess(port: DesktopPort) {
   let active = true;
   let commandGeneration = 0;
 
-  function publishToLegacy(value: PublicAccessViewSnapshot): void {
-    bridge?.vueToLegacy({ kind: 'public-access-snapshot', snapshot: value });
+  function publishToController(value: PublicAccessViewSnapshot): void {
+    controller?.dispatch({ kind: 'public-access-snapshot', snapshot: value });
   }
 
   function applyProjectedSnapshot(projected: PublicAccessViewSnapshot, publish = true): void {
@@ -153,7 +153,7 @@ export function usePublicAccess(port: DesktopPort) {
         || projected.settingsRevision !== snapshot.value.settingsRevision)) return;
     snapshot.value = projected;
     loaded.value = true;
-    if (publish) publishToLegacy(projected);
+    if (publish) publishToController(projected);
   }
 
   function applyDesktopSnapshot(value: DesktopPublicAccessSnapshot, publish = true): void {
@@ -181,7 +181,7 @@ export function usePublicAccess(port: DesktopPort) {
 
   function openSettings(setupRequired = false): void {
     if (pending.value) return;
-    bridge?.vueToLegacy({ kind: 'public-access-settings-open', setupRequired });
+    controller?.dispatch({ kind: 'public-access-settings-open', setupRequired });
   }
 
   async function start(): Promise<void> {
@@ -213,7 +213,7 @@ export function usePublicAccess(port: DesktopPort) {
   }
 
   const releaseStatus = port.onPublicAccessStatus(applyDesktopSnapshot);
-  const releaseBridge = bridge?.subscribeLegacyState(message => {
+  const releaseController = controller?.subscribeState(message => {
     if (message.kind !== 'public-access-settings-snapshot') return;
     const next = normalizedSnapshot(message.snapshot);
     if (next !== null) applyDesktopSnapshot(next, false);
@@ -221,7 +221,7 @@ export function usePublicAccess(port: DesktopPort) {
   onUnmounted(() => {
     active = false;
     commandGeneration += 1;
-    releaseBridge?.();
+    releaseController?.();
     releaseStatus();
   });
 

@@ -7,12 +7,15 @@ const focusModulePath = fileURLToPath(new URL(
   '../../frontend/overseer/src/composables/useDialogFocus.ts',
   import.meta.url,
 ));
-const focusModuleURL = `http://127.0.0.1:34120/@fs${focusModulePath}`;
+const focusModuleURL = `http://127.0.0.1:34121/@fs${focusModulePath}`;
 const directiveModulePath = fileURLToPath(new URL(
   '../../frontend/overseer/src/directives/dialog-focus.ts',
   import.meta.url,
 ));
-const directiveModuleURL = `http://127.0.0.1:34120/@fs${directiveModulePath}`;
+const directiveModuleURL = `http://127.0.0.1:34121/@fs${directiveModulePath}`;
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
+test.use({ bypassCSP: true });
 
 test('disconnected opener is not focused after unmount', async ({ page }) => {
   if (!existsSync(focusModulePath)) {
@@ -20,7 +23,8 @@ test('disconnected opener is not focused after unmount', async ({ page }) => {
     throw new Error('Vue-owned dialog focus lifecycle is not implemented');
   }
 
-  await page.goto('http://127.0.0.1:34120/');
+  await page.goto('/__fixture/state-changing-command-authoring');
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?dialog-focus');
   const observation = await page.evaluate(async ({ directiveURL, moduleURL }) => {
     const { createDialogFocusController } = await import(moduleURL);
     const { dialogFocus } = await import(directiveURL);

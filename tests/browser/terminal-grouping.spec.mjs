@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const FIXTURE = '/__fixture/terminal-grouping';
 const OVERSEER = `${FIXTURE}/overseer`;
 const PLAYER_TOKEN_KEY = 'fallout-terminal.player-token';
@@ -34,14 +36,13 @@ async function fixtureStatus(request) {
 
 async function openOverseer(page) {
   await page.goto(OVERSEER);
-  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 }
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?terminal-grouping'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?terminal-grouping');
 }
 
 async function openParticipant(browser, token = '') {
@@ -225,7 +226,7 @@ test('terminal group list preserves order atomicity and stable keys', async ({ p
   const initialRevision = Number(await page.locator('#termList > [data-group-revision]')
     .getAttribute('data-group-revision'));
   await page.evaluate(({ revision, groups }) => {
-    __overseerCoexistenceBridge.legacyToVue({
+    __overseerAppFixture.controller.publish({
       groups: groups.toReversed(),
       kind: 'terminal-groups-snapshot',
       revision: revision - 1,
@@ -266,9 +267,9 @@ test('terminal group list preserves order atomicity and stable keys', async ({ p
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
   await page.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
-    __overseerCoexistenceBridge.legacyToVue({
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.controller.publish({
       groups: [{ id: 'late', name: 'LATE', terminalIDs: ['late-terminal'] }],
       kind: 'terminal-groups-snapshot',
       revision: Number.MAX_SAFE_INTEGER,
@@ -452,7 +453,7 @@ test('preserves group and member order across a terminal save and reopen', async
   expect(saved.terminalGroups.slice(0, initial.terminalGroups.length)).toEqual(initial.terminalGroups);
 
   await page.reload();
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
   expect(await renderedGroups(page)).toEqual(expectedGroups(saved));

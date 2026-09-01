@@ -1,6 +1,6 @@
 import { inject, onUnmounted, readonly, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -38,7 +38,7 @@ function profiles(value: unknown): readonly PlayerProfile[] {
 }
 
 export function usePlayerManagement(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const addResetRequest = ref(0);
   const deleteFocusCharacterId = ref('');
   const deleteFocusRequest = ref(0);
@@ -63,7 +63,7 @@ export function usePlayerManagement(port: DesktopPort) {
     pending.value = externalPending;
   }
 
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+  function handleControllerMessage(message: OverseerControllerMessage): void {
     if (message.kind === 'player-management-open-request') {
       if (!playerConfigActive.value) return;
       lifecycle += 1;
@@ -106,7 +106,7 @@ export function usePlayerManagement(port: DesktopPort) {
     pending.value = true;
     error.value = '';
     status.value = pendingMessage;
-    bridge?.vueToLegacy({ expectedRevision, kind: 'player-management-command-started', status: pendingMessage });
+    controller?.dispatch({ expectedRevision, kind: 'player-management-command-started', status: pendingMessage });
     let result: DesktopCommandResult;
     try {
       result = await command();
@@ -121,7 +121,7 @@ export function usePlayerManagement(port: DesktopPort) {
       status.value = result.ok ? successMessage : '';
       error.value = result.ok ? '' : (result.error || 'ОПЕРАЦИЯ СО СПИСКОМ ИГРОКОВ ОТКЛОНЕНА');
     }
-    bridge?.vueToLegacy({ expectedRevision, kind: 'player-management-command-finished', result, successMessage });
+    controller?.dispatch({ expectedRevision, kind: 'player-management-command-finished', result, successMessage });
     return current && result.ok;
   }
 
@@ -150,15 +150,15 @@ export function usePlayerManagement(port: DesktopPort) {
     if (!open.value) return;
     lifecycle += 1;
     open.value = false;
-    bridge?.vueToLegacy({ kind: 'player-management-closed' });
+    controller?.dispatch({ kind: 'player-management-closed' });
   }
 
   function requestDelete(characterId: string, name: string): void {
     if (readOnly.value || pending.value) return;
-    bridge?.vueToLegacy({ characterId, kind: 'player-management-delete-request', name });
+    controller?.dispatch({ characterId, kind: 'player-management-delete-request', name });
   }
 
-  const release = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+  const release = controller?.subscribeState(handleControllerMessage) ?? (() => {});
   onUnmounted(() => {
     active = false;
     lifecycle += 1;

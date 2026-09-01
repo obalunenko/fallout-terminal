@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { dialogFocus } from '../directives/dialog-focus.js';
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 
 interface ResetRequest {
   readonly message: string;
@@ -11,7 +11,7 @@ interface ResetRequest {
 
 const MAX_RESOLVED_REQUESTS = 128;
 
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const vDialogFocus = dialogFocus;
 const dialog = ref<HTMLDialogElement | null>(null);
 const cancelButton = ref<HTMLButtonElement | null>(null);
@@ -24,7 +24,7 @@ const focusBinding = computed(() => ({
   onCancel: () => settle(false),
 }));
 
-function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+function handleControllerMessage(message: OverseerControllerMessage): void {
   if (message.kind !== 'command-state-reset-required') return;
   const requestId = typeof message.requestId === 'string' ? message.requestId : '';
   const description = typeof message.message === 'string' ? message.message : '';
@@ -41,7 +41,7 @@ function settle(confirmed: boolean): void {
     if (oldest !== undefined) resolved.delete(oldest);
   }
   request.value = null;
-  bridge?.vueToLegacy({ confirmed, kind: 'command-state-reset-resolved', requestId: current.requestId });
+  controller?.dispatch({ confirmed, kind: 'command-state-reset-resolved', requestId: current.requestId });
 }
 
 async function syncDialog(): Promise<void> {
@@ -52,7 +52,7 @@ async function syncDialog(): Promise<void> {
   else if (!open.value && element.open) element.close();
 }
 
-const release = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+const release = controller?.subscribeState(handleControllerMessage) ?? (() => {});
 watch(open, () => { void syncDialog(); }, { immediate: true, flush: 'post' });
 onBeforeUnmount(() => {
   settle(false);

@@ -1,10 +1,10 @@
 import { inject, nextTick, onUnmounted, provide, readonly, ref, shallowRef } from 'vue';
 
 import {
-  overseerCoexistenceBridgeKey,
-  type OverseerCoexistenceBridge,
-  type OverseerCoexistenceMessage,
-} from '../mount.js';
+  overseerControllerKey,
+  type OverseerController,
+  type OverseerControllerMessage,
+} from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 import type { TerminalGroupAction, TerminalGroupRow } from './useTerminalGroups.js';
 import type { TerminalSelectionRow } from './useTerminalSelection.js';
@@ -70,7 +70,7 @@ function parseTerminals(value: unknown, revision: number): readonly TerminalSele
   return Object.freeze(terminals);
 }
 
-function parseSnapshot(message: OverseerCoexistenceMessage): AuthoringSnapshot | null {
+function parseSnapshot(message: OverseerControllerMessage): AuthoringSnapshot | null {
   if (message.kind !== 'terminal-authoring-snapshot' || !Number.isSafeInteger(message.revision)
     || !isRecord(message.editor) || !isRecord(message.tree) || !isRecord(message.create)) return null;
   const revision = Number(message.revision);
@@ -90,11 +90,11 @@ function parseSnapshot(message: OverseerCoexistenceMessage): AuthoringSnapshot |
   });
 }
 
-function childMessage(kind: string, revision: number, value: DesktopRecord): OverseerCoexistenceMessage {
+function childMessage(kind: string, revision: number, value: DesktopRecord): OverseerControllerMessage {
   return Object.freeze({ ...value, kind, revision });
 }
 
-function isAuthoringRequest(message: unknown): message is OverseerCoexistenceMessage {
+function isAuthoringRequest(message: unknown): message is OverseerControllerMessage {
   if (!isRecord(message) || typeof message.kind !== 'string') return false;
   return message.kind === 'terminal-action-request'
     || message.kind === 'terminal-editor-action-request'
@@ -105,19 +105,24 @@ function isAuthoringRequest(message: unknown): message is OverseerCoexistenceMes
 }
 
 export function useTerminalAuthoring() {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const collapsedGroupIDs = shallowRef<ReadonlySet<string>>(new Set());
+  const error = ref('');
   const groups = shallowRef<readonly TerminalGroupRow[]>(Object.freeze([]));
   const terminals = shallowRef<readonly TerminalSelectionRow[]>(Object.freeze([]));
   const focusRequest = shallowRef<Readonly<{ ownerID: string; scope: string }> | null>(null);
   const revision = ref(-1);
-  const childListeners = new Set<(message: OverseerCoexistenceMessage) => void>();
+  const childListeners = new Set<(message: OverseerControllerMessage) => void>();
 
-  function emitToChildren(message: OverseerCoexistenceMessage): void {
+  function emitToChildren(message: OverseerControllerMessage): void {
     for (const listener of childListeners) listener(message);
   }
 
-  const release = bridge?.subscribeLegacyState(message => {
+  const release = controller?.subscribeState(message => {
+    if (message.kind === 'terminal-group-error') {
+      error.value = typeof message.error === 'string' ? message.error : '';
+      return;
+    }
     if (message.kind === 'terminal-selection-focus-request') {
       if (typeof message.ownerID === 'string' && typeof message.scope === 'string') {
         focusRequest.value = Object.freeze({ ownerID: message.ownerID, scope: message.scope });
@@ -143,9 +148,15 @@ export function useTerminalAuthoring() {
     emitToChildren(message);
   }) ?? (() => {});
 
-  const authoringBridge: OverseerCoexistenceBridge | null = bridge === null ? null : Object.freeze({
-    legacyToVue: bridge.legacyToVue,
-    subscribeLegacyState(listener: (message: OverseerCoexistenceMessage) => void) {
+  const authoringController: OverseerController | null = controller === null ? null : Object.freeze({
+    dispatch(value: unknown) {
+      if (isAuthoringRequest(value)
+        && (!Number.isSafeInteger(value.revision) || Number(value.revision) !== revision.value)) return false;
+      return controller.dispatch(value);
+    },
+    dispose: () => {},
+    publish: controller.publish,
+    subscribeState(listener: (message: OverseerControllerMessage) => void) {
       childListeners.add(listener);
       let active = true;
       return () => {
@@ -154,17 +165,11 @@ export function useTerminalAuthoring() {
         childListeners.delete(listener);
       };
     },
-    subscribeVueRequests: bridge.subscribeVueRequests,
-    vueToLegacy(value: unknown) {
-      if (isAuthoringRequest(value)
-        && (!Number.isSafeInteger(value.revision) || Number(value.revision) !== revision.value)) return false;
-      return bridge.vueToLegacy(value);
-    },
   });
-  if (authoringBridge !== null) provide(overseerCoexistenceBridgeKey, authoringBridge);
+  if (authoringController !== null) provide(overseerControllerKey, authoringController);
 
   function request(kind: string, extra: DesktopRecord): void {
-    bridge?.vueToLegacy({ ...extra, kind, revision: revision.value });
+    controller?.dispatch({ ...extra, kind, revision: revision.value });
   }
 
   function toggle(groupID: string): void {
@@ -179,6 +184,7 @@ export function useTerminalAuthoring() {
     release();
     childListeners.clear();
     collapsedGroupIDs.value = new Set();
+    error.value = '';
     groups.value = Object.freeze([]);
     terminals.value = Object.freeze([]);
     focusRequest.value = null;
@@ -187,6 +193,9 @@ export function useTerminalAuthoring() {
   return {
     action: (groupID: string, action: TerminalGroupAction) => request('terminal-group-action-request', { action, groupID }),
     collapsedGroupIDs: readonly(collapsedGroupIDs),
+    create: () => request('create-terminal-open-request', {}),
+    createGroup: () => request('terminal-group-create-request', {}),
+    error: readonly(error),
     focusRequest: readonly(focusRequest),
     groups: readonly(groups),
     revision: readonly(revision),

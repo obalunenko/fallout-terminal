@@ -1,0 +1,2 @@
+path=frontend/overseer/src/controllers/legacy-overseer.ts
+source=const legacyOverseerRoot = document.getElementById('legacyOverseerRoot')

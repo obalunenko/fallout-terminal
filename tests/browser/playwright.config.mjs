@@ -25,7 +25,12 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: '../../frontend/node_modules/.bin/vite ../../frontend/overseer/test-fixtures --config ../../frontend/overseer/vite.config.ts --mode candidate --host 127.0.0.1 --port 34120 --strictPort',
+      command: '../../frontend/node_modules/.bin/vite ../../frontend/overseer/src --config ../../frontend/overseer/vite.config.ts --mode browser-test --host 127.0.0.1 --port 34121 --strictPort',
+      url: 'http://127.0.0.1:34121',
+      reuseExistingServer: false,
+    },
+    {
+      command: '../../frontend/node_modules/.bin/vite ../../frontend/client --config ../../frontend/client/vite.config.ts --host 127.0.0.1 --port 34120 --strictPort',
       url: 'http://127.0.0.1:34120',
       reuseExistingServer: false,
     },

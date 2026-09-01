@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject, nextTick, onBeforeUnmount, onUnmounted, ref, watch } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -28,7 +28,7 @@ const emptySummary: ImpactSummary = Object.freeze({
 });
 
 const props = defineProps<{ readonly port: DesktopPort }>();
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 const amendButton = ref<HTMLButtonElement | null>(null);
 const canAmend = ref(false);
 const candidate = ref<readonly unknown[]>(Object.freeze([]));
@@ -59,7 +59,7 @@ function setOpen(nextOpen: boolean): void {
   if (!nextOpen) pending.value = false;
 }
 
-function handleMessage(message: OverseerCoexistenceMessage): void {
+function handleMessage(message: OverseerControllerMessage): void {
   if (message.kind === 'terminal-group-impact-open') {
     if (!Array.isArray(message.candidate)
       || !Number.isSafeInteger(message.expectedSessionRevision)
@@ -107,7 +107,7 @@ function close(): void {
 
 function amend(): void {
   if (!open.value || pending.value || !canAmend.value) return;
-  bridge?.vueToLegacy({ kind: 'terminal-group-impact-amend-requested' });
+  controller?.dispatch({ kind: 'terminal-group-impact-amend-requested' });
 }
 
 async function confirm(): Promise<void> {
@@ -126,7 +126,7 @@ async function confirm(): Promise<void> {
   } catch (cause) {
     result = { error: cause instanceof Error ? cause.message : String(cause), ok: false };
   }
-  bridge?.vueToLegacy({ kind: 'terminal-group-command-finished', result, source: 'impact' });
+  controller?.dispatch({ kind: 'terminal-group-command-finished', result, source: 'impact' });
   if (!active || requestLifecycle !== lifecycle || !open.value) return;
   pending.value = false;
 }
@@ -141,12 +141,12 @@ async function syncDialog(): Promise<void> {
   }
   else if (!open.value && element.open) {
     element.close();
-    if (restoreOnClose) bridge?.vueToLegacy({ kind: 'terminal-group-impact-closed' });
+    if (restoreOnClose) controller?.dispatch({ kind: 'terminal-group-impact-closed' });
     restoreOnClose = false;
   }
 }
 
-const release = bridge?.subscribeLegacyState(handleMessage) ?? (() => {});
+const release = controller?.subscribeState(handleMessage) ?? (() => {});
 watch(open, () => { void syncDialog(); }, { immediate: true, flush: 'post' });
 onBeforeUnmount(() => { if (dialog.value?.open === true) dialog.value.close(); });
 onUnmounted(() => {

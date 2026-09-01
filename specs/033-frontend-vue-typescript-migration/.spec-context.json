@@ -3,7 +3,7 @@
   "specName": "Vue and TypeScript Frontend Migration",
   "branch": "033-frontend-vue-typescript-migration",
   "currentStep": "implement",
-  "status": "implementing",
+  "status": "completed",
   "history": [
     {
       "step": "specify",
@@ -778,9 +778,872 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-31T12:19:51.761Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T089",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T13:37:31.951Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T090",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T13:52:33.795Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T091",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T13:55:49.928Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T092",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T13:56:34.508Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T093",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T14:47:58.347Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T094",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T14:49:05.181Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T095",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T14:49:34.708Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T096",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:01:00.975Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T097",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:03:04.895Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T098",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:05:48.288Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T099",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:09:19.083Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T100",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:12:19.585Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T101",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:15:54.871Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T102",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:18:18.511Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T103",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:20:37.559Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T104",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:24:42.420Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T105",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T15:28:45.880Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T106",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-08-31T17:04:25.548Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T107",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T20:26:23.651Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T108",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T20:27:26.503Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T109",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T20:35:16.486Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T110",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T20:40:00.805Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T111",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T20:40:37.012Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T112",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T20:55:51.675Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T113",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T21:00:05.313Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T114",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T21:18:04.824Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T115",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T21:18:04.873Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T116",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T21:21:15.117Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T117",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:02:04.255Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T118",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:04:54.302Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T119",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:08:08.973Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T120",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:10:13.764Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T121",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:13:41.806Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T122",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:15:59.080Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T123",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:20:31.265Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T124",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:27:26.840Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T125",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:30:49.750Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T126",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:33:02.698Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T127",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:34:39.032Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T128",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:35:00.837Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T129",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:36:07.074Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T130",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:37:09.375Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T131",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:46:17.948Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T132",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:47:39.525Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T133",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:48:11.902Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T134",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:50:41.418Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T135",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:54:20.440Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T136",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T22:59:45.308Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T137",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:01:09.207Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T138",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:06:15.884Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T139",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:07:39.245Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T140",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:08:05.721Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T141",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:10:05.768Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T142",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:11:55.266Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T143",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:12:15.326Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T144",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:26:13.775Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T145",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:33:07.708Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T146",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:33:30.344Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T147",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:35:51.870Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T148",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:36:43.587Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T149",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:39:59.760Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T150",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:41:23.122Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T151",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:46:42.306Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T152",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:48:10.027Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T153",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:49:08.829Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T154",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-08-31T23:50:31.336Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T155",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:31:22.435Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T156",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:32:44.011Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T157",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:41:03.166Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T158",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:42:54.672Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T159",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:50:25.063Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T160",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:50:46.305Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T161",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:52:51.060Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T162",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T00:54:47.490Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T163",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T01:49:02.698Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T164",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T01:50:32.472Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T165",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T05:00:26.113Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T166",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T05:02:28.346Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T167",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T05:03:14.365Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T168",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T05:04:43.890Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T169",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:13:45.431Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T170",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:19:41.627Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T171",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:20:01.191Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T172",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:20:20.790Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T173",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:20:38.170Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T174",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:21:04.106Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T175",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:38:33.625Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T176",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:39:00.531Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T177",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:42:25.263Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T178",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:42:44.084Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T179",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T08:46:07.047Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T180",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:21:50.779Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T181",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:26:42.858Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T182",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:27:35.557Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T183",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:30:36.551Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T184",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:30:51.670Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T185",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:31:26.401Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T186",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:32:00.361Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T187",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:32:33.320Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T188",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:33:01.742Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T189",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:33:27.391Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T190",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:33:55.450Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T191",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:34:34.533Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T192",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:35:23.503Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T193",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:36:23.109Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T194",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:40:39.212Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T195",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T09:41:48.170Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-01T09:41:48.246Z"
     }
   ],
-  "last_action": "T061 complete and validated; T062 BUG-013 scope patched, code implementation next",
+  "last_action": "T195 complete: real 195-task validator and git diff --check passed; ready for terminal completion",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -809,63 +1672,16 @@
       ]
     },
     "FR-002": {
-      "title": "The migration MUST preserve the exact rendered appearance, CSS behavior, user-visible text, accessibility semantics, keyboard behavior, pointer behavior, focus restoration, CRT and typewriter timing, and audio behavior of both current production interfaces.",
+      "title": "Preserve Player behavior and presentation",
       "tasks": [
-        "T016",
-        "T030",
-        "T045",
-        "T047",
-        "T048",
-        "T049",
-        "T050",
-        "T053",
-        "T058",
-        "T060",
-        "T062",
-        "T065",
-        "T067",
-        "T074",
-        "T076",
-        "T077",
-        "T078",
-        "T079",
-        "T080",
-        "T081",
-        "T082",
-        "T084",
-        "T085",
-        "T089",
-        "T093",
-        "T094",
-        "T114",
-        "T115",
-        "T118",
-        "T121",
-        "T122",
-        "T123",
-        "T128",
-        "T131",
-        "T133",
-        "T135",
-        "T136",
-        "T137",
-        "T138",
-        "T139",
-        "T140",
-        "T141",
-        "T142",
-        "T143",
-        "T145",
-        "T152",
-        "T153",
-        "T155",
-        "T162",
-        "T163",
-        "T179"
+        "T169",
+        "T179",
+        "T195"
       ],
       "tests": [
-        "tests/browser/player-management.spec.mjs::player management rows reject stale save and release modal resources",
-        "tests/browser/player-management.spec.mjs::player-management regression suite excluding T061 sentinel"
+        "tests/browser/player-sessions-control.spec.mjs",
+        "tests/browser/terminal-navigation.spec.mjs",
+        "tests/browser/crt-rendering.spec.mjs"
       ]
     },
     "FR-003": {
@@ -1399,31 +2215,20 @@
       ]
     },
     "FR-024": {
-      "title": "Existing Go APIs, Wails method contracts, desktop event names and payload meaning, ConnectRPC services, protobuf schemas, persistence contracts, and server behavior MUST remain unchanged except for deterministic browser-code generation required by this migration.",
+      "title": "Preserve public/private and native capability boundaries",
       "tasks": [
-        "T019",
-        "T021",
-        "T024",
-        "T028",
-        "T034",
-        "T035",
-        "T087",
-        "T088",
-        "T097",
-        "T098",
-        "T101",
-        "T109",
         "T164",
         "T165",
-        "T166",
-        "T167",
-        "T171",
         "T177",
         "T178",
         "T180",
         "T181",
-        "T186",
         "T195"
+      ],
+      "tests": [
+        "internal/player/http_test.go",
+        "internal/player/public_stream_test.go",
+        "internal/platform/assets_test.go"
       ]
     },
     "FR-025": {
@@ -1711,39 +2516,14 @@
       ]
     },
     "FR-034": {
-      "title": "Final acceptance MUST include deterministic checks for strict Vue Single-File Component compilation, generated protobuf drift, forbidden legacy production files and temporary switches, forbidden type-system escape hatches, both production builds, Wails binding integrity, native embedding and startup, embedded resources, supported package contents, and the complete existing quality suite.",
+      "title": "Complete deterministic verification and evidence",
       "tasks": [
-        "T011",
-        "T013",
-        "T014",
-        "T015",
-        "T020",
-        "T022",
-        "T023",
-        "T088",
-        "T091",
-        "T096",
-        "T097",
-        "T099",
-        "T100",
-        "T101",
-        "T102",
-        "T103",
-        "T104",
-        "T106",
-        "T157",
-        "T158",
-        "T159",
-        "T164",
-        "T165",
-        "T166",
-        "T167",
-        "T168",
         "T170",
         "T171",
         "T172",
         "T173",
         "T174",
+        "T175",
         "T176",
         "T177",
         "T178",
@@ -1756,6 +2536,9 @@
         "T193",
         "T194",
         "T195"
+      ],
+      "tests": [
+        "scripts/frontend-task-plan-check.sh --self-test"
       ]
     },
     "FR-035": {
@@ -2028,102 +2811,54 @@
       ]
     },
     "FR-049": {
-      "title": "Changing generated browser output from `target=js` to `target=ts` MUST NOT change protobuf schemas, descriptors, field numbers, wire encoding, RPC paths, Go-generated contracts, service behavior, or public and private capability boundaries.",
+      "title": "Preserve protobuf and ConnectRPC contracts during target=ts generation",
       "tasks": [
-        "T017",
-        "T018",
-        "T019",
-        "T020",
-        "T021",
-        "T022",
-        "T023",
-        "T024",
-        "T025",
-        "T026",
-        "T028",
-        "T030",
         "T177",
         "T195"
+      ],
+      "tests": [
+        "task proto:check",
+        "task proto:breaking"
       ]
     },
     "FR-050": {
-      "title": "Every permitted imperative integration MUST register lifecycle cleanup for its timers, animation frames, subscriptions, audio nodes, abort controllers, streams, observers, and document or window listeners.",
+      "title": "Clean up every imperative frontend lifecycle resource",
       "tasks": [
-        "T035",
-        "T044",
-        "T045",
-        "T048",
-        "T049",
-        "T050",
-        "T052",
-        "T053",
-        "T054",
-        "T055",
-        "T056",
-        "T057",
-        "T058",
-        "T059",
-        "T060",
-        "T061",
-        "T062",
-        "T063",
-        "T064",
-        "T065",
-        "T066",
-        "T067",
-        "T068",
-        "T070",
-        "T071",
-        "T072",
-        "T075",
-        "T076",
-        "T077",
-        "T078",
-        "T079",
-        "T080",
-        "T081",
-        "T082",
-        "T083",
-        "T084",
-        "T085",
-        "T086",
-        "T090",
-        "T110",
-        "T112",
-        "T113",
-        "T115",
-        "T119",
-        "T120",
-        "T121",
-        "T123",
-        "T124",
-        "T126",
-        "T127",
-        "T129",
-        "T132",
-        "T133",
-        "T135",
-        "T136",
-        "T137",
-        "T140",
-        "T141",
-        "T142",
-        "T143",
-        "T145",
-        "T146",
-        "T148",
-        "T149",
-        "T151",
-        "T152",
-        "T154",
         "T156",
-        "T162",
         "T169",
         "T192"
       ],
       "tests": [
-        "tests/browser/player-management.spec.mjs::closed or rebound dialog ignores stale result and releases listener",
-        "tests/browser/player-management.spec.mjs::uses custom deletion confirmation cancels without a call then confirms with latest revision"
+        "tests/browser/player-candidate-cleanup.spec.mjs",
+        "tests/browser/player-cutover-cleanup.spec.mjs",
+        "tests/browser/overseer-cutover-cleanup.spec.mjs"
+      ]
+    },
+    "SC-010": {
+      "title": "All governed checks and ownership evidence complete",
+      "tasks": [
+        "T169",
+        "T171",
+        "T172",
+        "T173",
+        "T174",
+        "T175",
+        "T177",
+        "T178",
+        "T179",
+        "T180",
+        "T181",
+        "T182",
+        "T183",
+        "T184",
+        "T193",
+        "T194",
+        "T195"
+      ],
+      "tests": [
+        "task check",
+        "task browser:test",
+        "scripts/frontend-task-plan-check.sh --self-test"
       ]
     }
   },
@@ -2141,7 +2876,9 @@
     "baseline: completed behavior specifications through feature 032 and current production assets",
     "constraint: exact presentation and interaction parity across both trust boundaries",
     "constraint: final strict TypeScript SFC ownership with no handwritten production JavaScript",
-    "Approach: revise feature 033 into an executable producer-before-consumer wave DAG with task-local evidence, exact path ownership, explicit temporary-mechanism lifecycle, and preserved protocol/security invariants. Player wave-c work stays capability-neutral; Player behavior unlocks only after complete wave-e; production cutover remains atomic in h."
+    "Approach: revise feature 033 into an executable producer-before-consumer wave DAG with task-local evidence, exact path ownership, explicit temporary-mechanism lifecycle, and preserved protocol/security invariants. Player wave-c work stays capability-neutral; Player behavior unlocks only after complete wave-e; production cutover remains atomic in h.",
+    "Implemented feature 033 on branch 033-frontend-vue-typescript-migration with immutable rollback ancestor 06696ee1c7155a1bb1135ef46ec91445dd73a2a4.",
+    "No livingSpecs capability was loaded for this run, so there is no living-spec delta or reasoned skip to account for."
   ],
   "intent": "Replace both production frontend implementations with independently typed component applications while preserving every established user, protocol, security, build, and package contract.",
   "expectations": [
@@ -2271,6 +3008,21 @@
       "decision": "Keep authoritative coordination application in the temporary legacy bridge while Vue owns delete request, modal lifecycle, pending state, stale guards, and focus.",
       "why": "Preserves one coordination authority until atomic Overseer cutover without retaining any legacy delete DOM ownership.",
       "rejected": "Duplicating coordination state mutation inside both owners."
+    },
+    {
+      "decision": "Bind the canonical protobuf drift task to the reviewed generated Player target and exact diagnostic",
+      "why": "The hardened drift checker requires explicit governed inputs and the repository Task target must remain executable",
+      "rejected": "Weakening the checker or omitting drift from aggregate CI"
+    },
+    {
+      "decision": "Retire legacy-only Go static-asset assertions after final Vue source/dist/embed and browser coverage landed",
+      "why": "The tests required intentionally deleted JavaScript and pre-Vue HTML owners while equivalent final contracts were already proven",
+      "rejected": "Restoring deleted legacy assets or skipping the repository Go suite"
+    },
+    {
+      "decision": "Classify native, provider and non-matching-host evidence independently",
+      "why": "Browser/fake/static evidence cannot prove Accessibility-driven native UI, real provider credentials, or another host runtime",
+      "rejected": "Inferring conditional PASS results"
     }
   ],
   "step_summaries": {
@@ -2281,6 +3033,14 @@
     },
     "tasks": {
       "summary": "195 gap-free tasks across waves a-i; localized corrections to T037, T040, T107, T161, T175, and T194 preserve full traceability and earlier-only ordering"
+    },
+    "implement": {
+      "summary": "Completed all 195 tasks for the two-app Vue/strict-TypeScript migration, including atomic cutovers, generated TypeScript, exact Wails and ConnectRPC boundaries, final documentation/templates, ownership closure and Definition of Done.",
+      "key_finding": "The accepted architecture has one private Overseer Vue root behind DesktopPort and one public Player Vue root behind generated ConnectRPC, with Go as sole shared authority and zero open temporary mechanisms.",
+      "risks": [
+        "Interactive native UI needs Accessibility permission for a future rerun",
+        "Real-provider and non-matching-host journeys remain explicitly NOT RUN"
+      ]
     }
   },
   "verified": [
@@ -2525,10 +3285,39 @@
       "warnings": [
         "Node FORCE_COLOR warning judged benign"
       ]
+    },
+    {
+      "what": "Final frontend, generation, browser, Go and repository gates",
+      "result": "PASS",
+      "command": "T171-T180 evidence; 276 browser tests passed, two credential-qualified tests NOT RUN; task check passed",
+      "warnings": [
+        "Real-provider tests require credentials"
+      ]
+    },
+    {
+      "what": "Matching-host package and native evidence",
+      "result": "PASS with conditional NOT RUN",
+      "command": "task package; scripts/verify-macos-app.sh; T181 native static gates",
+      "warnings": [
+        "Interactive native UI NOT RUN because Accessibility automation was unavailable",
+        "Windows and Linux matching hosts NOT RUN"
+      ]
+    },
+    {
+      "what": "Task-plan and Definition-of-Done validation",
+      "result": "PASS",
+      "command": "scripts/frontend-task-plan-check.sh --tasks specs/033-frontend-vue-typescript-migration/tasks.md --expected-task-count 195 && git diff --check",
+      "warnings": []
+    },
+    {
+      "what": "Bugfix artifact consistency",
+      "result": "PASS",
+      "command": "40 bug reports checked for Patched/date and spec/plan/tasks references; real plan validator rerun",
+      "warnings": []
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T088",
+  "currentTask": "T195",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -3526,6 +4315,1023 @@
         "Taskfile.yml",
         "scripts/frontend-task-contract-check.sh"
       ]
+    },
+    "T089": {
+      "status": "DONE",
+      "did": "Promoted Overseer production to one Vue root and installed a strict DOM-free typed controller owning retained session, terminal, grouping, coordination, reset, public-access, autosave, dialog, and privileged-command responsibilities; converted every production bridge consumer and proved exact source, CSP, assets, emitted output, and public selectors.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/main.ts",
+        "frontend/overseer/src/mount.ts",
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/vite.config.ts",
+        "frontend/overseer/src/controllers/overseer-controller.ts",
+        "frontend/overseer/src/components/CommandStateResetDialog.vue",
+        "frontend/overseer/src/components/CreateTerminalDialog.vue",
+        "frontend/overseer/src/components/GeneratedPasswordDialog.vue",
+        "frontend/overseer/src/components/PlayerCredentialsDialog.vue",
+        "frontend/overseer/src/components/PlayerDeleteDialog.vue",
+        "frontend/overseer/src/components/ProviderTokenDialog.vue",
+        "frontend/overseer/src/components/PublicAccessSettingsDialog.vue",
+        "frontend/overseer/src/components/TerminalActionMenu.vue",
+        "frontend/overseer/src/components/TerminalEditor.vue",
+        "frontend/overseer/src/components/TerminalGroupDraftDialog.vue",
+        "frontend/overseer/src/components/TerminalGroupImpactDialog.vue",
+        "frontend/overseer/src/components/TerminalTree.vue",
+        "frontend/overseer/src/composables/useBroadcastControls.ts",
+        "frontend/overseer/src/composables/useHackControls.ts",
+        "frontend/overseer/src/composables/useLogicalSessions.ts",
+        "frontend/overseer/src/composables/usePlayerConfiguration.ts",
+        "frontend/overseer/src/composables/usePlayerManagement.ts",
+        "frontend/overseer/src/composables/usePublicAccess.ts",
+        "frontend/overseer/src/composables/useSessionDocument.ts",
+        "frontend/overseer/src/composables/useTerminalAuthoring.ts",
+        "frontend/overseer/src/composables/useTerminalGroups.ts",
+        "frontend/overseer/src/composables/useTerminalSelection.ts",
+        "frontend/overseer/src/composables/useTerminalSwitch.ts",
+        "tests/browser/overseer-production-promotion.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T089-overseer-production-promotion.md"
+      ]
+    },
+    "T090": {
+      "status": "DONE",
+      "did": "Removed all eight Overseer legacy, candidate, and coexistence mechanisms; migrated every retained browser suite to a permanent production-root harness backed by the typed DesktopPort adapter and browser-only bindings; proved exact one-root selection and idempotent cleanup.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/desktop-api.js",
+        "frontend/overseer/tsconfig.legacy.json",
+        "frontend/overseer/test-fixtures/index.html",
+        "frontend/overseer/test-fixtures/candidate-main.ts",
+        "frontend/overseer/src/mount.ts",
+        "frontend/overseer/vite.config.ts",
+        "tests/browser/playwright.config.mjs",
+        "tests/browser/fixtures/overseer-app.ts",
+        "tests/browser/application-update.spec.mjs",
+        "tests/browser/overseer-broadcast-controls.spec.mjs",
+        "tests/browser/overseer-candidate-smoke.spec.mjs",
+        "tests/browser/overseer-dialog-focus.spec.mjs",
+        "tests/browser/overseer-hack-controls.spec.mjs",
+        "tests/browser/overseer-runtime-shell.spec.mjs",
+        "tests/browser/overseer-terminal-switch.spec.mjs",
+        "tests/browser/persistence-compatibility.spec.mjs",
+        "tests/browser/player-management.spec.mjs",
+        "tests/browser/player-sessions-control.spec.mjs",
+        "tests/browser/public-access-fallback.spec.mjs",
+        "tests/browser/public-access-settings.spec.mjs",
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "tests/browser/state-changing-command-sync.spec.mjs",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "tests/browser/terminal-navigation.spec.mjs",
+        "tests/browser/overseer-cutover-cleanup.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T091": {
+      "status": "DONE",
+      "did": "Extended the frontend policy gate to reject final Overseer authored JavaScript, temporary ownership identifiers, cross-application DOM edges, broad type escapes, and suppressions while excluding only the exact generated Wails bindings tree; added actionable legacy and generated-disguise negative fixtures.",
+      "files": [
+        "scripts/frontend-policy-check.sh",
+        "tests/fixtures/frontend-policy/invalid-overseer-legacy.txt",
+        "tests/fixtures/frontend-policy/invalid-generated-name-disguise.txt"
+      ]
+    },
+    "T092": {
+      "status": "DONE",
+      "did": "Proved final Overseer independent and workspace strict typechecks, privileged production build, and final policy gate with no JavaScript fallback or source leakage and only the typed Wails adapter boundary.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T092-overseer-build.md"
+      ]
+    },
+    "T093": {
+      "status": "DONE",
+      "did": "Passed the exact 173-test Overseer production-root parity gate; corrected production adapter ordering/normalization/disposal, permanent harness bootstraps, controller-owned status and command-result projections, public-access stale completion, player deletion, terminal grouping, and navigation parity exposed by the final suite.",
+      "files": [
+        "frontend/overseer/src/App.vue",
+        "frontend/overseer/src/adapters/desktop-api.ts",
+        "frontend/overseer/src/components/PublicAccessSettingsDialog.vue",
+        "frontend/overseer/src/composables/useCommandApproval.ts",
+        "frontend/overseer/src/composables/useTerminalNavigationApproval.ts",
+        "frontend/overseer/src/controllers/overseer-controller.ts",
+        "frontend/overseer/src/ports/desktop-port.ts",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/fixtures/overseer-app.ts",
+        "tests/browser/player-management.spec.mjs",
+        "tests/browser/public-access-fallback.spec.mjs",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T093-overseer-browser.md"
+      ]
+    },
+    "T094": {
+      "status": "DONE",
+      "did": "Proved immutable CRT visual parity after Overseer cutover: all 30 rendering, motion, reveal, hacking, focus/color, and snapshot checks passed with a clean snapshot-directory diff and no baseline update.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T094-overseer-visual.md"
+      ]
+    },
+    "T095": {
+      "status": "DONE",
+      "did": "Completed the production Overseer desktop/Wails boundary subset: the manifest completeness assertion and all 14 desktop adapter valid/invalid, ordering, normalization, clipboard, command-result, subscription, and disposal checks passed.",
+      "files": [
+        "tests/browser/fixtures/frontend-boundary-manifest.json",
+        "tests/browser/frontend-boundary-manifest.spec.mjs",
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T096": {
+      "status": "DONE",
+      "did": "Replaced seven raw Overseer HTML/JavaScript rewrite routes with one production #overseerApp fixture shell, removed deleted legacy script handlers and the obsolete terminal-grouping JavaScript shim, retained the typed fake binding import map, and served the production CSS/font assets. go fix made no out-of-scope Go edits; fixture Go compilation, all 14 desktop adapter tests, and the production-root promotion probe passed.",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T097": {
+      "status": "DONE",
+      "did": "Retargeted the native state-changing reset self-test from deleted legacy Overseer files to the production #overseerApp document and main.ts entry, bundle marker, Vue reset dialog, controller-to-typed-port reset command, typed Wails adapter, and Vue-owned saved-revision evidence. The self-test passed and the native automation semantics were unchanged.",
+      "files": [
+        "scripts/state-changing-reset-native-smoke.sh"
+      ]
+    },
+    "T098": {
+      "status": "DONE",
+      "did": "Added separate-serving assertions that Player public/static and authenticated ingress continue serving the Player shell and eight RPCs, authenticate privileged-looking paths at the edge, and return 404 for Overseer source/bundle assets after authentication. Go workflow: go fix PASS; modernization review PASS; intentional edits only PASS; gofmt PASS; go test ./internal/player PASS (rerun with loopback permission after sandbox bind denial).",
+      "files": [
+        "internal/player/http_test.go",
+        "internal/player/public_stream_test.go"
+      ]
+    },
+    "T099": {
+      "status": "DONE",
+      "did": "Preserved the already-correct protobuf -> Player strict/build -> Wails bindings -> Overseer strict/build plan and extended the Overseer preflight to inspect the emitted Vue bundle: exactly one #overseerApp root, module asset graph, no deleted bootstrap references, regular .keep marker, and regular JavaScript/CSS assets. Go workflow: go fix PASS; modernization review PASS; intentional edits only PASS; gofmt PASS; go test ./internal/buildtool PASS.",
+      "files": [
+        "internal/buildtool/preflight.go"
+      ]
+    },
+    "T100": {
+      "status": "DONE",
+      "did": "Added emitted Overseer bundle tests for exact single Vue root, module entry, deleted bootstrap rejection, regular embed marker, and JavaScript/CSS roles, plus a five-portable-target package matrix proving unchanged preparation owners, Wails bindings, notices, demo resources, and no legacy names. Go workflow: go fix PASS; modernization review PASS; intentional edits only PASS; gofmt PASS; go test ./internal/buildtool PASS.",
+      "files": [
+        "internal/buildtool/buildtool_test.go",
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T101": {
+      "status": "DONE",
+      "did": "Updated the privileged/public embed contract for the Overseer Vue cutover: production sources now require the Vue entry, SFC, controller, typed adapter, CSS, and font; removed legacy/candidate inputs must be absent; built output requires one Vue root, JS/CSS/font roles, exact font bytes, and no legacy/candidate/TypeScript/SFC/source-map leakage. main.go retains separate dist-only embeds. Go workflow: go fix PASS; modernization review PASS; intentional edits only PASS; gofmt PASS; macOS-flagged go test ./internal/platform -run TestAssets PASS.",
+      "files": [
+        "main.go",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T102": {
+      "status": "DONE",
+      "did": "Added Linux verifier validation for exactly one production Overseer Vue root, module assets, JavaScript/CSS/Fixedsys runtime roles, readable regular files, and rejection of legacy, candidate, test-fixture, TypeScript, SFC, and source-map leakage. Positive production/copy fixtures and negative candidate/legacy fixtures pass the self-test; bash syntax validation also passed.",
+      "files": [
+        "scripts/verify-linux-package.sh"
+      ]
+    },
+    "T103": {
+      "status": "DONE",
+      "did": "Updated the Windows verifier and self-test with the same production Overseer Vue root, JS/CSS/Fixedsys runtime-role, regular-file/reparse-point, and legacy/candidate/TypeScript/SFC/source-map rejection contract used by Linux. Result: NOT RUN on host Darwin because a Windows matching host is required; evidence records the exact pwsh follow-up and package-verifier evidence class.",
+      "files": [
+        "scripts/verify-windows-package.ps1",
+        "specs/033-frontend-vue-typescript-migration/evidence/T103-windows-verifier.md"
+      ]
+    },
+    "T104": {
+      "status": "DONE",
+      "did": "Updated both CI workflow consumer labels to make the separate public Player and privileged Overseer bundle roles explicit while retaining Task/buildtool as the only entrypoints. Verified exact Node 26.8.1, exactly one frontend/package-lock.json npm cache per workflow, zero direct npm workflow commands, the nine-target frontend contract, and focused workflow contract tests.",
+      "files": [
+        ".github/workflows/wails-cross-platform.yml",
+        ".github/workflows/wails-portable.yml"
+      ]
+    },
+    "T105": {
+      "status": "DONE",
+      "did": "Extended the dependency/license gate to validate both frontend workspaces pin Vue 3.5.42, the lockfile retains the exact five-package shipped Vue runtime graph and MIT metadata, and every shipped package has a notice entry. Added only the Vue runtime inventory/copyright explanation to THIRD_PARTY_NOTICES.md; confirmed all frontend manifests and the lockfile are unchanged. The checker passes without Go cache or stat-cache warnings.",
+      "files": [
+        "scripts/dependency-license-check.sh",
+        "THIRD_PARTY_NOTICES.md"
+      ]
+    },
+    "T106": {
+      "status": "DONE",
+      "did": "Completed the Wave-e exit: all strict/build/compatibility/policy/reproducibility/browser/visual/binding/scanner/license/Go/package gates passed; fixed BUG-033 through BUG-037; real packaged approval/reset/convergence/navigation/reopen passed; recorded honest Windows and credential-qualified NOT RUN evidence; closed all Overseer temporary ownership and unblocked Player candidate work.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T106-wave-e.md",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-033.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-034.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-035.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-036.md",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-037.md",
+        "scripts/secret-leak-check.sh",
+        "scripts/wails-v3-cutover-check.sh",
+        "scripts/state-changing-reset-native-smoke.sh",
+        "scripts/state-changing-reset-native-player-smoke.mjs",
+        "README.md",
+        "tests/browser/overseer-broadcast-controls.spec.mjs",
+        "tests/browser/overseer-hack-controls.spec.mjs"
+      ]
+    },
+    "T107": {
+      "status": "DONE",
+      "did": "Added explicit test-only Player candidate Vite mode and Playwright server, proved one isolated #playerApp route, and verified the production browser build remains legacy client.js with no candidate output.",
+      "files": [
+        "frontend/client/vite.config.ts",
+        "tests/browser/playwright.config.mjs",
+        "tests/browser/player-candidate-smoke.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T107-player-candidate-selection.md"
+      ]
+    },
+    "T108": {
+      "status": "DONE",
+      "did": "Added the exact snapshot-first/reconnect/revision/cancellation transport lifecycle assertion and captured only its governed expected RED signature.",
+      "files": [
+        "tests/browser/player-candidate-transport.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T108-transport-red.txt"
+      ]
+    },
+    "T109": {
+      "status": "DONE",
+      "did": "Implemented a generated-public-only Player RPC adapter for all eight unchanged contracts with exact procedures/cardinalities, binary 4 KiB request bounds, semantic request/result validation, typed errors, and no privileged dependency edge.",
+      "files": [
+        "frontend/client/src/adapters/player-rpc.ts",
+        "tests/browser/player-candidate-transport.spec.mjs"
+      ]
+    },
+    "T110": {
+      "status": "DONE",
+      "did": "Implemented the Player subscription owner with complete-snapshot-first enforcement, monotonic revision filtering, generation-safe replacement, fixed 3s reconnect, AbortController/iterator cancellation, late-result suppression, and idempotent scope cleanup.",
+      "files": [
+        "frontend/client/src/composables/usePlayerSubscription.ts",
+        "tests/browser/player-candidate-transport.spec.mjs"
+      ]
+    },
+    "T111": {
+      "status": "DONE",
+      "did": "Added the exact multi-tab logical-session/one-stream-per-tab assertion and captured only its governed recognition RED signature.",
+      "files": [
+        "tests/browser/player-candidate-recognition.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T111-recognition-red.txt"
+      ]
+    },
+    "T112": {
+      "status": "DONE",
+      "did": "Implemented the Player recognition storage boundary with exact keys, versioned safe-integer expiry records, opaque identifier validation, fail-safe storage denial handling, and releasable validated storage-event observation; added and passed the exact focused browser assertion.",
+      "files": [
+        "frontend/client/src/adapters/recognition-storage.ts",
+        "tests/browser/player-candidate-recognition.spec.mjs"
+      ]
+    },
+    "T113": {
+      "status": "DONE",
+      "did": "Implemented Web Locks-first Player session initialization with the exact 5000ms lease, 100ms retry/election fallback, versioned contender election, expiry recovery, token-protected release, one subscription start per tab, and idempotent timer/listener/lock cleanup; passed the exact focused browser assertion.",
+      "files": [
+        "frontend/client/src/composables/useRecognitionLease.ts",
+        "tests/browser/player-candidate-recognition.spec.mjs"
+      ]
+    },
+    "T114": {
+      "status": "DONE",
+      "did": "Implemented a typed snapshot/update Player projection with complete-message and monotonic-revision gates plus the Vue CRT shell and terminal chrome preserving the legacy .crt, #screen, copy, classes, and server-authoritative rendering contract; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/composables/usePlayerProjection.ts",
+        "frontend/client/src/components/CrtShell.vue",
+        "frontend/client/src/components/TerminalChrome.vue",
+        "frontend/client/src/App.vue",
+        "tests/browser/player-candidate-shell.spec.mjs"
+      ]
+    },
+    "T115": {
+      "status": "DONE",
+      "did": "Implemented generation-ordered connection overlay projection plus accessible ConnectionOverlay and PlayerNotice components with exact legacy selectors/copy, assertive/polite live regions, stale-generation suppression, and idempotent disposal; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/components/ConnectionOverlay.vue",
+        "frontend/client/src/components/PlayerNotice.vue",
+        "frontend/client/src/composables/useConnectionOverlay.ts",
+        "tests/browser/player-candidate-shell.spec.mjs"
+      ]
+    },
+    "T116": {
+      "status": "DONE",
+      "did": "Implemented a typed Player identity projection validating opaque recognition/session/character IDs, bounded display text, role/phase enums, unique roster entries, assignment consistency, monotonic revisions, and no-state-change rejection; passed the exact focused browser assertion.",
+      "files": [
+        "frontend/client/src/composables/usePlayerIdentity.ts",
+        "tests/browser/player-candidate-identity.spec.mjs"
+      ]
+    },
+    "T117": {
+      "status": "DONE",
+      "did": "Implemented server-authoritative controller/observer projection with terminal/broadcast matching, observer read-only state, context-keyed transient feedback, context teardown, stale-revision rejection, and idempotent disposal; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/composables/usePlayerAuthority.ts",
+        "tests/browser/player-candidate-identity.spec.mjs"
+      ]
+    },
+    "T118": {
+      "status": "DONE",
+      "did": "Implemented transport-free CharacterSelection, CharacterOption, AssignedWaiting, and PlayerStatusLine Vue leaves with exact IDs/classes/copy, accessibility, stable roster keys, native keyboard/focus behavior, typed selection emits, and unmount cleanup; passed the exact focused browser assertion.",
+      "files": [
+        "frontend/client/src/components/CharacterSelection.vue",
+        "frontend/client/src/components/CharacterOption.vue",
+        "frontend/client/src/components/AssignedWaiting.vue",
+        "frontend/client/src/components/PlayerStatusLine.vue",
+        "tests/browser/player-candidate-identity.spec.mjs"
+      ]
+    },
+    "T119": {
+      "status": "DONE",
+      "did": "Implemented correlated SelectCharacter/Navigate actions with unique request identity, authority and one-pending gates, abortable RPC calls, typed result correlation, accepted-revision convergence, rejection/error handling, stale/late suppression, and disposal cleanup; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/composables/usePlayerActions.ts",
+        "tests/browser/player-candidate-navigation.spec.mjs"
+      ]
+    },
+    "T120": {
+      "status": "DONE",
+      "did": "Implemented typed terminal navigation projection validating list/entry invariants, public path/node IDs, monotonic revisions, one-pending exclusion, and connected-only generation-safe focus restoration with disposal cleanup; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/composables/useTerminalNavigation.ts",
+        "tests/browser/player-candidate-navigation.spec.mjs"
+      ]
+    },
+    "T121": {
+      "status": "DONE",
+      "did": "Implemented ref-driven pagination measurement with baseline-compatible natural page breaks, ResizeObserver/font-ready/RAF scheduling, temporary child-node restoration preserving listeners, frame replacement, late-font guards, and idempotent observer/frame cleanup; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/composables/usePaginationMeasurement.ts",
+        "tests/browser/player-candidate-pagination.spec.mjs"
+      ]
+    },
+    "T122": {
+      "status": "DONE",
+      "did": "Implemented transport-free TerminalSurface, TerminalMenu, and TerminalMenuRow components with legacy selectors/empty copy, accessible listbox rows, Enter/Space activation, stable server node keys, observer/pending/controller authority gates, and typed node emits; passed the exact focused assertion.",
+      "files": [
+        "frontend/client/src/components/TerminalSurface.vue",
+        "frontend/client/src/components/TerminalMenu.vue",
+        "frontend/client/src/components/TerminalMenuRow.vue",
+        "tests/browser/player-candidate-navigation.spec.mjs"
+      ]
+    },
+    "T123": {
+      "status": "DONE",
+      "did": "Implemented terminal record, footer, and pagination Vue leaves with legacy selectors/copy, pending semantics, bounded controls, keyboard focus retention, typed back/page emits, and clean unmount; passed the exact focused layout/focus/cleanup assertion.",
+      "files": [
+        "frontend/client/src/components/TerminalRecord.vue",
+        "frontend/client/src/components/TerminalFooter.vue",
+        "frontend/client/src/components/PaginationControls.vue",
+        "tests/browser/player-candidate-pagination.spec.mjs"
+      ]
+    },
+    "T124": {
+      "status": "DONE",
+      "did": "Integrated shell, recognition lease, snapshot-first subscription, typed projection/identity/authority/actions/navigation, connection state, and terminal leaves under one candidate Vue scope with explicit RPC/storage mount ports; proved one logical session, one physical stream, and first-unmount cascading abort/iterator/listener cleanup.",
+      "files": [
+        "frontend/client/src/App.vue",
+        "frontend/client/src/mount.ts",
+        "frontend/client/test-fixtures/candidate-main.ts",
+        "frontend/client/src/env.d.ts",
+        "tests/browser/player-candidate-session.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T125": {
+      "status": "DONE",
+      "did": "Extended the governed frontend boundary manifest with complete paired valid/invalid wave-f decoded-network, recognition-storage, DOM-action, and navigation mappings; added missing/duplicate/owner/test/outcome validation and executable focused accept/reject plus no-state-change assertions; all six manifest/boundary tests pass.",
+      "files": [
+        "tests/browser/fixtures/frontend-boundary-manifest.json",
+        "tests/browser/frontend-boundary-manifest.spec.mjs",
+        "tests/browser/player-candidate-boundary.spec.mjs"
+      ]
+    },
+    "T126": {
+      "status": "DONE",
+      "did": "Turned the governed T108 transport RED GREEN with its exact assertion covering pre-snapshot rejection, two exact 3000ms reconnects, slow-stream termination/recovery, stale revision/generation suppression, correlated action convergence at the authoritative revision, and exact abort/iterator cleanup.",
+      "files": [
+        "tests/browser/player-candidate-transport.spec.mjs"
+      ]
+    },
+    "T127": {
+      "status": "DONE",
+      "did": "Turned the governed T111 race RED GREEN: simultaneous contenders elected exactly one initializer, two qualifying tabs shared one logical recognition handle while each started one stream, expired and malformed leases recovered, denied storage failed safely, and all coordination listeners/leases were released.",
+      "files": [
+        "tests/browser/player-candidate-recognition.spec.mjs"
+      ]
+    },
+    "T128": {
+      "status": "DONE",
+      "did": "Ran the complete focused wave-f identity, authority, actions, navigation, pagination, and integrated-session candidate set: all 9 tests passed with unchanged server authority, pending/focus semantics, stable keys, and cascading cleanup; recorded exact browser evidence.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T128-player-f-navigation.md"
+      ]
+    },
+    "T129": {
+      "status": "DONE",
+      "did": "Added and passed an exact-count wave-f cleanup stress proving one-for-one release of subscription/action AbortControllers, iterator return, reconnect and lease timers, recognition listener, ResizeObserver, RAF, late-font callback, and queued focus work, with repeated disposal and late results suppressed.",
+      "files": [
+        "tests/browser/player-candidate-cleanup.spec.mjs"
+      ]
+    },
+    "T130": {
+      "status": "DONE",
+      "did": "Proved Player and workspace strict compilation, isolated candidate build with exactly four runtime artifacts and an empty forbidden-path inventory, public-only frontend policy, six executable boundary mappings, and exact one-session/one-stream lifecycle; recorded the loopback-denied first attempt and unchanged permitted rerun honestly.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T130-player-f-build.md"
+      ]
+    },
+    "T131": {
+      "status": "DONE",
+      "did": "Proved production Player remained wholly legacy-selected during candidate work: 41 legacy ConnectRPC/CRT tests passed, only two credential-qualified real-ngrok cases skipped, immutable visual snapshots were clean, and the production entry contained no candidate/test-fixture reference; recorded the sandbox loopback retry honestly.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T131-player-legacy.md"
+      ]
+    },
+    "T132": {
+      "status": "DONE",
+      "did": "Closed wave f: Player strict and exact candidate build/policy passed; 10 candidate transport/recognition/navigation/cleanup tests and 41 unconditional legacy ConnectRPC/CRT tests passed; immutable snapshots stayed clean; two credential-qualified ngrok cases were recorded as conditional skips; ownership and complete resource cleanup inventory were recorded.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T132-wave-f.md"
+      ]
+    },
+    "T133": {
+      "status": "DONE",
+      "did": "Recorded the governed wave-g hacking RED: the exact geometry/input/authority/cleanup assertion failed with only its accepted product signature, while infrastructure/config/route/tool/syntax/timeout failures remained excluded; immutable RED evidence was captured.",
+      "files": [
+        "tests/browser/player-candidate-hacking.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T133-hacking-red.txt"
+      ]
+    },
+    "T134": {
+      "status": "DONE",
+      "did": "Implemented validated authoritative hacking session state and correlated guess/pattern actions: attempts/outcomes/columns/words/patterns/log invariants reject before state, context/authority and target gates reject stale work, accepted actions remain pending until authoritative revision convergence, and no optimistic canonical mutation occurs; exact assertion passed.",
+      "files": [
+        "frontend/client/src/composables/useHackingSession.ts",
+        "tests/browser/player-candidate-hacking.spec.mjs"
+      ]
+    },
+    "T135": {
+      "status": "DONE",
+      "did": "Implemented isolated hacking-board measurement with ID-free inert probes, responsive layout modes, fitted row geometry, and deterministic observer/frame/probe cleanup; strict typecheck, candidate build, and focused browser lifecycle assertion pass.",
+      "files": [
+        "frontend/client/src/composables/useHackingBoardFit.ts",
+        "tests/browser/player-candidate-hacking-fit.spec.mjs"
+      ]
+    },
+    "T136": {
+      "status": "DONE",
+      "did": "Implemented context-authorized hacking pointer grouping for split words and patterns, current-geometry validation, delegated pointer/focus/click listeners, focus restoration, and deterministic hover timer/listener cleanup; strict typecheck, candidate build, and focused browser assertion pass.",
+      "files": [
+        "frontend/client/src/composables/useHackingPointer.ts",
+        "tests/browser/player-candidate-hacking-pointer.spec.mjs"
+      ]
+    },
+    "T137": {
+      "status": "DONE",
+      "did": "Implemented terminal keyboard routing with current-context and authority checks, editable-focus exclusions, hacking/menu/page commands, blocked-input consumption, and deterministic document listener removal; strict typecheck, candidate build, and focused browser assertion pass.",
+      "files": [
+        "frontend/client/src/composables/useTerminalKeyboard.ts",
+        "tests/browser/player-candidate-hacking.spec.mjs"
+      ]
+    },
+    "T138": {
+      "status": "DONE",
+      "did": "Implemented typed hacking surface, attempts, board, column, row, and cell components with legacy selectors, 12-cell geometry, stable row/cell keys, delegated authorized pointer actions, focus reconciliation, and fit lifecycle ownership; strict typecheck, candidate build, and focused DOM/geometry assertion pass.",
+      "files": [
+        "frontend/client/src/components/HackingSurface.vue",
+        "frontend/client/src/components/HackingAttempts.vue",
+        "frontend/client/src/components/HackingBoard.vue",
+        "frontend/client/src/components/HackingColumn.vue",
+        "frontend/client/src/components/HackingRow.vue",
+        "frontend/client/src/components/HackingCell.vue",
+        "tests/browser/player-candidate-hacking.spec.mjs"
+      ]
+    },
+    "T139": {
+      "status": "DONE",
+      "did": "Implemented text-only hacking log, typed-over-hover input preview, and authoritative blocked-state components with exact legacy copy, live-region semantics, preserved external focus, and no unsafe HTML rendering; strict typecheck, candidate build, and focused browser assertion pass.",
+      "files": [
+        "frontend/client/src/components/HackingLog.vue",
+        "frontend/client/src/components/HackingInputPreview.vue",
+        "frontend/client/src/components/HackingBlocked.vue",
+        "tests/browser/player-candidate-hacking.spec.mjs"
+      ]
+    },
+    "T140": {
+      "status": "DONE",
+      "did": "Recorded the governed typewriter/CRT RED with the exact accepted assertion signature; the harness rejected infrastructure and unrelated-failure classes and wrote immutable T140 evidence.",
+      "files": [
+        "tests/browser/player-candidate-typewriter.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T140-typewriter-red.txt"
+      ]
+    },
+    "T141": {
+      "status": "DONE",
+      "did": "Implemented a deterministic 40 ms typewriter controller with identity suppression, ordered cues, physical-key repeat consumption, generation-safe cancel/complete transitions, and timer/key-listener teardown; strict typecheck, candidate build, and focused clock assertion pass.",
+      "files": [
+        "frontend/client/src/composables/useTypewriterReveal.ts",
+        "tests/browser/player-candidate-typewriter.spec.mjs"
+      ]
+    },
+    "T142": {
+      "status": "DONE",
+      "did": "Extracted CRT scanline/vignette effects into a typed component, preserved the shell flicker and reduced-viewport overlay geometry, wired presentation classes to reveal context, and proved stale effects clear on context change and unmount; strict typecheck, candidate build, and focused browser assertion pass.",
+      "files": [
+        "frontend/client/src/components/CrtEffects.vue",
+        "frontend/client/src/components/CrtShell.vue",
+        "tests/browser/player-candidate-typewriter.spec.mjs"
+      ]
+    },
+    "T143": {
+      "status": "DONE",
+      "did": "Recorded the governed gesture/audio RED with the exact accepted assertion signature and immutable T143 evidence.",
+      "files": [
+        "tests/browser/player-candidate-sound.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T143-sound-red.txt"
+      ]
+    },
+    "T144": {
+      "status": "DONE",
+      "did": "Implemented the typed sound-manifest adapter with exact category mapping, safe single-filename extension validation, same-origin URL construction, deduplication, abort propagation, and isolated optional RPC failures; strict typecheck, candidate build, and focused shipped-asset assertion pass.",
+      "files": [
+        "frontend/client/src/adapters/sound-manifest.ts",
+        "tests/browser/player-candidate-sound.spec.mjs"
+      ]
+    },
+    "T145": {
+      "status": "DONE",
+      "did": "Implemented Vue-scope terminal sound ownership with gesture unlock, exact cue and ambient volumes, manifest loading, authoritative revision deduplication, optional failure isolation, and complete abort/stop/disconnect/pause/close teardown; strict typecheck, candidate build, and focused resource-lifecycle assertion pass.",
+      "files": [
+        "frontend/client/src/composables/useTerminalSound.ts",
+        "tests/browser/player-candidate-sound.spec.mjs"
+      ]
+    },
+    "T146": {
+      "status": "DONE",
+      "did": "Recorded the governed presentation streaming/backpressure/cancel/fallback RED with the exact accepted assertion signature and immutable T146 evidence.",
+      "files": [
+        "tests/browser/player-candidate-uplink.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T146-uplink-red.txt"
+      ]
+    },
+    "T147": {
+      "status": "DONE",
+      "did": "Implemented typed presentation-uplink capability probing, open/intent envelope construction, generation/client/request-correlated ready/action validation, end-response validation, and signal-preserving unary fallback; strict typecheck, candidate build, and focused transport boundary assertion pass.",
+      "files": [
+        "frontend/client/src/adapters/presentation-uplink-transport.ts",
+        "tests/browser/player-candidate-uplink.spec.mjs"
+      ]
+    },
+    "T148": {
+      "status": "DONE",
+      "did": "Implemented a single-consumer latest-value presentation mailbox with replacement discard hooks, context invalidation, controller-only offers, close/iterator cancellation, and bounded one-slot state; strict typecheck, candidate build, and focused queue assertion pass.",
+      "files": [
+        "frontend/client/src/composables/usePresentationQueue.ts",
+        "tests/browser/player-candidate-uplink.spec.mjs"
+      ]
+    },
+    "T149": {
+      "status": "DONE",
+      "did": "Implemented presentation-uplink lifecycle ownership across stream AbortControllers, one-slot iterators, ready/result correlation, retry timers, stale generation rejection, unary fallback, and authoritative result delivery; strict typecheck, candidate build, and focused resource-release assertion pass.",
+      "files": [
+        "frontend/client/src/composables/usePresentationUplink.ts",
+        "tests/browser/player-candidate-uplink.spec.mjs"
+      ]
+    },
+    "T150": {
+      "status": "DONE",
+      "did": "Added complete valid/invalid Wave G mappings for pointer geometry, keyboard authority, sound assets, and presentation stream results; manifest validation rejects missing mappings and focused candidate boundary tests prove no-state-change before trust.",
+      "files": [
+        "tests/browser/fixtures/frontend-boundary-manifest.json",
+        "tests/browser/frontend-boundary-manifest.spec.mjs",
+        "tests/browser/player-candidate-boundary.spec.mjs"
+      ]
+    },
+    "T151": {
+      "status": "DONE",
+      "did": "Integrated authoritative hacking, pointer/keyboard geometry, 40ms typewriter/CRT state, gesture sound, and presentation uplink under the single candidate App scope; candidate entry marks one lifecycle owner and unmount proves balanced document listeners plus stream abort.",
+      "files": [
+        "frontend/client/src/App.vue",
+        "frontend/client/test-fixtures/candidate-main.ts",
+        "tests/browser/player-candidate-integration.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T152": {
+      "status": "DONE",
+      "did": "Turned all four governed Wave G RED assertions GREEN and ran the complete eight-file Player candidate suite: strict typecheck passed and all 26 candidate tests passed with no skips.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T152-player-candidate.md"
+      ]
+    },
+    "T153": {
+      "status": "DONE",
+      "did": "Ran the immutable CRT visual matrix: all 30 compact/medium/large behavior and snapshot journeys passed, and the complete 12-snapshot directory has a clean Git diff with no baseline update.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T153-player-visual.md"
+      ]
+    },
+    "T154": {
+      "status": "DONE",
+      "did": "Closed Wave G after strict typecheck, exact 217-module candidate build, policy gate, 11 boundary tests, 26 candidate tests, 41 unconditional legacy ConnectRPC/CRT tests, and immutable snapshot diff passed; recorded two credential-qualified ngrok tests as skipped and authorized only atomic Wave H cutover.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T154-wave-g.md"
+      ]
+    },
+    "T155": {
+      "status": "DONE",
+      "did": "Promoted the complete Vue Player to the sole production root and verified CSP, runtime assets, selected-source cleanliness, and public selectors.",
+      "files": [
+        "frontend/client/index.html",
+        "frontend/client/src/main.ts",
+        "frontend/client/src/mount.ts",
+        "frontend/client/vite.config.ts",
+        "tests/browser/player-production-promotion.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T155-player-production-promotion.md"
+      ]
+    },
+    "T156": {
+      "status": "DONE",
+      "did": "Removed all nine Player legacy, alternate-route, selection, staging, and lifecycle mechanisms; production-only policy, typecheck, build, source scans, and cleanup smokes pass.",
+      "files": [
+        "frontend/client/client.js",
+        "frontend/client/sound.js",
+        "frontend/client/presentation-uplink.js",
+        "frontend/client/tsconfig.legacy.json",
+        "frontend/client/test-fixtures/index.html",
+        "frontend/client/test-fixtures/candidate-main.ts",
+        "frontend/client/src/mount.ts",
+        "frontend/client/src/env.d.ts",
+        "frontend/client/vite.config.ts",
+        "tests/browser/playwright.config.mjs",
+        "tests/browser/player-candidate-smoke.spec.mjs",
+        "tests/browser/player-cutover-cleanup.spec.mjs",
+        "scripts/frontend-policy-check.sh",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md"
+      ]
+    },
+    "T157": {
+      "status": "DONE",
+      "did": "Validated and served the built Vue Player entry from the browser fixture; Go compilation and all 11 unconditional ConnectRPC acceptance tests pass with two credential-qualified skips.",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/connectrpc-player.spec.mjs",
+        "frontend/client/src/App.vue",
+        "frontend/client/src/adapters/player-rpc.ts",
+        "frontend/client/src/adapters/presentation-stream-transport.ts",
+        "frontend/client/src/components/PlayerStatusLine.vue",
+        "frontend/client/src/components/TerminalMenu.vue",
+        "frontend/client/src/components/TerminalMenuRow.vue",
+        "frontend/client/src/components/TerminalSurface.vue",
+        "frontend/client/src/components/CrtShell.vue",
+        "frontend/client/src/composables/usePlayerActions.ts"
+      ]
+    },
+    "T158": {
+      "status": "DONE",
+      "did": "Completed final Player policy enforcement for authored JavaScript, privileged/transitive imports, alternate roots, staging mechanisms, and type escapes; all negative fixtures fail actionably.",
+      "files": [
+        "scripts/frontend-policy-check.sh",
+        "tests/fixtures/frontend-policy/valid-player-foundation.txt",
+        "tests/fixtures/frontend-policy/invalid-player-legacy.txt",
+        "tests/fixtures/frontend-policy/invalid-player-transitive-wails.txt",
+        "tests/fixtures/frontend-policy/invalid-player-candidate.txt",
+        "frontend/client/src/components/CharacterOption.vue",
+        "frontend/client/src/components/HackingColumn.vue",
+        "frontend/client/src/components/HackingRow.vue",
+        "frontend/client/src/components/PlayerNotice.vue",
+        "frontend/client/src/components/TerminalMenuRow.vue"
+      ]
+    },
+    "T159": {
+      "status": "DONE",
+      "did": "Updated buildtool Player preflight to validate the production Vue root, hashed JS/CSS, embed marker, and removed-entry absence while preserving generated-contract ordering and all five package plans; mandatory go fix and focused tests pass.",
+      "files": [
+        "internal/buildtool/preflight.go",
+        "internal/buildtool/buildtool_test.go",
+        "internal/buildtool/package_test.go"
+      ]
+    },
+    "T160": {
+      "status": "DONE",
+      "did": "Verified strict Player and workspace SFC/generated TypeScript compilation plus final Player policy with no JavaScript fallback, broad escapes, or cross-boundary declarations.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T160-player-typecheck.md"
+      ]
+    },
+    "T161": {
+      "status": "DONE",
+      "did": "Added a normalized relative-path runtime inventory checker and proved the production bundle, Fixedsys font, and 20 governed sounds are complete, byte-identical, and free of source/legacy/privileged leakage.",
+      "files": [
+        "scripts/frontend-runtime-inventory-check.sh",
+        "tests/fixtures/frontend-runtime-inventory/valid-relative-paths.txt",
+        "tests/fixtures/frontend-runtime-inventory/invalid-relative-paths.txt",
+        "tests/fixtures/frontend-runtime-inventory/required-player-assets.txt",
+        "frontend/client/vite.config.ts",
+        "specs/033-frontend-vue-typescript-migration/evidence/T161-player-build.md"
+      ]
+    },
+    "T162": {
+      "status": "DONE",
+      "did": "Ran the complete built-Player production stress and ConnectRPC suite: 13 unconditional tests pass across convergence, navigation, hacking, sound, uplink fallback/streaming, reconnect, authority, and cleanup; two credential-qualified journeys skipped.",
+      "files": [
+        "tests/browser/player-production-stress.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/evidence/T162-player-browser.md"
+      ]
+    },
+    "T163": {
+      "status": "DONE",
+      "did": "Verified the production Vue Player against all CRT behavior and immutable visual contracts: 30 tests and all twelve snapshots pass unchanged.",
+      "files": [
+        "frontend/client/client.css",
+        "frontend/client/src/App.vue",
+        "frontend/client/src/components/HackingBlocked.vue",
+        "frontend/client/src/components/HackingBoard.vue",
+        "frontend/client/src/components/HackingColumn.vue",
+        "frontend/client/src/components/HackingRow.vue",
+        "frontend/client/src/components/HackingSurface.vue",
+        "frontend/client/src/components/TerminalMenu.vue",
+        "frontend/client/src/components/TerminalRecord.vue",
+        "frontend/client/src/components/TerminalSurface.vue",
+        "frontend/client/src/composables/useHackingBoardFit.ts",
+        "frontend/client/src/composables/usePlayerProjection.ts",
+        "frontend/client/src/composables/usePlayerSubscription.ts",
+        "frontend/client/src/composables/useTerminalNavigation.ts",
+        "frontend/client/src/composables/useTypewriterReveal.ts",
+        "specs/033-frontend-vue-typescript-migration/evidence/T163-player-visual.md"
+      ]
+    },
+    "T164": {
+      "status": "DONE",
+      "did": "Updated Player HTTP/public ingress tests for the sole Vue #playerApp root, emitted runtime bundle/font, legacy/source/private asset rejection, unchanged CSP/auth limits and all eight ConnectRPC operations. go fix review, gofmt, and go test ./internal/player passed.",
+      "files": [
+        "internal/player/public_stream_test.go",
+        "internal/player/http_test.go"
+      ]
+    },
+    "T165": {
+      "status": "DONE",
+      "did": "Updated platform asset/embed assertions for the production Player Vue source and runtime-only dist inventory, exact playerApp root/module/font/sounds, and explicit legacy/candidate/authored-source/Overseer/private leakage rejection. go fix review, gofmt, and the macOS-qualified TestAssets gate passed.",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T166": {
+      "status": "DONE",
+      "did": "Updated the native reset smoke self-test for the sole Player Vue root and typed entry, rejected removed legacy and candidate Player paths, retained the reset lifecycle and cleanup trap, and classified unsupported hosts as NOT RUN.",
+      "files": [
+        "scripts/state-changing-reset-native-smoke.sh"
+      ]
+    },
+    "T167": {
+      "status": "DONE",
+      "did": "Updated the secret-boundary checker to require the sole production Player Vue root and emitted module while rejecting legacy, candidate, authored-source, privileged, cross-application, and credential leakage from the Player bundle; the complete checker passed.",
+      "files": [
+        "scripts/secret-leak-check.sh"
+      ]
+    },
+    "T168": {
+      "status": "DONE",
+      "did": "Built and verified the matching macOS arm64 application package, recorded executable/signature/resource identity, separate Vue bundle inventories, font and sound presence, legacy/candidate/source absence, the canonical package digest, and honest Linux/Windows NOT RUN classifications.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T168-player-package.md"
+      ]
+    },
+    "T169": {
+      "status": "DONE",
+      "did": "Closed Wave H after strict Player typecheck, production build, policy, immutable snapshots, matching-host package evidence, and the complete 278-journey browser gate passed with 276 unconditional passes and two credential-qualified skips; all Player and Overseer temporary mechanisms are closed.",
+      "files": [
+        "frontend/client/client.css",
+        "frontend/client/src/App.vue",
+        "frontend/client/src/adapters/sound-manifest.ts",
+        "frontend/client/src/components/CrtShell.vue",
+        "frontend/client/src/components/PlayerStatusLine.vue",
+        "frontend/client/src/components/TerminalFooter.vue",
+        "frontend/client/src/components/TerminalMenuRow.vue",
+        "frontend/client/src/components/TerminalRecord.vue",
+        "frontend/client/src/composables/useConnectionOverlay.ts",
+        "frontend/client/src/composables/useHackingSession.ts",
+        "frontend/client/src/composables/usePlayerActions.ts",
+        "frontend/client/src/composables/usePresentationUplink.ts",
+        "frontend/client/src/composables/useTerminalKeyboard.ts",
+        "frontend/client/vite.config.ts",
+        "tests/browser/fixtures/player-app.html",
+        "tests/browser/fixtures/player-app.ts",
+        "tests/browser/player-candidate-hacking.spec.mjs",
+        "tests/browser/player-candidate-integration.spec.mjs",
+        "tests/browser/player-candidate-pagination.spec.mjs",
+        "tests/browser/player-candidate-session.spec.mjs",
+        "tests/browser/player-candidate-shell.spec.mjs",
+        "tests/browser/player-sessions-control.spec.mjs",
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T169-wave-h.md"
+      ]
+    },
+    "T170": {
+      "status": "DONE",
+      "did": "Added the canonical complete boundary-manifest target and extended the governed task-contract checker; all three manifest classes pass and the self-test proves the exact ten-target inventory, dispatch isolation, single install ownership, ordering, and failure propagation.",
+      "files": [
+        "Taskfile.yml",
+        "scripts/frontend-task-contract-check.sh"
+      ]
+    },
+    "T171": {
+      "status": "DONE",
+      "did": "Reran the canonical final-production persistence compatibility gate: the single governed assertion passed all four current/legacy session and player-configuration fixtures without fixture changes.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T171-compatibility.md"
+      ]
+    },
+    "T172": {
+      "status": "DONE",
+      "did": "Ran the complete final boundary-manifest gate: all three DesktopPort, Player candidate, and Player Wave-G mapping assertions passed across reviewed valid/invalid input classes.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T172-boundary.md"
+      ]
+    },
+    "T173": {
+      "status": "DONE",
+      "did": "Ran the final frontend policy self-test and repository gate; valid contracts passed and exact pin, lockfile, dependency, type-escape, legacy/candidate, generated-name, privileged, private, transitive, and cross-app violations remain actionable.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T173-policy.md"
+      ]
+    },
+    "T174": {
+      "status": "DONE",
+      "did": "Ran the final reproducibility self-test and two-build gate; both production Vite trees were byte-identical with recorded Overseer and Player manifest digests, and a deliberate copied-tree mismatch failed actionably.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T174-reproducible.md"
+      ]
+    },
+    "T175": {
+      "status": "DONE",
+      "did": "Implemented and self-tested the governed frontend install/cache inventory, then proved one locked workspace install, both aggregate builds, both independent builds, exact sole install/lock ownership, cache-only app node_modules, and unchanged manifest/lock hashes and Git state.",
+      "files": [
+        "scripts/frontend-install-inventory-check.sh",
+        "specs/033-frontend-vue-typescript-migration/evidence/T175-clean-build.md"
+      ]
+    },
+    "T176": {
+      "status": "DONE",
+      "did": "Ran Overseer, Player, and aggregate strict Vue/TypeScript typechecks; all passed with zero diagnostics, generated Player modules included, and no fallback or cross-app declaration path.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T176-typecheck.md"
+      ]
+    },
+    "T177": {
+      "status": "DONE",
+      "did": "Completed the full protobuf contract suite, corrected BUG-039 in the canonical drift task, and verified schemas plus generated Go and TypeScript trees remained clean.",
+      "files": [
+        "Taskfile.yml",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-039.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T177-protobuf.md"
+      ]
+    },
+    "T178": {
+      "status": "DONE",
+      "did": "Verified pinned Wails bindings, the Overseer alias and adapter synchronization, exact 39-method and seven-event surfaces, Player isolation, and a clean generated binding tree.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T178-wails.md"
+      ]
+    },
+    "T179": {
+      "status": "DONE",
+      "did": "Completed the full production-fidelity Playwright and visual suite with 276 passing, two credential-qualified real-ngrok tests skipped, zero failures, and an unchanged approved CRT snapshot tree.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T179-browser.md"
+      ]
+    },
+    "T180": {
+      "status": "DONE",
+      "did": "Audited the exact 15-task Go-changing inventory with five PASS fields each; closed BUG-040 by retiring 30 legacy-only static asset tests under the required Go workflow; all formatting, vet, lint, unit, race, startup, CI quality, and aggregate repository gates passed.",
+      "files": [
+        "internal/platform/assets_test.go",
+        "specs/033-frontend-vue-typescript-migration/bugs/BUG-040.md",
+        "specs/033-frontend-vue-typescript-migration/spec.md",
+        "specs/033-frontend-vue-typescript-migration/plan.md",
+        "specs/033-frontend-vue-typescript-migration/tasks.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T180-go-audit.md"
+      ]
+    },
+    "T181": {
+      "status": "DONE",
+      "did": "Passed native startup, Wails cutover, secret-leak, and legacy public-access gates on darwin/arm64; recorded the interactive packaged reset smoke as NOT RUN because macOS Accessibility automation could not prepare the native window, without substituting browser evidence.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T181-native.md"
+      ]
+    },
+    "T182": {
+      "status": "DONE",
+      "did": "Built and exactly verified the matching darwin/arm64 package, including identity, macOS 13 minimum, separate offline embeds, resources, notices, entitlements, provider isolation, and final signature; recorded all four non-matching targets as NOT RUN.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T182-packages.md"
+      ]
+    },
+    "T183": {
+      "status": "DONE",
+      "did": "Verified the exact Node runtime, ten frontend Task targets, sole workspace install and lock ownership, ordered preparation, failure propagation, CI/buildtool agreement, and all five package plans.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T183-workflows.md"
+      ]
+    },
+    "T184": {
+      "status": "DONE",
+      "did": "Verified the shipped Go runtime, build-tool, and Vue runtime dependency inventories, exact pins, and reviewed third-party notices.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T184-license.md"
+      ]
+    },
+    "T185": {
+      "status": "DONE",
+      "did": "Updated README with the accepted two-app Vue/strict-TypeScript architecture, sole workspace install and lock, exact ten frontend Task targets, generated Player protobuf ownership, typed Wails adapter, and honest browser/native evidence boundaries.",
+      "files": [
+        "README.md"
+      ]
+    },
+    "T186": {
+      "status": "DONE",
+      "did": "Updated the architecture trust graph with exact overseerApp/playerApp mounts, separate Vue bundles and state, typed DesktopPort and public ConnectRPC boundaries, sole authored adapters, removed legacy ownership, and immutable Go authority contracts.",
+      "files": [
+        "ARCHITECTURE.md"
+      ]
+    },
+    "T187": {
+      "status": "DONE",
+      "did": "Updated contributor guidance for nvm use and exact Node 26.8.1, the sole frontend install and lockfile, all ten canonical frontend targets, task-local RED/GREEN and exact path/evidence contracts, safe disjoint parallelism, and mandatory per-commit go fix review before formatting/tests.",
+      "files": [
+        "CONTRIBUTING.md"
+      ]
+    },
+    "T188": {
+      "status": "DONE",
+      "did": "Updated active packaging guidance for one locked install and two separate Vue embeds, required and forbidden package inventories, exact platform verifiers and license gate, all five matching-host targets, and honest browser/native/conditional NOT RUN classification.",
+      "files": [
+        "docs/platform-packaging.md"
+      ]
+    },
+    "T189": {
+      "status": "DONE",
+      "did": "Extended the active plan template with complete writable and read-only path fields, exact producer-before-consumer DAG, temporary ownership and removal contract, honest parallel join boundary, and task-local verification including the Go modernization workflow.",
+      "files": [
+        ".specify/templates/plan-template.md"
+      ]
+    },
+    "T190": {
+      "status": "DONE",
+      "did": "Extended the active spec template with applicable strict Vue/TypeScript ownership and capability boundaries, exact immutable/historical checks, honest PASS/FAIL/NOT RUN evidence classification, and a guard against product-specific implementation defaults while retaining RED/GREEN, Node, and Go contracts.",
+      "files": [
+        ".specify/templates/spec-template.md"
+      ]
+    },
+    "T191": {
+      "status": "DONE",
+      "did": "Extended the active tasks template with a mandatory complete task record, explicit implementation and verification DAGs, exact RED/GREEN and Go workflows, concrete traceability, temporary-mechanism and producer-consumer ledgers, and disjoint-only parallel semantics.",
+      "files": [
+        ".specify/templates/tasks-template.md"
+      ]
+    },
+    "T192": {
+      "status": "DONE",
+      "did": "Closed final ownership with one overseerApp and one playerApp, zero legacy/candidate/mixed ownership or type escapes, exactly 18 closed mechanisms, retained rollback ancestry, and clean completed historical specs; recorded conditional native/provider/host evidence honestly.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/migration-ownership.md",
+        "specs/033-frontend-vue-typescript-migration/evidence/T192-final-ownership.md"
+      ]
+    },
+    "T193": {
+      "status": "DONE",
+      "did": "Consolidated T171-T184, T192, and active documentation/template reviews into an exact PASS/FAIL/NOT RUN matrix by evidence class and host, with no browser-to-native or fake-to-provider substitution and no inferred unavailable-host, credential, signing, or notarization result.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/verification-evidence.md"
+      ]
+    },
+    "T194": {
+      "status": "DONE",
+      "did": "Created and self-tested the executable task-plan validator with a valid positive plan, isolated exact diagnostic fixtures, semantic TypeScript mount checks, candidate-scope/install-cache/runtime-path matrices, and real-plan validation; the 195-task plan is unique, gap-free, dependency/reference/coverage-valid, has ten canonical targets, the exact Go audit, 18 closed mechanisms, and safe commands.",
+      "files": [
+        "scripts/frontend-task-plan-check.sh",
+        "tests/fixtures/frontend-task-plan"
+      ]
+    },
+    "T195": {
+      "status": "DONE",
+      "did": "Closed wave i against Constitution 9.0.0: the real validator passed all 195 tasks independent of checkbox state, dependencies/references/coverage, ten targets, exact Go audit, 18 closed mechanisms, and safe commands; git diff --check and implementation review passed with conditional evidence kept honest.",
+      "files": [
+        "specs/033-frontend-vue-typescript-migration/evidence/T195-definition-of-done.md"
+      ]
     }
   },
   "concerns": [
@@ -3545,6 +5351,11 @@
       "note": "BUG-023: T089/T090 remove the only remaining Overseer application-state owner while 24 Vue sources still depend on its bridge, and T090 deletes a candidate entry imported by 15 read-only retained browser suites. A typed application controller plus expanded production/test inventories must be authorized before atomic cutover.",
       "step": "implement",
       "kind": "blocking-scope-conflict"
+    },
+    {
+      "note": "Interactive macOS approval/reset/reopen UI remains NOT RUN until Accessibility access is granted; Windows/Linux matching-host and real-provider credential journeys also remain NOT RUN.",
+      "step": "implement",
+      "kind": "conditional-follow-up"
     }
   ]
 }

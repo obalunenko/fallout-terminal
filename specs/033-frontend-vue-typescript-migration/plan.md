@@ -28,6 +28,40 @@
 
 **Bugfix**: 2026-08-31 — BUG-022 Corrected the persistence gate to preserve session extras while proving player-configuration legacy defaults and strict unknown-field rejection, matching the established version-1 codecs.
 
+**Bugfix**: 2026-08-31 — BUG-024 Updated wave-e parity sequencing so the desktop adapter browser gate installs the production TypeScript adapter after JavaScript facade removal; T096 retains the broader fixture-server producer migration.
+
+**Bugfix**: 2026-08-31 — BUG-025 Updated final desktop-boundary parity to cover runtime event precedence, terminal-switch result normalization, and production-adapter disposal directly.
+
+**Bugfix**: 2026-08-31 — BUG-026 Updated wave-e parity sequencing so the permanent production-root harness preserves historically preloaded fixture state and the ordering test installs fake bindings before deferral; T096 still owns the Go producer migration.
+
+**Bugfix**: 2026-08-31 — BUG-027 Updated final public-access parity so newer authoritative state suppresses an older successful result snapshot without preventing the settings dialog from completing its close/focus lifecycle.
+
+**Bugfix**: 2026-08-31 — BUG-028 Updated the typed snapshot boundary with lexicographic ordering and explicit equal-version event-over-getter precedence for public access.
+
+**Bugfix**: 2026-08-31 — BUG-029 Updated final player-management parity so the controller accepts both null and absent inactive broadcast state when opening deletion confirmation.
+
+**Bugfix**: 2026-08-31 — BUG-030 Updated final controller integration with Vue-owned session status, persistent approval failure feedback, consistent inactive-broadcast projection, and retained production-root assertions.
+
+**Bugfix**: 2026-08-31 — BUG-031 Updated final grouping parity with route-specific harness commands and complete group/member/rejection projections; T096 still owns the Go producer migration.
+
+**Bugfix**: 2026-08-31 — BUG-032 Updated final navigation parity so applicable command results reach persistent controller-owned coordination feedback.
+
+**Bugfix**: 2026-08-31 — BUG-033 Updated the Wave-e exit scope so deterministic secret and Wails cutover scanners validate final Vue owners instead of deleted legacy files or checker-owned forbidden-pattern fixtures.
+
+**Bugfix**: 2026-08-31 — BUG-034 Updated the Wave-e exit scope to restore the README's active Wails v3 guide and historical Electron-to-Wails rollback references required by the cutover contract.
+
+**Bugfix**: 2026-08-31 — BUG-035 Updated the Wave-e complete-browser cleanup scope so retained broadcast and hacking suites verify the permanent production root after unmount.
+
+**Bugfix**: 2026-08-31 — BUG-036 Updated the Wave-e packaged reset flow to synchronize completed-command selection with native Vue approval before frozen-result and reset assertions.
+
+**Bugfix**: 2026-08-31 — BUG-037 Updated the packaged reset verifier from deleted legacy dataset prose to the final Vue reset status and saved-revision Accessibility contract.
+
+**Bugfix**: 2026-09-01 — BUG-038 Updated the Wave-H exit to migrate retained injected Player App tests to permanent browser-only production-root infrastructure and close observer reveal, screen accessibility, status text, and final component-fixture integration gaps before acceptance.
+
+**Bugfix**: 2026-09-01 — BUG-039 Updated the Wave-i protobuf exit so the canonical drift task supplies the governed generated Player target and exact expected diagnostic required by the hardened drift checker.
+
+**Bugfix**: 2026-09-01 — BUG-040 Updated the Wave-i Go exit to retire stale legacy-only platform asset tests after their final Vue source/dist/embed contracts and production browser coverage are proven.
+
 **Immutable pre-migration rollback commit**: `06696ee1c7155a1bb1135ef46ec91445dd73a2a4`
 
 ## Summary
@@ -203,6 +237,16 @@ No approved imperative seam may independently render or mutate Vue-owned descend
 
 ## Producer and Consumer Impact Map
 
+**BUG-033 Wave-e scanner correction**: `scripts/secret-leak-check.sh` follows the final Vue public-access components, composable, and controller for mutation, one-time presentation clearing, and platform-neutral wording. `scripts/wails-v3-cutover-check.sh` excludes only `scripts/frontend-policy-check.sh` from its active command/documentation scan because that file contains deliberate forbidden-pattern fixtures and independently scans production source. Both scripts retain actionable self-tests and real-tree checks.
+
+**BUG-034 documentation correction**: `README.md` retains links to the active Wails v3 quickstart and rollback procedure and labels the separate Electron-to-Wails rollback record as historical. No completed specification or rollback artifact is modified.
+
+**BUG-035 retained-suite correction**: The broadcast-control and hacking-control cleanup journeys retain their existing production harness, behavioral checks, and release-count checks; only their final absent coexistence-leaf locators become an empty `#overseerApp` assertion.
+
+**BUG-036 native reset correction**: The Player probe emits a readiness marker only after controller and observer receive the pending completed-command surface. The native Accessibility driver then approves the packaged Vue command dialog, after which both Players must receive the frozen result before the existing reset, one-second convergence, navigation, and full-reopen assertions continue.
+
+**BUG-037 native evidence correction**: The Accessibility predicate finds the Vue-owned `СОСТОЯНИЯ КОМАНД ТЕРМИНАЛА СБРОШЕНЫ` status with its revision and a disabled reset-all control. Exact selected-terminal file mutation, preservation of every other terminal, Player runtime advancement, shared navigation, and full reopen remain independent required evidence.
+
 | Affected producer | Existing and planned consumers | Planning action |
 |---|---|---|
 | `frontend/package.json`, `frontend/client/package.json`, `frontend/overseer/package.json`, `frontend/package-lock.json`, `.nvmrc` | `Taskfile.yml` `node:check`/`deps:frontend`, `scripts/frontend-task-contract-check.sh`, `internal/buildtool/buildtool.go`, `internal/buildtool/buildtool_test.go`, `.github/workflows/wails-cross-platform.yml`, `.github/workflows/wails-portable.yml`, `scripts/dependency-license-check.sh`, `THIRD_PARTY_NOTICES.md`, `README.md`, `CONTRIBUTING.md` | Add only the four researched exact pins; enforce Node exactly `26.8.1`; retain one install/lock workflow; add reviewed shipped-Vue license evidence without unrelated upgrades. |
@@ -309,7 +353,11 @@ Migrate complete Overseer leaf families in reviewable slices: application-update
 
 ### Wave e — Complete Overseer cutover and remove its legacy bootstrap
 
-Move the shell/runtime status, layout, terminal list, selection, action menu, authoring editor/settings/tree/node flows, coordination, broadcast, hacking controls, public access, updates, and dialogs into one `#overseerApp` through separate coherent tasks. Every task has local strict/build/focused verification and exact legacy deletion; integration and wave exit remain separate. Remove `overseer.js`, `desktop-api.js`, dynamic renderers, global facade, temporary islands/bridges/mounts, Playwright/Vite candidate selection, legacy script tags, temporary resource owners, and Overseer `allowJs`/`checkJs` configuration. Complete the desktop/Wails boundary-manifest cases and run `task frontend:compatibility:check` against the reviewed current/legacy session and player-configuration fixture set.
+**Bugfix**: 2026-08-31 — BUG-023 Updated from bugfix patch.
+
+Before production promotion, replace the temporary legacy/Vue bridge with one strict typed, DOM-free Overseer application controller. It owns the remaining session, terminal, group, coordination, dialog-orchestration, and privileged-command projections/actions now retained in `overseer.js`; every current bridge consumer moves to that controller in the same atomic integration task. Before deleting the candidate entry and Playwright selection, migrate every retained candidate-import or port-34120 Overseer suite to a permanent test-only harness that mounts the production `#overseerApp` with the typed fake `DesktopPort`. The harness remains outside production bundles and does not count as Wails/native evidence.
+
+Move the shell/runtime status, layout, terminal list, selection, action menu, authoring editor/settings/tree/node flows, coordination, broadcast, hacking controls, public access, updates, and dialogs into one `#overseerApp` through separate coherent tasks. Every task has local strict/build/focused verification and exact legacy deletion; integration and wave exit remain separate. ~~Remove `overseer.js` and the candidate browser entry immediately after the visual leaves mount.~~ This ordering was superseded by BUG-023 because those files still own application state/actions and retained test bootstrap. First install the typed application controller and production-root browser harness, then remove `overseer.js`, `desktop-api.js`, dynamic renderers, global facade, temporary islands/bridges/mounts, Playwright/Vite candidate selection, legacy script tags, temporary resource owners, and Overseer `allowJs`/`checkJs` configuration. Complete the desktop/Wails boundary-manifest cases and run `task frontend:compatibility:check` against the reviewed current/legacy session and player-configuration fixture set.
 
 **Exit**: complete Overseer strict/build/browser/visual parity, `task frontend:compatibility:check`, applicable desktop/Wails boundary cases, and separate Wails/native/embed/resource/package gates pass; the Overseer forbidden-state and ownership inventories are empty. Player wave f cannot begin earlier.
 
@@ -326,6 +374,8 @@ Complete candidate Player behavior through separate RED/GREEN slices for hacking
 **Exit**: complete candidate Player `.mjs` and immutable visual suite passes with exact timing/geometry/audio/stream behavior and cleanup evidence; production legacy suite remains green; no baseline is intentionally updated.
 
 ### Wave h — Complete Player cutover
+
+**BUG-038 retained-suite correction**: Before Wave h exits, retained tests that inject Player public ports mount the production `#playerApp` and `mountPlayerApp` through permanent browser-only infrastructure outside production source and output. The complete gate also preserves authoritative observer reveal and the historical `#screen` read-only and status-line text contracts; dedicated reveal visuals remain unchanged.
 
 Atomically transfer the production document to the single `#playerApp` root after complete candidate parity. Integrate production ownership through bounded tasks with local checks, then remove `client.js`, `sound.js`, `presentation-uplink.js`, old script tags, candidate HTML/entry, Vite and Playwright candidate selection, staging mount/bridge, legacy handlers/resources, and Player `allowJs`/`checkJs` configuration. Complete every Player-owned boundary-manifest entry and focused test before declaring the production transfer complete. Production stress journeys are defined in RED form before cutover and run GREEN after transfer.
 

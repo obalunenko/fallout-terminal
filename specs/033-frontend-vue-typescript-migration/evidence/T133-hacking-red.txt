@@ -1,0 +1,40 @@
+Task: T133
+Expected assertion: AssertionError: candidate groups semantic targets across cells, rejects stale pointer context, restores focus and removes fit probe
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/player-candidate-hacking.spec.mjs candidate\ groups\ semantic\ targets\ across\ cells\,\ rejects\ stale\ pointer\ context\,\ restores\ focus\ and\ removes\ fit\ probe
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  player-candidate-hacking.spec.mjs:12:1 › candidate groups semantic targets across cells, rejects stale pointer context, restores focus and removes fit probe
+Total: 1 test in 1 file
+[WebServer] (node:58518) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58540) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:58542) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:58543) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: candidate groups semantic targets across cells, rejects stale pointer context, restores focus and removes fit probe
+  ✘  1 tests/browser/player-candidate-hacking.spec.mjs:12:1 › candidate groups semantic targets across cells, rejects stale pointer context, restores focus and removes fit probe (0ms)
+
+
+  1) tests/browser/player-candidate-hacking.spec.mjs:12:1 › candidate groups semantic targets across cells, rejects stale pointer context, restores focus and removes fit probe
+
+    Error: Player candidate hacking pointer/geometry lifecycle is not implemented
+
+      13 |   if (!existsSync(pointerModulePath)) {
+      14 |     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
+    > 15 |     throw new Error('Player candidate hacking pointer/geometry lifecycle is not implemented');
+         |           ^
+      16 |   }
+      17 | });
+      18 |
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/player-candidate-hacking.spec.mjs:15:11
+
+    Error Context: tests/browser/test-results/player-candidate-hacking-c-07a7f-focus-and-removes-fit-probe/error-context.md
+
+  1 failed
+    tests/browser/player-candidate-hacking.spec.mjs:12:1 › candidate groups semantic targets across cells, rejects stale pointer context, restores focus and removes fit probe

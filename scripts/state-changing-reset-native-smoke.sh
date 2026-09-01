@@ -191,20 +191,54 @@ for terminal in document.get("terminals", []):
 run_self_test() {
   validate_command_only_fixture "${default_fixture}"
   node --check "${player_probe}"
-  grep -Fq "resetConfirmationDialog.id = 'resetConfirmationDialog';" "${repository_root}/frontend/overseer/src/overseer.js" ||
-    fail 'overseer reset confirmation dialog is missing'
-  grep -Fq 'desktopAPI.resetTerminalCommandStates({ terminalId: term.id })' "${repository_root}/frontend/overseer/src/overseer.js" ||
-    fail 'overseer reset-all control is not wired to the generated desktop facade'
-  grep -Fq 'resetTerminalCommandStates: desktopService.ResetTerminalCommandStates' "${repository_root}/frontend/overseer/src/desktop-api.js" ||
-    fail 'desktop facade is not wired to the generated Wails binding'
-  grep -Fq 'saveStatus.dataset.sessionStateRevision' "${repository_root}/frontend/overseer/src/overseer.js" ||
-    fail 'overseer session-state evidence is missing'
-  grep -Fq 'screen.dataset.runtimeRevision' "${repository_root}/frontend/client/client.js" ||
-    fail 'player runtime revision evidence is missing'
-  if grep -F 'window.confirm(`Сбросить' "${repository_root}/frontend/overseer/src/overseer.js" >/dev/null; then
-    fail 'command-state reset still depends on unsupported native window.confirm'
+  grep -Fq '<div id="playerApp"></div>' "${repository_root}/frontend/client/index.html" ||
+    fail 'production Player root is missing'
+  grep -Fq '<script type="module" src="/src/main.ts"></script>' "${repository_root}/frontend/client/index.html" ||
+    fail 'production Player entry is missing'
+  grep -Fq 'mountPlayerApp(root, {' "${repository_root}/frontend/client/src/main.ts" ||
+    fail 'production Player entry is not mounted through the typed Vue application'
+  [[ -f "${repository_root}/frontend/client/dist/.keep" ]] ||
+    fail 'production Player bundle marker is missing'
+  [[ ! -e "${repository_root}/frontend/client/client.js" ]] ||
+    fail 'legacy Player client.js is still present'
+  [[ ! -e "${repository_root}/frontend/client/sound.js" ]] ||
+    fail 'legacy Player sound.js is still present'
+  [[ ! -e "${repository_root}/frontend/client/presentation-uplink.js" ]] ||
+    fail 'legacy Player presentation-uplink.js is still present'
+  [[ ! -e "${repository_root}/frontend/client/test-fixtures" ]] ||
+    fail 'Player candidate/test-fixture root is still present'
+  if find "${repository_root}/frontend/client" -type f \
+    \( -iname '*candidate*' -o -name 'client.js' -o -name 'sound.js' -o -name 'presentation-uplink.js' \) \
+    -print -quit | grep -q .; then
+    fail 'production Player tree contains a legacy or candidate filename'
   fi
-  pass 'command-only fixture, native overseer evidence, generated Wails chain, and two-player probe are present'
+  grep -Fq '<div id="overseerApp"></div>' "${repository_root}/frontend/overseer/src/index.html" ||
+    fail 'production overseer root is missing'
+  grep -Fq '<script type="module" src="./main.ts"></script>' "${repository_root}/frontend/overseer/src/index.html" ||
+    fail 'production overseer entry is missing'
+  grep -Fq 'mountOverseerApp(root, desktopPort);' "${repository_root}/frontend/overseer/src/main.ts" ||
+    fail 'production overseer entry is not mounted through the typed desktop port'
+  [[ -f "${repository_root}/frontend/overseer/dist/.keep" ]] ||
+    fail 'production overseer bundle marker is missing'
+  grep -Fq 'id="resetConfirmationDialog"' "${repository_root}/frontend/overseer/src/components/CommandStateResetDialog.vue" ||
+    fail 'overseer reset confirmation dialog is missing'
+  grep -Fq '() => port.resetTerminalCommandStates({ terminalId: terminal.id })' "${repository_root}/frontend/overseer/src/controllers/overseer-controller.ts" ||
+    fail 'overseer reset-all control is not wired to the typed desktop port'
+  grep -Fq 'resetTerminalCommandStates: desktopService.ResetTerminalCommandStates' "${repository_root}/frontend/overseer/src/adapters/desktop-api.ts" ||
+    fail 'typed desktop adapter is not wired to the generated Wails binding'
+  grep -Fq "'data-saved-revision': String(sessionStatus.revision)" "${repository_root}/frontend/overseer/src/App.vue" ||
+    fail 'overseer session-state evidence is missing'
+  grep -Fq 'const revision = projection.state.value.revision;' "${repository_root}/frontend/client/src/App.vue" ||
+    fail 'Player Vue runtime revision evidence is missing'
+  grep -Fq "kind: 'command-state-reset-required'" "${repository_root}/frontend/overseer/src/controllers/overseer-controller.ts" ||
+    fail 'command-state reset does not use the Vue-owned confirmation flow'
+  grep -Fq "'СОСТОЯНИЯ КОМАНД ТЕРМИНАЛА СБРОШЕНЫ'" "${repository_root}/frontend/overseer/src/controllers/overseer-controller.ts" ||
+    fail 'overseer reset success status is missing'
+  grep -Fq 'id="btnApproveCommandExecution"' "${repository_root}/frontend/overseer/src/components/CommandExecutionDialog.vue" ||
+    fail 'overseer command approval button is missing'
+  grep -Fq 'await fs.writeFile(approvalPath' "${player_probe}" ||
+    fail 'two-player probe does not synchronize completed-command approval'
+  pass 'command-only fixture, sole production Vue roots and bundles, legacy/candidate Player rejection, native approval/reset evidence, generated Wails chain, two-player probe, cleanup trap, and macOS host classification are present'
 }
 
 launch_app() {
@@ -280,6 +314,19 @@ end run
 APPLESCRIPT
 }
 
+drive_native_command_approval() {
+  osascript - "${app_pid}" >>"${smoke_root}/native-automation.log" 2>&1 <<'APPLESCRIPT'
+on run argv
+  set processID to (item 1 of argv) as integer
+  tell application "System Events" to tell first process whose unix id is processID
+    set frontmost to true
+    delay 0.3
+    key code 36
+  end tell
+end run
+APPLESCRIPT
+}
+
 drive_native_reset() {
   osascript - "${app_pid}" >>"${smoke_root}/native-automation.log" 2>&1 <<'APPLESCRIPT'
 on findNamedButton(containerElement, buttonName)
@@ -336,8 +383,7 @@ APPLESCRIPT
 }
 
 verify_native_overseer_reset() {
-  local terminal_id="$1"
-  osascript - "${app_pid}" "${terminal_id}" >>"${smoke_root}/native-automation.log" 2>&1 <<'APPLESCRIPT'
+  osascript - "${app_pid}" >>"${smoke_root}/native-automation.log" 2>&1 <<'APPLESCRIPT'
 on findNamedButton(containerElement, buttonName)
   tell application "System Events"
     try
@@ -354,22 +400,27 @@ on findNamedButton(containerElement, buttonName)
   return missing value
 end findNamedButton
 
-on findEvidence(containerElement, terminalID)
+on findEvidence(containerElement)
+  set evidenceText to ""
   tell application "System Events"
     try
-      set elementName to name of containerElement as text
-      set elementDescription to description of containerElement as text
-      if (elementName contains "Wails command ResetTerminalCommandStates ok" or elementDescription contains "Wails command ResetTerminalCommandStates ok") and ¬
-        (elementName contains ("terminal " & terminalID) or elementDescription contains ("terminal " & terminalID)) and ¬
-        (elementName contains "document revision" or elementDescription contains "document revision") and ¬
-        (elementName contains "session-state revision" or elementDescription contains "session-state revision") then return containerElement
+      set evidenceText to evidenceText & " " & (name of containerElement as text)
+    end try
+    try
+      set evidenceText to evidenceText & " " & (description of containerElement as text)
+    end try
+    try
+      set evidenceText to evidenceText & " " & (value of containerElement as text)
+    end try
+    if evidenceText contains "СОСТОЯНИЯ КОМАНД ТЕРМИНАЛА СБРОШЕНЫ" and evidenceText contains "ревизия" then return containerElement
+    try
       set childElements to UI elements of containerElement
     on error
       set childElements to {}
     end try
   end tell
   repeat with childElement in childElements
-    set candidate to my findEvidence(childElement, terminalID)
+    set candidate to my findEvidence(childElement)
     if candidate is not missing value then return candidate
   end repeat
   return missing value
@@ -377,18 +428,17 @@ end findEvidence
 
 on run argv
   set processID to (item 1 of argv) as integer
-  set terminalID to item 2 of argv
   repeat 300 times
     tell application "System Events" to tell first process whose unix id is processID
       try
         set resetButton to my findNamedButton(window 1, "СБРОСИТЬ ВСЕ СОСТОЯНИЯ")
-        set evidence to my findEvidence(window 1, terminalID)
+        set evidence to my findEvidence(window 1)
         if resetButton is not missing value and not (enabled of resetButton) and evidence is not missing value then return true
       end try
     end tell
     delay 0.1
   end repeat
-  error "overseer DOM did not expose canonical Wails/session-state reset evidence"
+  error "overseer DOM did not expose Vue reset success and saved-revision evidence"
 end run
 APPLESCRIPT
 }
@@ -433,7 +483,8 @@ start_player_probe() {
   local trigger_path="$3"
   local result_path="$4"
   local log_path="$5"
-  node "${player_probe}" "${mode}" "${local_url}" "${ready_path}" "${trigger_path}" "${result_path}" >"${log_path}" 2>&1 &
+  local approval_path="${6:-}"
+  node "${player_probe}" "${mode}" "${local_url}" "${ready_path}" "${trigger_path}" "${result_path}" "${approval_path}" >"${log_path}" 2>&1 &
   player_probe_pid=$!
 }
 
@@ -461,7 +512,10 @@ if [[ "${1:-}" == '--self-test' ]]; then
 fi
 
 [[ "$#" -le 3 ]] || fail 'usage: scripts/state-changing-reset-native-smoke.sh [APP_PATH] [SESSION_FIXTURE] [PLAYER_CONFIG]'
-[[ "$(uname -s)" == Darwin ]] || fail 'native overseer-click smoke requires macOS'
+if [[ "$(uname -s)" != Darwin ]]; then
+  not_run "native overseer-click smoke requires a supported macOS host; detected $(uname -s)"
+  exit 2
+fi
 for command in curl grep mktemp node open osascript pgrep python3; do
   require_command "${command}"
 done
@@ -523,14 +577,17 @@ reset_ready="${smoke_root}/reset-ready.json"
 reset_trigger="${smoke_root}/reset-trigger"
 reset_result="${smoke_root}/reset-result.json"
 reset_log="${smoke_root}/reset-player.log"
-start_player_probe reset "${reset_ready}" "${reset_trigger}" "${reset_result}" "${reset_log}"
+approval_ready="${smoke_root}/command-approval-ready.json"
+start_player_probe reset "${reset_ready}" "${reset_trigger}" "${reset_result}" "${reset_log}" "${approval_ready}"
+wait_for_marker "${approval_ready}" "${reset_log}" || fail 'controller and observer did not reach the pending completed-command approval screen'
+drive_native_command_approval || fail 'native overseer completed-command approval failed'
 wait_for_marker "${reset_ready}" "${reset_log}" || fail 'controller and observer did not reach the completed pre-reset screen'
 
 drive_native_reset || fail 'native overseer reset click or confirmation failed'
 touch "${reset_trigger}"
 wait_for_file_reset "${session_path}" "${terminal_id}" ||
   fail 'native overseer click did not remove canonical commandStates within the deadline'
-verify_native_overseer_reset "${terminal_id}" || fail 'overseer did not expose Wails result and session-state evidence'
+verify_native_overseer_reset || fail 'overseer did not expose Vue reset success and saved-revision evidence'
 finish_player_probe "${reset_result}" "${reset_log}"
 
 after_selected_states="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); t=next(x for x in d["terminals"] if x["id"]==sys.argv[2]); print(len(t.get("commandStates", {})))' "${session_path}" "${terminal_id}")"

@@ -65,6 +65,81 @@ validate_generated_player_contracts() {
   done
 }
 
+validate_overseer_bundle() {
+  local directory="$1"
+  local index="${directory}/index.html"
+  local relative=''
+  local extension=''
+  local javascript_count=0
+  local stylesheet_count=0
+  local font_count=0
+
+  [[ -d "${directory}" && -r "${directory}" ]] || {
+    printf 'Overseer bundle directory is missing or unreadable: %s\n' "${directory}" >&2
+    return 1
+  }
+  [[ -s "${index}" && -f "${index}" ]] || {
+    printf 'Overseer bundle index is missing or empty: %s\n' "${index}" >&2
+    return 1
+  }
+  [[ "$(grep -Foc '<div id="overseerApp"></div>' "${index}")" == 1 ]] || {
+    printf 'Overseer bundle index must contain exactly one production root\n' >&2
+    return 1
+  }
+  grep -Fq 'type="module"' "${index}" || {
+    printf 'Overseer bundle index has no module entry\n' >&2
+    return 1
+  }
+  grep -Fq './assets/' "${index}" || {
+    printf 'Overseer bundle index has no emitted asset reference\n' >&2
+    return 1
+  }
+
+  while IFS= read -r relative; do
+    [[ -f "${directory}/${relative}" && -r "${directory}/${relative}" ]] || {
+      printf 'Overseer bundle contains a non-file or unreadable entry: %s\n' "${relative}" >&2
+      return 1
+    }
+    extension="${relative##*.}"
+    case "${extension}" in
+      js) javascript_count=$((javascript_count + 1)) ;;
+      css) stylesheet_count=$((stylesheet_count + 1)) ;;
+      ttf) font_count=$((font_count + 1)) ;;
+      ts|vue|map)
+        printf 'Overseer bundle contains authored source or source map: %s\n' "${relative}" >&2
+        return 1
+        ;;
+    esac
+    case "${relative}" in
+      *candidate*|*test-fixtures*|*overseer.js|*desktop-api.js)
+        printf 'Overseer bundle contains a legacy or test-only path: %s\n' "${relative}" >&2
+        return 1
+        ;;
+    esac
+    case "${extension}" in
+      html|js|css)
+        if grep -Eqi 'candidate-main|test-fixtures|legacyOverseerRoot|overseerVueLeaves|overseer\.js|desktop-api\.js' "${directory}/${relative}"; then
+          printf 'Overseer runtime asset contains a legacy, candidate, or source reference: %s\n' "${relative}" >&2
+          return 1
+        fi
+        ;;
+    esac
+  done < <(cd "${directory}" && find . -mindepth 1 ! -type d -print | sed 's#^\./##' | LC_ALL=C sort)
+
+  ((javascript_count > 0)) || {
+    printf 'Overseer bundle has no JavaScript runtime asset\n' >&2
+    return 1
+  }
+  ((stylesheet_count > 0)) || {
+    printf 'Overseer bundle has no stylesheet runtime asset\n' >&2
+    return 1
+  }
+  ((font_count > 0)) || {
+    printf 'Overseer bundle has no Fixedsys font runtime asset\n' >&2
+    return 1
+  }
+}
+
 compile_player_probe_contracts() {
   local repository="$1"
   local output="$2"
@@ -94,6 +169,7 @@ compile_player_probe_contracts() {
 run_self_test() {
   local generated="${repository_root}/frontend/client/gen/fallout/terminal/player/v1"
   local fixture="${workspace}/generated fixture"
+  local overseer_fixture="${workspace}/overseer bundle fixture"
   local name=''
 
   validate_generated_player_contracts "${generated}" || fail 'production generated TypeScript inventory failed validation'
@@ -108,7 +184,21 @@ run_self_test() {
   fi
   compile_player_probe_contracts "${repository_root}" "${workspace}/compiled contracts" || \
     fail 'generated TypeScript could not be compiled into the native probe runtime'
-  printf 'verify-linux-package: generated TypeScript inventory/runtime self-test passed\n'
+  validate_overseer_bundle "${repository_root}/frontend/overseer/dist" || \
+    fail 'production Overseer Vue bundle failed validation'
+  mkdir -p "${overseer_fixture}"
+  cp -R "${repository_root}/frontend/overseer/dist/." "${overseer_fixture}/"
+  validate_overseer_bundle "${overseer_fixture}" || fail 'valid Overseer Vue bundle fixture was rejected'
+  printf 'candidate source\n' >"${overseer_fixture}/candidate-main.ts"
+  if validate_overseer_bundle "${overseer_fixture}" >/dev/null 2>&1; then
+    fail 'candidate Overseer source fixture was accepted'
+  fi
+  rm -f "${overseer_fixture}/candidate-main.ts"
+  printf 'legacy runtime\n' >"${overseer_fixture}/assets/overseer.js"
+  if validate_overseer_bundle "${overseer_fixture}" >/dev/null 2>&1; then
+    fail 'legacy Overseer runtime fixture was accepted'
+  fi
+  printf 'verify-linux-package: generated TypeScript and Overseer Vue runtime inventory self-test passed\n'
 }
 
 process_is_alive() {
@@ -500,7 +590,7 @@ case "${credential_mode}" in
   *) fail 'FALLOUT_CREDENTIAL_MODE must be available or unavailable' ;;
 esac
 
-for command in awk basename cat chmod cp dirname find gdbus go grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sleep tail tar tr uname xdotool xdpyinfo xprop; do
+for command in awk basename cat chmod cp dirname find gdbus go grep head ldd mkdir mktemp node pkg-config ps python3 readelf realpath rm sed sleep tail tar tr uname xdotool xdpyinfo xprop; do
   require_command "${command}"
 done
 xdpyinfo -display "${DISPLAY}" >/dev/null 2>&1 || fail "cannot connect to DISPLAY ${DISPLAY}"
@@ -528,6 +618,8 @@ trap 'exit 143' TERM
 
 compile_player_probe_contracts "${repository_root}" "${workspace}/compiled player contracts" || \
   fail 'generated Player TypeScript could not be compiled for the native package probe'
+validate_overseer_bundle "${repository_root}/frontend/overseer/dist" || \
+  fail 'production Overseer Vue bundle failed runtime-only inventory validation'
 player_probe_service_module="${workspace}/compiled player contracts/player_pb.js"
 
 ensure_window_manager

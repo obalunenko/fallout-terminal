@@ -1,6 +1,6 @@
 import { inject, nextTick, onUnmounted, readonly, ref } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -39,7 +39,7 @@ function snapshot(value: unknown): BroadcastSnapshot | null {
 }
 
 export function useBroadcastControls(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const current = ref<BroadcastSnapshot>(Object.freeze({
     activeLogicalSessionCount: 0,
     activeTerminalID: '',
@@ -57,7 +57,7 @@ export function useBroadcastControls(port: DesktopPort) {
   let active = true;
   let lifecycle = 0;
 
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+  function handleControllerMessage(message: OverseerControllerMessage): void {
     if (message.kind === 'broadcast-control-focus-request') {
       if (message.control === 'end' || message.control === 'start' || message.control === 'stop') {
         const control = message.control;
@@ -100,7 +100,7 @@ export function useBroadcastControls(port: DesktopPort) {
     pending.value = true;
     status.value = pendingMessage;
     error.value = '';
-    bridge?.vueToLegacy({ expectedRevision, kind: 'broadcast-command-started', status: pendingMessage });
+    controller?.dispatch({ expectedRevision, kind: 'broadcast-command-started', status: pendingMessage });
     let result: DesktopCommandResult;
     try {
       result = normalize(await run());
@@ -114,7 +114,7 @@ export function useBroadcastControls(port: DesktopPort) {
       status.value = result.ok ? successMessage : '';
       error.value = result.ok ? '' : (result.error || 'ОПЕРАЦИЯ ОТКЛОНЕНА');
     }
-    bridge?.vueToLegacy({ expectedRevision, kind: 'broadcast-command-finished', result, successMessage });
+    controller?.dispatch({ expectedRevision, kind: 'broadcast-command-finished', result, successMessage });
     return Object.freeze({ applicable, result });
   }
 
@@ -127,7 +127,7 @@ export function useBroadcastControls(port: DesktopPort) {
     if (pending.value || current.value.broadcastID === '') return;
     lifecycle += 1;
     endConfirmationOpen.value = true;
-    bridge?.vueToLegacy({ kind: 'broadcast-end-confirmation-request', revision: current.value.revision });
+    controller?.dispatch({ kind: 'broadcast-end-confirmation-request', revision: current.value.revision });
   }
 
   function requestTakeOff(): void {
@@ -135,11 +135,11 @@ export function useBroadcastControls(port: DesktopPort) {
     lifecycle += 1;
     takeOffError.value = '';
     takeOffConfirmationOpen.value = true;
-    bridge?.vueToLegacy({ kind: 'broadcast-take-off-confirmation-request', revision: current.value.revision });
+    controller?.dispatch({ kind: 'broadcast-take-off-confirmation-request', revision: current.value.revision });
   }
 
   function manageSessions(): void {
-    bridge?.vueToLegacy({ kind: 'logical-session-open-request' });
+    controller?.dispatch({ kind: 'logical-session-open-request' });
   }
 
   function cancelEnd(): void {
@@ -170,7 +170,7 @@ export function useBroadcastControls(port: DesktopPort) {
     if (outcome === null || !outcome.applicable) return;
     endConfirmationOpen.value = false;
     if (outcome.result.ok) {
-      bridge?.legacyToVue({ kind: 'terminal-switch-dismissed' });
+      controller?.publish({ kind: 'terminal-switch-dismissed' });
       focusRequest.value = 'start';
     } else {
       focusRequest.value = 'end';
@@ -199,14 +199,14 @@ export function useBroadcastControls(port: DesktopPort) {
     }
     if (result.status === 'decision-required' && typeof result.switchId === 'string' && result.switchId !== '') {
       takeOffConfirmationOpen.value = false;
-      bridge?.legacyToVue({ kind: 'terminal-switch-required', switchId: result.switchId });
+      controller?.publish({ kind: 'terminal-switch-required', switchId: result.switchId });
       return;
     }
     takeOffConfirmationOpen.value = false;
     focusRequest.value = 'end';
   }
 
-  const release = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+  const release = controller?.subscribeState(handleControllerMessage) ?? (() => {});
   onUnmounted(() => {
     active = false;
     lifecycle += 1;

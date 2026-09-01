@@ -39,11 +39,34 @@ Bootstrap the pinned Go tools and locked Node.js dependencies from the repositor
 
 ```bash
 make tools
-task deps
+nvm use
+task node:check
+npm ci --prefix frontend
 ```
 
 Use `task --list` to see all supported repository workflows. Prefer these tasks and the
 repository-owned build command over ad hoc tool invocations.
+
+The frontend has one npm workspace, one install root, and one lockfile
+(`frontend/package-lock.json`). Do not run or document an app-local install. The public workflow is
+the exact ten-target Taskfile contract:
+
+```bash
+task frontend:typecheck:overseer
+task frontend:typecheck:client
+task frontend:typecheck
+task frontend:build:overseer
+task frontend:build:client
+task frontend:build
+task frontend:compatibility:check
+task frontend:boundary:check
+task frontend:policy:check
+task frontend:reproducible:check
+```
+
+Only `frontend:build` owns the governed clean install; individual type-check/build targets consume
+the existing workspace. The exact Node 26.8.1 contract is intentional: both 26.8.0 and 26.8.2 are
+rejected, and a version change requires a separate governed change.
 
 ## V2 Module and Release Identity
 
@@ -96,6 +119,13 @@ have a Spec Kit specification that identifies:
 
 Keep changes focused. Do not combine unrelated cleanup, dependency upgrades, generated-code drift,
 or broad formatting changes with a feature or fix.
+
+Every implementation task must name exact writable paths, separate read-only inputs, dependencies,
+a locally executable completion command, and its evidence destination. For test-first work, record
+the precise expected RED assertion and accepted missing-behavior signature, reject infrastructure
+failures as RED evidence, and name the later GREEN task that reruns the same assertion successfully.
+Use optional parallel work only when writable files, generated outputs, lockfiles, Taskfile sections,
+evidence, and ownership rows are disjoint; join branches before any shared integration gate.
 
 ## Architecture Boundaries
 
@@ -160,6 +190,11 @@ The root `.editorconfig` defines basic whitespace conventions. In addition:
 The repository-level `.golangci.yml` is the accepted lint policy. Add a new linter only in a focused
 change that reviews and resolves its findings rather than suppressing them broadly.
 
+Before every commit containing Go source changes, run `go fix ./...` from the repository root,
+review every modernization diff, and retain only intentional edits. Run it before final `gofmt` and
+task-local Go tests. On macOS, use `task vet`, `task test`, and `task test:race` so the repository's
+macOS 13 deployment and CGO flags remain consistent.
+
 ## Go Tests and Resource Cleanup
 
 Register cleanup for every test-owned resource immediately after acquisition with `t.Cleanup`.
@@ -196,6 +231,9 @@ task lint
 task test
 task test:race
 task browser:test
+task frontend:typecheck
+task frontend:policy:check
+task frontend:boundary:check
 task proto:check
 task proto:breaking
 task bindings:check

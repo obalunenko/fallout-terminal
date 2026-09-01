@@ -7,57 +7,7 @@
   <link rel="stylesheet" href="./overseer.css">
 </head>
 <body>
-<div id="legacyOverseerRoot" style="height:100%">
-
-<!-- ── MAIN LAYOUT ──────────────────────────────────────── -->
-<div class="layout" id="mainLayout" style="display:none">
-
-  <div id="runtimeHeaderVueLeaf" style="display:contents"></div>
-
-  <div class="main">
-
-    <!-- LEFT: terminal list -->
-    <aside class="term-panel">
-      <div class="panel-hdr">ГРУППЫ И ТЕРМИНАЛЫ</div>
-      <div class="term-list" id="termList" role="list" aria-label="Группы терминалов"></div>
-      <div class="term-list-actions" role="group" aria-label="Действия со списком терминалов">
-        <button class="btn btn-secondary full-w" id="btnAddTerminal" type="button">+ СОЗДАТЬ ТЕРМИНАЛ</button>
-        <button class="btn btn-secondary full-w" id="btnCreateTerminalGroup" type="button" aria-haspopup="dialog" aria-controls="terminalGroupDraftDialog">+ СОЗДАТЬ ГРУППУ</button>
-      </div>
-      <div class="terminal-group-error" id="terminalGroupError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-
-      <div id="broadcastControlsVueLeaf" style="display:contents"></div>
-
-      <div class="term-footer">
-        <div id="hackControlsVueLeaf" style="display:contents"></div>
-      </div>
-      <div class="save-status" id="saveStatus"></div>
-    </aside>
-
-    <!-- CENTER: tree editor -->
-    <main class="tree-panel">
-      <div id="terminalEditorVueLeaf" style="display:contents"></div>
-      <div id="terminalSettingsVueLeaf" style="display:contents"></div>
-      <div id="terminalTreeVueLeaf" style="display:contents"></div>
-    </main>
-
-    <!-- RIGHT: node editor form -->
-    <aside class="node-panel" id="nodePanel">
-      <div class="panel-hdr">СВОЙСТВА</div>
-      <div id="nodeEditorVueLeaf" style="display:contents"></div>
-      <div id="publicAccessVueLeaf"></div>
-    </aside>
-
-  </div><!-- /main -->
-</div><!-- /layout -->
-
-
-
-</div>
-<div id="overseerVueLeaves" style="display:contents"></div>
-
-<script type="module" src="./desktop-api.js"></script>
-<script type="module" src="./main.ts"></script>
-<script type="module" src="./overseer.js"></script>
+  <div id="overseerApp"></div>
+  <script type="module" src="./main.ts"></script>
 </body>
 </html>

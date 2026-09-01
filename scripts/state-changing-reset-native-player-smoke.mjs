@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import process from 'node:process';
 import { chromium } from '../tests/browser/node_modules/playwright/index.mjs';
 
-const [, , mode, baseURL, readyPath, triggerPath, resultPath] = process.argv;
+const [, , mode, baseURL, readyPath, triggerPath, resultPath, approvalPath] = process.argv;
 const timeoutMilliseconds = 20_000;
 const convergenceMilliseconds = 1_000;
 
@@ -138,6 +138,9 @@ async function runResetObservation(browser) {
   await waitFor('completed command before reset', () => textVisible(controller, '.term-row', 'Гермодвери открыты'));
   await rowWithText(controller, 'Гермодвери открыты').click();
   try {
+    await Promise.all(players.map(player => waitFor('pending completed command approval', () =>
+      textVisible(player.page, '#entryBody', 'Выполняется запрос'))));
+    await fs.writeFile(approvalPath, JSON.stringify({ approvalReady: true }));
     await Promise.all(players.map(player => waitFor('completed result before reset', () =>
       textVisible(player.page, '#entryBody', 'Гермодвери были открыты'))));
   } catch (error) {
@@ -243,8 +246,9 @@ async function runPresentationObservation(browser) {
   await Promise.all(players.map(player => player.context.close()));
 }
 
-if (!['reset', 'reopen', 'presentation'].includes(mode) || !baseURL || !readyPath || !triggerPath || !resultPath) {
-  fail('usage: state-changing-reset-native-player-smoke.mjs <reset|reopen|presentation> <base-url> <ready> <trigger> <result>');
+if (!['reset', 'reopen', 'presentation'].includes(mode) || !baseURL || !readyPath || !triggerPath || !resultPath ||
+    (mode === 'reset' && !approvalPath)) {
+  fail('usage: state-changing-reset-native-player-smoke.mjs <reset|reopen|presentation> <base-url> <ready> <trigger> <result> [approval-ready]');
 }
 
 const browser = await chromium.launch({ headless: true });

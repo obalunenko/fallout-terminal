@@ -1,0 +1,40 @@
+Task: T143
+Expected assertion: AssertionError: gesture unlock preserves cue volumes and unmount aborts/stops/disconnects/closes audio
+Product command: scripts/frontend-focused-browser-check.sh tests/browser/player-candidate-sound.spec.mjs gesture\ unlock\ preserves\ cue\ volumes\ and\ unmount\ aborts/stops/disconnects/closes\ audio
+Product exit status: 1
+--- captured stdout/stderr ---
+Listing tests:
+  player-candidate-sound.spec.mjs:14:1 › gesture unlock preserves cue volumes and unmount aborts/stops/disconnects/closes audio
+Total: 1 test in 1 file
+[WebServer] (node:65583) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:65595) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:65596) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:65604) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+AssertionError: gesture unlock preserves cue volumes and unmount aborts/stops/disconnects/closes audio
+  ✘  1 tests/browser/player-candidate-sound.spec.mjs:14:1 › gesture unlock preserves cue volumes and unmount aborts/stops/disconnects/closes audio (2ms)
+
+
+  1) tests/browser/player-candidate-sound.spec.mjs:14:1 › gesture unlock preserves cue volumes and unmount aborts/stops/disconnects/closes audio
+
+    Error: Player candidate sound lifecycle is not implemented
+
+      15 |   if (!existsSync(soundModulePath)) {
+      16 |     process.stderr.write(`AssertionError: ${expectedAssertion}\n`);
+    > 17 |     throw new Error('Player candidate sound lifecycle is not implemented');
+         |           ^
+      18 |   }
+      19 | });
+      20 |
+        at /Users/olegbalunenko/Desktop/Fallout-Terminal/tests/browser/player-candidate-sound.spec.mjs:17:11
+
+    Error Context: tests/browser/test-results/player-candidate-sound-ges-45f70-ps-disconnects-closes-audio/error-context.md
+
+  1 failed
+    tests/browser/player-candidate-sound.spec.mjs:14:1 › gesture unlock preserves cue volumes and unmount aborts/stops/disconnects/closes audio

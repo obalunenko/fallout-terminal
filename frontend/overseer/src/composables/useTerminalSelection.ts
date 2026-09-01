@@ -1,6 +1,6 @@
 import { inject, nextTick, onUnmounted, readonly, ref, shallowRef } from 'vue';
 
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 
 export interface TerminalSelectionRow {
@@ -46,12 +46,12 @@ function rows(value: unknown): readonly TerminalSelectionRow[] | null {
 }
 
 export function useTerminalSelection() {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const revision = ref(-1);
   const terminals = shallowRef<readonly TerminalSelectionRow[]>(Object.freeze([]));
   const focusRequest = shallowRef<Readonly<{ ownerID: string; scope: string }> | null>(null);
 
-  const release = bridge?.subscribeLegacyState(message => {
+  const release = controller?.subscribeState(message => {
     if (message.kind === 'terminal-selection-focus-request') {
       if (typeof message.ownerID !== 'string' || typeof message.scope !== 'string') return;
       focusRequest.value = Object.freeze({ ownerID: message.ownerID, scope: message.scope });
@@ -69,7 +69,7 @@ export function useTerminalSelection() {
   });
 
   function select(terminalID: string): void {
-    bridge?.vueToLegacy({ kind: 'terminal-selection-request', revision: revision.value, terminalID });
+    controller?.dispatch({ kind: 'terminal-selection-request', revision: revision.value, terminalID });
   }
 
   onUnmounted(() => {

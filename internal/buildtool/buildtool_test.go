@@ -148,6 +148,95 @@ func TestBrowserGeneratedContractInventoryRequiresExactTypeScriptFiles(t *testin
 	}
 }
 
+func TestOverseerFrontendBundleRequiresProductionVueRootAndAssets(t *testing.T) {
+	validIndex := `<!doctype html><script type="module" src="./assets/index.js"></script><link rel="stylesheet" href="./assets/index.css"><div id="overseerApp"></div>`
+	tests := []struct {
+		name            string
+		index           string
+		assets          []string
+		markerDirectory bool
+		wantError       string
+	}{
+		{name: "production Vue bundle", index: validIndex, assets: []string{"index.js", "index.css"}},
+		{name: "missing root", index: strings.ReplaceAll(validIndex, `<div id="overseerApp"></div>`, ""), assets: []string{"index.js", "index.css"}, wantError: "exactly one"},
+		{name: "duplicate root", index: validIndex + `<div id="overseerApp"></div>`, assets: []string{"index.js", "index.css"}, wantError: "exactly one"},
+		{name: "removed Overseer bootstrap", index: validIndex + `<script src="./overseer.js"></script>`, assets: []string{"index.js", "index.css"}, wantError: "overseer.js"},
+		{name: "removed desktop bootstrap", index: validIndex + `<script src="./desktop-api.js"></script>`, assets: []string{"index.js", "index.css"}, wantError: "desktop-api.js"},
+		{name: "missing module entry", index: strings.ReplaceAll(validIndex, `type="module"`, ""), assets: []string{"index.js", "index.css"}, wantError: "index.html is missing"},
+		{name: "missing JavaScript bundle", index: validIndex, assets: []string{"index.css"}, wantError: "javascript=false"},
+		{name: "missing CSS bundle", index: validIndex, assets: []string{"index.js"}, wantError: "css=false"},
+		{name: "non-file embed marker", index: validIndex, assets: []string{"index.js", "index.css"}, markerDirectory: true, wantError: "not a regular file"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			dist := filepath.Join(root, "frontend", "overseer", "dist")
+			assets := filepath.Join(dist, "assets")
+			require.NoError(t, os.MkdirAll(assets, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dist, "index.html"), []byte(test.index), 0o600))
+			if test.markerDirectory {
+				require.NoError(t, os.Mkdir(filepath.Join(dist, ".keep"), 0o755))
+			} else {
+				require.NoError(t, os.WriteFile(filepath.Join(dist, ".keep"), nil, 0o600))
+			}
+			for _, asset := range test.assets {
+				require.NoError(t, os.WriteFile(filepath.Join(assets, asset), []byte("fixture"), 0o600))
+			}
+
+			err := verifyOverseerFrontendBundle(root)
+			if test.wantError == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, test.wantError)
+		})
+	}
+}
+
+func TestPlayerFrontendBundleRequiresProductionVueRootAndAssets(t *testing.T) {
+	validIndex := `<!doctype html><script type="module" src="./assets/index.js"></script><link rel="stylesheet" href="./assets/index.css"><div id="playerApp"></div>`
+	tests := []struct {
+		name      string
+		index     string
+		assets    []string
+		wantError string
+	}{
+		{name: "production Vue bundle", index: validIndex, assets: []string{"index.js", "index.css"}},
+		{name: "missing root", index: strings.ReplaceAll(validIndex, `<div id="playerApp"></div>`, ""), assets: []string{"index.js", "index.css"}, wantError: "exactly one"},
+		{name: "duplicate root", index: validIndex + `<div id="playerApp"></div>`, assets: []string{"index.js", "index.css"}, wantError: "exactly one"},
+		{name: "removed client bootstrap", index: validIndex + `<script src="./client.js"></script>`, assets: []string{"index.js", "index.css"}, wantError: "client.js"},
+		{name: "removed sound bootstrap", index: validIndex + `<script src="./sound.js"></script>`, assets: []string{"index.js", "index.css"}, wantError: "sound.js"},
+		{name: "removed uplink bootstrap", index: validIndex + `<script src="./presentation-uplink.js"></script>`, assets: []string{"index.js", "index.css"}, wantError: "presentation-uplink.js"},
+		{name: "alternate entry", index: strings.ReplaceAll(validIndex, "./assets/index.js", "./candidate-main.ts"), assets: []string{"index.js", "index.css"}, wantError: "candidate-main"},
+		{name: "missing JavaScript bundle", index: validIndex, assets: []string{"index.css"}, wantError: "javascript=false"},
+		{name: "missing CSS bundle", index: validIndex, assets: []string{"index.js"}, wantError: "css=false"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			dist := filepath.Join(root, "frontend", "client", "dist")
+			assets := filepath.Join(dist, "assets")
+			require.NoError(t, os.MkdirAll(assets, 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dist, "index.html"), []byte(test.index), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(dist, ".keep"), nil, 0o600))
+			for _, asset := range test.assets {
+				require.NoError(t, os.WriteFile(filepath.Join(assets, asset), []byte("fixture"), 0o600))
+			}
+
+			err := verifyVueFrontendBundle(root, "client", "playerApp", []string{
+				"client.js", "sound.js", "presentation-uplink.js", "candidate-main", "test-fixtures", ".ts", ".vue",
+			})
+			if test.wantError == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, test.wantError)
+		})
+	}
+}
+
 func TestPreparationOrderIsLockedForEveryActionAndTarget(t *testing.T) {
 	wantOrder := []string{
 		"install locked frontend dependencies",

@@ -1,0 +1,9 @@
+.keep
+index.html
+assets/index-a1b2c3.js
+assets/index-d4e5f6.css
+assets/index-overseer9abc.js
+assets/index-wails9abc.css
+assets/index-bindings9abc.js
+assets/Fixedsys-a1b2c3.ttf
+sounds/ambient/obj_computerzax_hum_lp.wav

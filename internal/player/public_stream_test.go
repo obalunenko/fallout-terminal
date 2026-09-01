@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -297,7 +298,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	require.NoError(t, ingress.Activate("public.example", edgeTestUsername, []byte(edgeTestPassword)))
 
 	for _, path := range []string{
-		"/", "/client.js",
+		"/", "/assets/index-player.js", "/client.js", "/main.ts", "/overseer.css", "/Fixedsys.ttf", "/assets/overseer.js",
 		playerv1connect.PlayerServiceSubscribeProcedure,
 		playerv1connect.PlayerServiceSelectCharacterProcedure,
 		playerv1connect.PlayerServiceNavigateProcedure,
@@ -317,7 +318,8 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 			}
 			response, requestErr := http.DefaultClient.Do(request)
 			require.NoError(t, requestErr)
-			_ = response.Body.Close()
+			t.Cleanup(func() { _ = response.Body.Close() })
+			require.NoError(t, response.Body.Close())
 			assert.Equal(t, http.StatusUnauthorized, response.StatusCode, path)
 			assert.NotEmpty(t, response.Header.Get("WWW-Authenticate"), path)
 		}
@@ -331,9 +333,41 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	require.NoError(t, err)
 	staticResponse, err := authenticatedClient.Do(staticRequest)
 	require.NoError(t, err)
-	_ = staticResponse.Body.Close()
+	t.Cleanup(func() { _ = staticResponse.Body.Close() })
+	staticBody, err := io.ReadAll(staticResponse.Body)
+	require.NoError(t, err)
+	require.NoError(t, staticResponse.Body.Close())
 	assert.Equal(t, http.StatusOK, staticResponse.StatusCode)
 	assert.Empty(t, staticResponse.Header.Get("WWW-Authenticate"))
+	assert.Contains(t, string(staticBody), "player-shell")
+	assert.Contains(t, string(staticBody), `id="playerApp"`)
+	assert.Contains(t, string(staticBody), `/assets/index-player.js`)
+	assert.NotContains(t, string(staticBody), "overseer-shell")
+	assert.NotContains(t, string(staticBody), "client.js")
+
+	bundleRequest, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://public.example/assets/index-player.js", nil)
+	require.NoError(t, err)
+	bundleResponse, err := authenticatedClient.Do(bundleRequest)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = bundleResponse.Body.Close() })
+	bundleBody, err := io.ReadAll(bundleResponse.Body)
+	require.NoError(t, err)
+	require.NoError(t, bundleResponse.Body.Close())
+	assert.Equal(t, http.StatusOK, bundleResponse.StatusCode)
+	assert.Contains(t, string(bundleBody), "player-vue-runtime")
+	assert.NotContains(t, string(bundleBody), "overseer-shell")
+
+	for _, path := range []string{"/client.js", "/sound.js", "/presentation-uplink.js", "/main.ts", "/overseer.css", "/Fixedsys.ttf", "/assets/overseer.js"} {
+		request, requestErr := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://public.example"+path, nil)
+		require.NoError(t, requestErr)
+		response, requestErr := authenticatedClient.Do(request)
+		require.NoError(t, requestErr)
+		t.Cleanup(func() { _ = response.Body.Close() })
+		_, readErr := io.Copy(io.Discard, response.Body)
+		require.NoError(t, readErr)
+		require.NoError(t, response.Body.Close())
+		assert.Equal(t, http.StatusNotFound, response.StatusCode, path)
+	}
 
 	client := playerv1connect.NewPlayerServiceClient(authenticatedClient, "http://public.example")
 	manifest, err := client.SoundManifest(t.Context(), connect.NewRequest(&playerv1.SoundManifestRequest{

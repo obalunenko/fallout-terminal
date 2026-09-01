@@ -37,6 +37,19 @@ const (
 	fixtureRandomSeed        = uint64(0x435254)
 	fixtureApprovalRequestID = "approval-request-1"
 	fixturePlayerRevision    = uint64(41)
+	overseerFixturePage      = `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://127.0.0.1:34121; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:34121 ws://localhost:* ws://127.0.0.1:*; object-src 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Fallout Terminal — Overseer Control</title>
+  <link rel="stylesheet" href="/__fixture/overseer.css">
+</head>
+<body>
+  <div id="overseerApp"></div>
+</body>
+</html>`
 )
 
 var expectedGeneratedPlayerContracts = [...]string{
@@ -1399,6 +1412,31 @@ func validateGeneratedPlayerContracts(directory string) error {
 	return nil
 }
 
+func serveOverseerFixturePage(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprint(response, overseerFixturePage)
+}
+
+func validateBuiltPlayerAssets(assets fs.FS) error {
+	index, err := fs.ReadFile(assets, "index.html")
+	if err != nil {
+		return fmt.Errorf("read built Player index: %w", err)
+	}
+	html := string(index)
+	if strings.Count(html, `id="playerApp"`) != 1 {
+		return errors.New("built Player index must contain exactly one playerApp root")
+	}
+	if strings.Count(html, `type="module"`) != 1 || !strings.Contains(html, `src="./assets/`) {
+		return errors.New("built Player index must select exactly one production module bundle")
+	}
+	for _, forbidden := range []string{"client.js", "sound.js", "presentation-uplink.js", ".ts", ".vue"} {
+		if strings.Contains(html, forbidden) {
+			return fmt.Errorf("built Player index selects forbidden source %q", forbidden)
+		}
+	}
+	return nil
+}
+
 func run(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("fixture context is required")
@@ -1410,6 +1448,9 @@ func run(ctx context.Context) error {
 	playerAssets, err := fs.Sub(os.DirFS(playerRoot), "dist")
 	if err != nil {
 		return fmt.Errorf("open built player assets: %w", err)
+	}
+	if err := validateBuiltPlayerAssets(playerAssets); err != nil {
+		return err
 	}
 	fixtureHackRandom := &fixtureRandom{state: fixtureRandomSeed}
 	approvalStore := &fixtureCommandStateStore{}
@@ -1530,24 +1571,11 @@ button.addEventListener("click", async () => {
 	mux.HandleFunc("GET /__fixture/desktop-api", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(response, `<!doctype html><meta charset="utf-8">
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>
-<script type="module" src="/__fixture/desktop-api.js"></script>`)
+<title>Overseer desktop adapter fixture</title>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`)
 	})
 	mux.HandleFunc("GET /__fixture/player-management", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
-		page = strings.Replace(page, `class="start-screen" id="startScreen"`, `class="start-screen" id="startScreen" style="display:none"`, 1)
-		page = strings.Replace(page, `id="mainLayout" style="display:none"`, `id="mainLayout" style="display:flex"`, 1)
-		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
-		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
-		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("POST /__fixture/player-management/reset", func(response http.ResponseWriter, _ *http.Request) {
 		playerManagementStore.reset()
@@ -1616,32 +1644,10 @@ button.addEventListener("click", async () => {
 		_ = json.NewEncoder(response).Encode(playerManagementStore.advanceRevision())
 	})
 	mux.HandleFunc("GET /__fixture/public-access-settings", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := string(raw)
-		page = strings.Replace(page, `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
-		page = strings.Replace(page, `class="start-screen" id="startScreen"`, `class="start-screen" id="startScreen" style="display:none"`, 1)
-		page = strings.Replace(page, `id="mainLayout" style="display:none"`, `id="mainLayout" style="display:flex"`, 1)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-authoring", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
-		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
-		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
-		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("POST /__fixture/state-changing-command-authoring/reset", func(response http.ResponseWriter, _ *http.Request) {
 		authoringStore.reset()
@@ -1679,60 +1685,7 @@ button.addEventListener("click", async () => {
 		_ = json.NewEncoder(response).Encode(authoringStore.resetTerminal(payload))
 	})
 	mux.HandleFunc("GET /__fixture/terminal-grouping/overseer", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/terminal-grouping/desktop-bindings.js"}}</script>`, 1)
-		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
-		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
-		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
-	})
-	mux.HandleFunc("GET /__fixture/terminal-grouping/desktop-bindings.js", func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-		_, _ = fmt.Fprint(response, `export * from "/__fixture/desktop-bindings.js";
-
-export async function OpenSession() {
-  const response = await fetch("/__fixture/terminal-grouping/open-session");
-  const result = response.ok ? await response.json() : null;
-  return {
-    ok: response.ok && result?.ok === true,
-    error: response.ok ? (result?.error ?? "") : "terminal grouping fixture is unavailable",
-    filePath: "/private/tmp/fallout-terminal-grouping.json",
-    session: result?.session ?? null,
-  };
-}
-
-export async function SaveSession(session) {
-  const retained = structuredClone(session);
-  const response = await fetch("/__fixture/terminal-grouping/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(retained),
-  });
-  const result = response.ok ? await response.json() : null;
-  return {
-    ok: response.ok && result?.ok === true,
-    error: response.ok ? (result?.error ?? "") : "terminal grouping save failed",
-    savedRevision: Number(result?.revision ?? 0),
-  };
-}
-
-export async function RequestTerminalActivation(payload) {
-  const response = await fetch("/__fixture/terminal-grouping/activate-terminal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  return response.ok
-    ? response.json()
-    : { ok: false, error: "terminal grouping activation fixture is unavailable" };
-}
-`)
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("POST /__fixture/terminal-grouping/reset", func(response http.ResponseWriter, request *http.Request) {
 		var payload struct {
@@ -1894,18 +1847,7 @@ export async function RequestTerminalActivation(payload) {
 		response.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /__fixture/terminal-navigation/overseer", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
-		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
-		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
-		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("GET /__fixture/terminal-navigation/session", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -2104,18 +2046,7 @@ export async function RequestTerminalActivation(payload) {
 		response.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-approval/overseer", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
-		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
-		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
-		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-approval/state", func(response http.ResponseWriter, _ *http.Request) {
 		state := service.Snapshot()
@@ -2184,18 +2115,7 @@ export async function RequestTerminalActivation(payload) {
 		_ = json.NewEncoder(response).Encode(result)
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-sync/overseer", func(response http.ResponseWriter, _ *http.Request) {
-		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
-		if readErr != nil {
-			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
-			return
-		}
-		page := strings.Replace(string(raw), `<head>`, `<head>
-<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/desktop-bindings.js"}}</script>`, 1)
-		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
-		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
-		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
-		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = response.Write([]byte(page))
+		serveOverseerFixturePage(response)
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-sync/state", func(response http.ResponseWriter, _ *http.Request) {
 		state := service.Snapshot()
@@ -2281,11 +2201,8 @@ export async function RequestTerminalActivation(payload) {
 	mux.HandleFunc("GET /__fixture/overseer.css", func(response http.ResponseWriter, request *http.Request) {
 		http.ServeFile(response, request, "../../frontend/overseer/src/overseer.css")
 	})
-	mux.HandleFunc("GET /__fixture/overseer.js", func(response http.ResponseWriter, request *http.Request) {
-		http.ServeFile(response, request, "../../frontend/overseer/src/overseer.js")
-	})
-	mux.HandleFunc("GET /__fixture/desktop-api.js", func(response http.ResponseWriter, request *http.Request) {
-		http.ServeFile(response, request, "../../frontend/overseer/src/desktop-api.js")
+	mux.HandleFunc("GET /__fixture/Fixedsys.ttf", func(response http.ResponseWriter, request *http.Request) {
+		http.ServeFile(response, request, "../../frontend/overseer/src/Fixedsys.ttf")
 	})
 	mux.HandleFunc("GET /__fixture/desktop-bindings.js", func(response http.ResponseWriter, request *http.Request) {
 		http.ServeFile(response, request, "fixtures/desktop-bindings.js")

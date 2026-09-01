@@ -52,7 +52,9 @@ test('protected forwarding authenticates static, unary, and streaming capabiliti
   const authorization = `Basic ${Buffer.from('players:password-long-enough').toString('base64')}`;
   const pageResponse = await request.get(protectedURL, { headers: { Authorization: authorization } });
   expect(pageResponse.status()).toBe(200);
-  expect(await pageResponse.text()).toContain('characterSelect');
+  const productionPage = await pageResponse.text();
+  expect(productionPage).toContain('id="playerApp"');
+  expect(productionPage).toMatch(/<script[^>]+src="\.\/assets\/[^"/]+\.js"/u);
 
   const rpcResponse = await request.post(
     protectedOrigin + '/fallout.terminal.player.v1.PlayerService/SoundManifest',

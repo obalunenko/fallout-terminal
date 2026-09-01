@@ -1,6 +1,6 @@
 import { computed, inject, onUnmounted, readonly, ref, shallowRef } from 'vue';
 
-import { overseerCoexistenceBridgeKey, type OverseerCoexistenceMessage } from '../mount.js';
+import { overseerControllerKey, type OverseerControllerMessage } from '../controllers/overseer-controller.js';
 import type { DesktopCommandResult, DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -25,7 +25,7 @@ function isRecord(value: unknown): value is DesktopRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseContext(message: OverseerCoexistenceMessage): HackContext | null | undefined {
+function parseContext(message: OverseerControllerMessage): HackContext | null | undefined {
   if (message.kind !== 'terminal-authoring-snapshot') return undefined;
   if (message.hackContext === null) return null;
   if (!isRecord(message.hackContext)) return undefined;
@@ -64,7 +64,7 @@ function parseHack(value: DesktopRecord, revision: number): HackSnapshot | null 
 }
 
 export function useHackControls(port: DesktopPort) {
-  const bridge = inject(overseerCoexistenceBridgeKey, null);
+  const controller = inject(overseerControllerKey, null);
   const context = shallowRef<HackContext | null>(null);
   const current = shallowRef<HackSnapshot | null>(null);
   const commandPending = ref(false);
@@ -86,7 +86,7 @@ export function useHackControls(port: DesktopPort) {
     commandGeneration += 1;
   }
 
-  function handleLegacyMessage(message: OverseerCoexistenceMessage): void {
+  function handleControllerMessage(message: OverseerControllerMessage): void {
     const nextContext = parseContext(message);
     if (nextContext !== undefined) {
       replaceContext(nextContext);
@@ -122,7 +122,7 @@ export function useHackControls(port: DesktopPort) {
     commandPending.value = true;
     error.value = '';
     if (coordinationCommand) {
-      bridge?.vueToLegacy({
+      controller?.dispatch({
         expectedRevision: actionContext.coordinationRevision,
         kind: 'hack-command-started',
         status: pendingMessage,
@@ -135,7 +135,7 @@ export function useHackControls(port: DesktopPort) {
       result = { error: cause instanceof Error ? cause.message : String(cause), ok: false };
     }
     if (coordinationCommand) {
-      bridge?.vueToLegacy({
+      controller?.dispatch({
         expectedRevision: actionContext.coordinationRevision,
         kind: 'hack-command-finished',
         result,
@@ -166,12 +166,12 @@ export function useHackControls(port: DesktopPort) {
     }), true, 'ПОДГОТОВКА НОВОЙ ГОЛОВОЛОМКИ...', 'СОЗДАНА НОВАЯ ГОЛОВОЛОМКА');
   }
 
-  const releaseBridge = bridge?.subscribeLegacyState(handleLegacyMessage) ?? (() => {});
+  const releaseController = controller?.subscribeState(handleControllerMessage) ?? (() => {});
   const releaseHackState = port.onHackState(handleHackState);
   onUnmounted(() => {
     active = false;
     commandGeneration += 1;
-    releaseBridge();
+    releaseController();
     releaseHackState();
     context.value = null;
     current.value = null;

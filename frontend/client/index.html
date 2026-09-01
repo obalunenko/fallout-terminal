@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -6,105 +6,9 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'">
   <title>Fallout Terminal</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="client.css">
 </head>
 <body>
-
-<div class="crt">
-  <div class="screen" id="screen">
-
-    <!-- Normal chrome: shown on every screen except the hacking minigame -->
-    <div class="term-header" id="normalHeader" hidden>
-      <div class="hdr-center">
-        <div>ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM</div>
-        <div>COPYRIGHT 2075-2077 ROBCO INDUSTRIES</div>
-        <div id="serverLine">-Server 1-</div>
-      </div>
-      <div class="hdr-intro" id="introTextEl"></div>
-      <div class="term-divider"></div>
-    </div>
-
-    <!-- Hacking protocol chrome -->
-    <div class="term-header" id="hackHeader" hidden>
-      <div class="hdr-center">
-        <div>ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL</div>
-        <div>ВВЕДИТЕ ПАРОЛЬ</div>
-        <div id="attemptsLine"></div>
-      </div>
-    </div>
-
-    <div class="term-body" id="termBody">
-      <section class="character-select" id="characterSelect" hidden aria-labelledby="characterSelectTitle" aria-describedby="playerNotice">
-        <h1 class="character-select-title" id="characterSelectTitle">ВЫБЕРИТЕ ПЕРСОНАЖА</h1>
-        <div class="character-options" id="characterOptions" role="list"></div>
-      </section>
-
-      <section class="assigned-waiting" id="assignedWaiting" hidden aria-labelledby="assignedWaitingTitle">
-        <h1 class="assigned-waiting-title" id="assignedWaitingTitle">ОЖИДАНИЕ ТЕРМИНАЛА</h1>
-        <p>ПЕРСОНАЖ НАЗНАЧЕН. ОЖИДАЙТЕ ТРАНСЛЯЦИИ<span class="blink">_</span></p>
-      </section>
-
-      <div class="player-notice" id="playerNotice" role="status" aria-live="polite" hidden></div>
-
-      <div class="term-idle" id="termIdle">
-        <div>ОЖИДАНИЕ ТРАНСЛЯЦИИ<span class="blink">_</span></div>
-      </div>
-
-      <div class="term-list" id="termList" hidden></div>
-
-      <div class="term-entry" id="termEntry" hidden>
-        <div class="entry-title" id="entryTitle"></div>
-        <div class="entry-divider">════════════════════════════</div>
-        <div class="entry-body" id="entryBody"></div>
-      </div>
-
-      <div class="hack-board" id="hackBoard" hidden>
-        <div class="hack-columns" id="hackColumns"></div>
-        <div class="hack-log-panel">
-          <div class="hack-log" id="hackLog"></div>
-          <div class="hack-input-line"><span>&gt; </span><span id="hackInputPreview"></span><span class="blink">_</span></div>
-        </div>
-      </div>
-
-      <div class="hack-blocked" id="hackBlocked" hidden>
-        <div>Вход заблокирован.</div>
-        <div>Обратитесь к администратору.</div>
-      </div>
-    </div>
-
-    <div class="term-output" id="termOutput" hidden></div>
-
-    <div class="term-footer">
-      <button class="back-btn" id="backBtn" hidden>[ НАЗАД ]</button>
-      <nav class="page-nav" id="pageNav" aria-label="Навигация по страницам" hidden>
-        <button class="page-btn" id="pagePrev" type="button" aria-label="Предыдущая страница" hidden>[ ПРЕД. ]</button>
-        <output class="page-indicator" id="pageIndicator" aria-live="polite">1 / 1</output>
-        <button class="page-btn" id="pageNext" type="button" aria-label="Следующая страница" hidden>[ СЛЕД. ]</button>
-      </nav>
-    </div>
-
-    <section class="player-status-line" id="playerIdentity" hidden aria-label="Идентификация игрока" role="status" aria-live="polite" aria-atomic="true">
-      <span class="player-status-prefix">[СИСТЕМА] ВВОД</span>
-      <span class="player-status-input" id="playerFallbackName"></span>
-      <span class="player-status-separator" id="playerCharacterSeparator" hidden>//</span>
-      <span class="player-status-character" id="playerCharacterName" hidden></span>
-      <span class="player-status-separator">//</span>
-      <output class="player-status-role" id="roleBadge"></output>
-    </section>
-
-    <div class="term-prompt" id="termPrompt" hidden>
-      <span>&gt; </span><span class="blink">_</span>
-    </div>
-
-    <div class="scanlines" aria-hidden="true"></div>
-    <div class="vignette" aria-hidden="true"></div>
-  </div>
-</div>
-
-<div class="conn-overlay" id="connOverlay">
-  <div class="conn-text" id="connText">УСТАНОВКА СВЯЗИ...</div>
-</div>
-
-<script type="module" src="client.js"></script>
+  <div id="playerApp"></div>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

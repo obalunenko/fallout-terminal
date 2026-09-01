@@ -30,9 +30,9 @@ import (
 	"github.com/obalunenko/logger"
 )
 
-// The repository-owned Go build command prepares the frontend before production
-// compilation. The checked-in .keep keeps ordinary Go tooling compile-safe on a
-// clean checkout.
+// The repository-owned Go build command prepares the privileged Overseer Vue
+// bundle before production compilation. The checked-in .keep keeps ordinary Go
+// tooling compile-safe on a clean checkout without embedding authored sources.
 //
 //go:embed all:frontend/overseer/dist
 var overseerSource embed.FS

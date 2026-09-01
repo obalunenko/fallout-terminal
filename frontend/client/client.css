@@ -26,6 +26,8 @@ html, body {
   font-family: 'Fixedsys', 'Consolas', monospace;
 }
 
+#playerApp { height: 100%; min-height: 0; }
+
 .crt {
   height: 100%;
   width: 100%;
@@ -419,6 +421,10 @@ html, body {
   text-align: center;
 }
 .term-footer:has(.back-btn[hidden]):has(.page-nav[hidden]) { min-height: 0; margin-top: 0; }
+.screen:has(#termEntry:not([hidden])) .term-footer {
+  min-height: clamp(24px, 4.4vh, 34px);
+  margin-top: clamp(3px, .8vh, 8px);
+}
 
 /* ── Hacking minigame ──────────────────────────────────── */
 #attemptsLine { margin-top: 2px; }
@@ -622,6 +628,7 @@ html, body {
   z-index: 10;
 }
 .conn-overlay.hidden { display: none; }
+.conn-text:empty::before { content: 'УСТАНОВКА СВЯЗИ...'; }
 
 @media (max-height: 720px) {
   :root {

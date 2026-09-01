@@ -26,6 +26,28 @@ description: "Task list template for Fallout Terminal feature implementation"
 - Every FR, SC, clarification, constitutional obligation, checklist item, contract obligation, and migration wave MUST map to explicit valid task IDs and concrete verification; reject invalid ranges, “same as” references, “every wave task,” and final-umbrella-only mappings
 - `[P]` is allowed only for disjoint exact files with no shared generated output, lockfile, Taskfile section, manifest, entrypoint, ownership/evidence ledger, or visual baseline; parallel branches MUST join before shared integration
 
+Every generated task uses this complete record; do not omit a field or hide it in a phase preamble:
+
+```text
+- [ ] TNNN [P?] [US?] Observable task description
+  - Outcome: [observable completion]
+  - Files (modify/create/delete): [complete repository-relative paths, or `none`]
+  - Read-only inputs: [complete repository-relative paths, or `none`]
+  - Depends: [explicit valid task IDs, or `none`]
+  - Coverage: [FR/SC/clarification/constitution/checklist/contract/wave IDs]
+  - Verify: [exact locally executable command and expected result]
+  - Evidence: [exact repository-relative evidence path and required contents]
+  - Temporary: [mechanism-row IDs plus creation/expiry/removal impact, or `none`]
+  - Go: [`go fix ./...` → review → intentional edits only → format → focused gate, or `not applicable`]
+  - RED/GREEN: [for test-first tasks: exact assertion, accepted missing-behavior failure,
+    rejected infrastructure failures, RED evidence, and later GREEN task; otherwise `not applicable`]
+```
+
+The implementation DAG and verification DAG are both explicit. A producer task creates and checks
+its target/script/fixture/generated artifact before any consumer names it; a RED task points to its
+later GREEN task without requiring the RED assertion to pass; story and wave joins precede shared
+integration and final evidence tasks.
+
 ## Repository Paths
 
 - Composition, lifecycle, and Wails bridge: `main.go`, `app.go`
@@ -191,3 +213,19 @@ gates remain separate tasks.
 - Record unavailable target-platform build environments, credentials, browsers, or manual checks explicitly.
 - Keep runtime-only live and coordination state out of persistent JSON unless persistence is an approved requirement.
 - Avoid vague tasks, generic database/authentication work, and producer-only contract changes.
+
+## Required Traceability and Mechanism Ledgers
+
+Generated task files end with concrete, machine-checkable ledgers rather than prose summaries:
+
+| Requirement / obligation | Implementing task IDs | Verification task IDs |
+|---|---|---|
+| [FR/SC/clarification/constitution/checklist/contract/wave ID] | [explicit IDs] | [explicit IDs] |
+
+| Temporary mechanism ID | Exact owner path and selector/root/entry/config | Creation task | Permitted scope | Expiry | Unconditional removal task | Executable absence check |
+|---|---|---|---|---|---|---|
+| [M001 or `none`] | [exact owner] | [TNNN] | [bounded use] | [wave/task] | [TNNN] | [exact command] |
+
+| Producer | Introduction task and local check | Consumers allowed only afterward |
+|---|---|---|
+| [target/script/fixture/generator/artifact] | [TNNN + exact check] | [explicit task IDs] |

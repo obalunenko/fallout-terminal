@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onUnmounted, ref } from 'vue';
 
 import type { PublicAccessViewSnapshot } from '../composables/usePublicAccess.js';
-import { overseerCoexistenceBridgeKey } from '../mount.js';
+import { overseerControllerKey } from '../controllers/overseer-controller.js';
 import type { DesktopRecord } from '../models/overseer-view-state.js';
 import type { DesktopPort } from '../ports/desktop-port.js';
 
@@ -24,7 +24,7 @@ const error = ref('');
 const open = ref(false);
 const pending = ref(false);
 const sharing = ref(false);
-const bridge = inject(overseerCoexistenceBridgeKey, null);
+const controller = inject(overseerControllerKey, null);
 let active = true;
 let invocation = 0;
 let shareInvocation = 0;
@@ -113,7 +113,7 @@ function close(restoreFocus = true): void {
   const target = opener;
   opener = null;
   if (restoreFocus && target?.isConnected === true) target.focus();
-  else if (restoreFocus) bridge?.legacyToVue({ kind: 'public-access-settings-focus-player' });
+  else if (restoreFocus) controller?.publish({ kind: 'public-access-settings-focus-player' });
 }
 
 function confirmActiveChange(): boolean {
@@ -151,7 +151,7 @@ async function mutate(deletePlayerPassword = false): Promise<void> {
   if (!active || currentInvocation !== invocation || !open.value) return;
   pending.value = false;
   emitSnapshot(result.snapshot);
-  bridge?.vueToLegacy({ kind: 'public-access-settings-command-finished', result });
+  controller?.dispatch({ kind: 'public-access-settings-command-finished', result });
   if (result.ok !== true) {
     username.value = trimmedUsername;
     error.value = typeof result.error === 'string' && result.error !== ''
@@ -184,7 +184,7 @@ async function generate(): Promise<void> {
     passwordInput.value?.focus();
     return;
   }
-  bridge?.vueToLegacy({ kind: 'public-access-generated-password-open', generatedPassword });
+  controller?.dispatch({ kind: 'public-access-generated-password-open', generatedPassword });
   const refreshed = await props.port.getPublicAccess();
   if (active && currentInvocation === invocation) emitSnapshot(refreshed);
 }
@@ -193,11 +193,11 @@ async function share(): Promise<void> {
   if (sharing.value || props.snapshot.playerPasswordPresence !== 'present') return;
   const currentInvocation = ++shareInvocation;
   sharing.value = true;
-  bridge?.legacyToVue({ kind: 'public-access-settings-copy-status', status: '' });
+  controller?.publish({ kind: 'public-access-settings-copy-status', status: '' });
   const result = await props.port.copyPublicAccessCredentials();
   if (!active || currentInvocation !== shareInvocation) return;
   sharing.value = false;
-  bridge?.legacyToVue({
+  controller?.publish({
     kind: 'public-access-settings-copy-status',
     status: result.ok === true
       ? 'ЛОГИН И ПАРОЛЬ СКОПИРОВАНЫ'
@@ -210,7 +210,7 @@ function cancel(event?: Event): void {
   close();
 }
 
-const release = bridge?.subscribeLegacyState(message => {
+const release = controller?.subscribeState(message => {
   if (message.kind === 'public-access-player-credentials-open') void show();
   if (message.kind === 'public-access-credentials-share') void share();
   if (message.kind === 'public-access-player-generate-focus' && open.value) {

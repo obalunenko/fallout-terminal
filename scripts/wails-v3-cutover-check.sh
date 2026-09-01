@@ -105,7 +105,7 @@ scan_tree() {
 
   matches="$(find "${root}/README.md" "${root}/scripts" "${root}/.github/workflows" -type f \
     ! -name 'wails-v3-cutover-check.sh' ! -name 'wails-bindings-check.sh' ! -name 'verify-macos-app.sh' \
-    ! -name 'wails-v3-contract-check.sh' ! -name 'tool-modules-check.sh' \
+    ! -name 'wails-v3-contract-check.sh' ! -name 'tool-modules-check.sh' ! -name 'frontend-policy-check.sh' \
     -exec grep -EnH \
       'go[[:space:]]+install[[:space:]]+github\.com/wailsapp/wails|go[[:space:]]+run[[:space:]]+\./cmd/build[[:space:]]+(dev|build|package)([[:space:]]|$)|(^|[[:space:]`;&|])make[[:space:]]+(dev|build|package)([[:space:]]|$)|(^|[[:space:]`;&|])wails[[:space:]]+(dev|build|generate)([[:space:]]|$)|@wailsio/runtime.*(latest|\^|~|\*)|github\.com/wailsapp/wails/v3@latest' \
       {} + 2>/dev/null || true)"
@@ -148,6 +148,9 @@ self_test() {
   printf 'export const generated = true;\n' >"${fixture}/frontend/overseer/bindings/service.js"
   printf '<!doctype html>\n' >"${fixture}/frontend/overseer/dist/index.html"
   printf 'Active: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md. Earlier records are historical evidence.\n' >"${fixture}/README.md"
+  printf '%s\n' \
+    "forbidden='@wailsio/runtime.*latest'" \
+    'printf "%s\\n" "$forbidden" >/dev/null' >"${fixture}/scripts/frontend-policy-check.sh"
   printf '# Historical v2 spec\n' >"${fixture}/specs/001-wails-v2-migration/spec.md"
   printf '# Historical rollback\n' >"${fixture}/docs/wails-migration-rollback.md"
   scan_tree "${fixture}"

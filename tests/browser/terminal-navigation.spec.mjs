@@ -1,17 +1,19 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const FIXTURE = '/__fixture/terminal-navigation';
 const OVERSEER = `${FIXTURE}/overseer`;
 
 test.use({ bypassCSP: true });
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?terminal-navigation'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?terminal-navigation');
 }
 
 async function openOverseer(page) {
   await page.goto(OVERSEER);
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 }
@@ -156,7 +158,7 @@ test('terminal selection preserves stable rows stale suppression and focus', asy
   const projection = list.locator('[data-selection-revision]');
   const revision = Number(await projection.getAttribute('data-selection-revision'));
   await page.evaluate(({ currentRevision, selectedTerminalID }) => {
-    __overseerCoexistenceBridge.legacyToVue({
+    __overseerAppFixture.controller.publish({
       kind: 'terminal-selection-snapshot',
       revision: currentRevision - 1,
       terminals: [{
@@ -174,9 +176,9 @@ test('terminal selection preserves stable rows stale suppression and focus', asy
   await expect(target).toHaveAttribute('aria-current', 'true');
 
   await page.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
-    __overseerCoexistenceBridge.legacyToVue({
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.controller.publish({
       kind: 'terminal-selection-snapshot',
       revision: Number.MAX_SAFE_INTEGER,
       terminals: [{
@@ -401,7 +403,7 @@ test('terminal navigation approval rejects stale and repeated decisions', async 
   const armed = await request.post(`${FIXTURE}/pending-forward`);
   expect(armed.ok()).toBe(true);
   const pending = await coordinationSnapshot(request);
-  const dialog = page.locator('#overseerVueLeaves #terminalNavigationDialog');
+  const dialog = page.locator('#overseerApp #terminalNavigationDialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('#btnApproveTerminalNavigation')).toBeFocused();
 
@@ -422,11 +424,11 @@ test('terminal navigation approval rejects stale and repeated decisions', async 
 
   expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(0);
   const released = await page.evaluate(() => {
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
     return __desktopFixture.releaseCount('coordination-state');
   });
   expect(released).toBeGreaterThan(0);
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   expect(await page.evaluate(() => __desktopFixture.releaseCount('coordination-state'))).toBe(released);
 });
 

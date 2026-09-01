@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 
 test.use({ bypassCSP: true });
 
-async function mountCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?broadcast-controls'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?broadcast-controls');
 }
 
 async function openFixture(page) {
   await page.goto(FIXTURE_URL);
-  await mountCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
 }
@@ -79,9 +81,9 @@ test('broadcast controls preserve revision ordering and cleanup', async ({ page 
   await expect(page.locator('#btnStopBroadcast')).toBeFocused();
 
   await page.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
-    __overseerCoexistenceBridge.legacyToVue({
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.controller.publish({
       coordination: {
         revision: Number.MAX_SAFE_INTEGER,
         playerConfig: {},
@@ -95,7 +97,7 @@ test('broadcast controls preserve revision ordering and cleanup', async ({ page 
       status: 'LATE',
     });
   });
-  await expect(page.locator('#broadcastControlsVueLeaf')).toBeEmpty();
+  await expect(page.locator('#overseerApp')).toBeEmpty();
 });
 
 test('take-off-air and end-broadcast confirmations resolve exactly once', async ({ page }) => {
@@ -141,7 +143,7 @@ test('take-off-air and end-broadcast confirmations resolve exactly once', async 
 
   await endTrigger.click();
   await expect(endDialog).toBeVisible();
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(page.locator('#endBroadcastDialog')).toHaveCount(0);
   await expect(page.locator('#takeOffAirDialog')).toHaveCount(0);
 });

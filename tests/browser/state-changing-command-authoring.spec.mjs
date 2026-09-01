@@ -1,21 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+const overseerAppModuleURL = 'http://127.0.0.1:34121/@fs' + new URL('./fixtures/overseer-app.ts', import.meta.url).pathname;
+
 const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 const TERMINAL_ID = 'terminal-stateful';
 const BUNDLED_DEMO_URL = new URL('../../sessions/demo.json', import.meta.url);
 const AUTHORING_COMPOSABLE_URL = new URL('../../frontend/overseer/src/composables/useTerminalAuthoring.ts', import.meta.url);
-const LEGACY_OVERSEER_URL = new URL('../../frontend/overseer/src/overseer.js', import.meta.url);
+const OVERSEER_CONTROLLER_URL = new URL('../../frontend/overseer/src/controllers/overseer-controller.ts', import.meta.url);
 
 test.use({ bypassCSP: true });
 
-async function mountOverseerCandidate(page) {
-  await page.evaluate(() => import('http://127.0.0.1:34120/candidate-main.ts?terminal-switch-authoring'));
+async function mountOverseerFixture(page) {
+  await page.evaluate(url => import(url), overseerAppModuleURL + '?terminal-switch-authoring');
 }
 
 async function openAuthoringFixture(page) {
   await page.goto(FIXTURE_URL);
-  await mountOverseerCandidate(page);
+  await mountOverseerFixture(page);
   await page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
   await expect(page.locator('#mainLayout')).toBeVisible();
   await expect(page.locator('#editingTermName')).toHaveText('Терминал охраны');
@@ -113,8 +115,8 @@ test('terminal tree preserves recursive stable keys and node validation', async 
   await expect(form.getByLabel('ИСХОДНОЕ НАЗВАНИЕ')).toBeFocused();
   await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeValidation);
 
-  await expect(page.locator('#legacyOverseerRoot #terminalTreeVueLeaf #treeView')).toHaveCount(1);
-  await expect(page.locator('#legacyOverseerRoot #nodeEditorVueLeaf #nodeForm')).toHaveCount(1);
+  await expect(page.locator('#overseerApp #terminalTreeVueLeaf #treeView')).toHaveCount(1);
+  await expect(page.locator('#overseerApp #nodeEditorVueLeaf #nodeForm')).toHaveCount(1);
 });
 
 test('terminal authoring integrates typed state without DOM inspection', async ({ page }) => {
@@ -138,15 +140,15 @@ test('terminal authoring integrates typed state without DOM inspection', async (
   expect(new Set(updated).size).toBe(1);
   expect(updated[0]).toBeGreaterThan(revisions.editor);
 
-  const [composableSource, legacySource] = await Promise.all([
+  const [composableSource, controllerSource] = await Promise.all([
     readFile(AUTHORING_COMPOSABLE_URL, 'utf8'),
-    readFile(LEGACY_OVERSEER_URL, 'utf8'),
+    readFile(OVERSEER_CONTROLLER_URL, 'utf8'),
   ]);
-  expect(composableSource).not.toMatch(/document\.|querySelector|legacyOverseerRoot/);
-  expect(legacySource).not.toMatch(/terminal(?:Selection|Group|Editor|Tree)Projection|createTerminalProjection/);
-  expect(legacySource).toContain("kind: 'terminal-authoring-snapshot'");
+  expect(composableSource).not.toMatch(/document\.|querySelector|mixed DOM ownership/);
+  expect(controllerSource).not.toMatch(/document\.|querySelector|mixed DOM ownership/);
+  expect(controllerSource).toContain("kind: 'terminal-authoring-snapshot'");
 
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(page.locator('#terminalEditorVueLeaf [data-editor-revision]')).toHaveCount(0);
   await expect(page.locator('#treeView')).toHaveCount(0);
 });
@@ -257,7 +259,7 @@ test('terminal action menu editor and settings preserve validation and atomic sa
   const selectionRevision = Number(await page.locator('#termList > [data-selection-revision]')
     .getAttribute('data-selection-revision'));
   await page.evaluate(({ currentEditorRevision, currentSelectionRevision, terminalID }) => {
-    __overseerCoexistenceBridge.vueToLegacy({
+    __overseerAppFixture.controller.dispatch({
       action: 'apply-settings',
       hackLevel: 1,
       introText: 'STALE SETTINGS',
@@ -265,7 +267,7 @@ test('terminal action menu editor and settings preserve validation and atomic sa
       revision: currentEditorRevision - 1,
       terminalID,
     });
-    __overseerCoexistenceBridge.vueToLegacy({
+    __overseerAppFixture.controller.dispatch({
       action: 'rename-terminal',
       kind: 'terminal-action-request',
       name: 'STALE NAME',
@@ -283,10 +285,10 @@ test('terminal action menu editor and settings preserve validation and atomic sa
   await expect(introText).toHaveValue('Новый атомарный текст терминала');
 
   await page.evaluate(() => {
-    __overseerVueFixture.unmount();
-    __overseerVueFixture.unmount();
+    __overseerAppFixture.unmount();
+    __overseerAppFixture.unmount();
     window.dispatchEvent(new CustomEvent('overseer-terminal-action-menu-open', { detail: 'late' }));
-    __overseerCoexistenceBridge.legacyToVue({
+    __overseerAppFixture.controller.publish({
       broadcastActive: true,
       kind: 'terminal-editor-snapshot',
       pending: false,
@@ -296,8 +298,8 @@ test('terminal action menu editor and settings preserve validation and atomic sa
       terminal: null,
     });
   });
-  await expect(page.locator('#terminalEditorVueLeaf')).toBeEmpty();
-  await expect(page.locator('#terminalSettingsVueLeaf')).toBeEmpty();
+  await expect(page.locator('#terminalEditorVueLeaf')).toHaveCount(0);
+  await expect(page.locator('#terminalSettingsVueLeaf')).toHaveCount(0);
   await expect(page.locator('#termList > .terminal-group')).toHaveCount(0);
 });
 
@@ -491,7 +493,7 @@ test('create-terminal dialog preserves validation atomicity and focus', async ({
   await createButton.click();
   const currentRevision = Number(await dialog.getAttribute('data-create-revision'));
   await page.evaluate((revision) => {
-    __overseerCoexistenceBridge.vueToLegacy({
+    __overseerAppFixture.controller.dispatch({
       action: 'create',
       kind: 'create-terminal-action-request',
       name: 'Устаревший терминал',
@@ -521,7 +523,7 @@ test('create-terminal dialog preserves validation atomicity and focus', async ({
 
   await createButton.click();
   await expect(dialog).toBeVisible();
-  await page.evaluate(() => __overseerVueFixture.unmount());
+  await page.evaluate(() => __overseerAppFixture.unmount());
   await expect(page.locator('#createTerminalDialog')).toHaveCount(0);
 });
 

@@ -70,6 +70,26 @@ The governed output is exactly five non-empty archives:
 | `linux/arm64` | `Fallout-Terminal-linux-arm64.tar.gz` |
 | `darwin/arm64` | `Fallout-Terminal-darwin-arm64.zip` |
 
+Each matching-host package is prepared from one locked `frontend/` install and two independent Vue
+production builds. The privileged `frontend/overseer/dist` filesystem is embedded only into the
+Wails desktop host; the public `frontend/client/dist` filesystem is embedded only into the Player
+HTTP server. A package must contain runtime HTML/JavaScript/CSS, the reviewed Fixedsys font, Player
+sounds/static files, demo session/player configuration, platform icons/metadata, and
+`THIRD_PARTY_NOTICES.md`; it must not contain TypeScript/SFC sources, test fixtures, candidate or
+legacy bundles, Wails bindings as public Player assets, provider executables, or development URLs.
+
+Run `scripts/dependency-license-check.sh` before accepting a package. It verifies both the shipped
+Go runtime/build-tool inventory and the Vue runtime closure against the reviewed notices. Then use
+the exact matching verifier: `scripts/verify-macos-app.sh`, `scripts/verify-windows-package.ps1`, or
+`scripts/verify-linux-package.sh`.
+
+Evidence is target- and class-specific. On a non-matching host, record that package/startup row as
+`NOT RUN`; cross-compilation and another host's archive do not replace it. Browser Playwright and
+visual snapshots are browser evidence, not Wails/native startup evidence. Native UI, Accessibility,
+secure-store, provider-credential, signing, notarization, and stapling journeys are `NOT RUN` when
+their prerequisites are unavailable, with the host and reason recorded; they are never inferred
+from a static package scan.
+
 Windows archives contain `Fallout Terminal.exe` and resources, Linux archives contain the
 executable `Fallout Terminal` and resources, and the Darwin ZIP contains the complete unsigned
 `Fallout Terminal.app` bundle. The user-facing `RUNNING.md` launch guide remains in the repository
