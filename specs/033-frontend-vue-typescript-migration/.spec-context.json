@@ -1641,9 +1641,25 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-09-01T09:41:48.246Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T196",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T10:01:23.077Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T197",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-01T10:16:28.634Z"
     }
   ],
-  "last_action": "T195 complete: real 195-task validator and git diff --check passed; ready for terminal completion",
+  "last_action": "T197 complete — task-plan governance accepts 195 detailed tasks plus 2 validated Convergence tasks",
   "coverage": {
     "FR-001": {
       "title": "The production Overseer and player interfaces MUST be migrated as two independent applications using Vue 3, strict TypeScript Single-File Components, the Composition API, and `<script setup lang=\"ts\">`.",
@@ -1681,7 +1697,8 @@
       "tests": [
         "tests/browser/player-sessions-control.spec.mjs",
         "tests/browser/terminal-navigation.spec.mjs",
-        "tests/browser/crt-rendering.spec.mjs"
+        "tests/browser/crt-rendering.spec.mjs",
+        "tests/browser/state-changing-command-approval.spec.mjs"
       ]
     },
     "FR-003": {
@@ -2448,7 +2465,8 @@
         "T195"
       ],
       "tests": [
-        "tests/browser/player-sessions-control.spec.mjs::session document controls preserve open new save close and stale completion"
+        "tests/browser/player-sessions-control.spec.mjs::session document controls preserve open new save close and stale completion",
+        "tests/browser/state-changing-command-approval.spec.mjs"
       ]
     },
     "FR-032": {
@@ -2677,6 +2695,13 @@
         "T193",
         "T194",
         "T195"
+      ],
+      "tests": [
+        "tests/fixtures/frontend-task-plan/valid-convergence-tail.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-gap.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-scope.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-dependency.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-wave.md"
       ]
     },
     "FR-041": {
@@ -3023,6 +3048,16 @@
       "decision": "Classify native, provider and non-matching-host evidence independently",
       "why": "Browser/fake/static evidence cannot prove Accessibility-driven native UI, real provider credentials, or another host runtime",
       "rejected": "Inferring conditional PASS results"
+    },
+    {
+      "decision": "Poll the rendered page-count contract before capturing reference geometry",
+      "why": "Pagination measurement is intentionally animation-frame scheduled, and Playwright web-first polling removes suite-order timing sensitivity without changing production behavior",
+      "rejected": "Making production pagination synchronous or adding fixed test delays"
+    },
+    {
+      "decision": "Keep --expected-task-count as the immutable detailed-plan baseline and discover append-only Convergence tasks as a separately validated tail",
+      "why": "This preserves the original 195-task audit while allowing Spec Kit convergence phases to extend the artifact without rewriting historical task contracts",
+      "rejected": "Treat 197 as the new detailed count or weaken reference validation"
     }
   ],
   "step_summaries": {
@@ -3035,7 +3070,7 @@
       "summary": "195 gap-free tasks across waves a-i; localized corrections to T037, T040, T107, T161, T175, and T194 preserve full traceability and earlier-only ordering"
     },
     "implement": {
-      "summary": "Completed all 195 tasks for the two-app Vue/strict-TypeScript migration, including atomic cutovers, generated TypeScript, exact Wails and ConnectRPC boundaries, final documentation/templates, ownership closure and Definition of Done.",
+      "summary": "Completed all 197 tasks for the two-app Vue/strict-TypeScript migration, including both convergence fixes for selected-record pagination readiness and append-only task-plan governance.",
       "key_finding": "The accepted architecture has one private Overseer Vue root behind DesktopPort and one public Player Vue root behind generated ConnectRPC, with Go as sole shared authority and zero open temporary mechanisms.",
       "risks": [
         "Interactive native UI needs Accessibility permission for a future rerun",
@@ -3314,10 +3349,70 @@
       "result": "PASS",
       "command": "40 bug reports checked for Patched/date and spec/plan/tasks references; real plan validator rerun",
       "warnings": []
+    },
+    {
+      "what": "Complete command-approval browser spec",
+      "command": "npm test --prefix tests/browser -- state-changing-command-approval.spec.mjs",
+      "result": "PASS: 12 passed, 0 failed",
+      "warnings": [
+        "NO_COLOR/FORCE_COLOR warning is runner-only"
+      ]
+    },
+    {
+      "what": "Player strict typecheck and production build",
+      "command": "task frontend:typecheck:client && task frontend:build:client",
+      "result": "PASS: zero type errors; Vite production build completed",
+      "warnings": []
+    },
+    {
+      "what": "Complete production-fidelity browser and visual suite",
+      "command": "npm test --prefix tests/browser",
+      "result": "PASS: 276 passed, 2 credential-qualified tests skipped, 0 failed",
+      "warnings": [
+        "Real ngrok journeys remain NOT RUN without credentials",
+        "Fixture TLS handshake diagnostics are expected rejection-path evidence",
+        "NO_COLOR/FORCE_COLOR warning is runner-only"
+      ]
+    },
+    {
+      "what": "Patch whitespace integrity",
+      "command": "git diff --check",
+      "result": "PASS: no whitespace errors",
+      "warnings": []
+    },
+    {
+      "what": "Task-plan checker shell syntax",
+      "command": "bash -n scripts/frontend-task-plan-check.sh",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Task-plan checker positive and negative self-tests",
+      "command": "scripts/frontend-task-plan-check.sh --self-test",
+      "result": "PASS including valid convergence tail and actionable gap, scope, dependency, and wave diagnostics",
+      "warnings": []
+    },
+    {
+      "what": "Current feature task-plan validation",
+      "command": "scripts/frontend-task-plan-check.sh --tasks specs/033-frontend-vue-typescript-migration/tasks.md --expected-task-count 195",
+      "result": "PASS: 195 detailed tasks plus 2 gap-free Convergence tasks",
+      "warnings": []
+    },
+    {
+      "what": "Repository formatting check",
+      "command": "task fmt:check",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Patch whitespace check",
+      "command": "git diff --check",
+      "result": "PASS",
+      "warnings": []
     }
   ],
   "telemetryInstanceId": "bff06a0a-7027-4694-8192-03265b8f0c59",
-  "currentTask": "T195",
+  "currentTask": "T197",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -5332,6 +5427,25 @@
       "files": [
         "specs/033-frontend-vue-typescript-migration/evidence/T195-definition-of-done.md"
       ]
+    },
+    "T196": {
+      "status": "DONE",
+      "did": "Waited for measured multi-page renderer readiness before capturing approval parity geometry; focused and full browser suites now pass",
+      "files": [
+        "tests/browser/state-changing-command-approval.spec.mjs"
+      ]
+    },
+    "T197": {
+      "status": "DONE",
+      "did": "Made task-plan governance validate append-only Convergence tails with focused positive and actionable negative fixtures",
+      "files": [
+        "scripts/frontend-task-plan-check.sh",
+        "tests/fixtures/frontend-task-plan/valid-convergence-tail.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-gap.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-scope.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-dependency.md",
+        "tests/fixtures/frontend-task-plan/invalid-convergence-wave.md"
+      ]
     }
   },
   "concerns": [
@@ -5356,6 +5470,14 @@
       "note": "Interactive macOS approval/reset/reopen UI remains NOT RUN until Accessibility access is granted; Windows/Linux matching-host and real-provider credential journeys also remain NOT RUN.",
       "step": "implement",
       "kind": "conditional-follow-up"
+    },
+    {
+      "note": "The historical frontend task-plan validator accepts only the original detailed bold-ID task schema and therefore rejects append-only convergence task T196; T196 is correctly tracked and checked by Companion, and changing the historical validator was outside this convergence implementation task.",
+      "step": "implement"
+    },
+    {
+      "note": "The implement start writer found the feature already completed and correctly refused to regress status; T197 journaling and materialization still proceeded normally after convergence appended new work.",
+      "step": "implement"
     }
   ]
 }

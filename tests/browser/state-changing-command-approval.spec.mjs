@@ -514,9 +514,9 @@ test('pending, rejected, and completed command states match the selected-record 
     await journey.player.locator('.term-row', { hasText: 'ЭТАЛОН РЕНДЕРА' }).click();
     await expect(journey.player.locator('#termEntry')).toBeVisible();
     await completeVisibleReveal(journey.player);
+    await expect.poll(() => pageCount(journey.player)).toBeGreaterThan(1);
     const referenceWide = await recordRendererSnapshot(journey.player);
     const referenceWidePages = await pageCount(journey.player);
-    expect(referenceWidePages).toBeGreaterThan(1);
     await journey.player.locator('#backBtn').click();
     await expect(journey.player.locator('.term-row', { hasText: 'Открыть двери' })).toBeVisible();
 

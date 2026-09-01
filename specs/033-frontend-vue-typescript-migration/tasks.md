@@ -1026,3 +1026,19 @@ No task carries `[P]`; therefore there is no parallel batch requiring an additio
 ## Implementation Strategy
 
 Execute one task at a time in the dependency table. Stop at every wave exit on a failed local or integration check. Rollback is source-control reversion to `06696ee1c7155a1bb1135ef46ec91445dd73a2a4`; no runtime toggle, duplicate bundle, second lockfile, second generated format, or permanent coexistence path is permitted. Do not run implementation until this plan has passed `$speckit-analyze`.
+
+## Phase 9: Convergence
+
+**Depends on:** all prior phases.
+
+**Wave 1 — Deterministic selected-record pagination parity:**
+
+- [x] T196 Stabilize Player selected-record pagination readiness so `tests/browser/state-changing-command-approval.spec.mjs` consistently observes the required multi-page wide layout after preceding cases, while preserving identical renderer geometry and page counts across reference, pending, rejected, completed, resized, reopened, and replayed states; prove the complete approval spec and full browser suite pass per SC-001 (partial)
+
+## Phase 10: Convergence
+
+**Depends on:** all prior phases.
+
+**Wave 1 — Convergence-aware task-plan validation:**
+
+- [x] T197 Extend `scripts/frontend-task-plan-check.sh` and its self-test fixtures so the governed `--expected-task-count 195` baseline validates the 195 detailed tasks plus any append-only Convergence phases as a separate gap-free, dependency-safe tail; validate every convergence task ID and reference including the current T196–T197 tail, preserve all existing detailed-task checks and actionable negative diagnostics, and make the current task artifact pass per FR-040 (partial)

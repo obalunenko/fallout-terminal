@@ -26,19 +26,46 @@ def reject(code, message):
     print(f"{code}: {message}", file=sys.stderr)
     raise SystemExit(1)
 
-matches = list(re.finditer(r"(?m)^- \[[ xX]\] \*\*(T\d{3})\*\*", text))
+detailed_matches = list(re.finditer(r"(?m)^- \[[ xX]\] \*\*(T\d{3})\*\*", text))
+convergence_matches = list(re.finditer(r"(?m)^- \[[ xX]\] (T\d{3})\b", text))
+matches = sorted(detailed_matches + convergence_matches, key=lambda match: match.start())
+detailed_ids = [match.group(1) for match in detailed_matches]
 ids = [match.group(1) for match in matches]
-if len(ids) != expected:
-    reject("TASK_PLAN_COUNT", f"found {len(ids)} task definitions, expected {expected}")
+
+if len(detailed_ids) != expected:
+    reject("TASK_PLAN_COUNT", f"found {len(detailed_ids)} detailed task definitions, expected {expected}")
 if len(ids) != len(set(ids)):
     reject("TASK_PLAN_DUPLICATE_ID", "task IDs are not unique")
-want = [f"T{number:03d}" for number in range(1, expected + 1)]
+want = [f"T{number:03d}" for number in range(1, len(ids) + 1)]
 if ids != want:
     reject("TASK_PLAN_ID_GAP", "task IDs are not ordered and gap-free")
 
+phase_matches = list(re.finditer(r"(?m)^## Phase (\d+): ([^\n]+)$", text))
+for match in convergence_matches:
+    containing_phase = next(
+        (phase for phase in reversed(phase_matches) if phase.start() < match.start()),
+        None,
+    )
+    if containing_phase is None or containing_phase.group(2).strip() != "Convergence":
+        reject(
+            "TASK_PLAN_CONVERGENCE_SCOPE",
+            f"{match.group(1)} must be inside a Convergence phase",
+        )
+    phase_prefix = text[containing_phase.start():match.start()]
+    if "**Depends on:** all prior phases." not in phase_prefix:
+        reject(
+            "TASK_PLAN_CONVERGENCE_DEPENDENCY",
+            f"{match.group(1)} Convergence phase must depend on all prior phases",
+        )
+    if not re.search(r"(?m)^\*\*Wave [^\n]+:\*\*$", phase_prefix):
+        reject(
+            "TASK_PLAN_CONVERGENCE_WAVE",
+            f"{match.group(1)} must be assigned to a named Convergence wave",
+        )
+
 blocks = {}
-for index, match in enumerate(matches):
-    end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+for index, match in enumerate(detailed_matches):
+    end = detailed_matches[index + 1].start() if index + 1 < len(detailed_matches) else len(text)
     blocks[match.group(1)] = text[match.start():end]
 
 required_fields = ("Outcome:", "Files:", "Read-only:", "Depends:", "Coverage:", "Verify:", "Evidence:", "Temporary:", "Go:")
@@ -53,7 +80,7 @@ for task_id, block in blocks.items():
             reject("TASK_PLAN_DEPENDENCY", f"{task_id} has invalid dependency {dependency}")
 
 for reference in re.findall(r"\bT(\d{3})\b", text):
-    if not 1 <= int(reference) <= expected:
+    if not 1 <= int(reference) <= len(ids):
         reject("TASK_PLAN_REFERENCE", f"reference T{reference} is outside the task inventory")
 
 for prefix, maximum in (("FR", 51), ("SC", 12), ("CHK", 40)):
@@ -93,9 +120,15 @@ for command in re.findall(r"local command:\s*`([^`]*)`", text):
 if "[OPEN]" in text or re.search(r"(?i)temporary[^\n|]*\|\s*open\s*\|", text):
     reject("TASK_PLAN_OPEN_INVENTORY", "open legacy or temporary inventory remains")
 
+convergence_count = len(convergence_matches)
+inventory = f"{expected} unique gap-free tasks"
+if convergence_count:
+    inventory = (
+        f"{expected} detailed tasks plus {convergence_count} gap-free Convergence tasks"
+    )
 print(
     "frontend task plan check: PASS: "
-    f"{expected} unique gap-free tasks; dependencies/references/coverage valid; "
+    f"{inventory}; dependencies/references/coverage valid; "
     "ten canonical targets, exact Go audit, 18 closed mechanisms, and safe executable commands verified"
 )
 PY
@@ -128,10 +161,42 @@ expect_mount_failure() {
   printf 'frontend task plan check self-test: PASS: rejected %s\n' "${source##*/}"
 }
 
+check_convergence_fixture() {
+  local fixture="$1"
+  local expected_diagnostic="${2:-}"
+  local merged output status
+  merged="$(mktemp "${TMPDIR:-/tmp}/fallout-task-plan-convergence.XXXXXX")"
+  {
+    cat "$fixture_root/valid-tasks.md"
+    printf '\n'
+    cat "$fixture_root/$fixture"
+  } >"$merged"
+  set +e
+  output="$(validate_plan "$merged" 1 2>&1)"
+  status=$?
+  set -e
+  rm -f "$merged"
+
+  if [[ -z "$expected_diagnostic" ]]; then
+    ((status == 0)) || fail "valid Convergence fixture failed: $fixture: $output"
+    printf 'frontend task plan check self-test: PASS: accepted %s\n' "$fixture"
+    return
+  fi
+  ((status != 0)) || fail "invalid Convergence fixture passed: $fixture"
+  grep -Fq "$expected_diagnostic:" <<<"$output" ||
+    fail "Convergence fixture $fixture returned wrong diagnostic: $output"
+  printf 'frontend task plan check self-test: PASS: %s from %s\n' "$expected_diagnostic" "$fixture"
+}
+
 self_test() {
   local pair file diagnostic
   [[ -d "$fixture_root" ]] || fail 'frontend task-plan fixture directory is missing'
   validate_plan "$fixture_root/valid-tasks.md" 1
+  check_convergence_fixture 'valid-convergence-tail.md'
+  check_convergence_fixture 'invalid-convergence-gap.md' 'TASK_PLAN_ID_GAP'
+  check_convergence_fixture 'invalid-convergence-scope.md' 'TASK_PLAN_CONVERGENCE_SCOPE'
+  check_convergence_fixture 'invalid-convergence-dependency.md' 'TASK_PLAN_CONVERGENCE_DEPENDENCY'
+  check_convergence_fixture 'invalid-convergence-wave.md' 'TASK_PLAN_CONVERGENCE_WAVE'
 
   local -a fixtures=(
     'invalid-task-count.md:TASK_PLAN_COUNT'
