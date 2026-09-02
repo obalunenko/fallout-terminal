@@ -1,0 +1,392 @@
+{
+  "workflow": "companion",
+  "specName": "entry content state",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "implementing",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T22:30:48.821Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T22:35:46.227Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T22:38:04.488Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T22:46:06.597Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T22:47:34.183Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T22:48:52.624Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T23:00:31.533Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:05:04.575Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T23:06:00.416Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T23:06:33.120Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:11:53.486Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:12:28.136Z"
+    }
+  ],
+  "telemetryInstanceId": "ca7d833e-bebd-4dd1-9864-f0c72ebaa7e3",
+  "last_action": "living specs evaluated — skipped (not configured)",
+  "coverage": {
+    "FR-001": {
+      "title": "The authoring experience MUST allow an entry's displayed content to be organized as an ordered collection of independently identifiable blocks.",
+      "tasks": [
+        "T003",
+        "T006",
+        "T017"
+      ]
+    },
+    "FR-002": {
+      "title": "Each entry block MUST retain its identity, authored initial content, and position across saving and reopening a session.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T006",
+        "T008",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-003": {
+      "title": "A state-changing command MUST be able to target no more than one entry block in the same terminal and define the completed content for that block.",
+      "tasks": [
+        "T004",
+        "T005",
+        "T006",
+        "T008",
+        "T012",
+        "T017"
+      ]
+    },
+    "FR-004": {
+      "title": "The authoring experience MUST reject a command target that does not resolve to exactly one existing entry block in the command's terminal.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-005": {
+      "title": "The authoring experience MUST prevent more than one command from targeting the same entry block.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-006": {
+      "title": "Multiple commands MUST be able to target different blocks within the same entry and complete in any order without overwriting one another's state.",
+      "tasks": [
+        "T001",
+        "T009",
+        "T010",
+        "T011",
+        "T012",
+        "T013",
+        "T014",
+        "T015"
+      ]
+    },
+    "FR-007": {
+      "title": "Successful execution of a command with an entry target MUST save the command's own completed state and the target block's completed state as one indivisible change.",
+      "tasks": [
+        "T009",
+        "T012",
+        "T014"
+      ]
+    },
+    "FR-008": {
+      "title": "Rejected, canceled, invalid, or unsuccessfully saved execution MUST leave both the command state and target block state unchanged.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T012",
+        "T014",
+        "T015"
+      ]
+    },
+    "FR-009": {
+      "title": "Re-executing an already completed command MUST NOT apply a second entry block transition or create an additional saved state change.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T012"
+      ]
+    },
+    "FR-010": {
+      "title": "Player views MUST compose each entry from its ordered blocks using the latest successfully saved state of each block.",
+      "tasks": [
+        "T010",
+        "T013"
+      ]
+    },
+    "FR-011": {
+      "title": "A successfully changed block MUST become visible to every connected player, including players already viewing its entry, without altering unrelated blocks or navigation state.",
+      "tasks": [
+        "T010",
+        "T011",
+        "T013",
+        "T014",
+        "T015"
+      ]
+    },
+    "FR-012": {
+      "title": "An individual Overseer command-state reset MUST reset that command and its owned entry block state as one indivisible saved change.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T020",
+        "T021"
+      ]
+    },
+    "FR-013": {
+      "title": "A terminal-wide Overseer command-state reset MUST reset all command states and all command-owned entry block states for that terminal as one indivisible saved change.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T020",
+        "T021"
+      ]
+    },
+    "FR-014": {
+      "title": "Canceling or failing any reset MUST preserve the last successfully saved command and entry block states.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T020",
+        "T021"
+      ]
+    },
+    "FR-015": {
+      "title": "The authoring experience MUST prevent deletion of a targeted block or its containing entry until every targeting command is removed or reassigned.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T016",
+        "T017",
+        "T024"
+      ]
+    },
+    "FR-016": {
+      "title": "Renaming or moving an existing command, entry, or block MUST preserve its target relationship and completed state.",
+      "tasks": [
+        "T003",
+        "T016",
+        "T017",
+        "T022",
+        "T024"
+      ]
+    },
+    "FR-017": {
+      "title": "Deleting a command MUST remove both its saved command state and any entry block state owned by that command.",
+      "tasks": [
+        "T018",
+        "T020",
+        "T022",
+        "T024"
+      ]
+    },
+    "FR-018": {
+      "title": "Completed command and entry block states MUST survive broadcast termination, terminal switching, application restart, and session reopening.",
+      "tasks": [
+        "T001",
+        "T022",
+        "T023",
+        "T024"
+      ]
+    },
+    "FR-019": {
+      "title": "Existing sessions whose entries contain only a single description MUST retain the same player-visible text and MUST begin without command-driven entry state.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T004",
+        "T006",
+        "T008",
+        "T010",
+        "T022",
+        "T024"
+      ]
+    },
+    "FR-020": {
+      "title": "A session with missing, duplicate, cross-terminal, or otherwise ambiguous entry block targets MUST be rejected with actionable feedback instead of being loaded or saved with unpredictable behavior.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T007",
+        "T008"
+      ]
+    },
+    "FR-021": {
+      "title": "The command authoring experience MUST identify a selected entry block target by its containing entry name, block position, and a preview of its authored text.",
+      "tasks": [
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-022": {
+      "title": "The entry authoring experience MUST identify each targeted block's targeting command by the command's name.",
+      "tasks": [
+        "T016",
+        "T017"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 14,
+    "projectedTasks": 18,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "context": [
+    "area: terminal content authoring, durable command state, live entry presentation, and Overseer reset controls",
+    "constraint: multiple commands may share an EntryContent only through different independently identified blocks",
+    "constraint: command and targeted block transitions and resets remain atomic",
+    "constraint: preserve existing single-description session behavior"
+  ],
+  "intent": "Let approved commands durably change independent blocks of player-visible entry content while keeping command state, reset behavior, and persistence consistent.",
+  "expectations": [
+    "Rich media, conditional layout, and nested entry block structures",
+    "Multiple competing commands or multi-step transitions for the same block",
+    "A separate entry-only reset that can diverge from the owning command"
+  ],
+  "approach": "Add ordered terminal-scoped entry blocks and an optional explicitly present block change to state-changing commands, freezing that change inside the existing command snapshot. Apply and compose effective blocks in Go, route resets through the coordinator after durable session writes, and derive bidirectional Overseer labels from the canonical target while keeping public player and private desktop method surfaces unchanged.",
+  "decisions": [
+    {
+      "decision": "Store the frozen entry block outcome inside CommandExecutionState",
+      "why": "one existing map insertion or removal makes command and block state atomic",
+      "rejected": "a second terminal entry-state map"
+    },
+    {
+      "decision": "Represent the optional target as an explicitly present EntryContentChange",
+      "why": "empty completed text is valid and cannot signal absence",
+      "rejected": "parallel scalar fields with inferred presence"
+    },
+    {
+      "decision": "Use terminal-scoped stable block IDs without a parent entry ID",
+      "why": "moves within a terminal preserve references without redundant identity pairs",
+      "rejected": "list positions or entry-plus-block compound references"
+    },
+    {
+      "decision": "Preserve legacy description until an explicit block edit",
+      "why": "existing session text remains unchanged without silent data transformation",
+      "rejected": "automatic migration on load"
+    },
+    {
+      "decision": "Compose effective blocks server-side with two-newline separators",
+      "why": "players need only effective text and the current client already rerenders changed descriptions",
+      "rejected": "public block fields or browser-side composition"
+    },
+    {
+      "decision": "Route individual and terminal command-state resets through control",
+      "why": "durable reset and runtime publication become one ordered coordinator transaction",
+      "rejected": "application-level save followed by a separate refresh"
+    },
+    {
+      "decision": "Lock a completed command target until reset",
+      "why": "retargeting must not silently reset or move durable world state",
+      "rejected": "silent reset or simultaneous old/new ownership"
+    },
+    {
+      "decision": "Derive bidirectional Overseer labels from the canonical command target",
+      "why": "commands and entry blocks remain mutually identifiable without a duplicated persisted back-reference",
+      "rejected": "persisting a targeting command ID on each entry block"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Reconciled the plan with bidirectional Overseer target visibility while retaining command-owned atomic state and unchanged public/player methods.",
+      "key_finding": "Both command-side block labels and entry-side command labels can be derived at render time from the canonical block target, so no persisted reverse relationship is needed."
+    },
+    "tasks": {
+      "summary": "25 tasks across setup, shared foundations, four user-story phases, and one cross-cutting validation owner; explicit dependency waves preserve tests-first execution and bidirectional Overseer visibility coverage."
+    }
+  },
+  "currentTask": "T002",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Extended the version-1 fixture with legacy and explicit entries, five distinct block targets, duplicate/empty text, and frozen outcomes.",
+      "files": [
+        "internal/testutil/testdata/session-v1-state-changing.json"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added a demo entry with two independently targeted blocks and preserved its initial rendered text.",
+      "files": [
+        "sessions/demo.json"
+      ]
+    }
+  }
+}
