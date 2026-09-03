@@ -576,6 +576,49 @@ func TestRetainedRuntimeAuditJourneyIsExactAndCorrelated(t *testing.T) {
 	assert.Contains(t, records, "revision=99")
 }
 
+func TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition(t *testing.T) {
+	directory := t.TempDir()
+	retained, err := diagnostics.Open(diagnostics.Options{
+		Directory: directory,
+		Fallback:  io.Discard,
+		RunID:     "transition-run",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+	applicationLogger := logger.Init(t.Context(), logger.Params{
+		Level: "info", Format: "text", Writer: retained,
+	}).WithField("run_id", retained.RunID())
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: applicationLogger})
+
+	events := []controlservice.AuditEvent{
+		{
+			Name: "command.request_received", Outcome: "accepted", RequestID: "transition-request",
+			SessionID: "session-1", Role: domain.PlayerRoleActive, BroadcastID: "broadcast-1",
+			TerminalID: "terminal-a", CommandID: "command-to-b", Mode: string(domain.CommandBehaviorTerminalTransition),
+		},
+		{
+			Name: "command.decision", Decision: "approve", Outcome: "succeeded", RequestID: "transition-request",
+			SessionID: "session-1", Role: domain.PlayerRoleActive, BroadcastID: "broadcast-1",
+			TerminalID: "terminal-a", CommandID: "command-to-b", Mode: string(domain.CommandBehaviorTerminalTransition),
+		},
+	}
+	app.recordAuditEvents(events, 100)
+	path := retained.CurrentPath()
+	require.NoError(t, retained.Close())
+
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	records := string(contents)
+	assert.Equal(t, 2, strings.Count(records, "request_id=transition-request"))
+	assert.Equal(t, 2, strings.Count(records, "mode=terminal-transition"))
+	assert.Contains(t, records, "event=command.request_received")
+	assert.Contains(t, records, "event=command.decision")
+	assert.Contains(t, records, "run_id=transition-run")
+	assert.Contains(t, records, "revision=100")
+	assert.NotContains(t, records, "PRIVATE COMMAND NAME")
+	assert.NotContains(t, records, "PRIVATE TARGET NAME")
+}
+
 func TestApplicationLifecycleContinuesWhenRetainedStorageIsUnavailable(t *testing.T) {
 	var fallback bytes.Buffer
 	retained, retainedErr := diagnostics.Open(diagnostics.Options{

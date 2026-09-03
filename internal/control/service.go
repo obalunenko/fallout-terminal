@@ -1503,10 +1503,19 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		pending := runtime.PendingTerminalNavigation
 		broadcast := runtime.Broadcast
 		source := activeTerminalRuntime(broadcast)
+		auditDecision := func(change transition, outcome string) transition {
+			if event, ok := terminalTransitionCommandAudit(runtime, pending, "command.decision", outcome, decision); ok {
+				change.audit(event)
+			}
+			return change
+		}
 		if pending == nil || pending.RequestID != requestID || broadcast == nil || pending.BroadcastID != broadcast.ID ||
 			source == nil || source.TerminalID != pending.SourceTerminalID {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation decision is stale")
+			if pending != nil && pending.RequestID == requestID {
+				return auditDecision(transition{}, "stale")
+			}
 			return transition{}
 		}
 		if decision == domain.TerminalNavigationReject {
@@ -1522,7 +1531,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 			if projection := service.projectActiveTerminal(runtime); projection != nil {
 				effects = append(effects, Effect{Live: projection})
 			}
-			return transition{accepted: true, effects: effects}
+			return auditDecision(transition{accepted: true, effects: effects}, "declined")
 		}
 		if pending.Direction == domain.TerminalNavigationReturn {
 			if service.terminalCatalog == nil || len(broadcast.Route) == 0 ||
@@ -1583,7 +1592,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		if pending.Direction != domain.TerminalNavigationForward || service.terminalCatalog == nil {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation target is unavailable")
-			return transition{}
+			return auditDecision(transition{}, "failed")
 		}
 		latest, ok := service.terminalCatalog.LookupTerminalTransition(pending.SourceTerminalID, pending.CommandID)
 		if !ok || latest.Target.TerminalID != pending.TargetTerminalID || latest.Target.TerminalID == pending.SourceTerminalID ||
@@ -1600,13 +1609,13 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 			if projection := service.projectActiveTerminal(runtime); projection != nil {
 				effects = append(effects, Effect{Live: projection})
 			}
-			return transition{accepted: true, effects: effects}
+			return auditDecision(transition{accepted: true, effects: effects}, "stale")
 		}
 		lifecycle, ok := service.terminals.(terminalDecisionLifecycle)
 		if !ok {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation lifecycle is unavailable")
-			return transition{}
+			return auditDecision(transition{}, "failed")
 		}
 		lifecycle.SuspendRuntime(source)
 		targetRuntime := broadcast.TerminalRuntimes[latest.Target.TerminalID]
@@ -1620,7 +1629,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		if targetRuntime == nil || projection == nil {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation target could not be activated")
-			return transition{}
+			return auditDecision(transition{}, "failed")
 		}
 		targetRuntime.Nav = domain.NavState{Path: []string{"root"}, Mode: "list"}
 		projection.Nav = targetRuntime.Nav
@@ -1631,7 +1640,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		runtime.TerminalNavigationNotice = nil
 		projection = decorateTerminalNavigation(runtime, projection)
 		state = masterSnapshot(runtime)
-		return transition{accepted: true, effects: append(stateEffects(runtime), Effect{Live: projection})}
+		return auditDecision(transition{accepted: true, effects: append(stateEffects(runtime), Effect{Live: projection})}, "succeeded")
 	})
 	if state == nil {
 		state = service.Snapshot()
@@ -2367,6 +2376,9 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			outcome, stop = service.acceptedPlayerAction(
 				runtime, connectionID, sessionID, command, fingerprint, service.playerActionStateEffects(runtime),
 			)
+			if event, ok := terminalTransitionCommandAudit(runtime, runtime.PendingTerminalNavigation, "command.request_received", "accepted", ""); ok {
+				stop.audit(event)
+			}
 			return stop
 		}
 		if commandSelected {
@@ -2505,6 +2517,9 @@ func (service *Service) commit(apply func(*domain.ProcessRuntime) transition) tr
 			result.audit(event)
 		}
 		if event, ok := supersededCommandAudit(before, working, result.effects); ok {
+			result.audit(event)
+		}
+		if event, ok := supersededTerminalTransitionCommandAudit(before, working, result.effects); ok {
 			result.audit(event)
 		}
 		service.runtime = *working
@@ -2793,7 +2808,7 @@ func clearTerminalNavigationRuntime(runtime *domain.ProcessRuntime) bool {
 func rootReturnRequested(terminal *domain.TerminalRuntime, command domain.RuntimeCommand, route []domain.TerminalReturnPoint) bool {
 	return terminal != nil && command.Kind == domain.RuntimeCommandNavigate && command.Action == "back" &&
 		len(route) != 0 && terminal.Nav.Mode == "list" && len(terminal.Nav.Path) == 1 && terminal.Nav.Path[0] == "root" &&
-		terminal.Nav.ViewEntryID == nil && terminal.Nav.CommandNodeID == nil
+		terminal.Nav.ViewEntryID == nil && terminal.Nav.CommandNodeID == nil && terminal.CommandExecution == nil
 }
 
 func cloneTerminalReturnPoint(point domain.TerminalReturnPoint) domain.TerminalReturnPoint {
@@ -3552,14 +3567,43 @@ func deriveAuditEvents(before, after *domain.ProcessRuntime) []AuditEvent {
 
 func commandDecisionAudit(pending *domain.PendingCommandExecution, decision domain.CommandExecutionDecision, outcome string) AuditEvent {
 	if pending == nil {
-		return AuditEvent{Name: "command.decision", Decision: string(decision), Outcome: outcome}
+		return AuditEvent{Name: "command.decision", Decision: normalizedCommandAuditDecision(string(decision)), Outcome: outcome}
 	}
 	return AuditEvent{
-		Name: "command.decision", Decision: string(decision), Outcome: outcome,
+		Name: "command.decision", Decision: normalizedCommandAuditDecision(string(decision)), Outcome: outcome,
 		SessionID: pending.ControllerSessionID, RequestID: pending.RequestID,
 		BroadcastID: pending.BroadcastID, TerminalID: pending.TerminalID,
 		CommandID: pending.CommandID, Mode: string(pending.Mode),
 	}
+}
+
+func terminalTransitionCommandAudit(
+	runtime *domain.ProcessRuntime,
+	pending *domain.PendingTerminalNavigation,
+	name string,
+	outcome string,
+	decision domain.TerminalNavigationDecision,
+) (AuditEvent, bool) {
+	if pending == nil || pending.Direction != domain.TerminalNavigationForward {
+		return AuditEvent{}, false
+	}
+	event := AuditEvent{
+		Name: name, Decision: normalizedCommandAuditDecision(string(decision)), Outcome: outcome,
+		SessionID: pending.ControllerSessionID, RequestID: pending.RequestID,
+		BroadcastID: pending.BroadcastID, TerminalID: pending.SourceTerminalID,
+		CommandID: pending.CommandID, Mode: string(domain.CommandBehaviorTerminalTransition),
+	}
+	if runtime != nil && runtime.Broadcast != nil {
+		event.Role = roleForSession(runtime.Broadcast, pending.ControllerSessionID)
+	}
+	return event, true
+}
+
+func normalizedCommandAuditDecision(decision string) string {
+	if decision == string(domain.CommandExecutionReject) {
+		return "decline"
+	}
+	return decision
 }
 
 func supersededCommandAudit(before, after *domain.ProcessRuntime, effects []Effect) (AuditEvent, bool) {
@@ -3577,6 +3621,22 @@ func supersededCommandAudit(before, after *domain.ProcessRuntime, effects []Effe
 	event := commandDecisionAudit(pending, "", "superseded")
 	event.Name = "command.request_outcome"
 	return event, true
+}
+
+func supersededTerminalTransitionCommandAudit(before, after *domain.ProcessRuntime, effects []Effect) (AuditEvent, bool) {
+	pending := before.PendingTerminalNavigation
+	if pending == nil || pending.Direction != domain.TerminalNavigationForward || after.PendingTerminalNavigation != nil {
+		return AuditEvent{}, false
+	}
+	for _, effect := range effects {
+		for _, event := range effect.Audit {
+			if strings.HasPrefix(event.Name, "command.") && event.RequestID == pending.RequestID {
+				return AuditEvent{}, false
+			}
+		}
+	}
+	event, ok := terminalTransitionCommandAudit(before, pending, "command.request_outcome", "superseded", "")
+	return event, ok
 }
 
 func deriveHackLifecycleEvents(before, after *domain.ProcessRuntime) []AuditEvent {

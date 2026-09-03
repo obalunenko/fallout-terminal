@@ -118,8 +118,12 @@ async function expectRejectedCommandSurface(page, controller, timeout = 2000) {
   await expect(page.locator('#entryBody')).toHaveText('Ошибка доступа', { timeout });
   await expect(page.locator('#termList')).toBeHidden({ timeout });
   await expect(page.locator('#termOutput')).toBeHidden({ timeout });
-  if (controller) await expect(page.locator('#backBtn')).toBeVisible({ timeout });
-  else await expect(page.locator('#backBtn')).toBeHidden({ timeout });
+  const back = page.locator('#backBtn');
+  await expect(back).toHaveText('[ НАЗАД ]', { timeout });
+  await expect(back).not.toHaveClass(/terminal-return/);
+  await expect(back).not.toHaveAttribute('aria-label', /НАЗАД В/i);
+  if (controller) await expect(back).toBeVisible({ timeout });
+  else await expect(back).toBeHidden({ timeout });
 }
 
 test.beforeEach(async ({ request }) => {
@@ -392,6 +396,76 @@ test('same-group forward remains pending for controller and observer until one O
   } finally {
     await controller.context.close();
     await observer.context.close();
+    await overseerContext.close();
+  }
+});
+
+test('routed root rejection acknowledges before return and stays cleared after solved-terminal re-entry', async ({ browser, request }) => {
+  const overseerContext = await browser.newContext();
+  const overseer = await overseerContext.newPage();
+  await openOverseer(overseer);
+  const controller = await openParticipant(browser);
+  const firstObserver = await openParticipant(browser);
+  let secondObserver = await openParticipant(browser);
+  try {
+    await controller.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ОХРАНУ' }).first().click();
+    await decideNavigation(overseer, 'approve');
+    await finishHack(request, controller.page);
+    await Promise.all([controller, firstObserver, secondObserver].map(participant =>
+      expect(participant.page.locator('.term-row', { hasText: 'ЗАПРОСИТЬ СВОДКУ БЕЗОПАСНОСТИ' })).toBeVisible()));
+
+    const rejectSummary = async () => {
+      await controller.page.locator('.term-row', { hasText: 'ЗАПРОСИТЬ СВОДКУ БЕЗОПАСНОСТИ' }).click();
+      const dialog = overseer.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ КОМАНДЫ' });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole('button', { name: 'ОТКЛОНИТЬ' }).click();
+      await Promise.all([controller, firstObserver, secondObserver].map(participant =>
+        expectRejectedCommandSurface(participant.page, participant === controller)));
+    };
+
+    await rejectSummary();
+    const retainedToken = await secondObserver.page.evaluate(() =>
+      localStorage.getItem('fallout-terminal.player-token'));
+    await secondObserver.context.close();
+    secondObserver = await openParticipant(browser, retainedToken);
+    await expectRejectedCommandSurface(secondObserver.page, false);
+
+    const beforeAcknowledgement = await coordinationSnapshot(request);
+    expect(beforeAcknowledgement.broadcast.activeTerminalId).toBe('security');
+    expect(beforeAcknowledgement.pendingTerminalNavigation).toBeNull();
+    await controller.page.locator('#backBtn').click();
+    await Promise.all([controller, firstObserver, secondObserver].map(participant =>
+      expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 })));
+    const afterAcknowledgement = await coordinationSnapshot(request);
+    expect(afterAcknowledgement.broadcast.activeTerminalId).toBe('security');
+    expect(afterAcknowledgement.pendingTerminalNavigation).toBeNull();
+
+    const returnAction = /НАЗАД В Жилой терминал/i;
+    await controller.page.getByRole('button', { name: returnAction }).click();
+    await expectPendingTransitionSurface(controller.page);
+    await decideNavigation(overseer, 'approve');
+    await expect(controller.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ОХРАНУ' }).first()).toBeVisible();
+
+    await controller.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ОХРАНУ' }).first().click();
+    await decideNavigation(overseer, 'approve');
+    await Promise.all([controller, firstObserver, secondObserver].map(async participant => {
+      await expect(participant.page.locator('#hackHeader')).toBeHidden({ timeout: 2000 });
+      await expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 });
+      await expect(participant.page.locator('#termEntry')).toBeHidden();
+      await expect(participant.page.locator('.term-row', { hasText: 'ЗАПРОСИТЬ СВОДКУ БЕЗОПАСНОСТИ' })).toBeVisible();
+    }));
+
+    await rejectSummary();
+    await controller.page.keyboard.press('Enter');
+    await Promise.all([controller, firstObserver, secondObserver].map(participant =>
+      expect(participant.page.locator('#termList')).toBeVisible({ timeout: 2000 })));
+    const afterEnter = await coordinationSnapshot(request);
+    expect(afterEnter.broadcast.activeTerminalId).toBe('security');
+    expect(afterEnter.pendingTerminalNavigation).toBeNull();
+  } finally {
+    await controller.context.close();
+    await firstObserver.context.close();
+    await secondObserver.context.close();
     await overseerContext.close();
   }
 });

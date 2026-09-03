@@ -433,10 +433,32 @@
       "kind": "complete",
       "by": "extension",
       "at": "2026-09-03T17:54:57.263Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-5",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T19:54:31.744Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T19:54:31.800Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-5",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T19:54:31.879Z"
     }
   ],
   "telemetryInstanceId": "2da7f8f5-8e43-48cc-83f9-a1de3fd7e9b9",
-  "last_action": "T037 complete; 37/37 tasks journaled, long-running retention regression passes, diagnostics race validation passes, and static checks are clean.",
+  "last_action": "T038 complete — forward terminal-transition audits verified and all repository gates pass",
   "coverage": {
     "FR-001": {
       "title": "The application MUST record each logical player connection with a timestamp, application-run identifier, stable logical-session identifier, and resolved role.",
@@ -478,42 +500,31 @@
       ]
     },
     "FR-004": {
-      "title": "The application MUST record each command request accepted for Overseer review with a unique correlation identifier, requesting logical session, current role, terminal identifier, and safe command identifier.",
+      "title": "Record every command request accepted for Overseer review with safe correlation.",
       "tasks": [
-        "T008",
-        "T010",
-        "T011"
+        "T038"
       ],
       "tests": [
-        "internal/control.TestCommandApprovalAuditCorrelatesRequestAndDecisionExactlyOnce",
-        "internal/control.TestCommandAuditDistinguishesRequestsDecisionsAndExceptionalOutcomes",
-        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated"
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions"
       ]
     },
     "FR-005": {
-      "title": "The application MUST record each approval or decline with the originating request correlation identifier, decision, and resulting execution outcome when applicable.",
+      "title": "Record each approval or decline with its originating request correlation.",
       "tasks": [
-        "T008",
-        "T010",
-        "T011"
+        "T038"
       ],
       "tests": [
-        "internal/control.TestCommandApprovalAuditCorrelatesRequestAndDecisionExactlyOnce",
-        "internal/control.TestCommandAuditDistinguishesRequestsDecisionsAndExceptionalOutcomes",
-        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated"
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions"
       ]
     },
     "FR-006": {
-      "title": "Duplicate, superseded, invalid, or execution-failed command requests MUST be distinguishable through safe outcome categories without recording raw command content or output.",
+      "title": "Distinguish exceptional command outcomes through safe categories.",
       "tasks": [
-        "T008",
-        "T009",
-        "T010",
-        "T011"
+        "T038"
       ],
       "tests": [
-        "internal/control.TestCommandAuditDistinguishesRequestsDecisionsAndExceptionalOutcomes",
-        "main.TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors"
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions",
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditRecordsSupersessionWithoutAuditingReturn"
       ]
     },
     "FR-007": {
@@ -555,17 +566,12 @@
       ]
     },
     "FR-010": {
-      "title": "Required runtime records MUST use consistent event categories, timestamps, severity, and correlation fields so connection, command, and puzzle flows can be reconstructed in order.",
+      "title": "Use consistent event categories and correlation fields.",
       "tasks": [
-        "T009",
-        "T010",
-        "T011",
-        "T018",
-        "T019"
+        "T038"
       ],
       "tests": [
-        "main.TestRuntimeAuditLoggingUsesStableAllowlistedFieldsAndSeverity",
-        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated"
+        "app_test.go::TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition"
       ]
     },
     "FR-011": {
@@ -678,28 +684,14 @@
       ]
     },
     "FR-018": {
-      "title": "Automated checks MUST cover connection and role transitions, command request decisions and exceptional outcomes, hacking lifecycle events, packaged-log access, retention, fallback behavior, and forbidden-value redaction.",
+      "title": "Automate command decision and exceptional-outcome coverage.",
       "tasks": [
-        "T001",
-        "T002",
-        "T003",
-        "T008",
-        "T009",
-        "T012",
-        "T013",
-        "T018",
-        "T020",
-        "T021",
-        "T023",
-        "T025"
+        "T038"
       ],
       "tests": [
-        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated",
-        "internal/control.TestCommandAuditDistinguishesRequestsDecisionsAndExceptionalOutcomes",
-        "internal/control.TestHackLifecycleAuditCarriesSafeContextReasonsAndOnlyInterruptsActivePuzzles",
-        "internal/diagnostics.TestRunLogMirrorsRotatesAndRetainsOwnedFiles",
-        "internal/platform.TestDesktopOpensOnlyFixedExistingDirectory",
-        "tests/browser/overseer-runtime-logs.spec.mjs"
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions",
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditRecordsSupersessionWithoutAuditingReturn",
+        "app_test.go::TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition"
       ]
     },
     "SC-005": {
@@ -780,6 +772,16 @@
       "decision": "Treat retained segment ordinals as decimal strings of at least three digits",
       "why": "This preserves every existing filename while keeping all future generated ordinals recognizable and prunable after 999",
       "rejected": "Increasing to another fixed width or wrapping the ordinal, which would only delay the boundary or risk filename collisions"
+    },
+    {
+      "decision": "Audit forward terminal-transition approvals as command lifecycles with mode terminal-transition, while leaving terminal-return approvals outside command audit semantics.",
+      "why": "Forward transitions originate from authored commands accepted for Overseer review; returns are route actions rather than authored command requests.",
+      "rejected": "Logging every terminal-navigation request as a command would misclassify route-return actions."
+    },
+    {
+      "decision": "Normalize rejected command decision fields to the runtime-audit contract value decline.",
+      "why": "The contract's closed decision vocabulary is approve or decline even though the internal decision enum uses reject.",
+      "rejected": "Persisting the internal reject spelling would contradict the retained-log contract."
     }
   ],
   "step_summaries": {
@@ -791,12 +793,12 @@
       "summary": "25 tasks across foundational infrastructure, four user-story phases, and one final validation phase; tests precede each implementation wave."
     },
     "implement": {
-      "summary": "Completed convergence T037: retained segment ownership and pruning now remain valid beyond ordinal 999, with deterministic per-rotation count and byte-bound coverage across 1,002 writes.",
+      "summary": "Completed T038 with correlated forward terminal-transition command audits, closed decision values, retained-log coverage, and clean repository gates.",
       "key_finding": "The durable fix belongs in the owned-filename grammar; widening one fixed field would recreate the same retention escape at a later ordinal.",
       "risks": "Repository-wide listener tests remain unavailable in the sandbox, while the complete diagnostics package and its race suite pass."
     }
   },
-  "currentTask": "T037",
+  "currentTask": "T038",
   "task_summaries": {
     "T001": {
       "status": "DONE",
@@ -1098,6 +1100,15 @@
         "internal/diagnostics/retained_log.go",
         "internal/diagnostics/retained_log_test.go"
       ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Added safe correlated forward terminal-transition request, decision, stale, failure, and supersession audit coverage while keeping terminal returns outside command audit semantics.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "app_test.go"
+      ]
     }
   },
   "verified": [
@@ -1236,6 +1247,24 @@
         "Sandbox denied localhost listeners required by unrelated existing httptest and tunnel suites; diagnostics and all non-listener packages shown passed.",
         "Unsandboxed task test retry stalled without output and was terminated after a bounded wait."
       ]
+    },
+    {
+      "what": "T038 fail-first forward terminal-transition audit regression",
+      "command": "go test ./internal/control -run TestForwardTerminalTransitionAudit",
+      "result": "failed as expected before implementation because no command.request_received audit event was emitted",
+      "warnings": []
+    },
+    {
+      "what": "T038 focused coordinator and retained-log verification",
+      "command": "go test ./internal/control -run TestForwardTerminalTransitionAudit...; go test . -run TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition",
+      "result": "passed approve, decline, stale broadcast, target change, activation failure, supersession, terminal-return exclusion, and retained-file correlation",
+      "warnings": []
+    },
+    {
+      "what": "T038 repository quality gates",
+      "command": "go fix ./...; task vet; task test; task test:race; task lint; task check",
+      "result": "passed with zero lint issues and deterministic protobuf/Wails binding checks",
+      "warnings": []
     }
   ],
   "concerns": [

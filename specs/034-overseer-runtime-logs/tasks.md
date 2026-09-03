@@ -193,3 +193,11 @@ These tasks establish retained output, platform access, and the private contract
 **Wave 1 — close the long-running retention filename boundary:**
 
 - [x] T037 keep every generated retained segment recognizable and prunable after the three-digit ordinal range, and add deterministic coverage crossing 1,000 rotations that proves owned file count and retained bytes never exceed the configured bounds per FR-015 and SC-005 (contradicts) · `internal/diagnostics/retained_log.go`, `internal/diagnostics/retained_log_test.go`
+
+## Phase 12: Convergence
+
+**Depends on:** all prior phases.
+
+**Wave 1 — complete forward terminal-transition command audit coverage:**
+
+- [x] T038 add fail-first coordinator and retained-log coverage for forward terminal-transition commands, then emit exactly-once safe `command.request_received`, `command.decision`, and exceptional outcome records across approve, decline, stale, target-change, supersession, and activation-failure paths using the pending request correlation without display content, while preserving non-command terminal-return semantics per FR-004, FR-005, FR-006, FR-010, FR-018, US1/AC3-4, and SC-001 (partial) · `internal/control/service.go`, `internal/control/service_test.go`, `app_test.go`
