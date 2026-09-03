@@ -83,11 +83,25 @@ type PlayerConfigMetadata struct {
 	Version  int    `json:"version"`
 }
 
+// EntryContentBlock is one stable ordered text section authored within an entry.
+type EntryContentBlock struct {
+	ID          string `json:"id"`
+	InitialText string `json:"initialText"`
+}
+
+// EntryContentChange is an explicitly present authored or frozen replacement
+// for one terminal-scoped entry block.
+type EntryContentChange struct {
+	BlockID       string `json:"blockId"`
+	CompletedText string `json:"completedText"`
+}
+
 // StateChangeConfig is the optional authored configuration for a command
 // whose first successful execution durably changes its menu presentation.
 type StateChangeConfig struct {
-	CompletedName    string `json:"completedName"`
-	ConfirmationText string `json:"confirmationText"`
+	CompletedName      string              `json:"completedName"`
+	ConfirmationText   string              `json:"confirmationText"`
+	EntryContentChange *EntryContentChange `json:"entryContentChange,omitempty"`
 }
 
 // TerminalTransitionConfig links an authored command to another terminal in
@@ -111,8 +125,9 @@ const (
 // CommandExecutionState is the immutable durable snapshot captured from a
 // state-changing command's first successfully persisted execution.
 type CommandExecutionState struct {
-	CompletedName string `json:"completedName"`
-	ResultText    string `json:"resultText"`
+	CompletedName      string              `json:"completedName"`
+	ResultText         string              `json:"resultText"`
+	EntryContentChange *EntryContentChange `json:"entryContentChange,omitempty"`
 }
 
 // Terminal is one durable authoring and broadcast target.
@@ -134,6 +149,7 @@ type ContentNode struct {
 	Children           []ContentNode              `json:"children,omitempty"`
 	Text               string                     `json:"text,omitempty"`
 	Description        string                     `json:"description,omitempty"`
+	Blocks             []EntryContentBlock        `json:"blocks,omitempty"`
 	StateChange        *StateChangeConfig         `json:"stateChange,omitempty"`
 	TerminalTransition *TerminalTransitionConfig  `json:"terminalTransition,omitempty"`
 	Extra              map[string]json.RawMessage `json:"-"`
@@ -1039,11 +1055,16 @@ func CloneContentNode(node ContentNode) ContentNode {
 	clone := node
 	if node.StateChange != nil {
 		stateChange := *node.StateChange
+		stateChange.EntryContentChange = cloneEntryContentChange(node.StateChange.EntryContentChange)
 		clone.StateChange = &stateChange
 	}
 	if node.TerminalTransition != nil {
 		transition := *node.TerminalTransition
 		clone.TerminalTransition = &transition
+	}
+	if node.Blocks != nil {
+		clone.Blocks = make([]EntryContentBlock, len(node.Blocks))
+		copy(clone.Blocks, node.Blocks)
 	}
 	clone.Extra = cloneRawMessages(node.Extra)
 	if node.Children != nil {
@@ -1095,10 +1116,7 @@ func cloneLiveTerminalRuntime(runtime *TerminalRuntime) *TerminalRuntime {
 	}
 	clone := *runtime
 	clone.Tree = CloneContentNode(runtime.Tree)
-	if runtime.CommandStates != nil {
-		clone.CommandStates = make(map[string]CommandExecutionState, len(runtime.CommandStates))
-		maps.Copy(clone.CommandStates, runtime.CommandStates)
-	}
+	clone.CommandStates = CloneCommandExecutionStates(runtime.CommandStates)
 	if runtime.CommandExecution != nil {
 		execution := *runtime.CommandExecution
 		clone.CommandExecution = &execution
@@ -1148,11 +1166,29 @@ func CloneSession(session Session) Session {
 			clone.Terminals[index] = terminal
 			clone.Terminals[index].Extra = cloneRawMessages(terminal.Extra)
 			clone.Terminals[index].Root = CloneContentNode(terminal.Root)
-			if terminal.CommandStates != nil {
-				clone.Terminals[index].CommandStates = make(map[string]CommandExecutionState, len(terminal.CommandStates))
-				maps.Copy(clone.Terminals[index].CommandStates, terminal.CommandStates)
-			}
+			clone.Terminals[index].CommandStates = CloneCommandExecutionStates(terminal.CommandStates)
 		}
+	}
+	return clone
+}
+
+func cloneEntryContentChange(change *EntryContentChange) *EntryContentChange {
+	if change == nil {
+		return nil
+	}
+	clone := *change
+	return &clone
+}
+
+// CloneCommandExecutionStates returns a deeply detached durable state map.
+func CloneCommandExecutionStates(states map[string]CommandExecutionState) map[string]CommandExecutionState {
+	if states == nil {
+		return nil
+	}
+	clone := make(map[string]CommandExecutionState, len(states))
+	for commandID, state := range states {
+		state.EntryContentChange = cloneEntryContentChange(state.EntryContentChange)
+		clone[commandID] = state
 	}
 	return clone
 }

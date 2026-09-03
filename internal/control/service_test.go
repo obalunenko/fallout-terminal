@@ -1645,6 +1645,238 @@ func TestApproveCommandExecutionWaitsForDurabilityBeforePublishingSuccess(t *tes
 	require.Greater(t, fixture.effects.Calls(), effectsBefore, "durable approve did not publish its accepted revision")
 }
 
+func TestEntryContentCommandPublishesFrozenBlockOnlyAfterDurability(t *testing.T) {
+	release := make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	wantChange := &domain.EntryContentChange{BlockID: "power-status", CompletedText: "POWER: ONLINE"}
+	store := &recordingCommandStateStore{
+		mutation: CommandStateMutation{
+			Changed: true, Revision: 81,
+			Session: entryContentCommandExecutionSession(wantChange),
+		},
+		started: make(chan struct{}),
+		release: release,
+	}
+	fixture := newEntryContentCommandExecutionFixture(t, store, wantChange.CompletedText)
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("targeted-approve")).Accepted)
+	pending := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pending)
+	effectsBefore := fixture.effects.Calls()
+
+	type resolution struct {
+		state    *domain.MasterCoordinationState
+		mutation *CommandStateMutation
+		err      error
+	}
+	resolved := make(chan resolution, 1)
+	go func() {
+		state, mutation, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
+		resolved <- resolution{state: state, mutation: mutation, err: err}
+	}()
+
+	<-store.started
+	assert.Equal(t, effectsBefore, fixture.effects.Calls())
+	select {
+	case premature := <-resolved:
+		assert.FailNow(t, "targeted approval returned before durability", "%#v", premature)
+	default:
+	}
+	close(release)
+	approved := <-resolved
+
+	require.NoError(t, approved.err)
+	require.NotNil(t, approved.state)
+	require.NotNil(t, approved.mutation)
+	require.Equal(t, uint64(81), approved.mutation.Revision)
+	state := canonicalTerminal(t, fixture.service, fixture.terminalID).CommandStates[fixture.commandID]
+	require.NotNil(t, state.EntryContentChange)
+	assert.Equal(t, wantChange, state.EntryContentChange)
+	assert.Greater(t, fixture.effects.Calls(), effectsBefore)
+}
+
+func TestEntryContentCommandRejectLeavesAuthoredBlockAndStateUnchanged(t *testing.T) {
+	store := &recordingCommandStateStore{}
+	fixture := newEntryContentCommandExecutionFixture(t, store, "POWER: ONLINE")
+	before := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("targeted-reject")).Accepted)
+	pending := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pending)
+
+	state, mutation, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionReject)
+	require.NoError(t, err)
+	assert.Nil(t, mutation)
+	require.NotNil(t, state)
+	assert.Zero(t, store.ExecuteCalls())
+	after := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	assert.Equal(t, before.CommandStates, after.CommandStates)
+	entry := contentNodeByIDForControlTest(after.Tree, "reactor-status")
+	require.NotNil(t, entry)
+	require.Len(t, entry.Blocks, 2)
+	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
+}
+
+func TestEntryContentCommandRejectsMalformedDurableSnapshots(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change *domain.EntryContentChange
+	}{
+		{name: "missing frozen entry change"},
+		{
+			name: "frozen target differs from authored target",
+			change: &domain.EntryContentChange{
+				BlockID: "other-status", CompletedText: "WRONG BLOCK",
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := &recordingCommandStateStore{mutation: CommandStateMutation{
+				Changed: true, Revision: 82, Session: entryContentCommandExecutionSession(test.change),
+			}}
+			fixture := newEntryContentCommandExecutionFixture(t, store, "POWER: ONLINE")
+			require.True(t, fixture.service.DispatchPlayerAction(
+				fixture.controllerConnection, fixture.command(domain.RequestID("malformed-"+test.name)),
+			).Accepted)
+			pending := fixture.service.Snapshot().PendingCommandExecution
+			require.NotNil(t, pending)
+
+			state, mutation, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
+			require.ErrorIs(t, err, ErrCommandExecutionPersistence)
+			assert.Nil(t, mutation)
+			require.NotNil(t, state)
+			assert.Nil(t, state.PendingCommandExecution)
+			assert.Empty(t, canonicalTerminal(t, fixture.service, fixture.terminalID).CommandStates)
+			assert.Equal(t, 1, store.ExecuteCalls())
+		})
+	}
+}
+
+type commandStateResetCoordinator interface {
+	ResetCommandState(context.Context, string, string) (*domain.MasterCoordinationState, *CommandStateMutation, error)
+	ResetTerminalCommandStates(context.Context, string) (*domain.MasterCoordinationState, *CommandStateMutation, error)
+}
+
+func TestEntryContentCommandStateResetsPublishOnlyCanonicalDurableState(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		reset func(commandStateResetCoordinator, context.Context, string, string) (*domain.MasterCoordinationState, *CommandStateMutation, error)
+	}{
+		{
+			name: "individual",
+			reset: func(resetter commandStateResetCoordinator, ctx context.Context, terminalID, commandID string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
+				return resetter.ResetCommandState(ctx, terminalID, commandID)
+			},
+		},
+		{
+			name: "terminal-wide",
+			reset: func(resetter commandStateResetCoordinator, ctx context.Context, terminalID, _ string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
+				return resetter.ResetTerminalCommandStates(ctx, terminalID)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			release := make(chan struct{})
+			t.Cleanup(func() {
+				select {
+				case <-release:
+				default:
+					close(release)
+				}
+			})
+			durable := entryContentCommandExecutionSession(&domain.EntryContentChange{
+				BlockID: "power-status", CompletedText: "POWER: ONLINE",
+			})
+			durable.Terminals[0].CommandStates = nil
+			store := &recordingCommandStateResetStore{
+				mutation: CommandStateMutation{Changed: true, Revision: 93, Session: durable},
+				started:  make(chan struct{}), release: release,
+			}
+			fixture := newEntryContentCommandExecutionFixture(t, nil, "POWER: ONLINE")
+			fixture.service.commandStateStore = store
+			fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+				terminal := runtime.Broadcast.TerminalRuntimes[fixture.terminalID]
+				terminal.CommandStates = map[string]domain.CommandExecutionState{
+					fixture.commandID: {
+						CompletedName: "Doors open", ResultText: "Doors opened",
+						EntryContentChange: &domain.EntryContentChange{
+							BlockID: "power-status", CompletedText: "POWER: ONLINE",
+						},
+					},
+				}
+				return transition{accepted: true}
+			})
+
+			resetter, ok := any(fixture.service).(commandStateResetCoordinator)
+			require.True(t, ok, "control.Service does not expose coordinated command-state resets")
+			revisionBefore := fixture.service.Revision()
+			effectsBefore := fixture.effects.Calls()
+			type resolution struct {
+				state    *domain.MasterCoordinationState
+				mutation *CommandStateMutation
+				err      error
+			}
+			resolved := make(chan resolution, 1)
+			go func() {
+				state, mutation, err := test.reset(resetter, t.Context(), fixture.terminalID, fixture.commandID)
+				resolved <- resolution{state: state, mutation: mutation, err: err}
+			}()
+
+			<-store.started
+			assert.Equal(t, effectsBefore, fixture.effects.Calls(), "reset published before durability")
+			select {
+			case premature := <-resolved:
+				assert.FailNow(t, "reset returned before durability", "%#v", premature)
+			default:
+			}
+			close(release)
+			result := <-resolved
+			require.NoError(t, result.err)
+			require.NotNil(t, result.state)
+			require.NotNil(t, result.mutation)
+			assert.Equal(t, uint64(93), result.mutation.Revision)
+			assert.Equal(t, revisionBefore+1, result.state.Revision)
+			assert.Empty(t, canonicalTerminal(t, fixture.service, fixture.terminalID).CommandStates)
+			assert.Greater(t, fixture.effects.Calls(), effectsBefore)
+		})
+	}
+}
+
+func TestEntryContentCommandStateResetFailurePreservesCanonicalStateAndRevision(t *testing.T) {
+	store := &recordingCommandStateResetStore{err: errors.New("private reset write failed")}
+	fixture := newEntryContentCommandExecutionFixture(t, nil, "POWER: ONLINE")
+	fixture.service.commandStateStore = store
+	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+		terminal := runtime.Broadcast.TerminalRuntimes[fixture.terminalID]
+		terminal.CommandStates = map[string]domain.CommandExecutionState{
+			fixture.commandID: {
+				CompletedName: "Doors open", ResultText: "Doors opened",
+				EntryContentChange: &domain.EntryContentChange{
+					BlockID: "power-status", CompletedText: "POWER: ONLINE",
+				},
+			},
+		}
+		return transition{accepted: true}
+	})
+	resetter, ok := any(fixture.service).(commandStateResetCoordinator)
+	require.True(t, ok, "control.Service does not expose coordinated command-state resets")
+	before := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	revisionBefore := fixture.service.Revision()
+	effectsBefore := fixture.effects.Calls()
+
+	state, mutation, err := resetter.ResetCommandState(t.Context(), fixture.terminalID, fixture.commandID)
+	require.Error(t, err)
+	assert.Nil(t, mutation)
+	require.NotNil(t, state)
+	assert.Equal(t, revisionBefore, state.Revision)
+	assert.Equal(t, before.CommandStates, canonicalTerminal(t, fixture.service, fixture.terminalID).CommandStates)
+	assert.Equal(t, effectsBefore, fixture.effects.Calls())
+}
+
 func TestApproveCommandExecutionPersistenceFailureClearsPendingWithoutSuccess(t *testing.T) {
 	for attempt := range 100 {
 		store := &recordingCommandStateStore{err: errors.New("private disk path: write failed")}
@@ -3525,6 +3757,35 @@ func newCommandExecutionFixture(t *testing.T, store *recordingCommandStateStore)
 	}
 }
 
+func newEntryContentCommandExecutionFixture(
+	t *testing.T,
+	store *recordingCommandStateStore,
+	completedText string,
+) commandExecutionFixture {
+	t.Helper()
+	fixture := newCommandExecutionFixture(t, store)
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		terminal := root.Broadcast.TerminalRuntimes[fixture.terminalID]
+		terminal.Tree.Children = append(terminal.Tree.Children, domain.ContentNode{
+			ID: "reactor-status", Type: domain.NodeEntry, Name: "REACTOR STATUS",
+			Blocks: []domain.EntryContentBlock{
+				{ID: "power-status", InitialText: "POWER: OFFLINE"},
+				{ID: "other-status", InitialText: "OTHER: OFFLINE"},
+			},
+		})
+		for index := range terminal.Tree.Children {
+			command := &terminal.Tree.Children[index]
+			if command.ID == fixture.commandID {
+				command.StateChange.EntryContentChange = &domain.EntryContentChange{
+					BlockID: "power-status", CompletedText: completedText,
+				}
+			}
+		}
+		return transition{accepted: true}
+	})
+	return fixture
+}
+
 func TestLinkedCommandCreatesOneReplaySafePendingAndResolvesAtomically(t *testing.T) {
 	t.Parallel()
 
@@ -4474,6 +4735,40 @@ type recordingCommandStateStore struct {
 	startOnce sync.Once
 }
 
+type recordingCommandStateResetStore struct {
+	mutation  CommandStateMutation
+	err       error
+	started   chan struct{}
+	release   chan struct{}
+	startOnce sync.Once
+}
+
+func (store *recordingCommandStateResetStore) ExecuteCommandState(context.Context, string, string) (CommandStateMutation, error) {
+	return CommandStateMutation{}, errors.New("unexpected execute call")
+}
+
+func (store *recordingCommandStateResetStore) ResetCommandState(ctx context.Context, _, _ string) (CommandStateMutation, error) {
+	return store.reset(ctx)
+}
+
+func (store *recordingCommandStateResetStore) ResetTerminalCommandStates(ctx context.Context, _ string) (CommandStateMutation, error) {
+	return store.reset(ctx)
+}
+
+func (store *recordingCommandStateResetStore) reset(ctx context.Context) (CommandStateMutation, error) {
+	if store.started != nil {
+		store.startOnce.Do(func() { close(store.started) })
+	}
+	if store.release != nil {
+		select {
+		case <-store.release:
+		case <-ctx.Done():
+			return CommandStateMutation{}, ctx.Err()
+		}
+	}
+	return store.mutation, store.err
+}
+
 type commandStateContextKey struct{}
 
 func (store *recordingCommandStateStore) ExecuteCommandState(ctx context.Context, terminalID, commandID string) (CommandStateMutation, error) {
@@ -4540,6 +4835,33 @@ func commandExecutionSession(completed bool) domain.Session {
 		}
 	}
 	return domain.Session{Version: 1, Name: "Command execution fixture", Terminals: []domain.Terminal{terminal}}
+}
+
+func entryContentCommandExecutionSession(frozenChange *domain.EntryContentChange) domain.Session {
+	session := commandExecutionSession(false)
+	terminal := &session.Terminals[0]
+	terminal.Root.Children[0].StateChange.EntryContentChange = &domain.EntryContentChange{
+		BlockID: "power-status", CompletedText: "POWER: ONLINE",
+	}
+	terminal.Root.Children = append(terminal.Root.Children, domain.ContentNode{
+		ID: "reactor-status", Type: domain.NodeEntry, Name: "REACTOR STATUS",
+		Blocks: []domain.EntryContentBlock{
+			{ID: "power-status", InitialText: "POWER: OFFLINE"},
+			{ID: "other-status", InitialText: "OTHER: OFFLINE"},
+		},
+	})
+	var frozenClone *domain.EntryContentChange
+	if frozenChange != nil {
+		value := *frozenChange
+		frozenClone = &value
+	}
+	terminal.CommandStates = map[string]domain.CommandExecutionState{
+		"command-open-doors": {
+			CompletedName: "Doors open", ResultText: "Doors opened",
+			EntryContentChange: frozenClone,
+		},
+	}
+	return session
 }
 
 func newUS2Fixture(t *testing.T, runtime RuntimeActions) us2Fixture {

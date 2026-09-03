@@ -185,6 +185,21 @@ const btnDeferApplicationUpdate = document.getElementById('btnDeferApplicationUp
 const applicationUpdateRestartDialog = document.getElementById('applicationUpdateRestartDialog');
 const btnRestartApplicationUpdate = document.getElementById('btnRestartApplicationUpdate');
 const btnPostponeApplicationUpdate = document.getElementById('btnPostponeApplicationUpdate');
+const entryBlockCommandDialog = document.getElementById('entryBlockCommandDialog');
+const entryBlockCommandDialogDescription = document.getElementById('entryBlockCommandDialogDescription');
+const entryBlockCommandForm = document.getElementById('entryBlockCommandForm');
+const entryBlockCommandModeInputs = Array.from(document.querySelectorAll('input[name="entryBlockCommandMode"]'));
+const entryBlockExistingCommand = document.getElementById('entryBlockExistingCommand');
+const entryBlockCompletedText = document.getElementById('entryBlockCompletedText');
+const entryBlockNewCommandName = document.getElementById('entryBlockNewCommandName');
+const entryBlockNewCompletedName = document.getElementById('entryBlockNewCompletedName');
+const entryBlockNewConfirmationText = document.getElementById('entryBlockNewConfirmationText');
+const entryBlockNewResultText = document.getElementById('entryBlockNewResultText');
+const entryBlockNewDestinationFolder = document.getElementById('entryBlockNewDestinationFolder');
+const entryBlockCommandError = document.getElementById('entryBlockCommandError');
+const btnApplyEntryBlockCommand = entryBlockCommandDialog.querySelector('[data-entry-block-command-action="apply"]');
+const btnRemoveEntryBlockCommand = entryBlockCommandDialog.querySelector('[data-entry-block-command-action="remove"]');
+const btnCancelEntryBlockCommand = entryBlockCommandDialog.querySelector('[data-entry-block-command-action="cancel"]');
 
 let serverUrl = null;
 let serverUrlTitle = '';
@@ -227,6 +242,7 @@ let applicationUpdateRestartDialogAttemptID = '';
 let applicationUpdateRestartDialogOpener = null;
 let applicationUpdateRestartCommandPending = false;
 let latestRenderedApplicationUpdateRevision = -1;
+let entryBlockCommandDraft = null;
 const promptedApplicationUpdateRevisions = new Set();
 const promptedApplicationUpdateRestartRevisions = new Set();
 const suppressedApplicationUpdateAttempts = new Set();
@@ -1414,6 +1430,352 @@ function effectiveNodeName(term, node) {
   if (node?.type !== 'command') return node?.name || '';
   const completedName = commandExecutionState(term, node.id)?.completedName;
   return typeof completedName === 'string' && completedName ? completedName : node.name;
+}
+
+function visitContentNodes(node, visit) {
+  if (!node) return;
+  visit(node);
+  for (const child of node.children ?? []) visitContentNodes(child, visit);
+}
+
+function entryBlockCatalog(term) {
+  const catalog = [];
+  visitContentNodes(term?.root, (node) => {
+    if (node.type !== 'entry') return;
+    for (const [index, block] of (node.blocks ?? []).entries()) {
+      catalog.push({ entry: node, block, index });
+    }
+  });
+  return catalog;
+}
+
+function entryBlockOwners(term) {
+  const owners = new Map();
+  visitContentNodes(term?.root, (node) => {
+    const blockID = node.type === 'command'
+      ? node.stateChange?.entryContentChange?.blockId
+      : '';
+    if (blockID && !owners.has(blockID)) owners.set(blockID, node);
+  });
+  return owners;
+}
+
+function entryBlockLocation(term, blockID) {
+  return entryBlockCatalog(term).find(({ block }) => block.id === blockID) || null;
+}
+
+function entryBlockCommandCandidates(term, blockID, currentOwnerID = '') {
+  const candidates = [];
+  visitContentNodes(term?.root, (node) => {
+    if (node.type !== 'command' || !node.stateChange) return;
+    const targetBlockID = node.stateChange.entryContentChange?.blockId || '';
+    if (targetBlockID && targetBlockID !== blockID) return;
+    if (commandExecutionState(term, node.id) && node.id !== currentOwnerID) return;
+    candidates.push(node);
+  });
+  return candidates;
+}
+
+function entryBlockFolderCatalog(term) {
+  const folders = [];
+  function walk(node, path) {
+    if (node.type !== 'folder') return;
+    const name = node.id === 'root' ? 'ROOT' : node.name;
+    const nextPath = [...path, name];
+    folders.push({ folder: node, label: nextPath.join(' › ') });
+    for (const child of node.children ?? []) {
+      if (child.type === 'folder') walk(child, nextPath);
+    }
+  }
+  if (term?.root) walk(term.root, []);
+  return folders;
+}
+
+function setEntryBlockCommandError(message, field = null) {
+  entryBlockCommandError.textContent = message;
+  entryBlockCommandError.hidden = !message;
+  field?.focus();
+}
+
+function selectedEntryBlockCommandMode() {
+  return entryBlockCommandModeInputs.find(input => input.checked)?.value || 'existing';
+}
+
+function updateEntryBlockCommandMode() {
+  const mode = selectedEntryBlockCommandMode();
+  entryBlockCommandDialog.querySelectorAll('[data-entry-block-command-fields]').forEach((fields) => {
+    fields.hidden = fields.dataset.entryBlockCommandFields !== mode;
+  });
+  setEntryBlockCommandError('');
+}
+
+function closeEntryBlockCommandDialog({ restoreFocus = true } = {}) {
+  const draft = entryBlockCommandDraft;
+  if (entryBlockCommandDialog.open && typeof entryBlockCommandDialog.close === 'function') {
+    entryBlockCommandDialog.close();
+  } else {
+    entryBlockCommandDialog.removeAttribute('open');
+  }
+  entryBlockCommandDialog.hidden = true;
+  entryBlockCommandDraft = null;
+  if (!restoreFocus || !draft) return;
+  const trigger = nodeForm.querySelector(
+    `.entry-content-block[data-block-id="${CSS.escape(draft.blockID)}"] [data-entry-block-action="configure-command"]`,
+  );
+  trigger?.focus();
+}
+
+function openEntryBlockCommandDialog(term, blockID) {
+  const location = entryBlockLocation(term, blockID);
+  if (!location) return;
+  const owner = entryBlockOwners(term).get(blockID) || null;
+  const completedOwner = owner ? commandExecutionState(term, owner.id) : null;
+  const locked = Boolean(completedOwner);
+  const candidates = entryBlockCommandCandidates(term, blockID, owner?.id);
+
+  entryBlockCommandDraft = { terminalID: term.id, blockID };
+  entryBlockCommandForm.reset();
+  entryBlockCommandDialogDescription.textContent = entryBlockTargetLabel(
+    location.entry,
+    location.block,
+    location.index,
+  );
+  if (completedOwner) {
+    entryBlockCommandDialogDescription.textContent += ` · ${effectiveNodeName(term, owner)} · СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ`;
+  }
+
+  entryBlockExistingCommand.innerHTML = '<option value="">ВЫБЕРИТЕ КОМАНДУ</option>'
+    + candidates.map(command =>
+      `<option value="${escAttr(command.id)}">${escHtml(effectiveNodeName(term, command))}</option>`
+    ).join('');
+  entryBlockExistingCommand.value = owner?.id || '';
+  entryBlockCompletedText.value = completedOwner?.entryContentChange?.completedText
+    ?? owner?.stateChange?.entryContentChange?.completedText
+    ?? '';
+  entryBlockNewDestinationFolder.innerHTML = '<option value="">ВЫБЕРИТЕ ПАПКУ</option>'
+    + entryBlockFolderCatalog(term).map(({ folder, label }) =>
+      `<option value="${escAttr(folder.id)}">${escHtml(label)}</option>`
+    ).join('');
+
+  entryBlockCommandModeInputs.forEach(input => { input.disabled = locked; });
+  entryBlockExistingCommand.disabled = locked;
+  entryBlockCompletedText.disabled = locked;
+  entryBlockCommandDialog.querySelectorAll('[data-entry-block-command-fields="new"] input, [data-entry-block-command-fields="new"] textarea, [data-entry-block-command-fields="new"] select')
+    .forEach(control => { control.disabled = locked; });
+  btnApplyEntryBlockCommand.disabled = locked;
+  btnRemoveEntryBlockCommand.disabled = locked || !owner;
+  setEntryBlockCommandError('');
+  updateEntryBlockCommandMode();
+
+  entryBlockCommandDialog.hidden = false;
+  if (typeof entryBlockCommandDialog.showModal === 'function' && !entryBlockCommandDialog.open) {
+    entryBlockCommandDialog.showModal();
+  } else {
+    entryBlockCommandDialog.setAttribute('open', '');
+  }
+  (completedOwner ? btnCancelEntryBlockCommand : entryBlockExistingCommand).focus();
+}
+
+async function saveEntryBlockCommandCandidate(candidate) {
+  state.session = candidate;
+  await autosave();
+  renderTree();
+  renderNodeForm();
+  renderToolbarHint();
+  closeEntryBlockCommandDialog();
+}
+
+async function applyEntryBlockCommandDialog() {
+  const draft = entryBlockCommandDraft;
+  if (!draft || !state.session) return;
+  const term = state.session.terminals.find(candidate => candidate.id === draft.terminalID);
+  const location = entryBlockLocation(term, draft.blockID);
+  if (!location) {
+    setEntryBlockCommandError('БЛОК БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  const owner = entryBlockOwners(term).get(draft.blockID) || null;
+  if (owner && commandExecutionState(term, owner.id)) {
+    setEntryBlockCommandError('СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ');
+    return;
+  }
+
+  const mode = selectedEntryBlockCommandMode();
+  let selectedCommandID = '';
+  let destinationFolderID = '';
+  if (mode === 'existing') {
+    selectedCommandID = entryBlockExistingCommand.value;
+    const selected = selectedCommandID ? locateNode(term.root, selectedCommandID)?.node : null;
+    const targetBlockID = selected?.stateChange?.entryContentChange?.blockId || '';
+    if (!selected || selected.type !== 'command' || !selected.stateChange
+      || commandExecutionState(term, selected.id)
+      || (targetBlockID && targetBlockID !== draft.blockID)) {
+      setEntryBlockCommandError('ВЫБЕРИТЕ ДОСТУПНУЮ КОМАНДУ', entryBlockExistingCommand);
+      return;
+    }
+  } else {
+    const required = [
+      [entryBlockNewCommandName, 'УКАЖИТЕ НАЗВАНИЕ ДО ВЫПОЛНЕНИЯ'],
+      [entryBlockNewCompletedName, 'УКАЖИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ'],
+      [entryBlockNewConfirmationText, 'УКАЖИТЕ ТЕКСТ ПОДТВЕРЖДЕНИЯ'],
+      [entryBlockNewResultText, 'УКАЖИТЕ РЕЗУЛЬТАТ КОМАНДЫ'],
+    ];
+    for (const [field, message] of required) {
+      if (!field.value.trim()) {
+        setEntryBlockCommandError(message, field);
+        return;
+      }
+    }
+    destinationFolderID = entryBlockNewDestinationFolder.value;
+    const destination = destinationFolderID ? locateNode(term.root, destinationFolderID)?.node : null;
+    if (!destination || destination.type !== 'folder') {
+      setEntryBlockCommandError('ВЫБЕРИТЕ ПАПКУ ЭТОГО ТЕРМИНАЛА', entryBlockNewDestinationFolder);
+      return;
+    }
+  }
+
+  const candidate = structuredClone(state.session);
+  const candidateTerm = candidate.terminals.find(terminal => terminal.id === draft.terminalID);
+  const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID) || null;
+  if (candidateOwner && candidateOwner.id !== selectedCommandID) {
+    delete candidateOwner.stateChange.entryContentChange;
+  }
+
+  if (mode === 'existing') {
+    const selected = locateNode(candidateTerm.root, selectedCommandID).node;
+    selected.stateChange.entryContentChange = {
+      blockId: draft.blockID,
+      completedText: entryBlockCompletedText.value,
+    };
+  } else {
+    let commandID;
+    do commandID = uid('n'); while (locateNode(candidateTerm.root, commandID));
+    const destination = locateNode(candidateTerm.root, destinationFolderID).node;
+    destination.children ??= [];
+    destination.children.push({
+      id: commandID,
+      type: 'command',
+      name: entryBlockNewCommandName.value.trim(),
+      text: entryBlockNewResultText.value,
+      stateChange: {
+        completedName: entryBlockNewCompletedName.value,
+        confirmationText: entryBlockNewConfirmationText.value,
+        entryContentChange: {
+          blockId: draft.blockID,
+          completedText: entryBlockCompletedText.value,
+        },
+      },
+    });
+  }
+
+  await saveEntryBlockCommandCandidate(candidate);
+}
+
+async function removeEntryBlockCommand() {
+  const draft = entryBlockCommandDraft;
+  if (!draft || !state.session) return;
+  const term = state.session.terminals.find(candidate => candidate.id === draft.terminalID);
+  if (!entryBlockLocation(term, draft.blockID)) {
+    setEntryBlockCommandError('БЛОК БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  const owner = entryBlockOwners(term).get(draft.blockID) || null;
+  if (!owner) {
+    setEntryBlockCommandError('СВЯЗЬ БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  if (commandExecutionState(term, owner.id)) {
+    setEntryBlockCommandError('СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ');
+    return;
+  }
+  const candidate = structuredClone(state.session);
+  const candidateTerm = candidate.terminals.find(terminal => terminal.id === draft.terminalID);
+  const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID);
+  delete candidateOwner.stateChange.entryContentChange;
+  await saveEntryBlockCommandCandidate(candidate);
+}
+
+entryBlockCommandForm.addEventListener('submit', (event) => event.preventDefault());
+entryBlockCommandModeInputs.forEach(input => input.addEventListener('change', updateEntryBlockCommandMode));
+btnApplyEntryBlockCommand.addEventListener('click', applyEntryBlockCommandDialog);
+btnRemoveEntryBlockCommand.addEventListener('click', removeEntryBlockCommand);
+btnCancelEntryBlockCommand.addEventListener('click', closeEntryBlockCommandDialog);
+entryBlockCommandDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  closeEntryBlockCommandDialog();
+});
+
+function normalizedEntryBlockPreview(value) {
+  const normalized = String(value ?? '').trim().replace(/\s+/gu, ' ');
+  if (!normalized) return 'ПУСТО';
+  const codePoints = Array.from(normalized);
+  return codePoints.length > 48 ? `${codePoints.slice(0, 48).join('')}…` : normalized;
+}
+
+function entryBlockTargetLabel(entry, block, index) {
+  return `${entry.name} · БЛОК ${index + 1} · ${normalizedEntryBlockPreview(block.initialText)}`;
+}
+
+function entryBlockTargetOptions(term, selectedBlockID) {
+  return entryBlockCatalog(term).map(({ entry, block, index }) =>
+    `<option value="${escAttr(block.id)}"${block.id === selectedBlockID ? ' selected' : ''}>${escHtml(entryBlockTargetLabel(entry, block, index))}</option>`
+  ).join('');
+}
+
+function commandOwningEntryBlock(term, blockID, excludedCommandID = '') {
+  const owner = entryBlockOwners(term).get(blockID);
+  return owner && owner.id !== excludedCommandID ? owner : null;
+}
+
+function targetingCommandsWithinNode(term, node) {
+  const blockIDs = new Set();
+  visitContentNodes(node, (candidate) => {
+    if (candidate.type !== 'entry') return;
+    for (const block of candidate.blocks ?? []) blockIDs.add(block.id);
+  });
+  const commands = [];
+  const seen = new Set();
+  const owners = entryBlockOwners(term);
+  for (const blockID of blockIDs) {
+    const command = owners.get(blockID);
+    if (command && !seen.has(command.id)) {
+      seen.add(command.id);
+      commands.push(command);
+    }
+  }
+  return commands;
+}
+
+function entryBlockDeletionError(term, commands) {
+  const names = commands.map(command => effectiveNodeName(term, command)).join(', ');
+  return `НЕЛЬЗЯ УДАЛИТЬ: БЛОК ИЗМЕНЯЕТСЯ КОМАНДОЙ: ${names}. СНАЧАЛА СБРОСЬТЕ, ПЕРЕНАЗНАЧЬТЕ ИЛИ УДАЛИТЕ КОМАНДУ.`;
+}
+
+function uniqueEntryBlockID(term) {
+  const existing = new Set(entryBlockCatalog(term).map(({ block }) => block.id));
+  let id;
+  do id = uid('b'); while (existing.has(id));
+  return id;
+}
+
+function entryContentBlockMarkup(term, block, index, { legacyDraft = false, owners = entryBlockOwners(term) } = {}) {
+  const owner = block.id ? owners.get(block.id) : null;
+  const ownerMarkup = owner
+    ? `<div class="entry-content-block-owner" data-entry-block-owner data-command-id="${escAttr(owner.id)}">ИЗМЕНЯЕТСЯ КОМАНДОЙ: ${escHtml(effectiveNodeName(term, owner))}</div>`
+    : '';
+  return `<div class="entry-content-block" data-block-id="${legacyDraft ? '' : escAttr(block.id)}"${legacyDraft ? ' data-legacy-draft="true"' : ''}>
+    <div class="entry-content-block-heading">
+      <span class="entry-content-block-index">БЛОК ${index + 1}</span>
+      <span class="entry-content-block-actions" role="group" aria-label="Действия блока ${index + 1}">
+        <button class="btn btn-mini" type="button" data-entry-block-action="configure-command" aria-label="Настроить команду для блока ${index + 1}" aria-haspopup="dialog" aria-controls="entryBlockCommandDialog"${legacyDraft ? ' disabled title="Сначала примените блок"' : ''}>КОМАНДА…</button>
+        <button class="btn btn-mini" type="button" data-entry-block-action="move-up" aria-label="Переместить блок ${index + 1} вверх">↑</button>
+        <button class="btn btn-mini" type="button" data-entry-block-action="move-down" aria-label="Переместить блок ${index + 1} вниз">↓</button>
+        <button class="btn btn-mini btn-danger" type="button" data-entry-block-action="delete" aria-label="Удалить блок ${index + 1}">×</button>
+      </span>
+    </div>
+    <textarea class="field-textarea entry-content-block-text" data-entry-block-content aria-label="ИСХОДНЫЙ ТЕКСТ БЛОКА ${index + 1}">${escHtml(block.initialText)}</textarea>
+    ${ownerMarkup}
+  </div>`;
 }
 
 function renderSessionStateResult(result, successMessage, acceptsCanonicalResult = null) {
@@ -3300,6 +3662,15 @@ function renderNodeForm() {
 
   const typeLabel = node.type === 'folder' ? 'ПАПКА' : node.type === 'command' ? 'КОМАНДА' : 'ЗАПИСЬ';
   const snapshot = commandExecutionState(term, node.id);
+  const hasExplicitEntryBlocks = node.type === 'entry' && Array.isArray(node.blocks) && node.blocks.length > 0;
+  const hasLegacyEntryDescription = node.type === 'entry' && !hasExplicitEntryBlocks && typeof node.description === 'string' && node.description.length > 0;
+  const entryBlocks = hasExplicitEntryBlocks
+    ? node.blocks
+    : hasLegacyEntryDescription
+      ? [{ id: '', initialText: node.description }]
+      : [];
+  const blockOwners = node.type === 'entry' ? entryBlockOwners(term) : null;
+  let entryBlocksChanged = false;
   let html = `<div class="node-type-label">${typeLabel}</div>
     <label class="field-label" for="fldName">${node.type === 'command' ? 'ИСХОДНОЕ НАЗВАНИЕ' : 'НАЗВАНИЕ'}</label>
     <input class="field-input" id="fldName" value="${escAttr(node.name)}">`;
@@ -3316,6 +3687,10 @@ function renderNodeForm() {
       .filter(candidate => candidate.id !== term.id && eligibleTransitionIDs.has(candidate.id))
       .map(candidate => `<option value="${escAttr(candidate.id)}"${node.terminalTransition?.targetTerminalId === candidate.id ? ' selected' : ''}>${escHtml(candidate.name)}</option>`)
       .join('');
+    const configuredEntryChange = snapshot?.entryContentChange ?? node.stateChange?.entryContentChange ?? null;
+    const selectedBlockID = configuredEntryChange?.blockId || '';
+    const completedBlockText = configuredEntryChange?.completedText ?? '';
+    const entryTargetLocked = Boolean(snapshot);
     html += `
       <label class="field-label" for="fldCommandMode">РЕЖИМ КОМАНДЫ</label>
       <select class="field-input command-mode-select" id="fldCommandMode"${snapshot ? ' disabled' : ''}>
@@ -3329,6 +3704,14 @@ function renderNodeForm() {
         <input class="field-input" id="fldCompletedName" value="${escAttr(node.stateChange?.completedName || '')}">
         <label class="field-label" for="fldConfirmationText">ТЕКСТ ЗАПРОСА ПОДТВЕРЖДЕНИЯ</label>
         <textarea class="field-textarea state-change-textarea" id="fldConfirmationText">${escHtml(node.stateChange?.confirmationText || '')}</textarea>
+        <label class="field-label" for="fldEntryBlockTarget">БЛОК ЗАПИСИ</label>
+        <select class="field-input entry-block-target" id="fldEntryBlockTarget"${entryTargetLocked ? ' disabled' : ''}>
+          <option value="">НЕ ИЗМЕНЯТЬ СОДЕРЖИМОЕ ЗАПИСИ</option>
+          ${entryBlockTargetOptions(term, selectedBlockID)}
+        </select>
+        <label class="field-label" for="fldCompletedEntryBlockContent">ТЕКСТ БЛОКА ПОСЛЕ ВЫПОЛНЕНИЯ</label>
+        <textarea class="field-textarea state-change-textarea" id="fldCompletedEntryBlockContent"${entryTargetLocked || !selectedBlockID ? ' disabled' : ''}>${escHtml(completedBlockText)}</textarea>
+        ${entryTargetLocked ? '<div class="command-mode-hint">Сначала сбросьте выполненное состояние команды, чтобы изменить блок и его итоговый текст.</div>' : ''}
       </div>
       <div class="state-change-fields terminal-transition-fields" id="terminalTransitionFields"${commandMode === 'terminal-transition' ? '' : ' hidden'}>
         <label class="field-label" for="fldTerminalTransitionTarget">ЦЕЛЕВОЙ ТЕРМИНАЛ</label>
@@ -3346,11 +3729,19 @@ function renderNodeForm() {
           <div class="command-execution-value">${escHtml(snapshot.completedName || '')}</div>
           <div class="command-execution-label">ЗАФИКСИРОВАННЫЙ РЕЗУЛЬТАТ</div>
           <div class="command-execution-value command-execution-result">${escHtml(snapshot.resultText || '')}</div>
+          ${snapshot.entryContentChange ? `<div class="command-execution-label">ЗАФИКСИРОВАННЫЙ ТЕКСТ БЛОКА</div>
+          <div class="command-execution-value command-execution-result">${escHtml(snapshot.entryContentChange.completedText)}</div>` : ''}
         </div>`;
     }
   } else if (node.type === 'entry') {
-    html += `<label class="field-label" for="fldText">ОПИСАНИЕ ЗАПИСИ</label>
-      <textarea class="field-textarea" id="fldText">${escHtml(node.description || '')}</textarea>`;
+    html += `<div class="field-label">СОДЕРЖИМОЕ ЗАПИСИ</div>
+      <div class="entry-content-blocks" id="entryContentBlocks" aria-label="БЛОКИ СОДЕРЖИМОГО ЗАПИСИ">
+        ${entryBlocks.map((block, index) => entryContentBlockMarkup(term, block, index, {
+          legacyDraft: hasLegacyEntryDescription,
+          owners: blockOwners,
+        })).join('')}
+      </div>
+      <button class="btn btn-mini entry-content-block-add" id="btnAddEntryContentBlock" type="button">+ ДОБАВИТЬ БЛОК</button>`;
   } else if (node.type === 'folder') {
     const count = node.children ? node.children.length : 0;
     html += `<div class="field-label">СОДЕРЖИМОЕ</div><div class="node-empty">${count} элемент(ов)</div>`;
@@ -3372,6 +3763,83 @@ function renderNodeForm() {
     field?.focus();
   };
 
+  if (node.type === 'entry') {
+    const blockList = document.getElementById('entryContentBlocks');
+    const refreshBlockPositions = () => {
+      const rows = Array.from(blockList.querySelectorAll('.entry-content-block'));
+      rows.forEach((row, index) => {
+        const position = index + 1;
+        row.querySelector('.entry-content-block-index').textContent = `БЛОК ${position}`;
+        const content = row.querySelector('[data-entry-block-content]');
+        content.setAttribute('aria-label', `ИСХОДНЫЙ ТЕКСТ БЛОКА ${position}`);
+        const actions = row.querySelector('.entry-content-block-actions');
+        actions.setAttribute('aria-label', `Действия блока ${position}`);
+        const moveUp = row.querySelector('[data-entry-block-action="move-up"]');
+        const moveDown = row.querySelector('[data-entry-block-action="move-down"]');
+        const remove = row.querySelector('[data-entry-block-action="delete"]');
+        const configure = row.querySelector('[data-entry-block-action="configure-command"]');
+        moveUp.disabled = index === 0;
+        moveDown.disabled = index === rows.length - 1;
+        moveUp.setAttribute('aria-label', `Переместить блок ${position} вверх`);
+        moveDown.setAttribute('aria-label', `Переместить блок ${position} вниз`);
+        remove.setAttribute('aria-label', `Удалить блок ${position}`);
+        configure.setAttribute('aria-label', `Настроить команду для блока ${position}`);
+      });
+    };
+    const bindBlockRow = (row) => {
+      row.querySelector('[data-entry-block-content]').addEventListener('input', () => {
+        entryBlocksChanged = true;
+        validationError.hidden = true;
+      });
+      row.querySelectorAll('[data-entry-block-action]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const action = button.dataset.entryBlockAction;
+          if (action === 'configure-command') {
+            const blockID = row.dataset.blockId;
+            if (blockID) openEntryBlockCommandDialog(term, blockID);
+            return;
+          }
+          if (action === 'delete') {
+            const owner = row.querySelector('[data-entry-block-owner]');
+            if (owner) {
+              const command = locateNode(term.root, owner.dataset.commandId)?.node;
+              showValidationError(entryBlockDeletionError(term, command ? [command] : []), button);
+              return;
+            }
+            if (!window.confirm('Удалить этот блок содержимого?')) return;
+            row.remove();
+          } else if (action === 'move-up' && row.previousElementSibling) {
+            row.previousElementSibling.before(row);
+          } else if (action === 'move-down' && row.nextElementSibling) {
+            row.nextElementSibling.after(row);
+          } else {
+            return;
+          }
+          entryBlocksChanged = true;
+          validationError.hidden = true;
+          refreshBlockPositions();
+        });
+      });
+    };
+    blockList.querySelectorAll('.entry-content-block').forEach(bindBlockRow);
+    document.getElementById('btnAddEntryContentBlock').addEventListener('click', () => {
+      const block = { id: uniqueEntryBlockID(term), initialText: '' };
+      blockList.insertAdjacentHTML('beforeend', entryContentBlockMarkup(
+        term,
+        block,
+        blockList.querySelectorAll('.entry-content-block').length,
+        { owners: blockOwners },
+      ));
+      const row = blockList.lastElementChild;
+      bindBlockRow(row);
+      entryBlocksChanged = true;
+      validationError.hidden = true;
+      refreshBlockPositions();
+      row.querySelector('[data-entry-block-content]').focus();
+    });
+    refreshBlockPositions();
+  }
+
   if (node.type === 'command') {
     const mode = document.getElementById('fldCommandMode');
     const fields = document.getElementById('stateChangeFields');
@@ -3381,6 +3849,21 @@ function renderNodeForm() {
       transitionFields.hidden = mode.value !== 'terminal-transition';
       validationError.hidden = true;
       validationError.textContent = '';
+    });
+    const entryTarget = document.getElementById('fldEntryBlockTarget');
+    const completedBlockContent = document.getElementById('fldCompletedEntryBlockContent');
+    entryTarget.addEventListener('change', () => {
+      completedBlockContent.disabled = !entryTarget.value;
+      const owner = commandOwningEntryBlock(term, entryTarget.value, node.id);
+      if (owner) {
+        showValidationError(
+          `ЭТОТ БЛОК УЖЕ ИЗМЕНЯЕТСЯ КОМАНДОЙ: ${effectiveNodeName(term, owner)}`,
+          entryTarget,
+        );
+      } else {
+        validationError.hidden = true;
+        validationError.textContent = '';
+      }
     });
   }
 
@@ -3419,6 +3902,27 @@ function renderNodeForm() {
           completedName: completedNameEl.value,
           confirmationText: confirmationTextEl.value,
         };
+        const entryTargetEl = document.getElementById('fldEntryBlockTarget');
+        const targetBlockID = entryTargetEl.value;
+        if (targetBlockID) {
+          const targetExists = entryBlockCatalog(term).some(({ block }) => block.id === targetBlockID);
+          if (!targetExists) {
+            showValidationError('ВЫБЕРИТЕ СУЩЕСТВУЮЩИЙ БЛОК ЗАПИСИ ЭТОГО ТЕРМИНАЛА', entryTargetEl);
+            return;
+          }
+          const owner = commandOwningEntryBlock(term, targetBlockID, node.id);
+          if (owner) {
+            showValidationError(
+              `ЭТОТ БЛОК УЖЕ ИЗМЕНЯЕТСЯ КОМАНДОЙ: ${effectiveNodeName(term, owner)}`,
+              entryTargetEl,
+            );
+            return;
+          }
+          nextStateChange.entryContentChange = {
+            blockId: targetBlockID,
+            completedText: document.getElementById('fldCompletedEntryBlockContent').value,
+          };
+        }
       }
       if (commandMode === 'terminal-transition') {
         const targetEl = document.getElementById('fldTerminalTransitionTarget');
@@ -3437,7 +3941,15 @@ function renderNodeForm() {
     }
 
     node.name = name;
-    if (node.type === 'entry')   node.description = document.getElementById('fldText').value;
+    if (node.type === 'entry' && entryBlocksChanged) {
+      const blocks = Array.from(document.querySelectorAll('#entryContentBlocks .entry-content-block')).map((row) => ({
+        id: row.dataset.blockId || uniqueEntryBlockID(term),
+        initialText: row.querySelector('[data-entry-block-content]').value,
+      }));
+      if (blocks.length > 0) node.blocks = blocks;
+      else delete node.blocks;
+      delete node.description;
+    }
     autosave();
     renderTree();
     renderNodeForm();
@@ -3466,6 +3978,11 @@ function renderNodeForm() {
   }
 
   document.getElementById('btnDeleteNode').addEventListener('click', () => {
+    const targetingCommands = targetingCommandsWithinNode(term, node);
+    if (targetingCommands.length > 0) {
+      showValidationError(entryBlockDeletionError(term, targetingCommands));
+      return;
+    }
     const childCount = (node.type === 'folder' && node.children) ? node.children.length : 0;
     const msg = childCount > 0
       ? `Удалить "${node.name}" вместе со всем содержимым (${childCount} элемент(ов))?`

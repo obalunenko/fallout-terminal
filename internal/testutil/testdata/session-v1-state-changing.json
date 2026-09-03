@@ -36,6 +36,76 @@
                   "completedName": "Тревога отключена",
                   "confirmationText": "Отключить сигнал тревоги?"
                 }
+              },
+              {
+                "id": "n_reactor_power",
+                "type": "command",
+                "name": "Включить питание реактора",
+                "text": "Питание реактора включено.",
+                "stateChange": {
+                  "completedName": "Питание реактора включено",
+                  "confirmationText": "Включить питание реактора?",
+                  "entryContentChange": {
+                    "blockId": "b_reactor_power",
+                    "completedText": "ПИТАНИЕ: ВКЛЮЧЕНО"
+                  }
+                }
+              },
+              {
+                "id": "n_reactor_cooling",
+                "type": "command",
+                "name": "Запустить охлаждение",
+                "text": "Охлаждение реактора запущено.",
+                "stateChange": {
+                  "completedName": "Охлаждение работает",
+                  "confirmationText": "Запустить охлаждение реактора?",
+                  "entryContentChange": {
+                    "blockId": "b_reactor_cooling",
+                    "completedText": "ОХЛАЖДЕНИЕ: НОРМА"
+                  }
+                }
+              },
+              {
+                "id": "n_reactor_air",
+                "type": "command",
+                "name": "Проверить вентиляцию",
+                "text": "Вентиляция проверена.",
+                "stateChange": {
+                  "completedName": "Вентиляция проверена",
+                  "confirmationText": "Проверить вентиляцию реактора?",
+                  "entryContentChange": {
+                    "blockId": "b_reactor_air",
+                    "completedText": "ВЕНТИЛЯЦИЯ: НОРМА"
+                  }
+                }
+              },
+              {
+                "id": "n_reactor_note",
+                "type": "command",
+                "name": "Очистить примечание",
+                "text": "Примечание очищено.",
+                "stateChange": {
+                  "completedName": "Примечание очищено",
+                  "confirmationText": "Очистить служебное примечание?",
+                  "entryContentChange": {
+                    "blockId": "b_reactor_note",
+                    "completedText": ""
+                  }
+                }
+              },
+              {
+                "id": "n_reactor_lock",
+                "type": "command",
+                "name": "Снять блокировку реактора",
+                "text": "Блокировка реактора снята.",
+                "stateChange": {
+                  "completedName": "Блокировка реактора снята",
+                  "confirmationText": "Снять блокировку реактора?",
+                  "entryContentChange": {
+                    "blockId": "b_reactor_lock",
+                    "completedText": "БЛОКИРОВКА: СНЯТА"
+                  }
+                }
               }
             ]
           },
@@ -44,6 +114,33 @@
             "type": "entry",
             "name": "СОСТОЯНИЕ",
             "description": "Подсистема дверей работает в штатном режиме."
+          },
+          {
+            "id": "n_reactor_status",
+            "type": "entry",
+            "name": "СОСТОЯНИЕ РЕАКТОРА",
+            "blocks": [
+              {
+                "id": "b_reactor_power",
+                "initialText": "ПИТАНИЕ: ОТКЛЮЧЕНО"
+              },
+              {
+                "id": "b_reactor_cooling",
+                "initialText": "СТАТУС: НЕИЗВЕСТЕН"
+              },
+              {
+                "id": "b_reactor_air",
+                "initialText": "СТАТУС: НЕИЗВЕСТЕН"
+              },
+              {
+                "id": "b_reactor_note",
+                "initialText": ""
+              },
+              {
+                "id": "b_reactor_lock",
+                "initialText": "БЛОКИРОВКА: ВКЛЮЧЕНА"
+              }
+            ]
           }
         ]
       },
@@ -55,6 +152,22 @@
         "n_alarm": {
           "completedName": "Тревога отключена",
           "resultText": "Сигнал тревоги отключён."
+        },
+        "n_reactor_power": {
+          "completedName": "Питание реактора включено",
+          "resultText": "Питание реактора включено.",
+          "entryContentChange": {
+            "blockId": "b_reactor_power",
+            "completedText": "ПИТАНИЕ: ВКЛЮЧЕНО"
+          }
+        },
+        "n_reactor_note": {
+          "completedName": "Примечание очищено",
+          "resultText": "Примечание очищено.",
+          "entryContentChange": {
+            "blockId": "b_reactor_note",
+            "completedText": ""
+          }
         }
       }
     },

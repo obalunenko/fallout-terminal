@@ -758,6 +758,123 @@ func treeWithoutReport() domain.ContentNode {
 	return tree
 }
 
+func TestEffectiveTreeAppliesFrozenEntryChangesIndependently(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name        string
+		states      map[string]domain.CommandExecutionState
+		description string
+	}{
+		{
+			name:        "authored values",
+			description: "POWER: OFFLINE\n\nCOOLING: OFFLINE\n\nSTATUS: NOMINAL",
+		},
+		{
+			name: "power completed",
+			states: map[string]domain.CommandExecutionState{
+				"restore-power": entryContentStateForTest("power", "POWER: ONLINE"),
+			},
+			description: "POWER: ONLINE\n\nCOOLING: OFFLINE\n\nSTATUS: NOMINAL",
+		},
+		{
+			name: "cooling completed",
+			states: map[string]domain.CommandExecutionState{
+				"restore-cooling": entryContentStateForTest("cooling", "COOLING: ONLINE"),
+			},
+			description: "POWER: OFFLINE\n\nCOOLING: ONLINE\n\nSTATUS: NOMINAL",
+		},
+		{
+			name: "both completed",
+			states: map[string]domain.CommandExecutionState{
+				"restore-power":   entryContentStateForTest("power", "POWER: ONLINE"),
+				"restore-cooling": entryContentStateForTest("cooling", "COOLING: ONLINE"),
+			},
+			description: "POWER: ONLINE\n\nCOOLING: ONLINE\n\nSTATUS: NOMINAL",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			tree := entryContentTargetForTest().Tree
+			projected := effectiveTree(tree, test.states)
+			entry := findContentNode(projected, "reactor-status")
+			require.NotNil(t, entry)
+			assert.Equal(t, test.description, entry.Description)
+		})
+	}
+}
+
+func TestEffectiveTreeComposesBlocksInAuthoredOrderWithTwoNewlines(t *testing.T) {
+	t.Parallel()
+
+	tree := entryContentTargetForTest().Tree
+	states := map[string]domain.CommandExecutionState{
+		"restore-status":  entryContentStateForTest("status", "THIRD"),
+		"restore-power":   entryContentStateForTest("power", "FIRST"),
+		"restore-cooling": entryContentStateForTest("cooling", "SECOND"),
+	}
+
+	projected := effectiveTree(tree, states)
+	entry := findContentNode(projected, "reactor-status")
+	require.NotNil(t, entry)
+	assert.Equal(t, "FIRST\n\nSECOND\n\nTHIRD", entry.Description)
+}
+
+func TestEffectiveTreeProjectionIsDetachedFromAuthoredAndRuntimeState(t *testing.T) {
+	t.Parallel()
+
+	service := New(nil, nil)
+	target := entryContentTargetForTest()
+	target.CommandStates = map[string]domain.CommandExecutionState{
+		"restore-power": entryContentStateForTest("power", "POWER: ONLINE"),
+	}
+	runtime, first := service.CreateRuntime(target)
+	require.NotNil(t, runtime)
+	require.NotNil(t, first)
+	require.Equal(t, "POWER: ONLINE\n\nCOOLING: OFFLINE\n\nSTATUS: NOMINAL", first.Tree.Children[0].Description)
+
+	first.Tree.Children[0].Description = "MUTATED DESCRIPTION"
+	first.Tree.Children[0].Blocks[0].InitialText = "MUTATED BLOCK"
+	first.Tree.Children[2].StateChange.EntryContentChange.CompletedText = "MUTATED CONFIG"
+
+	second := service.ProjectRuntime(runtime)
+	require.NotNil(t, second)
+	assert.Equal(t, "POWER: ONLINE\n\nCOOLING: OFFLINE\n\nSTATUS: NOMINAL", second.Tree.Children[0].Description)
+	assert.Equal(t, "POWER: OFFLINE", second.Tree.Children[0].Blocks[0].InitialText)
+	assert.Equal(t, "POWER: ONLINE", second.Tree.Children[2].StateChange.EntryContentChange.CompletedText)
+	assert.Empty(t, runtime.Tree.Children[0].Description)
+	assert.Equal(t, "POWER: OFFLINE", runtime.Tree.Children[0].Blocks[0].InitialText)
+	assert.Equal(t, "POWER: ONLINE", runtime.CommandStates["restore-power"].EntryContentChange.CompletedText)
+	assert.Empty(t, target.Tree.Children[0].Description)
+	assert.Equal(t, "POWER: OFFLINE", target.Tree.Children[0].Blocks[0].InitialText)
+	assert.Equal(t, "POWER: ONLINE", target.CommandStates["restore-power"].EntryContentChange.CompletedText)
+}
+
+func TestEffectiveTreePreservesLegacyDescriptions(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name        string
+		description string
+	}{
+		{name: "empty", description: ""},
+		{name: "text", description: "LEGACY STATUS"},
+		{name: "whitespace", description: "  exact whitespace\nremains  "},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			legacy := domain.ContentNode{
+				ID: "legacy", Type: domain.NodeEntry, Name: "LEGACY", Description: test.description,
+			}
+			projected := effectiveTree(legacy, nil)
+			assert.Equal(t, test.description, projected.Description)
+			assert.Nil(t, projected.Blocks)
+		})
+	}
+}
+
 func TestStateChangingCommandProjectsInitialAndFrozenCompletedContent(t *testing.T) {
 	service := New(&constantRandom{}, fixedWords{})
 	target := stateChangingTarget()
@@ -995,6 +1112,59 @@ func stateChangingTarget() domain.TerminalTarget {
 					CompletedName: "Двери разблокированы", ConfirmationText: "Открыть двери?",
 				},
 			}},
+		},
+	}
+}
+
+func entryContentTargetForTest() domain.TerminalTarget {
+	return domain.TerminalTarget{
+		TerminalID: "terminal-reactor", TerminalName: "Reactor",
+		Tree: domain.ContentNode{
+			ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+			Children: []domain.ContentNode{
+				{
+					ID: "reactor-status", Type: domain.NodeEntry, Name: "REACTOR STATUS",
+					Blocks: []domain.EntryContentBlock{
+						{ID: "power", InitialText: "POWER: OFFLINE"},
+						{ID: "cooling", InitialText: "COOLING: OFFLINE"},
+						{ID: "status", InitialText: "STATUS: NOMINAL"},
+					},
+				},
+				{
+					ID: "legacy-status", Type: domain.NodeEntry, Name: "LEGACY STATUS", Description: "UNCHANGED",
+				},
+				{
+					ID: "restore-power", Type: domain.NodeCommand, Name: "RESTORE POWER", Text: "Power restored.",
+					StateChange: &domain.StateChangeConfig{
+						CompletedName: "POWER RESTORED", ConfirmationText: "Restore power?",
+						EntryContentChange: &domain.EntryContentChange{BlockID: "power", CompletedText: "POWER: ONLINE"},
+					},
+				},
+				{
+					ID: "restore-cooling", Type: domain.NodeCommand, Name: "RESTORE COOLING", Text: "Cooling restored.",
+					StateChange: &domain.StateChangeConfig{
+						CompletedName: "COOLING RESTORED", ConfirmationText: "Restore cooling?",
+						EntryContentChange: &domain.EntryContentChange{BlockID: "cooling", CompletedText: "COOLING: ONLINE"},
+					},
+				},
+				{
+					ID: "restore-status", Type: domain.NodeCommand, Name: "RESTORE STATUS", Text: "Status restored.",
+					StateChange: &domain.StateChangeConfig{
+						CompletedName: "STATUS RESTORED", ConfirmationText: "Restore status?",
+						EntryContentChange: &domain.EntryContentChange{BlockID: "status", CompletedText: "STATUS: RESTORED"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func entryContentStateForTest(blockID, completedText string) domain.CommandExecutionState {
+	return domain.CommandExecutionState{
+		CompletedName: "COMPLETED",
+		ResultText:    "DONE",
+		EntryContentChange: &domain.EntryContentChange{
+			BlockID: blockID, CompletedText: completedText,
 		},
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"maps"
 	"strconv"
 	"strings"
 	"sync"
@@ -582,11 +581,21 @@ func cloneNav(state domain.NavState) domain.NavState {
 
 func effectiveTree(node domain.ContentNode, states map[string]domain.CommandExecutionState) domain.ContentNode {
 	clone := domain.CloneContentNode(node)
-	applyEffectiveCommandStates(&clone, states)
+	completedBlockText := make(map[string]string, len(states))
+	for _, state := range states {
+		if state.EntryContentChange != nil {
+			completedBlockText[state.EntryContentChange.BlockID] = state.EntryContentChange.CompletedText
+		}
+	}
+	applyEffectiveContentStates(&clone, states, completedBlockText)
 	return clone
 }
 
-func applyEffectiveCommandStates(node *domain.ContentNode, states map[string]domain.CommandExecutionState) {
+func applyEffectiveContentStates(
+	node *domain.ContentNode,
+	states map[string]domain.CommandExecutionState,
+	completedBlockText map[string]string,
+) {
 	if node == nil {
 		return
 	}
@@ -594,18 +603,23 @@ func applyEffectiveCommandStates(node *domain.ContentNode, states map[string]dom
 		node.Name = state.CompletedName
 		node.Text = state.ResultText
 	}
+	if node.Type == domain.NodeEntry && len(node.Blocks) != 0 {
+		parts := make([]string, len(node.Blocks))
+		for index, block := range node.Blocks {
+			parts[index] = block.InitialText
+			if completedText, ok := completedBlockText[block.ID]; ok {
+				parts[index] = completedText
+			}
+		}
+		node.Description = strings.Join(parts, "\n\n")
+	}
 	for index := range node.Children {
-		applyEffectiveCommandStates(&node.Children[index], states)
+		applyEffectiveContentStates(&node.Children[index], states, completedBlockText)
 	}
 }
 
 func cloneCommandStates(states map[string]domain.CommandExecutionState) map[string]domain.CommandExecutionState {
-	if states == nil {
-		return nil
-	}
-	clone := make(map[string]domain.CommandExecutionState, len(states))
-	maps.Copy(clone, states)
-	return clone
+	return domain.CloneCommandExecutionStates(states)
 }
 
 func cloneCommandExecution(presentation *domain.CommandExecutionPresentation) *domain.CommandExecutionPresentation {

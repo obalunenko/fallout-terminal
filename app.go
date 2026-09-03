@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/url"
 	"strings"
 	"sync"
@@ -127,6 +126,11 @@ type coordinationTerminalDecisionService interface {
 
 type coordinationCommandExecutionService interface {
 	ResolveCommandExecution(context.Context, string, domain.CommandExecutionDecision) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
+}
+
+type coordinationCommandStateResetService interface {
+	ResetCommandState(context.Context, string, string) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
+	ResetTerminalCommandStates(context.Context, string) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
 }
 
 type coordinationTerminalNavigationService interface {
@@ -2077,9 +2081,17 @@ func (app *App) ResetCommandState(payload ResetCommandStatePayload) SessionState
 		return routeSessionStateResult(SessionStateResult{Error: "command ID must not be blank"})
 	}
 	payload = routeResetCommandStateRequest(payload)
+	if coordination, ok := app.deps.Coordination.(coordinationCommandStateResetService); ok {
+		state, mutation, err := coordination.ResetCommandState(
+			app.contextSnapshot(), payload.TerminalID, payload.CommandID,
+		)
+		if !errors.Is(err, controlservice.ErrCommandStateStorageUnavailable) {
+			return app.completeCoordinatedCommandStateReset(state, mutation, err)
+		}
+	}
 	commands, ok := app.deps.Sessions.(sessionCommandStateCommands)
 	if !ok {
-		return routeSessionStateResult(SessionStateResult{Error: "session service is unavailable"})
+		return routeSessionStateResult(SessionStateResult{Error: "coordination service is unavailable"})
 	}
 	result := commands.ResetCommandState(app.contextSnapshot(), payload.TerminalID, payload.CommandID)
 	return app.completeCommandStateReset(payload.TerminalID, result)
@@ -2096,12 +2108,43 @@ func (app *App) ResetTerminalCommandStates(payload ResetTerminalCommandStatesPay
 		return routeSessionStateResult(SessionStateResult{Error: "terminal ID must not be blank"})
 	}
 	payload = routeResetTerminalCommandStatesRequest(payload)
+	if coordination, ok := app.deps.Coordination.(coordinationCommandStateResetService); ok {
+		state, mutation, err := coordination.ResetTerminalCommandStates(app.contextSnapshot(), payload.TerminalID)
+		if !errors.Is(err, controlservice.ErrCommandStateStorageUnavailable) {
+			return app.completeCoordinatedCommandStateReset(state, mutation, err)
+		}
+	}
 	commands, ok := app.deps.Sessions.(sessionCommandStateCommands)
 	if !ok {
-		return routeSessionStateResult(SessionStateResult{Error: "session service is unavailable"})
+		return routeSessionStateResult(SessionStateResult{Error: "coordination service is unavailable"})
 	}
 	result := commands.ResetTerminalCommandStates(app.contextSnapshot(), payload.TerminalID)
 	return app.completeCommandStateReset(payload.TerminalID, result)
+}
+
+func (app *App) completeCoordinatedCommandStateReset(
+	state *domain.MasterCoordinationState,
+	mutation *controlservice.CommandStateMutation,
+	err error,
+) SessionStateResult {
+	if state != nil {
+		app.publishCoordinationStateIfNewer(state)
+	}
+	if err != nil {
+		return routeSessionStateResult(SessionStateResult{Error: err.Error()})
+	}
+	if mutation == nil {
+		return routeSessionStateResult(SessionStateResult{Error: "command state reset returned no session"})
+	}
+
+	canonical := domain.CloneSession(mutation.Session)
+	app.acceptSessionStateRevision(mutation.Revision)
+	if mutation.Changed {
+		app.publishSessionState(SessionStateEvent{Revision: mutation.Revision, Session: &canonical})
+	}
+	return routeSessionStateResult(SessionStateResult{
+		OK: true, Revision: mutation.Revision, Session: sessionPointerForApp(canonical),
+	})
 }
 
 func (app *App) completeCommandStateReset(terminalID string, result sessionservice.CommandStateResult) SessionStateResult {
@@ -2174,12 +2217,7 @@ func (app *App) canonicalCommandStates(terminalID string) map[string]domain.Comm
 }
 
 func cloneCommandExecutionStates(states map[string]domain.CommandExecutionState) map[string]domain.CommandExecutionState {
-	if len(states) == 0 {
-		return nil
-	}
-	clone := make(map[string]domain.CommandExecutionState, len(states))
-	maps.Copy(clone, states)
-	return clone
+	return domain.CloneCommandExecutionStates(states)
 }
 
 func terminalForSessionState(session *domain.Session, terminalID string) *domain.Terminal {

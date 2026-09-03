@@ -8,14 +8,26 @@ message FolderContent {
   repeated ContentNode children = 1;
 }
 
+message EntryContentBlock {
+  string id = 1;
+  string initial_text = 2;
+}
+
+message EntryContentChange {
+  string block_id = 1;
+  string completed_text = 2;
+}
+
 message StateChangeConfig {
   string completed_name = 1;
   string confirmation_text = 2;
+  EntryContentChange entry_content_change = 3;
 }
 
 message CommandExecutionState {
   string completed_name = 1;
   string result_text = 2;
+  EntryContentChange entry_content_change = 3;
 }
 
 message TerminalTransitionConfig {
@@ -32,6 +44,7 @@ message CommandContent {
 
 message EntryContent {
   string description = 1;
+  repeated EntryContentBlock blocks = 2;
 }
 
 message ContentNode {

@@ -631,6 +631,55 @@
   </div>
 </dialog>
 
+<dialog class="terminal-switch-dialog entry-block-command-dialog" id="entryBlockCommandDialog" aria-modal="true" aria-labelledby="entryBlockCommandDialogTitle" aria-describedby="entryBlockCommandDialogDescription entryBlockCommandError" hidden>
+  <div class="terminal-switch-dialog-panel entry-block-command-dialog-panel">
+    <h2 class="terminal-switch-dialog-title" id="entryBlockCommandDialogTitle">КОМАНДА ДЛЯ ТЕКСТОВОГО БЛОКА</h2>
+    <p class="terminal-switch-dialog-description" id="entryBlockCommandDialogDescription"></p>
+    <form class="entry-block-command-form" id="entryBlockCommandForm" autocomplete="off" novalidate>
+      <fieldset class="entry-block-command-mode">
+        <legend>СПОСОБ НАСТРОЙКИ</legend>
+        <label>
+          <input type="radio" name="entryBlockCommandMode" value="existing" checked>
+          Назначить существующую команду
+        </label>
+        <label>
+          <input type="radio" name="entryBlockCommandMode" value="new">
+          Создать новую команду
+        </label>
+      </fieldset>
+
+      <div class="entry-block-command-fields" data-entry-block-command-fields="existing">
+        <label class="field-label-inline" for="entryBlockExistingCommand">Команда</label>
+        <select class="field-input" id="entryBlockExistingCommand" name="entryBlockExistingCommand"></select>
+      </div>
+
+      <div class="entry-block-command-fields" data-entry-block-command-fields="new" hidden>
+        <label class="field-label-inline" for="entryBlockNewCommandName">Название до выполнения</label>
+        <input class="field-input" id="entryBlockNewCommandName" name="entryBlockNewCommandName" type="text">
+        <label class="field-label-inline" for="entryBlockNewCompletedName">Название после выполнения</label>
+        <input class="field-input" id="entryBlockNewCompletedName" name="entryBlockNewCompletedName" type="text">
+        <label class="field-label-inline" for="entryBlockNewConfirmationText">Подтверждение</label>
+        <textarea class="field-input" id="entryBlockNewConfirmationText" name="entryBlockNewConfirmationText" rows="3"></textarea>
+        <label class="field-label-inline" for="entryBlockNewResultText">Результат команды</label>
+        <textarea class="field-input" id="entryBlockNewResultText" name="entryBlockNewResultText" rows="3"></textarea>
+        <label class="field-label-inline" for="entryBlockNewDestinationFolder">Папка назначения</label>
+        <select class="field-input" id="entryBlockNewDestinationFolder" name="entryBlockNewDestinationFolder"></select>
+      </div>
+
+      <label class="field-label-inline" for="entryBlockCompletedText">Текст блока после выполнения команды</label>
+      <textarea class="field-input" id="entryBlockCompletedText" name="entryBlockCompletedText" rows="5"></textarea>
+
+      <div class="entry-block-command-error" id="entryBlockCommandError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+      <div class="entry-block-command-actions">
+        <button class="btn btn-danger" type="button" data-entry-block-command-action="remove">УБРАТЬ СВЯЗЬ</button>
+        <span class="entry-block-command-actions-spacer"></span>
+        <button class="btn btn-secondary" type="button" data-entry-block-command-action="cancel">ОТМЕНА</button>
+        <button class="btn btn-primary" type="button" data-entry-block-command-action="apply">ПРИМЕНИТЬ</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
 <dialog class="terminal-switch-dialog generated-password-dialog" id="generatedPasswordDialog" aria-modal="true" aria-describedby="generatedPasswordDialogDescription" title="НОВЫЙ ПАРОЛЬ ИГРОКОВ">
   <div class="terminal-switch-dialog-panel">
     <h2 class="terminal-switch-dialog-title" id="generatedPasswordDialogTitle">НОВЫЙ ПАРОЛЬ ИГРОКОВ</h2>

@@ -225,6 +225,9 @@ func ValidateSession(session Session) error {
 				return err
 			}
 		}
+		if err := validateTerminalEntryContent(path, terminal.Root, terminal.CommandStates, nodesByID); err != nil {
+			return err
+		}
 	}
 	for _, reference := range transitionReferences {
 		if reference.targetTerminalID == reference.sourceTerminalID {
@@ -630,7 +633,7 @@ func validateTree(path string, root ContentNode) (map[string]ContentNode, []tree
 			if node.Children == nil {
 				return fmt.Errorf("%s.children must be an array", nodePath)
 			}
-			if node.Text != "" || node.Description != "" {
+			if node.Text != "" || node.Description != "" || node.Blocks != nil {
 				return fmt.Errorf("%s folder cannot contain leaf body fields", nodePath)
 			}
 			for index := range node.Children {
@@ -639,7 +642,7 @@ func validateTree(path string, root ContentNode) (map[string]ContentNode, []tree
 				}
 			}
 		case NodeCommand:
-			if len(node.Children) != 0 || node.Description != "" {
+			if len(node.Children) != 0 || node.Description != "" || node.Blocks != nil {
 				return fmt.Errorf("%s command must be a leaf", nodePath)
 			}
 			if len([]byte(node.Text)) > maxBodyBytes {
@@ -690,6 +693,203 @@ func validateTree(path string, root ContentNode) (map[string]ContentNode, []tree
 		return nil, nil, err
 	}
 	return nodesByID, transitionReferences, nil
+}
+
+type entryBlockReference struct {
+	path string
+}
+
+type entryReference struct {
+	path   string
+	blocks []EntryContentBlock
+}
+
+type commandEntryChangeReference struct {
+	path      string
+	commandID string
+	change    EntryContentChange
+}
+
+func validateTerminalEntryContent(
+	terminalPath string,
+	root ContentNode,
+	states map[string]CommandExecutionState,
+	nodesByID map[string]ContentNode,
+) error {
+	blocksByID := make(map[string]entryBlockReference)
+	ownersByBlockID := make(map[string]commandEntryChangeReference)
+	authoredByCommandID := make(map[string]commandEntryChangeReference)
+	var entries []entryReference
+	var authoredChanges []commandEntryChangeReference
+
+	var collect func(string, ContentNode) error
+	collect = func(nodePath string, node ContentNode) error {
+		switch node.Type {
+		case NodeEntry:
+			if node.Description != "" && len(node.Blocks) != 0 {
+				return fmt.Errorf("%s entry cannot contain both description and blocks", nodePath)
+			}
+			if len(node.Blocks) != 0 {
+				entries = append(entries, entryReference{path: nodePath, blocks: node.Blocks})
+			}
+			for index, block := range node.Blocks {
+				blockPath := fmt.Sprintf("%s.blocks[%d]", nodePath, index)
+				if err := validateEntryBlockID(blockPath+".id", block.ID); err != nil {
+					return err
+				}
+				if previous, exists := blocksByID[block.ID]; exists {
+					return fmt.Errorf("%s.id duplicates %q from %s", blockPath, block.ID, previous.path)
+				}
+				if len([]byte(block.InitialText)) > maxBodyBytes {
+					return fmt.Errorf("%s.initialText exceeds %d bytes", blockPath, maxBodyBytes)
+				}
+				blocksByID[block.ID] = entryBlockReference{path: blockPath}
+			}
+		case NodeCommand:
+			if node.StateChange != nil && node.StateChange.EntryContentChange != nil {
+				changePath := nodePath + ".stateChange.entryContentChange"
+				if err := validateEntryContentChange(changePath, *node.StateChange.EntryContentChange); err != nil {
+					return err
+				}
+				authoredChanges = append(authoredChanges, commandEntryChangeReference{
+					path: changePath, commandID: node.ID, change: *node.StateChange.EntryContentChange,
+				})
+			}
+		}
+		for index, child := range node.Children {
+			if err := collect(fmt.Sprintf("%s.children[%d]", nodePath, index), child); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := collect(terminalPath+".root", root); err != nil {
+		return err
+	}
+	if err := validateComposedEntryText(entries, nil, "initial"); err != nil {
+		return err
+	}
+
+	authoredTextByBlockID := make(map[string]string, len(authoredChanges))
+	for _, reference := range authoredChanges {
+		if _, exists := blocksByID[reference.change.BlockID]; !exists {
+			return fmt.Errorf(
+				"%s.blockId %q does not reference an entry block in terminal %s",
+				reference.path, reference.change.BlockID, terminalPath,
+			)
+		}
+		if owner, exists := ownersByBlockID[reference.change.BlockID]; exists {
+			return fmt.Errorf(
+				"%s.blockId %q is already targeted by command %q; command %q cannot also target it",
+				reference.path, reference.change.BlockID, owner.commandID, reference.commandID,
+			)
+		}
+		ownersByBlockID[reference.change.BlockID] = reference
+		authoredByCommandID[reference.commandID] = reference
+		authoredTextByBlockID[reference.change.BlockID] = reference.change.CompletedText
+	}
+	if err := validateComposedEntryText(entries, authoredTextByBlockID, "authored completed"); err != nil {
+		return err
+	}
+
+	frozenTextByBlockID := make(map[string]string)
+	frozenOwnerByBlockID := make(map[string]string)
+	commandIDs := make([]string, 0, len(states))
+	for commandID := range states {
+		commandIDs = append(commandIDs, commandID)
+	}
+	slices.Sort(commandIDs)
+	for _, commandID := range commandIDs {
+		frozen := states[commandID].EntryContentChange
+		if frozen == nil {
+			continue
+		}
+		if owner, exists := frozenOwnerByBlockID[frozen.BlockID]; exists {
+			return fmt.Errorf(
+				"%s.commandStates[%q].entryContentChange.blockId %q duplicates frozen owner command %q",
+				terminalPath, commandID, frozen.BlockID, owner,
+			)
+		}
+		frozenOwnerByBlockID[frozen.BlockID] = commandID
+	}
+	for _, commandID := range commandIDs {
+		state := states[commandID]
+		statePath := fmt.Sprintf("%s.commandStates[%q]", terminalPath, commandID)
+		node := nodesByID[commandID]
+		authored, authoredExists := authoredByCommandID[commandID]
+		frozen := state.EntryContentChange
+		switch {
+		case !authoredExists && frozen == nil:
+			continue
+		case authoredExists && frozen == nil:
+			return fmt.Errorf(
+				"%s.entryContentChange must retain command %q authored target %q",
+				statePath, commandID, authored.change.BlockID,
+			)
+		case !authoredExists && frozen != nil:
+			return fmt.Errorf(
+				"%s.entryContentChange targets %q but command %q has no authored entry content change",
+				statePath, frozen.BlockID, commandID,
+			)
+		}
+		if err := validateEntryContentChange(statePath+".entryContentChange", *frozen); err != nil {
+			return err
+		}
+		if _, exists := blocksByID[frozen.BlockID]; !exists {
+			return fmt.Errorf(
+				"%s.entryContentChange.blockId %q does not reference an entry block in terminal %s",
+				statePath, frozen.BlockID, terminalPath,
+			)
+		}
+		if frozen.BlockID != authored.change.BlockID {
+			return fmt.Errorf(
+				"%s for command %q targets %q but its authored target is %q",
+				statePath+".entryContentChange", node.ID, frozen.BlockID, authored.change.BlockID,
+			)
+		}
+		frozenTextByBlockID[frozen.BlockID] = frozen.CompletedText
+	}
+	return validateComposedEntryText(entries, frozenTextByBlockID, "frozen completed")
+}
+
+func validateEntryContentChange(path string, change EntryContentChange) error {
+	if err := validateEntryBlockID(path+".blockId", change.BlockID); err != nil {
+		return err
+	}
+	if len([]byte(change.CompletedText)) > maxBodyBytes {
+		return fmt.Errorf("%s.completedText exceeds %d bytes", path, maxBodyBytes)
+	}
+	return nil
+}
+
+func validateEntryBlockID(path, value string) error {
+	if err := validateRequiredString(path, value, maxNameBytes); err != nil {
+		return err
+	}
+	if strings.TrimSpace(value) != value {
+		return fmt.Errorf("%s must not contain surrounding whitespace", path)
+	}
+	return nil
+}
+
+func validateComposedEntryText(entries []entryReference, replacements map[string]string, phase string) error {
+	for _, entry := range entries {
+		composedBytes := 0
+		for index, block := range entry.blocks {
+			if index != 0 {
+				composedBytes += 2
+			}
+			text := block.InitialText
+			if replacement, exists := replacements[block.ID]; exists {
+				text = replacement
+			}
+			composedBytes += len([]byte(text))
+			if composedBytes > maxBodyBytes {
+				return fmt.Errorf("%s.blocks %s composed text exceeds %d bytes", entry.path, phase, maxBodyBytes)
+			}
+		}
+	}
+	return nil
 }
 
 func validateRequiredString(path, value string, maxBytes int) error {

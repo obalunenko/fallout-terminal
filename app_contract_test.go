@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
@@ -19,8 +20,85 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/testing/prototest"
 )
+
+func TestEntryContentPersistenceDescriptorsAreAdditiveAndExplicit(t *testing.T) {
+	t.Parallel()
+
+	file := persistencev1.File_fallout_terminal_persistence_v1_session_proto
+	entry := file.Messages().ByName("EntryContent")
+	require.NotNil(t, entry)
+	require.Equal(t, protoreflect.Name("EntryContent"), entry.Name())
+	require.Equal(t, protoreflect.FullName("fallout.terminal.persistence.v1.EntryContent"), entry.FullName())
+	require.Nil(t, file.Messages().ByName("EntryContents"))
+
+	description := entry.Fields().ByName("description")
+	require.NotNil(t, description)
+	require.Equal(t, protoreflect.FieldNumber(1), description.Number())
+	require.Equal(t, protoreflect.StringKind, description.Kind())
+
+	blocks := entry.Fields().ByName("blocks")
+	require.NotNil(t, blocks)
+	require.Equal(t, protoreflect.FieldNumber(2), blocks.Number())
+	require.True(t, blocks.IsList())
+	require.Equal(t, protoreflect.FullName("fallout.terminal.persistence.v1.EntryContentBlock"), blocks.Message().FullName())
+
+	block := file.Messages().ByName("EntryContentBlock")
+	require.NotNil(t, block)
+	require.Equal(t, protoreflect.FieldNumber(1), block.Fields().ByName("id").Number())
+	require.Equal(t, protoreflect.FieldNumber(2), block.Fields().ByName("initial_text").Number())
+
+	change := file.Messages().ByName("EntryContentChange")
+	require.NotNil(t, change)
+	require.Equal(t, protoreflect.FieldNumber(1), change.Fields().ByName("block_id").Number())
+	require.Equal(t, protoreflect.FieldNumber(2), change.Fields().ByName("completed_text").Number())
+
+	owners := []struct {
+		message     proto.Message
+		secondField protoreflect.Name
+	}{
+		{message: &persistencev1.StateChangeConfig{}, secondField: "confirmation_text"},
+		{message: &persistencev1.CommandExecutionState{}, secondField: "result_text"},
+	}
+	for _, owner := range owners {
+		descriptor := owner.message.ProtoReflect().Descriptor()
+		require.Equal(t, protoreflect.FieldNumber(1), descriptor.Fields().ByName("completed_name").Number())
+		require.Equal(t, protoreflect.FieldNumber(2), descriptor.Fields().ByName(owner.secondField).Number())
+		entryChange := descriptor.Fields().ByName("entry_content_change")
+		require.NotNil(t, entryChange)
+		require.Equal(t, protoreflect.FieldNumber(3), entryChange.Number())
+		require.True(t, entryChange.HasPresence())
+		require.Nil(t, entryChange.ContainingOneof())
+		require.Equal(t, change.FullName(), entryChange.Message().FullName())
+		require.False(t, owner.message.ProtoReflect().Has(entryChange))
+	}
+
+	configured := &persistencev1.StateChangeConfig{
+		CompletedName:    "POWER RESTORED",
+		ConfirmationText: "Restore power?",
+		EntryContentChange: &persistencev1.EntryContentChange{
+			BlockId: "reactor-power",
+		},
+	}
+	configuredField := configured.ProtoReflect().Descriptor().Fields().ByName("entry_content_change")
+	require.True(t, configured.ProtoReflect().Has(configuredField))
+	require.Empty(t, configured.GetEntryContentChange().GetCompletedText())
+	require.Empty(t, cmp.Diff(configured, proto.Clone(configured), protocmp.Transform()))
+
+	frozen := &persistencev1.CommandExecutionState{
+		CompletedName: "POWER RESTORED",
+		ResultText:    "Primary power restored.",
+		EntryContentChange: &persistencev1.EntryContentChange{
+			BlockId: "reactor-power",
+		},
+	}
+	frozenField := frozen.ProtoReflect().Descriptor().Fields().ByName("entry_content_change")
+	require.True(t, frozen.ProtoReflect().Has(frozenField))
+	require.Empty(t, frozen.GetEntryContentChange().GetCompletedText())
+	require.Empty(t, cmp.Diff(frozen, proto.Clone(frozen), protocmp.Transform()))
+}
 
 func TestApplicationUpdateSnapshotProtoNativeRoundTripEveryState(t *testing.T) {
 	t.Parallel()

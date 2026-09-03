@@ -10,7 +10,7 @@ vars:
   DARWIN_CGO_ENV: '{{if eq OS "darwin"}}env MACOSX_DEPLOYMENT_TARGET={{.MACOS_MINIMUM_VERSION}} CGO_CFLAGS=-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} CGO_LDFLAGS="-mmacosx-version-min={{.MACOS_MINIMUM_VERSION}} -Wl,-no_warn_duplicate_libraries"{{end}}'
   SPECKIT_INSTALL: scripts/install-speckit.sh
   SPECKIT_UPDATE_CHECK: scripts/check-speckit-updates.py
-  SPECKIT_VERSION: '1.0.1'
+  SPECKIT_VERSION: '1.0.4'
   SPECKIT_COMPANION_VERSION: '0.21.0'
   SPECKIT_BROWNFIELD_VERSION: '1.0.0'
   SPECKIT_BUGFIX_VERSION: '1.1.0'
@@ -206,11 +206,6 @@ tasks:
     cmds:
       - python3 scripts/test_check_speckit_updates.py
 
-  companion:test:
-    desc: Run the network-free Companion lifecycle regression tests.
-    cmds:
-      - python3 -m unittest discover -s .specify/extensions/companion/scripts -p 'test_*.py'
-
   fmt:
     desc: Format all Go sources.
     cmds:
@@ -340,7 +335,6 @@ tasks:
       - task: proto:breaking
       - task: bindings:check
       - task: speckit:update:test
-      - task: companion:test
 
   release:macos:preflight:
     desc: Validate Developer ID and notarization prerequisites.

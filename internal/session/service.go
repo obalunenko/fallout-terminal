@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -495,10 +494,17 @@ func (service *Service) ExecuteCommandState(ctx context.Context, terminalID, com
 		if terminal.CommandStates == nil {
 			terminal.CommandStates = make(map[string]domain.CommandExecutionState)
 		}
-		terminal.CommandStates[commandID] = domain.CommandExecutionState{
+		state := domain.CommandExecutionState{
 			CompletedName: command.StateChange.CompletedName,
 			ResultText:    command.Text,
 		}
+		if change := command.StateChange.EntryContentChange; change != nil {
+			state.EntryContentChange = &domain.EntryContentChange{
+				BlockID:       change.BlockID,
+				CompletedText: change.CompletedText,
+			}
+		}
+		terminal.CommandStates[commandID] = state
 		return true, nil
 	})
 }
@@ -1018,10 +1024,7 @@ func cloneSession(session domain.Session) domain.Session {
 		copy.Terminals[index] = terminal
 		copy.Terminals[index].Extra = cloneExtra(terminal.Extra)
 		copy.Terminals[index].Root = domain.CloneContentNode(terminal.Root)
-		if terminal.CommandStates != nil {
-			copy.Terminals[index].CommandStates = make(map[string]domain.CommandExecutionState, len(terminal.CommandStates))
-			maps.Copy(copy.Terminals[index].CommandStates, terminal.CommandStates)
-		}
+		copy.Terminals[index].CommandStates = domain.CloneCommandExecutionStates(terminal.CommandStates)
 	}
 	return copy
 }
@@ -1062,6 +1065,7 @@ func mergeCanonicalSessionState(authored, canonical domain.Session) (domain.Sess
 			terminal.CommandStates = nil
 			continue
 		}
+		terminal.CommandStates = nil
 		for commandID, state := range canonicalTerminal.CommandStates {
 			node := contentNodeByID(&terminal.Root, commandID)
 			if node == nil {

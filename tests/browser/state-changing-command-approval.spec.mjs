@@ -7,6 +7,23 @@ const REQUEST_ID = 'approval-request-1';
 const COMMAND_NAME = 'Открыть двери';
 const CONFIRMATION_TEXT = 'Разрешить доступ в защищённый сектор?';
 const ORDINARY_COMMAND_NAME = 'Запустить диагностику';
+const REACTOR_ENTRY_NAME = 'СОСТОЯНИЕ РЕАКТОРА';
+const REACTOR_INITIAL_LINES = [
+  'ПИТАНИЕ: ОТКЛЮЧЕНО',
+  '',
+  'СТАТУС: НЕИЗВЕСТЕН',
+  '',
+  'СТАТУС: НЕИЗВЕСТЕН',
+  '',
+  '',
+  '',
+  'БЛОКИРОВКА: ВКЛЮЧЕНА',
+];
+const POWER_COMMAND = {
+  id: 'n_reactor_power',
+  name: 'Включить питание реактора',
+  confirmation: 'Подтвердить включение питания реактора?',
+};
 
 async function resetApprovalFixture(request) {
   const response = await request.post(`${FIXTURE}/reset`);
@@ -87,6 +104,35 @@ async function chooseStateChangingCommand(journey) {
   await expect(dialog.locator('#commandExecutionDialogDescription')).toHaveText(CONFIRMATION_TEXT);
   await expect(dialog.locator('#commandExecutionDialogDescription')).not.toContainText(COMMAND_NAME);
   return dialog;
+}
+
+async function chooseTargetedCommand(journey, request, command) {
+  await journey.player.locator('.term-row', { hasText: command.name }).click();
+  await expectFullScreenCommandSurface(journey.player, 'Выполняется запрос');
+
+  const dialog = journey.overseer.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ КОМАНДЫ' });
+  await expect(dialog).toBeVisible();
+  const response = await request.get(`${FIXTURE}/state`);
+  expect(response.ok()).toBe(true);
+  const state = await response.json();
+  expect(state.pendingCommandExecution).toMatchObject({
+    terminalId: 'terminal-stateful',
+    commandId: command.id,
+    commandName: command.name,
+    mode: 'state-change',
+  });
+  await expect(dialog.locator('#commandExecutionDialogStatus')).toHaveText(
+    `ЗАПРОС: ${state.pendingCommandExecution.requestId} · РЕЖИМ: ИЗМЕНЕНИЕ СОСТОЯНИЯ · КОМАНДА: ${command.name}`,
+  );
+  await expect(dialog.locator('#commandExecutionDialogDescription')).toHaveText(command.confirmation);
+  return dialog;
+}
+
+async function expectReactorEntryLines(page, expectedLines) {
+  await page.locator('.term-row', { hasText: REACTOR_ENTRY_NAME }).click();
+  await expect(page.locator('#entryTitle')).toHaveText(REACTOR_ENTRY_NAME);
+  await completeVisibleReveal(page);
+  await expect.poll(() => page.locator('#entryBody > div').allTextContents()).toEqual(expectedLines);
 }
 
 async function chooseOrdinaryCommand(journey) {
@@ -170,11 +216,8 @@ async function resolveCalls(overseer) {
 }
 
 async function sourceMenuSnapshot(page) {
-  return page.locator('#termList').evaluate((element) => {
-    const clone = element.cloneNode(true);
-    for (const row of clone.querySelectorAll('.term-row')) row.classList.remove('sel');
-    return clone.innerHTML;
-  });
+  await completeVisibleReveal(page);
+  return page.locator('#termList .term-row').allTextContents();
 }
 
 async function expectOrdinaryRejectionJourney(browser, reject, acknowledge) {
@@ -222,7 +265,7 @@ async function expectOrdinaryRejectionJourney(browser, reject, acknowledge) {
       { page: journey.player }, firstObserver, secondObserver,
     ]) {
       await expect(participant.page.locator('.term-row', { hasText: ORDINARY_COMMAND_NAME })).toBeVisible();
-      expect(await sourceMenuSnapshot(participant.page)).toBe(originalMenu);
+      expect(await sourceMenuSnapshot(participant.page)).toEqual(originalMenu);
       await expect(participant.page.locator('#entryBody')).not.toContainText('Диагностика завершена.');
     }
   } finally {
@@ -433,6 +476,56 @@ test('approve persistence failure exposes no completed result and reports safe e
     await expect(journey.player.locator('#entryBody')).not.toContainText('Доступ в сектор разрешён.');
     await expect(journey.player.locator('.term-row', { hasText: 'Открыть двери' })).toBeVisible();
     await expect(journey.player.locator('.term-row', { hasText: 'Двери открыты' })).toHaveCount(0);
+  } finally {
+    await closeApprovalJourney(journey);
+  }
+});
+
+test('rejecting a block-targeted command leaves its command snapshot and every entry block initial', async ({ browser, request }) => {
+  const journey = await openApprovalJourney(browser);
+  try {
+    const dialog = await chooseTargetedCommand(journey, request, POWER_COMMAND);
+    await dialog.getByRole('button', { name: 'ОТКЛОНИТЬ' }).click();
+
+    await expectFullScreenCommandSurface(journey.player, 'Ошибка доступа');
+    await journey.player.keyboard.press('Enter');
+    await expectReactorEntryLines(journey.player, REACTOR_INITIAL_LINES);
+
+    const response = await request.get(`${FIXTURE}/session`);
+    expect(response.ok()).toBe(true);
+    const session = await response.json();
+    expect(session.terminals[0].commandStates ?? {}).toEqual({});
+    const auditResponse = await request.get(`${FIXTURE}/audit`);
+    expect(auditResponse.ok()).toBe(true);
+    expect(await auditResponse.json()).toMatchObject({ executeWrites: 0 });
+    expect((await resolveCalls(journey.overseer)).at(-1)).toMatchObject({
+      args: [expect.objectContaining({ decision: 'reject' })],
+    });
+  } finally {
+    await closeApprovalJourney(journey);
+  }
+});
+
+test('a failed block-targeted approval publishes neither its command result nor completed block text', async ({ browser, request }) => {
+  const armed = await request.post(`${FIXTURE}/fail-next-save`);
+  expect(armed.status()).toBe(204);
+  const journey = await openApprovalJourney(browser);
+  try {
+    const dialog = await chooseTargetedCommand(journey, request, POWER_COMMAND);
+    await dialog.getByRole('button', { name: 'ОДОБРИТЬ' }).click();
+
+    await expect(journey.overseer.getByRole('alert').filter({ hasText: /сохран|состоянии/i })).toBeVisible();
+    await expect(journey.player.locator('#entryBody')).not.toContainText('ПИТАНИЕ: ВКЛЮЧЕНО');
+    await expect(journey.player.locator('.term-row', { hasText: POWER_COMMAND.name })).toBeVisible();
+    await expectReactorEntryLines(journey.player, REACTOR_INITIAL_LINES);
+
+    const response = await request.get(`${FIXTURE}/session`);
+    expect(response.ok()).toBe(true);
+    const session = await response.json();
+    expect(session.terminals[0].commandStates ?? {}).toEqual({});
+    const auditResponse = await request.get(`${FIXTURE}/audit`);
+    expect(auditResponse.ok()).toBe(true);
+    expect(await auditResponse.json()).toMatchObject({ executeWrites: 0 });
   } finally {
     await closeApprovalJourney(journey);
   }

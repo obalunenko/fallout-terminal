@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -158,6 +159,132 @@ func TestSessionContractRoundTripsStateChangeConfigAndFrozenCommandStates(t *tes
 	roundTripSemantic, err := SessionToProto(roundTrip)
 	require.NoError(t, err)
 	require.Empty(t, cmp.Diff(semantic, roundTripSemantic, protocmp.Transform()))
+}
+
+func TestSessionContractRoundTripsEntryBlocksAndExplicitEmptyChanges(t *testing.T) {
+	t.Parallel()
+
+	value := domain.Session{
+		Version: 1,
+		Name:    "Reactor",
+		Extra:   map[string]json.RawMessage{"futureSession": json.RawMessage(`{"keep":true}`)},
+		Terminals: []domain.Terminal{{
+			ID:    "terminal-reactor",
+			Name:  "Reactor control",
+			Extra: map[string]json.RawMessage{"futureTerminal": json.RawMessage(`17`)},
+			Root: domain.ContentNode{
+				ID:   "root",
+				Type: domain.NodeFolder,
+				Name: "ROOT",
+				Children: []domain.ContentNode{
+					{
+						ID:   "reactor-status",
+						Type: domain.NodeEntry,
+						Name: "REACTOR STATUS",
+						Blocks: []domain.EntryContentBlock{
+							{ID: "reactor-power", InitialText: "POWER: OFFLINE"},
+							{ID: "reactor-cooling", InitialText: "COOLING: OFFLINE"},
+						},
+						Extra: map[string]json.RawMessage{"futureEntry": json.RawMessage(`{"layout":"dense"}`)},
+					},
+					{
+						ID:   "restore-power",
+						Type: domain.NodeCommand,
+						Name: "RESTORE POWER",
+						Text: "Primary power restored.",
+						StateChange: &domain.StateChangeConfig{
+							CompletedName:    "POWER RESTORED",
+							ConfirmationText: "Authorize reactor power restoration?",
+							EntryContentChange: &domain.EntryContentChange{
+								BlockID: "reactor-power",
+							},
+						},
+						Extra: map[string]json.RawMessage{"futureCommand": json.RawMessage(`"keep"`)},
+					},
+				},
+			},
+			CommandStates: map[string]domain.CommandExecutionState{
+				"restore-power": {
+					CompletedName: "POWER RESTORED",
+					ResultText:    "Primary power restored.",
+					EntryContentChange: &domain.EntryContentChange{
+						BlockID: "reactor-power",
+					},
+				},
+			},
+		}},
+	}
+
+	semantic, err := SessionToProto(value)
+	require.NoError(t, err)
+	children := semantic.GetTerminals()[0].GetRoot().GetFolder().GetChildren()
+	entry := children[0].GetEntry()
+	require.Empty(t, cmp.Diff(&persistencev1.EntryContent{
+		Blocks: []*persistencev1.EntryContentBlock{
+			{Id: "reactor-power", InitialText: "POWER: OFFLINE"},
+			{Id: "reactor-cooling", InitialText: "COOLING: OFFLINE"},
+		},
+	}, entry, protocmp.Transform()))
+
+	configured := children[1].GetCommand().GetStateChange()
+	require.NotNil(t, configured)
+	configuredField := configured.ProtoReflect().Descriptor().Fields().ByName("entry_content_change")
+	require.True(t, configured.ProtoReflect().Has(configuredField))
+	require.Equal(t, "reactor-power", configured.GetEntryContentChange().GetBlockId())
+	require.Empty(t, configured.GetEntryContentChange().GetCompletedText())
+
+	frozen := semantic.GetTerminals()[0].GetCommandStates()["restore-power"]
+	require.NotNil(t, frozen)
+	frozenField := frozen.ProtoReflect().Descriptor().Fields().ByName("entry_content_change")
+	require.True(t, frozen.ProtoReflect().Has(frozenField))
+	require.Equal(t, "reactor-power", frozen.GetEntryContentChange().GetBlockId())
+	require.Empty(t, frozen.GetEntryContentChange().GetCompletedText())
+
+	roundTrip, err := SessionFromProto(semantic, value)
+	require.NoError(t, err)
+	require.Equal(t, value, roundTrip)
+	require.Equal(t, value.Extra, roundTrip.Extra)
+	require.Equal(t, value.Terminals[0].Extra, roundTrip.Terminals[0].Extra)
+	require.Equal(t, value.Terminals[0].Root.Children[0].Extra, roundTrip.Terminals[0].Root.Children[0].Extra)
+	require.Equal(t, value.Terminals[0].Root.Children[1].Extra, roundTrip.Terminals[0].Root.Children[1].Extra)
+
+	roundTripSemantic, err := SessionToProto(roundTrip)
+	require.NoError(t, err)
+	require.Empty(t, cmp.Diff(semantic, roundTripSemantic, protocmp.Transform()))
+}
+
+func TestSessionContractKeepsLegacyEntryDescriptionWithoutImplicitBlocks(t *testing.T) {
+	t.Parallel()
+
+	value := domain.Session{
+		Version: 1,
+		Name:    "Legacy entry",
+		Extra:   map[string]json.RawMessage{"futureSession": json.RawMessage(`{"keep":true}`)},
+		Terminals: []domain.Terminal{{
+			ID: "terminal-legacy", Name: "Legacy terminal",
+			Root: domain.ContentNode{
+				ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+				Children: []domain.ContentNode{{
+					ID: "legacy-log", Type: domain.NodeEntry, Name: "LOG",
+					Description: "One uninterrupted legacy description.",
+					Extra:       map[string]json.RawMessage{"futureEntry": json.RawMessage(`{"style":"amber"}`)},
+				}},
+			},
+		}},
+	}
+
+	semantic, err := SessionToProto(value)
+	require.NoError(t, err)
+	entry := semantic.GetTerminals()[0].GetRoot().GetFolder().GetChildren()[0].GetEntry()
+	require.NotNil(t, entry)
+	assert.Equal(t, value.Terminals[0].Root.Children[0].Description, entry.GetDescription())
+	assert.Empty(t, entry.GetBlocks())
+
+	roundTrip, err := SessionFromProto(semantic, value)
+	require.NoError(t, err)
+	require.Equal(t, value, roundTrip)
+	assert.Nil(t, roundTrip.Terminals[0].Root.Children[0].Blocks)
+	assert.JSONEq(t, `{"style":"amber"}`, string(roundTrip.Terminals[0].Root.Children[0].Extra["futureEntry"]))
 }
 
 func TestSessionContractRoundTripsTerminalTransitionAndKeepsLegacyAbsent(t *testing.T) {
