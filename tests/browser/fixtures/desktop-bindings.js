@@ -288,6 +288,15 @@ function authoringSessionResult() {
 globalThis.__desktopFixture = {
   calls: state.calls,
   timeline: state.calls,
+  async executeStateChangingCommand(commandId) {
+    if (!syncFixtureActive()) throw new Error('state-changing synchronization fixture is unavailable');
+    const response = await fetch('/__fixture/state-changing-command-sync/execute-command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commandId }),
+    });
+    if (!response.ok) throw new Error((await response.text()).trim() || 'fixture command execution failed');
+  },
   async authoringDurableState() {
     if (authoringFixtureActive()) await authoringFixtureCommand('session');
     return {

@@ -760,7 +760,11 @@ func (store *fixtureCommandStateStore) ExecuteCommandState(_ context.Context, te
 		store.failNext = false
 		return control.CommandStateMutation{}, errors.New("fixture atomic persistence failed")
 	}
-	if terminalID != "terminal-stateful" || commandID != "doors" {
+	if terminalID != "terminal-stateful" {
+		return control.CommandStateMutation{}, errors.New("fixture command identity is invalid")
+	}
+	command := fixtureStateChangingCommand(commandID)
+	if command == nil {
 		return control.CommandStateMutation{}, errors.New("fixture command identity is invalid")
 	}
 	changed := false
@@ -768,10 +772,19 @@ func (store *fixtureCommandStateStore) ExecuteCommandState(_ context.Context, te
 		if store.states == nil {
 			store.states = make(map[string]domain.CommandExecutionState)
 		}
-		store.states[commandID] = domain.CommandExecutionState{
-			CompletedName: "Двери открыты",
-			ResultText:    fixtureCommandResult,
+		resultText := command.Text
+		if command.ID == "doors" {
+			resultText = fixtureCommandResult
 		}
+		state := domain.CommandExecutionState{
+			CompletedName: command.StateChange.CompletedName,
+			ResultText:    resultText,
+		}
+		if change := command.StateChange.EntryContentChange; change != nil {
+			clone := *change
+			state.EntryContentChange = &clone
+		}
+		store.states[commandID] = state
 		store.revision++
 		store.executeWrites++
 		changed = true
@@ -835,6 +848,12 @@ func (store *fixtureCommandStateStore) syncSession() domain.Session {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	return stateChangingSyncSession(store.states)
+}
+
+func (store *fixtureCommandStateStore) session() domain.Session {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return stateChangingApprovalSession(store.states)
 }
 
 func (store *fixtureCommandStateStore) audit() (int, bool) {
@@ -1876,7 +1895,7 @@ export async function RequestTerminalActivation(payload) {
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-approval/session", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(response).Encode(stateChangingApprovalSession(nil))
+		_ = json.NewEncoder(response).Encode(approvalStore.session())
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-approval/audit", func(response http.ResponseWriter, _ *http.Request) {
 		executeWrites, completed := approvalStore.audit()
@@ -1958,6 +1977,26 @@ export async function RequestTerminalActivation(payload) {
 	mux.HandleFunc("POST /__fixture/state-changing-command-sync/reset", func(response http.ResponseWriter, _ *http.Request) {
 		approvalStore.reset()
 		if err := restartStateChangingBroadcast(service, approvalStore.syncTarget()); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/state-changing-command-sync/execute-command", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			CommandID string `json:"commandId"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid fixture command execution", http.StatusBadRequest)
+			return
+		}
+		if _, err := approvalStore.ExecuteCommandState(request.Context(), "terminal-stateful", payload.CommandID); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		if _, err := service.RefreshActiveTerminal(approvalStore.syncTarget()); err != nil {
 			http.Error(response, err.Error(), http.StatusConflict)
 			return
 		}
@@ -2349,6 +2388,16 @@ func stateChangingApprovalTarget() domain.TerminalTarget {
 					Description: fixtureCommandResult,
 				},
 				{
+					ID: "reactor-state", Type: domain.NodeEntry, Name: "СОСТОЯНИЕ РЕАКТОРА",
+					Blocks: []domain.EntryContentBlock{
+						{ID: "b_reactor_power", InitialText: "ПИТАНИЕ: ОТКЛЮЧЕНО"},
+						{ID: "b_reactor_cooling", InitialText: "СТАТУС: НЕИЗВЕСТЕН"},
+						{ID: "b_reactor_air", InitialText: "СТАТУС: НЕИЗВЕСТЕН"},
+						{ID: "b_reactor_note", InitialText: ""},
+						{ID: "b_reactor_lock", InitialText: "БЛОКИРОВКА: ВКЛЮЧЕНА"},
+					},
+				},
+				{
 					ID: "diagnostics", Type: domain.NodeCommand, Name: "Запустить диагностику",
 					Text: "Диагностика завершена.",
 				},
@@ -2360,9 +2409,61 @@ func stateChangingApprovalTarget() domain.TerminalTarget {
 						ConfirmationText: "Разрешить доступ в защищённый сектор?",
 					},
 				},
+				fixtureReactorCommand(
+					"n_reactor_power", "Включить питание реактора", "Питание реактора включено",
+					"Подтвердить включение питания реактора?", "Питание реактора включено.",
+					"b_reactor_power", "ПИТАНИЕ: ВКЛЮЧЕНО",
+				),
+				fixtureReactorCommand(
+					"n_reactor_cooling", "Запустить охлаждение", "Охлаждение работает",
+					"Подтвердить запуск охлаждения реактора?", "Охлаждение реактора запущено.",
+					"b_reactor_cooling", "ОХЛАЖДЕНИЕ: НОРМА",
+				),
+				fixtureReactorCommand(
+					"n_reactor_air", "Проверить вентиляцию", "Вентиляция проверена",
+					"Подтвердить проверку вентиляции реактора?", "Вентиляция проверена.",
+					"b_reactor_air", "ВЕНТИЛЯЦИЯ: НОРМА",
+				),
+				fixtureReactorCommand(
+					"n_reactor_note", "Очистить примечание", "Примечание очищено",
+					"Удалить служебное примечание?", "Примечание очищено.",
+					"b_reactor_note", "",
+				),
+				fixtureReactorCommand(
+					"n_reactor_lock", "Снять блокировку реактора", "Блокировка реактора снята",
+					"Подтвердить снятие блокировки реактора?", "Блокировка реактора снята.",
+					"b_reactor_lock", "БЛОКИРОВКА: СНЯТА",
+				),
 			},
 		},
 	}
+}
+
+func fixtureReactorCommand(id, name, completedName, confirmationText, resultText, blockID, completedText string) domain.ContentNode {
+	return domain.ContentNode{
+		ID: id, Type: domain.NodeCommand, Name: name, Text: resultText,
+		StateChange: &domain.StateChangeConfig{
+			CompletedName: completedName, ConfirmationText: confirmationText,
+			EntryContentChange: &domain.EntryContentChange{BlockID: blockID, CompletedText: completedText},
+		},
+	}
+}
+
+func fixtureStateChangingCommand(commandID string) *domain.ContentNode {
+	target := stateChangingApprovalTarget()
+	var find func(*domain.ContentNode) *domain.ContentNode
+	find = func(node *domain.ContentNode) *domain.ContentNode {
+		if node.ID == commandID && node.Type == domain.NodeCommand && node.StateChange != nil {
+			return node
+		}
+		for index := range node.Children {
+			if command := find(&node.Children[index]); command != nil {
+				return command
+			}
+		}
+		return nil
+	}
+	return find(&target.Tree)
 }
 
 func stateChangingApprovalSession(states map[string]domain.CommandExecutionState) domain.Session {

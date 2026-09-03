@@ -31,8 +31,9 @@ func SessionToProto(value domain.Session) (*persistencev1.Session, error) {
 			mapped.CommandStates = make(map[string]*persistencev1.CommandExecutionState, len(terminal.CommandStates))
 			for commandID, state := range terminal.CommandStates {
 				mapped.CommandStates[commandID] = &persistencev1.CommandExecutionState{
-					CompletedName: state.CompletedName,
-					ResultText:    state.ResultText,
+					CompletedName:      state.CompletedName,
+					ResultText:         state.ResultText,
+					EntryContentChange: entryContentChangeToProto(state.EntryContentChange),
 				}
 			}
 		}
@@ -53,6 +54,7 @@ func SessionFromProto(value *persistencev1.Session, template domain.Session) (do
 	if value == nil {
 		return domain.Session{}, fmt.Errorf("session contract is required")
 	}
+	template = domain.CloneSession(template)
 	result := domain.Session{
 		Version: int(value.GetVersion()), Name: value.GetName(), PlayerConfig: value.GetPlayerConfig(), Extra: template.Extra,
 		Terminals: make([]domain.Terminal, 0, len(value.GetTerminals())),
@@ -76,8 +78,9 @@ func SessionFromProto(value *persistencev1.Session, template domain.Session) (do
 			mapped.CommandStates = make(map[string]domain.CommandExecutionState, len(terminal.GetCommandStates()))
 			for commandID, state := range terminal.GetCommandStates() {
 				mapped.CommandStates[commandID] = domain.CommandExecutionState{
-					CompletedName: state.GetCompletedName(),
-					ResultText:    state.GetResultText(),
+					CompletedName:      state.GetCompletedName(),
+					ResultText:         state.GetResultText(),
+					EntryContentChange: entryContentChangeFromProto(state.GetEntryContentChange()),
 				}
 			}
 		}
@@ -116,7 +119,7 @@ func ContentNodeToProto(node domain.ContentNode) (*persistencev1.ContentNode, er
 // session-wide reference validation because the surrounding terminal catalog
 // is not part of this private bridge message.
 func ContentNodeFromProto(node *persistencev1.ContentNode, template domain.ContentNode) (domain.ContentNode, error) {
-	return contentNodeFromProto(node, template)
+	return contentNodeFromProto(node, domain.CloneContentNode(template))
 }
 
 func contentNodeToProto(node domain.ContentNode) (*persistencev1.ContentNode, error) {
@@ -139,8 +142,9 @@ func contentNodeToProto(node domain.ContentNode) (*persistencev1.ContentNode, er
 			// An unset protobuf oneof is the ordinary-command variant.
 		case domain.CommandBehaviorStateChange:
 			command.Behavior = &persistencev1.CommandContent_StateChange{StateChange: &persistencev1.StateChangeConfig{
-				CompletedName:    node.StateChange.CompletedName,
-				ConfirmationText: node.StateChange.ConfirmationText,
+				CompletedName:      node.StateChange.CompletedName,
+				ConfirmationText:   node.StateChange.ConfirmationText,
+				EntryContentChange: entryContentChangeToProto(node.StateChange.EntryContentChange),
 			}}
 		case domain.CommandBehaviorTerminalTransition:
 			command.Behavior = &persistencev1.CommandContent_TerminalTransition{TerminalTransition: &persistencev1.TerminalTransitionConfig{
@@ -153,7 +157,17 @@ func contentNodeToProto(node domain.ContentNode) (*persistencev1.ContentNode, er
 		}
 		result.Content = &persistencev1.ContentNode_Command{Command: command}
 	case domain.NodeEntry:
-		result.Content = &persistencev1.ContentNode_Entry{Entry: &persistencev1.EntryContent{Description: node.Description}}
+		entry := &persistencev1.EntryContent{Description: node.Description}
+		if len(node.Blocks) != 0 {
+			entry.Blocks = make([]*persistencev1.EntryContentBlock, len(node.Blocks))
+			for index, block := range node.Blocks {
+				entry.Blocks[index] = &persistencev1.EntryContentBlock{
+					Id:          block.ID,
+					InitialText: block.InitialText,
+				}
+			}
+		}
+		result.Content = &persistencev1.ContentNode_Entry{Entry: entry}
 	default:
 		return nil, fmt.Errorf("unsupported content node type %q", node.Type)
 	}
@@ -187,8 +201,9 @@ func contentNodeFromProto(node *persistencev1.ContentNode, template domain.Conte
 			// An unset protobuf oneof is the ordinary-command variant.
 		case *persistencev1.CommandContent_StateChange:
 			result.StateChange = &domain.StateChangeConfig{
-				CompletedName:    behavior.StateChange.GetCompletedName(),
-				ConfirmationText: behavior.StateChange.GetConfirmationText(),
+				CompletedName:      behavior.StateChange.GetCompletedName(),
+				ConfirmationText:   behavior.StateChange.GetConfirmationText(),
+				EntryContentChange: entryContentChangeFromProto(behavior.StateChange.GetEntryContentChange()),
 			}
 		case *persistencev1.CommandContent_TerminalTransition:
 			result.TerminalTransition = &domain.TerminalTransitionConfig{
@@ -199,8 +214,37 @@ func contentNodeFromProto(node *persistencev1.ContentNode, template domain.Conte
 		}
 	case *persistencev1.ContentNode_Entry:
 		result.Type, result.Description = domain.NodeEntry, content.Entry.GetDescription()
+		if len(content.Entry.GetBlocks()) != 0 {
+			result.Blocks = make([]domain.EntryContentBlock, len(content.Entry.GetBlocks()))
+			for index, block := range content.Entry.GetBlocks() {
+				result.Blocks[index] = domain.EntryContentBlock{
+					ID:          block.GetId(),
+					InitialText: block.GetInitialText(),
+				}
+			}
+		}
 	default:
 		return domain.ContentNode{}, fmt.Errorf("content node variant is required")
 	}
 	return result, nil
+}
+
+func entryContentChangeToProto(change *domain.EntryContentChange) *persistencev1.EntryContentChange {
+	if change == nil {
+		return nil
+	}
+	return &persistencev1.EntryContentChange{
+		BlockId:       change.BlockID,
+		CompletedText: change.CompletedText,
+	}
+}
+
+func entryContentChangeFromProto(change *persistencev1.EntryContentChange) *domain.EntryContentChange {
+	if change == nil {
+		return nil
+	}
+	return &domain.EntryContentChange{
+		BlockID:       change.GetBlockId(),
+		CompletedText: change.GetCompletedText(),
+	}
 }

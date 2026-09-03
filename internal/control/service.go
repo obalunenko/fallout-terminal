@@ -23,6 +23,10 @@ import (
 
 const defaultRequestResultLimit = 256
 
+// ErrCommandStateStorageUnavailable identifies coordinators constructed
+// without the durable command-state capability.
+var ErrCommandStateStorageUnavailable = errors.New("command state storage is unavailable")
+
 // IDSource produces opaque process-local identifiers. Implementations must be
 // safe for concurrent use because IDs may be prepared outside a transaction.
 type IDSource interface {
@@ -1270,12 +1274,17 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			resolveErr = ErrCommandExecutionPersistence
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
+		if err := domain.ValidateSession(durable.Session); err != nil {
+			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
+			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
+		}
 		durableTerminal := terminalByStableID(&durable.Session, pending.TerminalID)
 		if durableTerminal == nil {
 			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
-		if _, completed := durableTerminal.CommandStates[pending.CommandID]; !completed {
+		completed, exists := durableTerminal.CommandStates[pending.CommandID]
+		if !exists || !durableCommandStateMatchesAuthored(completed, authored) {
 			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
 			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
 		}
@@ -1299,6 +1308,149 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 	}
 	state.Revision = result.revision
 	return domain.CloneMasterCoordinationState(state), mutation, resolveErr
+}
+
+// ResetCommandState removes one complete durable command snapshot and installs
+// the canonical terminal state before publishing the accepted coordination revision.
+func (service *Service) ResetCommandState(ctx context.Context, terminalID, commandID string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
+	terminalID = strings.TrimSpace(terminalID)
+	commandID = strings.TrimSpace(commandID)
+	if terminalID == "" {
+		return service.Snapshot(), nil, fmt.Errorf("terminal ID must not be blank")
+	}
+	if commandID == "" {
+		return service.Snapshot(), nil, fmt.Errorf("command ID must not be blank")
+	}
+	return service.resetCommandStates(ctx, terminalID, commandID, false)
+}
+
+// ResetTerminalCommandStates removes every complete durable command snapshot
+// owned by one terminal and publishes the canonical result as one revision.
+func (service *Service) ResetTerminalCommandStates(ctx context.Context, terminalID string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
+	terminalID = strings.TrimSpace(terminalID)
+	if terminalID == "" {
+		return service.Snapshot(), nil, fmt.Errorf("terminal ID must not be blank")
+	}
+	return service.resetCommandStates(ctx, terminalID, "", true)
+}
+
+func (service *Service) resetCommandStates(
+	ctx context.Context,
+	terminalID, commandID string,
+	terminalWide bool,
+) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
+	if ctx == nil {
+		return service.Snapshot(), nil, fmt.Errorf("command state reset context is required")
+	}
+
+	var state *domain.MasterCoordinationState
+	var mutation *CommandStateMutation
+	var resetErr error
+	result := service.commit(func(runtime *domain.ProcessRuntime) transition {
+		state = masterSnapshot(runtime)
+		if ctx.Err() != nil {
+			resetErr = fmt.Errorf("command state reset was canceled")
+			return transition{}
+		}
+		if service.commandStateStore == nil {
+			resetErr = ErrCommandStateStorageUnavailable
+			return transition{}
+		}
+
+		var durable CommandStateMutation
+		var err error
+		if terminalWide {
+			durable, err = service.commandStateStore.ResetTerminalCommandStates(ctx, terminalID)
+		} else {
+			durable, err = service.commandStateStore.ResetCommandState(ctx, terminalID, commandID)
+		}
+		if err != nil {
+			resetErr = fmt.Errorf("command state could not be reset")
+			return transition{}
+		}
+		durableTerminal, err := validatedCommandStateReset(durable.Session, terminalID, commandID, terminalWide)
+		if err != nil {
+			resetErr = err
+			return transition{}
+		}
+		canonical := CommandStateMutation{
+			Changed: durable.Changed, Revision: durable.Revision, Session: domain.CloneSession(durable.Session),
+		}
+		mutation = &canonical
+		if !durable.Changed {
+			return transition{}
+		}
+
+		var projection *domain.PublicLiveState
+		if broadcast := runtime.Broadcast; broadcast != nil {
+			terminal := broadcast.TerminalRuntimes[terminalID]
+			if terminal != nil {
+				clearResetCommandPresentation(runtime, terminal, commandID, terminalWide)
+				terminal.CommandStates = cloneCommandStates(durableTerminal.CommandStates)
+				if broadcast.ActiveTerminalID != nil && *broadcast.ActiveTerminalID == terminalID && service.terminals != nil {
+					projection = service.terminals.ProjectRuntime(terminal)
+				}
+			}
+		}
+		state = masterSnapshot(runtime)
+		effects := stateEffects(runtime)
+		if projection != nil {
+			effects = append(effects, Effect{Live: projection})
+		}
+		return transition{accepted: true, effects: effects}
+	})
+	if state == nil {
+		state = service.Snapshot()
+	}
+	state.Revision = result.revision
+	return domain.CloneMasterCoordinationState(state), mutation, resetErr
+}
+
+func validatedCommandStateReset(
+	session domain.Session,
+	terminalID, commandID string,
+	terminalWide bool,
+) (*domain.Terminal, error) {
+	if err := domain.ValidateSession(session); err != nil {
+		return nil, fmt.Errorf("command state reset returned an invalid durable state")
+	}
+	terminal := terminalByStableID(&session, terminalID)
+	if terminal == nil {
+		return nil, fmt.Errorf("command state reset returned an invalid durable state")
+	}
+	if terminalWide {
+		if len(terminal.CommandStates) != 0 {
+			return nil, fmt.Errorf("command state reset returned an invalid durable state")
+		}
+	} else if _, exists := terminal.CommandStates[commandID]; exists {
+		return nil, fmt.Errorf("command state reset returned an invalid durable state")
+	}
+	return terminal, nil
+}
+
+func clearResetCommandPresentation(
+	runtime *domain.ProcessRuntime,
+	terminal *domain.TerminalRuntime,
+	commandID string,
+	terminalWide bool,
+) {
+	affected := func(candidate string) bool {
+		if terminalWide {
+			_, completed := terminal.CommandStates[candidate]
+			return completed
+		}
+		return candidate == commandID
+	}
+	if terminal.Nav.CommandNodeID != nil && affected(*terminal.Nav.CommandNodeID) {
+		terminal.Nav.CommandNodeID = nil
+	}
+	if terminal.CommandExecution != nil && affected(terminal.CommandExecution.CommandID) {
+		terminal.CommandExecution = nil
+	}
+	if pending := runtime.PendingCommandExecution; pending != nil &&
+		pending.TerminalID == terminal.TerminalID && affected(pending.CommandID) {
+		runtime.PendingCommandExecution = nil
+	}
 }
 
 // ResolveTerminalNavigation applies one exact Overseer decision without
@@ -2496,13 +2648,20 @@ func terminalByStableID(session *domain.Session, terminalID string) *domain.Term
 	return nil
 }
 
-func cloneCommandStates(states map[string]domain.CommandExecutionState) map[string]domain.CommandExecutionState {
-	if states == nil {
-		return nil
+func durableCommandStateMatchesAuthored(state domain.CommandExecutionState, command *domain.ContentNode) bool {
+	if command == nil || command.StateChange == nil {
+		return false
 	}
-	clone := make(map[string]domain.CommandExecutionState, len(states))
-	maps.Copy(clone, states)
-	return clone
+	authored := command.StateChange.EntryContentChange
+	frozen := state.EntryContentChange
+	if authored == nil || frozen == nil {
+		return authored == nil && frozen == nil
+	}
+	return frozen.BlockID == authored.BlockID
+}
+
+func cloneCommandStates(states map[string]domain.CommandExecutionState) map[string]domain.CommandExecutionState {
+	return domain.CloneCommandExecutionStates(states)
 }
 
 func (service *Service) projectActiveTerminal(runtime *domain.ProcessRuntime) *domain.PublicLiveState {

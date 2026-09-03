@@ -2594,6 +2594,76 @@ func TestCommandStateResetFailureDoesNotPublishSessionOrPlayerState(t *testing.T
 	require.Equal(t, []string{"session:reset-command-state:terminal-stable-1:command-stable-1"}, recorder.Calls())
 }
 
+func TestEntryContentCommandStateResetsRouteThroughCoordinatorBeforePublication(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		call     func(*App) SessionStateResult
+		wantCall string
+	}{
+		{
+			name: "individual",
+			call: func(app *App) SessionStateResult {
+				return app.ResetCommandState(ResetCommandStatePayload{
+					TerminalID: "terminal-stable-1", CommandID: "command-stable-1",
+				})
+			},
+			wantCall: "coordinator:reset-command-state:terminal-stable-1:command-stable-1",
+		},
+		{
+			name: "terminal-wide",
+			call: func(app *App) SessionStateResult {
+				return app.ResetTerminalCommandStates(ResetTerminalCommandStatesPayload{TerminalID: "terminal-stable-1"})
+			},
+			wantCall: "coordinator:reset-terminal-command-states:terminal-stable-1",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := &callRecorder{}
+			canonical := entryContentCommandStateResetSessionFixture()
+			canonical.Terminals[0].CommandStates = nil
+			activeTerminalID := "terminal-stable-1"
+			coordination := &recordingCommandStateResetCoordination{
+				state: &domain.MasterCoordinationState{
+					Revision:  18,
+					Broadcast: &domain.MasterBroadcastState{ID: "broadcast-1", ActiveTerminalID: &activeTerminalID},
+				},
+				recorder: recorder,
+				mutation: &controlservice.CommandStateMutation{
+					Changed: true, Revision: 61, Session: canonical,
+				},
+			}
+			sessions := &recordingCommandStateSession{
+				recorder: recorder,
+				resetOneResult: sessionservice.CommandStateResult{
+					Error: "app bypassed coordinator for individual reset",
+				},
+				resetTerminalResult: sessionservice.CommandStateResult{
+					Error: "app bypassed coordinator for terminal reset",
+				},
+			}
+			events := &recordingEventSink{recorder: recorder}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Sessions: sessions, Coordination: coordination, Events: events,
+				Player: &recordingPlayerServer{recorder: recorder},
+			})
+
+			result := test.call(app)
+			require.True(t, result.OK, "reset result = %#v", result)
+			assert.Equal(t, uint64(61), result.Revision)
+			require.NotNil(t, result.Session)
+			assert.Empty(t, result.Session.Terminals[0].CommandStates)
+			entry := result.Session.Terminals[0].Root.Children[1]
+			assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
+			assert.Empty(t, sessions.resetOneCalls)
+			assert.Empty(t, sessions.resetTerminalCalls)
+			calls := recorder.Calls()
+			require.NotEmpty(t, calls)
+			assert.Equal(t, test.wantCall, calls[0])
+			assert.GreaterOrEqual(t, len(events.Records()), 1)
+		})
+	}
+}
+
 func TestTerminalSwitchBridgeReturnsDecisionShapeAndResolvesValidatedChoices(t *testing.T) {
 	recorder := &callRecorder{}
 	initial := &domain.MasterCoordinationState{
@@ -3200,6 +3270,40 @@ type recordingCommandStateSession struct {
 	resetTerminalCalls  []string
 }
 
+type recordingCommandStateResetCoordination struct {
+	recordingCoordinationService
+	recorder *callRecorder
+	mutation *controlservice.CommandStateMutation
+}
+
+func (service *recordingCommandStateResetCoordination) ResetCommandState(
+	_ context.Context,
+	terminalID, commandID string,
+) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error) {
+	service.recorder.Add("coordinator:reset-command-state:" + terminalID + ":" + commandID)
+	return service.commandStateResetResult()
+}
+
+func (service *recordingCommandStateResetCoordination) ResetTerminalCommandStates(
+	_ context.Context,
+	terminalID string,
+) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error) {
+	service.recorder.Add("coordinator:reset-terminal-command-states:" + terminalID)
+	return service.commandStateResetResult()
+}
+
+func (service *recordingCommandStateResetCoordination) commandStateResetResult() (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error) {
+	state := domain.CloneMasterCoordinationState(service.state)
+	state.Revision++
+	service.state = domain.CloneMasterCoordinationState(state)
+	if service.mutation == nil {
+		return state, nil, nil
+	}
+	mutation := *service.mutation
+	mutation.Session = domain.CloneSession(service.mutation.Session)
+	return state, &mutation, nil
+}
+
 func (service *recordingCommandStateSession) ResetCommandState(_ context.Context, terminalID, commandID string) sessionservice.CommandStateResult {
 	service.resetOneCalls = append(service.resetOneCalls, [2]string{terminalID, commandID})
 	if service.recorder != nil {
@@ -3236,6 +3340,25 @@ func commandStateResetSessionFixture() domain.Session {
 			},
 		}},
 	}
+}
+
+func entryContentCommandStateResetSessionFixture() domain.Session {
+	session := commandStateResetSessionFixture()
+	terminal := &session.Terminals[0]
+	command := &terminal.Root.Children[0]
+	command.StateChange.EntryContentChange = &domain.EntryContentChange{
+		BlockID: "power-status", CompletedText: "POWER: ONLINE",
+	}
+	terminal.Root.Children = append(terminal.Root.Children, domain.ContentNode{
+		ID: "reactor-status", Type: domain.NodeEntry, Name: "REACTOR STATUS",
+		Blocks: []domain.EntryContentBlock{{ID: "power-status", InitialText: "POWER: OFFLINE"}},
+	})
+	state := terminal.CommandStates[command.ID]
+	state.EntryContentChange = &domain.EntryContentChange{
+		BlockID: "power-status", CompletedText: "POWER: ONLINE",
+	}
+	terminal.CommandStates[command.ID] = state
+	return session
 }
 
 type recordingPlayerConfigSession struct {

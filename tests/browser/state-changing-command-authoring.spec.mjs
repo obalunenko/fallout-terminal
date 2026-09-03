@@ -4,6 +4,17 @@ import { readFile } from 'node:fs/promises';
 const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 const TERMINAL_ID = 'terminal-stateful';
 const BUNDLED_DEMO_URL = new URL('../../sessions/demo.json', import.meta.url);
+const BLOCK_ENTRY_ID = 'entry-reactor-state';
+const BLOCK_FOLDER_ID = 'folder-reactor-state';
+const BLOCK_OWNER_COMMAND_ID = 'command-reactor-power';
+const BLOCK_IDS = Object.freeze({
+  power: 'block-reactor-power',
+  duplicateOne: 'block-reactor-status-one',
+  duplicateTwo: 'block-reactor-status-two',
+  empty: 'block-reactor-empty',
+  long: 'block-reactor-long',
+});
+const LONG_BLOCK_TEXT = '  Аварийный\nконтур   реактора — проверка стабилизации давления и температуры завершена  ';
 
 async function openAuthoringFixture(page) {
   await page.goto(FIXTURE_URL);
@@ -42,6 +53,155 @@ async function commandFromLastSave(page, commandID) {
     };
     return visit(session?.terminals?.[0]?.root);
   }, { id: commandID });
+}
+
+async function nodeFromLastSave(page, nodeID) {
+  return commandFromLastSave(page, nodeID);
+}
+
+function findFixtureNode(node, nodeID) {
+  if (node?.id === nodeID) return node;
+  for (const child of node?.children ?? []) {
+    const found = findFixtureNode(child, nodeID);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function seedBlockAuthoringSession(page, {
+  completedOwner = false,
+  completedSecondary = false,
+} = {}) {
+  const snapshotResponse = await page.request.get(`${FIXTURE_URL}/session`);
+  expect(snapshotResponse.ok()).toBe(true);
+  const snapshot = await snapshotResponse.json();
+  const session = snapshot.session;
+  const terminal = session.terminals.find(candidate => candidate.id === TERMINAL_ID);
+  terminal.root.children.push(
+    {
+      id: BLOCK_FOLDER_ID,
+      type: 'folder',
+      name: 'РЕАКТОРНЫЙ КОНТУР',
+      children: [{
+        id: BLOCK_ENTRY_ID,
+        type: 'entry',
+        name: 'СОСТОЯНИЕ РЕАКТОРА',
+        blocks: [
+          { id: BLOCK_IDS.power, initialText: 'ПИТАНИЕ: ОТКЛЮЧЕНО' },
+          { id: BLOCK_IDS.duplicateOne, initialText: 'СТАТУС: НЕИЗВЕСТЕН' },
+          { id: BLOCK_IDS.duplicateTwo, initialText: 'СТАТУС: НЕИЗВЕСТЕН' },
+          { id: BLOCK_IDS.empty, initialText: ' \n\t ' },
+          { id: BLOCK_IDS.long, initialText: LONG_BLOCK_TEXT },
+        ],
+      }],
+    },
+    {
+      id: BLOCK_OWNER_COMMAND_ID,
+      type: 'command',
+      name: 'Включить питание реактора',
+      text: 'Питание реактора включено.',
+      stateChange: {
+        completedName: 'Питание реактора включено',
+        confirmationText: 'Подтвердить включение питания?',
+        entryContentChange: {
+          blockId: BLOCK_IDS.power,
+          completedText: 'ПИТАНИЕ: ВКЛЮЧЕНО',
+        },
+      },
+    },
+    {
+      id: 'command-reactor-secondary',
+      type: 'command',
+      name: 'Проверить резервный контур',
+      text: 'Резервный контур проверен.',
+      stateChange: {
+        completedName: 'Резервный контур проверен',
+        confirmationText: 'Подтвердить проверку резервного контура?',
+      },
+    },
+    {
+      id: 'entry-legacy-record',
+      type: 'entry',
+      name: 'СТАРАЯ ЗАПИСЬ',
+      description: 'НАСЛЕДУЕМОЕ ОПИСАНИЕ БЕЗ БЛОКОВ',
+    },
+  );
+  if (completedOwner) {
+    terminal.commandStates[BLOCK_OWNER_COMMAND_ID] = {
+      completedName: 'Питание реактора включено',
+      resultText: 'Питание реактора включено.',
+      entryContentChange: {
+        blockId: BLOCK_IDS.power,
+        completedText: 'ПИТАНИЕ: ВКЛЮЧЕНО',
+      },
+    };
+  }
+  if (completedSecondary) {
+    const secondary = findFixtureNode(terminal.root, 'command-reactor-secondary');
+    secondary.stateChange.entryContentChange = {
+      blockId: BLOCK_IDS.empty,
+      completedText: '',
+    };
+    terminal.commandStates['command-reactor-secondary'] = {
+      completedName: 'Резервный контур проверен',
+      resultText: 'Резервный контур проверен.',
+      entryContentChange: {
+        blockId: BLOCK_IDS.empty,
+        completedText: '',
+      },
+    };
+  }
+  session.terminals.push({
+    id: 'terminal-foreign-blocks',
+    name: 'Соседний терминал',
+    hackLevel: 0,
+    introText: '',
+    root: {
+      id: 'root',
+      type: 'folder',
+      name: 'ROOT',
+      children: [{
+        id: 'foreign-entry',
+        type: 'entry',
+        name: 'ЧУЖАЯ ЗАПИСЬ',
+        blocks: [{ id: 'foreign-block', initialText: 'ЧУЖОЙ БЛОК' }],
+      }],
+    },
+  });
+  session.terminalGroups.push({
+    id: 'foreign-blocks-group',
+    name: 'Соседний терминал',
+    terminalIds: ['terminal-foreign-blocks'],
+  });
+
+  const saveResponse = await page.request.post(`${FIXTURE_URL}/save`, { data: session });
+  expect(saveResponse.ok()).toBe(true);
+  await page.reload();
+  await openAuthoringFixture(page);
+}
+
+async function selectEntry(page, displayedName) {
+  const row = page.locator('.tree-row', { hasText: displayedName });
+  if (await row.count() === 0) {
+    const folder = page.locator('.tree-row', { hasText: 'РЕАКТОРНЫЙ КОНТУР' });
+    if (await folder.count() === 1) await folder.click();
+  }
+  await expect(row).toHaveCount(1);
+  await row.click();
+  await expect(page.locator('#nodeForm')).toContainText('ЗАПИСЬ');
+}
+
+function normalizedPreview(value) {
+  const collapsed = value.trim().replace(/\s+/gu, ' ');
+  if (!collapsed) return 'ПУСТО';
+  const codePoints = Array.from(collapsed);
+  return codePoints.length > 48 ? `${codePoints.slice(0, 48).join('')}…` : collapsed;
+}
+
+function entryBlockOwner(page, blockID, commandID) {
+  return page.locator(
+    `.entry-content-block[data-block-id="${blockID}"] [data-entry-block-owner][data-command-id="${commandID}"]`,
+  );
 }
 
 async function authoringDurableState(page) {
@@ -435,7 +595,7 @@ test('bundled read-only demo exposes every configurable command mode and a compl
     expect(command.text.trim()).not.toBe('');
     expect(command.stateChange?.completedName?.trim()).not.toBe('');
     expect(command.stateChange?.confirmationText?.trim()).not.toBe('');
-    expect(command.stateChange.confirmationText).not.toContain(command.name);
+    expect(command.stateChange.confirmationText.trim()).not.toBe(command.name.trim());
     expect(command.terminalTransition).toBeUndefined();
   }
   expect(terminalTransitionCommands.length).toBeGreaterThan(0);
@@ -652,4 +812,301 @@ test('terminal reset rejects a newer backend result that still contains complete
   await expect(page.locator('.tree-row', { hasText: 'Двери открыты' })).toHaveCount(1);
   await expect(page.locator('.tree-row', { hasText: 'Тревога включена' })).toHaveCount(1);
   await expect.poll(() => authoringDurableState(page)).toEqual(durableBefore);
+});
+
+test('entry blocks add, edit, reorder, delete, and reopen with stable identities', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+
+  const blockList = page.locator('#entryContentBlocks');
+  const block = id => blockList.locator(`.entry-content-block[data-block-id="${id}"]`);
+  await expect(blockList.locator('.entry-content-block')).toHaveCount(5);
+  await expect(block(BLOCK_IDS.power).locator('[data-entry-block-content]')).toHaveValue('ПИТАНИЕ: ОТКЛЮЧЕНО');
+
+  await block(BLOCK_IDS.power).locator('[data-entry-block-action="move-down"]').click();
+  await block(BLOCK_IDS.duplicateTwo).locator('[data-entry-block-content]').fill('ОХЛАЖДЕНИЕ: ГОТОВО');
+  await page.locator('#btnAddEntryContentBlock').click();
+  const added = blockList.locator('.entry-content-block').last();
+  const addedID = await added.getAttribute('data-block-id');
+  expect(addedID).toMatch(/\S+/);
+  expect(Object.values(BLOCK_IDS)).not.toContain(addedID);
+  await added.locator('[data-entry-block-content]').fill('НОВЫЙ ДИАГНОСТИЧЕСКИЙ БЛОК');
+
+  page.once('dialog', dialog => dialog.accept());
+  await block(BLOCK_IDS.long).locator('[data-entry-block-action="delete"]').click();
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+
+  const saved = await nodeFromLastSave(page, BLOCK_ENTRY_ID);
+  expect(saved.description ?? '').toBe('');
+  expect(saved.blocks).toEqual([
+    { id: BLOCK_IDS.duplicateOne, initialText: 'СТАТУС: НЕИЗВЕСТЕН' },
+    { id: BLOCK_IDS.power, initialText: 'ПИТАНИЕ: ОТКЛЮЧЕНО' },
+    { id: BLOCK_IDS.duplicateTwo, initialText: 'ОХЛАЖДЕНИЕ: ГОТОВО' },
+    { id: BLOCK_IDS.empty, initialText: ' \n\t ' },
+    { id: addedID, initialText: 'НОВЫЙ ДИАГНОСТИЧЕСКИЙ БЛОК' },
+  ]);
+  expect((await commandFromLastSave(page, BLOCK_OWNER_COMMAND_ID)).stateChange.entryContentChange.blockId)
+    .toBe(BLOCK_IDS.power);
+
+  await page.reload();
+  await openAuthoringFixture(page);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(blockList.locator('.entry-content-block')).toHaveCount(5);
+  await expect.poll(() => blockList.locator('.entry-content-block').evaluateAll(rows =>
+    rows.map(row => row.getAttribute('data-block-id')))).toEqual([
+      BLOCK_IDS.duplicateOne,
+      BLOCK_IDS.power,
+      BLOCK_IDS.duplicateTwo,
+      BLOCK_IDS.empty,
+      addedID,
+    ]);
+});
+
+test('legacy description converts only when an accepted block edit is applied', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectEntry(page, 'СТАРАЯ ЗАПИСЬ');
+
+  const blocks = page.locator('#entryContentBlocks .entry-content-block');
+  await expect(blocks).toHaveCount(1);
+  await expect(blocks.locator('[data-entry-block-content]')).toHaveValue('НАСЛЕДУЕМОЕ ОПИСАНИЕ БЕЗ БЛОКОВ');
+  await expect(blocks).not.toHaveAttribute('data-block-id', /\S/);
+
+  await page.reload();
+  await openAuthoringFixture(page);
+  const beforeConversion = await page.request.get(`${FIXTURE_URL}/session`).then(response => response.json());
+  const legacyBefore = findFixtureNode(
+    beforeConversion.session.terminals.find(terminal => terminal.id === TERMINAL_ID).root,
+    'entry-legacy-record',
+  );
+  expect(legacyBefore.description).toBe('НАСЛЕДУЕМОЕ ОПИСАНИЕ БЕЗ БЛОКОВ');
+  expect(legacyBefore.blocks).toBeUndefined();
+
+  await selectEntry(page, 'СТАРАЯ ЗАПИСЬ');
+  await page.locator('[data-entry-block-content]').fill('ПРЕОБРАЗОВАННОЕ ОПИСАНИЕ');
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  const converted = await nodeFromLastSave(page, 'entry-legacy-record');
+  expect(converted.description ?? '').toBe('');
+  expect(converted.blocks).toHaveLength(1);
+  expect(converted.blocks[0]).toEqual({
+    id: expect.stringMatching(/\S+/),
+    initialText: 'ПРЕОБРАЗОВАННОЕ ОПИСАНИЕ',
+  });
+
+  await page.reload();
+  await openAuthoringFixture(page);
+  await selectEntry(page, 'СТАРАЯ ЗАПИСЬ');
+  await expect(page.locator('#entryContentBlocks .entry-content-block')).toHaveAttribute(
+    'data-block-id', converted.blocks[0].id,
+  );
+});
+
+test('command targets expose terminal-local entry, position, normalized preview, and reverse owner labels', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectCommand(page, 'Проверить резервный контур');
+
+  const target = page.locator('#fldEntryBlockTarget');
+  const options = await target.locator('option').allTextContents();
+  expect(options).toContain(`СОСТОЯНИЕ РЕАКТОРА · БЛОК 1 · ${normalizedPreview('ПИТАНИЕ: ОТКЛЮЧЕНО')}`);
+  expect(options).toContain('СОСТОЯНИЕ РЕАКТОРА · БЛОК 2 · СТАТУС: НЕИЗВЕСТЕН');
+  expect(options).toContain('СОСТОЯНИЕ РЕАКТОРА · БЛОК 3 · СТАТУС: НЕИЗВЕСТЕН');
+  expect(options).toContain('СОСТОЯНИЕ РЕАКТОРА · БЛОК 4 · ПУСТО');
+  expect(options).toContain(`СОСТОЯНИЕ РЕАКТОРА · БЛОК 5 · ${normalizedPreview(LONG_BLOCK_TEXT)}`);
+  expect(options.join('\n')).not.toContain('ЧУЖАЯ ЗАПИСЬ');
+  expect(options.join('\n')).not.toContain('ЧУЖОЙ БЛОК');
+  expect(Array.from(normalizedPreview(LONG_BLOCK_TEXT).replace(/…$/u, ''))).toHaveLength(48);
+
+  await target.selectOption(BLOCK_IDS.empty);
+  await page.locator('#fldCompletedEntryBlockContent').fill('');
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  const command = await commandFromLastSave(page, 'command-reactor-secondary');
+  expect(command.stateChange.entryContentChange).toEqual({
+    blockId: BLOCK_IDS.empty,
+    completedText: '',
+  });
+
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const owner = page.locator(
+    `.entry-content-block[data-block-id="${BLOCK_IDS.empty}"] [data-entry-block-owner][data-command-id="command-reactor-secondary"]`,
+  );
+  await expect(owner).toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Проверить резервный контур');
+
+  await selectCommand(page, 'Проверить резервный контур');
+  await page.locator('#fldName').fill('Проверить вспомогательный контур');
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(owner).toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Проверить вспомогательный контур');
+});
+
+test('duplicate targets and deletion of targeted blocks or containing nodes identify the owning command', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectCommand(page, 'Проверить резервный контур');
+
+  const savesBeforeConflict = await desktopCallCount(page, 'SaveSession');
+  await page.locator('#fldEntryBlockTarget').selectOption(BLOCK_IDS.power);
+  await page.locator('#fldCompletedEntryBlockContent').fill('РЕЗЕРВ: ВКЛЮЧЕН');
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await expect(page.locator('#nodeValidationError')).toContainText('Включить питание реактора');
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeConflict);
+
+  page.on('dialog', dialog => dialog.accept());
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const powerBlock = page.locator(`.entry-content-block[data-block-id="${BLOCK_IDS.power}"]`);
+  await powerBlock.locator('[data-entry-block-action="delete"]').click();
+  await expect(page.locator('#nodeValidationError')).toContainText('Включить питание реактора');
+  await expect(powerBlock).toHaveCount(1);
+
+  await page.locator('#btnDeleteNode').click();
+  await expect(page.locator('#nodeValidationError')).toContainText('Включить питание реактора');
+  await expect(page.locator('.tree-row', { hasText: 'СОСТОЯНИЕ РЕАКТОРА' })).toHaveCount(1);
+
+  await page.locator('.tree-row', { hasText: 'РЕАКТОРНЫЙ КОНТУР' }).click();
+  await page.locator('#btnDeleteNode').click();
+  await expect(page.locator('#nodeValidationError')).toContainText('Включить питание реактора');
+  await expect(page.locator('.tree-row', { hasText: 'РЕАКТОРНЫЙ КОНТУР' })).toHaveCount(1);
+});
+
+test('completed command keeps its exact target label and completed block text locked until reset', async ({ page }) => {
+  await seedBlockAuthoringSession(page, { completedOwner: true });
+  await selectCommand(page, 'Питание реактора включено');
+
+  const target = page.locator('#fldEntryBlockTarget');
+  const completedText = page.locator('#fldCompletedEntryBlockContent');
+  await expect(target).toBeDisabled();
+  await expect(target).toHaveValue(BLOCK_IDS.power);
+  await expect(target.locator('option:checked')).toHaveText(
+    'СОСТОЯНИЕ РЕАКТОРА · БЛОК 1 · ПИТАНИЕ: ОТКЛЮЧЕНО',
+  );
+  await expect(completedText).toBeDisabled();
+  await expect(completedText).toHaveValue('ПИТАНИЕ: ВКЛЮЧЕНО');
+  await expect(page.getByRole('status', { name: 'СОХРАНЁННОЕ СОСТОЯНИЕ КОМАНДЫ' }))
+    .toContainText('ПИТАНИЕ: ВКЛЮЧЕНО');
+
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const owner = page.locator(
+    `.entry-content-block[data-block-id="${BLOCK_IDS.power}"] [data-entry-block-owner][data-command-id="${BLOCK_OWNER_COMMAND_ID}"]`,
+  );
+  await expect(owner).toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Питание реактора включено');
+});
+
+test('individual block-owner reset cancels and fails atomically before restoring only its command and owner label', async ({ page }) => {
+  await seedBlockAuthoringSession(page, { completedOwner: true, completedSecondary: true });
+  const initial = await authoringDurableState(page);
+  expect(Object.keys(initial.commandStates).sort()).toEqual([
+    'alarm',
+    BLOCK_OWNER_COMMAND_ID,
+    'command-reactor-secondary',
+    'doors',
+  ]);
+
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Питание реактора включено');
+  await expect(entryBlockOwner(page, BLOCK_IDS.empty, 'command-reactor-secondary'))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Резервный контур проверен');
+
+  await selectCommand(page, 'Питание реактора включено');
+  const reset = page.getByRole('button', { name: 'СБРОСИТЬ СОСТОЯНИЕ' });
+  const confirmation = page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ СБРОСА' });
+  await reset.click();
+  await expect(confirmation).toContainText('Питание реактора включено');
+  await confirmation.getByRole('button', { name: 'ОТМЕНИТЬ' }).click();
+  await expect.poll(() => desktopCallCount(page, 'ResetCommandState')).toBe(0);
+  await expect.poll(() => authoringDurableState(page)).toEqual(initial);
+
+  await page.route(`**${FIXTURE_URL}/reset-command`, route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ok: false,
+      error: 'fixture entry block reset failed',
+      revision: initial.revision,
+    }),
+  }));
+  await reset.click();
+  await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
+  await expect(page.locator('#saveStatus')).toContainText('fixture entry block reset failed');
+  await expect.poll(() => authoringDurableState(page)).toEqual(initial);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Питание реактора включено');
+
+  await page.unroute(`**${FIXTURE_URL}/reset-command`);
+  await selectCommand(page, 'Питание реактора включено');
+  await page.getByRole('button', { name: 'СБРОСИТЬ СОСТОЯНИЕ' }).click();
+  await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
+  await expect.poll(() => authoringDurableState(page)).toEqual({
+    revision: initial.revision + 1,
+    commandStates: {
+      alarm: initial.commandStates.alarm,
+      'command-reactor-secondary': initial.commandStates['command-reactor-secondary'],
+      doors: initial.commandStates.doors,
+    },
+  });
+
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Включить питание реактора');
+  await expect(entryBlockOwner(page, BLOCK_IDS.empty, 'command-reactor-secondary'))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Резервный контур проверен');
+  await expect(page.locator(
+    `.entry-content-block[data-block-id="${BLOCK_IDS.power}"] [data-entry-block-content]`,
+  )).toHaveValue('ПИТАНИЕ: ОТКЛЮЧЕНО');
+
+  await selectCommand(page, 'Включить питание реактора');
+  await expect(page.locator('#fldEntryBlockTarget')).toBeEnabled();
+  await expect(page.locator('#fldEntryBlockTarget')).toHaveValue(BLOCK_IDS.power);
+  await expect(page.locator('#fldCompletedEntryBlockContent')).toBeEnabled();
+  await expect(page.locator('#fldCompletedEntryBlockContent')).toHaveValue('ПИТАНИЕ: ВКЛЮЧЕНО');
+});
+
+test('terminal-wide block reset cancels and fails atomically before restoring every owner label and initial block', async ({ page }) => {
+  await seedBlockAuthoringSession(page, { completedOwner: true, completedSecondary: true });
+  const initial = await authoringDurableState(page);
+  const resetAll = page.getByRole('button', { name: 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ' });
+  const confirmation = page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ СБРОСА' });
+
+  await resetAll.click();
+  await expect(confirmation).toContainText(/сбросить.*все.*терминал/i);
+  await confirmation.getByRole('button', { name: 'ОТМЕНИТЬ' }).click();
+  await expect.poll(() => desktopCallCount(page, 'ResetTerminalCommandStates')).toBe(0);
+  await expect.poll(() => authoringDurableState(page)).toEqual(initial);
+
+  await page.route(`**${FIXTURE_URL}/reset-terminal`, route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ok: false,
+      error: 'fixture terminal block reset failed',
+      revision: initial.revision,
+    }),
+  }));
+  await resetAll.click();
+  await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
+  await expect(page.locator('#saveStatus')).toContainText('fixture terminal block reset failed');
+  await expect.poll(() => authoringDurableState(page)).toEqual(initial);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Питание реактора включено');
+  await expect(entryBlockOwner(page, BLOCK_IDS.empty, 'command-reactor-secondary'))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Резервный контур проверен');
+
+  await page.unroute(`**${FIXTURE_URL}/reset-terminal`);
+  await resetAll.click();
+  await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
+  await expect.poll(() => authoringDurableState(page)).toEqual({
+    revision: initial.revision + 1,
+    commandStates: {},
+  });
+
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Включить питание реактора');
+  await expect(entryBlockOwner(page, BLOCK_IDS.empty, 'command-reactor-secondary'))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Проверить резервный контур');
+  await expect(page.locator(
+    `.entry-content-block[data-block-id="${BLOCK_IDS.power}"] [data-entry-block-content]`,
+  )).toHaveValue('ПИТАНИЕ: ОТКЛЮЧЕНО');
+  await expect(page.locator(
+    `.entry-content-block[data-block-id="${BLOCK_IDS.empty}"] [data-entry-block-content]`,
+  )).toHaveValue(' \n\t ');
 });

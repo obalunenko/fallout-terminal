@@ -264,7 +264,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
 	}
 
-	const stableDescriptorShape = "c67aeab7ab4e245ef42987e5b1348082304c0d4395aeaebbd9b3765d710e4e02"
+	const stableDescriptorShape = "ab38bdd06b194bd7acac9a6f4311b2b6c73d46aecf723e2bb6281f19796adbe1"
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
@@ -434,7 +434,7 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
-		"proto/schema-revision.txt":                       "4dbbf2c119511e08aa10374ef97948518460b95bd687568bedfaf001bd4e8212",
+		"proto/schema-revision.txt":                       "d7e8889fca533695790862020362e9207fa6b89de4e2bbefb69e0ede4a629012",
 		"proto/compatibility-baseline.binpb":              "b0004a0b4dbfabd1b6cce0c183b7b42a3f104261b1c047fc5d2ebe40932be3a7",
 	}
 	for relative, want := range wantDigests {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1058,22 +1059,38 @@ func TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTarget
 	require.True(t, opened.OK, "Open() = %#v", opened)
 	require.NotNil(t, opened.Session)
 	require.Len(t, opened.Session.Terminals, 2)
-	require.Equal(t, "t_demo2", opened.Session.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID)
+	transition := findNodeByID(&opened.Session.Terminals[0].Root, "n_cmd_state_change_1")
+	require.NotNil(t, transition)
+	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 
 	saved := service.Save(t.Context(), *opened.Session, 1)
 	require.True(t, saved.OK, "Save() = %#v", saved)
 	reopened := service.Open(t.Context())
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
 	require.Len(t, reopened.Session.Terminals, 2)
-	require.Equal(t, "t_demo2", reopened.Session.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID)
+	transition = findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
+	require.NotNil(t, transition)
+	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 
 	missing := cloneSession(*reopened.Session)
 	missing.Terminals = missing.Terminals[:1]
 	require.False(t, service.Save(t.Context(), missing, 2).OK)
 
 	self := cloneSession(*reopened.Session)
-	self.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID = "t_demo1"
+	findNodeByID(&self.Terminals[0].Root, "n_cmd_state_change_1").TerminalTransition.TargetTerminalID = "t_demo1"
 	require.False(t, service.Save(t.Context(), self, 2).OK)
+}
+
+func findNodeByID(root *domain.ContentNode, id string) *domain.ContentNode {
+	if root.ID == id {
+		return root
+	}
+	for i := range root.Children {
+		if node := findNodeByID(&root.Children[i], id); node != nil {
+			return node
+		}
+	}
+	return nil
 }
 
 func TestOpenAndSaveLegacyVersionOnePreservesOrdinaryContentWithoutAddingStateFields(t *testing.T) {
@@ -1350,6 +1367,228 @@ func TestCommandStateMutationsAllocateMonotonicDocumentRevisions(t *testing.T) {
 	assert.Equal(t, SaveStateSaved, snapshot.SaveState)
 }
 
+func TestExecuteCommandStateFreezesEntryContentChangeAndRepeatsWithoutWriting(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name          string
+		completedText string
+	}{
+		{name: "nonempty completed text", completedText: "POWER: ONLINE"},
+		{name: "explicit empty completed text", completedText: ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			fileSystem := testutil.NewFakeFileSystem()
+			target := filepath.Join(testCampaignsRoot, "entry-content-"+strings.ReplaceAll(test.name, " ", "-")+".json")
+			initial := entryContentStateChangingSession(test.completedText)
+			fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+			service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+			t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+			require.True(t, service.Open(t.Context()).OK)
+
+			first := service.ExecuteCommandState(t.Context(), "t1", "restore-power")
+			require.True(t, first.OK, "ExecuteCommandState() = %#v", first)
+			require.True(t, first.Changed)
+			require.NotNil(t, first.Session)
+			want := domain.CommandExecutionState{
+				CompletedName: "POWER RESTORED",
+				ResultText:    "Power restored.",
+				EntryContentChange: &domain.EntryContentChange{
+					BlockID: "power-status", CompletedText: test.completedText,
+				},
+			}
+			assert.Equal(t, want, first.Session.Terminals[0].CommandStates["restore-power"])
+
+			persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+			require.NoError(t, err)
+			assert.Equal(t, want, persisted.Terminals[0].CommandStates["restore-power"])
+			writesAfterFirst := len(fileSystem.WriteCalls())
+
+			repeated := service.ExecuteCommandState(t.Context(), "t1", "restore-power")
+			require.True(t, repeated.OK, "repeat ExecuteCommandState() = %#v", repeated)
+			assert.False(t, repeated.Changed)
+			assert.Equal(t, first.Revision, repeated.Revision)
+			require.NotNil(t, repeated.Session)
+			assert.Equal(t, want, repeated.Session.Terminals[0].CommandStates["restore-power"])
+			assert.Equal(t, writesAfterFirst, len(fileSystem.WriteCalls()))
+		})
+	}
+}
+
+func TestFailedEntryContentCommandStateMutationRollsBackCommandAndBlockSnapshot(t *testing.T) {
+	t.Parallel()
+
+	target := filepath.Join(testCampaignsRoot, "failed-entry-content-command-state.json")
+	initialSession := entryContentStateChangingSession("POWER: ONLINE")
+	initialData := mustEncodeSession(t, initialSession)
+	store := &failingMutationStore{path: target, data: initialData, err: fmt.Errorf("injected entry-content write failure")}
+	service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+
+	result := service.ExecuteCommandState(t.Context(), "t1", "restore-power")
+	assert.False(t, result.OK)
+	assert.False(t, result.Changed)
+	assert.Nil(t, result.Session)
+	assert.Equal(t, initialData, store.data)
+
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assert.Empty(t, active.Session.Terminals[0].CommandStates)
+	entry := findNodeByID(&active.Session.Terminals[0].Root, "reactor-status")
+	require.NotNil(t, entry)
+	require.Len(t, entry.Blocks, 2)
+	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
+	assert.Equal(t, uint64(0), active.RequestedRevision)
+	assert.Equal(t, uint64(0), active.SavedRevision)
+}
+
+func TestEntryContentCommandStateResetsRemoveWholeSnapshotsAndPreserveUnrelatedState(t *testing.T) {
+	t.Parallel()
+
+	initial := entryContentStateChangingSession("POWER: ONLINE")
+	initial.Terminals[0].Root.Children = append(initial.Terminals[0].Root.Children, domain.ContentNode{
+		ID: "restore-other", Type: domain.NodeCommand, Name: "RESTORE OTHER", Text: "Other restored.",
+		StateChange: &domain.StateChangeConfig{
+			CompletedName: "OTHER RESTORED", ConfirmationText: "Restore other?",
+			EntryContentChange: &domain.EntryContentChange{
+				BlockID: "cooling-status", CompletedText: "COOLING: ONLINE",
+			},
+		},
+	})
+	initial.Terminals = append(initial.Terminals, domain.Terminal{
+		ID: "t2", Name: "Reserve", HackLevel: 1,
+		Root: domain.ContentNode{
+			ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+			Children: []domain.ContentNode{{
+				ID: "reserve", Type: domain.NodeCommand, Name: "RESERVE", Text: "Reserve ready.",
+				StateChange: &domain.StateChangeConfig{CompletedName: "RESERVE READY", ConfirmationText: "Ready reserve?"},
+			}},
+		},
+		CommandStates: map[string]domain.CommandExecutionState{
+			"reserve": {CompletedName: "RESERVE READY", ResultText: "Reserve ready."},
+		},
+	})
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "entry-content-resets.json")
+	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+
+	require.True(t, service.ExecuteCommandState(t.Context(), "t1", "restore-power").OK)
+	require.True(t, service.ExecuteCommandState(t.Context(), "t1", "restore-other").OK)
+	resetOne := service.ResetCommandState(t.Context(), "t1", "restore-power")
+	require.True(t, resetOne.OK, "ResetCommandState() = %#v", resetOne)
+	assert.True(t, resetOne.Changed)
+	assert.Equal(t, uint64(3), resetOne.Revision)
+	require.NotNil(t, resetOne.Session)
+	assert.NotContains(t, resetOne.Session.Terminals[0].CommandStates, "restore-power")
+	other, exists := resetOne.Session.Terminals[0].CommandStates["restore-other"]
+	require.True(t, exists)
+	assert.Equal(t, &domain.EntryContentChange{BlockID: "cooling-status", CompletedText: "COOLING: ONLINE"}, other.EntryContentChange)
+	assert.Contains(t, resetOne.Session.Terminals[1].CommandStates, "reserve")
+
+	resetAll := service.ResetTerminalCommandStates(t.Context(), "t1")
+	require.True(t, resetAll.OK, "ResetTerminalCommandStates() = %#v", resetAll)
+	assert.True(t, resetAll.Changed)
+	assert.Equal(t, uint64(4), resetAll.Revision)
+	require.NotNil(t, resetAll.Session)
+	assert.Empty(t, resetAll.Session.Terminals[0].CommandStates)
+	assert.Contains(t, resetAll.Session.Terminals[1].CommandStates, "reserve")
+	entry := contentNodeByID(&resetAll.Session.Terminals[0].Root, "reactor-status")
+	require.NotNil(t, entry)
+	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
+	assert.Equal(t, "COOLING: OFFLINE", entry.Blocks[1].InitialText)
+
+	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	assert.Empty(t, persisted.Terminals[0].CommandStates)
+	assert.Contains(t, persisted.Terminals[1].CommandStates, "reserve")
+}
+
+func TestDeletingEntryContentCommandPrunesItsWholeFrozenSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "delete-entry-content-command.json")
+	fileSystem.SeedFile(target, mustEncodeSession(t, entryContentStateChangingSession("POWER: ONLINE")))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, service.Open(t.Context()).OK)
+	require.True(t, service.ExecuteCommandState(t.Context(), "t1", "restore-power").OK)
+
+	candidate := domain.CloneSession(*service.Snapshot().Session)
+	children := candidate.Terminals[0].Root.Children
+	filtered := children[:0]
+	for _, child := range children {
+		if child.ID != "restore-power" {
+			filtered = append(filtered, child)
+		}
+	}
+	candidate.Terminals[0].Root.Children = filtered
+	result := service.Save(t.Context(), candidate, 2)
+	require.True(t, result.OK, "Save(delete owning command) = %#v", result)
+
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assert.Empty(t, active.Session.Terminals[0].CommandStates)
+	entry := contentNodeByID(&active.Session.Terminals[0].Root, "reactor-status")
+	require.NotNil(t, entry)
+	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
+}
+
+func TestEntryContentCommandStateResetCancellationAndFailurePreserveSnapshot(t *testing.T) {
+	t.Run("canceled", func(t *testing.T) {
+		fileSystem := testutil.NewFakeFileSystem()
+		target := filepath.Join(testCampaignsRoot, "cancel-entry-content-reset.json")
+		initial := completedEntryContentStateChangingSession()
+		fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+		service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+		t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+		require.True(t, service.Open(t.Context()).OK)
+		writesBefore := len(fileSystem.WriteCalls())
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		result := service.ResetCommandState(ctx, "t1", "restore-power")
+		assert.False(t, result.OK)
+		assert.False(t, result.Changed)
+		assert.Equal(t, writesBefore, len(fileSystem.WriteCalls()))
+		active := service.Snapshot()
+		require.NotNil(t, active.Session)
+		assert.Equal(t, initial.Terminals[0].CommandStates, active.Session.Terminals[0].CommandStates)
+		assert.Zero(t, active.RequestedRevision)
+		assert.Zero(t, active.SavedRevision)
+	})
+
+	t.Run("atomic write failure", func(t *testing.T) {
+		target := filepath.Join(testCampaignsRoot, "failed-entry-content-reset.json")
+		initial := mustEncodeSession(t, completedEntryContentStateChangingSession())
+		store := &failingMutationStore{
+			path: target, data: initial, err: fmt.Errorf("injected reset replacement failure"),
+		}
+		service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)
+		t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+		require.True(t, service.Open(t.Context()).OK)
+
+		result := service.ResetCommandState(t.Context(), "t1", "restore-power")
+		assert.False(t, result.OK)
+		assert.False(t, result.Changed)
+		active := service.Snapshot()
+		require.NotNil(t, active.Session)
+		state, exists := active.Session.Terminals[0].CommandStates["restore-power"]
+		require.True(t, exists)
+		assert.Equal(t, &domain.EntryContentChange{BlockID: "power-status", CompletedText: "POWER: ONLINE"}, state.EntryContentChange)
+		assert.Zero(t, active.RequestedRevision)
+		assert.Zero(t, active.SavedRevision)
+		assert.Equal(t, initial, store.data)
+	})
+}
+
 func TestStaleFullSavePreservesCanonicalFrozenStateAndAppliesAuthoredEdits(t *testing.T) {
 	t.Parallel()
 
@@ -1391,6 +1630,89 @@ func TestStaleFullSavePreservesCanonicalFrozenStateAndAppliesAuthoredEdits(t *te
 	reopened, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
 	require.NoError(t, err)
 	assert.Equal(t, wantFrozen, reopened.Terminals[0].CommandStates["doors"])
+}
+
+func TestEntryContentPersistencePreservesFrozenTargetsAcrossStaleMoveRenameAndReopen(t *testing.T) {
+	t.Parallel()
+
+	initial := entryContentStateChangingSession("POWER: ONLINE")
+	initial.Extra = map[string]json.RawMessage{"futureSession": json.RawMessage(`{"keep":true}`)}
+	initial.Terminals[0].Extra = map[string]json.RawMessage{"futureTerminal": json.RawMessage(`17`)}
+	initial.Terminals[0].Root.Extra = map[string]json.RawMessage{"futureRoot": json.RawMessage(`[]`)}
+	entry := contentNodeByID(&initial.Terminals[0].Root, "reactor-status")
+	require.NotNil(t, entry)
+	entry.Extra = map[string]json.RawMessage{"futureEntry": json.RawMessage(`{"layout":"dense"}`)}
+	command := contentNodeByID(&initial.Terminals[0].Root, "restore-power")
+	require.NotNil(t, command)
+	command.Extra = map[string]json.RawMessage{"futureCommand": json.RawMessage(`"preserve"`)}
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "entry-content-stale-reopen.json")
+	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	stale := domain.CloneSession(*opened.Session)
+
+	executed := service.ExecuteCommandState(t.Context(), "t1", "restore-power")
+	require.True(t, executed.OK, "ExecuteCommandState() = %#v", executed)
+	assert.Equal(t, uint64(1), executed.Revision)
+
+	staleEntry := contentNodeByID(&stale.Terminals[0].Root, "reactor-status")
+	require.NotNil(t, staleEntry)
+	staleEntry.Name = "PRIMARY REACTOR STATUS"
+	staleEntry.Blocks[0].InitialText = "POWER: AUTHORED NEXT"
+	staleCommand := contentNodeByID(&stale.Terminals[0].Root, "restore-power")
+	require.NotNil(t, staleCommand)
+	staleCommand.Name = "RESTORE PRIMARY POWER"
+	staleCommand.StateChange.CompletedName = "PRIMARY POWER RESTORED"
+	staleCommand.StateChange.EntryContentChange.CompletedText = "POWER: NEXT EXECUTION"
+	movedCommand := domain.CloneContentNode(*staleCommand)
+	movedEntry := domain.CloneContentNode(*staleEntry)
+	stale.Terminals[0].Root.Children = []domain.ContentNode{
+		movedEntry,
+		{ID: "maintenance", Type: domain.NodeFolder, Name: "MAINTENANCE", Children: []domain.ContentNode{movedCommand}},
+	}
+
+	saved := service.Save(t.Context(), stale, 2)
+	require.True(t, saved.OK, "Save(stale moved session) = %#v", saved)
+	assert.Equal(t, uint64(2), saved.SavedRevision)
+	wantFrozen := domain.CommandExecutionState{
+		CompletedName: "POWER RESTORED", ResultText: "Power restored.",
+		EntryContentChange: &domain.EntryContentChange{
+			BlockID: "power-status", CompletedText: "POWER: ONLINE",
+		},
+	}
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	assert.Equal(t, wantFrozen, active.Session.Terminals[0].CommandStates["restore-power"])
+	command = contentNodeByID(&active.Session.Terminals[0].Root, "restore-power")
+	require.NotNil(t, command)
+	assert.Equal(t, "RESTORE PRIMARY POWER", command.Name)
+	assert.Equal(t, "power-status", command.StateChange.EntryContentChange.BlockID)
+
+	reopened := service.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Equal(t, wantFrozen, reopened.Session.Terminals[0].CommandStates["restore-power"])
+	assert.JSONEq(t, `{"keep":true}`, string(reopened.Session.Extra["futureSession"]))
+	assert.JSONEq(t, `{"layout":"dense"}`, string(contentNodeByID(&reopened.Session.Terminals[0].Root, "reactor-status").Extra["futureEntry"]))
+
+	deleted := domain.CloneSession(*reopened.Session)
+	deleted.Terminals[0].Root.Children = deleted.Terminals[0].Root.Children[:1]
+	deleteRevision := service.Snapshot().RequestedRevision + 1
+	deleteResult := service.Save(t.Context(), deleted, deleteRevision)
+	require.True(t, deleteResult.OK, "Save(delete moved command) = %#v", deleteResult)
+	assert.Empty(t, service.Snapshot().Session.Terminals[0].CommandStates)
+
+	recovered := service.Open(t.Context())
+	require.True(t, recovered.OK, "reopen after deletion = %#v", recovered)
+	require.NotNil(t, recovered.Session)
+	assert.Empty(t, recovered.Session.Terminals[0].CommandStates)
+	assert.Nil(t, contentNodeByID(&recovered.Session.Terminals[0].Root, "restore-power"))
+	assert.Equal(t, "POWER: AUTHORED NEXT", contentNodeByID(&recovered.Session.Terminals[0].Root, "reactor-status").Blocks[0].InitialText)
 }
 
 func TestFullSavePrunesFrozenStateWhenCommandIsDeleted(t *testing.T) {
@@ -1834,6 +2156,50 @@ func stateChangingSession(name string) domain.Session {
 			},
 		},
 	}
+}
+
+func entryContentStateChangingSession(completedText string) domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Entry content command",
+		Terminals: []domain.Terminal{{
+			ID: "t1", Name: "Terminal 1",
+			Root: domain.ContentNode{
+				ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+				Children: []domain.ContentNode{
+					{
+						ID: "reactor-status", Type: domain.NodeEntry, Name: "REACTOR STATUS",
+						Blocks: []domain.EntryContentBlock{
+							{ID: "power-status", InitialText: "POWER: OFFLINE"},
+							{ID: "cooling-status", InitialText: "COOLING: OFFLINE"},
+						},
+					},
+					{
+						ID: "restore-power", Type: domain.NodeCommand, Name: "RESTORE POWER", Text: "Power restored.",
+						StateChange: &domain.StateChangeConfig{
+							CompletedName: "POWER RESTORED", ConfirmationText: "Restore power?",
+							EntryContentChange: &domain.EntryContentChange{
+								BlockID: "power-status", CompletedText: completedText,
+							},
+						},
+					},
+				},
+			},
+		}},
+	}
+}
+
+func completedEntryContentStateChangingSession() domain.Session {
+	session := entryContentStateChangingSession("POWER: ONLINE")
+	session.Terminals[0].CommandStates = map[string]domain.CommandExecutionState{
+		"restore-power": {
+			CompletedName: "POWER RESTORED", ResultText: "Power restored.",
+			EntryContentChange: &domain.EntryContentChange{
+				BlockID: "power-status", CompletedText: "POWER: ONLINE",
+			},
+		},
+	}
+	return session
 }
 
 func stateChangingSessionWith100CompletedCommands() domain.Session {
