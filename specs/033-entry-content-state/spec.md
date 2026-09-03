@@ -5,6 +5,10 @@
 ### Session 2026-09-03
 
 - Q: What identifying details should the Overseer see for each command-to-block relationship? → A: The command shows the entry name, block position, and text preview; the entry block shows the targeting command name.
+- Q: When configuring an EntryContent block through its dialog, how should the Overseer assign the command that changes it? → A: Support both assigning an existing eligible command and creating and configuring a new state-changing command.
+- Q: Where should a new command created from an EntryContent block's assignment dialog be inserted in the terminal content tree? → A: Require the Overseer to select a destination folder in the dialog.
+- Q: When an EntryContent block already has an uncompleted targeting command, what should happen if the Overseer assigns a different command in the dialog? → A: Atomically remove the old command's block target and assign the new command; require reset before reassigning a completed owner.
+- Q: Should the EntryContent block dialog allow the Overseer to remove its command assignment without selecting a replacement? → A: Allow atomic removal of an uncompleted assignment; require reset before removing a completed assignment.
 
 ## User Scenarios & Testing
 
@@ -45,6 +49,12 @@ As an Overseer, I can divide an entry into independently changeable blocks and c
 6. **Given** a targeted entry, block, or command is renamed or moved without changing its identity, **When** the session is saved, **Then** the target relationship and any completed state remain intact.
 7. **Given** a command targets an entry block, **When** the Overseer views the command, **Then** the target is identified by the entry name, block position, and a preview of the block's authored text.
 8. **Given** an entry block is targeted by a command, **When** the Overseer views that block in the entry editor, **Then** the targeting command is identified by name.
+9. **Given** an Overseer opens a block's command-assignment dialog, **When** they either select an eligible existing state-changing command from the same terminal or create and configure a new state-changing command and apply the dialog, **Then** that command canonically targets the block with the entered completed block content and both editors show the relationship.
+10. **Given** the Overseer creates a command from a block's command-assignment dialog, **When** they select a destination folder and apply the dialog, **Then** the new command is inserted in that folder within the block's terminal.
+11. **Given** a block is owned by an uncompleted command, **When** the Overseer assigns a different eligible command through the block dialog, **Then** the old command's block target is removed and the new command's target and completed block content are saved as one atomic authoring change.
+12. **Given** a block is owned by a completed command, **When** the Overseer opens its command-assignment dialog, **Then** reassignment is unavailable until the existing command state is reset.
+13. **Given** a block is owned by an uncompleted command, **When** the Overseer removes the assignment through the block dialog, **Then** the command's entry-content change is removed in one saved authoring change while its other state-changing configuration is preserved.
+14. **Given** the Overseer has drafted any assignment, reassignment, removal, or new command in the block dialog, **When** they cancel or close the dialog, **Then** the content tree and command configurations remain unchanged and no authoring save occurs.
 
 ---
 
@@ -87,6 +97,8 @@ As an Overseer, I can rely on command-driven entry changes surviving normal appl
 - Empty or whitespace-only initial or completed block content is allowed when intentionally authored; block identity and target validity do not depend on visible text.
 - A command cannot target an entry, block, or terminal that does not exist in the same terminal content tree.
 - Two commands may target different blocks within one entry, but two commands may not target the same block.
+- Reassigning an uncompleted block owner updates both commands atomically; a completed owner must be reset before reassignment.
+- Removing an uncompleted block assignment preserves the command as a state-changing command without an entry target; a completed assignment must be reset before removal.
 - Duplicate block identities within a terminal make the session invalid rather than allowing an ambiguous command target.
 - Target labels remain unambiguous when blocks have identical or empty text by including the block position; an empty preview is displayed explicitly rather than as missing information.
 - Removing a command that has completed also removes its owned entry block state, matching the existing lifecycle of command-owned state.
@@ -120,6 +132,10 @@ As an Overseer, I can rely on command-driven entry changes surviving normal appl
 - **FR-020**: A session with missing, duplicate, cross-terminal, or otherwise ambiguous entry block targets MUST be rejected with actionable feedback instead of being loaded or saved with unpredictable behavior.
 - **FR-021**: The command authoring experience MUST identify a selected entry block target by its containing entry name, block position, and a preview of its authored text.
 - **FR-022**: The entry authoring experience MUST identify each targeted block's targeting command by the command's name.
+- **FR-023**: Each EntryContent block MUST provide a command-assignment dialog that can assign an eligible same-terminal state-changing command that targets no other block (including the block's current uncompleted owner) or create and fully configure a new state-changing command, capture the block's completed content, and store the canonical target relationship on the command.
+- **FR-024**: Creating a command from a block's command-assignment dialog MUST require selecting an existing destination folder in the same terminal and MUST insert the command only into that folder.
+- **FR-025**: Reassigning a block with an uncompleted owner MUST atomically remove the old command's entry-content change and save the new command's entry-content change, while reassignment of a completed owner MUST remain unavailable until reset.
+- **FR-026**: Removing an uncompleted assignment through the block's command-assignment dialog MUST remove only that command's entry-content change in one saved authoring change, while removal of a completed assignment MUST remain unavailable until reset.
 
 ## Key Entities
 
@@ -141,6 +157,7 @@ As an Overseer, I can rely on command-driven entry changes surviving normal appl
 - **SC-006**: Across rejection, cancellation, invalid-target, save-failure, and reset-failure tests, zero cases expose a partial command/block state to players or the Overseer.
 - **SC-007**: Completed entry block content remains correct after broadcast restart, terminal switching, application restart, and session reopening in all lifecycle tests.
 - **SC-008**: In every configured command-to-block relationship, the Overseer can navigate from the command to the exact entry block and from the entry block to the targeting command without consulting an internal identifier.
+- **SC-009**: Block-dialog testing can assign an existing command, create a command in a selected folder, reassign an uncompleted owner, and remove an uncompleted assignment with exactly one valid saved authoring change per action, while cancellation or a completed-owner change attempt produces no save.
 
 ## Assumptions
 

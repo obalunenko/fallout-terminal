@@ -185,6 +185,21 @@ const btnDeferApplicationUpdate = document.getElementById('btnDeferApplicationUp
 const applicationUpdateRestartDialog = document.getElementById('applicationUpdateRestartDialog');
 const btnRestartApplicationUpdate = document.getElementById('btnRestartApplicationUpdate');
 const btnPostponeApplicationUpdate = document.getElementById('btnPostponeApplicationUpdate');
+const entryBlockCommandDialog = document.getElementById('entryBlockCommandDialog');
+const entryBlockCommandDialogDescription = document.getElementById('entryBlockCommandDialogDescription');
+const entryBlockCommandForm = document.getElementById('entryBlockCommandForm');
+const entryBlockCommandModeInputs = Array.from(document.querySelectorAll('input[name="entryBlockCommandMode"]'));
+const entryBlockExistingCommand = document.getElementById('entryBlockExistingCommand');
+const entryBlockCompletedText = document.getElementById('entryBlockCompletedText');
+const entryBlockNewCommandName = document.getElementById('entryBlockNewCommandName');
+const entryBlockNewCompletedName = document.getElementById('entryBlockNewCompletedName');
+const entryBlockNewConfirmationText = document.getElementById('entryBlockNewConfirmationText');
+const entryBlockNewResultText = document.getElementById('entryBlockNewResultText');
+const entryBlockNewDestinationFolder = document.getElementById('entryBlockNewDestinationFolder');
+const entryBlockCommandError = document.getElementById('entryBlockCommandError');
+const btnApplyEntryBlockCommand = entryBlockCommandDialog.querySelector('[data-entry-block-command-action="apply"]');
+const btnRemoveEntryBlockCommand = entryBlockCommandDialog.querySelector('[data-entry-block-command-action="remove"]');
+const btnCancelEntryBlockCommand = entryBlockCommandDialog.querySelector('[data-entry-block-command-action="cancel"]');
 
 let serverUrl = null;
 let serverUrlTitle = '';
@@ -227,6 +242,7 @@ let applicationUpdateRestartDialogAttemptID = '';
 let applicationUpdateRestartDialogOpener = null;
 let applicationUpdateRestartCommandPending = false;
 let latestRenderedApplicationUpdateRevision = -1;
+let entryBlockCommandDraft = null;
 const promptedApplicationUpdateRevisions = new Set();
 const promptedApplicationUpdateRestartRevisions = new Set();
 const suppressedApplicationUpdateAttempts = new Set();
@@ -1444,6 +1460,251 @@ function entryBlockOwners(term) {
   return owners;
 }
 
+function entryBlockLocation(term, blockID) {
+  return entryBlockCatalog(term).find(({ block }) => block.id === blockID) || null;
+}
+
+function entryBlockCommandCandidates(term, blockID, currentOwnerID = '') {
+  const candidates = [];
+  visitContentNodes(term?.root, (node) => {
+    if (node.type !== 'command' || !node.stateChange) return;
+    const targetBlockID = node.stateChange.entryContentChange?.blockId || '';
+    if (targetBlockID && targetBlockID !== blockID) return;
+    if (commandExecutionState(term, node.id) && node.id !== currentOwnerID) return;
+    candidates.push(node);
+  });
+  return candidates;
+}
+
+function entryBlockFolderCatalog(term) {
+  const folders = [];
+  function walk(node, path) {
+    if (node.type !== 'folder') return;
+    const name = node.id === 'root' ? 'ROOT' : node.name;
+    const nextPath = [...path, name];
+    folders.push({ folder: node, label: nextPath.join(' › ') });
+    for (const child of node.children ?? []) {
+      if (child.type === 'folder') walk(child, nextPath);
+    }
+  }
+  if (term?.root) walk(term.root, []);
+  return folders;
+}
+
+function setEntryBlockCommandError(message, field = null) {
+  entryBlockCommandError.textContent = message;
+  entryBlockCommandError.hidden = !message;
+  field?.focus();
+}
+
+function selectedEntryBlockCommandMode() {
+  return entryBlockCommandModeInputs.find(input => input.checked)?.value || 'existing';
+}
+
+function updateEntryBlockCommandMode() {
+  const mode = selectedEntryBlockCommandMode();
+  entryBlockCommandDialog.querySelectorAll('[data-entry-block-command-fields]').forEach((fields) => {
+    fields.hidden = fields.dataset.entryBlockCommandFields !== mode;
+  });
+  setEntryBlockCommandError('');
+}
+
+function closeEntryBlockCommandDialog({ restoreFocus = true } = {}) {
+  const draft = entryBlockCommandDraft;
+  if (entryBlockCommandDialog.open && typeof entryBlockCommandDialog.close === 'function') {
+    entryBlockCommandDialog.close();
+  } else {
+    entryBlockCommandDialog.removeAttribute('open');
+  }
+  entryBlockCommandDialog.hidden = true;
+  entryBlockCommandDraft = null;
+  if (!restoreFocus || !draft) return;
+  const trigger = nodeForm.querySelector(
+    `.entry-content-block[data-block-id="${CSS.escape(draft.blockID)}"] [data-entry-block-action="configure-command"]`,
+  );
+  trigger?.focus();
+}
+
+function openEntryBlockCommandDialog(term, blockID) {
+  const location = entryBlockLocation(term, blockID);
+  if (!location) return;
+  const owner = entryBlockOwners(term).get(blockID) || null;
+  const completedOwner = owner ? commandExecutionState(term, owner.id) : null;
+  const locked = Boolean(completedOwner);
+  const candidates = entryBlockCommandCandidates(term, blockID, owner?.id);
+
+  entryBlockCommandDraft = { terminalID: term.id, blockID };
+  entryBlockCommandForm.reset();
+  entryBlockCommandDialogDescription.textContent = entryBlockTargetLabel(
+    location.entry,
+    location.block,
+    location.index,
+  );
+  if (completedOwner) {
+    entryBlockCommandDialogDescription.textContent += ` · ${effectiveNodeName(term, owner)} · СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ`;
+  }
+
+  entryBlockExistingCommand.innerHTML = '<option value="">ВЫБЕРИТЕ КОМАНДУ</option>'
+    + candidates.map(command =>
+      `<option value="${escAttr(command.id)}">${escHtml(effectiveNodeName(term, command))}</option>`
+    ).join('');
+  entryBlockExistingCommand.value = owner?.id || '';
+  entryBlockCompletedText.value = completedOwner?.entryContentChange?.completedText
+    ?? owner?.stateChange?.entryContentChange?.completedText
+    ?? '';
+  entryBlockNewDestinationFolder.innerHTML = '<option value="">ВЫБЕРИТЕ ПАПКУ</option>'
+    + entryBlockFolderCatalog(term).map(({ folder, label }) =>
+      `<option value="${escAttr(folder.id)}">${escHtml(label)}</option>`
+    ).join('');
+
+  entryBlockCommandModeInputs.forEach(input => { input.disabled = locked; });
+  entryBlockExistingCommand.disabled = locked;
+  entryBlockCompletedText.disabled = locked;
+  entryBlockCommandDialog.querySelectorAll('[data-entry-block-command-fields="new"] input, [data-entry-block-command-fields="new"] textarea, [data-entry-block-command-fields="new"] select')
+    .forEach(control => { control.disabled = locked; });
+  btnApplyEntryBlockCommand.disabled = locked;
+  btnRemoveEntryBlockCommand.disabled = locked || !owner;
+  setEntryBlockCommandError('');
+  updateEntryBlockCommandMode();
+
+  entryBlockCommandDialog.hidden = false;
+  if (typeof entryBlockCommandDialog.showModal === 'function' && !entryBlockCommandDialog.open) {
+    entryBlockCommandDialog.showModal();
+  } else {
+    entryBlockCommandDialog.setAttribute('open', '');
+  }
+  (completedOwner ? btnCancelEntryBlockCommand : entryBlockExistingCommand).focus();
+}
+
+async function saveEntryBlockCommandCandidate(candidate) {
+  state.session = candidate;
+  await autosave();
+  renderTree();
+  renderNodeForm();
+  renderToolbarHint();
+  closeEntryBlockCommandDialog();
+}
+
+async function applyEntryBlockCommandDialog() {
+  const draft = entryBlockCommandDraft;
+  if (!draft || !state.session) return;
+  const term = state.session.terminals.find(candidate => candidate.id === draft.terminalID);
+  const location = entryBlockLocation(term, draft.blockID);
+  if (!location) {
+    setEntryBlockCommandError('БЛОК БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  const owner = entryBlockOwners(term).get(draft.blockID) || null;
+  if (owner && commandExecutionState(term, owner.id)) {
+    setEntryBlockCommandError('СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ');
+    return;
+  }
+
+  const mode = selectedEntryBlockCommandMode();
+  let selectedCommandID = '';
+  let destinationFolderID = '';
+  if (mode === 'existing') {
+    selectedCommandID = entryBlockExistingCommand.value;
+    const selected = selectedCommandID ? locateNode(term.root, selectedCommandID)?.node : null;
+    const targetBlockID = selected?.stateChange?.entryContentChange?.blockId || '';
+    if (!selected || selected.type !== 'command' || !selected.stateChange
+      || commandExecutionState(term, selected.id)
+      || (targetBlockID && targetBlockID !== draft.blockID)) {
+      setEntryBlockCommandError('ВЫБЕРИТЕ ДОСТУПНУЮ КОМАНДУ', entryBlockExistingCommand);
+      return;
+    }
+  } else {
+    const required = [
+      [entryBlockNewCommandName, 'УКАЖИТЕ НАЗВАНИЕ ДО ВЫПОЛНЕНИЯ'],
+      [entryBlockNewCompletedName, 'УКАЖИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ'],
+      [entryBlockNewConfirmationText, 'УКАЖИТЕ ТЕКСТ ПОДТВЕРЖДЕНИЯ'],
+      [entryBlockNewResultText, 'УКАЖИТЕ РЕЗУЛЬТАТ КОМАНДЫ'],
+    ];
+    for (const [field, message] of required) {
+      if (!field.value.trim()) {
+        setEntryBlockCommandError(message, field);
+        return;
+      }
+    }
+    destinationFolderID = entryBlockNewDestinationFolder.value;
+    const destination = destinationFolderID ? locateNode(term.root, destinationFolderID)?.node : null;
+    if (!destination || destination.type !== 'folder') {
+      setEntryBlockCommandError('ВЫБЕРИТЕ ПАПКУ ЭТОГО ТЕРМИНАЛА', entryBlockNewDestinationFolder);
+      return;
+    }
+  }
+
+  const candidate = structuredClone(state.session);
+  const candidateTerm = candidate.terminals.find(terminal => terminal.id === draft.terminalID);
+  const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID) || null;
+  if (candidateOwner && candidateOwner.id !== selectedCommandID) {
+    delete candidateOwner.stateChange.entryContentChange;
+  }
+
+  if (mode === 'existing') {
+    const selected = locateNode(candidateTerm.root, selectedCommandID).node;
+    selected.stateChange.entryContentChange = {
+      blockId: draft.blockID,
+      completedText: entryBlockCompletedText.value,
+    };
+  } else {
+    let commandID;
+    do commandID = uid('n'); while (locateNode(candidateTerm.root, commandID));
+    const destination = locateNode(candidateTerm.root, destinationFolderID).node;
+    destination.children ??= [];
+    destination.children.push({
+      id: commandID,
+      type: 'command',
+      name: entryBlockNewCommandName.value.trim(),
+      text: entryBlockNewResultText.value,
+      stateChange: {
+        completedName: entryBlockNewCompletedName.value,
+        confirmationText: entryBlockNewConfirmationText.value,
+        entryContentChange: {
+          blockId: draft.blockID,
+          completedText: entryBlockCompletedText.value,
+        },
+      },
+    });
+  }
+
+  await saveEntryBlockCommandCandidate(candidate);
+}
+
+async function removeEntryBlockCommand() {
+  const draft = entryBlockCommandDraft;
+  if (!draft || !state.session) return;
+  const term = state.session.terminals.find(candidate => candidate.id === draft.terminalID);
+  if (!entryBlockLocation(term, draft.blockID)) {
+    setEntryBlockCommandError('БЛОК БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  const owner = entryBlockOwners(term).get(draft.blockID) || null;
+  if (!owner) {
+    setEntryBlockCommandError('СВЯЗЬ БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+    return;
+  }
+  if (commandExecutionState(term, owner.id)) {
+    setEntryBlockCommandError('СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ');
+    return;
+  }
+  const candidate = structuredClone(state.session);
+  const candidateTerm = candidate.terminals.find(terminal => terminal.id === draft.terminalID);
+  const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID);
+  delete candidateOwner.stateChange.entryContentChange;
+  await saveEntryBlockCommandCandidate(candidate);
+}
+
+entryBlockCommandForm.addEventListener('submit', (event) => event.preventDefault());
+entryBlockCommandModeInputs.forEach(input => input.addEventListener('change', updateEntryBlockCommandMode));
+btnApplyEntryBlockCommand.addEventListener('click', applyEntryBlockCommandDialog);
+btnRemoveEntryBlockCommand.addEventListener('click', removeEntryBlockCommand);
+btnCancelEntryBlockCommand.addEventListener('click', closeEntryBlockCommandDialog);
+entryBlockCommandDialog.addEventListener('cancel', (event) => {
+  event.preventDefault();
+  closeEntryBlockCommandDialog();
+});
+
 function normalizedEntryBlockPreview(value) {
   const normalized = String(value ?? '').trim().replace(/\s+/gu, ' ');
   if (!normalized) return 'ПУСТО';
@@ -1506,6 +1767,7 @@ function entryContentBlockMarkup(term, block, index, { legacyDraft = false, owne
     <div class="entry-content-block-heading">
       <span class="entry-content-block-index">БЛОК ${index + 1}</span>
       <span class="entry-content-block-actions" role="group" aria-label="Действия блока ${index + 1}">
+        <button class="btn btn-mini" type="button" data-entry-block-action="configure-command" aria-label="Настроить команду для блока ${index + 1}" aria-haspopup="dialog" aria-controls="entryBlockCommandDialog"${legacyDraft ? ' disabled title="Сначала примените блок"' : ''}>КОМАНДА…</button>
         <button class="btn btn-mini" type="button" data-entry-block-action="move-up" aria-label="Переместить блок ${index + 1} вверх">↑</button>
         <button class="btn btn-mini" type="button" data-entry-block-action="move-down" aria-label="Переместить блок ${index + 1} вниз">↓</button>
         <button class="btn btn-mini btn-danger" type="button" data-entry-block-action="delete" aria-label="Удалить блок ${index + 1}">×</button>
@@ -3515,11 +3777,13 @@ function renderNodeForm() {
         const moveUp = row.querySelector('[data-entry-block-action="move-up"]');
         const moveDown = row.querySelector('[data-entry-block-action="move-down"]');
         const remove = row.querySelector('[data-entry-block-action="delete"]');
+        const configure = row.querySelector('[data-entry-block-action="configure-command"]');
         moveUp.disabled = index === 0;
         moveDown.disabled = index === rows.length - 1;
         moveUp.setAttribute('aria-label', `Переместить блок ${position} вверх`);
         moveDown.setAttribute('aria-label', `Переместить блок ${position} вниз`);
         remove.setAttribute('aria-label', `Удалить блок ${position}`);
+        configure.setAttribute('aria-label', `Настроить команду для блока ${position}`);
       });
     };
     const bindBlockRow = (row) => {
@@ -3530,6 +3794,11 @@ function renderNodeForm() {
       row.querySelectorAll('[data-entry-block-action]').forEach((button) => {
         button.addEventListener('click', () => {
           const action = button.dataset.entryBlockAction;
+          if (action === 'configure-command') {
+            const blockID = row.dataset.blockId;
+            if (blockID) openEntryBlockCommandDialog(term, blockID);
+            return;
+          }
           if (action === 'delete') {
             const owner = row.querySelector('[data-entry-block-owner]');
             if (owner) {

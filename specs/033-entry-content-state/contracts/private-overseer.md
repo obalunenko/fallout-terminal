@@ -25,10 +25,36 @@ Stable structure for accessibility and browser verification:
 - `[data-entry-block-action="move-up"]`: moves the existing block one position earlier.
 - `[data-entry-block-action="move-down"]`: moves the existing block one position later.
 - `[data-entry-block-action="delete"]`: requests deletion of the existing block.
+- `[data-entry-block-action="configure-command"]`: opens the command-assignment dialog for the existing block.
 
 Editing text or moving a row preserves its `data-block-id`. Empty and whitespace-only text is accepted. A legacy description appears as a draft block; its real ID is generated only when an edit is applied.
 
 The ownership text reads `ИЗМЕНЯЕТСЯ КОМАНДОЙ: <command name>` and is absent for an untargeted block. It uses the completed command name while a durable snapshot exists and the authored initial name otherwise. Deleting a targeted block, an entry containing one, or an ancestor subtree containing one is rejected through `#nodeValidationError`, and the message identifies every targeting command that must first be reset/reassigned or deleted.
+
+## EntryContent Block Command-Assignment Dialog Contract
+
+The reverse-authoring surface is one static native dialog in the Overseer document:
+
+- `#entryBlockCommandDialog`: modal dialog labelled by the current entry name and one-based block position.
+- `#entryBlockCommandForm`: draft-only form; opening or changing fields does not mutate the session.
+- `input[name="entryBlockCommandMode"]`: selects `existing` or `new` mode.
+- `#entryBlockExistingCommand`: existing-command selector.
+- `#entryBlockCompletedText`: completed content for the dialog's block; empty and whitespace-only values are valid.
+- `#entryBlockNewCommandName`: required initial name in new-command mode.
+- `#entryBlockNewCompletedName`: required completed command name in new-command mode.
+- `#entryBlockNewConfirmationText`: required approval prompt in new-command mode.
+- `#entryBlockNewResultText`: required successful command result in new-command mode.
+- `#entryBlockNewDestinationFolder`: required same-terminal folder selector in new-command mode.
+- `#entryBlockCommandError`: assertive validation feedback that does not close the dialog or save invalid input.
+- `[data-entry-block-command-action="apply"]`: validates and applies one assignment, reassignment, or creation candidate.
+- `[data-entry-block-command-action="remove"]`: removes the current uncompleted assignment while preserving the command's other state-change fields.
+- `[data-entry-block-command-action="cancel"]`: closes and discards the draft without a save.
+
+The existing-command selector includes state-changing commands from the current terminal that target no block, plus the block's current uncompleted owner. Commands targeting other blocks are excluded. The destination selector includes the current terminal root and every nested folder, labelled by a human-readable breadcrumb and backed by stable folder IDs. New commands are appended as the last child of the selected folder.
+
+Apply re-resolves every selected ID against the current session, validates all mode-specific fields, and mutates only after the complete candidate is valid. Reassignment clears the old uncompleted owner's nested entry-content change and sets the new owner's change before exactly one `SaveSession` call. Removal clears only the old owner's nested entry-content change before one save. Creation allocates one stable command ID, creates the complete command and nested block change in the selected folder, and saves once. After a successful apply attempt, the tree and both relationship labels rerender from the command configurations.
+
+When the block's owner has a durable command snapshot, the dialog displays the effective owner name and completed block text but disables mode, Apply, and Remove until the existing reset flow succeeds. Cancel, the native Escape cancellation event, and the close action discard the draft and restore focus to the block's configure-command control without mutating browser session state or calling `SaveSession`.
 
 ## Command Target Contract
 

@@ -8,6 +8,16 @@
       "name": "Терминал смотрителя — Убежище 76",
       "hackLevel": 0,
       "introText": "ROBCO TERMLINK // УБЕЖИЩЕ 76\nДОПУСК: СМОТРИТЕЛЬ",
+      "commandStates": {
+        "n_cmd_1": {
+          "completedName": "Маршрут выхода активирован",
+          "resultText": "Маршрут к гермодвери освещён. Аварийные указатели и стенды Vault Boy получают питание.",
+          "entryContentChange": {
+            "blockId": "b_vault_shutdown_heading",
+            "completedText": "СЛУЖЕБНОЕ УВЕДОМЛЕНИЕ · МАРШРУТ ВЫХОДА АКТИВИРОВАН"
+          }
+        }
+      },
       "root": {
         "children": [
           {

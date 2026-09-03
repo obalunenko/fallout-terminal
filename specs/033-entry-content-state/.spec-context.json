@@ -284,7 +284,7 @@
     }
   ],
   "telemetryInstanceId": "ca7d833e-bebd-4dd1-9864-f0c72ebaa7e3",
-  "last_action": "living specs evaluated — skipped (not configured)",
+  "last_action": "Implemented and validated the EntryContent block command dialog increment; production build and 207 browser journeys pass.",
   "coverage": {
     "FR-001": {
       "title": "The authoring experience MUST allow an entry's displayed content to be organized as an ordered collection of independently identifiable blocks.",
@@ -490,6 +490,64 @@
         "T016",
         "T017"
       ]
+    },
+    "FR-023": {
+      "title": "Each EntryContent block provides a dialog to assign an eligible existing command or create and fully configure a new command while storing the canonical relationship on the command.",
+      "tasks": [
+        "T026",
+        "T027",
+        "T028",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-024": {
+      "title": "New commands created from the block dialog require a selected same-terminal destination folder.",
+      "tasks": [
+        "T026",
+        "T027",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-025": {
+      "title": "Reassigning an uncompleted owner is atomic while completed owners remain locked until reset.",
+      "tasks": [
+        "T026",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-026": {
+      "title": "Removing an uncompleted assignment clears only its entry-content change while completed assignments remain locked until reset.",
+      "tasks": [
+        "T026",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "SC-009": {
+      "title": "Block-dialog assignment, creation, reassignment, and removal each save exactly once; cancellation and completed-owner attempts do not save.",
+      "tasks": [
+        "T026",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
     }
   },
   "size": "oversized",
@@ -511,7 +569,7 @@
     "Multiple competing commands or multi-step transitions for the same block",
     "A separate entry-only reset that can diverge from the owning command"
   ],
-  "approach": "Add ordered terminal-scoped entry blocks and an optional explicitly present block change to state-changing commands, freezing that change inside the existing command snapshot. Apply and compose effective blocks in Go, route resets through the coordinator after durable session writes, and derive bidirectional Overseer labels from the canonical target while keeping public player and private desktop method surfaces unchanged.",
+  "approach": "Add one native EntryContent block command-assignment dialog that keeps edits in a detached draft and commits one valid whole-session candidate through the existing SaveSession path. Preserve command configuration as the sole canonical relationship owner; assignment, creation in a selected folder, reassignment, and removal require no schema or backend API change.",
   "decisions": [
     {
       "decision": "Store the frozen entry block outcome inside CommandExecutionState",
@@ -552,15 +610,35 @@
       "decision": "Derive bidirectional Overseer labels from the canonical command target",
       "why": "commands and entry blocks remain mutually identifiable without a duplicated persisted back-reference",
       "rejected": "persisting a targeting command ID on each entry block"
+    },
+    {
+      "decision": "Use one native EntryContent-side dialog with an isolated draft",
+      "why": "Cancel and validation failures can remain mutation-free while reusing established accessible dialog patterns",
+      "rejected": "Inline per-block forms or live session mutation with rollback"
+    },
+    {
+      "decision": "Keep reverse assignment canonical on command configuration",
+      "why": "Both editor directions converge on the existing one-owner relationship and reassignment can be one candidate save",
+      "rejected": "Persisting an owner command ID on EntryContent blocks"
+    },
+    {
+      "decision": "Create complete commands in an explicitly selected same-terminal folder",
+      "why": "The new command has a predictable authored location and is valid before the single save",
+      "rejected": "Implicit root placement, adjacent insertion, or placeholder creation"
     }
   ],
   "step_summaries": {
     "plan": {
-      "summary": "Reconciled the plan with bidirectional Overseer target visibility while retaining command-owned atomic state and unchanged public/player methods.",
-      "key_finding": "Both command-side block labels and entry-side command labels can be derived at render time from the canonical block target, so no persisted reverse relationship is needed."
+      "summary": "Replanned feature 033 with an EntryContent-side assignment and creation dialog using one existing session save.",
+      "key_finding": "The increment is frontend-only because the established command-owned EntryContentChange already represents every clarified operation."
     },
     "tasks": {
-      "summary": "25 tasks across setup, shared foundations, four user-story phases, and one cross-cutting validation owner; explicit dependency waves preserve tests-first execution and bidirectional Overseer visibility coverage."
+      "summary": "Added five dependency-ordered tasks in two phases for the EntryContent block command dialog and validation."
+    },
+    "implement": {
+      "summary": "Implemented the EntryContent-side native dialog for existing assignment, selected-folder command creation, atomic reassignment/removal, completed-owner locking, focus-safe cancellation, and stale-reference rejection.",
+      "key_finding": "The existing command-owned EntryContentChange and SaveSession boundary supported the increment without persistence or public-player contract changes.",
+      "risks": "No remaining product risk found; lifecycle task markers could not be materialized because the context was already terminal."
     }
   },
   "currentTask": "T025",
@@ -793,6 +871,21 @@
       "what": "Public player protobuf contract",
       "result": "unchanged",
       "command": "git diff --name-only -- proto/fallout/terminal/player frontend/client/gen/fallout/terminal/player"
+    },
+    {
+      "what": "EntryContent block command dialog production build",
+      "result": "passed",
+      "command": "task frontend:build"
+    },
+    {
+      "what": "Repository browser journeys after dialog increment",
+      "result": "207 passed, 2 opt-in ngrok journeys skipped",
+      "command": "task browser:test"
+    },
+    {
+      "what": "Focused state-changing command authoring journeys",
+      "result": "25 passed",
+      "command": "npm test -- state-changing-command-authoring.spec.mjs"
     }
   ],
   "concerns": [
@@ -805,6 +898,11 @@
       "note": "Repository-wide task test and task test:race could not complete only because the managed sandbox denies local TCP listeners used by existing updater, player, and tunnel tests; all affected feature packages and targeted root tests passed, including under -race.",
       "step": "implement",
       "kind": "environment"
+    },
+    {
+      "note": "The Companion context was already status=completed before clarified dialog tasks T026-T030 were generated, so the guarded lifecycle writer refused their task journals and checkbox materialization even though implementation and validation completed.",
+      "step": "implement",
+      "kind": "lifecycle"
     }
   ]
 }

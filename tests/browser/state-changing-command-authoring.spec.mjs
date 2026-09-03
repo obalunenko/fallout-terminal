@@ -204,6 +204,16 @@ function entryBlockOwner(page, blockID, commandID) {
   );
 }
 
+async function openEntryBlockCommandDialog(page, blockID) {
+  const trigger = page.locator(
+    `.entry-content-block[data-block-id="${blockID}"] [data-entry-block-action="configure-command"]`,
+  );
+  await trigger.click();
+  const dialog = page.locator('#entryBlockCommandDialog');
+  await expect(dialog).toBeVisible();
+  return { dialog, trigger };
+}
+
 async function authoringDurableState(page) {
   return page.evaluate(() => __desktopFixture.authoringDurableState());
 }
@@ -1109,4 +1119,153 @@ test('terminal-wide block reset cancels and fails atomically before restoring ev
   await expect(page.locator(
     `.entry-content-block[data-block-id="${BLOCK_IDS.empty}"] [data-entry-block-content]`,
   )).toHaveValue(' \n\t ');
+});
+
+test('block dialog assigns an eligible existing command with empty text and cancels without saving', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+
+  const { dialog, trigger } = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateOne);
+  await expect(dialog).toContainText('СОСТОЯНИЕ РЕАКТОРА · БЛОК 2');
+  const command = dialog.locator('#entryBlockExistingCommand');
+  await expect(command.locator('option')).toHaveText(['ВЫБЕРИТЕ КОМАНДУ', 'Проверить резервный контур']);
+  await expect(command.locator(`option[value="${BLOCK_OWNER_COMMAND_ID}"]`)).toHaveCount(0);
+
+  const savesBeforeCancel = await desktopCallCount(page, 'SaveSession');
+  await command.selectOption('command-reactor-secondary');
+  await dialog.locator('#entryBlockCompletedText').fill('ЧЕРНОВИК');
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeCancel);
+  await expect(trigger).toBeFocused();
+
+  const reopened = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateOne);
+  await reopened.dialog.locator('#entryBlockExistingCommand').selectOption('command-reactor-secondary');
+  await reopened.dialog.locator('#entryBlockCompletedText').fill('');
+  await reopened.dialog.locator('[data-entry-block-command-action="apply"]').click();
+  await expect(reopened.dialog).not.toBeVisible();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeCancel + 1);
+  const saved = await commandFromLastSave(page, 'command-reactor-secondary');
+  expect(saved.stateChange.entryContentChange).toEqual({
+    blockId: BLOCK_IDS.duplicateOne,
+    completedText: '',
+  });
+  await expect(entryBlockOwner(page, BLOCK_IDS.duplicateOne, 'command-reactor-secondary'))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Проверить резервный контур');
+});
+
+test('block dialog creates one complete command in the selected same-terminal folder', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  const { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateTwo);
+
+  await dialog.locator('input[name="entryBlockCommandMode"][value="new"]').check();
+  await dialog.locator('#entryBlockCompletedText').fill('СТАТУС: ПОДТВЕРЖДЁН');
+  await dialog.locator('#entryBlockNewCommandName').fill('Подтвердить состояние реактора');
+  await dialog.locator('#entryBlockNewCompletedName').fill('Состояние реактора подтверждено');
+  await dialog.locator('#entryBlockNewConfirmationText').fill('Подтвердить состояние реактора?');
+  await dialog.locator('#entryBlockNewResultText').fill('Состояние реактора подтверждено.');
+  await dialog.locator('#entryBlockNewDestinationFolder').selectOption(BLOCK_FOLDER_ID);
+  await dialog.locator('[data-entry-block-command-action="apply"]').click();
+
+  await expect(dialog).not.toBeVisible();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore + 1);
+  const folder = await nodeFromLastSave(page, BLOCK_FOLDER_ID);
+  const created = folder.children.find(node => node.name === 'Подтвердить состояние реактора');
+  expect(created).toEqual(expect.objectContaining({
+    id: expect.stringMatching(/^n_/),
+    type: 'command',
+    text: 'Состояние реактора подтверждено.',
+    stateChange: {
+      completedName: 'Состояние реактора подтверждено',
+      confirmationText: 'Подтвердить состояние реактора?',
+      entryContentChange: {
+        blockId: BLOCK_IDS.duplicateTwo,
+        completedText: 'СТАТУС: ПОДТВЕРЖДЁН',
+      },
+    },
+  }));
+  await expect(entryBlockOwner(page, BLOCK_IDS.duplicateTwo, created.id))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Подтвердить состояние реактора');
+});
+
+test('block dialog atomically reassigns and removes an uncompleted owner', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  let { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.power);
+
+  await expect(dialog.locator('#entryBlockExistingCommand').locator('option')).toHaveText([
+    'ВЫБЕРИТЕ КОМАНДУ',
+    'Включить питание реактора',
+    'Проверить резервный контур',
+  ]);
+  await dialog.locator('#entryBlockExistingCommand').selectOption('command-reactor-secondary');
+  await dialog.locator('#entryBlockCompletedText').fill('ПИТАНИЕ: РЕЗЕРВ');
+  await dialog.locator('[data-entry-block-command-action="apply"]').click();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore + 1);
+
+  const oldOwner = await commandFromLastSave(page, BLOCK_OWNER_COMMAND_ID);
+  const newOwner = await commandFromLastSave(page, 'command-reactor-secondary');
+  expect(oldOwner.stateChange.entryContentChange).toBeUndefined();
+  expect(newOwner.stateChange.entryContentChange).toEqual({
+    blockId: BLOCK_IDS.power,
+    completedText: 'ПИТАНИЕ: РЕЗЕРВ',
+  });
+  await expect(entryBlockOwner(page, BLOCK_IDS.power, 'command-reactor-secondary'))
+    .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Проверить резервный контур');
+
+  ({ dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.power));
+  await dialog.locator('[data-entry-block-command-action="remove"]').click();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore + 2);
+  const removed = await commandFromLastSave(page, 'command-reactor-secondary');
+  expect(removed.stateChange).toEqual({
+    completedName: 'Резервный контур проверен',
+    confirmationText: 'Подтвердить проверку резервного контура?',
+  });
+  await expect(page.locator(
+    `.entry-content-block[data-block-id="${BLOCK_IDS.power}"] [data-entry-block-owner]`,
+  )).toHaveCount(0);
+});
+
+test('block dialog keeps a completed owner read-only until reset', async ({ page }) => {
+  await seedBlockAuthoringSession(page, { completedOwner: true });
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  const { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.power);
+
+  await expect(dialog).toContainText('Питание реактора включено');
+  const modes = dialog.locator('input[name="entryBlockCommandMode"]');
+  await expect(modes).toHaveCount(2);
+  await expect(modes.first()).toBeDisabled();
+  await expect(modes.last()).toBeDisabled();
+  await expect(dialog.locator('#entryBlockExistingCommand')).toBeDisabled();
+  await expect(dialog.locator('#entryBlockCompletedText')).toBeDisabled();
+  await expect(dialog.locator('[data-entry-block-command-action="apply"]')).toBeDisabled();
+  await expect(dialog.locator('[data-entry-block-command-action="remove"]')).toBeDisabled();
+  await dialog.locator('[data-entry-block-command-action="cancel"]').click();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore);
+});
+
+test('block dialog rejects a stale block reference without saving', async ({ page }) => {
+  await seedBlockAuthoringSession(page);
+  await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
+  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  const { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateOne);
+  await dialog.locator('#entryBlockExistingCommand').selectOption('command-reactor-secondary');
+  await dialog.locator('#entryBlockCompletedText').fill('СТАТУС: УСТАРЕЛ');
+
+  const snapshot = await page.request.get(`${FIXTURE_URL}/session`).then(response => response.json());
+  const terminal = snapshot.session.terminals.find(candidate => candidate.id === TERMINAL_ID);
+  const entry = findFixtureNode(terminal.root, BLOCK_ENTRY_ID);
+  entry.blocks = entry.blocks.filter(block => block.id !== BLOCK_IDS.duplicateOne);
+  await page.evaluate(({ revision, session }) => {
+    __desktopFixture.emit('session-state', { revision, session });
+  }, { revision: snapshot.revision + 100, session: snapshot.session });
+
+  await dialog.locator('[data-entry-block-command-action="apply"]').click();
+  await expect(dialog.locator('#entryBlockCommandError')).toContainText('БЛОК БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore);
 });

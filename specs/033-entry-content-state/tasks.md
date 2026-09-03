@@ -24,23 +24,23 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — independent failing tests (different files):**
 
-- [ ] **T003** [P] Add table-driven domain tests for block clone/JSON round trips, terminal-scoped identity, legacy exclusivity, missing or cross-terminal targets, duplicate ownership, and frozen-target validity · `internal/domain/model_test.go`, `internal/domain/validate_test.go`
-- [ ] **T004** [P] Add failing descriptor and adapter tests for additive field numbers, explicit nested presence, empty completed text, unknown-field preservation, and the exact `EntryContent` identifier · `app_contract_test.go`, `internal/session/contract_test.go`
+- [x] **T003** [P] Add table-driven domain tests for block clone/JSON round trips, terminal-scoped identity, legacy exclusivity, missing or cross-terminal targets, duplicate ownership, and frozen-target validity · `internal/domain/model_test.go`, `internal/domain/validate_test.go`
+- [x] **T004** [P] Add failing descriptor and adapter tests for additive field numbers, explicit nested presence, empty completed text, unknown-field preservation, and the exact `EntryContent` identifier · `app_contract_test.go`, `internal/session/contract_test.go`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2:**
 
-- [ ] **T005** Add `EntryContentBlock` and `EntryContentChange`, extend `StateChangeConfig`, `CommandExecutionState`, and `EntryContent` additively, then regenerate the governed Go contract and schema revision · `proto/fallout/terminal/persistence/v1/session.proto`, `internal/gen/fallout/terminal/persistence/v1/session.pb.go`, `proto/schema-revision.txt`
+- [x] **T005** Add `EntryContentBlock` and `EntryContentChange`, extend `StateChangeConfig`, `CommandExecutionState`, and `EntryContent` additively, then regenerate the governed Go contract and schema revision · `proto/fallout/terminal/persistence/v1/session.proto`, `internal/gen/fallout/terminal/persistence/v1/session.pb.go`, `proto/schema-revision.txt`
 
 **⟶ Wait for Wave 2 to finish, then Wave 3:**
 
-- [ ] **T006** Add ordered block and optional entry-change domain values, JSON fields, and deep-clone ownership without altering legacy description behavior · `internal/domain/model.go`, `internal/domain/json.go`
+- [x] **T006** Add ordered block and optional entry-change domain values, JSON fields, and deep-clone ownership without altering legacy description behavior · `internal/domain/model.go`, `internal/domain/json.go`
 
 **⟶ Wait for Wave 3 to finish, then Wave 4 — independent (different files):**
 
-- [ ] **T007** [P] Enforce terminal-wide block identity, entry representation exclusivity, target resolution, one-command ownership, frozen-state consistency, and body bounds with actionable errors · `internal/domain/validate.go`
-- [ ] **T008** [P] Map authored blocks and explicitly present configured/frozen changes through the version-1 persistence adapter while preserving unknown JSON fields · `internal/session/contract.go`
+- [x] **T007** [P] Enforce terminal-wide block identity, entry representation exclusivity, target resolution, one-command ownership, frozen-state consistency, and body bounds with actionable errors · `internal/domain/validate.go`
+- [x] **T008** [P] Map authored blocks and explicitly present configured/frozen changes through the version-1 persistence adapter while preserving unknown JSON fields · `internal/session/contract.go`
 
 **Checkpoint**: Additive contracts, portable JSON, domain cloning, and authoritative validation support all later stories.
 
@@ -56,21 +56,21 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — independent failing tests (different files):**
 
-- [ ] **T009** [P] [US1] Add execution tests for frozen block capture, empty completed text, rejection, save rollback, repeat idempotence, malformed store results, and durability-before-publication · `internal/session/service_test.go`, `internal/control/service_test.go`
-- [ ] **T010** [P] [US1] Add effective-tree tests for independent frozen block application, ordered two-newline composition, detached projections, and unchanged legacy descriptions · `internal/live/service_test.go`
-- [ ] **T011** [P] [US1] Add approval and synchronization journeys covering five commands in varied orders, rejection/failure atomicity, an already-open entry, observer convergence, and reconnect · `tests/browser/state-changing-command-approval.spec.mjs`, `tests/browser/state-changing-command-sync.spec.mjs`
+- [x] **T009** [P] [US1] Add execution tests for frozen block capture, empty completed text, rejection, save rollback, repeat idempotence, malformed store results, and durability-before-publication · `internal/session/service_test.go`, `internal/control/service_test.go`
+- [x] **T010** [P] [US1] Add effective-tree tests for independent frozen block application, ordered two-newline composition, detached projections, and unchanged legacy descriptions · `internal/live/service_test.go`
+- [x] **T011** [P] [US1] Add approval and synchronization journeys covering five commands in varied orders, rejection/failure atomicity, an already-open entry, observer convergence, and reconnect · `tests/browser/state-changing-command-approval.spec.mjs`, `tests/browser/state-changing-command-sync.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2:**
 
-- [ ] **T012** [US1] Freeze the validated entry block ID and completed text inside the existing command snapshot transaction with rollback and no-op repeat semantics · `internal/session/service.go`
+- [x] **T012** [US1] Freeze the validated entry block ID and completed text inside the existing command snapshot transaction with rollback and no-op repeat semantics · `internal/session/service.go`
 
 **⟶ Wait for Wave 2 to finish, then Wave 3 — independent (different files):**
 
-- [ ] **T013** [P] [US1] Apply frozen block outcomes to detached trees and compose effective entry descriptions server-side without exposing authoring alternatives · `internal/live/service.go`
-- [ ] **T014** [P] [US1] Install and publish the canonical combined command/block result only after durable execution succeeds, preserving revision and navigation ordering · `internal/control/service.go`
-- [ ] **T015** [P] [US1] Extend browser fixtures with canonical block configurations, atomic execution outcomes, failure controls, and effective player projections · `tests/browser/fixture-server/main.go`, `tests/browser/fixtures/desktop-bindings.js`
+- [x] **T013** [P] [US1] Apply frozen block outcomes to detached trees and compose effective entry descriptions server-side without exposing authoring alternatives · `internal/live/service.go`
+- [x] **T014** [P] [US1] Install and publish the canonical combined command/block result only after durable execution succeeds, preserving revision and navigation ordering · `internal/control/service.go`
+- [x] **T015** [P] [US1] Extend browser fixtures with canonical block configurations, atomic execution outcomes, failure controls, and effective player projections · `tests/browser/fixture-server/main.go`, `tests/browser/fixtures/desktop-bindings.js`
 
 **Checkpoint**: User Story 1 is independently functional and testable through fixture-configured commands without the authoring UI.
 
@@ -86,13 +86,13 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — failing browser contract:**
 
-- [ ] **T016** [US2] Add authoring journeys for block add/edit/reorder/delete/reopen, stable IDs, legacy conversion, target conflicts, deletion guards, completed-target locking, 48-code-point previews, `ПУСТО`, and `[data-entry-block-owner]` command names · `tests/browser/state-changing-command-authoring.spec.mjs`
+- [x] **T016** [US2] Add authoring journeys for block add/edit/reorder/delete/reopen, stable IDs, legacy conversion, target conflicts, deletion guards, completed-target locking, 48-code-point previews, `ПУСТО`, and `[data-entry-block-owner]` command names · `tests/browser/state-changing-command-authoring.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2:**
 
-- [ ] **T017** [US2] Implement the ordered block editor, terminal-local target selector, completed block text, derived entry/position/preview labels, reverse command-owner labels, conflict/deletion feedback, completed locks, and compact accessible styling · `frontend/overseer/src/overseer.js`, `frontend/overseer/src/overseer.css`
+- [x] **T017** [US2] Implement the ordered block editor, terminal-local target selector, completed block text, derived entry/position/preview labels, reverse command-owner labels, conflict/deletion feedback, completed locks, and compact accessible styling · `frontend/overseer/src/overseer.js`, `frontend/overseer/src/overseer.css`
 
 **Checkpoint**: User Story 2 is independently functional and testable; both directions identify the relationship without displaying internal IDs or persisting a back-reference.
 
@@ -108,18 +108,18 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — independent failing tests (different files):**
 
-- [ ] **T018** [P] [US3] Add Go tests for individual and terminal-wide reset atomicity, unrelated-state preservation, cancellation/failure behavior, canonical revisions, command deletion pruning, and publication ordering · `internal/session/service_test.go`, `internal/control/service_test.go`, `app_test.go`
-- [ ] **T019** [P] [US3] Add Overseer reset journeys proving confirmation/cancellation, backend-failure preservation, owner-label restoration, and exact individual/all reset effects · `tests/browser/state-changing-command-authoring.spec.mjs`
+- [x] **T018** [P] [US3] Add Go tests for individual and terminal-wide reset atomicity, unrelated-state preservation, cancellation/failure behavior, canonical revisions, command deletion pruning, and publication ordering · `internal/session/service_test.go`, `internal/control/service_test.go`, `app_test.go`
+- [x] **T019** [P] [US3] Add Overseer reset journeys proving confirmation/cancellation, backend-failure preservation, owner-label restoration, and exact individual/all reset effects · `tests/browser/state-changing-command-authoring.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2:**
 
-- [ ] **T020** [US3] Make individual reset, terminal reset, and owning-command deletion remove complete command snapshots so owned blocks return to authored initial text in one durable revision · `internal/session/service.go`
+- [x] **T020** [US3] Make individual reset, terminal reset, and owning-command deletion remove complete command snapshots so owned blocks return to authored initial text in one durable revision · `internal/session/service.go`
 
 **⟶ Wait for Wave 2 to finish, then Wave 3:**
 
-- [ ] **T021** [US3] Route existing trusted reset methods through coordinator transactions, install canonical store results, and publish once after durability without adding a desktop method or event · `internal/control/service.go`, `app.go`
+- [x] **T021** [US3] Route existing trusted reset methods through coordinator transactions, install canonical store results, and publish once after durability without adding a desktop method or event · `internal/control/service.go`, `app.go`
 
 **Checkpoint**: User Story 3 is independently functional and testable for individual, terminal-wide, canceled, and failed resets.
 
@@ -135,14 +135,14 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — independent failing tests (different files):**
 
-- [ ] **T022** [P] [US4] Add persistence tests for legacy round trips, explicit blocks, empty presence, unknown extras, stale full-document saves, target-preserving moves/renames, command deletion, and reopen recovery · `internal/session/contract_test.go`, `internal/session/service_test.go`
-- [ ] **T023** [P] [US4] Add lifecycle journeys for broadcast stop/start, terminal switching, application/session reopen, reconnect, monotonic revisions, and retained valid frozen outcomes after publication · `tests/browser/state-changing-command-sync.spec.mjs`
+- [x] **T022** [P] [US4] Add persistence tests for legacy round trips, explicit blocks, empty presence, unknown extras, stale full-document saves, target-preserving moves/renames, command deletion, and reopen recovery · `internal/session/contract_test.go`, `internal/session/service_test.go`
+- [x] **T023** [P] [US4] Add lifecycle journeys for broadcast stop/start, terminal switching, application/session reopen, reconnect, monotonic revisions, and retained valid frozen outcomes after publication · `tests/browser/state-changing-command-sync.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2:**
 
-- [ ] **T024** [US4] Preserve frozen block snapshots during valid stale-save merges and authored publication, reject invalid retarget/removal, and retain legacy description and unknown-field compatibility across reopen · `internal/session/service.go`, `internal/session/contract.go`
+- [x] **T024** [US4] Preserve frozen block snapshots during valid stale-save merges and authored publication, reject invalid retarget/removal, and retain legacy description and unknown-field compatibility across reopen · `internal/session/service.go`, `internal/session/contract.go`
 
 **Checkpoint**: User Story 4 is independently functional and testable across persistence, publication, switching, restart, and reconnect lifecycles.
 
@@ -152,7 +152,7 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — single validation owner:**
 
-- [ ] **T025** Review changed Go with the repository Go quality and modern-Go guidance; run `go fix ./...` and retain only intentional edits; run formatting, protobuf generation/drift/breaking checks, bindings checks, frontend builds, `task vet`, `task lint`, `task test`, `task test:race`, and affected browser suites; verify SC-001 through SC-008 and that the public player contract is unchanged · `Taskfile.yml`
+- [x] **T025** Review changed Go with the repository Go quality and modern-Go guidance; run `go fix ./...` and retain only intentional edits; run formatting, protobuf generation/drift/breaking checks, bindings checks, frontend builds, `task vet`, `task lint`, `task test`, `task test:race`, and affected browser suites; verify SC-001 through SC-008 and that the public player contract is unchanged · `Taskfile.yml`
 
 ## Dependencies & Execution Order
 
@@ -180,3 +180,54 @@ These shared schema and domain changes block every user story.
 - Tasks marked `[P]` within a wave may be assigned independently because their file sets do not overlap.
 - After Foundational completes, US1 runtime work and US2 authoring work can proceed independently if their own wave order is preserved; join both before US3.
 - MVP scope is Phases 1–3; it proves atomic command-driven player-visible block changes before the authoring, reset, and lifecycle increments are added.
+
+---
+
+## Phase 8: User Story 2 Extension — Configure Commands from EntryContent Blocks (P1)
+
+**Goal**: An Overseer can open a dialog from an EntryContent block and assign an eligible existing command, create a complete command in a selected folder, atomically reassign or remove an uncompleted owner, and cancel without changing the session.
+
+**Independent Test**: Open a block's command dialog, exercise existing assignment, selected-folder creation, reassignment, removal, cancellation, stale-input rejection, and completed-owner locking, then verify the saved content tree and both relationship views after each accepted operation.
+
+### Tests
+
+**Wave 1 — failing browser contract:**
+
+- [ ] **T026** [US2] Add dialog journeys for existing-command eligibility, empty completed text, full new-command creation in a selected same-terminal folder, atomic reassignment/removal with exactly one `SaveSession` call, cancel/close/Escape with no save, stale reference validation, focus restoration, and completed-owner locking · `tests/browser/state-changing-command-authoring.spec.mjs`
+
+### Implementation
+
+**⟶ Wait for Wave 1 to finish, then Wave 2 — independent (different files):**
+
+- [ ] **T027** [P] [US2] Add the accessible native EntryContent block command-assignment dialog and its stable form/action identifiers from the private Overseer contract · `frontend/overseer/src/index.html`
+- [ ] **T028** [P] [US2] Add compact responsive dialog, conditional-field, validation, disabled-owner, and focus-visible styling consistent with existing Overseer dialogs · `frontend/overseer/src/overseer.css`
+
+**⟶ Wait for Wave 2 to finish, then Wave 3:**
+
+- [ ] **T029** [US2] Add each block's configure-command action and implement isolated dialog drafts, eligible command/folder catalogs with breadcrumb labels, mode validation, completed-owner locks, and one-candidate assignment/creation/reassignment/removal through exactly one existing autosave before rebuilding both relationship views · `frontend/overseer/src/overseer.js`
+
+**Checkpoint**: User Story 2 supports complete command relationship authoring from either the command editor or the EntryContent block dialog without persisting a reverse reference.
+
+---
+
+## Phase 9: Polish and Cross-Cutting Validation — Dialog Increment
+
+**Wave 1 — single validation owner:**
+
+- [ ] **T030** Validate FR-023 through FR-026 and SC-009 by running the Overseer production build and affected Playwright authoring journeys through the repository Taskfile workflows; confirm the unchanged persistence/player contracts, one-save mutation counts, completed-owner reset gate, keyboard dialog behavior, and no regression in the original state-changing command authoring suite · `Taskfile.yml`, `tests/browser/state-changing-command-authoring.spec.mjs`
+
+## Dependencies & Execution Order — Dialog Increment
+
+### Phase dependencies
+
+- Phase 8 depends on the completed foundational and User Story 2 work in Phases 1–7.
+- Phase 9 depends on the Phase 8 checkpoint.
+
+### Wave order
+
+- Phase 8: failing browser contract → independent static dialog markup and styling → dialog controller and atomic session-candidate integration.
+- Phase 9: one validation wave after all dialog work completes.
+
+### Parallel opportunities
+
+- T027 and T028 may run independently after T026 because they touch different files; both join before T029.

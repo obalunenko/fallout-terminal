@@ -1686,6 +1686,60 @@ button {
   color: #9fe89a;
   line-height: 1.45;
 }
+.entry-block-command-dialog {
+  width: min(680px, calc(100vw - 32px));
+}
+.entry-block-command-dialog-panel {
+  display: grid;
+  gap: 14px;
+}
+.entry-block-command-dialog .terminal-switch-dialog-description {
+  margin: 0;
+}
+.entry-block-command-form,
+.entry-block-command-fields {
+  display: grid;
+  gap: 8px;
+}
+.entry-block-command-fields[hidden] { display: none; }
+.entry-block-command-mode {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #2f4225;
+}
+.entry-block-command-mode legend {
+  padding-inline: 5px;
+  color: #ffe08a;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.entry-block-command-mode label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.entry-block-command-form textarea { resize: vertical; }
+.entry-block-command-error {
+  padding: 8px;
+  border: 1px solid #8a3a2a;
+  background: #1d0e0a;
+  color: #ff9a7a;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.entry-block-command-error[hidden] { display: none; }
+.entry-block-command-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.entry-block-command-actions-spacer { flex: 1; }
+.entry-block-command-dialog :is(input, select, textarea, button):focus-visible {
+  outline: 2px solid #ffe08a;
+  outline-offset: 2px;
+}
 .terminal-switch-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1873,6 +1927,11 @@ button {
   }
   .terminal-switch-dialog-panel { padding: 16px; }
   .terminal-switch-dialog-description { margin-bottom: 14px; }
+  .entry-block-command-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .entry-block-command-actions-spacer { display: none; }
   .terminal-switch-actions { grid-template-columns: 1fr; }
   .terminal-switch-actions .btn { min-height: 40px; }
   .dialog-actions { grid-template-columns: 1fr; }

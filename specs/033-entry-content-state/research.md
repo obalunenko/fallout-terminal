@@ -84,3 +84,33 @@
 - Persist a targeting command ID on each block. Rejected because it duplicates the relationship, creates two values that can disagree, and complicates moves, deletion, and stale-save handling.
 - Display only internal block and command IDs. Rejected because the accepted clarification requires human-readable identification without an ID lookup.
 - Label targets with text alone. Rejected because identical, empty, or long blocks would be ambiguous and text edits would look like target changes even though stable identity is unchanged.
+
+## Decision: Use one EntryContent-side native dialog with an isolated draft
+
+**Rationale**: The Overseer already uses accessible native dialogs and keeps the complete session document in browser state. A single block command-assignment dialog can switch between selecting an eligible existing command and fully authoring a new one, while holding every field in dialog-local controls until Apply. Cancel, Escape, or close therefore discards the draft without touching the content tree or calling `SaveSession`.
+
+**Alternatives considered**:
+
+- Expand every block row with all command fields. Rejected because it makes the entry editor dense, repeats a large form for every block, and weakens the requested dialog workflow.
+- Mutate the session as each dialog field changes and restore it on cancel. Rejected because rollback is error-prone and could leak transient invalid ownership into autosave or rerendering.
+- Add a new desktop method dedicated to block assignment. Rejected because the operation is ordinary session authoring and the existing whole-document save already validates and persists it.
+
+## Decision: Keep command configuration canonical during reverse assignment
+
+**Rationale**: EntryContent initiates the workflow but does not gain a command reference. Assigning an existing command writes its nested entry-content change; atomic reassignment clears the old uncompleted owner's nested change and sets the new owner's change in one candidate; removal clears only the old nested change. This preserves the existing one-owner domain validation and makes both editor directions converge from the same source.
+
+**Alternatives considered**:
+
+- Persist the owner command ID on the block. Rejected because it recreates the duplicate relationship already rejected by the original design.
+- Save removal and assignment as separate operations. Rejected because the intermediate document is either unowned or conflicting and a failure between writes would violate the clarified atomic authoring behavior.
+- Allow reassignment or removal of a completed owner. Rejected because it would separate the authored target from its frozen durable outcome without the required reset.
+
+## Decision: Create a complete command in an explicitly selected folder
+
+**Rationale**: New-command mode collects the existing required state-changing-command fields, the completed block content, and one destination folder from the current terminal. Apply allocates one stable node ID, builds the complete command with the selected block target, appends it to that folder using the established tree insertion convention, and performs one session save. Requiring the folder avoids surprising root placement and does not broaden command targets across terminals.
+
+**Alternatives considered**:
+
+- Always insert beside the entry. Rejected by clarification because the Overseer must choose the destination folder.
+- Insert at the terminal root. Rejected because it ignores the authored content hierarchy and the explicit destination decision.
+- Create a placeholder and navigate to the command editor for completion. Rejected because cancellation could leave invalid partial content and the clarified workflow requires full configuration within the dialog.

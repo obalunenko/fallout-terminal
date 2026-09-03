@@ -100,6 +100,9 @@ After the first successful execution, the existing terminal map owns the frozen 
 
 ## Mutation and Revision Rules
 
+- EntryContent-side assignment, reassignment, removal, and new-command creation use the existing complete session document and `SaveSession` path; they add no persistence field or dedicated mutation method.
+- Each accepted dialog action submits one valid authored candidate: reassignment clears the old uncompleted command's nested change and sets the new command's change together, removal clears only the nested change, and creation inserts one fully configured command into the selected same-terminal folder.
+- Cancel, close, invalid input, stale dialog references, and attempts to change a completed owner submit no session save.
 - First execution inserts command presentation and frozen entry change in one `commandStates` value and one document revision.
 - Repeated execution is a no-op with no new document revision.
 - Individual reset deletes one complete value; terminal reset clears the complete map.

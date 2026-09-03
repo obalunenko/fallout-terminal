@@ -85,6 +85,35 @@ The Overseer derives both human-readable relationship labels from the canonical 
 
 The text preview collapses line breaks and repeated whitespace for display, is bounded to 48 Unicode code points with an ellipsis when truncated, and uses an explicit `ПУСТО` marker when the authored text is empty or whitespace-only. The entry name and block position remain visible even when previews are identical. The reverse ownership index is rebuilt whenever the node form renders, so command or entry renames, block reordering, text edits, completion, and reset cannot leave a stale label. The effective completed command name is shown while a command snapshot exists; otherwise its authored initial name is shown.
 
+## EntryContent Block Command Dialog Draft
+
+The block editor owns one transient dialog draft. It is never persisted and does not mutate the session until Apply succeeds validation.
+
+| Field | Required for | Rules |
+|---|---|---|
+| Block ID | All modes | Stable ID of the block that opened the dialog; must still resolve in the current terminal when Apply is pressed. |
+| Mode | All modes | Exactly one of existing-command assignment or new-command creation. |
+| Existing command ID | Existing mode | Resolves to a same-terminal state-changing command that targets no other block; the block's current uncompleted owner is also eligible. |
+| Completed block text | Both modes | May be empty or whitespace-only and becomes the selected/new command's authored completed text for this block. |
+| Initial command name | New mode | Required under the existing command-name rules. |
+| Completed command name | New mode | Required under the existing state-changing-command rules. |
+| Confirmation text | New mode | Required under the existing approval rules. |
+| Result text | New mode | Required under the existing successful-result rules. |
+| Destination folder ID | New mode | Resolves to one folder, including the terminal root, in the same terminal; the new command is appended as its last child. |
+
+The current owner is derived from command configurations and is not copied into the block. If that owner has a durable execution snapshot, the dialog is read-only for assignment changes and Apply/Remove remain unavailable until reset. Folder labels are derived as terminal-local breadcrumbs so equally named folders can be distinguished without displaying raw IDs.
+
+### Authoring Candidate Rules
+
+Apply builds and validates one complete in-memory session candidate before initiating persistence:
+
+1. Re-resolve the block, selected command, current owner, and destination folder from the current terminal tree so a stale open dialog cannot write against deleted or moved content.
+2. For existing assignment, set the selected command's `EntryContentChange` to the dialog block and completed text.
+3. For reassignment, clear only the old uncompleted owner's `EntryContentChange` and set the new owner's change in the same candidate.
+4. For removal, clear only the uncompleted owner's `EntryContentChange`; preserve its completed name, confirmation text, result text, identity, and tree position.
+5. For creation, allocate one terminal-unique command node ID, build the complete state-changing command, and append it to the selected folder with its block change already present.
+6. Submit the valid candidate through exactly one existing whole-session save. Cancel, close, invalid input, a stale target, or a completed owner submits nothing.
+
 ## State Transitions
 
 | Current state | Action | Result |
@@ -98,6 +127,12 @@ The text preview collapses line breaks and repeated whitespace for display, is b
 | Any completed states | Overseer confirms terminal reset | The terminal map is cleared; all commands and owned blocks return to authored initial values. |
 | Completed | Overseer edits target/removes target block | Save is rejected until explicit reset; ordinary text edits and moves preserving IDs remain allowed. |
 | Completed | Overseer deletes owning command | Snapshot is pruned with the command; the formerly owned block uses its initial text. |
+| Unowned block | Dialog assigns eligible existing command | The command gains one authored entry-content change; the block derives that command as owner after one save. |
+| Unowned block | Dialog creates new command | One fully configured command is appended to the selected same-terminal folder and owns the block after one save. |
+| Uncompleted owned block | Dialog assigns a different eligible command | The old command loses only its entry-content change and the new command gains it in one saved candidate. |
+| Uncompleted owned block | Dialog removes assignment | The owner remains a state-changing command without an entry target; the block becomes unowned after one save. |
+| Completed owned block | Dialog attempts assignment, reassignment, or removal | Mutation controls remain unavailable until reset; no save is initiated. |
+| Any dialog draft | Overseer cancels, closes, or presses Escape | The draft is discarded; session content and save revision remain unchanged. |
 
 ## Clone and Ownership Rules
 
