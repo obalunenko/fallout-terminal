@@ -20,6 +20,7 @@ const (
 	bundledDemoFilename               = "demo.json"
 	publicAccessFilename              = "public-access.json"
 	applicationUpdateRecoveryFilename = "application-update-recovery.json"
+	applicationLogsDirectoryName      = "logs"
 )
 
 // SessionLocations separates user-owned session documents, the immutable
@@ -31,6 +32,16 @@ type SessionLocations struct {
 	DocumentsDefault   string
 	BundledDemo        string
 	ApplicationSupport string
+}
+
+// ApplicationLogDirectory resolves the private retained-log directory without
+// touching the filesystem.
+func ApplicationLogDirectory(applicationSupportDirectory string) (string, error) {
+	directory, err := cleanAbsolutePath("application support directory", applicationSupportDirectory)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(directory, applicationLogsDirectoryName), nil
 }
 
 // directoryProvider isolates operating-system directory discovery from path

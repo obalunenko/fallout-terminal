@@ -13,6 +13,13 @@ message CommandResult {
   optional string error = 2;
 }
 
+message LogAccessResult {
+  bool ok = 1;
+  optional string error = 2;
+  string directory_path = 3;
+  optional string active_log_path = 4;
+}
+
 message SessionOperationResult {
   bool ok = 1;
   bool canceled = 2;

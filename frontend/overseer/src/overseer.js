@@ -26,6 +26,8 @@ const startScreen      = document.getElementById('startScreen');
 const startStatus      = document.getElementById('startStatus');
 const btnOpenSession   = document.getElementById('btnOpenSession');
 const btnNewSession    = document.getElementById('btnNewSession');
+const logLocationButtons = Array.from(document.querySelectorAll('[data-action="open-log-location"]'));
+const logAccessStatuses = Array.from(document.querySelectorAll('[data-log-access-status]'));
 const mainLayout        = document.getElementById('mainLayout');
 const sessionFileLabel  = document.getElementById('sessionFileLabel');
 const serverUrlEl       = document.getElementById('serverUrl');
@@ -1306,6 +1308,24 @@ btnSharePublicAccessCredentials.addEventListener('click', async () => {
 for (const link of publicAccessNgrokDocLinks) {
   link.addEventListener('click', () => {
     void desktopAPI.openUrl(link.dataset.ngrokDocUrl);
+  });
+}
+
+let logAccessPending = false;
+for (const button of logLocationButtons) {
+  button.addEventListener('click', async () => {
+    if (logAccessPending) return;
+    logAccessPending = true;
+    logLocationButtons.forEach(control => { control.disabled = true; });
+    logAccessStatuses.forEach(status => { status.textContent = 'ОТКРЫТИЕ ПАПКИ ЛОГОВ…'; });
+    const result = await desktopAPI.openLogLocation();
+    const path = result.activeLogPath || result.directoryPath || '';
+    const message = result.ok
+      ? `ЛОГИ ОТКРЫТЫ${path ? ` · ${path}` : ''}`
+      : `${result.error || 'НЕ УДАЛОСЬ ОТКРЫТЬ ЛОГИ'}${path ? ` · ${path}` : ''}`;
+    logAccessStatuses.forEach(status => { status.textContent = message; });
+    logLocationButtons.forEach(control => { control.disabled = false; });
+    logAccessPending = false;
   });
 }
 // ── Start screen: open / new session ───────────────────────

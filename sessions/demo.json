@@ -8,16 +8,6 @@
       "name": "Терминал смотрителя — Убежище 76",
       "hackLevel": 0,
       "introText": "ROBCO TERMLINK // УБЕЖИЩЕ 76\nДОПУСК: СМОТРИТЕЛЬ",
-      "commandStates": {
-        "n_cmd_1": {
-          "completedName": "Маршрут выхода активирован",
-          "resultText": "Маршрут к гермодвери освещён. Аварийные указатели и стенды Vault Boy получают питание.",
-          "entryContentChange": {
-            "blockId": "b_vault_shutdown_heading",
-            "completedText": "СЛУЖЕБНОЕ УВЕДОМЛЕНИЕ · МАРШРУТ ВЫХОДА АКТИВИРОВАН"
-          }
-        }
-      },
       "root": {
         "children": [
           {
@@ -132,6 +122,24 @@
         "id": "root",
         "name": "ROOT",
         "type": "folder"
+      },
+      "commandStates": {
+        "n_cmd_1": {
+          "completedName": "Маршрут выхода активирован",
+          "resultText": "Маршрут к гермодвери освещён. Аварийные указатели и стенды Vault Boy получают питание.",
+          "entryContentChange": {
+            "blockId": "b_vault_shutdown_heading",
+            "completedText": "СЛУЖЕБНОЕ УВЕДОМЛЕНИЕ · МАРШРУТ ВЫХОДА АКТИВИРОВАН"
+          }
+        },
+        "n_cmd_life_support": {
+          "completedName": "Жилые системы продлены",
+          "resultText": "Работа жилых систем продлена до завершения эвакуации.",
+          "entryContentChange": {
+            "blockId": "b_vault_shutdown_body",
+            "completedText": "Жилые системы продолжат работу до подтверждённого завершения эвакуации. После выхода последнего жителя начнётся окончательное отключение."
+          }
+        }
       }
     },
     {

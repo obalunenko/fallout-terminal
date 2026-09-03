@@ -16,7 +16,9 @@
     <div class="start-actions">
       <button class="btn btn-primary" id="btnOpenSession">ОТКРЫТЬ СЕССИЮ</button>
       <button class="btn btn-secondary" id="btnNewSession">НОВАЯ СЕССИЯ</button>
+	  <button class="btn btn-secondary" type="button" data-action="open-log-location">ОТКРЫТЬ ЛОГИ</button>
     </div>
+	<div class="start-status" data-log-access-status role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="start-status" id="startStatus" data-state="starting" role="status" aria-live="polite" aria-atomic="true">ЗАПУСК ЛОКАЛЬНОГО СЕРВЕРА…</div>
   </div>
 </div>
@@ -99,6 +101,8 @@
         </div>
       </div>
       <div class="save-status" id="saveStatus"></div>
+	  <button class="btn btn-secondary full-w" type="button" data-action="open-log-location">ОТКРЫТЬ ЛОГИ</button>
+	  <div class="save-status" data-log-access-status role="status" aria-live="polite" aria-atomic="true"></div>
     </aside>
 
     <!-- CENTER: tree editor -->

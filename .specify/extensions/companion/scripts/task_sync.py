@@ -18,6 +18,7 @@ from pathlib import Path
 
 from spec_context import (
     CROSS_STEP_TERMINAL,
+    _entry_kind,
     _git_branch,
     _has_complete,
     _journaled_tasks,
@@ -37,6 +38,7 @@ from spec_context import (
 # after the checkbox, so non-task checkboxes never false-match.
 COMPLETED_TASK_RE = re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(?:\*\*)?(T\d+)")
 PENDING_TASK_RE = re.compile(r"^\s*[-*]\s*\[\s\]\s*(?:\*\*)?(T\d+)")
+CONVERGENCE_SUBSTEP_RE = re.compile(r"^convergence-(\d+)$")
 
 
 def parse_task_markers(tasks_md: Path) -> tuple[list[str], list[str]]:
@@ -150,6 +152,89 @@ def _tasks_at_100(markers: tuple[list[str], list[str]]) -> bool:
     return bool(all_ids) and len(done_ids) == len(all_ids)
 
 
+def _open_convergence_substep(log: list) -> str | None:
+    """Return the latest numbered convergence substep that has not finished."""
+    open_substeps: dict[str, None] = {}
+    for entry in log:
+        if not isinstance(entry, dict) or entry.get("step") != "implement":
+            continue
+        substep = entry.get("substep")
+        if not isinstance(substep, str) or not CONVERGENCE_SUBSTEP_RE.fullmatch(substep):
+            continue
+        if _entry_kind(entry) == "start":
+            open_substeps[substep] = None
+        else:
+            open_substeps.pop(substep, None)
+    return next(reversed(open_substeps), None)
+
+
+def _next_convergence_substep(log: list) -> str:
+    """Return a stable new convergence substep name without reusing prior rounds."""
+    rounds = []
+    for entry in log:
+        if not isinstance(entry, dict):
+            continue
+        substep = entry.get("substep")
+        if not isinstance(substep, str):
+            continue
+        match = CONVERGENCE_SUBSTEP_RE.fullmatch(substep)
+        if match:
+            rounds.append(int(match.group(1)))
+    return f"convergence-{max(rounds, default=0) + 1}"
+
+
+def reopen_convergence(feature_dir: Path, by: str) -> Path | None:
+    """Reopen a completed spec only when convergence appended pending tasks.
+
+    The completed lifecycle remains append-only. A numbered implement substep
+    records the new convergence pass without duplicating the original implement
+    step boundary, and a repeated invocation is idempotent while that pass is
+    still open. Archived specs and fully checked task lists remain immutable.
+    """
+    target = feature_dir / ".spec-context.json"
+    ctx = read_ctx(target)
+    markers = parse_task_markers(feature_dir / "tasks.md")
+    all_ids, done_ids = markers
+    done = set(done_ids)
+    pending = list(dict.fromkeys(task_id for task_id in all_ids if task_id not in done))
+    if not pending:
+        print(
+            f"[companion] {target} has no pending task markers; refusing convergence reopen.",
+            file=sys.stderr,
+        )
+        return None
+
+    log = canonical_log(ctx)
+    active_substep = _open_convergence_substep(log)
+    status = ctx.get("status")
+    if status == "implementing" and active_substep is not None:
+        return target
+    if status != "completed":
+        print(
+            f"[companion] {target} is at status={status!r}; convergence reopen requires "
+            "a completed spec with pending tasks.",
+            file=sys.stderr,
+        )
+        return None
+
+    branch = _git_branch(_repo_root_for(feature_dir)) or "main"
+    fill_required(ctx, feature_dir, branch)
+    substep = _next_convergence_substep(log)
+    log.append({
+        "step": "implement",
+        "substep": substep,
+        "kind": "start",
+        "by": by,
+        "at": _now_iso(),
+    })
+    ctx["currentStep"] = "implement"
+    ctx["currentTask"] = pending[0]
+    ctx["status"] = "implementing"
+    commit_log(ctx, log)
+    atomic_write(target, ctx)
+    return target
+
+
 def _fold_task_finish(
     ctx: dict, log: list, feature_dir: Path, task_id: str, by: str,
     did: str | None, files: list[str] | None, at: str,
@@ -186,8 +271,12 @@ def _maybe_close_implement(
         and _tasks_at_100(markers)
         and set(distinct) <= _journaled_tasks(log)
     )
-    if all_done and not _has_complete(log, "implement", None):
-        append_complete(log, "implement", by=by, at=_now_iso())
+    if all_done:
+        active_convergence = _open_convergence_substep(log)
+        if active_convergence is not None:
+            append_complete(log, "implement", substep=active_convergence, by=by, at=_now_iso())
+        if not _has_complete(log, "implement", None):
+            append_complete(log, "implement", by=by, at=_now_iso())
         # Keep status consistent with the closed step. The fold that ran before
         # the script checked the boxes may have left status at `implementing`
         # (tasks.md wasn't 100% yet); now that the step is closing, it's implemented.

@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
 
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +30,6 @@ func TestDesktopServiceReplaceTerminalGroupsIsTransparentTrustedForward(t *testi
 
 	file, err := parser.ParseFile(token.NewFileSet(), "desktop_service.go", nil, 0)
 	require.NoError(t, err)
-
 	var method *ast.FuncDecl
 	for _, declaration := range file.Decls {
 		candidate, ok := declaration.(*ast.FuncDecl)
@@ -48,7 +49,6 @@ func TestDesktopServiceReplaceTerminalGroupsIsTransparentTrustedForward(t *testi
 	resultType, ok := method.Type.Results.List[0].Type.(*ast.Ident)
 	require.True(t, ok)
 	require.Equal(t, "TerminalGroupReplacementResult", resultType.Name)
-
 	require.Len(t, method.Body.List, 1, "desktop method must remain a transparent core forward")
 	returned, ok := method.Body.List[0].(*ast.ReturnStmt)
 	require.True(t, ok)
@@ -112,7 +112,6 @@ func TestDesktopServiceApplicationUpdateMethodsAreTransparentCoreForwards(t *tes
 			result, ok := method.Type.Results.List[0].Type.(*ast.Ident)
 			require.True(t, ok)
 			require.Equal(t, test.result, result.Name)
-
 			require.Len(t, method.Body.List, 1, "%s must remain a transparent forward", test.name)
 			returned, ok := method.Body.List[0].(*ast.ReturnStmt)
 			require.True(t, ok)
@@ -138,4 +137,42 @@ func TestDesktopServiceApplicationUpdateMethodsAreTransparentCoreForwards(t *tes
 			}
 		})
 	}
+}
+
+type recordingLogDirectoryOpener struct {
+	paths []string
+	err   error
+}
+
+func (opener *recordingLogDirectoryOpener) OpenDirectory(path string) error {
+	opener.paths = append(opener.paths, path)
+	return opener.err
+}
+
+func TestDesktopServiceOpensInjectedLogLocationWithoutFrontendPath(t *testing.T) {
+	t.Parallel()
+	opener := &recordingLogDirectoryOpener{}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		LogDirectoryOpener: opener,
+		LogDirectory:       "/fixed/application/logs",
+		ActiveLogPath:      func() string { return "/fixed/application/logs/application-current.log" },
+	})
+	result := newDesktopService(app).OpenLogLocation()
+	require.True(t, result.OK)
+	assert.Equal(t, []string{"/fixed/application/logs"}, opener.paths)
+	assert.Equal(t, "/fixed/application/logs/application-current.log", result.ActiveLogPath)
+}
+
+func TestOpenLogLocationReturnsSafeManualFallback(t *testing.T) {
+	t.Parallel()
+	opener := &recordingLogDirectoryOpener{err: errors.New("raw native detail must not escape")}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		LogDirectoryOpener: opener,
+		LogDirectory:       "/fixed/application/logs",
+	})
+	result := app.OpenLogLocation()
+	require.False(t, result.OK)
+	assert.Equal(t, "/fixed/application/logs", result.DirectoryPath)
+	assert.Equal(t, "Could not open the application log directory.", result.Error)
+	assert.NotContains(t, result.Error, "raw native detail")
 }

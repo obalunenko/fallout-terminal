@@ -233,6 +233,10 @@ function playerManagementFixtureActive() {
   return globalThis.location?.pathname === '/__fixture/player-management';
 }
 
+function runtimeLogsFailureFixtureActive() {
+	return new URLSearchParams(globalThis.location?.search ?? '').has('runtime-logs-failure');
+}
+
 async function playerManagementFixtureCommand(path, payload) {
   const response = await fetch(`/__fixture/player-management/${path}`, {
     method: payload === undefined ? 'GET' : 'POST',
@@ -442,6 +446,9 @@ export const Clipboard = {
 
 export function GetRuntimeStatus() {
   state.calls.push({ method: 'GetRuntimeStatus', args: [] });
+	if (runtimeLogsFailureFixtureActive()) {
+		return Promise.resolve({ ...state.status, startupError: 'startup degraded', serverInfo: null });
+	}
   if (terminalGroupingFixtureActive()) {
     return fetch('/__fixture/terminal-grouping/status').then(async response => ({
       ...state.status,
@@ -697,6 +704,30 @@ export async function OpenSession(...args) {
   };
 }
 export const OpenURL = (...args) => record('OpenURL', args);
+export function OpenLogLocation() {
+  state.calls.push({ method: 'OpenLogLocation', args: [] });
+	if (runtimeLogsFailureFixtureActive()) {
+		return Promise.resolve({
+			ok: false,
+			error: 'Could not open the application log directory.',
+			directoryPath: '/Users/fixture/Application Support/Fallout Terminal/logs',
+			activeLogPath: '',
+		});
+	}
+	const deferred = state.terminalActionDeferred.get('OpenLogLocation');
+	if (deferred) return deferred.promise;
+	if (state.terminalActionNextResults.has('OpenLogLocation')) {
+		const result = structuredClone(state.terminalActionNextResults.get('OpenLogLocation'));
+		state.terminalActionNextResults.delete('OpenLogLocation');
+		return Promise.resolve(result);
+	}
+  return Promise.resolve({
+    ok: true,
+    error: '',
+    directoryPath: '/Users/fixture/Application Support/Fallout Terminal/logs',
+    activeLogPath: '/Users/fixture/Application Support/Fallout Terminal/logs/application-current.log',
+  });
+}
 export const ReleaseCharacter = (...args) => record('ReleaseCharacter', args);
 export const RenameLogicalSession = (...args) => record('RenameLogicalSession', args);
 export function ReplaceTerminalGroups(payload) {

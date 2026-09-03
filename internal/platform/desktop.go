@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -15,6 +17,7 @@ var (
 	errDesktopNotReady        = errors.New("desktop runtime is not ready")
 	errDesktopContextRequired = errors.New("desktop context is required")
 	errExternalURLUnsupported = errors.New("external URL must be an absolute HTTP or HTTPS URL")
+	errDesktopPathUnsupported = errors.New("desktop path must be an absolute existing directory")
 )
 
 // Desktop is the narrow Wails-backed implementation used for native session
@@ -55,6 +58,7 @@ type DialogManager interface {
 
 type BrowserManager interface {
 	OpenURL(context.Context, string) error
+	OpenFile(context.Context, string) error
 }
 
 type wailsV3DialogManager struct {
@@ -124,6 +128,13 @@ func (manager wailsV3BrowserManager) OpenURL(_ context.Context, rawURL string) e
 		return errors.New("external browser manager is unavailable")
 	}
 	return manager.manager.OpenURL(rawURL)
+}
+
+func (manager wailsV3BrowserManager) OpenFile(_ context.Context, path string) error {
+	if manager.manager == nil {
+		return errors.New("external browser manager is unavailable")
+	}
+	return manager.manager.OpenFile(path)
 }
 
 // NewDesktop constructs a wrapper over the application-owned Wails v3
@@ -224,6 +235,27 @@ func (desktop *Desktop) OpenURL(rawURL string) error {
 		return errors.New("external browser manager is unavailable")
 	}
 	return desktop.browser.OpenURL(ctx, parsed.String())
+}
+
+// OpenDirectory opens one already-resolved, existing directory. It is kept
+// separate from OpenURL so filesystem paths can never enter URL handling.
+func (desktop *Desktop) OpenDirectory(path string) error {
+	ctx, err := desktop.context()
+	if err != nil {
+		return err
+	}
+	cleaned := filepath.Clean(path)
+	if !filepath.IsAbs(cleaned) || cleaned != path {
+		return errDesktopPathUnsupported
+	}
+	info, err := os.Lstat(cleaned)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return errDesktopPathUnsupported
+	}
+	if desktop.browser == nil {
+		return errors.New("external browser manager is unavailable")
+	}
+	return desktop.browser.OpenFile(ctx, cleaned)
 }
 
 func (desktop *Desktop) context() (context.Context, error) {

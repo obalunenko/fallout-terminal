@@ -186,6 +186,10 @@ type DesktopRuntime interface {
 	Close(context.Context) error
 }
 
+type logDirectoryOpener interface {
+	OpenDirectory(string) error
+}
+
 // EventSink publishes narrow, public values to the Overseer frontend.
 type EventSink interface {
 	Emit(name string, payload any) error
@@ -235,6 +239,9 @@ type AppDependencies struct {
 	Player               PlayerServer
 	Desktop              DesktopRuntime
 	Browser              Browser
+	LogDirectoryOpener   logDirectoryOpener
+	LogDirectory         string
+	ActiveLogPath        func() string
 	Clipboard            ClipboardWriter
 	Events               EventSink
 	PublicSettings       PublicAccessSettingsStore
@@ -265,6 +272,15 @@ type RuntimeStatus struct {
 type CommandResult struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+}
+
+// LogAccessResult identifies the fixed retained-log location even when the
+// native shell cannot open it, so the Overseer can navigate there manually.
+type LogAccessResult struct {
+	OK            bool   `json:"ok"`
+	Error         string `json:"error,omitempty"`
+	DirectoryPath string `json:"directoryPath"`
+	ActiveLogPath string `json:"activeLogPath,omitempty"`
 }
 
 // ApplicationUpdateSnapshot is the narrow, non-sensitive update projection
@@ -629,6 +645,65 @@ func (app *App) recordOperation(operation, outcome string, fields logger.Fields)
 	}
 }
 
+func (app *App) recordAuditEvents(events []controlservice.AuditEvent, revision uint64) {
+	if app == nil || app.log == nil {
+		return
+	}
+	for _, event := range events {
+		fields := logger.Fields{"event": event.Name, "outcome": event.Outcome, "revision": revision}
+		if event.Decision != "" {
+			fields["decision"] = event.Decision
+		}
+		if event.Reason != "" {
+			fields["reason"] = event.Reason
+		}
+		if event.SessionID != "" {
+			fields["session_id"] = string(event.SessionID)
+		}
+		if event.Role != "" {
+			fields["role"] = string(event.Role)
+		}
+		if event.PreviousRole != "" {
+			fields["previous_role"] = string(event.PreviousRole)
+		}
+		if event.RequestID != "" {
+			fields["request_id"] = event.RequestID
+		}
+		if event.BroadcastID != "" {
+			fields["broadcast_id"] = string(event.BroadcastID)
+		}
+		if event.TerminalID != "" {
+			fields["terminal_id"] = event.TerminalID
+		}
+		if event.CommandID != "" {
+			fields["command_id"] = event.CommandID
+		}
+		if event.Mode != "" {
+			fields["mode"] = event.Mode
+		}
+		if event.PuzzleID != "" {
+			fields["puzzle_id"] = event.PuzzleID
+		}
+		if event.PreviousPuzzleID != "" {
+			fields["previous_puzzle_id"] = event.PreviousPuzzleID
+		}
+		if strings.HasPrefix(event.Name, "hack.") {
+			fields["attempts_left"] = event.AttemptsLeft
+			if event.Name == "hack.started" {
+				fields["hack_level"] = event.HackLevel
+				fields["attempts_max"] = event.AttemptsMax
+			}
+		}
+		entry := app.log.WithFields(fields)
+		switch event.Outcome {
+		case "failed", "declined", "rejected", "stale", "superseded", "duplicate", "invalid", "conflict", "interrupted":
+			entry.Warn("runtime audit event")
+		default:
+			entry.Info("runtime audit event")
+		}
+	}
+}
+
 func operationOutcome(ok, canceled bool) string {
 	if ok {
 		return "succeeded"
@@ -655,7 +730,10 @@ func (app *App) emitEvent(name string, payload any) {
 		return
 	}
 	if err := app.deps.Events.Emit(name, payload); err != nil && app.log != nil {
-		app.log.WithError(err).WithField("event", name).Error("desktop event delivery failed")
+		app.log.WithFields(logger.Fields{
+			"error_category": "delivery_failed",
+			"event":          name,
+		}).Error("desktop event delivery failed")
 	}
 }
 
@@ -2317,6 +2395,25 @@ func (app *App) OpenURL(rawURL string) CommandResult {
 		return commandFailure("could not open the external URL")
 	}
 	return routeCommandResult(CommandResult{OK: true})
+}
+
+// OpenLogLocation opens the application-owned retained-log directory. The
+// frontend supplies no path and cannot use this operation as a file launcher.
+func (app *App) OpenLogLocation() LogAccessResult {
+	result := LogAccessResult{DirectoryPath: app.deps.LogDirectory}
+	if app.deps.ActiveLogPath != nil {
+		result.ActiveLogPath = app.deps.ActiveLogPath()
+	}
+	if app.deps.LogDirectoryOpener == nil || result.DirectoryPath == "" {
+		result.Error = "The application log directory is unavailable."
+		return routeLogAccessResult(result)
+	}
+	if err := app.deps.LogDirectoryOpener.OpenDirectory(result.DirectoryPath); err != nil {
+		result.Error = "Could not open the application log directory."
+		return routeLogAccessResult(result)
+	}
+	result.OK = true
+	return routeLogAccessResult(result)
 }
 
 func (app *App) failLocked(cause error) error {
