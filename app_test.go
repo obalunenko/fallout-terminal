@@ -777,7 +777,9 @@ func TestDesktopSessionFacadeSavesRealDemoCrossTerminalLinkAndReopensIt(t *testi
 		opened.Session.Terminals[0].ID,
 		opened.Session.Terminals[1].ID,
 	})
-	require.Equal(t, "t_demo2", opened.Session.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID)
+	transition := findNodeByID(&opened.Session.Terminals[0].Root, "n_cmd_state_change_1")
+	require.NotNil(t, transition)
+	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 
 	saved := app.SaveSession(*opened.Session)
 	require.True(t, saved.OK, "SaveSession() = %#v", saved)
@@ -785,7 +787,9 @@ func TestDesktopSessionFacadeSavesRealDemoCrossTerminalLinkAndReopensIt(t *testi
 	reopened := app.OpenSession()
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
 	require.Len(t, reopened.Session.Terminals, 2)
-	require.Equal(t, "t_demo2", reopened.Session.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID)
+	transition = findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
+	require.NotNil(t, transition)
+	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 }
 
 func TestTerminalGroupReplacementPublishesCanonicalSessionBeforeCoordinationAndReturnsDetachedState(t *testing.T) {
@@ -1231,7 +1235,9 @@ func TestTerminalActivationValidatesRealDemoLinkAgainstCompleteActiveSession(t *
 	})
 	require.True(t, result.OK, "RequestTerminalActivation() = %#v", result)
 	require.Len(t, coordination.targets, 1)
-	require.Equal(t, "t_demo2", coordination.targets[0].Tree.Children[4].TerminalTransition.TargetTerminalID)
+	transition := findNodeByID(&coordination.targets[0].Tree, "n_cmd_state_change_1")
+	require.NotNil(t, transition)
+	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 }
 
 func TestApplicationUnwindsPartialStartup(t *testing.T) {

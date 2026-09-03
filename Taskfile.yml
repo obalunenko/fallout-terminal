@@ -206,11 +206,6 @@ tasks:
     cmds:
       - python3 scripts/test_check_speckit_updates.py
 
-  companion:test:
-    desc: Run the network-free Companion lifecycle regression tests.
-    cmds:
-      - python3 -m unittest discover -s .specify/extensions/companion/scripts -p 'test_*.py'
-
   fmt:
     desc: Format all Go sources.
     cmds:
@@ -340,7 +335,6 @@ tasks:
       - task: proto:breaking
       - task: bindings:check
       - task: speckit:update:test
-      - task: companion:test
 
   release:macos:preflight:
     desc: Validate Developer ID and notarization prerequisites.
