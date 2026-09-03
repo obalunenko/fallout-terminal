@@ -214,6 +214,7 @@ func (service *Service) ReactivateRuntime(state *domain.TerminalRuntime, target 
 	if state.Hack == nil {
 		state.HackLevel = target.HackLevel
 	}
+	state.CommandExecution = nil
 	state.Nav = nav.Revalidate(state.Nav, state.Tree)
 	state.Lifecycle = domain.TerminalLifecycleActive
 	revalidateControllerPresentation(state)

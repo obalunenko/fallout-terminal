@@ -74,6 +74,74 @@ func (x *CommandResult) GetError() string {
 	return ""
 }
 
+type LogAccessResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	Error         *string                `protobuf:"bytes,2,opt,name=error,proto3,oneof" json:"error,omitempty"`
+	DirectoryPath string                 `protobuf:"bytes,3,opt,name=directory_path,json=directoryPath,proto3" json:"directory_path,omitempty"`
+	ActiveLogPath *string                `protobuf:"bytes,4,opt,name=active_log_path,json=activeLogPath,proto3,oneof" json:"active_log_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogAccessResult) Reset() {
+	*x = LogAccessResult{}
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogAccessResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogAccessResult) ProtoMessage() {}
+
+func (x *LogAccessResult) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogAccessResult.ProtoReflect.Descriptor instead.
+func (*LogAccessResult) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *LogAccessResult) GetOk() bool {
+	if x != nil {
+		return x.Ok
+	}
+	return false
+}
+
+func (x *LogAccessResult) GetError() string {
+	if x != nil && x.Error != nil {
+		return *x.Error
+	}
+	return ""
+}
+
+func (x *LogAccessResult) GetDirectoryPath() string {
+	if x != nil {
+		return x.DirectoryPath
+	}
+	return ""
+}
+
+func (x *LogAccessResult) GetActiveLogPath() string {
+	if x != nil && x.ActiveLogPath != nil {
+		return *x.ActiveLogPath
+	}
+	return ""
+}
+
 type SessionOperationResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ok            bool                   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
@@ -87,7 +155,7 @@ type SessionOperationResult struct {
 
 func (x *SessionOperationResult) Reset() {
 	*x = SessionOperationResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[1]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -99,7 +167,7 @@ func (x *SessionOperationResult) String() string {
 func (*SessionOperationResult) ProtoMessage() {}
 
 func (x *SessionOperationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[1]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -112,7 +180,7 @@ func (x *SessionOperationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionOperationResult.ProtoReflect.Descriptor instead.
 func (*SessionOperationResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{1}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SessionOperationResult) GetOk() bool {
@@ -162,7 +230,7 @@ type SaveSessionResult struct {
 
 func (x *SaveSessionResult) Reset() {
 	*x = SaveSessionResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[2]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -174,7 +242,7 @@ func (x *SaveSessionResult) String() string {
 func (*SaveSessionResult) ProtoMessage() {}
 
 func (x *SaveSessionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[2]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -187,7 +255,7 @@ func (x *SaveSessionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveSessionResult.ProtoReflect.Descriptor instead.
 func (*SaveSessionResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{2}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SaveSessionResult) GetOk() bool {
@@ -233,7 +301,7 @@ type PlayerConfigOperationResult struct {
 
 func (x *PlayerConfigOperationResult) Reset() {
 	*x = PlayerConfigOperationResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[3]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -245,7 +313,7 @@ func (x *PlayerConfigOperationResult) String() string {
 func (*PlayerConfigOperationResult) ProtoMessage() {}
 
 func (x *PlayerConfigOperationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[3]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -258,7 +326,7 @@ func (x *PlayerConfigOperationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerConfigOperationResult.ProtoReflect.Descriptor instead.
 func (*PlayerConfigOperationResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{3}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PlayerConfigOperationResult) GetOk() bool {
@@ -321,7 +389,7 @@ type CoordinationResult struct {
 
 func (x *CoordinationResult) Reset() {
 	*x = CoordinationResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[4]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -333,7 +401,7 @@ func (x *CoordinationResult) String() string {
 func (*CoordinationResult) ProtoMessage() {}
 
 func (x *CoordinationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[4]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -346,7 +414,7 @@ func (x *CoordinationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationResult.ProtoReflect.Descriptor instead.
 func (*CoordinationResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{4}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CoordinationResult) GetOk() bool {
@@ -383,7 +451,7 @@ type TerminalSwitchResult struct {
 
 func (x *TerminalSwitchResult) Reset() {
 	*x = TerminalSwitchResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[5]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -395,7 +463,7 @@ func (x *TerminalSwitchResult) String() string {
 func (*TerminalSwitchResult) ProtoMessage() {}
 
 func (x *TerminalSwitchResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[5]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -408,7 +476,7 @@ func (x *TerminalSwitchResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalSwitchResult.ProtoReflect.Descriptor instead.
 func (*TerminalSwitchResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{5}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *TerminalSwitchResult) GetOk() bool {
@@ -459,7 +527,7 @@ type TerminalActivationRequest struct {
 
 func (x *TerminalActivationRequest) Reset() {
 	*x = TerminalActivationRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[6]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -471,7 +539,7 @@ func (x *TerminalActivationRequest) String() string {
 func (*TerminalActivationRequest) ProtoMessage() {}
 
 func (x *TerminalActivationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[6]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -484,7 +552,7 @@ func (x *TerminalActivationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalActivationRequest.ProtoReflect.Descriptor instead.
 func (*TerminalActivationRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{6}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TerminalActivationRequest) GetTerminalId() string {
@@ -532,7 +600,7 @@ type LiveTerminalUpdateRequest struct {
 
 func (x *LiveTerminalUpdateRequest) Reset() {
 	*x = LiveTerminalUpdateRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[7]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +612,7 @@ func (x *LiveTerminalUpdateRequest) String() string {
 func (*LiveTerminalUpdateRequest) ProtoMessage() {}
 
 func (x *LiveTerminalUpdateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[7]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +625,7 @@ func (x *LiveTerminalUpdateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LiveTerminalUpdateRequest.ProtoReflect.Descriptor instead.
 func (*LiveTerminalUpdateRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{7}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *LiveTerminalUpdateRequest) GetTree() *v1.ContentNode {
@@ -584,7 +652,7 @@ type TerminalSwitchDecisionRequest struct {
 
 func (x *TerminalSwitchDecisionRequest) Reset() {
 	*x = TerminalSwitchDecisionRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[8]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -596,7 +664,7 @@ func (x *TerminalSwitchDecisionRequest) String() string {
 func (*TerminalSwitchDecisionRequest) ProtoMessage() {}
 
 func (x *TerminalSwitchDecisionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[8]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -609,7 +677,7 @@ func (x *TerminalSwitchDecisionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalSwitchDecisionRequest.ProtoReflect.Descriptor instead.
 func (*TerminalSwitchDecisionRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{8}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TerminalSwitchDecisionRequest) GetSwitchId() string {
@@ -636,7 +704,7 @@ type ResolveCommandExecutionRequest struct {
 
 func (x *ResolveCommandExecutionRequest) Reset() {
 	*x = ResolveCommandExecutionRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[9]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -648,7 +716,7 @@ func (x *ResolveCommandExecutionRequest) String() string {
 func (*ResolveCommandExecutionRequest) ProtoMessage() {}
 
 func (x *ResolveCommandExecutionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[9]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -661,7 +729,7 @@ func (x *ResolveCommandExecutionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveCommandExecutionRequest.ProtoReflect.Descriptor instead.
 func (*ResolveCommandExecutionRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{9}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ResolveCommandExecutionRequest) GetRequestId() string {
@@ -689,7 +757,7 @@ type ResolveCommandExecutionResult struct {
 
 func (x *ResolveCommandExecutionResult) Reset() {
 	*x = ResolveCommandExecutionResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[10]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -701,7 +769,7 @@ func (x *ResolveCommandExecutionResult) String() string {
 func (*ResolveCommandExecutionResult) ProtoMessage() {}
 
 func (x *ResolveCommandExecutionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[10]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -714,7 +782,7 @@ func (x *ResolveCommandExecutionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveCommandExecutionResult.ProtoReflect.Descriptor instead.
 func (*ResolveCommandExecutionResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{10}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ResolveCommandExecutionResult) GetOk() bool {
@@ -748,7 +816,7 @@ type ResolveTerminalNavigationRequest struct {
 
 func (x *ResolveTerminalNavigationRequest) Reset() {
 	*x = ResolveTerminalNavigationRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[11]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -760,7 +828,7 @@ func (x *ResolveTerminalNavigationRequest) String() string {
 func (*ResolveTerminalNavigationRequest) ProtoMessage() {}
 
 func (x *ResolveTerminalNavigationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[11]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -773,7 +841,7 @@ func (x *ResolveTerminalNavigationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveTerminalNavigationRequest.ProtoReflect.Descriptor instead.
 func (*ResolveTerminalNavigationRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{11}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ResolveTerminalNavigationRequest) GetRequestId() string {
@@ -801,7 +869,7 @@ type ResolveTerminalNavigationResult struct {
 
 func (x *ResolveTerminalNavigationResult) Reset() {
 	*x = ResolveTerminalNavigationResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[12]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -813,7 +881,7 @@ func (x *ResolveTerminalNavigationResult) String() string {
 func (*ResolveTerminalNavigationResult) ProtoMessage() {}
 
 func (x *ResolveTerminalNavigationResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[12]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -826,7 +894,7 @@ func (x *ResolveTerminalNavigationResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveTerminalNavigationResult.ProtoReflect.Descriptor instead.
 func (*ResolveTerminalNavigationResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{12}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ResolveTerminalNavigationResult) GetOk() bool {
@@ -860,7 +928,7 @@ type ResetCommandStateRequest struct {
 
 func (x *ResetCommandStateRequest) Reset() {
 	*x = ResetCommandStateRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[13]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -872,7 +940,7 @@ func (x *ResetCommandStateRequest) String() string {
 func (*ResetCommandStateRequest) ProtoMessage() {}
 
 func (x *ResetCommandStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[13]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -885,7 +953,7 @@ func (x *ResetCommandStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetCommandStateRequest.ProtoReflect.Descriptor instead.
 func (*ResetCommandStateRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{13}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ResetCommandStateRequest) GetTerminalId() string {
@@ -911,7 +979,7 @@ type ResetTerminalCommandStatesRequest struct {
 
 func (x *ResetTerminalCommandStatesRequest) Reset() {
 	*x = ResetTerminalCommandStatesRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[14]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -923,7 +991,7 @@ func (x *ResetTerminalCommandStatesRequest) String() string {
 func (*ResetTerminalCommandStatesRequest) ProtoMessage() {}
 
 func (x *ResetTerminalCommandStatesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[14]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -936,7 +1004,7 @@ func (x *ResetTerminalCommandStatesRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ResetTerminalCommandStatesRequest.ProtoReflect.Descriptor instead.
 func (*ResetTerminalCommandStatesRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{14}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ResetTerminalCommandStatesRequest) GetTerminalId() string {
@@ -958,7 +1026,7 @@ type SessionStateResult struct {
 
 func (x *SessionStateResult) Reset() {
 	*x = SessionStateResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[15]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -970,7 +1038,7 @@ func (x *SessionStateResult) String() string {
 func (*SessionStateResult) ProtoMessage() {}
 
 func (x *SessionStateResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[15]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -983,7 +1051,7 @@ func (x *SessionStateResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionStateResult.ProtoReflect.Descriptor instead.
 func (*SessionStateResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{15}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SessionStateResult) GetOk() bool {
@@ -1025,7 +1093,7 @@ type ReplaceTerminalGroupsRequest struct {
 
 func (x *ReplaceTerminalGroupsRequest) Reset() {
 	*x = ReplaceTerminalGroupsRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[16]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1037,7 +1105,7 @@ func (x *ReplaceTerminalGroupsRequest) String() string {
 func (*ReplaceTerminalGroupsRequest) ProtoMessage() {}
 
 func (x *ReplaceTerminalGroupsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[16]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1050,7 +1118,7 @@ func (x *ReplaceTerminalGroupsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplaceTerminalGroupsRequest.ProtoReflect.Descriptor instead.
 func (*ReplaceTerminalGroupsRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{16}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ReplaceTerminalGroupsRequest) GetTerminalGroups() []*v1.TerminalGroup {
@@ -1087,7 +1155,7 @@ type ReplaceTerminalGroupsResult struct {
 
 func (x *ReplaceTerminalGroupsResult) Reset() {
 	*x = ReplaceTerminalGroupsResult{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[17]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1099,7 +1167,7 @@ func (x *ReplaceTerminalGroupsResult) String() string {
 func (*ReplaceTerminalGroupsResult) ProtoMessage() {}
 
 func (x *ReplaceTerminalGroupsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[17]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1112,7 +1180,7 @@ func (x *ReplaceTerminalGroupsResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReplaceTerminalGroupsResult.ProtoReflect.Descriptor instead.
 func (*ReplaceTerminalGroupsResult) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{17}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ReplaceTerminalGroupsResult) GetOk() bool {
@@ -1163,7 +1231,7 @@ type ResetFailedHackRequest struct {
 
 func (x *ResetFailedHackRequest) Reset() {
 	*x = ResetFailedHackRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[18]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1175,7 +1243,7 @@ func (x *ResetFailedHackRequest) String() string {
 func (*ResetFailedHackRequest) ProtoMessage() {}
 
 func (x *ResetFailedHackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[18]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1188,7 +1256,7 @@ func (x *ResetFailedHackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetFailedHackRequest.ProtoReflect.Descriptor instead.
 func (*ResetFailedHackRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{18}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ResetFailedHackRequest) GetTerminalId() string {
@@ -1238,7 +1306,7 @@ type AddCharacterRequest struct {
 
 func (x *AddCharacterRequest) Reset() {
 	*x = AddCharacterRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[19]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1250,7 +1318,7 @@ func (x *AddCharacterRequest) String() string {
 func (*AddCharacterRequest) ProtoMessage() {}
 
 func (x *AddCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[19]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,7 +1331,7 @@ func (x *AddCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddCharacterRequest.ProtoReflect.Descriptor instead.
 func (*AddCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{19}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *AddCharacterRequest) GetDisplayName() string {
@@ -1307,7 +1375,7 @@ type RenameCharacterRequest struct {
 
 func (x *RenameCharacterRequest) Reset() {
 	*x = RenameCharacterRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[20]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1319,7 +1387,7 @@ func (x *RenameCharacterRequest) String() string {
 func (*RenameCharacterRequest) ProtoMessage() {}
 
 func (x *RenameCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[20]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1332,7 +1400,7 @@ func (x *RenameCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameCharacterRequest.ProtoReflect.Descriptor instead.
 func (*RenameCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{20}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RenameCharacterRequest) GetCharacterId() string {
@@ -1380,7 +1448,7 @@ type DeleteCharacterRequest struct {
 
 func (x *DeleteCharacterRequest) Reset() {
 	*x = DeleteCharacterRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[21]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1460,7 @@ func (x *DeleteCharacterRequest) String() string {
 func (*DeleteCharacterRequest) ProtoMessage() {}
 
 func (x *DeleteCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[21]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1405,7 +1473,7 @@ func (x *DeleteCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCharacterRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{21}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DeleteCharacterRequest) GetCharacterId() string {
@@ -1432,7 +1500,7 @@ type RenameLogicalSessionRequest struct {
 
 func (x *RenameLogicalSessionRequest) Reset() {
 	*x = RenameLogicalSessionRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[22]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1444,7 +1512,7 @@ func (x *RenameLogicalSessionRequest) String() string {
 func (*RenameLogicalSessionRequest) ProtoMessage() {}
 
 func (x *RenameLogicalSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[22]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1457,7 +1525,7 @@ func (x *RenameLogicalSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameLogicalSessionRequest.ProtoReflect.Descriptor instead.
 func (*RenameLogicalSessionRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{22}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RenameLogicalSessionRequest) GetLogicalSessionId() string {
@@ -1484,7 +1552,7 @@ type AssignCharacterRequest struct {
 
 func (x *AssignCharacterRequest) Reset() {
 	*x = AssignCharacterRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[23]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1496,7 +1564,7 @@ func (x *AssignCharacterRequest) String() string {
 func (*AssignCharacterRequest) ProtoMessage() {}
 
 func (x *AssignCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[23]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1509,7 +1577,7 @@ func (x *AssignCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignCharacterRequest.ProtoReflect.Descriptor instead.
 func (*AssignCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{23}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *AssignCharacterRequest) GetLogicalSessionId() string {
@@ -1535,7 +1603,7 @@ type ReleaseCharacterRequest struct {
 
 func (x *ReleaseCharacterRequest) Reset() {
 	*x = ReleaseCharacterRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[24]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1547,7 +1615,7 @@ func (x *ReleaseCharacterRequest) String() string {
 func (*ReleaseCharacterRequest) ProtoMessage() {}
 
 func (x *ReleaseCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[24]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1560,7 +1628,7 @@ func (x *ReleaseCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseCharacterRequest.ProtoReflect.Descriptor instead.
 func (*ReleaseCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{24}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ReleaseCharacterRequest) GetLogicalSessionId() string {
@@ -1580,7 +1648,7 @@ type MoveCharacterRequest struct {
 
 func (x *MoveCharacterRequest) Reset() {
 	*x = MoveCharacterRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[25]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1592,7 +1660,7 @@ func (x *MoveCharacterRequest) String() string {
 func (*MoveCharacterRequest) ProtoMessage() {}
 
 func (x *MoveCharacterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[25]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1605,7 +1673,7 @@ func (x *MoveCharacterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MoveCharacterRequest.ProtoReflect.Descriptor instead.
 func (*MoveCharacterRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{25}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MoveCharacterRequest) GetCharacterId() string {
@@ -1631,7 +1699,7 @@ type SetActiveControllerRequest struct {
 
 func (x *SetActiveControllerRequest) Reset() {
 	*x = SetActiveControllerRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[26]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1643,7 +1711,7 @@ func (x *SetActiveControllerRequest) String() string {
 func (*SetActiveControllerRequest) ProtoMessage() {}
 
 func (x *SetActiveControllerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[26]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1656,7 +1724,7 @@ func (x *SetActiveControllerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetActiveControllerRequest.ProtoReflect.Descriptor instead.
 func (*SetActiveControllerRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{26}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SetActiveControllerRequest) GetLogicalSessionId() string {
@@ -1675,7 +1743,7 @@ type OpenUrlRequest struct {
 
 func (x *OpenUrlRequest) Reset() {
 	*x = OpenUrlRequest{}
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[27]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1687,7 +1755,7 @@ func (x *OpenUrlRequest) String() string {
 func (*OpenUrlRequest) ProtoMessage() {}
 
 func (x *OpenUrlRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[27]
+	mi := &file_fallout_terminal_private_v1_desktop_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1700,7 +1768,7 @@ func (x *OpenUrlRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenUrlRequest.ProtoReflect.Descriptor instead.
 func (*OpenUrlRequest) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{27}
+	return file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *OpenUrlRequest) GetUrl() string {
@@ -1718,7 +1786,14 @@ const file_fallout_terminal_private_v1_desktop_proto_rawDesc = "" +
 	"\rCommandResult\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x19\n" +
 	"\x05error\x18\x02 \x01(\tH\x00R\x05error\x88\x01\x01B\b\n" +
-	"\x06_error\"\xdd\x01\n" +
+	"\x06_error\"\xae\x01\n" +
+	"\x0fLogAccessResult\x12\x0e\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x19\n" +
+	"\x05error\x18\x02 \x01(\tH\x00R\x05error\x88\x01\x01\x12%\n" +
+	"\x0edirectory_path\x18\x03 \x01(\tR\rdirectoryPath\x12+\n" +
+	"\x0factive_log_path\x18\x04 \x01(\tH\x01R\ractiveLogPath\x88\x01\x01B\b\n" +
+	"\x06_errorB\x12\n" +
+	"\x10_active_log_path\"\xdd\x01\n" +
 	"\x16SessionOperationResult\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x1a\n" +
 	"\bcanceled\x18\x02 \x01(\bR\bcanceled\x12\x19\n" +
@@ -1871,68 +1946,69 @@ func file_fallout_terminal_private_v1_desktop_proto_rawDescGZIP() []byte {
 	return file_fallout_terminal_private_v1_desktop_proto_rawDescData
 }
 
-var file_fallout_terminal_private_v1_desktop_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_fallout_terminal_private_v1_desktop_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_fallout_terminal_private_v1_desktop_proto_goTypes = []any{
 	(*CommandResult)(nil),                     // 0: fallout.terminal.private.v1.CommandResult
-	(*SessionOperationResult)(nil),            // 1: fallout.terminal.private.v1.SessionOperationResult
-	(*SaveSessionResult)(nil),                 // 2: fallout.terminal.private.v1.SaveSessionResult
-	(*PlayerConfigOperationResult)(nil),       // 3: fallout.terminal.private.v1.PlayerConfigOperationResult
-	(*CoordinationResult)(nil),                // 4: fallout.terminal.private.v1.CoordinationResult
-	(*TerminalSwitchResult)(nil),              // 5: fallout.terminal.private.v1.TerminalSwitchResult
-	(*TerminalActivationRequest)(nil),         // 6: fallout.terminal.private.v1.TerminalActivationRequest
-	(*LiveTerminalUpdateRequest)(nil),         // 7: fallout.terminal.private.v1.LiveTerminalUpdateRequest
-	(*TerminalSwitchDecisionRequest)(nil),     // 8: fallout.terminal.private.v1.TerminalSwitchDecisionRequest
-	(*ResolveCommandExecutionRequest)(nil),    // 9: fallout.terminal.private.v1.ResolveCommandExecutionRequest
-	(*ResolveCommandExecutionResult)(nil),     // 10: fallout.terminal.private.v1.ResolveCommandExecutionResult
-	(*ResolveTerminalNavigationRequest)(nil),  // 11: fallout.terminal.private.v1.ResolveTerminalNavigationRequest
-	(*ResolveTerminalNavigationResult)(nil),   // 12: fallout.terminal.private.v1.ResolveTerminalNavigationResult
-	(*ResetCommandStateRequest)(nil),          // 13: fallout.terminal.private.v1.ResetCommandStateRequest
-	(*ResetTerminalCommandStatesRequest)(nil), // 14: fallout.terminal.private.v1.ResetTerminalCommandStatesRequest
-	(*SessionStateResult)(nil),                // 15: fallout.terminal.private.v1.SessionStateResult
-	(*ReplaceTerminalGroupsRequest)(nil),      // 16: fallout.terminal.private.v1.ReplaceTerminalGroupsRequest
-	(*ReplaceTerminalGroupsResult)(nil),       // 17: fallout.terminal.private.v1.ReplaceTerminalGroupsResult
-	(*ResetFailedHackRequest)(nil),            // 18: fallout.terminal.private.v1.ResetFailedHackRequest
-	(*AddCharacterRequest)(nil),               // 19: fallout.terminal.private.v1.AddCharacterRequest
-	(*RenameCharacterRequest)(nil),            // 20: fallout.terminal.private.v1.RenameCharacterRequest
-	(*DeleteCharacterRequest)(nil),            // 21: fallout.terminal.private.v1.DeleteCharacterRequest
-	(*RenameLogicalSessionRequest)(nil),       // 22: fallout.terminal.private.v1.RenameLogicalSessionRequest
-	(*AssignCharacterRequest)(nil),            // 23: fallout.terminal.private.v1.AssignCharacterRequest
-	(*ReleaseCharacterRequest)(nil),           // 24: fallout.terminal.private.v1.ReleaseCharacterRequest
-	(*MoveCharacterRequest)(nil),              // 25: fallout.terminal.private.v1.MoveCharacterRequest
-	(*SetActiveControllerRequest)(nil),        // 26: fallout.terminal.private.v1.SetActiveControllerRequest
-	(*OpenUrlRequest)(nil),                    // 27: fallout.terminal.private.v1.OpenUrlRequest
-	(*v1.Session)(nil),                        // 28: fallout.terminal.persistence.v1.Session
-	(*v1.PlayerConfig)(nil),                   // 29: fallout.terminal.persistence.v1.PlayerConfig
-	(*CoordinationState)(nil),                 // 30: fallout.terminal.private.v1.CoordinationState
-	(*PlayerConfigMetadata)(nil),              // 31: fallout.terminal.private.v1.PlayerConfigMetadata
-	(TerminalSwitchStatus)(0),                 // 32: fallout.terminal.private.v1.TerminalSwitchStatus
-	(*v1.ContentNode)(nil),                    // 33: fallout.terminal.persistence.v1.ContentNode
-	(TerminalSwitchChoice)(0),                 // 34: fallout.terminal.private.v1.TerminalSwitchChoice
-	(CommandExecutionDecision)(0),             // 35: fallout.terminal.private.v1.CommandExecutionDecision
-	(TerminalNavigationDecision)(0),           // 36: fallout.terminal.private.v1.TerminalNavigationDecision
-	(*v1.TerminalGroup)(nil),                  // 37: fallout.terminal.persistence.v1.TerminalGroup
+	(*LogAccessResult)(nil),                   // 1: fallout.terminal.private.v1.LogAccessResult
+	(*SessionOperationResult)(nil),            // 2: fallout.terminal.private.v1.SessionOperationResult
+	(*SaveSessionResult)(nil),                 // 3: fallout.terminal.private.v1.SaveSessionResult
+	(*PlayerConfigOperationResult)(nil),       // 4: fallout.terminal.private.v1.PlayerConfigOperationResult
+	(*CoordinationResult)(nil),                // 5: fallout.terminal.private.v1.CoordinationResult
+	(*TerminalSwitchResult)(nil),              // 6: fallout.terminal.private.v1.TerminalSwitchResult
+	(*TerminalActivationRequest)(nil),         // 7: fallout.terminal.private.v1.TerminalActivationRequest
+	(*LiveTerminalUpdateRequest)(nil),         // 8: fallout.terminal.private.v1.LiveTerminalUpdateRequest
+	(*TerminalSwitchDecisionRequest)(nil),     // 9: fallout.terminal.private.v1.TerminalSwitchDecisionRequest
+	(*ResolveCommandExecutionRequest)(nil),    // 10: fallout.terminal.private.v1.ResolveCommandExecutionRequest
+	(*ResolveCommandExecutionResult)(nil),     // 11: fallout.terminal.private.v1.ResolveCommandExecutionResult
+	(*ResolveTerminalNavigationRequest)(nil),  // 12: fallout.terminal.private.v1.ResolveTerminalNavigationRequest
+	(*ResolveTerminalNavigationResult)(nil),   // 13: fallout.terminal.private.v1.ResolveTerminalNavigationResult
+	(*ResetCommandStateRequest)(nil),          // 14: fallout.terminal.private.v1.ResetCommandStateRequest
+	(*ResetTerminalCommandStatesRequest)(nil), // 15: fallout.terminal.private.v1.ResetTerminalCommandStatesRequest
+	(*SessionStateResult)(nil),                // 16: fallout.terminal.private.v1.SessionStateResult
+	(*ReplaceTerminalGroupsRequest)(nil),      // 17: fallout.terminal.private.v1.ReplaceTerminalGroupsRequest
+	(*ReplaceTerminalGroupsResult)(nil),       // 18: fallout.terminal.private.v1.ReplaceTerminalGroupsResult
+	(*ResetFailedHackRequest)(nil),            // 19: fallout.terminal.private.v1.ResetFailedHackRequest
+	(*AddCharacterRequest)(nil),               // 20: fallout.terminal.private.v1.AddCharacterRequest
+	(*RenameCharacterRequest)(nil),            // 21: fallout.terminal.private.v1.RenameCharacterRequest
+	(*DeleteCharacterRequest)(nil),            // 22: fallout.terminal.private.v1.DeleteCharacterRequest
+	(*RenameLogicalSessionRequest)(nil),       // 23: fallout.terminal.private.v1.RenameLogicalSessionRequest
+	(*AssignCharacterRequest)(nil),            // 24: fallout.terminal.private.v1.AssignCharacterRequest
+	(*ReleaseCharacterRequest)(nil),           // 25: fallout.terminal.private.v1.ReleaseCharacterRequest
+	(*MoveCharacterRequest)(nil),              // 26: fallout.terminal.private.v1.MoveCharacterRequest
+	(*SetActiveControllerRequest)(nil),        // 27: fallout.terminal.private.v1.SetActiveControllerRequest
+	(*OpenUrlRequest)(nil),                    // 28: fallout.terminal.private.v1.OpenUrlRequest
+	(*v1.Session)(nil),                        // 29: fallout.terminal.persistence.v1.Session
+	(*v1.PlayerConfig)(nil),                   // 30: fallout.terminal.persistence.v1.PlayerConfig
+	(*CoordinationState)(nil),                 // 31: fallout.terminal.private.v1.CoordinationState
+	(*PlayerConfigMetadata)(nil),              // 32: fallout.terminal.private.v1.PlayerConfigMetadata
+	(TerminalSwitchStatus)(0),                 // 33: fallout.terminal.private.v1.TerminalSwitchStatus
+	(*v1.ContentNode)(nil),                    // 34: fallout.terminal.persistence.v1.ContentNode
+	(TerminalSwitchChoice)(0),                 // 35: fallout.terminal.private.v1.TerminalSwitchChoice
+	(CommandExecutionDecision)(0),             // 36: fallout.terminal.private.v1.CommandExecutionDecision
+	(TerminalNavigationDecision)(0),           // 37: fallout.terminal.private.v1.TerminalNavigationDecision
+	(*v1.TerminalGroup)(nil),                  // 38: fallout.terminal.persistence.v1.TerminalGroup
 }
 var file_fallout_terminal_private_v1_desktop_proto_depIdxs = []int32{
-	28, // 0: fallout.terminal.private.v1.SessionOperationResult.session:type_name -> fallout.terminal.persistence.v1.Session
-	29, // 1: fallout.terminal.private.v1.PlayerConfigOperationResult.player_config:type_name -> fallout.terminal.persistence.v1.PlayerConfig
-	28, // 2: fallout.terminal.private.v1.PlayerConfigOperationResult.session:type_name -> fallout.terminal.persistence.v1.Session
-	30, // 3: fallout.terminal.private.v1.PlayerConfigOperationResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
-	31, // 4: fallout.terminal.private.v1.PlayerConfigOperationResult.player_config_metadata:type_name -> fallout.terminal.private.v1.PlayerConfigMetadata
-	30, // 5: fallout.terminal.private.v1.CoordinationResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
-	32, // 6: fallout.terminal.private.v1.TerminalSwitchResult.status:type_name -> fallout.terminal.private.v1.TerminalSwitchStatus
-	30, // 7: fallout.terminal.private.v1.TerminalSwitchResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
-	33, // 8: fallout.terminal.private.v1.TerminalActivationRequest.tree:type_name -> fallout.terminal.persistence.v1.ContentNode
-	33, // 9: fallout.terminal.private.v1.LiveTerminalUpdateRequest.tree:type_name -> fallout.terminal.persistence.v1.ContentNode
-	34, // 10: fallout.terminal.private.v1.TerminalSwitchDecisionRequest.choice:type_name -> fallout.terminal.private.v1.TerminalSwitchChoice
-	35, // 11: fallout.terminal.private.v1.ResolveCommandExecutionRequest.decision:type_name -> fallout.terminal.private.v1.CommandExecutionDecision
-	30, // 12: fallout.terminal.private.v1.ResolveCommandExecutionResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
-	36, // 13: fallout.terminal.private.v1.ResolveTerminalNavigationRequest.decision:type_name -> fallout.terminal.private.v1.TerminalNavigationDecision
-	30, // 14: fallout.terminal.private.v1.ResolveTerminalNavigationResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
-	28, // 15: fallout.terminal.private.v1.SessionStateResult.session:type_name -> fallout.terminal.persistence.v1.Session
-	37, // 16: fallout.terminal.private.v1.ReplaceTerminalGroupsRequest.terminal_groups:type_name -> fallout.terminal.persistence.v1.TerminalGroup
-	28, // 17: fallout.terminal.private.v1.ReplaceTerminalGroupsResult.session:type_name -> fallout.terminal.persistence.v1.Session
-	30, // 18: fallout.terminal.private.v1.ReplaceTerminalGroupsResult.coordination_state:type_name -> fallout.terminal.private.v1.CoordinationState
-	33, // 19: fallout.terminal.private.v1.ResetFailedHackRequest.tree:type_name -> fallout.terminal.persistence.v1.ContentNode
+	29, // 0: fallout.terminal.private.v1.SessionOperationResult.session:type_name -> fallout.terminal.persistence.v1.Session
+	30, // 1: fallout.terminal.private.v1.PlayerConfigOperationResult.player_config:type_name -> fallout.terminal.persistence.v1.PlayerConfig
+	29, // 2: fallout.terminal.private.v1.PlayerConfigOperationResult.session:type_name -> fallout.terminal.persistence.v1.Session
+	31, // 3: fallout.terminal.private.v1.PlayerConfigOperationResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
+	32, // 4: fallout.terminal.private.v1.PlayerConfigOperationResult.player_config_metadata:type_name -> fallout.terminal.private.v1.PlayerConfigMetadata
+	31, // 5: fallout.terminal.private.v1.CoordinationResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
+	33, // 6: fallout.terminal.private.v1.TerminalSwitchResult.status:type_name -> fallout.terminal.private.v1.TerminalSwitchStatus
+	31, // 7: fallout.terminal.private.v1.TerminalSwitchResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
+	34, // 8: fallout.terminal.private.v1.TerminalActivationRequest.tree:type_name -> fallout.terminal.persistence.v1.ContentNode
+	34, // 9: fallout.terminal.private.v1.LiveTerminalUpdateRequest.tree:type_name -> fallout.terminal.persistence.v1.ContentNode
+	35, // 10: fallout.terminal.private.v1.TerminalSwitchDecisionRequest.choice:type_name -> fallout.terminal.private.v1.TerminalSwitchChoice
+	36, // 11: fallout.terminal.private.v1.ResolveCommandExecutionRequest.decision:type_name -> fallout.terminal.private.v1.CommandExecutionDecision
+	31, // 12: fallout.terminal.private.v1.ResolveCommandExecutionResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
+	37, // 13: fallout.terminal.private.v1.ResolveTerminalNavigationRequest.decision:type_name -> fallout.terminal.private.v1.TerminalNavigationDecision
+	31, // 14: fallout.terminal.private.v1.ResolveTerminalNavigationResult.state:type_name -> fallout.terminal.private.v1.CoordinationState
+	29, // 15: fallout.terminal.private.v1.SessionStateResult.session:type_name -> fallout.terminal.persistence.v1.Session
+	38, // 16: fallout.terminal.private.v1.ReplaceTerminalGroupsRequest.terminal_groups:type_name -> fallout.terminal.persistence.v1.TerminalGroup
+	29, // 17: fallout.terminal.private.v1.ReplaceTerminalGroupsResult.session:type_name -> fallout.terminal.persistence.v1.Session
+	31, // 18: fallout.terminal.private.v1.ReplaceTerminalGroupsResult.coordination_state:type_name -> fallout.terminal.private.v1.CoordinationState
+	34, // 19: fallout.terminal.private.v1.ResetFailedHackRequest.tree:type_name -> fallout.terminal.persistence.v1.ContentNode
 	20, // [20:20] is the sub-list for method output_type
 	20, // [20:20] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
@@ -1952,20 +2028,21 @@ func file_fallout_terminal_private_v1_desktop_proto_init() {
 	file_fallout_terminal_private_v1_desktop_proto_msgTypes[3].OneofWrappers = []any{}
 	file_fallout_terminal_private_v1_desktop_proto_msgTypes[4].OneofWrappers = []any{}
 	file_fallout_terminal_private_v1_desktop_proto_msgTypes[5].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_desktop_proto_msgTypes[7].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_desktop_proto_msgTypes[10].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_desktop_proto_msgTypes[12].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_desktop_proto_msgTypes[15].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_desktop_proto_msgTypes[17].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_desktop_proto_msgTypes[19].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[6].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[8].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[11].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[13].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[16].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[18].OneofWrappers = []any{}
 	file_fallout_terminal_private_v1_desktop_proto_msgTypes[20].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_desktop_proto_msgTypes[21].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_private_v1_desktop_proto_rawDesc), len(file_fallout_terminal_private_v1_desktop_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

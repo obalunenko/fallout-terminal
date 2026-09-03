@@ -173,6 +173,29 @@ type Effect struct {
 	Result            *domain.ActionResult
 	ClearLiveTerminal bool
 	Update            *domain.CompoundUpdate
+	Audit             []AuditEvent
+}
+
+// AuditEvent is a closed, display-content-free diagnostic fact emitted by an
+// authoritative coordinator transition.
+type AuditEvent struct {
+	Name             string
+	Decision         string
+	Outcome          string
+	Reason           string
+	SessionID        domain.LogicalSessionID
+	Role             domain.PlayerRole
+	PreviousRole     domain.PlayerRole
+	RequestID        string
+	BroadcastID      domain.BroadcastID
+	TerminalID       string
+	CommandID        string
+	Mode             string
+	PuzzleID         string
+	PreviousPuzzleID string
+	HackLevel        int
+	AttemptsMax      int
+	AttemptsLeft     int
 }
 
 // Service serializes every process-runtime transition under one mutex.
@@ -1225,7 +1248,9 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		if !currentPendingCommandExecution(pending, broadcast, terminal, requestID) {
 			state = masterSnapshot(runtime)
 			resolveErr = ErrCommandExecutionStale
-			return transition{}
+			return transition{effects: []Effect{{Audit: []AuditEvent{{
+				Name: "command.decision", Decision: string(decision), Outcome: "stale", RequestID: requestID,
+			}}}}}
 		}
 		authored, current := selectedAuthoredCommand(terminal, domain.RuntimeCommand{
 			Kind: domain.RuntimeCommandNavigate, Action: "command", NodeID: pending.CommandID,
@@ -1237,7 +1262,9 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			commandConfirmationText(authored) != pending.ConfirmationText {
 			state = masterSnapshot(runtime)
 			resolveErr = ErrCommandExecutionStale
-			return transition{}
+			return transition{effects: []Effect{{Audit: []AuditEvent{
+				commandDecisionAudit(pending, decision, "stale"),
+			}}}}
 		}
 
 		if decision == domain.CommandExecutionReject {
@@ -1250,7 +1277,9 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			if projection := service.projectActiveTerminal(runtime); projection != nil {
 				effects = append(effects, Effect{Live: projection})
 			}
-			return transition{accepted: true, effects: effects}
+			change := transition{accepted: true, effects: effects}
+			change.audit(commandDecisionAudit(pending, decision, "declined"))
+			return change
 		}
 
 		if pending.Mode == domain.CommandApprovalModeOrdinary || pending.Mode == domain.CommandApprovalModeCompletedStateChange {
@@ -1262,31 +1291,33 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			if projection := service.projectActiveTerminal(runtime); projection != nil {
 				effects = append(effects, Effect{Live: projection})
 			}
-			return transition{accepted: true, effects: effects}
+			change := transition{accepted: true, effects: effects}
+			change.audit(commandDecisionAudit(pending, decision, "succeeded"))
+			return change
 		}
 
 		if service.commandStateStore == nil {
 			resolveErr = ErrCommandExecutionPersistence
-			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
+			return service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 		}
 		durable, err := service.commandStateStore.ExecuteCommandState(ctx, pending.TerminalID, pending.CommandID)
 		if err != nil {
 			resolveErr = ErrCommandExecutionPersistence
-			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
+			return service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 		}
 		if err := domain.ValidateSession(durable.Session); err != nil {
 			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
-			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
+			return service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 		}
 		durableTerminal := terminalByStableID(&durable.Session, pending.TerminalID)
 		if durableTerminal == nil {
 			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
-			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
+			return service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 		}
 		completed, exists := durableTerminal.CommandStates[pending.CommandID]
 		if !exists || !durableCommandStateMatchesAuthored(completed, authored) {
 			resolveErr = commandExecutionPersistenceFailure("command execution returned an invalid durable state")
-			return service.failPendingCommandExecution(runtime, terminal, pending, &state)
+			return service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 		}
 
 		terminal.CommandStates = cloneCommandStates(durableTerminal.CommandStates)
@@ -1301,7 +1332,9 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		if projection := service.projectActiveTerminal(runtime); projection != nil {
 			effects = append(effects, Effect{Live: projection})
 		}
-		return transition{accepted: true, effects: effects}
+		change := transition{accepted: true, effects: effects}
+		change.audit(commandDecisionAudit(pending, decision, "succeeded"))
+		return change
 	})
 	if state == nil {
 		state = service.Snapshot()
@@ -1470,10 +1503,19 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		pending := runtime.PendingTerminalNavigation
 		broadcast := runtime.Broadcast
 		source := activeTerminalRuntime(broadcast)
+		auditDecision := func(change transition, outcome string) transition {
+			if event, ok := terminalTransitionCommandAudit(runtime, pending, "command.decision", outcome, decision); ok {
+				change.audit(event)
+			}
+			return change
+		}
 		if pending == nil || pending.RequestID != requestID || broadcast == nil || pending.BroadcastID != broadcast.ID ||
 			source == nil || source.TerminalID != pending.SourceTerminalID {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation decision is stale")
+			if pending != nil && pending.RequestID == requestID {
+				return auditDecision(transition{}, "stale")
+			}
 			return transition{}
 		}
 		if decision == domain.TerminalNavigationReject {
@@ -1489,7 +1531,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 			if projection := service.projectActiveTerminal(runtime); projection != nil {
 				effects = append(effects, Effect{Live: projection})
 			}
-			return transition{accepted: true, effects: effects}
+			return auditDecision(transition{accepted: true, effects: effects}, "declined")
 		}
 		if pending.Direction == domain.TerminalNavigationReturn {
 			if service.terminalCatalog == nil || len(broadcast.Route) == 0 ||
@@ -1550,7 +1592,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		if pending.Direction != domain.TerminalNavigationForward || service.terminalCatalog == nil {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation target is unavailable")
-			return transition{}
+			return auditDecision(transition{}, "failed")
 		}
 		latest, ok := service.terminalCatalog.LookupTerminalTransition(pending.SourceTerminalID, pending.CommandID)
 		if !ok || latest.Target.TerminalID != pending.TargetTerminalID || latest.Target.TerminalID == pending.SourceTerminalID ||
@@ -1567,13 +1609,13 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 			if projection := service.projectActiveTerminal(runtime); projection != nil {
 				effects = append(effects, Effect{Live: projection})
 			}
-			return transition{accepted: true, effects: effects}
+			return auditDecision(transition{accepted: true, effects: effects}, "stale")
 		}
 		lifecycle, ok := service.terminals.(terminalDecisionLifecycle)
 		if !ok {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation lifecycle is unavailable")
-			return transition{}
+			return auditDecision(transition{}, "failed")
 		}
 		lifecycle.SuspendRuntime(source)
 		targetRuntime := broadcast.TerminalRuntimes[latest.Target.TerminalID]
@@ -1587,7 +1629,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		if targetRuntime == nil || projection == nil {
 			state = masterSnapshot(runtime)
 			resolveErr = fmt.Errorf("terminal navigation target could not be activated")
-			return transition{}
+			return auditDecision(transition{}, "failed")
 		}
 		targetRuntime.Nav = domain.NavState{Path: []string{"root"}, Mode: "list"}
 		projection.Nav = targetRuntime.Nav
@@ -1598,7 +1640,7 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		runtime.TerminalNavigationNotice = nil
 		projection = decorateTerminalNavigation(runtime, projection)
 		state = masterSnapshot(runtime)
-		return transition{accepted: true, effects: append(stateEffects(runtime), Effect{Live: projection})}
+		return auditDecision(transition{accepted: true, effects: append(stateEffects(runtime), Effect{Live: projection})}, "succeeded")
 	})
 	if state == nil {
 		state = service.Snapshot()
@@ -1607,7 +1649,13 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 	return domain.CloneMasterCoordinationState(state), resolveErr
 }
 
-func (service *Service) failPendingCommandExecution(runtime *domain.ProcessRuntime, terminal *domain.TerminalRuntime, pending *domain.PendingCommandExecution, state **domain.MasterCoordinationState) transition {
+func (service *Service) failPendingCommandExecution(
+	runtime *domain.ProcessRuntime,
+	terminal *domain.TerminalRuntime,
+	pending *domain.PendingCommandExecution,
+	state **domain.MasterCoordinationState,
+	decision domain.CommandExecutionDecision,
+) transition {
 	runtime.PendingCommandExecution = nil
 	terminal.CommandExecution = nil
 	if session := runtime.SessionsByID[pending.ControllerSessionID]; session != nil {
@@ -1618,7 +1666,9 @@ func (service *Service) failPendingCommandExecution(runtime *domain.ProcessRunti
 	if projection := service.projectActiveTerminal(runtime); projection != nil {
 		effects = append(effects, Effect{Live: projection})
 	}
-	return transition{accepted: true, effects: effects}
+	change := transition{accepted: true, effects: effects}
+	change.audit(commandDecisionAudit(pending, decision, "failed"))
+	return change
 }
 
 // CanDeleteTerminal prevents durable deletion while a process-local runtime
@@ -2124,7 +2174,11 @@ func (service *Service) preparePlayerAction(
 	sessionID, session := sessionForConnection(runtime, connectionID)
 	if session == nil {
 		result := rejectedAction(command.RequestID, domain.ActionReasonInvalidSession, runtime.Revision)
-		return preparedPlayerAction{}, result, transition{effects: []Effect{playerActionResultEffect(connectionID, "", result)}}, false
+		change := transition{effects: []Effect{playerActionResultEffect(connectionID, "", result)}}
+		if event, ok := commandRequestOutcomeAudit(runtime, "", command, "invalid"); ok {
+			change.audit(event)
+		}
+		return preparedPlayerAction{}, result, change, false
 	}
 	if command.RequestID == "" {
 		result := rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
@@ -2134,10 +2188,18 @@ func (service *Service) preparePlayerAction(
 	fingerprint := playerActionFingerprint(command)
 	if cached, exists := service.requestResult(runtime, sessionID, command.RequestID); exists {
 		if cached.Fingerprint == fingerprint {
-			return preparedPlayerAction{}, cached.Result, transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, cached.Result)}}, false
+			change := transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, cached.Result)}}
+			if event, ok := commandRequestOutcomeAudit(runtime, sessionID, command, "replayed"); ok {
+				change.audit(event)
+			}
+			return preparedPlayerAction{}, cached.Result, change, false
 		}
 		result := rejectedAction(command.RequestID, domain.ActionReasonDuplicate, runtime.Revision)
-		return preparedPlayerAction{}, result, transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, result)}}, false
+		change := transition{effects: []Effect{playerActionResultEffect(connectionID, sessionID, result)}}
+		if event, ok := commandRequestOutcomeAudit(runtime, sessionID, command, "duplicate"); ok {
+			change.audit(event)
+		}
+		return preparedPlayerAction{}, result, change, false
 	}
 	reject := func(reason domain.ActionReason) (preparedPlayerAction, domain.ActionResult, transition, bool) {
 		result := rejectedAction(command.RequestID, reason, runtime.Revision)
@@ -2314,6 +2376,9 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			outcome, stop = service.acceptedPlayerAction(
 				runtime, connectionID, sessionID, command, fingerprint, service.playerActionStateEffects(runtime),
 			)
+			if event, ok := terminalTransitionCommandAudit(runtime, runtime.PendingTerminalNavigation, "command.request_received", "accepted", ""); ok {
+				stop.audit(event)
+			}
 			return stop
 		}
 		if commandSelected {
@@ -2332,6 +2397,12 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			outcome, stop = service.acceptedPlayerAction(
 				runtime, connectionID, sessionID, command, fingerprint, service.playerActionStateEffects(runtime),
 			)
+			stop.audit(AuditEvent{
+				Name: "command.request_received", Outcome: "accepted", SessionID: sessionID,
+				Role: roleForSession(runtime.Broadcast, sessionID), RequestID: runtime.PendingCommandExecution.RequestID,
+				BroadcastID: runtime.Broadcast.ID, TerminalID: terminal.TerminalID, CommandID: authored.ID,
+				Mode: string(mode),
+			})
 			return stop
 		}
 		if service.actions == nil {
@@ -2352,6 +2423,9 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 		outcome, stop = service.acceptedPlayerAction(
 			runtime, connectionID, sessionID, command, fingerprint, []Effect{{Live: projection}},
 		)
+		if command.Kind == domain.RuntimeCommandGuess || command.Kind == domain.RuntimeCommandActivatePattern {
+			stop.audit(hackActionAudit(runtime, sessionID, command, before.Hack, terminal.Hack))
+		}
 		return stop
 	})
 	return outcome
@@ -2434,10 +2508,20 @@ func (service *Service) commit(apply func(*domain.ProcessRuntime) transition) tr
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
+	before := cloneProcessRuntime(&service.runtime)
 	working := cloneProcessRuntime(&service.runtime)
 	result := apply(working)
 	if result.accepted {
 		working.Revision = service.runtime.Revision + 1
+		for _, event := range deriveAuditEvents(before, working) {
+			result.audit(event)
+		}
+		if event, ok := supersededCommandAudit(before, working, result.effects); ok {
+			result.audit(event)
+		}
+		if event, ok := supersededTerminalTransitionCommandAudit(before, working, result.effects); ok {
+			result.audit(event)
+		}
 		service.runtime = *working
 	} else if result.persist {
 		working.Revision = service.runtime.Revision
@@ -2724,7 +2808,7 @@ func clearTerminalNavigationRuntime(runtime *domain.ProcessRuntime) bool {
 func rootReturnRequested(terminal *domain.TerminalRuntime, command domain.RuntimeCommand, route []domain.TerminalReturnPoint) bool {
 	return terminal != nil && command.Kind == domain.RuntimeCommandNavigate && command.Action == "back" &&
 		len(route) != 0 && terminal.Nav.Mode == "list" && len(terminal.Nav.Path) == 1 && terminal.Nav.Path[0] == "root" &&
-		terminal.Nav.ViewEntryID == nil && terminal.Nav.CommandNodeID == nil
+		terminal.Nav.ViewEntryID == nil && terminal.Nav.CommandNodeID == nil && terminal.CommandExecution == nil
 }
 
 func cloneTerminalReturnPoint(point domain.TerminalReturnPoint) domain.TerminalReturnPoint {
@@ -3099,11 +3183,82 @@ func (service *Service) cachePlayerActionRejection(runtime *domain.ProcessRuntim
 		Fingerprint: playerActionFingerprint(command),
 		Result:      result,
 	})
-	return transition{
+	change := transition{
 		persist: true,
 		effects: []Effect{
 			playerActionResultEffect(connectionID, sessionID, result),
 		},
+	}
+	if event, ok := commandRequestOutcomeAudit(runtime, sessionID, command, commandOutcomeForReason(result.Reason)); ok {
+		change.audit(event)
+	}
+	if event, ok := rejectedHackActionAudit(runtime, sessionID, command); ok {
+		change.audit(event)
+	}
+	return change
+}
+
+func rejectedHackActionAudit(runtime *domain.ProcessRuntime, sessionID domain.LogicalSessionID, command domain.RuntimeCommand) (AuditEvent, bool) {
+	if command.Kind != domain.RuntimeCommandGuess && command.Kind != domain.RuntimeCommandActivatePattern {
+		return AuditEvent{}, false
+	}
+	event := AuditEvent{
+		Name: "hack.guess", Outcome: "rejected", SessionID: sessionID,
+		TerminalID: command.TerminalID,
+	}
+	if command.Kind == domain.RuntimeCommandActivatePattern {
+		event.Name = "hack.pattern"
+	}
+	if runtime == nil || runtime.Broadcast == nil {
+		return event, true
+	}
+	event.BroadcastID = runtime.Broadcast.ID
+	event.Role = roleForSession(runtime.Broadcast, sessionID)
+	terminal := activeTerminalRuntime(runtime.Broadcast)
+	if terminal != nil && terminal.TerminalID == command.TerminalID && terminal.Hack != nil {
+		event.PuzzleID = terminal.Hack.GenerationID
+		event.AttemptsLeft = terminal.Hack.AttemptsLeft
+	}
+	return event, true
+}
+
+func commandRequestOutcomeAudit(runtime *domain.ProcessRuntime, sessionID domain.LogicalSessionID, command domain.RuntimeCommand, outcome string) (AuditEvent, bool) {
+	if command.Kind != domain.RuntimeCommandNavigate || command.Action != "command" || command.RequestID == "" {
+		return AuditEvent{}, false
+	}
+	event := AuditEvent{
+		Name: "command.request_outcome", Outcome: outcome,
+		RequestID: command.RequestID, SessionID: sessionID,
+	}
+	if runtime != nil && runtime.Broadcast != nil {
+		event.BroadcastID = runtime.Broadcast.ID
+		event.Role = roleForSession(runtime.Broadcast, sessionID)
+	}
+	if validRuntimeCommand(command) {
+		event.TerminalID = command.TerminalID
+		event.CommandID = command.NodeID
+	}
+	return event, true
+}
+
+func commandOutcomeForReason(reason domain.ActionReason) string {
+	switch reason {
+	case domain.ActionReasonDuplicate:
+		return "duplicate"
+	case domain.ActionReasonStaleBroadcast:
+		return "stale-broadcast"
+	case domain.ActionReasonStaleTerminal:
+		return "stale-terminal"
+	case domain.ActionReasonUnassigned:
+		return "unassigned"
+	case domain.ActionReasonNotController:
+		return "not-controller"
+	case domain.ActionReasonControllerDisconnected:
+		return "controller-disconnected"
+	case domain.ActionReasonConflict:
+		return "conflict"
+	default:
+		return "invalid"
 	}
 }
 
@@ -3369,6 +3524,7 @@ func detachEffect(effect Effect, revision uint64) Effect {
 	detached.Live = clonePublicLiveState(effect.Live)
 	detached.Hack = clonePublicHackState(effect.Hack)
 	detached.Update = domain.CloneCompoundUpdate(effect.Update)
+	detached.Audit = append([]AuditEvent(nil), effect.Audit...)
 	if effect.Result != nil {
 		result := *effect.Result
 		if result.Revision == 0 {
@@ -3377,6 +3533,260 @@ func detachEffect(effect Effect, revision uint64) Effect {
 		detached.Result = &result
 	}
 	return detached
+}
+
+func (change *transition) audit(event AuditEvent) {
+	if event.Name == "" {
+		return
+	}
+	change.effects = append(change.effects, Effect{Audit: []AuditEvent{event}})
+}
+
+func deriveAuditEvents(before, after *domain.ProcessRuntime) []AuditEvent {
+	var events []AuditEvent
+	for _, sessionID := range sortedSessionIDs(after) {
+		current := after.SessionsByID[sessionID]
+		previous := before.SessionsByID[sessionID]
+		wasConnected := previous != nil && len(previous.ConnectionIDs) > 0
+		connected := current != nil && len(current.ConnectionIDs) > 0
+		previousRole := roleForSession(before.Broadcast, sessionID)
+		role := roleForSession(after.Broadcast, sessionID)
+		if !wasConnected && connected {
+			events = append(events, AuditEvent{Name: "player.connected", Outcome: "connected", SessionID: sessionID, Role: role})
+		}
+		if wasConnected && !connected {
+			events = append(events, AuditEvent{Name: "player.disconnected", Outcome: "disconnected", SessionID: sessionID, Role: previousRole})
+		}
+		if connected && previous != nil && previousRole != role {
+			events = append(events, AuditEvent{Name: "player.role_changed", Outcome: "selected", SessionID: sessionID, Role: role, PreviousRole: previousRole})
+		}
+	}
+	events = append(events, deriveHackLifecycleEvents(before, after)...)
+	return events
+}
+
+func commandDecisionAudit(pending *domain.PendingCommandExecution, decision domain.CommandExecutionDecision, outcome string) AuditEvent {
+	if pending == nil {
+		return AuditEvent{Name: "command.decision", Decision: normalizedCommandAuditDecision(string(decision)), Outcome: outcome}
+	}
+	return AuditEvent{
+		Name: "command.decision", Decision: normalizedCommandAuditDecision(string(decision)), Outcome: outcome,
+		SessionID: pending.ControllerSessionID, RequestID: pending.RequestID,
+		BroadcastID: pending.BroadcastID, TerminalID: pending.TerminalID,
+		CommandID: pending.CommandID, Mode: string(pending.Mode),
+	}
+}
+
+func terminalTransitionCommandAudit(
+	runtime *domain.ProcessRuntime,
+	pending *domain.PendingTerminalNavigation,
+	name string,
+	outcome string,
+	decision domain.TerminalNavigationDecision,
+) (AuditEvent, bool) {
+	if pending == nil || pending.Direction != domain.TerminalNavigationForward {
+		return AuditEvent{}, false
+	}
+	event := AuditEvent{
+		Name: name, Decision: normalizedCommandAuditDecision(string(decision)), Outcome: outcome,
+		SessionID: pending.ControllerSessionID, RequestID: pending.RequestID,
+		BroadcastID: pending.BroadcastID, TerminalID: pending.SourceTerminalID,
+		CommandID: pending.CommandID, Mode: string(domain.CommandBehaviorTerminalTransition),
+	}
+	if runtime != nil && runtime.Broadcast != nil {
+		event.Role = roleForSession(runtime.Broadcast, pending.ControllerSessionID)
+	}
+	return event, true
+}
+
+func normalizedCommandAuditDecision(decision string) string {
+	if decision == string(domain.CommandExecutionReject) {
+		return "decline"
+	}
+	return decision
+}
+
+func supersededCommandAudit(before, after *domain.ProcessRuntime, effects []Effect) (AuditEvent, bool) {
+	pending := before.PendingCommandExecution
+	if pending == nil || after.PendingCommandExecution != nil {
+		return AuditEvent{}, false
+	}
+	for _, effect := range effects {
+		for _, event := range effect.Audit {
+			if event.Name == "command.decision" && event.RequestID == pending.RequestID {
+				return AuditEvent{}, false
+			}
+		}
+	}
+	event := commandDecisionAudit(pending, "", "superseded")
+	event.Name = "command.request_outcome"
+	return event, true
+}
+
+func supersededTerminalTransitionCommandAudit(before, after *domain.ProcessRuntime, effects []Effect) (AuditEvent, bool) {
+	pending := before.PendingTerminalNavigation
+	if pending == nil || pending.Direction != domain.TerminalNavigationForward || after.PendingTerminalNavigation != nil {
+		return AuditEvent{}, false
+	}
+	for _, effect := range effects {
+		for _, event := range effect.Audit {
+			if strings.HasPrefix(event.Name, "command.") && event.RequestID == pending.RequestID {
+				return AuditEvent{}, false
+			}
+		}
+	}
+	event, ok := terminalTransitionCommandAudit(before, pending, "command.request_outcome", "superseded", "")
+	return event, ok
+}
+
+func deriveHackLifecycleEvents(before, after *domain.ProcessRuntime) []AuditEvent {
+	oldTerminal, newTerminal := activeTerminalRuntime(before.Broadcast), activeTerminalRuntime(after.Broadcast)
+	var oldHack, newHack *domain.HackState
+	if oldTerminal != nil {
+		oldHack = oldTerminal.Hack
+	}
+	if newTerminal != nil {
+		newHack = newTerminal.Hack
+	}
+	oldTerminalID, newTerminalID := "", ""
+	if oldTerminal != nil {
+		oldTerminalID = oldTerminal.TerminalID
+	}
+	if newTerminal != nil {
+		newTerminalID = newTerminal.TerminalID
+	}
+	if oldHack != nil && newHack != nil && oldTerminalID != newTerminalID {
+		var events []AuditEvent
+		if activeHack(oldHack) {
+			event := hackLifecycleAudit(before, oldTerminal, oldHack, "hack.interrupted", "interrupted")
+			event.Reason = hackInterruptionReason(before, after, oldTerminalID)
+			events = append(events, event)
+		}
+		return append(events, hackLifecycleAudit(after, newTerminal, newHack, "hack.started", "started"))
+	}
+	if oldHack == nil && newHack != nil {
+		return []AuditEvent{hackLifecycleAudit(after, newTerminal, newHack, "hack.started", "started")}
+	}
+	if oldHack != nil && newHack == nil {
+		if !activeHack(oldHack) {
+			return nil
+		}
+		event := hackLifecycleAudit(before, oldTerminal, oldHack, "hack.interrupted", "interrupted")
+		event.Reason = hackInterruptionReason(before, after, oldTerminalID)
+		return []AuditEvent{event}
+	}
+	if oldHack == nil || newHack == nil {
+		return nil
+	}
+	if oldHack.GenerationID != newHack.GenerationID {
+		event := hackLifecycleAudit(after, newTerminal, newHack, "hack.reset", "reset")
+		event.PreviousPuzzleID = oldHack.GenerationID
+		return []AuditEvent{event}
+	}
+	if activeHack(oldHack) && activeHack(newHack) && controllingSessionChanged(before, after) {
+		event := hackLifecycleAudit(before, oldTerminal, oldHack, "hack.interrupted", "interrupted")
+		event.Reason = hackInterruptionReason(before, after, oldTerminalID)
+		return []AuditEvent{event}
+	}
+	var events []AuditEvent
+	if !oldHack.Solved && newHack.Solved {
+		events = append(events, hackLifecycleAudit(after, newTerminal, newHack, "hack.succeeded", "succeeded"))
+	}
+	if !oldHack.Failed && newHack.Failed {
+		events = append(events, hackLifecycleAudit(after, newTerminal, newHack, "hack.failed", "failed"))
+	}
+	return events
+}
+
+func hackActionAudit(runtime *domain.ProcessRuntime, sessionID domain.LogicalSessionID, command domain.RuntimeCommand, before, after *domain.HackState) AuditEvent {
+	name := "hack.guess"
+	if command.Kind == domain.RuntimeCommandActivatePattern {
+		name = "hack.pattern"
+	}
+	event := AuditEvent{Name: name, SessionID: sessionID, Role: roleForSession(runtime.Broadcast, sessionID), TerminalID: command.TerminalID}
+	if runtime.Broadcast != nil {
+		event.BroadcastID = runtime.Broadcast.ID
+	}
+	if before != nil {
+		event.PuzzleID = before.GenerationID
+		event.AttemptsLeft = before.AttemptsLeft
+	}
+	if after != nil {
+		event.PuzzleID = after.GenerationID
+		event.AttemptsLeft = after.AttemptsLeft
+	}
+	if name == "hack.pattern" {
+		event.Outcome = "attempts-replenished"
+		if before != nil && after != nil && len(after.WordsByID) < len(before.WordsByID) {
+			event.Outcome = "dud-removed"
+		}
+		return event
+	}
+	switch {
+	case after == nil:
+		event.Outcome = "rejected"
+	case after.Solved:
+		event.Outcome = "succeeded"
+	case after.Failed:
+		event.Outcome = "failed"
+	default:
+		event.Outcome = "mismatch"
+	}
+	return event
+}
+
+func activeHack(state *domain.HackState) bool {
+	return state != nil && !state.Solved && !state.Failed
+}
+
+func controllingSessionChanged(before, after *domain.ProcessRuntime) bool {
+	if before == nil || before.Broadcast == nil || before.Broadcast.ControllerSessionID == nil ||
+		after == nil || after.Broadcast == nil {
+		return false
+	}
+	return after.Broadcast.ControllerSessionID == nil ||
+		*before.Broadcast.ControllerSessionID != *after.Broadcast.ControllerSessionID
+}
+
+func hackLifecycleAudit(runtime *domain.ProcessRuntime, terminal *domain.TerminalRuntime, state *domain.HackState, name, outcome string) AuditEvent {
+	event := AuditEvent{Name: name, Outcome: outcome}
+	if terminal != nil {
+		event.TerminalID = terminal.TerminalID
+	}
+	if state != nil {
+		event.PuzzleID = state.GenerationID
+		event.HackLevel = state.Level
+		event.AttemptsMax = state.AttemptsMax
+		event.AttemptsLeft = state.AttemptsLeft
+	}
+	if runtime != nil && runtime.Broadcast != nil {
+		event.BroadcastID = runtime.Broadcast.ID
+		if runtime.Broadcast.ControllerSessionID != nil {
+			event.SessionID = *runtime.Broadcast.ControllerSessionID
+			event.Role = roleForSession(runtime.Broadcast, event.SessionID)
+		}
+	}
+	return event
+}
+
+func hackInterruptionReason(before, after *domain.ProcessRuntime, terminalID string) string {
+	if after.Broadcast == nil {
+		return "broadcast-ended"
+	}
+	if after.Broadcast.ActiveTerminalID == nil {
+		return "terminal-cleared"
+	}
+	terminal := after.Broadcast.TerminalRuntimes[terminalID]
+	if terminal == nil {
+		return "terminal-discarded"
+	}
+	if terminal.Lifecycle == domain.TerminalLifecycleSuspended {
+		return "terminal-suspended"
+	}
+	if controllingSessionChanged(before, after) {
+		return "controller-unavailable"
+	}
+	return "terminal-suspended"
 }
 
 func cloneProcessRuntime(runtime *domain.ProcessRuntime) *domain.ProcessRuntime {

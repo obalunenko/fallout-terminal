@@ -107,6 +107,7 @@ from task_sync import (  # noqa: E402,F401
     journal_task_finish,
     materialize_log,
     parse_task_markers,
+    reopen_convergence,
     sync_tasks,
 )
 from living_spec_fold import (  # noqa: E402,F401
@@ -350,6 +351,12 @@ def _main() -> int:
              "(the only sanctioned writer of completed; keeps currentStep=implement).",
     )
     parser.add_argument(
+        "--reopen-convergence", action="store_true",
+        help="Reopen a completed spec only when convergence appended unchecked tasks. "
+             "Records a numbered implement/convergence timing substep and leaves "
+             "archived or fully checked specs untouched.",
+    )
+    parser.add_argument(
         "--finish", action="store_true",
         help="Append a pure timing finish for --step (and optional --substep) to history "
              "without touching status/currentStep — the AI's self-close for clarify/analyze "
@@ -475,7 +482,7 @@ def _main() -> int:
         or args.coverage_req or args.step_summary or args.classification or args.context_entries
         or args.batch
     )
-    if not args.tasks_file and not args.task and not args.close_task and not args.mark_complete and not args.set_pairs and not args.living_specs and not args.living_spec_skips and not args.fold_living_spec and not args.materialize and not args.finish and not args.advance and not capture_mode and (args.step == "done" or args.step not in CANONICAL_STEPS):
+    if not args.tasks_file and not args.task and not args.close_task and not args.mark_complete and not args.reopen_convergence and not args.set_pairs and not args.living_specs and not args.living_spec_skips and not args.fold_living_spec and not args.materialize and not args.finish and not args.advance and not capture_mode and (args.step == "done" or args.step not in CANONICAL_STEPS):
         msg = (f"Skipping: '{args.step}' is not a canonical currentStep "
                f"({', '.join(sorted(CANONICAL_STEPS))}).")
         print(f"[companion] {msg}", file=sys.stderr)
@@ -620,6 +627,7 @@ def _main() -> int:
                 ("--tasks-file", args.tasks_file), ("--task", args.task),
                 ("--close-task", args.close_task),
                 ("--materialize", args.materialize), ("--mark-complete", args.mark_complete),
+                ("--reopen-convergence", args.reopen_convergence),
                 ("--finish", args.finish), ("--advance", args.advance),
             ) if given
         ]
@@ -657,6 +665,8 @@ def _main() -> int:
             target = sync_tasks(feature_dir, tasks_md, final_status, args.by)
         elif args.mark_complete:
             target = mark_spec_complete(feature_dir, args.by)
+        elif args.reopen_convergence:
+            target = reopen_convergence(feature_dir, args.by)
         elif args.finish:
             target = journal_finish(feature_dir, args.step, args.by, args.substep)
         elif args.advance:
@@ -696,6 +706,8 @@ def _main() -> int:
     if target is not None and not args.tasks_file:
         if args.mark_complete:
             print(f"[companion] Marked {target} complete (status=completed, by={args.by})")
+        elif args.reopen_convergence:
+            print(f"[companion] Reopened convergence work in {target} (by={args.by})")
         elif args.finish:
             _label = f"{args.step}{('/' + args.substep) if args.substep else ''}"
             print(f"[companion] Journaled {_label} finish in {target} (by={args.by})")
@@ -727,6 +739,7 @@ def _main() -> int:
 
 _OP_FLAGS = (
     ("--mark-complete", "mark-complete"),
+    ("--reopen-convergence", "reopen-convergence"),
     ("--materialize", "materialize"),
     ("--tasks-file", "tasks-sync"),
     ("--fold-living-spec", "fold-living-spec"),

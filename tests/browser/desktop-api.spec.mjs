@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 39 methods and seven named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 40 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -55,6 +55,7 @@ test('desktop facade retains one v2 service with 39 methods and seven named even
     'MoveCharacter',
     'NewPlayerConfig',
     'NewSession',
+	'OpenLogLocation',
     'OpenPlayerConfig',
     'OpenSession',
     'OpenURL',
@@ -96,18 +97,20 @@ test('generated desktop service calls remain explicit and normalized behind the 
     open: await desktopAPI.openSession(),
     save: await desktopAPI.saveSession({ version: 1 }),
     url: await desktopAPI.openUrl('https://fallout.example'),
+	logs: await desktopAPI.openLogLocation(),
     terminal: await desktopAPI.requestTerminalClear(),
     playerConfig: await desktopAPI.openPlayerConfig(),
   }));
   expect(results.open.ok).toBe(true);
   expect(results.save.ok).toBe(true);
   expect(results.url.ok).toBe(true);
+	expect(results.logs).toEqual(expect.objectContaining({ ok: true, directoryPath: expect.stringContaining('/logs') }));
   expect(results.terminal).toEqual(expect.objectContaining({ ok: true, status: '', switchId: '' }));
   expect(results.playerConfig).toEqual(expect.objectContaining({ ok: true, canceled: false }));
 
   const calls = await page.evaluate(() => __desktopFixture.calls.map(call => call.method));
   expect(calls).toEqual(expect.arrayContaining([
-    'OpenSession', 'SaveSession', 'OpenURL', 'RequestTerminalClear', 'OpenPlayerConfig',
+	'OpenSession', 'SaveSession', 'OpenURL', 'OpenLogLocation', 'RequestTerminalClear', 'OpenPlayerConfig',
   ]));
   expect(calls).not.toContain('Dispatch');
   expect(calls).not.toContain('Call');

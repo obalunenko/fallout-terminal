@@ -36,6 +36,7 @@ const APP_METHODS = Object.freeze({
   startBroadcast: desktopService.StartBroadcast,
   endBroadcast: desktopService.EndBroadcast,
   openUrl: desktopService.OpenURL,
+  openLogLocation: desktopService.OpenLogLocation,
   getPublicAccess: desktopService.GetPublicAccess,
   copyPublicAccessCredentials: desktopService.CopyPublicAccessCredentials,
   savePublicAccessSettings: desktopService.SavePublicAccessSettings,
@@ -636,6 +637,7 @@ const desktopAPI = {
     return runtimeStatusPromise ?? command(APP_METHODS.getRuntimeStatus);
   },
   openUrl: (url) => command(APP_METHODS.openUrl, url),
+  openLogLocation: () => command(APP_METHODS.openLogLocation),
   writeClipboardText,
   openSession: () => command(APP_METHODS.openSession).then(normalizeSessionResult),
   newSession: () => command(APP_METHODS.newSession).then(normalizeSessionResult),

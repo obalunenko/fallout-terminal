@@ -36,7 +36,25 @@ func (manager *recordingDialogs) SaveFile(ctx context.Context, options SaveFileO
 type recordingBrowser struct {
 	contexts []context.Context
 	urls     []string
+	files    []string
 	err      error
+}
+
+func (manager *recordingBrowser) OpenFile(ctx context.Context, path string) error {
+	manager.contexts = append(manager.contexts, ctx)
+	manager.files = append(manager.files, path)
+	return manager.err
+}
+
+func TestDesktopOpensOnlyFixedExistingDirectory(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	browser := &recordingBrowser{}
+	desktop := NewDesktopWithManagers(t.Context(), &recordingDialogs{}, browser)
+	require.NoError(t, desktop.OpenDirectory(directory))
+	assert.Equal(t, []string{directory}, browser.files)
+	require.ErrorIs(t, desktop.OpenDirectory(filepath.Join(directory, "missing")), errDesktopPathUnsupported)
+	require.ErrorIs(t, desktop.OpenDirectory("relative"), errDesktopPathUnsupported)
 }
 
 func (manager *recordingBrowser) OpenURL(ctx context.Context, rawURL string) error {

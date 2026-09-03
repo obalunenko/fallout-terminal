@@ -1,0 +1,1281 @@
+{
+  "workflow": "companion",
+  "specName": "overseer runtime logs",
+  "branch": "033-entry-content-state",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T10:18:46.471Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T10:21:37.643Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T10:26:35.935Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T10:32:42.860Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T10:34:11.645Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T10:34:55.745Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T10:56:37.394Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T10:58:06.017Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T10:58:21.053Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T11:02:03.912Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:03.134Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:03.639Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:04.055Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:04.503Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:04.946Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:05.406Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:05.800Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:06.205Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:06.598Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:07.035Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:07.443Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:07.866Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:08.282Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:08.671Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:09.064Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:09.513Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:10.033Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:10.523Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:10.924Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:11.336Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:11.805Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:12.209Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:12.690Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:42:13.094Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:57:55.468Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T11:57:55.469Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T13:26:15.750Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:26:24.009Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:27:01.914Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:27:59.160Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:28:32.091Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:29:46.115Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:35:28.732Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T13:41:29.221Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T13:41:29.322Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-2",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T14:01:11.066Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T14:09:33.493Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T14:10:47.455Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-2",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T14:10:54.266Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-3",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T15:41:32.796Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T15:42:28.250Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T15:43:49.224Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-3",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T15:43:49.440Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-4",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T17:53:21.112Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T17:54:57.039Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-4",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T17:54:57.263Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-5",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T19:54:31.744Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T19:54:31.800Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-5",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T19:54:31.879Z"
+    }
+  ],
+  "telemetryInstanceId": "2da7f8f5-8e43-48cc-83f9-a1de3fd7e9b9",
+  "last_action": "T038 complete — forward terminal-transition audits verified and all repository gates pass",
+  "coverage": {
+    "FR-001": {
+      "title": "The application MUST record each logical player connection with a timestamp, application-run identifier, stable logical-session identifier, and resolved role.",
+      "tasks": [
+        "T008",
+        "T010",
+        "T011",
+        "T025"
+      ],
+      "tests": [
+        "internal/control.TestPlayerPresenceAuditJourneyIsOrderedAndExactlyOnce",
+        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated"
+      ]
+    },
+    "FR-002": {
+      "title": "The application MUST record each logical player disconnection exactly once with the same logical-session identifier and its last known role.",
+      "tasks": [
+        "T008",
+        "T010",
+        "T011",
+        "T025"
+      ],
+      "tests": [
+        "internal/control.TestPlayerPresenceAuditJourneyIsOrderedAndExactlyOnce",
+        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated"
+      ]
+    },
+    "FR-003": {
+      "title": "The application MUST record every effective role transition with the logical-session identifier and the previous and new roles.",
+      "tasks": [
+        "T008",
+        "T010",
+        "T011",
+        "T025"
+      ],
+      "tests": [
+        "internal/control.TestPlayerPresenceAuditJourneyIsOrderedAndExactlyOnce",
+        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated"
+      ]
+    },
+    "FR-004": {
+      "title": "Record every command request accepted for Overseer review with safe correlation.",
+      "tasks": [
+        "T038"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions"
+      ]
+    },
+    "FR-005": {
+      "title": "Record each approval or decline with its originating request correlation.",
+      "tasks": [
+        "T038"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions"
+      ]
+    },
+    "FR-006": {
+      "title": "Distinguish exceptional command outcomes through safe categories.",
+      "tasks": [
+        "T038"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions",
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditRecordsSupersessionWithoutAuditingReturn"
+      ]
+    },
+    "FR-007": {
+      "title": "The application MUST record hacking puzzle start, accepted or rejected interaction, dud-removal, attempt-replenishment, success, failure, reset, and interruption events when those events occur.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T035"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestActiveHackAuditInterruptsWhenControllerBecomesUnavailable"
+      ]
+    },
+    "FR-008": {
+      "title": "Each hacking record MUST include the application-run identifier, puzzle correlation identifier, terminal identifier, acting logical session and role when available, event category, and safe outcome metadata applicable to that event.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T018",
+        "T019"
+      ],
+      "tests": [
+        "internal/control.TestHackLifecycleAuditCarriesSafeContextReasonsAndOnlyInterruptsActivePuzzles",
+        "main.TestRuntimeAuditLoggingMapsSafeHackContextAndInterruptionReason"
+      ]
+    },
+    "FR-009": {
+      "title": "Hacking records MUST NOT contain candidate words, the correct password, memory-board content, or other data that can reveal the puzzle solution.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T021",
+        "T023"
+      ],
+      "tests": [
+        "internal/control.TestAuditFactsCoverPresenceRolesCommandsAndHackLifecycleWithoutDisplayContent",
+        "main.TestRetainedRuntimeAuditJourneyIsExactAndCorrelated",
+        "scripts/secret-leak-check.sh"
+      ]
+    },
+    "FR-010": {
+      "title": "Use consistent event categories and correlation fields.",
+      "tasks": [
+        "T038"
+      ],
+      "tests": [
+        "app_test.go::TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition"
+      ]
+    },
+    "FR-011": {
+      "title": "Development runs and supported release packages MUST retain the same required runtime-event coverage in a stable per-user location outside application installation files.",
+      "tasks": [
+        "T001",
+        "T002",
+        "T004",
+        "T005",
+        "T007",
+        "T017",
+        "T025"
+      ],
+      "tests": [
+        "internal/platform.TestApplicationLogDirectoryUsesApplicationSupportWithoutSideEffects",
+        "internal/platform.TestSessionLocationsForNativeProfiles",
+        "internal/diagnostics.TestRunLogPreservesCurrentAndPreviousAcrossCleanAndUnexpectedRestarts"
+      ]
+    },
+    "FR-012": {
+      "title": "The Overseer interface MUST provide a log access action that opens or reveals the current retained-log location without requiring a development terminal.",
+      "tasks": [
+        "T012",
+        "T013",
+        "T014",
+        "T015",
+        "T016",
+        "T017"
+      ],
+      "tests": [
+        "main.TestDesktopServiceOpensInjectedLogLocationWithoutFrontendPath",
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "FR-013": {
+      "title": "When the operating system cannot open or reveal the retained-log location, the application MUST show a safe actionable error that includes the exact intended location.",
+      "tasks": [
+        "T012",
+        "T013",
+        "T014",
+        "T016"
+      ],
+      "tests": [
+        "main.TestOpenLogLocationReturnsSafeManualFallback",
+        "internal/platform.TestDesktopOpensOnlyFixedExistingDirectory",
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "FR-014": {
+      "title": "Retained logs MUST distinguish application runs and preserve at least the current and immediately previous run after both clean and unexpected shutdown, subject to bounded retention.",
+      "tasks": [
+        "T001",
+        "T004",
+        "T020",
+        "T022"
+      ],
+      "tests": [
+        "internal/diagnostics.TestRunLogProtectsCurrentAndNewestPreviousRun",
+        "internal/diagnostics.TestRunLogPreservesCurrentAndPreviousAcrossCleanAndUnexpectedRestarts"
+      ]
+    },
+    "FR-015": {
+      "title": "Retention MUST impose a documented finite storage boundary and remove older log data without deleting or blocking the active log.",
+      "tasks": [
+        "T001",
+        "T004",
+        "T020",
+        "T022",
+        "T028",
+        "T034",
+        "T037"
+      ],
+      "tests": [
+        "internal/diagnostics/retained_log_test.go::TestRunLogKeepsOversizedRecordsOutOfTheFiniteRetainedBoundary",
+        "internal/diagnostics/retained_log_test.go::TestRunLogDegradesSafelyOnRotationWriteAndCleanupFailures",
+        "internal/diagnostics/retained_log_test.go::TestRunLogKeepsLongRunningSegmentsWithinFiniteBoundary"
+      ]
+    },
+    "FR-016": {
+      "title": "Logging or retained-storage failures MUST NOT change player authority, command decisions, puzzle behavior, application lifecycle ordering, or existing user-visible results.",
+      "tasks": [
+        "T009",
+        "T020",
+        "T021",
+        "T022",
+        "T025",
+        "T036"
+      ],
+      "tests": [
+        "internal/diagnostics.TestRunLogDegradesSafelyOnRotationWriteAndCleanupFailures",
+        "main.TestApplicationLifecycleContinuesWhenRetainedStorageIsUnavailable",
+        "main.TestApplicationLoggerCompositionEmitsOneSafeRetentionWarning",
+        "task test:race"
+      ]
+    },
+    "FR-017": {
+      "title": "Retained records MUST exclude provider tokens, player and generated passwords, character names, session and terminal content, command output, puzzle solution data, and unredacted private dependency errors.",
+      "tasks": [
+        "T009",
+        "T018",
+        "T019",
+        "T021",
+        "T023",
+        "T025"
+      ],
+      "tests": [
+        "main.TestRetainedRuntimeLogsExcludeRawDependencyErrors",
+        "internal/control.TestAuditFactsCoverPresenceRolesCommandsAndHackLifecycleWithoutDisplayContent",
+        "scripts/secret-leak-check.sh"
+      ]
+    },
+    "FR-018": {
+      "title": "Automate command decision and exceptional-outcome coverage.",
+      "tasks": [
+        "T038"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions",
+        "internal/control/service_test.go::TestForwardTerminalTransitionAuditRecordsSupersessionWithoutAuditingReturn",
+        "app_test.go::TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition"
+      ]
+    },
+    "SC-005": {
+      "title": "A high-volume retention test remains within the documented storage boundary while preserving a writable, identifiable active log.",
+      "tasks": [
+        "T001",
+        "T004",
+        "T020",
+        "T022",
+        "T028",
+        "T034",
+        "T037"
+      ],
+      "tests": [
+        "internal/diagnostics/retained_log_test.go::TestRunLogKeepsOversizedRecordsOutOfTheFiniteRetainedBoundary",
+        "internal/diagnostics/retained_log_test.go::TestRunLogDegradesSafelyOnRotationWriteAndCleanupFailures",
+        "internal/diagnostics/retained_log_test.go::TestRunLogKeepsLongRunningSegmentsWithinFiniteBoundary"
+      ]
+    }
+  },
+  "size": "normal",
+  "classification": {
+    "projectedFiles": 9,
+    "projectedTasks": 14,
+    "scopeSignal": "none",
+    "verdict": "normal"
+  },
+  "context": [
+    "area: application logging and composition boundaries",
+    "area: player coordination, command approval, and hacking runtime",
+    "area: packaged per-user application data and Overseer access",
+    "constraint: retain safe identifiers while excluding secrets and gameplay content"
+  ],
+  "intent": "Give the Overseer a safe, correlated runtime record of player, command-decision, and hacking activity that remains accessible from installed releases.",
+  "approach": "Compose one run-scoped retained writer behind the existing application logger, emit safe audit facts from authoritative coordination transitions through the existing effect router, and expose one protobuf-governed Overseer action for opening the fixed app-owned log directory. Keep public player contracts and gameplay state unchanged.",
+  "decisions": [
+    {
+      "decision": "Retain text logs through one bounded standard-library writer attached to the existing logger",
+      "why": "Preserves the pinned logger and development output while adding packaged persistence and deterministic rotation",
+      "rejected": "Replacing the logger, file-only packaged logging, or an external rotation dependency"
+    },
+    {
+      "decision": "Produce allowlisted audit facts in coordinator order and format them only at the root",
+      "why": "The coordinator owns logical presence, authority, pending approvals, and private puzzle identity",
+      "rejected": "Transport-level connection logs, projection-only diffs, or injecting the concrete logger into control"
+    },
+    {
+      "decision": "Use a closed event and field vocabulary that excludes names, content, targets, solutions, credentials, and raw errors",
+      "why": "Creates a testable redaction boundary before any diagnostic value reaches a writer",
+      "rejected": "Logging complete commands or snapshots and redacting only at final output"
+    },
+    {
+      "decision": "Expose a no-argument private OpenLogLocation action for the fixed app-owned directory",
+      "why": "Makes packaged logs reachable without granting arbitrary filesystem or file-URL access",
+      "rejected": "Broadening OpenURL, building an embedded viewer, or exposing access to players"
+    },
+    {
+      "decision": "Use deterministic target-aware checks everywhere and optional matching-host packaged UI evidence",
+      "why": "Proves portable package separation while honoring the constitution native-evidence rule",
+      "rejected": "Requiring unavailable native UI automation on every release target or testing development only"
+    },
+    {
+      "decision": "Permit a completed Companion spec to reopen only for newly appended unchecked convergence tasks",
+      "why": "Convergence added T026-T032 after the original implement step had shipped; a numbered, idempotent implement/convergence substep preserves the append-only lifecycle and closes automatically when all tasks are journaled.",
+      "rejected": "Hand-editing lifecycle JSON, reopening archived specs, or silently ignoring post-completion convergence tasks."
+    },
+    {
+      "decision": "Prune retained segments to one below the configured maximum before creating a new segment.",
+      "why": "A cleanup failure then prevents admission instead of leaving a newly created segment beyond the finite boundary; rotation degrades once to fallback with no further growth.",
+      "rejected": "Create first and treat post-creation cleanup failure as a warning."
+    },
+    {
+      "decision": "Make the retained writer the sole owner of storage-degradation warnings",
+      "why": "The production root composes the still-usable writer without logging its initialization error again, guaranteeing one safe warning through the fallback",
+      "rejected": "Logging the same initialization failure in both diagnostics.Open and runApplication"
+    },
+    {
+      "decision": "Treat retained segment ordinals as decimal strings of at least three digits",
+      "why": "This preserves every existing filename while keeping all future generated ordinals recognizable and prunable after 999",
+      "rejected": "Increasing to another fixed width or wrapping the ordinal, which would only delay the boundary or risk filename collisions"
+    },
+    {
+      "decision": "Audit forward terminal-transition approvals as command lifecycles with mode terminal-transition, while leaving terminal-return approvals outside command audit semantics.",
+      "why": "Forward transitions originate from authored commands accepted for Overseer review; returns are route actions rather than authored command requests.",
+      "rejected": "Logging every terminal-navigation request as a command would misclassify route-return actions."
+    },
+    {
+      "decision": "Normalize rejected command decision fields to the runtime-audit contract value decline.",
+      "why": "The contract's closed decision vocabulary is approve or decline even though the internal decision enum uses reject.",
+      "rejected": "Persisting the internal reject spelling would contradict the retained-log contract."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Plan one retained logger destination, ordered coordinator audit events, and a private packaged-log access action with full safety and portability checks.",
+      "key_finding": "Logical connection, role, command, and puzzle evidence must originate in the serialized coordinator; transport logs or public-state diffs cannot provide correct correlation."
+    },
+    "tasks": {
+      "summary": "25 tasks across foundational infrastructure, four user-story phases, and one final validation phase; tests precede each implementation wave."
+    },
+    "implement": {
+      "summary": "Completed T038 with correlated forward terminal-transition command audits, closed decision values, retained-log coverage, and clean repository gates.",
+      "key_finding": "The durable fix belongs in the owned-filename grammar; widening one fixed field would recreate the same retention escape at a later ordinal.",
+      "risks": "Repository-wide listener tests remain unavailable in the sandbox, while the complete diagnostics package and its race suite pass."
+    }
+  },
+  "currentTask": "T038",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added deterministic retained-log tests for run identity, mirroring, rotation, retention, permissions, concurrency, symlink rejection, and fallback.",
+      "files": [
+        "internal/diagnostics/retained_log_test.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added fixed application-log path and native directory-open tests.",
+      "files": [
+        "internal/platform/paths_test.go",
+        "internal/platform/desktop_test.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added private protobuf descriptor, round-trip, and public-isolation assertions.",
+      "files": [
+        "app_contract_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Implemented the concurrency-safe bounded run-scoped retained log writer.",
+      "files": [
+        "internal/diagnostics/retained_log.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Implemented app-support log path resolution and allowlisted native directory opening.",
+      "files": [
+        "internal/platform/paths.go",
+        "internal/platform/desktop.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Added and generated the private LogAccessResult protobuf contract.",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto",
+        "internal/gen/fallout/terminal/private/v1/desktop.pb.go",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Composed retained logging once at startup with run correlation, stderr fallback, closure, and app injection.",
+      "files": [
+        "main.go",
+        "app.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added coordinator audit tests for logical presence, roles, command requests, decisions, and safe correlations.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Added root audit logger mapping and redaction tests.",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Implemented the closed safe coordinator audit vocabulary and authoritative event emission.",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Routed audit effects to allowlisted structured root log records.",
+      "files": [
+        "main.go",
+        "app.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added root and desktop-facade log-location success and safe-failure tests.",
+      "files": [
+        "desktop_service_test.go",
+        "app_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added browser coverage for both controls, de-duplication, feedback, and manual paths.",
+      "files": [
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Implemented private no-argument OpenLogLocation routing and safe result mapping.",
+      "files": [
+        "app.go",
+        "app_contract.go",
+        "desktop_service.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Regenerated deterministic Wails bindings for OpenLogLocation.",
+      "files": [
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added normalized desktop API support and startup/main Overseer log controls with accessible feedback.",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Added the optional matching-host packaged macOS runtime-log smoke task.",
+      "files": [
+        "scripts/runtime-logs-macos-smoke.sh",
+        "Taskfile.yml"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added authoritative hacking audit lifecycle and redaction tests.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Implemented safe hack start, action, outcome, reset, and interruption audit facts.",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Extended retained-writer coverage for concurrency, oversized records, malformed files, symlinks, retention, and idempotent close.",
+      "files": [
+        "internal/diagnostics/retained_log_test.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Added runtime audit redaction canaries and fixed-path access-result checks.",
+      "files": [
+        "app_test.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Hardened retention, one-shot fallback, active/previous evidence protection, and unknown-file preservation.",
+      "files": [
+        "internal/diagnostics/retained_log.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Extended secret-leak and desktop allowlist checks for private-only log access.",
+      "files": [
+        "scripts/secret-leak-check.sh",
+        "scripts/wails-bindings-check.sh",
+        "app_contract_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Ran Go modernization, regenerated protobuf and Wails outputs, formatted sources, and verified deterministic generated drift.",
+      "files": [
+        "repository"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Completed final quality and packaging gate: Go fix/format/lint/tests/race, frontend build, focused and full Playwright suites, deterministic contract checks, application build, and release package succeeded; optional native packaged smoke was attempted but not observable in this GUI runner.",
+      "files": [
+        "internal/diagnostics/retained_log.go",
+        "specs/034-overseer-runtime-logs/tasks.md"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Replaced retained raw dependency errors with allowlisted categories and verified real-file redaction canaries.",
+      "files": [
+        "main.go",
+        "app.go",
+        "app_test.go",
+        "approval_notifications.go",
+        "internal/player/server.go",
+        "internal/player/server_test.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Separated command request outcomes from approval decisions and covered all safe terminal categories exactly once.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Completed bounded retention and deterministic restart/failure coverage, with race-safe current-path access.",
+      "files": [
+        "internal/diagnostics/retained_log.go",
+        "internal/diagnostics/retained_log_test.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Added safe rejected hack interactions and distinct guess, dud-removal, and attempt-replenishment outcomes.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Completed safe hack lifecycle context, difficulty and interruption reasons, with solved/failed terminal-state guards.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Added full exact-once retained audit journeys and verified storage fallback, redaction, cross-platform paths, and actionable UI failures.",
+      "files": [
+        "app_test.go",
+        "internal/control/service_test.go",
+        "internal/diagnostics/retained_log_test.go",
+        "internal/platform/paths_test.go",
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Made the optional packaged macOS smoke explicitly report the SC-008 UI evidence as NOT RUN while retaining a separate retained-log creation check.",
+      "files": [
+        "scripts/runtime-logs-macos-smoke.sh",
+        "Taskfile.yml"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Emitted one correlated controller-unavailable interruption for active puzzles on controller release or move, with solved and failed exclusions covered.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Reserved retention capacity before segment creation so cleanup failure degrades to fallback without segment growth, with deterministic bounded rotation coverage.",
+      "files": [
+        "internal/diagnostics/retained_log.go",
+        "internal/diagnostics/retained_log_test.go"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Emitted one former-controller-correlated controller-unavailable interruption for direct active-controller handoffs, excluding solved and failed puzzles.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Made the retained writer the sole degradation-warning owner and added composed production logger coverage proving one safe warning with raw canary redaction.",
+      "files": [
+        "main.go",
+        "app_test.go"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Kept every decimal retained-segment ordinal recognizable after 999 and added per-rotation file-count, byte-bound, ownership, and active-path coverage across 1,002 writes.",
+      "files": [
+        "internal/diagnostics/retained_log.go",
+        "internal/diagnostics/retained_log_test.go"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Added safe correlated forward terminal-transition request, decision, stale, failure, and supersession audit coverage while keeping terminal returns outside command audit semantics.",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "app_test.go"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Go modernization",
+      "result": "passed",
+      "command": "go fix ./..."
+    },
+    {
+      "what": "Repository quality gates",
+      "result": "passed",
+      "command": "task check",
+      "warnings": "Includes gofmt check, vet, golangci-lint, race tests, protobuf checks, bindings drift, and Spec Kit updater tests."
+    },
+    {
+      "what": "Normal Go test suite",
+      "result": "passed",
+      "command": "task test"
+    },
+    {
+      "what": "Full browser journey suite",
+      "result": "209 passed, 2 skipped",
+      "command": "task browser:test",
+      "warnings": "The two ngrok-dependent cases were intentionally skipped by their fixture conditions."
+    },
+    {
+      "what": "Frontend production builds",
+      "result": "passed",
+      "command": "task frontend:build"
+    },
+    {
+      "what": "Native application build and package",
+      "result": "passed",
+      "command": "task build; task package"
+    },
+    {
+      "what": "Forbidden secret and raw-value scan",
+      "result": "passed",
+      "command": "scripts/secret-leak-check.sh"
+    },
+    {
+      "what": "Companion convergence lifecycle regression tests",
+      "result": "2 passed",
+      "command": "python3 unittest discovery for companion scripts"
+    },
+    {
+      "what": "Optional matching-host SC-008 UI evidence",
+      "result": "NOT RUN",
+      "command": "task runtime-logs:smoke:macos",
+      "warnings": "The harness explicitly reports the UI evidence as NOT RUN. Its separate direct-launch retention check cannot execute faithfully in the automation sandbox because GUI startup aborts and the retained path is outside the writable workspace."
+    },
+    {
+      "what": "Controller-unavailable hack lifecycle coverage",
+      "command": "go test ./internal/control -run focused lifecycle tests",
+      "result": "passed: release and move emit exactly once; solved and failed emit none"
+    },
+    {
+      "what": "Retained-log cleanup failure coverage",
+      "command": "go test ./internal/diagnostics",
+      "result": "passed"
+    },
+    {
+      "what": "Changed-package race validation",
+      "command": "go test -race ./internal/control ./internal/diagnostics",
+      "result": "passed"
+    },
+    {
+      "what": "Static Go validation",
+      "command": "task vet; task lint",
+      "result": "passed: 0 lint issues"
+    },
+    {
+      "what": "Generated contract and workflow validation",
+      "command": "task proto:check proto:breaking bindings:check speckit:update:test",
+      "result": "passed"
+    },
+    {
+      "what": "Application audit and retention integration coverage",
+      "command": "go test . -run focused runtime audit and retained log tests",
+      "result": "passed"
+    },
+    {
+      "what": "Direct controller handoff interruption coverage",
+      "command": "go test -v ./internal/control -run ^TestActiveHackAuditInterruptsWhenControllerBecomesUnavailable$",
+      "result": "passed: active release, move, and handoff emit exactly once with old-controller correlation; solved and failed emit none"
+    },
+    {
+      "what": "Composed retained-storage warning coverage",
+      "command": "go test -v . -run focused application logger composition tests",
+      "result": "passed: one safe retention warning, fallback remains usable, raw canary values are absent"
+    },
+    {
+      "what": "Convergence Go modernization and static validation",
+      "command": "go fix ./...; task vet; task lint; git diff --check",
+      "result": "passed: 0 lint issues and no whitespace errors"
+    },
+    {
+      "what": "Convergence affected-package race validation",
+      "command": "go test -race ./internal/control ./internal/diagnostics; go test -race . -run focused retention integrations",
+      "result": "passed"
+    },
+    {
+      "what": "Repository-wide Go targets after convergence",
+      "command": "task test; task test:race",
+      "result": "environment-blocked",
+      "warnings": [
+        "Sandbox denied localhost listeners used by unrelated existing httptest and tunnel integration tests.",
+        "Unsandboxed retry stalled without output and was terminated after two bounded waits."
+      ]
+    },
+    {
+      "what": "Companion convergence journal regression",
+      "command": "python3 .specify/extensions/companion/scripts/test_task_sync.py",
+      "result": "2 passed"
+    },
+    {
+      "what": "Long-running segment ownership regression",
+      "command": "go test -v ./internal/diagnostics -run ^TestRunLogKeepsLongRunningSegmentsWithinFiniteBoundary$",
+      "result": "failed before fix at generated ordinal 1000, then passed after the parser change across 1,002 writes"
+    },
+    {
+      "what": "Retained diagnostics package",
+      "command": "go test ./internal/diagnostics; go test -race ./internal/diagnostics",
+      "result": "passed"
+    },
+    {
+      "what": "T037 Go modernization and static validation",
+      "command": "go fix ./...; gofmt; gopls check; task vet; task lint; git diff --check",
+      "result": "passed: 0 lint issues and no diagnostics or whitespace errors"
+    },
+    {
+      "what": "Repository-wide Go targets after T037",
+      "command": "task test; task test:race",
+      "result": "environment-blocked",
+      "warnings": [
+        "Sandbox denied localhost listeners required by unrelated existing httptest and tunnel suites; diagnostics and all non-listener packages shown passed.",
+        "Unsandboxed task test retry stalled without output and was terminated after a bounded wait."
+      ]
+    },
+    {
+      "what": "T038 fail-first forward terminal-transition audit regression",
+      "command": "go test ./internal/control -run TestForwardTerminalTransitionAudit",
+      "result": "failed as expected before implementation because no command.request_received audit event was emitted",
+      "warnings": []
+    },
+    {
+      "what": "T038 focused coordinator and retained-log verification",
+      "command": "go test ./internal/control -run TestForwardTerminalTransitionAudit...; go test . -run TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition",
+      "result": "passed approve, decline, stale broadcast, target change, activation failure, supersession, terminal-return exclusion, and retained-file correlation",
+      "warnings": []
+    },
+    {
+      "what": "T038 repository quality gates",
+      "command": "go fix ./...; task vet; task test; task test:race; task lint; task check",
+      "result": "passed with zero lint issues and deterministic protobuf/Wails binding checks",
+      "warnings": []
+    }
+  ],
+  "concerns": [
+    {
+      "note": "Matching-host packaged UI evidence for SC-008 was not collected in this automation environment; the optional harness reports it as NOT RUN and does not mislabel retention-only evidence as an SC-008 pass.",
+      "step": "implement",
+      "kind": "environment"
+    },
+    {
+      "note": "The aggregate task check could not complete inside the sandbox because unrelated existing httptest suites require localhost listeners; formatting, vet, lint, all changed-package race tests, relevant root integrations, and every generated-artifact gate passed independently.",
+      "step": "implement"
+    }
+  ]
+}

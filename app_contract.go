@@ -812,6 +812,25 @@ func routeCommandResult(result CommandResult) CommandResult {
 	return CommandResult{OK: semantic.GetOk(), Error: semantic.GetError()}
 }
 
+func routeLogAccessResult(result LogAccessResult) LogAccessResult {
+	semantic := &privatev1.LogAccessResult{
+		Ok:            result.OK,
+		DirectoryPath: result.DirectoryPath,
+	}
+	if result.Error != "" {
+		semantic.Error = &result.Error
+	}
+	if result.ActiveLogPath != "" {
+		semantic.ActiveLogPath = &result.ActiveLogPath
+	}
+	return LogAccessResult{
+		OK:            semantic.GetOk(),
+		Error:         semantic.GetError(),
+		DirectoryPath: semantic.GetDirectoryPath(),
+		ActiveLogPath: semantic.GetActiveLogPath(),
+	}
+}
+
 func routeSessionOperationResult(result sessionservice.SessionResult) sessionservice.SessionResult {
 	semantic := &privatev1.SessionOperationResult{Ok: result.OK, Canceled: result.Canceled}
 	if result.Error != "" {

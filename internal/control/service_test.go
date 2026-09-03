@@ -3517,10 +3517,573 @@ func assertPresenceOnlyEffects(t *testing.T, effects []Effect, revision uint64) 
 			"presence effect revision = %d, want %d", effect.Revision, revision)
 		require.Falsef(t, effect.Live != nil || effect.Hack != nil || effect.Result != nil || effect.ClearLiveTerminal || effect.TerminalID != "" || effect.ConnectionID != "",
 			"presence transition emitted gameplay/result payload: %#v", effect)
-		require.Falsef(t, effect.Master == nil && effect.Player == nil && effect.Update == nil,
+		require.Falsef(t, effect.Master == nil && effect.Player == nil && effect.Update == nil && len(effect.Audit) == 0,
 			"presence transition emitted empty effect: %#v", effect)
 
 	}
+}
+
+func TestAuditFactsCoverPresenceRolesCommandsAndHackLifecycleWithoutDisplayContent(t *testing.T) {
+	t.Parallel()
+	sessionID := domain.LogicalSessionID("session-1")
+	connectionID := domain.ConnectionID("connection-1")
+	before := &domain.ProcessRuntime{SessionsByID: map[domain.LogicalSessionID]*domain.LogicalSession{}}
+	after := cloneProcessRuntime(before)
+	after.SessionsByID[sessionID] = &domain.LogicalSession{ID: sessionID, FallbackName: "secret player name", ConnectionIDs: map[domain.ConnectionID]struct{}{connectionID: {}}, RequestResults: map[string]domain.RequestResultRecord{}}
+	events := deriveAuditEvents(before, after)
+	require.Len(t, events, 1)
+	assert.Equal(t, AuditEvent{Name: "player.connected", Outcome: "connected", SessionID: sessionID, Role: domain.PlayerRoleUnassigned}, events[0])
+	assert.NotContains(t, fmt.Sprintf("%#v", events), "secret player name")
+
+	before = cloneProcessRuntime(after)
+	after.Broadcast = &domain.LiveBroadcast{ID: "broadcast-1", AssignmentsBySession: map[domain.LogicalSessionID]domain.CharacterID{sessionID: "character-1"}, ControllerSessionID: &sessionID, TerminalRuntimes: map[string]*domain.TerminalRuntime{}}
+	events = deriveAuditEvents(before, after)
+	require.Len(t, events, 1)
+	assert.Equal(t, "player.role_changed", events[0].Name)
+	assert.Equal(t, domain.PlayerRoleActive, events[0].Role)
+
+	after.PendingCommandExecution = &domain.PendingCommandExecution{RequestID: "approval-1", BroadcastID: "broadcast-1", TerminalID: "terminal-1", CommandID: "command-1", CommandName: "secret command label", ConfirmationText: "secret confirmation", ControllerSessionID: sessionID}
+	request := AuditEvent{Name: "command.request_received", RequestID: after.PendingCommandExecution.RequestID, CommandID: after.PendingCommandExecution.CommandID}
+	assert.NotContains(t, fmt.Sprintf("%#v", request), "secret")
+
+	before = cloneProcessRuntime(after)
+	after.PendingCommandExecution = nil
+	events = deriveAuditEvents(before, after)
+	assert.Empty(t, events, "command decisions are explicit, not inferred from an unrelated state diff")
+}
+
+func TestPlayerPresenceAuditJourneyIsOrderedAndExactlyOnce(t *testing.T) {
+	effects := testutil.NewFakeOrderedEffectSink[Effect]()
+	service := New(Config{IDs: &counterIDSource{}, Enqueue: effects.Enqueue})
+	baseline := len(effects.Values())
+	identity := service.CreateSession("connection-1")
+	_, err := addCharacter(service, "PRIVATE-CHARACTER-CANARY")
+	require.NoError(t, err)
+	state, err := service.StartBroadcast()
+	require.NoError(t, err)
+	selection := service.SelectCharacter(CharacterSelection{
+		ConnectionID: "connection-1", SessionID: identity.SessionID, RequestID: "select-1",
+		BroadcastID: state.Broadcast.ID, CharacterID: state.Roster[0].ID,
+	})
+	require.True(t, selection.Accepted)
+	service.DetachConnection("connection-1")
+
+	var presence []AuditEvent
+	for _, event := range auditEvents(effects.Values()[baseline:]) {
+		if strings.HasPrefix(event.Name, "player.") {
+			presence = append(presence, event)
+		}
+	}
+	require.Len(t, presence, 3, "presence audit = %#v", presence)
+	assert.Equal(t, []string{"player.connected", "player.role_changed", "player.disconnected"}, []string{
+		presence[0].Name, presence[1].Name, presence[2].Name,
+	})
+	for _, event := range presence {
+		assert.Equal(t, identity.SessionID, event.SessionID)
+	}
+	assert.Equal(t, domain.PlayerRoleUnassigned, presence[0].Role)
+	assert.Equal(t, domain.PlayerRoleActive, presence[1].Role)
+	assert.Equal(t, domain.PlayerRoleActive, presence[2].Role)
+	assert.NotContains(t, fmt.Sprintf("%#v", presence), "PRIVATE-CHARACTER-CANARY")
+}
+
+func TestCommandApprovalAuditCorrelatesRequestAndDecisionExactlyOnce(t *testing.T) {
+	t.Parallel()
+	fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+	baseline := len(fixture.effects.Values())
+	accepted := fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("audit-command"))
+	require.True(t, accepted.Accepted)
+	pending := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pending)
+	requestEvents := auditEvents(fixture.effects.Values()[baseline:])
+	require.Len(t, requestEvents, 1)
+	assert.Equal(t, "command.request_received", requestEvents[0].Name)
+	assert.Equal(t, pending.RequestID, requestEvents[0].RequestID)
+
+	baseline = len(fixture.effects.Values())
+	_, _, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionReject)
+	require.NoError(t, err)
+	decisionEvents := auditEvents(fixture.effects.Values()[baseline:])
+	require.Len(t, decisionEvents, 1)
+	assert.Equal(t, "command.decision", decisionEvents[0].Name)
+	assert.Equal(t, "decline", decisionEvents[0].Decision)
+	assert.Equal(t, "declined", decisionEvents[0].Outcome)
+	assert.Equal(t, pending.RequestID, decisionEvents[0].RequestID)
+}
+
+func TestCommandAuditDistinguishesRequestsDecisionsAndExceptionalOutcomes(t *testing.T) {
+	t.Run("request outcomes", func(t *testing.T) {
+		fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+		baseline := len(fixture.effects.Values())
+		command := fixture.command("player-request")
+		require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, command).Accepted)
+		pending := fixture.service.Snapshot().PendingCommandExecution
+		require.NotNil(t, pending)
+		assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_received", pending.RequestID, "accepted")
+
+		baseline = len(fixture.effects.Values())
+		require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, command).Accepted)
+		assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_outcome", command.RequestID, "replayed")
+
+		baseline = len(fixture.effects.Values())
+		duplicate := command
+		duplicate.NodeID = "another-command"
+		result := fixture.service.DispatchPlayerAction(fixture.controllerConnection, duplicate)
+		require.Equal(t, domain.ActionReasonDuplicate, result.Reason)
+		assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_outcome", command.RequestID, "duplicate")
+
+		invalidFixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+		baseline = len(invalidFixture.effects.Values())
+		invalid := invalidFixture.command("invalid-request")
+		invalid.NodeID = "missing-command"
+		result = invalidFixture.service.DispatchPlayerAction(invalidFixture.controllerConnection, invalid)
+		require.Equal(t, domain.ActionReasonInvalidAction, result.Reason)
+		assertAuditEvent(t, invalidFixture.effects.Values()[baseline:], "command.request_outcome", invalid.RequestID, "invalid")
+
+		baseline = len(fixture.effects.Values())
+		conflict := fixture.command("conflicting-request")
+		result = fixture.service.DispatchPlayerAction(fixture.controllerConnection, conflict)
+		require.Equal(t, domain.ActionReasonConflict, result.Reason)
+		assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_outcome", conflict.RequestID, "conflict")
+	})
+
+	t.Run("decline and duplicate decision", func(t *testing.T) {
+		fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+		require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("decline-request")).Accepted)
+		pending := fixture.service.Snapshot().PendingCommandExecution
+		require.NotNil(t, pending)
+
+		baseline := len(fixture.effects.Values())
+		_, _, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionReject)
+		require.NoError(t, err)
+		decision := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, "declined")
+		assert.Equal(t, "decline", decision.Decision)
+
+		baseline = len(fixture.effects.Values())
+		_, _, err = fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionReject)
+		require.ErrorIs(t, err, ErrCommandExecutionStale)
+		assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, "stale")
+	})
+
+	t.Run("approved success", func(t *testing.T) {
+		store := &recordingCommandStateStore{mutation: CommandStateMutation{
+			Changed: true, Revision: 2, Session: commandExecutionSession(true),
+		}}
+		fixture := newCommandExecutionFixture(t, store)
+		require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("success-request")).Accepted)
+		pending := fixture.service.Snapshot().PendingCommandExecution
+		require.NotNil(t, pending)
+		baseline := len(fixture.effects.Values())
+		_, _, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
+		require.NoError(t, err)
+		decision := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, "succeeded")
+		assert.Equal(t, string(domain.CommandExecutionApprove), decision.Decision)
+	})
+
+	t.Run("approved failure", func(t *testing.T) {
+		fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{err: errors.New("private provider failure")})
+		require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("failure-request")).Accepted)
+		pending := fixture.service.Snapshot().PendingCommandExecution
+		require.NotNil(t, pending)
+		baseline := len(fixture.effects.Values())
+		_, _, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
+		require.ErrorIs(t, err, ErrCommandExecutionPersistence)
+		decision := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, "failed")
+		assert.Equal(t, string(domain.CommandExecutionApprove), decision.Decision)
+		assert.NotContains(t, fmt.Sprintf("%#v", decision), "private provider failure")
+	})
+
+	t.Run("superseded", func(t *testing.T) {
+		fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+		require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("superseded-request")).Accepted)
+		pending := fixture.service.Snapshot().PendingCommandExecution
+		require.NotNil(t, pending)
+		baseline := len(fixture.effects.Values())
+		_, err := fixture.service.RequestTerminalClear()
+		require.NoError(t, err)
+		assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_outcome", pending.RequestID, "superseded")
+	})
+}
+
+func TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions(t *testing.T) {
+	tests := []struct {
+		name          string
+		decision      domain.TerminalNavigationDecision
+		auditDecision string
+		prepare       func(us2Fixture, *groupAwareNavigationCatalog)
+		outcome       string
+		wantError     bool
+	}{
+		{
+			name:          "approved",
+			decision:      domain.TerminalNavigationApprove,
+			auditDecision: "approve",
+			outcome:       "succeeded",
+		},
+		{
+			name:          "declined",
+			decision:      domain.TerminalNavigationReject,
+			auditDecision: "decline",
+			outcome:       "declined",
+		},
+		{
+			name:          "stale broadcast",
+			decision:      domain.TerminalNavigationApprove,
+			auditDecision: "approve",
+			prepare: func(fixture us2Fixture, _ *groupAwareNavigationCatalog) {
+				fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+					runtime.Broadcast.ID = "replacement-broadcast"
+					return transition{accepted: true}
+				})
+			},
+			outcome:   "stale",
+			wantError: true,
+		},
+		{
+			name:          "target changed",
+			decision:      domain.TerminalNavigationApprove,
+			auditDecision: "approve",
+			prepare: func(fixture us2Fixture, catalog *groupAwareNavigationCatalog) {
+				catalog.transitions[fixture.terminalID+"/linked-command"] = domain.TerminalTransitionTarget{
+					SourceTerminalID: fixture.terminalID,
+					CommandID:        "linked-command",
+					CommandName:      "PRIVATE COMMAND NAME",
+					Target:           terminalTarget("terminal-c", "PRIVATE TARGET NAME"),
+				}
+			},
+			outcome:   "stale",
+			wantError: true,
+		},
+		{
+			name:          "activation failed",
+			decision:      domain.TerminalNavigationApprove,
+			auditDecision: "approve",
+			prepare: func(fixture us2Fixture, _ *groupAwareNavigationCatalog) {
+				fixture.service.terminals = nil
+			},
+			outcome:   "failed",
+			wantError: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture, catalog := newGroupAwareForwardFixture(t)
+			baseline := len(fixture.effects.Values())
+			selected := fixture.service.DispatchPlayerAction(
+				fixture.controllerConnection,
+				groupAwareForwardCommand(fixture, "audit-"+strings.ReplaceAll(test.name, " ", "-")),
+			)
+			require.True(t, selected.Accepted)
+			pending := fixture.service.Snapshot().PendingTerminalNavigation
+			require.NotNil(t, pending)
+
+			request := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_received", pending.RequestID, "accepted")
+			assert.Equal(t, fixture.controllerSession, request.SessionID)
+			assert.Equal(t, domain.PlayerRoleActive, request.Role)
+			assert.Equal(t, fixture.broadcastID, request.BroadcastID)
+			assert.Equal(t, fixture.terminalID, request.TerminalID)
+			assert.Equal(t, "linked-command", request.CommandID)
+			assert.Equal(t, string(domain.CommandBehaviorTerminalTransition), request.Mode)
+			assert.NotContains(t, fmt.Sprintf("%#v", request), "Open B")
+			assert.NotContains(t, fmt.Sprintf("%#v", request), "Terminal B")
+
+			if test.prepare != nil {
+				test.prepare(fixture, catalog)
+			}
+			baseline = len(fixture.effects.Values())
+			_, err := fixture.service.ResolveTerminalNavigation(pending.RequestID, test.decision)
+			if test.wantError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			decision := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, test.outcome)
+			assert.Equal(t, test.auditDecision, decision.Decision)
+			assert.Equal(t, fixture.controllerSession, decision.SessionID)
+			assert.Equal(t, fixture.broadcastID, decision.BroadcastID)
+			assert.Equal(t, fixture.terminalID, decision.TerminalID)
+			assert.Equal(t, "linked-command", decision.CommandID)
+			assert.Equal(t, string(domain.CommandBehaviorTerminalTransition), decision.Mode)
+			assert.Len(t, commandAuditEvents(fixture.effects.Values()[baseline:]), 1)
+		})
+	}
+}
+
+func TestForwardTerminalTransitionAuditRecordsSupersessionWithoutAuditingReturn(t *testing.T) {
+	fixture, _ := newGroupAwareForwardFixture(t)
+	require.True(t, fixture.service.DispatchPlayerAction(
+		fixture.controllerConnection,
+		groupAwareForwardCommand(fixture, "audit-superseded"),
+	).Accepted)
+	pending := fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pending)
+
+	baseline := len(fixture.effects.Values())
+	_, err := fixture.service.RequestTerminalClear()
+	require.NoError(t, err)
+	superseded := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.request_outcome", pending.RequestID, "superseded")
+	assert.Equal(t, fixture.controllerSession, superseded.SessionID)
+	assert.Equal(t, string(domain.CommandBehaviorTerminalTransition), superseded.Mode)
+	assert.Len(t, commandAuditEvents(fixture.effects.Values()[baseline:]), 1)
+
+	returnFixture, _ := newGroupAwareForwardFixture(t)
+	require.True(t, returnFixture.service.DispatchPlayerAction(
+		returnFixture.controllerConnection,
+		groupAwareForwardCommand(returnFixture, "audit-forward-before-return"),
+	).Accepted)
+	forward := returnFixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, forward)
+	_, err = returnFixture.service.ResolveTerminalNavigation(forward.RequestID, domain.TerminalNavigationApprove)
+	require.NoError(t, err)
+
+	baseline = len(returnFixture.effects.Values())
+	back := returnFixture.service.DispatchPlayerAction(returnFixture.controllerConnection, domain.RuntimeCommand{
+		RequestID: "audit-return", BroadcastID: returnFixture.broadcastID, TerminalID: "terminal-b",
+		Kind: domain.RuntimeCommandNavigate, Action: "back",
+	})
+	require.True(t, back.Accepted)
+	returnPending := returnFixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, returnPending)
+	require.Equal(t, domain.TerminalNavigationReturn, returnPending.Direction)
+	assert.Empty(t, commandAuditEvents(returnFixture.effects.Values()[baseline:]))
+
+	baseline = len(returnFixture.effects.Values())
+	_, err = returnFixture.service.ResolveTerminalNavigation(returnPending.RequestID, domain.TerminalNavigationReject)
+	require.NoError(t, err)
+	assert.Empty(t, commandAuditEvents(returnFixture.effects.Values()[baseline:]))
+}
+
+func TestHackAuditDistinguishesRejectedGuessAndPatternEffectsWithoutTargets(t *testing.T) {
+	fixture := newUS2Fixture(t, live.New(nil, nil))
+	tests := []struct {
+		name    string
+		kind    domain.RuntimeCommandKind
+		target  string
+		pattern string
+		event   string
+	}{
+		{name: "guess", kind: domain.RuntimeCommandGuess, target: "SECRET-GUESS-CANARY", event: "hack.guess"},
+		{name: "pattern", kind: domain.RuntimeCommandActivatePattern, pattern: "PRIVATE-PATTERN-CANARY", event: "hack.pattern"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			baseline := len(fixture.effects.Values())
+			command := domain.RuntimeCommand{
+				RequestID: test.name + "-rejected", BroadcastID: fixture.broadcastID,
+				TerminalID: fixture.terminalID, Kind: test.kind,
+				TargetID: test.target, PatternID: test.pattern,
+			}
+			result := fixture.service.DispatchPlayerAction(fixture.controllerConnection, command)
+			require.Equal(t, domain.ActionReasonInvalidAction, result.Reason)
+			events := auditEvents(fixture.effects.Values()[baseline:])
+			require.Len(t, events, 1)
+			assert.Equal(t, test.event, events[0].Name)
+			assert.Equal(t, "rejected", events[0].Outcome)
+			assert.NotEmpty(t, events[0].PuzzleID)
+			captured := fmt.Sprintf("%#v", events[0])
+			if test.target != "" {
+				assert.NotContains(t, captured, test.target)
+			}
+			if test.pattern != "" {
+				assert.NotContains(t, captured, test.pattern)
+			}
+		})
+	}
+}
+
+func TestHackActionAuditUsesClosedGuessAndPatternOutcomeCategories(t *testing.T) {
+	runtime := &domain.ProcessRuntime{Broadcast: &domain.LiveBroadcast{
+		ID: "broadcast-1", AssignmentsBySession: map[domain.LogicalSessionID]domain.CharacterID{"session-1": "character-1"},
+	}}
+	before := &domain.HackState{
+		GenerationID: "puzzle-1", AttemptsMax: 4, AttemptsLeft: 3,
+		WordsByID: map[string]domain.HackCandidate{"secret": {Text: "SECRET"}, "dud": {Text: "DECOY"}},
+	}
+	tests := []struct {
+		name    string
+		kind    domain.RuntimeCommandKind
+		after   *domain.HackState
+		outcome string
+	}{
+		{name: "guess mismatch", kind: domain.RuntimeCommandGuess, after: &domain.HackState{GenerationID: "puzzle-1", AttemptsLeft: 2}, outcome: "mismatch"},
+		{name: "guess success", kind: domain.RuntimeCommandGuess, after: &domain.HackState{GenerationID: "puzzle-1", AttemptsLeft: 3, Solved: true}, outcome: "succeeded"},
+		{name: "guess failure", kind: domain.RuntimeCommandGuess, after: &domain.HackState{GenerationID: "puzzle-1", AttemptsLeft: 0, Failed: true}, outcome: "failed"},
+		{name: "dud removed", kind: domain.RuntimeCommandActivatePattern, after: &domain.HackState{GenerationID: "puzzle-1", AttemptsLeft: 3, WordsByID: map[string]domain.HackCandidate{"secret": {Text: "SECRET"}}}, outcome: "dud-removed"},
+		{name: "attempts replenished", kind: domain.RuntimeCommandActivatePattern, after: &domain.HackState{GenerationID: "puzzle-1", AttemptsLeft: 4, WordsByID: map[string]domain.HackCandidate{"secret": {Text: "SECRET"}, "dud": {Text: "DECOY"}}}, outcome: "attempts-replenished"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			event := hackActionAudit(runtime, "session-1", domain.RuntimeCommand{Kind: test.kind, TerminalID: "terminal-1"}, before, test.after)
+			assert.Equal(t, test.outcome, event.Outcome)
+			captured := fmt.Sprintf("%#v", event)
+			assert.NotContains(t, captured, "SECRET")
+			assert.NotContains(t, captured, "DECOY")
+		})
+	}
+}
+
+func TestHackLifecycleAuditCarriesSafeContextReasonsAndOnlyInterruptsActivePuzzles(t *testing.T) {
+	controller := domain.LogicalSessionID("session-1")
+	terminalA := &domain.TerminalRuntime{
+		TerminalID: "terminal-a", Lifecycle: domain.TerminalLifecycleActive,
+		Hack: &domain.HackState{GenerationID: "puzzle-a", Level: 3, AttemptsMax: 4, AttemptsLeft: 2},
+	}
+	before := &domain.ProcessRuntime{Broadcast: &domain.LiveBroadcast{
+		ID: "broadcast-1", ActiveTerminalID: new("terminal-a"), ControllerSessionID: &controller,
+		AssignmentsBySession: map[domain.LogicalSessionID]domain.CharacterID{controller: "character-1"},
+		TerminalRuntimes:     map[string]*domain.TerminalRuntime{"terminal-a": terminalA},
+	}}
+	after := cloneProcessRuntime(before)
+	after.Broadcast.TerminalRuntimes["terminal-a"].Lifecycle = domain.TerminalLifecycleSuspended
+	after.Broadcast.TerminalRuntimes["terminal-b"] = &domain.TerminalRuntime{
+		TerminalID: "terminal-b", Lifecycle: domain.TerminalLifecycleActive,
+		Hack: &domain.HackState{GenerationID: "puzzle-b", Level: 5, AttemptsMax: 6, AttemptsLeft: 6},
+	}
+	after.Broadcast.ActiveTerminalID = new("terminal-b")
+
+	events := deriveHackLifecycleEvents(before, after)
+	require.Len(t, events, 2)
+	assert.Equal(t, AuditEvent{
+		Name: "hack.interrupted", Outcome: "interrupted", Reason: "terminal-suspended",
+		SessionID: controller, Role: domain.PlayerRoleActive, BroadcastID: "broadcast-1",
+		TerminalID: "terminal-a", PuzzleID: "puzzle-a", HackLevel: 3,
+		AttemptsMax: 4, AttemptsLeft: 2,
+	}, events[0])
+	assert.Equal(t, "hack.started", events[1].Name)
+	assert.Equal(t, 5, events[1].HackLevel)
+	assert.Equal(t, 6, events[1].AttemptsMax)
+	assert.Equal(t, 6, events[1].AttemptsLeft)
+
+	solvedBefore := cloneProcessRuntime(before)
+	solvedBefore.Broadcast.TerminalRuntimes["terminal-a"].Hack.Solved = true
+	events = deriveHackLifecycleEvents(solvedBefore, after)
+	require.Len(t, events, 1)
+	assert.Equal(t, "hack.started", events[0].Name)
+
+	failedBefore := cloneProcessRuntime(before)
+	failedBefore.Broadcast.TerminalRuntimes["terminal-a"].Hack.Failed = true
+	events = deriveHackLifecycleEvents(failedBefore, after)
+	require.Len(t, events, 1)
+	assert.Equal(t, "hack.started", events[0].Name)
+
+	ended := cloneProcessRuntime(before)
+	ended.Broadcast = nil
+	events = deriveHackLifecycleEvents(before, ended)
+	require.Len(t, events, 1)
+	assert.Equal(t, "broadcast-ended", events[0].Reason)
+
+	reset := cloneProcessRuntime(before)
+	reset.Broadcast.TerminalRuntimes["terminal-a"].Hack = &domain.HackState{
+		GenerationID: "puzzle-a-reset", Level: 4, AttemptsMax: 5, AttemptsLeft: 5,
+	}
+	events = deriveHackLifecycleEvents(before, reset)
+	require.Len(t, events, 1)
+	assert.Equal(t, "hack.reset", events[0].Name)
+	assert.Equal(t, "puzzle-a", events[0].PreviousPuzzleID)
+	assert.Equal(t, "puzzle-a-reset", events[0].PuzzleID)
+}
+
+func TestActiveHackAuditInterruptsWhenControllerBecomesUnavailable(t *testing.T) {
+	tests := []struct {
+		name          string
+		operation     string
+		terminalState string
+		wantEvent     bool
+	}{
+		{name: "release active controller", operation: "release", wantEvent: true},
+		{name: "move active controller", operation: "move", wantEvent: true},
+		{name: "handoff active controller", operation: "handoff", wantEvent: true},
+		{name: "release after success", operation: "release", terminalState: "solved"},
+		{name: "move after failure", operation: "move", terminalState: "failed"},
+		{name: "handoff after success", operation: "handoff", terminalState: "solved"},
+		{name: "handoff after failure", operation: "handoff", terminalState: "failed"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newUS2Fixture(t, &recordingTerminalRuntime{})
+			if test.terminalState != "" {
+				fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+					hackState := root.Broadcast.TerminalRuntimes[fixture.terminalID].Hack
+					switch test.terminalState {
+					case "solved":
+						hackState.Solved = true
+					case "failed":
+						hackState.Failed = true
+						hackState.AttemptsLeft = 0
+					}
+					return transition{accepted: true}
+				})
+			}
+
+			terminal := canonicalTerminal(t, fixture.service, fixture.terminalID)
+			require.NotNil(t, terminal.Hack)
+			puzzle := *terminal.Hack
+			baseline := len(fixture.effects.Values())
+
+			switch test.operation {
+			case "release":
+				_, err := fixture.service.ReleaseCharacter(fixture.controllerSession)
+				require.NoError(t, err)
+			case "move":
+				controller := masterSession(t, fixture.service.Snapshot(), fixture.controllerSession)
+				require.NotNil(t, controller.Character)
+				_, err := fixture.service.MoveCharacter(controller.Character.ID, fixture.unassignedSession)
+				require.NoError(t, err)
+			case "handoff":
+				_, err := fixture.service.SetActiveController(fixture.observerSession)
+				require.NoError(t, err)
+			}
+
+			var interruptions []AuditEvent
+			for _, event := range auditEvents(fixture.effects.Values()[baseline:]) {
+				if event.Name == "hack.interrupted" {
+					interruptions = append(interruptions, event)
+				}
+			}
+			if !test.wantEvent {
+				assert.Empty(t, interruptions)
+				return
+			}
+			require.Len(t, interruptions, 1)
+			assert.Equal(t, AuditEvent{
+				Name: "hack.interrupted", Outcome: "interrupted", Reason: "controller-unavailable",
+				SessionID: fixture.controllerSession, Role: domain.PlayerRoleActive,
+				BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+				PuzzleID: puzzle.GenerationID, HackLevel: puzzle.Level,
+				AttemptsMax: puzzle.AttemptsMax, AttemptsLeft: puzzle.AttemptsLeft,
+			}, interruptions[0])
+		})
+	}
+}
+
+func assertAuditEvent(t *testing.T, effects []Effect, name, requestID, outcome string) AuditEvent {
+	t.Helper()
+	var matches []AuditEvent
+	for _, event := range auditEvents(effects) {
+		if event.Name == name && event.RequestID == requestID && event.Outcome == outcome {
+			matches = append(matches, event)
+		}
+	}
+	require.Len(t, matches, 1, "audit events = %#v", auditEvents(effects))
+	return matches[0]
+}
+
+func auditEvents(effects []Effect) []AuditEvent {
+	var events []AuditEvent
+	for _, effect := range effects {
+		events = append(events, effect.Audit...)
+	}
+	return events
+}
+
+func commandAuditEvents(effects []Effect) []AuditEvent {
+	var events []AuditEvent
+	for _, event := range auditEvents(effects) {
+		if strings.HasPrefix(event.Name, "command.") {
+			events = append(events, event)
+		}
+	}
+	return events
 }
 
 func TestOverseerRosterAndAssignmentCorrectionsPreserveRuntime(t *testing.T) {
@@ -4621,6 +5184,114 @@ func groupAwareForwardCommand(fixture us2Fixture, requestID string) domain.Runti
 		Kind: domain.RuntimeCommandNavigate, Action: "command", NodeID: "linked-command",
 		PayloadFingerprint: requestID,
 	}
+}
+
+func TestRejectedCommandAtRoutedRootAcknowledgesBeforeReturnAndDoesNotSurviveReentry(t *testing.T) {
+	fixture, catalog := newGroupAwareForwardFixture(t)
+	transitionKey := fixture.terminalID + "/linked-command"
+	routeTransition := catalog.transitions[transitionKey]
+	routeTransition.Target.Tree.Children = append(routeTransition.Target.Tree.Children, domain.ContentNode{
+		ID: "security-summary", Type: domain.NodeCommand, Name: "SECURITY SUMMARY", Text: "ALL CLEAR",
+	})
+	catalog.transitions[transitionKey] = routeTransition
+	catalog.terminals[routeTransition.Target.TerminalID] = routeTransition.Target
+	source := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	catalog.terminals[fixture.terminalID] = domain.TerminalTarget{
+		TerminalID: source.TerminalID, TerminalName: source.TerminalName,
+		Tree: source.Tree, CommandStates: source.CommandStates,
+		HackLevel: source.HackLevel, IntroText: source.IntroText,
+	}
+
+	forward := groupAwareForwardCommand(fixture, "forward-to-security")
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, forward).Accepted)
+	pendingForward := fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pendingForward)
+	_, err := fixture.service.ResolveTerminalNavigation(pendingForward.RequestID, domain.TerminalNavigationApprove)
+	require.NoError(t, err)
+
+	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+		target := runtime.Broadcast.TerminalRuntimes[routeTransition.Target.TerminalID]
+		require.NotNil(t, target)
+		require.NotNil(t, target.Hack)
+		target.Hack.Solved = true
+		target.Hack.Log = append(target.Hack.Log, "ACCESS GRANTED")
+		return transition{accepted: true}
+	})
+	checkpoint := canonicalTerminal(t, fixture.service, routeTransition.Target.TerminalID).Hack
+
+	selected := fixture.service.DispatchPlayerAction(fixture.controllerConnection, domain.RuntimeCommand{
+		RequestID: "request-security-summary", BroadcastID: fixture.broadcastID,
+		TerminalID: routeTransition.Target.TerminalID, Kind: domain.RuntimeCommandNavigate,
+		Action: "command", NodeID: "security-summary",
+	})
+	require.True(t, selected.Accepted)
+	pendingCommand := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pendingCommand)
+	_, _, err = fixture.service.ResolveCommandExecution(t.Context(), pendingCommand.RequestID, domain.CommandExecutionReject)
+	require.NoError(t, err)
+
+	beforeAcknowledgement := fixture.service.Snapshot()
+	require.Nil(t, beforeAcknowledgement.PendingTerminalNavigation)
+	fixture.service.mu.RLock()
+	beforeRoute := append([]domain.TerminalReturnPoint(nil), fixture.service.runtime.Broadcast.Route...)
+	fixture.service.mu.RUnlock()
+	require.Len(t, beforeRoute, 1)
+	require.Equal(t, &domain.CommandExecutionPresentation{
+		Phase: domain.CommandExecutionPhaseRejected, CommandID: "security-summary",
+	}, canonicalTerminal(t, fixture.service, routeTransition.Target.TerminalID).CommandExecution)
+
+	acknowledged := fixture.service.DispatchPlayerAction(fixture.controllerConnection, domain.RuntimeCommand{
+		RequestID: "acknowledge-security-summary", BroadcastID: fixture.broadcastID,
+		TerminalID: routeTransition.Target.TerminalID, Kind: domain.RuntimeCommandNavigate, Action: "back",
+	})
+	require.True(t, acknowledged.Accepted)
+	afterAcknowledgement := fixture.service.Snapshot()
+	require.Nil(t, afterAcknowledgement.PendingTerminalNavigation)
+	require.Equal(t, routeTransition.Target.TerminalID, *afterAcknowledgement.Broadcast.ActiveTerminalID)
+	fixture.service.mu.RLock()
+	afterRoute := append([]domain.TerminalReturnPoint(nil), fixture.service.runtime.Broadcast.Route...)
+	fixture.service.mu.RUnlock()
+	require.Equal(t, beforeRoute, afterRoute)
+	require.Nil(t, canonicalTerminal(t, fixture.service, routeTransition.Target.TerminalID).CommandExecution)
+	require.Equal(t, checkpoint, canonicalTerminal(t, fixture.service, routeTransition.Target.TerminalID).Hack)
+	for _, sessionID := range []domain.LogicalSessionID{fixture.controllerSession, fixture.observerSession} {
+		projection, _, ok := fixture.service.CurrentLiveForSession(sessionID)
+		require.True(t, ok)
+		require.Nil(t, projection.CommandExecution)
+	}
+	handle := domain.RecognitionHandle(fixture.observerToken)
+	reconnected, err := fixture.service.AttachSubscription("rejected-route-reconnect", &handle)
+	require.NoError(t, err)
+	require.NotNil(t, reconnected.Terminal.Live)
+	require.Nil(t, reconnected.Terminal.Live.CommandExecution)
+	fixture.service.DetachConnection("rejected-route-reconnect")
+
+	requestedReturn := fixture.service.DispatchPlayerAction(fixture.controllerConnection, domain.RuntimeCommand{
+		RequestID: "return-after-acknowledgement", BroadcastID: fixture.broadcastID,
+		TerminalID: routeTransition.Target.TerminalID, Kind: domain.RuntimeCommandNavigate, Action: "back",
+	})
+	require.True(t, requestedReturn.Accepted)
+	pendingReturn := fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pendingReturn)
+	require.Equal(t, domain.TerminalNavigationReturn, pendingReturn.Direction)
+	_, err = fixture.service.ResolveTerminalNavigation(pendingReturn.RequestID, domain.TerminalNavigationApprove)
+	require.NoError(t, err)
+
+	forward = groupAwareForwardCommand(fixture, "forward-to-security-again")
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, forward).Accepted)
+	pendingForward = fixture.service.Snapshot().PendingTerminalNavigation
+	require.NotNil(t, pendingForward)
+	final, err := fixture.service.ResolveTerminalNavigation(pendingForward.RequestID, domain.TerminalNavigationApprove)
+	require.NoError(t, err)
+	require.Equal(t, routeTransition.Target.TerminalID, *final.Broadcast.ActiveTerminalID)
+	fixture.service.mu.RLock()
+	require.Len(t, fixture.service.runtime.Broadcast.Route, 1)
+	fixture.service.mu.RUnlock()
+	reentered := canonicalTerminal(t, fixture.service, routeTransition.Target.TerminalID)
+	require.True(t, reentered.Hack.Solved)
+	require.Equal(t, checkpoint, reentered.Hack)
+	require.Nil(t, reentered.CommandExecution)
+	require.Equal(t, domain.NavState{Path: []string{"root"}, Mode: "list"}, reentered.Nav)
 }
 
 func newOrderedGroupStartFixture(t *testing.T) (us2Fixture, *groupAwareNavigationCatalog) {

@@ -17,6 +17,7 @@ import (
 	wailsnotifications "github.com/wailsapp/wails/v3/pkg/services/notifications"
 
 	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/diagnostics"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 	liveservice "github.com/obalunenko/Fallout-Terminal/v2/internal/live"
@@ -75,6 +76,15 @@ func runMain(arguments []string, stdout, stderr io.Writer, startApplication func
 	return 0
 }
 
+// newApplicationLogger composes the retained writer with the one production
+// logger. The writer owns reporting storage degradation so initialization
+// failures cannot produce duplicate warnings through the fallback.
+func newApplicationLogger(ctx context.Context, logDirectory string, fallback io.Writer) (*diagnostics.RunLog, logger.Logger) {
+	retainedLog, _ := diagnostics.Open(diagnostics.Options{Directory: logDirectory, Fallback: fallback})
+	applicationLogger := logger.Init(ctx, logger.Params{Level: "info", Format: "text", Writer: retainedLog}).WithField("run_id", retainedLog.RunID())
+	return retainedLog, applicationLogger
+}
+
 func runApplication() {
 	signalContext, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	rootContext, cancelRoot := context.WithCancelCause(signalContext)
@@ -82,23 +92,32 @@ func runApplication() {
 	defer cancelRoot(errApplicationProcessComplete)
 	stopSignalDiversion := context.AfterFunc(rootContext, stopSignals)
 	defer stopSignalDiversion()
-	applicationLogger := logger.Init(rootContext, logger.Params{Level: "info", Format: "text"})
+	locations, locationsErr := platform.DefaultSessionLocations(applicationResourceRoot())
+	logDirectory := ""
+	if locationsErr == nil {
+		logDirectory, locationsErr = platform.ApplicationLogDirectory(locations.ApplicationSupport)
+	}
+	retainedLog, applicationLogger := newApplicationLogger(rootContext, logDirectory, os.Stderr)
+	defer func() { _ = retainedLog.Close() }()
 	rootContext = logger.ContextWithLogger(rootContext, applicationLogger)
+	if locationsErr != nil {
+		logger.WithField(rootContext, "error_category", "location_unavailable").Fatal("resolve application locations")
+	}
 
 	overseerAssets, err := fs.Sub(overseerSource, "frontend/overseer/dist")
 	if err != nil {
-		logger.WithError(rootContext, err).Fatal("prepare Overseer assets")
+		logger.WithField(rootContext, "error_category", "asset_unavailable").Fatal("prepare Overseer assets")
 	}
 	clientAssets, err := fs.Sub(clientSource, "frontend/client/dist")
 	if err != nil {
-		logger.WithError(rootContext, err).Fatal("prepare player assets")
+		logger.WithField(rootContext, "error_category", "asset_unavailable").Fatal("prepare player assets")
 	}
 
 	windowActivation := &overseerWindowActivation{}
 	host := newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)
-	core, err := composeApplication(rootContext, host, clientAssets)
+	core, err := composeApplication(rootContext, host, clientAssets, locations, retainedLog)
 	if err != nil {
-		logger.WithError(rootContext, err).Fatal("compose application")
+		logger.WithField(rootContext, "error_category", "composition_failed").Fatal("compose application")
 	}
 	registerWailsServices(rootContext, host, core)
 	windowActivation.bind(newOverseerWindow(host))
@@ -107,13 +126,9 @@ func runApplication() {
 	}
 }
 
-func composeApplication(ctx context.Context, host *application.App, clientAssets fs.FS) (*App, error) {
+func composeApplication(ctx context.Context, host *application.App, clientAssets fs.FS, locations platform.SessionLocations, retainedLog *diagnostics.RunLog) (*App, error) {
 	if ctx == nil {
 		return nil, errors.New("application composition context is required")
-	}
-	locations, err := platform.DefaultSessionLocations(applicationResourceRoot())
-	if err != nil {
-		return nil, err
 	}
 	if err := validateProductionResources(clientAssets, locations.BundledDemo); err != nil {
 		return nil, err
@@ -229,6 +244,9 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		Player:               player,
 		Desktop:              desktop,
 		Browser:              desktop,
+		LogDirectoryOpener:   desktop,
+		LogDirectory:         retainedLog.Directory(),
+		ActiveLogPath:        retainedLog.CurrentPath,
 		Clipboard:            host.Clipboard,
 		Events:               events,
 		PublicSettings:       effectivePublicSettings,
@@ -414,6 +432,7 @@ func (router *coordinationEffectRouter) Enqueue(effect controlservice.Effect) {
 		app.publishCoordinationState(effect.Master)
 	}
 	if app != nil {
+		app.recordAuditEvents(effect.Audit, effect.Revision)
 		switch {
 		case effect.Hack != nil:
 			app.updateHackState(effect.Hack)

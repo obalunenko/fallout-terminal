@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"slices"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/diagnostics"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	liveservice "github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
@@ -23,12 +26,58 @@ import (
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
+	"github.com/obalunenko/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type maskedCommandExecutionError struct {
 	cause error
+}
+
+func TestRuntimeAuditLoggingUsesStableAllowlistedFieldsAndSeverity(t *testing.T) {
+	t.Parallel()
+	recorder := testutil.NewRecordingLogger()
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: recorder.WithField("run_id", "run-123")})
+	app.recordAuditEvents([]controlservice.AuditEvent{{
+		Name: "command.decision", Decision: "decline", Outcome: "declined", SessionID: "session-1", Role: domain.PlayerRoleActive,
+		RequestID: "request-1", BroadcastID: "broadcast-1", TerminalID: "terminal-1", CommandID: "command-1",
+	}}, 42)
+	records := recorder.Records()
+	require.Len(t, records, 1)
+	assert.Equal(t, "warn", records[0].Level)
+	assert.Equal(t, "runtime audit event", records[0].Message)
+	assert.Equal(t, "run-123", records[0].Fields["run_id"])
+	assert.Equal(t, uint64(42), records[0].Fields["revision"])
+	assert.Equal(t, "decline", records[0].Fields["decision"])
+	assert.NotContains(t, fmt.Sprintf("%#v", records[0]), "name")
+	assert.NotContains(t, fmt.Sprintf("%#v", records[0]), "content")
+}
+
+func TestRuntimeAuditLoggingMapsSafeHackContextAndInterruptionReason(t *testing.T) {
+	t.Parallel()
+	recorder := testutil.NewRecordingLogger()
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: recorder.WithField("run_id", "run-123")})
+	app.recordAuditEvents([]controlservice.AuditEvent{
+		{
+			Name: "hack.started", Outcome: "started", SessionID: "session-1", Role: domain.PlayerRoleActive,
+			BroadcastID: "broadcast-1", TerminalID: "terminal-1", PuzzleID: "puzzle-1",
+			HackLevel: 3, AttemptsMax: 4, AttemptsLeft: 4,
+		},
+		{
+			Name: "hack.interrupted", Outcome: "interrupted", Reason: "terminal-suspended",
+			TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 2,
+		},
+	}, 43)
+	records := recorder.Records()
+	require.Len(t, records, 2)
+	assert.Equal(t, 3, records[0].Fields["hack_level"])
+	assert.Equal(t, 4, records[0].Fields["attempts_max"])
+	assert.Equal(t, 4, records[0].Fields["attempts_left"])
+	assert.Equal(t, "terminal-suspended", records[1].Fields["reason"])
+	assert.Equal(t, 2, records[1].Fields["attempts_left"])
+	assert.NotContains(t, records[1].Fields, "attempts_before")
+	assert.NotContains(t, records[1].Fields, "attempts_after")
 }
 
 func (err maskedCommandExecutionError) Error() string {
@@ -245,13 +294,40 @@ func TestProductionLoggingUsesRequiredLoggerInitializedOnce(t *testing.T) {
 
 	mainSource, err := os.ReadFile("main.go")
 	require.NoError(t, err)
+	approvalNotificationSource, err := os.ReadFile("approval_notifications.go")
+	require.NoError(t, err)
+	appSource, err := os.ReadFile("app.go")
+	require.NoError(t, err)
+	playerServerSource, err := os.ReadFile("internal/player/server.go")
+	require.NoError(t, err)
 	moduleSource, err := os.ReadFile("go.mod")
 	require.NoError(t, err)
 
 	require.Equal(t, 1, strings.Count(string(mainSource), "logger.Init("))
 	require.Contains(t, string(mainSource), `"github.com/obalunenko/logger"`)
 	require.NotContains(t, string(mainSource), `"log"`)
+	require.NotContains(t, string(mainSource), "WithError")
+	require.NotContains(t, string(approvalNotificationSource), "WithError")
+	require.NotContains(t, string(appSource), "WithError")
+	require.NotContains(t, string(playerServerSource), "WithError")
 	require.Contains(t, string(moduleSource), "github.com/obalunenko/logger v1.2.0")
+}
+
+func TestApplicationLoggerCompositionEmitsOneSafeRetentionWarning(t *testing.T) {
+	var fallback bytes.Buffer
+	retained, applicationLogger := newApplicationLogger(
+		t.Context(), "TOKEN-CANARY /private/provider/path raw dependency failure", &fallback,
+	)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+
+	applicationLogger.Info("application ready")
+	output := fallback.String()
+	assert.Equal(t, 1, strings.Count(output, "operation=diagnostics.retention"))
+	assert.Contains(t, output, "error_category=storage_unavailable")
+	assert.Contains(t, output, "application ready")
+	for _, forbidden := range []string{"TOKEN-CANARY", "/private/provider/path", "raw dependency failure"} {
+		assert.NotContains(t, output, forbidden)
+	}
 }
 
 func requireLogRecord(t *testing.T, records []testutil.LogRecord, message string) testutil.LogRecord {
@@ -394,13 +470,180 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 		require.Equal(t, "public_ingress_listen_failed", started.Fields["diagnostic_code"])
 		requireOperationRecord(t, records, "public-access.stop", "succeeded")
 		eventRecord := requireEventLogRecord(t, records, clientCountEvent)
-		require.ErrorIs(t, eventRecord.Fields["error"].(error), eventErr)
+		require.Equal(t, "delivery_failed", eventRecord.Fields["error_category"])
+		require.NotContains(t, eventRecord.Fields, "error")
 
 		captured := fmt.Sprintf("%#v", records)
 		for _, forbidden := range []string{providerCanary, passwordCanary, "private.example", "private-user"} {
 			require.NotContains(t, captured, forbidden)
 		}
 	})
+}
+
+func TestRetainedRuntimeLogsExcludeRawDependencyErrors(t *testing.T) {
+	const dependencyCanary = "TOKEN-CANARY /private/provider/path provider.example: raw dependency failure"
+	directory := t.TempDir()
+	retained, err := diagnostics.Open(diagnostics.Options{
+		Directory: directory,
+		Fallback:  io.Discard,
+		RunID:     "redaction-run",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+
+	applicationLogger := logger.Init(t.Context(), logger.Params{
+		Level:  "info",
+		Format: "text",
+		Writer: retained,
+	}).WithField("run_id", retained.RunID())
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Logger: applicationLogger,
+		Events: &recordingEventSink{
+			recorder: &callRecorder{},
+			err:      errors.New(dependencyCanary),
+		},
+	})
+	app.emitEvent(clientCountEvent, 1)
+	path := retained.CurrentPath()
+	require.NoError(t, retained.Close())
+
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(contents), "error_category=delivery_failed")
+	for _, forbidden := range []string{"TOKEN-CANARY", "/private/provider/path", "provider.example", "raw dependency failure"} {
+		assert.NotContains(t, string(contents), forbidden)
+	}
+}
+
+func TestRetainedRuntimeAuditJourneyIsExactAndCorrelated(t *testing.T) {
+	directory := t.TempDir()
+	retained, err := diagnostics.Open(diagnostics.Options{
+		Directory: directory,
+		Fallback:  io.Discard,
+		RunID:     "journey-run",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+	applicationLogger := logger.Init(t.Context(), logger.Params{
+		Level: "info", Format: "text", Writer: retained,
+	}).WithField("run_id", retained.RunID())
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: applicationLogger})
+
+	events := []controlservice.AuditEvent{
+		{Name: "player.connected", Outcome: "connected", SessionID: "session-1", Role: domain.PlayerRoleUnassigned},
+		{Name: "player.role_changed", Outcome: "selected", SessionID: "session-1", PreviousRole: domain.PlayerRoleUnassigned, Role: domain.PlayerRoleActive},
+		{Name: "command.request_received", Outcome: "accepted", RequestID: "request-1", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", CommandID: "command-1"},
+		{Name: "command.decision", Decision: "approve", Outcome: "succeeded", RequestID: "request-1", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", CommandID: "command-1"},
+		{Name: "player.role_changed", Outcome: "selected", SessionID: "session-1", PreviousRole: domain.PlayerRoleActive, Role: domain.PlayerRoleObserver},
+		{Name: "command.request_received", Outcome: "accepted", RequestID: "request-2", SessionID: "session-1", Role: domain.PlayerRoleObserver, TerminalID: "terminal-1", CommandID: "command-2"},
+		{Name: "command.decision", Decision: "decline", Outcome: "declined", RequestID: "request-2", SessionID: "session-1", Role: domain.PlayerRoleObserver, TerminalID: "terminal-1", CommandID: "command-2"},
+		{Name: "hack.started", Outcome: "started", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", HackLevel: 3, AttemptsMax: 4, AttemptsLeft: 4},
+		{Name: "hack.guess", Outcome: "rejected", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 4},
+		{Name: "hack.guess", Outcome: "mismatch", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 3},
+		{Name: "hack.pattern", Outcome: "dud-removed", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 3},
+		{Name: "hack.pattern", Outcome: "attempts-replenished", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 4},
+		{Name: "hack.failed", Outcome: "failed", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 0},
+		{Name: "hack.reset", Outcome: "reset", TerminalID: "terminal-1", PreviousPuzzleID: "puzzle-1", PuzzleID: "puzzle-2", AttemptsLeft: 4},
+		{Name: "hack.succeeded", Outcome: "succeeded", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-2", AttemptsLeft: 2},
+		{Name: "hack.started", Outcome: "started", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-3", HackLevel: 2, AttemptsMax: 3, AttemptsLeft: 3},
+		{Name: "hack.interrupted", Outcome: "interrupted", Reason: "broadcast-ended", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-3", AttemptsLeft: 3},
+		{Name: "player.disconnected", Outcome: "disconnected", SessionID: "session-1", Role: domain.PlayerRoleObserver},
+	}
+	app.recordAuditEvents(events, 99)
+	path := retained.CurrentPath()
+	require.NoError(t, retained.Close())
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	records := string(contents)
+	lines := strings.Split(strings.TrimSpace(records), "\n")
+	require.Len(t, lines, len(events), "retained records = %s", records)
+	for index, event := range events {
+		assert.Contains(t, lines[index], "event="+event.Name)
+		assert.Contains(t, lines[index], "outcome="+event.Outcome)
+		if event.RequestID != "" {
+			assert.Contains(t, lines[index], "request_id="+event.RequestID)
+		}
+		if event.PuzzleID != "" {
+			assert.Contains(t, lines[index], "puzzle_id="+event.PuzzleID)
+		}
+	}
+	assert.Equal(t, 2, strings.Count(records, "request_id=request-1"))
+	assert.Equal(t, 2, strings.Count(records, "request_id=request-2"))
+	assert.Equal(t, 6, strings.Count(records, " puzzle_id=puzzle-1"))
+	assert.Equal(t, 2, strings.Count(records, " puzzle_id=puzzle-2"))
+	assert.Equal(t, 2, strings.Count(records, " puzzle_id=puzzle-3"))
+	assert.Contains(t, records, "run_id=journey-run")
+	assert.Contains(t, records, "revision=99")
+}
+
+func TestRetainedRuntimeAuditCorrelatesForwardTerminalTransition(t *testing.T) {
+	directory := t.TempDir()
+	retained, err := diagnostics.Open(diagnostics.Options{
+		Directory: directory,
+		Fallback:  io.Discard,
+		RunID:     "transition-run",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+	applicationLogger := logger.Init(t.Context(), logger.Params{
+		Level: "info", Format: "text", Writer: retained,
+	}).WithField("run_id", retained.RunID())
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: applicationLogger})
+
+	events := []controlservice.AuditEvent{
+		{
+			Name: "command.request_received", Outcome: "accepted", RequestID: "transition-request",
+			SessionID: "session-1", Role: domain.PlayerRoleActive, BroadcastID: "broadcast-1",
+			TerminalID: "terminal-a", CommandID: "command-to-b", Mode: string(domain.CommandBehaviorTerminalTransition),
+		},
+		{
+			Name: "command.decision", Decision: "approve", Outcome: "succeeded", RequestID: "transition-request",
+			SessionID: "session-1", Role: domain.PlayerRoleActive, BroadcastID: "broadcast-1",
+			TerminalID: "terminal-a", CommandID: "command-to-b", Mode: string(domain.CommandBehaviorTerminalTransition),
+		},
+	}
+	app.recordAuditEvents(events, 100)
+	path := retained.CurrentPath()
+	require.NoError(t, retained.Close())
+
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	records := string(contents)
+	assert.Equal(t, 2, strings.Count(records, "request_id=transition-request"))
+	assert.Equal(t, 2, strings.Count(records, "mode=terminal-transition"))
+	assert.Contains(t, records, "event=command.request_received")
+	assert.Contains(t, records, "event=command.decision")
+	assert.Contains(t, records, "run_id=transition-run")
+	assert.Contains(t, records, "revision=100")
+	assert.NotContains(t, records, "PRIVATE COMMAND NAME")
+	assert.NotContains(t, records, "PRIVATE TARGET NAME")
+}
+
+func TestApplicationLifecycleContinuesWhenRetainedStorageIsUnavailable(t *testing.T) {
+	var fallback bytes.Buffer
+	retained, retainedErr := diagnostics.Open(diagnostics.Options{
+		Directory: "relative/unavailable", Fallback: &fallback, RunID: "fallback-run",
+	})
+	require.Error(t, retainedErr)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+	applicationLogger := logger.Init(t.Context(), logger.Params{
+		Level: "info", Format: "text", Writer: retained,
+	}).WithField("run_id", retained.RunID())
+	recorder := &callRecorder{}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Logger: applicationLogger,
+		Player: &recordingPlayerServer{recorder: recorder, info: domain.ServerInfo{
+			IP: "127.0.0.1", Port: 3690, URL: "http://127.0.0.1:3690",
+		}},
+		Events: &recordingEventSink{recorder: recorder}, Desktop: &recordingDesktop{recorder: recorder},
+	})
+	require.NoError(t, app.Start(t.Context()))
+	require.NoError(t, app.Shutdown(t.Context()))
+	assert.Contains(t, fallback.String(), "application ready")
+	assert.Contains(t, fallback.String(), "application shutdown completed")
+	assert.Equal(t, []string{
+		"player:start", "event:server-info", "desktop:ready", "player:stop", "desktop:close",
+	}, recorder.Calls())
 }
 
 func requireOperationRecord(t *testing.T, records []testutil.LogRecord, operation, outcome string) testutil.LogRecord {

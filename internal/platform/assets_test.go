@@ -264,7 +264,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
 	}
 
-	const stableDescriptorShape = "ab38bdd06b194bd7acac9a6f4311b2b6c73d46aecf723e2bb6281f19796adbe1"
+	const stableDescriptorShape = "016a6cc89e984d710b76be9b9e03b1ed239e93b594c960af3f35a6978d805def"
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
@@ -434,7 +434,7 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
-		"proto/schema-revision.txt":                       "d7e8889fca533695790862020362e9207fa6b89de4e2bbefb69e0ede4a629012",
+		"proto/schema-revision.txt":                       "19b3736dd34573668bede187d45d4e3bd294337db554fda70436dcd453e00214",
 		"proto/compatibility-baseline.binpb":              "b0004a0b4dbfabd1b6cce0c183b7b42a3f104261b1c047fc5d2ebe40932be3a7",
 	}
 	for relative, want := range wantDigests {
@@ -2325,7 +2325,7 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 		`fs.Sub(clientSource, "frontend/client/dist")`,
 		"windowActivation := &overseerWindowActivation{}",
 		"newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)",
-		"composeApplication(rootContext, host, clientAssets)",
+		"composeApplication(rootContext, host, clientAssets, locations, retainedLog)",
 		"windowActivation.bind(newOverseerWindow(host))",
 	}
 	for _, fragment := range requiredFragments {
@@ -2335,7 +2335,7 @@ func TestProductionEmbedsOverseerAndPlayerAsSeparateFilesystems(t *testing.T) {
 	}
 	hostConstruction := strings.Index(source,
 		"newWailsApplication(overseerAssets, windowActivation.handleSecondInstanceLaunch)")
-	applicationComposition := strings.Index(source, "composeApplication(rootContext, host, clientAssets)")
+	applicationComposition := strings.Index(source, "composeApplication(rootContext, host, clientAssets, locations, retainedLog)")
 	require.NotEqual(t, -1, hostConstruction)
 	require.NotEqual(t, -1, applicationComposition)
 	assert.Less(t, hostConstruction, applicationComposition,

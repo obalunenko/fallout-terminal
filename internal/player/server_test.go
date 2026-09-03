@@ -3,6 +3,7 @@ package player
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -93,5 +94,7 @@ func TestServerRecordsOnlyUnexpectedServeExit(t *testing.T) {
 	require.Equal(t, "error", records[0].Level)
 	require.Equal(t, "player server stopped unexpectedly", records[0].Message)
 	require.Equal(t, "player.serve", records[0].Fields["operation"])
-	require.ErrorIs(t, records[0].Fields["error"].(error), serveErr)
+	require.Equal(t, "serve_failed", records[0].Fields["error_category"])
+	require.NotContains(t, records[0].Fields, "error")
+	require.NotContains(t, fmt.Sprintf("%#v", records[0]), serveErr.Error())
 }

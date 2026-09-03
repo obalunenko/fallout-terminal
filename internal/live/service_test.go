@@ -1014,6 +1014,31 @@ func TestRejectedCommandAcceptsOnlyBackAndClearsPresentation(t *testing.T) {
 	assert.Equal(t, nav.Default(), projection.Nav)
 }
 
+func TestReactivateRuntimeClearsRejectedCommandAndPreservesSolvedHack(t *testing.T) {
+	service := New(&constantRandom{}, fixedWords{})
+	target := stateChangingTarget()
+	target.HackLevel = 1
+	runtime, _ := service.CreateRuntime(target)
+	require.NotNil(t, runtime)
+	require.NotNil(t, runtime.Hack)
+	runtime.Hack.Solved = true
+	runtime.Hack.Log = append(runtime.Hack.Log, "ACCESS GRANTED")
+	runtime.CommandExecution = &domain.CommandExecutionPresentation{
+		Phase:     domain.CommandExecutionPhaseRejected,
+		CommandID: "doors",
+	}
+	service.SuspendRuntime(runtime)
+	wantHack := cloneHackForLifecycleTest(runtime.Hack)
+
+	projection := service.ReactivateRuntime(runtime, target)
+
+	require.NotNil(t, projection)
+	assert.Equal(t, domain.TerminalLifecycleActive, runtime.Lifecycle)
+	assert.Equal(t, wantHack, runtime.Hack)
+	assert.Nil(t, runtime.CommandExecution)
+	assert.Nil(t, projection.CommandExecution)
+}
+
 func TestCompletedCommandRepeatsFrozenResultWithoutChangingSnapshot(t *testing.T) {
 	service := New(&constantRandom{}, fixedWords{})
 	target := stateChangingTarget()

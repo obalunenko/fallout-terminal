@@ -13,6 +13,7 @@ import (
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
@@ -98,6 +99,19 @@ func TestEntryContentPersistenceDescriptorsAreAdditiveAndExplicit(t *testing.T) 
 	require.True(t, frozen.ProtoReflect().Has(frozenField))
 	require.Empty(t, frozen.GetEntryContentChange().GetCompletedText())
 	require.Empty(t, cmp.Diff(frozen, proto.Clone(frozen), protocmp.Transform()))
+}
+
+func TestLogAccessResultIsPrivateAndAdditive(t *testing.T) {
+	t.Parallel()
+	descriptor := (&privatev1.LogAccessResult{}).ProtoReflect().Descriptor()
+	require.Equal(t, "fallout.terminal.private.v1.LogAccessResult", string(descriptor.FullName()))
+	fields := descriptor.Fields()
+	require.Equal(t, 4, fields.Len())
+	require.Equal(t, "ok", string(fields.Get(0).Name()))
+	require.Equal(t, "error", string(fields.Get(1).Name()))
+	require.Equal(t, "directory_path", string(fields.Get(2).Name()))
+	require.Equal(t, "active_log_path", string(fields.Get(3).Name()))
+	require.Nil(t, (&playerv1.PlayerState{}).ProtoReflect().Descriptor().ParentFile().Messages().ByName("LogAccessResult"))
 }
 
 func TestApplicationUpdateSnapshotProtoNativeRoundTripEveryState(t *testing.T) {
@@ -826,6 +840,7 @@ func TestPrivateStatusResultAndEventAdaptersRoundTripEveryNativeSemantic(t *test
 	require.Equal(t, domain.ServerInfo{URL: "https://fallout.example", LocalURL: "http://127.0.0.1:3690", Tunnel: true}, routeServerInfoEvent(*status.ServerInfo))
 	require.Equal(t, 2, routeClientCountEvent(2))
 	require.Equal(t, CommandResult{OK: true}, routeCommandResult(CommandResult{OK: true}))
+	require.Equal(t, LogAccessResult{OK: true, DirectoryPath: "/logs", ActiveLogPath: "/logs/current.log"}, routeLogAccessResult(LogAccessResult{OK: true, DirectoryPath: "/logs", ActiveLogPath: "/logs/current.log"}))
 	require.Equal(t, CoordinationCommandResult{OK: true, State: state}, routeCoordinationResult(CoordinationCommandResult{OK: true, State: state}))
 	require.Equal(t, ResolveCommandExecutionResult{OK: true, State: state}, routeResolveCommandExecutionResult(ResolveCommandExecutionResult{OK: true, State: state}))
 }
@@ -835,14 +850,14 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
 		"RequestTerminalActivation", "UpdateLiveTerminal", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState", "ResetTerminalCommandStates",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
-		"StartBroadcast", "EndBroadcast", "OpenURL", "GetPublicAccess", "CopyPublicAccessCredentials", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
+		"StartBroadcast", "EndBroadcast", "OpenURL", "OpenLogLocation", "GetPublicAccess", "CopyPublicAccessCredentials", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
 	}
 	serviceType := reflect.TypeFor[*desktopService]()
 	actualMethods := make([]string, 0, serviceType.NumMethod())
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 39)
+	require.Len(t, actualMethods, 40)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -886,7 +901,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 39)
+	require.Len(t, forwarded, 40)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

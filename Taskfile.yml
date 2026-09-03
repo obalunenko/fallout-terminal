@@ -316,6 +316,11 @@ tasks:
     cmds:
       - scripts/wails-bindings-check.sh
 
+  runtime-logs:smoke:macos:
+    desc: Optionally verify that a packaged macOS application creates retained runtime logs.
+    cmds:
+      - scripts/runtime-logs-macos-smoke.sh
+
   browser:test:
     desc: Install Chromium and run Playwright journeys.
     cmds:

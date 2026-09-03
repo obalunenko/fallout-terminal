@@ -943,9 +943,47 @@
       "kind": "complete",
       "by": "ai",
       "at": "2026-08-28T13:28:00.657Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T18:59:11.496Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T056",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T19:06:00.895Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T057",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T19:06:01.022Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T058",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T19:08:50.741Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T19:08:50.814Z"
     }
   ],
-  "last_action": "BUG-008 complete: all 55 tasks checked; automated, packaged explicit/close, and direct macOS Notification Center rejection acceptance passed",
+  "last_action": "Implemented and verified BUG-009 through the signed packaged sessions/demo.json journey.",
   "coverage": {
     "FR-001": {
       "title": "Мастер MUST иметь возможность настроить обычную команду как команду перехода и выбрать для неё другой терминал из текущей сессии.",
@@ -1084,11 +1122,13 @@
       "title": "Повторный вход в терминал с успешно завершённым в текущей трансляции взломом MUST сразу открывать его начальный экран без повторного взлома.",
       "tasks": [
         "T019",
-        "T020",
-        "T021"
+        "T056",
+        "T057"
       ],
       "tests": [
-        "internal/live/service_test.go::TestTerminalRuntimeReactivationRetainsSolvedUnfinishedAndFailedHackAcrossTenVisits"
+        "internal/live/service_test.go:TestReactivateRuntimeClearsRejectedCommandAndPreservesSolvedHack",
+        "internal/control/service_test.go:TestRejectedCommandAtRoutedRootAcknowledgesBeforeReturnAndDoesNotSurviveReentry",
+        "tests/browser/terminal-navigation.spec.mjs:routed root rejection acknowledges before return and stays cleared after solved-terminal re-entry"
       ]
     },
     "FR-013": {
@@ -1118,14 +1158,14 @@
     "FR-015": {
       "title": "Начальный экран терминала MUST предлагать межтерминальный возврат только при наличии точки возврата в текущем маршруте.",
       "tasks": [
-        "T002",
-        "T011",
-        "T023",
-        "T025"
+        "T042",
+        "T043",
+        "T056",
+        "T057"
       ],
       "tests": [
-        "tests/browser/terminal-navigation.spec.mjs::root return stays pending on reject",
-        "then restores the nested source menu on approve"
+        "internal/control/service_test.go:TestRejectedCommandAtRoutedRootAcknowledgesBeforeReturnAndDoesNotSurviveReentry",
+        "tests/browser/terminal-navigation.spec.mjs:routed root rejection acknowledges before return and stays cleared after solved-terminal re-entry"
       ]
     },
     "FR-016": {
@@ -1217,14 +1257,14 @@
     "FR-023": {
       "title": "Все подключённые игроки MUST получать одно и то же активное состояние терминала, ожидания решения, маршрута и результата перехода.",
       "tasks": [
-        "T002",
-        "T011",
-        "T026",
-        "T027",
-        "T028"
+        "T043",
+        "T047",
+        "T048",
+        "T056",
+        "T057"
       ],
       "tests": [
-        "tests/browser/terminal-navigation.spec.mjs::controller and two observers reconnect during pending and converge before new-broadcast cleanup"
+        "tests/browser/terminal-navigation.spec.mjs:routed root rejection acknowledges before return and stays cleared after solved-terminal re-entry"
       ]
     },
     "FR-024": {
@@ -1610,13 +1650,14 @@
         "T043",
         "T047",
         "T048",
-        "T049"
+        "T049",
+        "T056",
+        "T057",
+        "T058"
       ],
       "tests": [
-        "internal/control/service_test.go:TestOrdinaryAndCompletedCommandDecisionsPreserveModeSpecificEffects",
-        "approval_notifications_test.go:TestApprovalNotificationOrdinaryRejectUsesAppDecisionPathAndPublishesAccessError",
-        "tests/browser/state-changing-command-approval.spec.mjs:ordinary explicit reject and dialog close",
-        "tests/browser/terminal-navigation.spec.mjs:ordinary command approve/reject/close"
+        "internal/control/service_test.go:TestRejectedCommandAtRoutedRootAcknowledgesBeforeReturnAndDoesNotSurviveReentry",
+        "tests/browser/terminal-navigation.spec.mjs:routed root rejection acknowledges before return and stays cleared after solved-terminal re-entry"
       ]
     },
     "SC-015": {
@@ -1822,6 +1863,14 @@
       "decision": "Publish the existing rejected command presentation for every ResolveCommandExecution rejection mode.",
       "why": "Ordinary, initial state-changing, and completed state-changing requests share one command-execution lifecycle and renderer; the mode only controls approved effects.",
       "rejected": "Adding a completed-only rendering path or a new protocol state."
+    },
+    {
+      "decision": "Treat any detached command-execution presentation as higher precedence than root route-return detection.",
+      "why": "The live runtime owns acknowledgement and must clear REJECTED before a later Back may create terminal navigation."
+    },
+    {
+      "decision": "Clear transient CommandExecution whenever a preserved terminal runtime is reactivated.",
+      "why": "Hack and navigation checkpoints survive terminal switches, while pending/rejected command presentation is lifecycle-scoped and must not."
     }
   ],
   "step_summaries": {
@@ -1833,9 +1882,9 @@
       "summary": "31 tasks across Setup, Foundational, four user-story phases, and Polish; explicit waves, fail-first tests, and single-owner validation"
     },
     "implement": {
-      "summary": "BUG-008 completed: completed state-changing rejection now renders the shared access-error lifecycle, with automated gates and packaged macOS notification acceptance passing.",
-      "key_finding": "The defect was one server-side mode condition; no new public contract or player renderer was required.",
-      "risks": "task check has an unrelated zero-discovered Companion-test failure; all executable product gates pass."
+      "summary": "BUG-009 is implemented and verified across coordinator precedence, runtime reactivation, player rendering, automated suites, and the signed native demo journey.",
+      "key_finding": "A reused route-labelled Back control and coordinator return interception both outranked rejected-command acknowledgement; the suspended destination then retained that transient presentation.",
+      "risks": "No known product risk remains; two full-browser tests were skipped only because they require an external authenticated ngrok endpoint."
     },
     "specify": {
       "summary": "BUG-008 now preserves the shared rejected presentation for completed state-changing commands; automated and packaged explicit/close acceptance pass, while the direct Notification Center click remains a manual gate.",
@@ -1997,8 +2046,9 @@
     },
     "T019": {
       "status": "DONE",
-      "did": "Added checkpoint tests for ten solved/unfinished/failed reactivations plus forward root placement, source suspension, and absence of a second switch decision",
+      "did": "Cleared transient command execution during runtime reactivation while preserving the solved hack checkpoint.",
       "files": [
+        "internal/live/service.go",
         "internal/live/service_test.go",
         "internal/control/service_test.go"
       ]
@@ -2086,19 +2136,23 @@
     },
     "T030": {
       "status": "DONE",
-      "did": "Restored Companion lifecycle regression discovery, fixed safe late-convergence materialization, and passed the full repository gate.",
+      "did": "Passed go fix, formatting, vet, lint, complete Go and race suites, production frontend builds, 210-test browser gate, protobuf, bindings, and spec-kit checks.",
       "files": [
-        ".specify/extensions/companion/scripts/task_sync.py",
-        ".specify/extensions/companion/scripts/test_task_sync.py"
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "internal/live/service.go",
+        "internal/live/service_test.go",
+        "frontend/client/client.js",
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/terminal-navigation.spec.mjs"
       ]
     },
     "T031": {
       "status": "DONE",
-      "did": "Passed signed packaged BUG-007 acceptance with controller and two observers: explicit reject, close-as-reject, reconnect, Back/Enter acknowledgement, unchanged source menu, and no target activation.",
+      "did": "Passed packaged native sessions/demo.json BUG-009 journey with controller, two observers, reconnect, explicit rejection, acknowledgement, separate return, solved re-entry, and shutdown cleanup.",
       "files": [
         "build/bin/Fallout Terminal.app",
-        "sessions/demo.json",
-        "specs/010-terminal-navigation/.spec-context.json"
+        "sessions/demo.json"
       ]
     },
     "T032": {
@@ -2140,11 +2194,10 @@
     },
     "T036": {
       "status": "DONE",
-      "did": "Verified packaged macOS Notification Center rejection for a completed state-changing command across controller, two observers, reconnect, acknowledgement, unchanged menu, zero durable mutation, and clean shutdown",
+      "did": "Verified the signed packaged macOS bundle and completed the BUG-009 native acceptance gate without stale rejection or a live listener after shutdown.",
       "files": [
         "build/bin/Fallout Terminal.app",
-        "specs/010-terminal-navigation/.spec-context.json",
-        "specs/010-terminal-navigation/tasks.md"
+        "sessions/demo.json"
       ]
     },
     "T037": {
@@ -2184,26 +2237,27 @@
     },
     "T042": {
       "status": "DONE",
-      "did": "Made command-execution rejection mode-independent so completed state-changing commands retain the shared rejected presentation without mutating command state or navigation.",
+      "did": "Made rejected-command acknowledgement take precedence over root terminal-return interception.",
       "files": [
         "internal/control/service.go"
       ]
     },
     "T043": {
       "status": "DONE",
-      "did": "Audited the shared player projection and renderer path; no adapter or client change was required beyond coordinator publication.",
+      "did": "Reset route-specific class, label, and aria semantics in the shared command record renderer.",
       "files": [
-        "internal/player/adapter.go",
         "frontend/client/client.js",
         "tests/browser/terminal-navigation.spec.mjs"
       ]
     },
     "T044": {
       "status": "DONE",
-      "did": "Validated approve/reject/close behavior across command modes, including forward-transition access-error acknowledgement and unchanged return rejection.",
+      "did": "Passed the controller, observer, reconnect, approve/reject/close command-mode and terminal-navigation browser matrix.",
       "files": [
         "internal/control/service_test.go",
-        "approval_notifications_test.go",
+        "internal/live/service_test.go",
+        "internal/player/public_stream_test.go",
+        "tests/browser/state-changing-command-approval.spec.mjs",
         "tests/browser/terminal-navigation.spec.mjs"
       ]
     },
@@ -2224,30 +2278,28 @@
     },
     "T048": {
       "status": "DONE",
-      "did": "Replaced the browser forward-transition rejection guard with shared access-error and acknowledgement coverage.",
+      "did": "Extended browser rejection coverage at a routed target root with generic controls and no stale presentation.",
       "files": [
-        "tests/browser/terminal-navigation.spec.mjs"
+        "tests/browser/terminal-navigation.spec.mjs",
+        "tests/browser/fixture-server/main.go"
       ]
     },
     "T047": {
       "status": "DONE",
-      "did": "Replaced the forward-transition direct-menu guard with exact rejected-command projection assertions.",
+      "did": "Extended ordinary rejection coverage with a non-empty route where acknowledgement creates no navigation pending.",
       "files": [
         "internal/control/service_test.go"
       ]
     },
     "T049": {
       "status": "DONE",
-      "did": "Passed focused coordinator/live/player projection matrix, 10-test approval browser suite, and native-notification-to-App reject integration with zero writes and retained REJECTED presentation.",
+      "did": "Passed focused ordinary reject/close Go, stream, app, and browser coverage including BUG-009 route precedence.",
       "files": [
-        "approval_notifications_test.go",
-        "app.go",
-        "internal/control/service.go",
         "internal/control/service_test.go",
-        "internal/player/adapter_test.go",
+        "internal/live/service_test.go",
         "internal/player/public_stream_test.go",
         "tests/browser/state-changing-command-approval.spec.mjs",
-        "tests/browser/fixture-server/main.go"
+        "tests/browser/terminal-navigation.spec.mjs"
       ]
     },
     "T050": {
@@ -2297,6 +2349,31 @@
         "approval_notifications_test.go",
         "internal/control/service_test.go",
         "internal/player/public_stream_test.go",
+        "tests/browser/terminal-navigation.spec.mjs"
+      ]
+    },
+    "T056": {
+      "status": "DONE",
+      "did": "Added and passed the routed-root coordinator/live/player regression for rejection acknowledgement, separate return, and solved-terminal re-entry.",
+      "files": [
+        "internal/control/service_test.go",
+        "internal/live/service_test.go"
+      ]
+    },
+    "T057": {
+      "status": "DONE",
+      "did": "Added and passed the Playwright routed-root rejection journey with generic acknowledgement, reconnect, return, re-entry, Back, and Enter.",
+      "files": [
+        "tests/browser/terminal-navigation.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T058": {
+      "status": "DONE",
+      "did": "Passed focused coordinator/live/player and Back/Enter browser verification for routed-root rejection, separate return, and re-entry.",
+      "files": [
+        "internal/control/service_test.go",
+        "internal/live/service_test.go",
         "tests/browser/terminal-navigation.spec.mjs"
       ]
     }
@@ -2707,6 +2784,26 @@
       "warnings": [
         "first notification was approved accidentally; the harness and packaged session were restarted cleanly before the passing reject run"
       ]
+    },
+    {
+      "what": "BUG-009 focused coordinator/live/player regression",
+      "result": "passed",
+      "command": "go test ./internal/control ./internal/live ./internal/player; go test . -run ApprovalNotification|CommandExecution|TerminalNavigation"
+    },
+    {
+      "what": "BUG-009 browser and full repository gates",
+      "result": "passed: 35 focused, 210 full browser tests with 2 external-ngrok skips; task check green",
+      "command": "npm test --prefix tests/browser -- terminal-navigation.spec.mjs state-changing-command-approval.spec.mjs; task vet; task test; task test:race; task frontend:build; task browser:test; task check"
+    },
+    {
+      "what": "Signed packaged BUG-009 native acceptance",
+      "result": "passed on real sessions/demo.json with explicit reject, generic acknowledgement, controller plus two observers, reconnect, separate return, solved re-entry, and shutdown cleanup",
+      "command": "task package; scripts/verify-macos-app.sh; packaged Wails app plus Chrome/Safari players"
+    },
+    {
+      "what": "BUG-009 post-implementation artifact consistency",
+      "result": "passed: report patched/implemented/verified, spec/plan/data/task trace complete, T001-T058 unique and sequential, corrective DAG acyclic, all completed tasks journaled",
+      "command": "speckit.bugfix.verify BUG-009 (read-only checks)"
     }
   ],
   "concerns": [
@@ -2749,5 +2846,6 @@
       "kind": "manual-gate"
     }
   ],
-  "summary": "BUG-007 implementation and automated validation are complete; 51 of 52 current tasks are checked, with T036 open only for direct packaged macOS Notification Center rejection-action evidence."
+  "summary": "BUG-007 implementation and automated validation are complete; 51 of 52 current tasks are checked, with T036 open only for direct packaged macOS Notification Center rejection-action evidence.",
+  "telemetryInstanceId": "4da447f0-91f5-42c2-bd1f-905136c33005"
 }

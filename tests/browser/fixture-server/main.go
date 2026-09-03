@@ -2700,6 +2700,7 @@ func terminalNavigationSession() domain.Session {
 			{
 				ID: "security", Name: "Терминал охраны", HackLevel: 1,
 				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{
+					{ID: "security-summary", Type: domain.NodeCommand, Name: "ЗАПРОСИТЬ СВОДКУ БЕЗОПАСНОСТИ", Text: "СЕКТОР БЕЗОПАСЕН"},
 					{ID: "go-vault", Type: domain.NodeCommand, Name: "ПЕРЕЙТИ В ХРАНИЛИЩЕ", TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: "vault"}},
 				}},
 			},
