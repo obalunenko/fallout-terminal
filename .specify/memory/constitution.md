@@ -1,16 +1,20 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.2 -> 8.2.0
+- Version change: 8.2.0 -> 8.3.0
 - Modified principles: None
 - Added principles:
-  - VIII. Make Player Activity Observable to the Overseer
+  - IX. Make Demo Sessions Complete, Diegetic, and Coherent
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Require retained, Overseer-visible records for every player-originated semantic request and its
-    authoritative outcome
-  - Require correlated transition evidence for attempts that affect shared presentation or state
-  - Add player-activity logging coverage, redaction, failure-isolation, and review gates
+  - Make `sessions/` demo assets a living acceptance showcase for every behaviorally distinct
+    session-driven capability
+  - Define terminal groups as independent in-world terminals and group members as access levels or
+    local/remote views of the same terminal
+  - Require coherent Fallout-terminal-style storytelling without player-facing license or
+    attribution warnings
+  - Add demo coverage, narrative, group-semantics, compatibility, and reachability gates to review
+    and development workflow
 - Updated templates: None
 - Follow-up TODOs: None
 -->
@@ -304,6 +308,45 @@ presentation, or ordering. The application MUST surface a safe diagnostic warnin
 available fallback while continuing the player action. Retained logs are diagnostic evidence only:
 they MUST NOT be read as a source for replay, recovery, conflict resolution, or canonical state.
 
+### IX. Make Demo Sessions Complete, Diegetic, and Coherent
+
+The versioned demo assets under `sessions/` are the canonical runnable product showcase. Taken
+together, they MUST let an Overseer and players exercise every behaviorally distinct, shipped
+capability that can be configured by, initialized from, or meaningfully demonstrated with a
+portable session. This includes every content-node and command mode, persistent command and entry
+content change, access role, hacking level and mechanic, terminal transition and return behavior,
+facility or device interaction, and other future session-driven behavior. Repeating equivalent
+value combinations is not required, but every user-visible branch or mode MUST have an explicit,
+reachable demonstration path. Capabilities that cannot be represented or exercised through
+session data, such as packaging, updating, credential storage, or creating a real public endpoint,
+MUST NOT be faked as functioning session behavior and remain subject to their own verification
+gates.
+
+Demo content MUST form a coherent in-world narrative in the style of terminals encountered in
+Fallout games. Logs, notices, menus, commands, access prompts, system responses, and consequences
+MUST reveal or advance the scenario while making each supported interaction discoverable. A demo
+MUST NOT read as a developer feature checklist, disconnected sample text, or out-of-world tutorial.
+Player-visible authored content MUST NOT contain license, attribution, intellectual-property, or
+hobby-project warnings; any project or distribution notices belong outside the session narrative.
+
+Repository-authored sessions, examples, and documentation MUST treat each terminal group as one
+independent in-world terminal installation or computer system. Separate groups MAY be located in
+the same building or in different buildings, but they MUST be narrated as independent terminals
+rather than access modes of one machine. Terminals within one group MUST represent views of the
+same in-world terminal, such as different clearance levels or local and remote access. Their names,
+introductions, records, commands, and ordered transitions MUST preserve that shared identity.
+Same-group navigation MUST read as a change of access context within that terminal; movement to
+another independent terminal belongs in a different group and MUST NOT be disguised as an authored
+same-group transition.
+
+Every change that adds or materially alters session-driven behavior MUST update the applicable demo
+asset in the same change. The change MUST also maintain a reviewable capability-to-path inventory
+in tests or documentation, prove that each path is reachable from a stated starting point without
+manual JSON editing, and preserve portable version-1 load/save compatibility. Demo verification
+MUST cover referential validity, exact-one terminal-group membership, narrative continuity,
+controller and observer behavior where applicable, and the absence of accidental dead ends. A
+multi-file demo set is permitted only when every part and its starting path are clearly identified.
+
 ## Dependency Rules
 
 - Root composition and `internal/platform/` adapters MAY depend on the repository's exactly pinned
@@ -513,6 +556,19 @@ Player-activity logging changes MUST additionally verify:
 - an unavailable or failing log sink leaves player decisions, mutations, persistence, publication,
   and reconnect state unchanged while producing a safe fallback warning when possible.
 
+Session-driven feature and demo changes MUST additionally verify:
+
+- the `sessions/` capability-to-path inventory covers every behaviorally distinct shipped mode and
+  every listed path is reachable from its stated starting point without hand-editing JSON;
+- the demo loads, validates, saves, and reopens under portable session JSON version 1 without
+  losing content, references, group membership, command state, or compatible unknown fields;
+- every demo terminal belongs to exactly one group, separate groups read as independent in-world
+  terminals, and members of one group read as access levels or local/remote views of one terminal;
+- the Overseer, controller, and observer journeys exercise their applicable demo paths without
+  accidental dead ends or divergence from authoritative state; and
+- player-visible demo text remains one coherent in-world narrative and contains no license,
+  attribution, intellectual-property, or hobby-project warning.
+
 Applicable commands MUST succeed before a change is considered complete:
 
 - `gofmt -l .` produces no Go source paths.
@@ -618,16 +674,17 @@ cutover cleanup, and owned-resource shutdown.
 
 1. Branch from `develop` into a dedicated feature branch.
 2. Specify user-visible behavior, independently testable scenarios, affected public and private
-   capabilities, every application-owned structured contract, and the retained audit record for
-   each player-originated semantic request and authoritative outcome.
+   capabilities, every application-owned structured contract, the retained audit record for each
+   player-originated semantic request and authoritative outcome, and any affected demo narrative or
+   capability path.
 3. Update versioned protobuf schemas first, identifying RPC cardinality, presence, variants, stable
    field numbers, compatibility, and any version-1 JSON adapter impact before implementation.
 4. Plan every affected producer, consumer, adapter, state owner, persistence rule, security
    boundary, generated artifact, cutover, rollback of the feature change, parity gate, package
    gate, dependency-pin consistency gate, player-activity log producer, correlation path, redaction
-   boundary, retention sink, and logging-failure behavior. A migration that needs temporary
-   coexistence MUST identify its owner, expiry, parity criteria, immutable rollback reference, and
-   removal gate.
+   boundary, retention sink, logging-failure behavior, demo coverage, terminal-group diegetic
+   semantics, and capability-to-path evidence. A migration that needs temporary coexistence MUST
+   identify its owner, expiry, parity criteria, immutable rollback reference, and removal gate.
    Public-access plans MUST also identify provider/runtime selection, secure-store ownership,
    secret lifetime, endpoint authentication ownership, local fallback, and shutdown obligations.
 5. Run `make tools` only to bootstrap all isolated Go tool modules, then use the pinned Task graph
@@ -644,19 +701,24 @@ cutover cleanup, and owned-resource shutdown.
    applicable Buf, generation-drift, breaking-change, streaming, privilege-separation, and
    session-compatibility gates. Verify complete correlated player-activity and state-transition
    logging, forbidden-value redaction, retention access, and log-sink failure isolation for every
-   affected player action. Public-access changes MUST also run secure-store failure, secret-leak,
-   lifecycle-race, stale-completion, protected-endpoint publication, local-fallback, and packaged
-   double-click gates. Record unavailable conditional checks honestly as `NOT RUN`.
+   affected player action. For session-driven changes, exercise the demo capability inventory from
+   its stated starting points and verify narrative continuity, terminal-group semantics, role
+   behavior, reachability, and version-1 round-trip compatibility. Public-access changes MUST also
+   run secure-store failure, secret-leak, lifecycle-race, stale-completion, protected-endpoint
+   publication, local-fallback, and packaged double-click gates. Record unavailable conditional
+   checks honestly as `NOT RUN`.
 8. Prove parity and pass package and rollback gates, then remove superseded transports,
    dependencies, fixtures, tests, and active documentation unless a separate compatibility
    requirement explicitly retains them. A cutover MUST remove every superseded runtime import,
    CLI or configuration path, generated binding, and dual-runtime switch before the replacement
    becomes accepted production architecture.
-9. Update README, schema documentation, fixtures, compatibility specifications, and historical
-   records when setup, operation, or governed behavior changes. Development, generation, CI,
-   packaging, and release workflows MUST use the root Taskfile and continue to resolve every Go
-   tool through its checked-in isolated module. Make MUST remain limited to the all-tool bootstrap;
-   lower-level Go commands remain implementation seams, not a second documented workflow graph.
+9. Update README, schema documentation, fixtures, compatibility specifications, demo sessions, the
+   demo capability-to-path inventory, and historical records when setup, operation, or governed
+   behavior changes. Demo updates MUST preserve the narrative and terminal-group meanings in
+   Principle IX. Development, generation, CI, packaging, and release workflows MUST use the root
+   Taskfile and continue to resolve every Go tool through its checked-in isolated module. Make MUST
+   remain limited to the all-tool bootstrap; lower-level Go commands remain implementation seams,
+   not a second documented workflow graph.
 
 ## Governance
 
@@ -674,12 +736,15 @@ the adopted amendment.
 
 Constitution checks are required during specification, planning, after design, and at final review.
 Every plan MUST identify applicable contract, generation, compatibility, public/private boundary,
-secret-handling, player-activity observability, provider-lifecycle, build-ownership, and cutover
-gates. Any violation MUST be listed in the plan's Complexity Tracking table with a concrete
-rationale, an owner, a bounded duration, and a rejected simpler alternative. Reviewers MUST reject
-unrecorded exceptions, player actions or authoritative transitions without correlated retained
-records, manually edited generated files, schema-breaking field reuse, public capability or secret
-leakage, stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy,
-Make workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
+secret-handling, player-activity observability, demo coverage and narrative impact,
+provider-lifecycle, build-ownership, and cutover gates. Any violation MUST be listed in the plan's
+Complexity Tracking table with a concrete rationale, an owner, a bounded duration, and a rejected
+simpler alternative. Reviewers MUST reject unrecorded exceptions, player actions or authoritative
+transitions without correlated retained records, session-driven capabilities without a reachable
+demo path, demo terminal groups that contradict Principle IX, out-of-world license warnings in
+player-visible demo content, manually edited generated files, schema-breaking field reuse, public
+capability or secret leakage, stored-secret readback, generic bridge dispatchers, Task-owned
+duplicate build policy, Make workflow aliases, and permanent dual protocols without an explicit
+compatibility requirement.
 
-**Version**: 8.2.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-09-04
+**Version**: 8.3.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-09-04
