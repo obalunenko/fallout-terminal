@@ -21,6 +21,1545 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type FacilityDeviceKind int32
+
+const (
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_UNSPECIFIED     FacilityDeviceKind = 0
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_DOOR            FacilityDeviceKind = 1
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_TURRET          FacilityDeviceKind = 2
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_POWER_GRID      FacilityDeviceKind = 3
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_REACTOR         FacilityDeviceKind = 4
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_VENTILATION     FacilityDeviceKind = 5
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_ALARM           FacilityDeviceKind = 6
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_ROBOT_POD       FacilityDeviceKind = 7
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_ELEVATOR        FacilityDeviceKind = 8
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_NETWORK_SEGMENT FacilityDeviceKind = 9
+	FacilityDeviceKind_FACILITY_DEVICE_KIND_CUSTOM          FacilityDeviceKind = 10
+)
+
+// Enum value maps for FacilityDeviceKind.
+var (
+	FacilityDeviceKind_name = map[int32]string{
+		0:  "FACILITY_DEVICE_KIND_UNSPECIFIED",
+		1:  "FACILITY_DEVICE_KIND_DOOR",
+		2:  "FACILITY_DEVICE_KIND_TURRET",
+		3:  "FACILITY_DEVICE_KIND_POWER_GRID",
+		4:  "FACILITY_DEVICE_KIND_REACTOR",
+		5:  "FACILITY_DEVICE_KIND_VENTILATION",
+		6:  "FACILITY_DEVICE_KIND_ALARM",
+		7:  "FACILITY_DEVICE_KIND_ROBOT_POD",
+		8:  "FACILITY_DEVICE_KIND_ELEVATOR",
+		9:  "FACILITY_DEVICE_KIND_NETWORK_SEGMENT",
+		10: "FACILITY_DEVICE_KIND_CUSTOM",
+	}
+	FacilityDeviceKind_value = map[string]int32{
+		"FACILITY_DEVICE_KIND_UNSPECIFIED":     0,
+		"FACILITY_DEVICE_KIND_DOOR":            1,
+		"FACILITY_DEVICE_KIND_TURRET":          2,
+		"FACILITY_DEVICE_KIND_POWER_GRID":      3,
+		"FACILITY_DEVICE_KIND_REACTOR":         4,
+		"FACILITY_DEVICE_KIND_VENTILATION":     5,
+		"FACILITY_DEVICE_KIND_ALARM":           6,
+		"FACILITY_DEVICE_KIND_ROBOT_POD":       7,
+		"FACILITY_DEVICE_KIND_ELEVATOR":        8,
+		"FACILITY_DEVICE_KIND_NETWORK_SEGMENT": 9,
+		"FACILITY_DEVICE_KIND_CUSTOM":          10,
+	}
+)
+
+func (x FacilityDeviceKind) Enum() *FacilityDeviceKind {
+	p := new(FacilityDeviceKind)
+	*p = x
+	return p
+}
+
+func (x FacilityDeviceKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FacilityDeviceKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_fallout_terminal_persistence_v1_session_proto_enumTypes[0].Descriptor()
+}
+
+func (FacilityDeviceKind) Type() protoreflect.EnumType {
+	return &file_fallout_terminal_persistence_v1_session_proto_enumTypes[0]
+}
+
+func (x FacilityDeviceKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FacilityDeviceKind.Descriptor instead.
+func (FacilityDeviceKind) EnumDescriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{0}
+}
+
+type DiagnosticConditionCategory int32
+
+const (
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_UNSPECIFIED             DiagnosticConditionCategory = 0
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_OFFLINE                 DiagnosticConditionCategory = 1
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_UNPOWERED               DiagnosticConditionCategory = 2
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_NETWORK_ISOLATED        DiagnosticConditionCategory = 3
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_STORAGE_DAMAGED         DiagnosticConditionCategory = 4
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_AUTHORIZATION_CORRUPTED DiagnosticConditionCategory = 5
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_DISPLAY_UNSTABLE        DiagnosticConditionCategory = 6
+	DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_CUSTOM                  DiagnosticConditionCategory = 7
+)
+
+// Enum value maps for DiagnosticConditionCategory.
+var (
+	DiagnosticConditionCategory_name = map[int32]string{
+		0: "DIAGNOSTIC_CONDITION_CATEGORY_UNSPECIFIED",
+		1: "DIAGNOSTIC_CONDITION_CATEGORY_OFFLINE",
+		2: "DIAGNOSTIC_CONDITION_CATEGORY_UNPOWERED",
+		3: "DIAGNOSTIC_CONDITION_CATEGORY_NETWORK_ISOLATED",
+		4: "DIAGNOSTIC_CONDITION_CATEGORY_STORAGE_DAMAGED",
+		5: "DIAGNOSTIC_CONDITION_CATEGORY_AUTHORIZATION_CORRUPTED",
+		6: "DIAGNOSTIC_CONDITION_CATEGORY_DISPLAY_UNSTABLE",
+		7: "DIAGNOSTIC_CONDITION_CATEGORY_CUSTOM",
+	}
+	DiagnosticConditionCategory_value = map[string]int32{
+		"DIAGNOSTIC_CONDITION_CATEGORY_UNSPECIFIED":             0,
+		"DIAGNOSTIC_CONDITION_CATEGORY_OFFLINE":                 1,
+		"DIAGNOSTIC_CONDITION_CATEGORY_UNPOWERED":               2,
+		"DIAGNOSTIC_CONDITION_CATEGORY_NETWORK_ISOLATED":        3,
+		"DIAGNOSTIC_CONDITION_CATEGORY_STORAGE_DAMAGED":         4,
+		"DIAGNOSTIC_CONDITION_CATEGORY_AUTHORIZATION_CORRUPTED": 5,
+		"DIAGNOSTIC_CONDITION_CATEGORY_DISPLAY_UNSTABLE":        6,
+		"DIAGNOSTIC_CONDITION_CATEGORY_CUSTOM":                  7,
+	}
+)
+
+func (x DiagnosticConditionCategory) Enum() *DiagnosticConditionCategory {
+	p := new(DiagnosticConditionCategory)
+	*p = x
+	return p
+}
+
+func (x DiagnosticConditionCategory) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DiagnosticConditionCategory) Descriptor() protoreflect.EnumDescriptor {
+	return file_fallout_terminal_persistence_v1_session_proto_enumTypes[1].Descriptor()
+}
+
+func (DiagnosticConditionCategory) Type() protoreflect.EnumType {
+	return &file_fallout_terminal_persistence_v1_session_proto_enumTypes[1]
+}
+
+func (x DiagnosticConditionCategory) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use DiagnosticConditionCategory.Descriptor instead.
+func (DiagnosticConditionCategory) EnumDescriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{1}
+}
+
+type FacilityCapability int32
+
+const (
+	FacilityCapability_FACILITY_CAPABILITY_UNSPECIFIED          FacilityCapability = 0
+	FacilityCapability_FACILITY_CAPABILITY_EXECUTE_COMMAND      FacilityCapability = 1
+	FacilityCapability_FACILITY_CAPABILITY_VIEW_ENTRY           FacilityCapability = 2
+	FacilityCapability_FACILITY_CAPABILITY_HACK                 FacilityCapability = 3
+	FacilityCapability_FACILITY_CAPABILITY_TERMINAL_TRANSITION  FacilityCapability = 4
+	FacilityCapability_FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM FacilityCapability = 5
+)
+
+// Enum value maps for FacilityCapability.
+var (
+	FacilityCapability_name = map[int32]string{
+		0: "FACILITY_CAPABILITY_UNSPECIFIED",
+		1: "FACILITY_CAPABILITY_EXECUTE_COMMAND",
+		2: "FACILITY_CAPABILITY_VIEW_ENTRY",
+		3: "FACILITY_CAPABILITY_HACK",
+		4: "FACILITY_CAPABILITY_TERMINAL_TRANSITION",
+		5: "FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM",
+	}
+	FacilityCapability_value = map[string]int32{
+		"FACILITY_CAPABILITY_UNSPECIFIED":          0,
+		"FACILITY_CAPABILITY_EXECUTE_COMMAND":      1,
+		"FACILITY_CAPABILITY_VIEW_ENTRY":           2,
+		"FACILITY_CAPABILITY_HACK":                 3,
+		"FACILITY_CAPABILITY_TERMINAL_TRANSITION":  4,
+		"FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM": 5,
+	}
+)
+
+func (x FacilityCapability) Enum() *FacilityCapability {
+	p := new(FacilityCapability)
+	*p = x
+	return p
+}
+
+func (x FacilityCapability) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FacilityCapability) Descriptor() protoreflect.EnumDescriptor {
+	return file_fallout_terminal_persistence_v1_session_proto_enumTypes[2].Descriptor()
+}
+
+func (FacilityCapability) Type() protoreflect.EnumType {
+	return &file_fallout_terminal_persistence_v1_session_proto_enumTypes[2]
+}
+
+func (x FacilityCapability) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FacilityCapability.Descriptor instead.
+func (FacilityCapability) EnumDescriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+type FacilityStateEquality struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	StateId       string                 `protobuf:"bytes,2,opt,name=state_id,json=stateId,proto3" json:"state_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityStateEquality) Reset() {
+	*x = FacilityStateEquality{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityStateEquality) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityStateEquality) ProtoMessage() {}
+
+func (x *FacilityStateEquality) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityStateEquality.ProtoReflect.Descriptor instead.
+func (*FacilityStateEquality) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *FacilityStateEquality) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *FacilityStateEquality) GetStateId() string {
+	if x != nil {
+		return x.StateId
+	}
+	return ""
+}
+
+type FacilityTransitionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	TransitionId  string                 `protobuf:"bytes,2,opt,name=transition_id,json=transitionId,proto3" json:"transition_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityTransitionRequest) Reset() {
+	*x = FacilityTransitionRequest{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityTransitionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityTransitionRequest) ProtoMessage() {}
+
+func (x *FacilityTransitionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityTransitionRequest.ProtoReflect.Descriptor instead.
+func (*FacilityTransitionRequest) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *FacilityTransitionRequest) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *FacilityTransitionRequest) GetTransitionId() string {
+	if x != nil {
+		return x.TransitionId
+	}
+	return ""
+}
+
+type FacilityConditionEffect struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ConditionId   string                 `protobuf:"bytes,1,opt,name=condition_id,json=conditionId,proto3" json:"condition_id,omitempty"`
+	Active        bool                   `protobuf:"varint,2,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityConditionEffect) Reset() {
+	*x = FacilityConditionEffect{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityConditionEffect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityConditionEffect) ProtoMessage() {}
+
+func (x *FacilityConditionEffect) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityConditionEffect.ProtoReflect.Descriptor instead.
+func (*FacilityConditionEffect) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *FacilityConditionEffect) GetConditionId() string {
+	if x != nil {
+		return x.ConditionId
+	}
+	return ""
+}
+
+func (x *FacilityConditionEffect) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+type FacilityDeviceState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityDeviceState) Reset() {
+	*x = FacilityDeviceState{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityDeviceState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityDeviceState) ProtoMessage() {}
+
+func (x *FacilityDeviceState) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityDeviceState.ProtoReflect.Descriptor instead.
+func (*FacilityDeviceState) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *FacilityDeviceState) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FacilityDeviceState) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type FacilityDeviceTransition struct {
+	state              protoimpl.MessageState     `protogen:"open.v1"`
+	Id                 string                     `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name               string                     `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	SourceStateId      string                     `protobuf:"bytes,3,opt,name=source_state_id,json=sourceStateId,proto3" json:"source_state_id,omitempty"`
+	DestinationStateId string                     `protobuf:"bytes,4,opt,name=destination_state_id,json=destinationStateId,proto3" json:"destination_state_id,omitempty"`
+	Preconditions      []*FacilityStateEquality   `protobuf:"bytes,5,rep,name=preconditions,proto3" json:"preconditions,omitempty"`
+	ConditionEffects   []*FacilityConditionEffect `protobuf:"bytes,6,rep,name=condition_effects,json=conditionEffects,proto3" json:"condition_effects,omitempty"`
+	Recovery           bool                       `protobuf:"varint,7,opt,name=recovery,proto3" json:"recovery,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *FacilityDeviceTransition) Reset() {
+	*x = FacilityDeviceTransition{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityDeviceTransition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityDeviceTransition) ProtoMessage() {}
+
+func (x *FacilityDeviceTransition) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityDeviceTransition.ProtoReflect.Descriptor instead.
+func (*FacilityDeviceTransition) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *FacilityDeviceTransition) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FacilityDeviceTransition) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FacilityDeviceTransition) GetSourceStateId() string {
+	if x != nil {
+		return x.SourceStateId
+	}
+	return ""
+}
+
+func (x *FacilityDeviceTransition) GetDestinationStateId() string {
+	if x != nil {
+		return x.DestinationStateId
+	}
+	return ""
+}
+
+func (x *FacilityDeviceTransition) GetPreconditions() []*FacilityStateEquality {
+	if x != nil {
+		return x.Preconditions
+	}
+	return nil
+}
+
+func (x *FacilityDeviceTransition) GetConditionEffects() []*FacilityConditionEffect {
+	if x != nil {
+		return x.ConditionEffects
+	}
+	return nil
+}
+
+func (x *FacilityDeviceTransition) GetRecovery() bool {
+	if x != nil {
+		return x.Recovery
+	}
+	return false
+}
+
+type FacilityDevice struct {
+	state          protoimpl.MessageState      `protogen:"open.v1"`
+	Id             string                      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                      `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Kind           FacilityDeviceKind          `protobuf:"varint,3,opt,name=kind,proto3,enum=fallout.terminal.persistence.v1.FacilityDeviceKind" json:"kind,omitempty"`
+	CustomKind     *string                     `protobuf:"bytes,4,opt,name=custom_kind,json=customKind,proto3,oneof" json:"custom_kind,omitempty"`
+	InitialStateId string                      `protobuf:"bytes,5,opt,name=initial_state_id,json=initialStateId,proto3" json:"initial_state_id,omitempty"`
+	CurrentStateId string                      `protobuf:"bytes,6,opt,name=current_state_id,json=currentStateId,proto3" json:"current_state_id,omitempty"`
+	States         []*FacilityDeviceState      `protobuf:"bytes,7,rep,name=states,proto3" json:"states,omitempty"`
+	Transitions    []*FacilityDeviceTransition `protobuf:"bytes,8,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *FacilityDevice) Reset() {
+	*x = FacilityDevice{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityDevice) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityDevice) ProtoMessage() {}
+
+func (x *FacilityDevice) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityDevice.ProtoReflect.Descriptor instead.
+func (*FacilityDevice) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *FacilityDevice) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FacilityDevice) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FacilityDevice) GetKind() FacilityDeviceKind {
+	if x != nil {
+		return x.Kind
+	}
+	return FacilityDeviceKind_FACILITY_DEVICE_KIND_UNSPECIFIED
+}
+
+func (x *FacilityDevice) GetCustomKind() string {
+	if x != nil && x.CustomKind != nil {
+		return *x.CustomKind
+	}
+	return ""
+}
+
+func (x *FacilityDevice) GetInitialStateId() string {
+	if x != nil {
+		return x.InitialStateId
+	}
+	return ""
+}
+
+func (x *FacilityDevice) GetCurrentStateId() string {
+	if x != nil {
+		return x.CurrentStateId
+	}
+	return ""
+}
+
+func (x *FacilityDevice) GetStates() []*FacilityDeviceState {
+	if x != nil {
+		return x.States
+	}
+	return nil
+}
+
+func (x *FacilityDevice) GetTransitions() []*FacilityDeviceTransition {
+	if x != nil {
+		return x.Transitions
+	}
+	return nil
+}
+
+type DiagnosticDeviceScope struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeviceId      string                 `protobuf:"bytes,1,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticDeviceScope) Reset() {
+	*x = DiagnosticDeviceScope{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticDeviceScope) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticDeviceScope) ProtoMessage() {}
+
+func (x *DiagnosticDeviceScope) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticDeviceScope.ProtoReflect.Descriptor instead.
+func (*DiagnosticDeviceScope) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DiagnosticDeviceScope) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+type DiagnosticTerminalScope struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TerminalId    string                 `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticTerminalScope) Reset() {
+	*x = DiagnosticTerminalScope{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticTerminalScope) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticTerminalScope) ProtoMessage() {}
+
+func (x *DiagnosticTerminalScope) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticTerminalScope.ProtoReflect.Descriptor instead.
+func (*DiagnosticTerminalScope) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DiagnosticTerminalScope) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+type CapabilityBlockEffect struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Capability    FacilityCapability     `protobuf:"varint,1,opt,name=capability,proto3,enum=fallout.terminal.persistence.v1.FacilityCapability" json:"capability,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CapabilityBlockEffect) Reset() {
+	*x = CapabilityBlockEffect{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CapabilityBlockEffect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CapabilityBlockEffect) ProtoMessage() {}
+
+func (x *CapabilityBlockEffect) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CapabilityBlockEffect.ProtoReflect.Descriptor instead.
+func (*CapabilityBlockEffect) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CapabilityBlockEffect) GetCapability() FacilityCapability {
+	if x != nil {
+		return x.Capability
+	}
+	return FacilityCapability_FACILITY_CAPABILITY_UNSPECIFIED
+}
+
+type DiagnosticPathEffect struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TerminalId    string                 `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	NodeId        string                 `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticPathEffect) Reset() {
+	*x = DiagnosticPathEffect{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticPathEffect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticPathEffect) ProtoMessage() {}
+
+func (x *DiagnosticPathEffect) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticPathEffect.ProtoReflect.Descriptor instead.
+func (*DiagnosticPathEffect) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *DiagnosticPathEffect) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+func (x *DiagnosticPathEffect) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+type RecordSubstitutionEffect struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TerminalId      string                 `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	BlockId         string                 `protobuf:"bytes,2,opt,name=block_id,json=blockId,proto3" json:"block_id,omitempty"`
+	ReplacementText string                 `protobuf:"bytes,3,opt,name=replacement_text,json=replacementText,proto3" json:"replacement_text,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RecordSubstitutionEffect) Reset() {
+	*x = RecordSubstitutionEffect{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordSubstitutionEffect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordSubstitutionEffect) ProtoMessage() {}
+
+func (x *RecordSubstitutionEffect) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordSubstitutionEffect.ProtoReflect.Descriptor instead.
+func (*RecordSubstitutionEffect) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RecordSubstitutionEffect) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+func (x *RecordSubstitutionEffect) GetBlockId() string {
+	if x != nil {
+		return x.BlockId
+	}
+	return ""
+}
+
+func (x *RecordSubstitutionEffect) GetReplacementText() string {
+	if x != nil {
+		return x.ReplacementText
+	}
+	return ""
+}
+
+type DisplayInstabilityEffect struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisplayInstabilityEffect) Reset() {
+	*x = DisplayInstabilityEffect{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisplayInstabilityEffect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisplayInstabilityEffect) ProtoMessage() {}
+
+func (x *DisplayInstabilityEffect) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisplayInstabilityEffect.ProtoReflect.Descriptor instead.
+func (*DisplayInstabilityEffect) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{11}
+}
+
+type DiagnosticEffect struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Effect:
+	//
+	//	*DiagnosticEffect_CapabilityBlock
+	//	*DiagnosticEffect_DiagnosticPath
+	//	*DiagnosticEffect_RecordSubstitution
+	//	*DiagnosticEffect_DisplayInstability
+	Effect        isDiagnosticEffect_Effect `protobuf_oneof:"effect"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticEffect) Reset() {
+	*x = DiagnosticEffect{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticEffect) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticEffect) ProtoMessage() {}
+
+func (x *DiagnosticEffect) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticEffect.ProtoReflect.Descriptor instead.
+func (*DiagnosticEffect) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *DiagnosticEffect) GetEffect() isDiagnosticEffect_Effect {
+	if x != nil {
+		return x.Effect
+	}
+	return nil
+}
+
+func (x *DiagnosticEffect) GetCapabilityBlock() *CapabilityBlockEffect {
+	if x != nil {
+		if x, ok := x.Effect.(*DiagnosticEffect_CapabilityBlock); ok {
+			return x.CapabilityBlock
+		}
+	}
+	return nil
+}
+
+func (x *DiagnosticEffect) GetDiagnosticPath() *DiagnosticPathEffect {
+	if x != nil {
+		if x, ok := x.Effect.(*DiagnosticEffect_DiagnosticPath); ok {
+			return x.DiagnosticPath
+		}
+	}
+	return nil
+}
+
+func (x *DiagnosticEffect) GetRecordSubstitution() *RecordSubstitutionEffect {
+	if x != nil {
+		if x, ok := x.Effect.(*DiagnosticEffect_RecordSubstitution); ok {
+			return x.RecordSubstitution
+		}
+	}
+	return nil
+}
+
+func (x *DiagnosticEffect) GetDisplayInstability() *DisplayInstabilityEffect {
+	if x != nil {
+		if x, ok := x.Effect.(*DiagnosticEffect_DisplayInstability); ok {
+			return x.DisplayInstability
+		}
+	}
+	return nil
+}
+
+type isDiagnosticEffect_Effect interface {
+	isDiagnosticEffect_Effect()
+}
+
+type DiagnosticEffect_CapabilityBlock struct {
+	CapabilityBlock *CapabilityBlockEffect `protobuf:"bytes,1,opt,name=capability_block,json=capabilityBlock,proto3,oneof"`
+}
+
+type DiagnosticEffect_DiagnosticPath struct {
+	DiagnosticPath *DiagnosticPathEffect `protobuf:"bytes,2,opt,name=diagnostic_path,json=diagnosticPath,proto3,oneof"`
+}
+
+type DiagnosticEffect_RecordSubstitution struct {
+	RecordSubstitution *RecordSubstitutionEffect `protobuf:"bytes,3,opt,name=record_substitution,json=recordSubstitution,proto3,oneof"`
+}
+
+type DiagnosticEffect_DisplayInstability struct {
+	DisplayInstability *DisplayInstabilityEffect `protobuf:"bytes,4,opt,name=display_instability,json=displayInstability,proto3,oneof"`
+}
+
+func (*DiagnosticEffect_CapabilityBlock) isDiagnosticEffect_Effect() {}
+
+func (*DiagnosticEffect_DiagnosticPath) isDiagnosticEffect_Effect() {}
+
+func (*DiagnosticEffect_RecordSubstitution) isDiagnosticEffect_Effect() {}
+
+func (*DiagnosticEffect_DisplayInstability) isDiagnosticEffect_Effect() {}
+
+type DiagnosticRecoveryReference struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Recovery:
+	//
+	//	*DiagnosticRecoveryReference_Transition
+	//	*DiagnosticRecoveryReference_RecoveryProgramId
+	//	*DiagnosticRecoveryReference_PrivateOverseerAction
+	Recovery      isDiagnosticRecoveryReference_Recovery `protobuf_oneof:"recovery"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticRecoveryReference) Reset() {
+	*x = DiagnosticRecoveryReference{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticRecoveryReference) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticRecoveryReference) ProtoMessage() {}
+
+func (x *DiagnosticRecoveryReference) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticRecoveryReference.ProtoReflect.Descriptor instead.
+func (*DiagnosticRecoveryReference) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *DiagnosticRecoveryReference) GetRecovery() isDiagnosticRecoveryReference_Recovery {
+	if x != nil {
+		return x.Recovery
+	}
+	return nil
+}
+
+func (x *DiagnosticRecoveryReference) GetTransition() *FacilityTransitionRequest {
+	if x != nil {
+		if x, ok := x.Recovery.(*DiagnosticRecoveryReference_Transition); ok {
+			return x.Transition
+		}
+	}
+	return nil
+}
+
+func (x *DiagnosticRecoveryReference) GetRecoveryProgramId() string {
+	if x != nil {
+		if x, ok := x.Recovery.(*DiagnosticRecoveryReference_RecoveryProgramId); ok {
+			return x.RecoveryProgramId
+		}
+	}
+	return ""
+}
+
+func (x *DiagnosticRecoveryReference) GetPrivateOverseerAction() bool {
+	if x != nil {
+		if x, ok := x.Recovery.(*DiagnosticRecoveryReference_PrivateOverseerAction); ok {
+			return x.PrivateOverseerAction
+		}
+	}
+	return false
+}
+
+type isDiagnosticRecoveryReference_Recovery interface {
+	isDiagnosticRecoveryReference_Recovery()
+}
+
+type DiagnosticRecoveryReference_Transition struct {
+	Transition *FacilityTransitionRequest `protobuf:"bytes,1,opt,name=transition,proto3,oneof"`
+}
+
+type DiagnosticRecoveryReference_RecoveryProgramId struct {
+	RecoveryProgramId string `protobuf:"bytes,2,opt,name=recovery_program_id,json=recoveryProgramId,proto3,oneof"`
+}
+
+type DiagnosticRecoveryReference_PrivateOverseerAction struct {
+	PrivateOverseerAction bool `protobuf:"varint,3,opt,name=private_overseer_action,json=privateOverseerAction,proto3,oneof"`
+}
+
+func (*DiagnosticRecoveryReference_Transition) isDiagnosticRecoveryReference_Recovery() {}
+
+func (*DiagnosticRecoveryReference_RecoveryProgramId) isDiagnosticRecoveryReference_Recovery() {}
+
+func (*DiagnosticRecoveryReference_PrivateOverseerAction) isDiagnosticRecoveryReference_Recovery() {}
+
+type DiagnosticCondition struct {
+	state          protoimpl.MessageState      `protogen:"open.v1"`
+	Id             string                      `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           string                      `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Category       DiagnosticConditionCategory `protobuf:"varint,3,opt,name=category,proto3,enum=fallout.terminal.persistence.v1.DiagnosticConditionCategory" json:"category,omitempty"`
+	CustomCategory *string                     `protobuf:"bytes,4,opt,name=custom_category,json=customCategory,proto3,oneof" json:"custom_category,omitempty"`
+	// Types that are valid to be assigned to Scope:
+	//
+	//	*DiagnosticCondition_Device
+	//	*DiagnosticCondition_Terminal
+	Scope         isDiagnosticCondition_Scope    `protobuf_oneof:"scope"`
+	InitialActive bool                           `protobuf:"varint,7,opt,name=initial_active,json=initialActive,proto3" json:"initial_active,omitempty"`
+	CurrentActive bool                           `protobuf:"varint,8,opt,name=current_active,json=currentActive,proto3" json:"current_active,omitempty"`
+	Effects       []*DiagnosticEffect            `protobuf:"bytes,9,rep,name=effects,proto3" json:"effects,omitempty"`
+	Recovery      []*DiagnosticRecoveryReference `protobuf:"bytes,10,rep,name=recovery,proto3" json:"recovery,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticCondition) Reset() {
+	*x = DiagnosticCondition{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticCondition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticCondition) ProtoMessage() {}
+
+func (x *DiagnosticCondition) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticCondition.ProtoReflect.Descriptor instead.
+func (*DiagnosticCondition) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *DiagnosticCondition) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *DiagnosticCondition) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DiagnosticCondition) GetCategory() DiagnosticConditionCategory {
+	if x != nil {
+		return x.Category
+	}
+	return DiagnosticConditionCategory_DIAGNOSTIC_CONDITION_CATEGORY_UNSPECIFIED
+}
+
+func (x *DiagnosticCondition) GetCustomCategory() string {
+	if x != nil && x.CustomCategory != nil {
+		return *x.CustomCategory
+	}
+	return ""
+}
+
+func (x *DiagnosticCondition) GetScope() isDiagnosticCondition_Scope {
+	if x != nil {
+		return x.Scope
+	}
+	return nil
+}
+
+func (x *DiagnosticCondition) GetDevice() *DiagnosticDeviceScope {
+	if x != nil {
+		if x, ok := x.Scope.(*DiagnosticCondition_Device); ok {
+			return x.Device
+		}
+	}
+	return nil
+}
+
+func (x *DiagnosticCondition) GetTerminal() *DiagnosticTerminalScope {
+	if x != nil {
+		if x, ok := x.Scope.(*DiagnosticCondition_Terminal); ok {
+			return x.Terminal
+		}
+	}
+	return nil
+}
+
+func (x *DiagnosticCondition) GetInitialActive() bool {
+	if x != nil {
+		return x.InitialActive
+	}
+	return false
+}
+
+func (x *DiagnosticCondition) GetCurrentActive() bool {
+	if x != nil {
+		return x.CurrentActive
+	}
+	return false
+}
+
+func (x *DiagnosticCondition) GetEffects() []*DiagnosticEffect {
+	if x != nil {
+		return x.Effects
+	}
+	return nil
+}
+
+func (x *DiagnosticCondition) GetRecovery() []*DiagnosticRecoveryReference {
+	if x != nil {
+		return x.Recovery
+	}
+	return nil
+}
+
+type isDiagnosticCondition_Scope interface {
+	isDiagnosticCondition_Scope()
+}
+
+type DiagnosticCondition_Device struct {
+	Device *DiagnosticDeviceScope `protobuf:"bytes,5,opt,name=device,proto3,oneof"`
+}
+
+type DiagnosticCondition_Terminal struct {
+	Terminal *DiagnosticTerminalScope `protobuf:"bytes,6,opt,name=terminal,proto3,oneof"`
+}
+
+func (*DiagnosticCondition_Device) isDiagnosticCondition_Scope() {}
+
+func (*DiagnosticCondition_Terminal) isDiagnosticCondition_Scope() {}
+
+type RecoveryProgram struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Id            string                       `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                       `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Transitions   []*FacilityTransitionRequest `protobuf:"bytes,3,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecoveryProgram) Reset() {
+	*x = RecoveryProgram{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoveryProgram) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoveryProgram) ProtoMessage() {}
+
+func (x *RecoveryProgram) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoveryProgram.ProtoReflect.Descriptor instead.
+func (*RecoveryProgram) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *RecoveryProgram) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RecoveryProgram) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RecoveryProgram) GetTransitions() []*FacilityTransitionRequest {
+	if x != nil {
+		return x.Transitions
+	}
+	return nil
+}
+
+type FacilityActionConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Action:
+	//
+	//	*FacilityActionConfig_Transitions
+	//	*FacilityActionConfig_RecoveryProgramId
+	Action        isFacilityActionConfig_Action `protobuf_oneof:"action"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityActionConfig) Reset() {
+	*x = FacilityActionConfig{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityActionConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityActionConfig) ProtoMessage() {}
+
+func (x *FacilityActionConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityActionConfig.ProtoReflect.Descriptor instead.
+func (*FacilityActionConfig) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *FacilityActionConfig) GetAction() isFacilityActionConfig_Action {
+	if x != nil {
+		return x.Action
+	}
+	return nil
+}
+
+func (x *FacilityActionConfig) GetTransitions() *FacilityTransitionList {
+	if x != nil {
+		if x, ok := x.Action.(*FacilityActionConfig_Transitions); ok {
+			return x.Transitions
+		}
+	}
+	return nil
+}
+
+func (x *FacilityActionConfig) GetRecoveryProgramId() string {
+	if x != nil {
+		if x, ok := x.Action.(*FacilityActionConfig_RecoveryProgramId); ok {
+			return x.RecoveryProgramId
+		}
+	}
+	return ""
+}
+
+type isFacilityActionConfig_Action interface {
+	isFacilityActionConfig_Action()
+}
+
+type FacilityActionConfig_Transitions struct {
+	Transitions *FacilityTransitionList `protobuf:"bytes,1,opt,name=transitions,proto3,oneof"`
+}
+
+type FacilityActionConfig_RecoveryProgramId struct {
+	RecoveryProgramId string `protobuf:"bytes,2,opt,name=recovery_program_id,json=recoveryProgramId,proto3,oneof"`
+}
+
+func (*FacilityActionConfig_Transitions) isFacilityActionConfig_Action() {}
+
+func (*FacilityActionConfig_RecoveryProgramId) isFacilityActionConfig_Action() {}
+
+type FacilityTransitionList struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Transitions   []*FacilityTransitionRequest `protobuf:"bytes,1,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityTransitionList) Reset() {
+	*x = FacilityTransitionList{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityTransitionList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityTransitionList) ProtoMessage() {}
+
+func (x *FacilityTransitionList) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityTransitionList.ProtoReflect.Descriptor instead.
+func (*FacilityTransitionList) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *FacilityTransitionList) GetTransitions() []*FacilityTransitionRequest {
+	if x != nil {
+		return x.Transitions
+	}
+	return nil
+}
+
+type FacilityTextVariant struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	When          *FacilityStateEquality `protobuf:"bytes,1,opt,name=when,proto3" json:"when,omitempty"`
+	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityTextVariant) Reset() {
+	*x = FacilityTextVariant{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityTextVariant) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityTextVariant) ProtoMessage() {}
+
+func (x *FacilityTextVariant) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityTextVariant.ProtoReflect.Descriptor instead.
+func (*FacilityTextVariant) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *FacilityTextVariant) GetWhen() *FacilityStateEquality {
+	if x != nil {
+		return x.When
+	}
+	return nil
+}
+
+func (x *FacilityTextVariant) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+type Facility struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Revision         uint64                 `protobuf:"varint,1,opt,name=revision,proto3" json:"revision,omitempty"`
+	Devices          []*FacilityDevice      `protobuf:"bytes,2,rep,name=devices,proto3" json:"devices,omitempty"`
+	Conditions       []*DiagnosticCondition `protobuf:"bytes,3,rep,name=conditions,proto3" json:"conditions,omitempty"`
+	RecoveryPrograms []*RecoveryProgram     `protobuf:"bytes,4,rep,name=recovery_programs,json=recoveryPrograms,proto3" json:"recovery_programs,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *Facility) Reset() {
+	*x = Facility{}
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Facility) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Facility) ProtoMessage() {}
+
+func (x *Facility) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Facility.ProtoReflect.Descriptor instead.
+func (*Facility) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *Facility) GetRevision() uint64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
+}
+
+func (x *Facility) GetDevices() []*FacilityDevice {
+	if x != nil {
+		return x.Devices
+	}
+	return nil
+}
+
+func (x *Facility) GetConditions() []*DiagnosticCondition {
+	if x != nil {
+		return x.Conditions
+	}
+	return nil
+}
+
+func (x *Facility) GetRecoveryPrograms() []*RecoveryProgram {
+	if x != nil {
+		return x.RecoveryPrograms
+	}
+	return nil
+}
+
 type FolderContent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Children      []*ContentNode         `protobuf:"bytes,1,rep,name=children,proto3" json:"children,omitempty"`
@@ -30,7 +1569,7 @@ type FolderContent struct {
 
 func (x *FolderContent) Reset() {
 	*x = FolderContent{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[0]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -42,7 +1581,7 @@ func (x *FolderContent) String() string {
 func (*FolderContent) ProtoMessage() {}
 
 func (x *FolderContent) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[0]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -55,7 +1594,7 @@ func (x *FolderContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FolderContent.ProtoReflect.Descriptor instead.
 func (*FolderContent) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{0}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *FolderContent) GetChildren() []*ContentNode {
@@ -66,16 +1605,17 @@ func (x *FolderContent) GetChildren() []*ContentNode {
 }
 
 type EntryContentBlock struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	InitialText   string                 `protobuf:"bytes,2,opt,name=initial_text,json=initialText,proto3" json:"initial_text,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Id                   string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	InitialText          string                 `protobuf:"bytes,2,opt,name=initial_text,json=initialText,proto3" json:"initial_text,omitempty"`
+	FacilityTextVariants []*FacilityTextVariant `protobuf:"bytes,3,rep,name=facility_text_variants,json=facilityTextVariants,proto3" json:"facility_text_variants,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *EntryContentBlock) Reset() {
 	*x = EntryContentBlock{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[1]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -87,7 +1627,7 @@ func (x *EntryContentBlock) String() string {
 func (*EntryContentBlock) ProtoMessage() {}
 
 func (x *EntryContentBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[1]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -100,7 +1640,7 @@ func (x *EntryContentBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntryContentBlock.ProtoReflect.Descriptor instead.
 func (*EntryContentBlock) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{1}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *EntryContentBlock) GetId() string {
@@ -117,6 +1657,13 @@ func (x *EntryContentBlock) GetInitialText() string {
 	return ""
 }
 
+func (x *EntryContentBlock) GetFacilityTextVariants() []*FacilityTextVariant {
+	if x != nil {
+		return x.FacilityTextVariants
+	}
+	return nil
+}
+
 type EntryContentChange struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	BlockId       string                 `protobuf:"bytes,1,opt,name=block_id,json=blockId,proto3" json:"block_id,omitempty"`
@@ -127,7 +1674,7 @@ type EntryContentChange struct {
 
 func (x *EntryContentChange) Reset() {
 	*x = EntryContentChange{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[2]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -139,7 +1686,7 @@ func (x *EntryContentChange) String() string {
 func (*EntryContentChange) ProtoMessage() {}
 
 func (x *EntryContentChange) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[2]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -152,7 +1699,7 @@ func (x *EntryContentChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntryContentChange.ProtoReflect.Descriptor instead.
 func (*EntryContentChange) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *EntryContentChange) GetBlockId() string {
@@ -174,13 +1721,14 @@ type StateChangeConfig struct {
 	CompletedName      string                 `protobuf:"bytes,1,opt,name=completed_name,json=completedName,proto3" json:"completed_name,omitempty"`
 	ConfirmationText   string                 `protobuf:"bytes,2,opt,name=confirmation_text,json=confirmationText,proto3" json:"confirmation_text,omitempty"`
 	EntryContentChange *EntryContentChange    `protobuf:"bytes,3,opt,name=entry_content_change,json=entryContentChange,proto3" json:"entry_content_change,omitempty"`
+	FacilityAction     *FacilityActionConfig  `protobuf:"bytes,4,opt,name=facility_action,json=facilityAction,proto3,oneof" json:"facility_action,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
 
 func (x *StateChangeConfig) Reset() {
 	*x = StateChangeConfig{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[3]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -192,7 +1740,7 @@ func (x *StateChangeConfig) String() string {
 func (*StateChangeConfig) ProtoMessage() {}
 
 func (x *StateChangeConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[3]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -205,7 +1753,7 @@ func (x *StateChangeConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StateChangeConfig.ProtoReflect.Descriptor instead.
 func (*StateChangeConfig) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{3}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *StateChangeConfig) GetCompletedName() string {
@@ -229,6 +1777,13 @@ func (x *StateChangeConfig) GetEntryContentChange() *EntryContentChange {
 	return nil
 }
 
+func (x *StateChangeConfig) GetFacilityAction() *FacilityActionConfig {
+	if x != nil {
+		return x.FacilityAction
+	}
+	return nil
+}
+
 type CommandExecutionState struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	CompletedName      string                 `protobuf:"bytes,1,opt,name=completed_name,json=completedName,proto3" json:"completed_name,omitempty"`
@@ -240,7 +1795,7 @@ type CommandExecutionState struct {
 
 func (x *CommandExecutionState) Reset() {
 	*x = CommandExecutionState{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[4]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -252,7 +1807,7 @@ func (x *CommandExecutionState) String() string {
 func (*CommandExecutionState) ProtoMessage() {}
 
 func (x *CommandExecutionState) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[4]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -265,7 +1820,7 @@ func (x *CommandExecutionState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandExecutionState.ProtoReflect.Descriptor instead.
 func (*CommandExecutionState) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{4}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CommandExecutionState) GetCompletedName() string {
@@ -298,7 +1853,7 @@ type TerminalTransitionConfig struct {
 
 func (x *TerminalTransitionConfig) Reset() {
 	*x = TerminalTransitionConfig{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[5]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +1865,7 @@ func (x *TerminalTransitionConfig) String() string {
 func (*TerminalTransitionConfig) ProtoMessage() {}
 
 func (x *TerminalTransitionConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[5]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +1878,7 @@ func (x *TerminalTransitionConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalTransitionConfig.ProtoReflect.Descriptor instead.
 func (*TerminalTransitionConfig) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{5}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *TerminalTransitionConfig) GetTargetTerminalId() string {
@@ -347,7 +1902,7 @@ type CommandContent struct {
 
 func (x *CommandContent) Reset() {
 	*x = CommandContent{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[6]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -359,7 +1914,7 @@ func (x *CommandContent) String() string {
 func (*CommandContent) ProtoMessage() {}
 
 func (x *CommandContent) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[6]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -372,7 +1927,7 @@ func (x *CommandContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandContent.ProtoReflect.Descriptor instead.
 func (*CommandContent) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{6}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CommandContent) GetText() string {
@@ -433,7 +1988,7 @@ type EntryContent struct {
 
 func (x *EntryContent) Reset() {
 	*x = EntryContent{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[7]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -445,7 +2000,7 @@ func (x *EntryContent) String() string {
 func (*EntryContent) ProtoMessage() {}
 
 func (x *EntryContent) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[7]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -458,7 +2013,7 @@ func (x *EntryContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntryContent.ProtoReflect.Descriptor instead.
 func (*EntryContent) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{7}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *EntryContent) GetDescription() string {
@@ -484,14 +2039,17 @@ type ContentNode struct {
 	//	*ContentNode_Folder
 	//	*ContentNode_Command
 	//	*ContentNode_Entry
-	Content       isContentNode_Content `protobuf_oneof:"content"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Content              isContentNode_Content  `protobuf_oneof:"content"`
+	FacilityNameVariants []*FacilityTextVariant `protobuf:"bytes,6,rep,name=facility_name_variants,json=facilityNameVariants,proto3" json:"facility_name_variants,omitempty"`
+	VisibleWhen          *FacilityStateEquality `protobuf:"bytes,7,opt,name=visible_when,json=visibleWhen,proto3,oneof" json:"visible_when,omitempty"`
+	AvailableWhen        *FacilityStateEquality `protobuf:"bytes,8,opt,name=available_when,json=availableWhen,proto3,oneof" json:"available_when,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ContentNode) Reset() {
 	*x = ContentNode{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[8]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +2061,7 @@ func (x *ContentNode) String() string {
 func (*ContentNode) ProtoMessage() {}
 
 func (x *ContentNode) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[8]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +2074,7 @@ func (x *ContentNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentNode.ProtoReflect.Descriptor instead.
 func (*ContentNode) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{8}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ContentNode) GetId() string {
@@ -567,6 +2125,27 @@ func (x *ContentNode) GetEntry() *EntryContent {
 	return nil
 }
 
+func (x *ContentNode) GetFacilityNameVariants() []*FacilityTextVariant {
+	if x != nil {
+		return x.FacilityNameVariants
+	}
+	return nil
+}
+
+func (x *ContentNode) GetVisibleWhen() *FacilityStateEquality {
+	if x != nil {
+		return x.VisibleWhen
+	}
+	return nil
+}
+
+func (x *ContentNode) GetAvailableWhen() *FacilityStateEquality {
+	if x != nil {
+		return x.AvailableWhen
+	}
+	return nil
+}
+
 type isContentNode_Content interface {
 	isContentNode_Content()
 }
@@ -603,7 +2182,7 @@ type Terminal struct {
 
 func (x *Terminal) Reset() {
 	*x = Terminal{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[9]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -615,7 +2194,7 @@ func (x *Terminal) String() string {
 func (*Terminal) ProtoMessage() {}
 
 func (x *Terminal) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[9]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -628,7 +2207,7 @@ func (x *Terminal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Terminal.ProtoReflect.Descriptor instead.
 func (*Terminal) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{9}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Terminal) GetId() string {
@@ -684,7 +2263,7 @@ type TerminalGroup struct {
 
 func (x *TerminalGroup) Reset() {
 	*x = TerminalGroup{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[10]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -696,7 +2275,7 @@ func (x *TerminalGroup) String() string {
 func (*TerminalGroup) ProtoMessage() {}
 
 func (x *TerminalGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[10]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -709,7 +2288,7 @@ func (x *TerminalGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TerminalGroup.ProtoReflect.Descriptor instead.
 func (*TerminalGroup) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{10}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *TerminalGroup) GetId() string {
@@ -740,13 +2319,14 @@ type Session struct {
 	PlayerConfig   *string                `protobuf:"bytes,3,opt,name=player_config,json=playerConfig,proto3,oneof" json:"player_config,omitempty"`
 	Terminals      []*Terminal            `protobuf:"bytes,4,rep,name=terminals,proto3" json:"terminals,omitempty"`
 	TerminalGroups []*TerminalGroup       `protobuf:"bytes,5,rep,name=terminal_groups,json=terminalGroups,proto3" json:"terminal_groups,omitempty"`
+	Facility       *Facility              `protobuf:"bytes,6,opt,name=facility,proto3,oneof" json:"facility,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[11]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -758,7 +2338,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[11]
+	mi := &file_fallout_terminal_persistence_v1_session_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -771,7 +2351,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{11}
+	return file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Session) GetVersion() int32 {
@@ -809,23 +2389,131 @@ func (x *Session) GetTerminalGroups() []*TerminalGroup {
 	return nil
 }
 
+func (x *Session) GetFacility() *Facility {
+	if x != nil {
+		return x.Facility
+	}
+	return nil
+}
+
 var File_fallout_terminal_persistence_v1_session_proto protoreflect.FileDescriptor
 
 const file_fallout_terminal_persistence_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"-fallout/terminal/persistence/v1/session.proto\x12\x1ffallout.terminal.persistence.v1\"Y\n" +
+	"-fallout/terminal/persistence/v1/session.proto\x12\x1ffallout.terminal.persistence.v1\"O\n" +
+	"\x15FacilityStateEquality\x12\x1b\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12\x19\n" +
+	"\bstate_id\x18\x02 \x01(\tR\astateId\"]\n" +
+	"\x19FacilityTransitionRequest\x12\x1b\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\x12#\n" +
+	"\rtransition_id\x18\x02 \x01(\tR\ftransitionId\"T\n" +
+	"\x17FacilityConditionEffect\x12!\n" +
+	"\fcondition_id\x18\x01 \x01(\tR\vconditionId\x12\x16\n" +
+	"\x06active\x18\x02 \x01(\bR\x06active\"9\n" +
+	"\x13FacilityDeviceState\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\"\xf9\x02\n" +
+	"\x18FacilityDeviceTransition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12&\n" +
+	"\x0fsource_state_id\x18\x03 \x01(\tR\rsourceStateId\x120\n" +
+	"\x14destination_state_id\x18\x04 \x01(\tR\x12destinationStateId\x12\\\n" +
+	"\rpreconditions\x18\x05 \x03(\v26.fallout.terminal.persistence.v1.FacilityStateEqualityR\rpreconditions\x12e\n" +
+	"\x11condition_effects\x18\x06 \x03(\v28.fallout.terminal.persistence.v1.FacilityConditionEffectR\x10conditionEffects\x12\x1a\n" +
+	"\brecovery\x18\a \x01(\bR\brecovery\"\xb2\x03\n" +
+	"\x0eFacilityDevice\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12G\n" +
+	"\x04kind\x18\x03 \x01(\x0e23.fallout.terminal.persistence.v1.FacilityDeviceKindR\x04kind\x12$\n" +
+	"\vcustom_kind\x18\x04 \x01(\tH\x00R\n" +
+	"customKind\x88\x01\x01\x12(\n" +
+	"\x10initial_state_id\x18\x05 \x01(\tR\x0einitialStateId\x12(\n" +
+	"\x10current_state_id\x18\x06 \x01(\tR\x0ecurrentStateId\x12L\n" +
+	"\x06states\x18\a \x03(\v24.fallout.terminal.persistence.v1.FacilityDeviceStateR\x06states\x12[\n" +
+	"\vtransitions\x18\b \x03(\v29.fallout.terminal.persistence.v1.FacilityDeviceTransitionR\vtransitionsB\x0e\n" +
+	"\f_custom_kind\"4\n" +
+	"\x15DiagnosticDeviceScope\x12\x1b\n" +
+	"\tdevice_id\x18\x01 \x01(\tR\bdeviceId\":\n" +
+	"\x17DiagnosticTerminalScope\x12\x1f\n" +
+	"\vterminal_id\x18\x01 \x01(\tR\n" +
+	"terminalId\"l\n" +
+	"\x15CapabilityBlockEffect\x12S\n" +
+	"\n" +
+	"capability\x18\x01 \x01(\x0e23.fallout.terminal.persistence.v1.FacilityCapabilityR\n" +
+	"capability\"P\n" +
+	"\x14DiagnosticPathEffect\x12\x1f\n" +
+	"\vterminal_id\x18\x01 \x01(\tR\n" +
+	"terminalId\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\"\x81\x01\n" +
+	"\x18RecordSubstitutionEffect\x12\x1f\n" +
+	"\vterminal_id\x18\x01 \x01(\tR\n" +
+	"terminalId\x12\x19\n" +
+	"\bblock_id\x18\x02 \x01(\tR\ablockId\x12)\n" +
+	"\x10replacement_text\x18\x03 \x01(\tR\x0freplacementText\"\x1a\n" +
+	"\x18DisplayInstabilityEffect\"\xbf\x03\n" +
+	"\x10DiagnosticEffect\x12c\n" +
+	"\x10capability_block\x18\x01 \x01(\v26.fallout.terminal.persistence.v1.CapabilityBlockEffectH\x00R\x0fcapabilityBlock\x12`\n" +
+	"\x0fdiagnostic_path\x18\x02 \x01(\v25.fallout.terminal.persistence.v1.DiagnosticPathEffectH\x00R\x0ediagnosticPath\x12l\n" +
+	"\x13record_substitution\x18\x03 \x01(\v29.fallout.terminal.persistence.v1.RecordSubstitutionEffectH\x00R\x12recordSubstitution\x12l\n" +
+	"\x13display_instability\x18\x04 \x01(\v29.fallout.terminal.persistence.v1.DisplayInstabilityEffectH\x00R\x12displayInstabilityB\b\n" +
+	"\x06effect\"\xf3\x01\n" +
+	"\x1bDiagnosticRecoveryReference\x12\\\n" +
+	"\n" +
+	"transition\x18\x01 \x01(\v2:.fallout.terminal.persistence.v1.FacilityTransitionRequestH\x00R\n" +
+	"transition\x120\n" +
+	"\x13recovery_program_id\x18\x02 \x01(\tH\x00R\x11recoveryProgramId\x128\n" +
+	"\x17private_overseer_action\x18\x03 \x01(\bH\x00R\x15privateOverseerActionB\n" +
+	"\n" +
+	"\brecovery\"\xfd\x04\n" +
+	"\x13DiagnosticCondition\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12X\n" +
+	"\bcategory\x18\x03 \x01(\x0e2<.fallout.terminal.persistence.v1.DiagnosticConditionCategoryR\bcategory\x12,\n" +
+	"\x0fcustom_category\x18\x04 \x01(\tH\x01R\x0ecustomCategory\x88\x01\x01\x12P\n" +
+	"\x06device\x18\x05 \x01(\v26.fallout.terminal.persistence.v1.DiagnosticDeviceScopeH\x00R\x06device\x12V\n" +
+	"\bterminal\x18\x06 \x01(\v28.fallout.terminal.persistence.v1.DiagnosticTerminalScopeH\x00R\bterminal\x12%\n" +
+	"\x0einitial_active\x18\a \x01(\bR\rinitialActive\x12%\n" +
+	"\x0ecurrent_active\x18\b \x01(\bR\rcurrentActive\x12K\n" +
+	"\aeffects\x18\t \x03(\v21.fallout.terminal.persistence.v1.DiagnosticEffectR\aeffects\x12X\n" +
+	"\brecovery\x18\n" +
+	" \x03(\v2<.fallout.terminal.persistence.v1.DiagnosticRecoveryReferenceR\brecoveryB\a\n" +
+	"\x05scopeB\x12\n" +
+	"\x10_custom_category\"\x93\x01\n" +
+	"\x0fRecoveryProgram\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\\\n" +
+	"\vtransitions\x18\x03 \x03(\v2:.fallout.terminal.persistence.v1.FacilityTransitionRequestR\vtransitions\"\xaf\x01\n" +
+	"\x14FacilityActionConfig\x12[\n" +
+	"\vtransitions\x18\x01 \x01(\v27.fallout.terminal.persistence.v1.FacilityTransitionListH\x00R\vtransitions\x120\n" +
+	"\x13recovery_program_id\x18\x02 \x01(\tH\x00R\x11recoveryProgramIdB\b\n" +
+	"\x06action\"v\n" +
+	"\x16FacilityTransitionList\x12\\\n" +
+	"\vtransitions\x18\x01 \x03(\v2:.fallout.terminal.persistence.v1.FacilityTransitionRequestR\vtransitions\"u\n" +
+	"\x13FacilityTextVariant\x12J\n" +
+	"\x04when\x18\x01 \x01(\v26.fallout.terminal.persistence.v1.FacilityStateEqualityR\x04when\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\"\xa6\x02\n" +
+	"\bFacility\x12\x1a\n" +
+	"\brevision\x18\x01 \x01(\x04R\brevision\x12I\n" +
+	"\adevices\x18\x02 \x03(\v2/.fallout.terminal.persistence.v1.FacilityDeviceR\adevices\x12T\n" +
+	"\n" +
+	"conditions\x18\x03 \x03(\v24.fallout.terminal.persistence.v1.DiagnosticConditionR\n" +
+	"conditions\x12]\n" +
+	"\x11recovery_programs\x18\x04 \x03(\v20.fallout.terminal.persistence.v1.RecoveryProgramR\x10recoveryPrograms\"Y\n" +
 	"\rFolderContent\x12H\n" +
-	"\bchildren\x18\x01 \x03(\v2,.fallout.terminal.persistence.v1.ContentNodeR\bchildren\"F\n" +
+	"\bchildren\x18\x01 \x03(\v2,.fallout.terminal.persistence.v1.ContentNodeR\bchildren\"\xb2\x01\n" +
 	"\x11EntryContentBlock\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
-	"\finitial_text\x18\x02 \x01(\tR\vinitialText\"V\n" +
+	"\finitial_text\x18\x02 \x01(\tR\vinitialText\x12j\n" +
+	"\x16facility_text_variants\x18\x03 \x03(\v24.fallout.terminal.persistence.v1.FacilityTextVariantR\x14facilityTextVariants\"V\n" +
 	"\x12EntryContentChange\x12\x19\n" +
 	"\bblock_id\x18\x01 \x01(\tR\ablockId\x12%\n" +
-	"\x0ecompleted_text\x18\x02 \x01(\tR\rcompletedText\"\xce\x01\n" +
+	"\x0ecompleted_text\x18\x02 \x01(\tR\rcompletedText\"\xc7\x02\n" +
 	"\x11StateChangeConfig\x12%\n" +
 	"\x0ecompleted_name\x18\x01 \x01(\tR\rcompletedName\x12+\n" +
 	"\x11confirmation_text\x18\x02 \x01(\tR\x10confirmationText\x12e\n" +
-	"\x14entry_content_change\x18\x03 \x01(\v23.fallout.terminal.persistence.v1.EntryContentChangeR\x12entryContentChange\"\xc6\x01\n" +
+	"\x14entry_content_change\x18\x03 \x01(\v23.fallout.terminal.persistence.v1.EntryContentChangeR\x12entryContentChange\x12c\n" +
+	"\x0ffacility_action\x18\x04 \x01(\v25.fallout.terminal.persistence.v1.FacilityActionConfigH\x00R\x0efacilityAction\x88\x01\x01B\x12\n" +
+	"\x10_facility_action\"\xc6\x01\n" +
 	"\x15CommandExecutionState\x12%\n" +
 	"\x0ecompleted_name\x18\x01 \x01(\tR\rcompletedName\x12\x1f\n" +
 	"\vresult_text\x18\x02 \x01(\tR\n" +
@@ -841,14 +2529,19 @@ const file_fallout_terminal_persistence_v1_session_proto_rawDesc = "" +
 	"\bbehavior\"|\n" +
 	"\fEntryContent\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\x12J\n" +
-	"\x06blocks\x18\x02 \x03(\v22.fallout.terminal.persistence.v1.EntryContentBlockR\x06blocks\"\x9a\x02\n" +
+	"\x06blocks\x18\x02 \x03(\v22.fallout.terminal.persistence.v1.EntryContentBlockR\x06blocks\"\xee\x04\n" +
 	"\vContentNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12H\n" +
 	"\x06folder\x18\x03 \x01(\v2..fallout.terminal.persistence.v1.FolderContentH\x00R\x06folder\x12K\n" +
 	"\acommand\x18\x04 \x01(\v2/.fallout.terminal.persistence.v1.CommandContentH\x00R\acommand\x12E\n" +
-	"\x05entry\x18\x05 \x01(\v2-.fallout.terminal.persistence.v1.EntryContentH\x00R\x05entryB\t\n" +
-	"\acontent\"\x8d\x03\n" +
+	"\x05entry\x18\x05 \x01(\v2-.fallout.terminal.persistence.v1.EntryContentH\x00R\x05entry\x12j\n" +
+	"\x16facility_name_variants\x18\x06 \x03(\v24.fallout.terminal.persistence.v1.FacilityTextVariantR\x14facilityNameVariants\x12^\n" +
+	"\fvisible_when\x18\a \x01(\v26.fallout.terminal.persistence.v1.FacilityStateEqualityH\x01R\vvisibleWhen\x88\x01\x01\x12b\n" +
+	"\x0eavailable_when\x18\b \x01(\v26.fallout.terminal.persistence.v1.FacilityStateEqualityH\x02R\ravailableWhen\x88\x01\x01B\t\n" +
+	"\acontentB\x0f\n" +
+	"\r_visible_whenB\x11\n" +
+	"\x0f_available_when\"\x8d\x03\n" +
 	"\bTerminal\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
@@ -864,14 +2557,45 @@ const file_fallout_terminal_persistence_v1_session_proto_rawDesc = "" +
 	"\rTerminalGroup\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
-	"\fterminal_ids\x18\x03 \x03(\tR\vterminalIds\"\x95\x02\n" +
+	"\fterminal_ids\x18\x03 \x03(\tR\vterminalIds\"\xee\x02\n" +
 	"\aSession\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
 	"\rplayer_config\x18\x03 \x01(\tH\x00R\fplayerConfig\x88\x01\x01\x12G\n" +
 	"\tterminals\x18\x04 \x03(\v2).fallout.terminal.persistence.v1.TerminalR\tterminals\x12W\n" +
-	"\x0fterminal_groups\x18\x05 \x03(\v2..fallout.terminal.persistence.v1.TerminalGroupR\x0eterminalGroupsB\x10\n" +
-	"\x0e_player_configBfZdgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1;persistencev1b\x06proto3"
+	"\x0fterminal_groups\x18\x05 \x03(\v2..fallout.terminal.persistence.v1.TerminalGroupR\x0eterminalGroups\x12J\n" +
+	"\bfacility\x18\x06 \x01(\v2).fallout.terminal.persistence.v1.FacilityH\x01R\bfacility\x88\x01\x01B\x10\n" +
+	"\x0e_player_configB\v\n" +
+	"\t_facility*\x99\x03\n" +
+	"\x12FacilityDeviceKind\x12$\n" +
+	" FACILITY_DEVICE_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19FACILITY_DEVICE_KIND_DOOR\x10\x01\x12\x1f\n" +
+	"\x1bFACILITY_DEVICE_KIND_TURRET\x10\x02\x12#\n" +
+	"\x1fFACILITY_DEVICE_KIND_POWER_GRID\x10\x03\x12 \n" +
+	"\x1cFACILITY_DEVICE_KIND_REACTOR\x10\x04\x12$\n" +
+	" FACILITY_DEVICE_KIND_VENTILATION\x10\x05\x12\x1e\n" +
+	"\x1aFACILITY_DEVICE_KIND_ALARM\x10\x06\x12\"\n" +
+	"\x1eFACILITY_DEVICE_KIND_ROBOT_POD\x10\a\x12!\n" +
+	"\x1dFACILITY_DEVICE_KIND_ELEVATOR\x10\b\x12(\n" +
+	"$FACILITY_DEVICE_KIND_NETWORK_SEGMENT\x10\t\x12\x1f\n" +
+	"\x1bFACILITY_DEVICE_KIND_CUSTOM\x10\n" +
+	"*\xa4\x03\n" +
+	"\x1bDiagnosticConditionCategory\x12-\n" +
+	")DIAGNOSTIC_CONDITION_CATEGORY_UNSPECIFIED\x10\x00\x12)\n" +
+	"%DIAGNOSTIC_CONDITION_CATEGORY_OFFLINE\x10\x01\x12+\n" +
+	"'DIAGNOSTIC_CONDITION_CATEGORY_UNPOWERED\x10\x02\x122\n" +
+	".DIAGNOSTIC_CONDITION_CATEGORY_NETWORK_ISOLATED\x10\x03\x121\n" +
+	"-DIAGNOSTIC_CONDITION_CATEGORY_STORAGE_DAMAGED\x10\x04\x129\n" +
+	"5DIAGNOSTIC_CONDITION_CATEGORY_AUTHORIZATION_CORRUPTED\x10\x05\x122\n" +
+	".DIAGNOSTIC_CONDITION_CATEGORY_DISPLAY_UNSTABLE\x10\x06\x12(\n" +
+	"$DIAGNOSTIC_CONDITION_CATEGORY_CUSTOM\x10\a*\xff\x01\n" +
+	"\x12FacilityCapability\x12#\n" +
+	"\x1fFACILITY_CAPABILITY_UNSPECIFIED\x10\x00\x12'\n" +
+	"#FACILITY_CAPABILITY_EXECUTE_COMMAND\x10\x01\x12\"\n" +
+	"\x1eFACILITY_CAPABILITY_VIEW_ENTRY\x10\x02\x12\x1c\n" +
+	"\x18FACILITY_CAPABILITY_HACK\x10\x03\x12+\n" +
+	"'FACILITY_CAPABILITY_TERMINAL_TRANSITION\x10\x04\x12,\n" +
+	"(FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM\x10\x05BfZdgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1;persistencev1b\x06proto3"
 
 var (
 	file_fallout_terminal_persistence_v1_session_proto_rawDescOnce sync.Once
@@ -885,42 +2609,95 @@ func file_fallout_terminal_persistence_v1_session_proto_rawDescGZIP() []byte {
 	return file_fallout_terminal_persistence_v1_session_proto_rawDescData
 }
 
-var file_fallout_terminal_persistence_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_fallout_terminal_persistence_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_fallout_terminal_persistence_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_fallout_terminal_persistence_v1_session_proto_goTypes = []any{
-	(*FolderContent)(nil),            // 0: fallout.terminal.persistence.v1.FolderContent
-	(*EntryContentBlock)(nil),        // 1: fallout.terminal.persistence.v1.EntryContentBlock
-	(*EntryContentChange)(nil),       // 2: fallout.terminal.persistence.v1.EntryContentChange
-	(*StateChangeConfig)(nil),        // 3: fallout.terminal.persistence.v1.StateChangeConfig
-	(*CommandExecutionState)(nil),    // 4: fallout.terminal.persistence.v1.CommandExecutionState
-	(*TerminalTransitionConfig)(nil), // 5: fallout.terminal.persistence.v1.TerminalTransitionConfig
-	(*CommandContent)(nil),           // 6: fallout.terminal.persistence.v1.CommandContent
-	(*EntryContent)(nil),             // 7: fallout.terminal.persistence.v1.EntryContent
-	(*ContentNode)(nil),              // 8: fallout.terminal.persistence.v1.ContentNode
-	(*Terminal)(nil),                 // 9: fallout.terminal.persistence.v1.Terminal
-	(*TerminalGroup)(nil),            // 10: fallout.terminal.persistence.v1.TerminalGroup
-	(*Session)(nil),                  // 11: fallout.terminal.persistence.v1.Session
-	nil,                              // 12: fallout.terminal.persistence.v1.Terminal.CommandStatesEntry
+	(FacilityDeviceKind)(0),             // 0: fallout.terminal.persistence.v1.FacilityDeviceKind
+	(DiagnosticConditionCategory)(0),    // 1: fallout.terminal.persistence.v1.DiagnosticConditionCategory
+	(FacilityCapability)(0),             // 2: fallout.terminal.persistence.v1.FacilityCapability
+	(*FacilityStateEquality)(nil),       // 3: fallout.terminal.persistence.v1.FacilityStateEquality
+	(*FacilityTransitionRequest)(nil),   // 4: fallout.terminal.persistence.v1.FacilityTransitionRequest
+	(*FacilityConditionEffect)(nil),     // 5: fallout.terminal.persistence.v1.FacilityConditionEffect
+	(*FacilityDeviceState)(nil),         // 6: fallout.terminal.persistence.v1.FacilityDeviceState
+	(*FacilityDeviceTransition)(nil),    // 7: fallout.terminal.persistence.v1.FacilityDeviceTransition
+	(*FacilityDevice)(nil),              // 8: fallout.terminal.persistence.v1.FacilityDevice
+	(*DiagnosticDeviceScope)(nil),       // 9: fallout.terminal.persistence.v1.DiagnosticDeviceScope
+	(*DiagnosticTerminalScope)(nil),     // 10: fallout.terminal.persistence.v1.DiagnosticTerminalScope
+	(*CapabilityBlockEffect)(nil),       // 11: fallout.terminal.persistence.v1.CapabilityBlockEffect
+	(*DiagnosticPathEffect)(nil),        // 12: fallout.terminal.persistence.v1.DiagnosticPathEffect
+	(*RecordSubstitutionEffect)(nil),    // 13: fallout.terminal.persistence.v1.RecordSubstitutionEffect
+	(*DisplayInstabilityEffect)(nil),    // 14: fallout.terminal.persistence.v1.DisplayInstabilityEffect
+	(*DiagnosticEffect)(nil),            // 15: fallout.terminal.persistence.v1.DiagnosticEffect
+	(*DiagnosticRecoveryReference)(nil), // 16: fallout.terminal.persistence.v1.DiagnosticRecoveryReference
+	(*DiagnosticCondition)(nil),         // 17: fallout.terminal.persistence.v1.DiagnosticCondition
+	(*RecoveryProgram)(nil),             // 18: fallout.terminal.persistence.v1.RecoveryProgram
+	(*FacilityActionConfig)(nil),        // 19: fallout.terminal.persistence.v1.FacilityActionConfig
+	(*FacilityTransitionList)(nil),      // 20: fallout.terminal.persistence.v1.FacilityTransitionList
+	(*FacilityTextVariant)(nil),         // 21: fallout.terminal.persistence.v1.FacilityTextVariant
+	(*Facility)(nil),                    // 22: fallout.terminal.persistence.v1.Facility
+	(*FolderContent)(nil),               // 23: fallout.terminal.persistence.v1.FolderContent
+	(*EntryContentBlock)(nil),           // 24: fallout.terminal.persistence.v1.EntryContentBlock
+	(*EntryContentChange)(nil),          // 25: fallout.terminal.persistence.v1.EntryContentChange
+	(*StateChangeConfig)(nil),           // 26: fallout.terminal.persistence.v1.StateChangeConfig
+	(*CommandExecutionState)(nil),       // 27: fallout.terminal.persistence.v1.CommandExecutionState
+	(*TerminalTransitionConfig)(nil),    // 28: fallout.terminal.persistence.v1.TerminalTransitionConfig
+	(*CommandContent)(nil),              // 29: fallout.terminal.persistence.v1.CommandContent
+	(*EntryContent)(nil),                // 30: fallout.terminal.persistence.v1.EntryContent
+	(*ContentNode)(nil),                 // 31: fallout.terminal.persistence.v1.ContentNode
+	(*Terminal)(nil),                    // 32: fallout.terminal.persistence.v1.Terminal
+	(*TerminalGroup)(nil),               // 33: fallout.terminal.persistence.v1.TerminalGroup
+	(*Session)(nil),                     // 34: fallout.terminal.persistence.v1.Session
+	nil,                                 // 35: fallout.terminal.persistence.v1.Terminal.CommandStatesEntry
 }
 var file_fallout_terminal_persistence_v1_session_proto_depIdxs = []int32{
-	8,  // 0: fallout.terminal.persistence.v1.FolderContent.children:type_name -> fallout.terminal.persistence.v1.ContentNode
-	2,  // 1: fallout.terminal.persistence.v1.StateChangeConfig.entry_content_change:type_name -> fallout.terminal.persistence.v1.EntryContentChange
-	2,  // 2: fallout.terminal.persistence.v1.CommandExecutionState.entry_content_change:type_name -> fallout.terminal.persistence.v1.EntryContentChange
-	3,  // 3: fallout.terminal.persistence.v1.CommandContent.state_change:type_name -> fallout.terminal.persistence.v1.StateChangeConfig
-	5,  // 4: fallout.terminal.persistence.v1.CommandContent.terminal_transition:type_name -> fallout.terminal.persistence.v1.TerminalTransitionConfig
-	1,  // 5: fallout.terminal.persistence.v1.EntryContent.blocks:type_name -> fallout.terminal.persistence.v1.EntryContentBlock
-	0,  // 6: fallout.terminal.persistence.v1.ContentNode.folder:type_name -> fallout.terminal.persistence.v1.FolderContent
-	6,  // 7: fallout.terminal.persistence.v1.ContentNode.command:type_name -> fallout.terminal.persistence.v1.CommandContent
-	7,  // 8: fallout.terminal.persistence.v1.ContentNode.entry:type_name -> fallout.terminal.persistence.v1.EntryContent
-	8,  // 9: fallout.terminal.persistence.v1.Terminal.root:type_name -> fallout.terminal.persistence.v1.ContentNode
-	12, // 10: fallout.terminal.persistence.v1.Terminal.command_states:type_name -> fallout.terminal.persistence.v1.Terminal.CommandStatesEntry
-	9,  // 11: fallout.terminal.persistence.v1.Session.terminals:type_name -> fallout.terminal.persistence.v1.Terminal
-	10, // 12: fallout.terminal.persistence.v1.Session.terminal_groups:type_name -> fallout.terminal.persistence.v1.TerminalGroup
-	4,  // 13: fallout.terminal.persistence.v1.Terminal.CommandStatesEntry.value:type_name -> fallout.terminal.persistence.v1.CommandExecutionState
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	3,  // 0: fallout.terminal.persistence.v1.FacilityDeviceTransition.preconditions:type_name -> fallout.terminal.persistence.v1.FacilityStateEquality
+	5,  // 1: fallout.terminal.persistence.v1.FacilityDeviceTransition.condition_effects:type_name -> fallout.terminal.persistence.v1.FacilityConditionEffect
+	0,  // 2: fallout.terminal.persistence.v1.FacilityDevice.kind:type_name -> fallout.terminal.persistence.v1.FacilityDeviceKind
+	6,  // 3: fallout.terminal.persistence.v1.FacilityDevice.states:type_name -> fallout.terminal.persistence.v1.FacilityDeviceState
+	7,  // 4: fallout.terminal.persistence.v1.FacilityDevice.transitions:type_name -> fallout.terminal.persistence.v1.FacilityDeviceTransition
+	2,  // 5: fallout.terminal.persistence.v1.CapabilityBlockEffect.capability:type_name -> fallout.terminal.persistence.v1.FacilityCapability
+	11, // 6: fallout.terminal.persistence.v1.DiagnosticEffect.capability_block:type_name -> fallout.terminal.persistence.v1.CapabilityBlockEffect
+	12, // 7: fallout.terminal.persistence.v1.DiagnosticEffect.diagnostic_path:type_name -> fallout.terminal.persistence.v1.DiagnosticPathEffect
+	13, // 8: fallout.terminal.persistence.v1.DiagnosticEffect.record_substitution:type_name -> fallout.terminal.persistence.v1.RecordSubstitutionEffect
+	14, // 9: fallout.terminal.persistence.v1.DiagnosticEffect.display_instability:type_name -> fallout.terminal.persistence.v1.DisplayInstabilityEffect
+	4,  // 10: fallout.terminal.persistence.v1.DiagnosticRecoveryReference.transition:type_name -> fallout.terminal.persistence.v1.FacilityTransitionRequest
+	1,  // 11: fallout.terminal.persistence.v1.DiagnosticCondition.category:type_name -> fallout.terminal.persistence.v1.DiagnosticConditionCategory
+	9,  // 12: fallout.terminal.persistence.v1.DiagnosticCondition.device:type_name -> fallout.terminal.persistence.v1.DiagnosticDeviceScope
+	10, // 13: fallout.terminal.persistence.v1.DiagnosticCondition.terminal:type_name -> fallout.terminal.persistence.v1.DiagnosticTerminalScope
+	15, // 14: fallout.terminal.persistence.v1.DiagnosticCondition.effects:type_name -> fallout.terminal.persistence.v1.DiagnosticEffect
+	16, // 15: fallout.terminal.persistence.v1.DiagnosticCondition.recovery:type_name -> fallout.terminal.persistence.v1.DiagnosticRecoveryReference
+	4,  // 16: fallout.terminal.persistence.v1.RecoveryProgram.transitions:type_name -> fallout.terminal.persistence.v1.FacilityTransitionRequest
+	20, // 17: fallout.terminal.persistence.v1.FacilityActionConfig.transitions:type_name -> fallout.terminal.persistence.v1.FacilityTransitionList
+	4,  // 18: fallout.terminal.persistence.v1.FacilityTransitionList.transitions:type_name -> fallout.terminal.persistence.v1.FacilityTransitionRequest
+	3,  // 19: fallout.terminal.persistence.v1.FacilityTextVariant.when:type_name -> fallout.terminal.persistence.v1.FacilityStateEquality
+	8,  // 20: fallout.terminal.persistence.v1.Facility.devices:type_name -> fallout.terminal.persistence.v1.FacilityDevice
+	17, // 21: fallout.terminal.persistence.v1.Facility.conditions:type_name -> fallout.terminal.persistence.v1.DiagnosticCondition
+	18, // 22: fallout.terminal.persistence.v1.Facility.recovery_programs:type_name -> fallout.terminal.persistence.v1.RecoveryProgram
+	31, // 23: fallout.terminal.persistence.v1.FolderContent.children:type_name -> fallout.terminal.persistence.v1.ContentNode
+	21, // 24: fallout.terminal.persistence.v1.EntryContentBlock.facility_text_variants:type_name -> fallout.terminal.persistence.v1.FacilityTextVariant
+	25, // 25: fallout.terminal.persistence.v1.StateChangeConfig.entry_content_change:type_name -> fallout.terminal.persistence.v1.EntryContentChange
+	19, // 26: fallout.terminal.persistence.v1.StateChangeConfig.facility_action:type_name -> fallout.terminal.persistence.v1.FacilityActionConfig
+	25, // 27: fallout.terminal.persistence.v1.CommandExecutionState.entry_content_change:type_name -> fallout.terminal.persistence.v1.EntryContentChange
+	26, // 28: fallout.terminal.persistence.v1.CommandContent.state_change:type_name -> fallout.terminal.persistence.v1.StateChangeConfig
+	28, // 29: fallout.terminal.persistence.v1.CommandContent.terminal_transition:type_name -> fallout.terminal.persistence.v1.TerminalTransitionConfig
+	24, // 30: fallout.terminal.persistence.v1.EntryContent.blocks:type_name -> fallout.terminal.persistence.v1.EntryContentBlock
+	23, // 31: fallout.terminal.persistence.v1.ContentNode.folder:type_name -> fallout.terminal.persistence.v1.FolderContent
+	29, // 32: fallout.terminal.persistence.v1.ContentNode.command:type_name -> fallout.terminal.persistence.v1.CommandContent
+	30, // 33: fallout.terminal.persistence.v1.ContentNode.entry:type_name -> fallout.terminal.persistence.v1.EntryContent
+	21, // 34: fallout.terminal.persistence.v1.ContentNode.facility_name_variants:type_name -> fallout.terminal.persistence.v1.FacilityTextVariant
+	3,  // 35: fallout.terminal.persistence.v1.ContentNode.visible_when:type_name -> fallout.terminal.persistence.v1.FacilityStateEquality
+	3,  // 36: fallout.terminal.persistence.v1.ContentNode.available_when:type_name -> fallout.terminal.persistence.v1.FacilityStateEquality
+	31, // 37: fallout.terminal.persistence.v1.Terminal.root:type_name -> fallout.terminal.persistence.v1.ContentNode
+	35, // 38: fallout.terminal.persistence.v1.Terminal.command_states:type_name -> fallout.terminal.persistence.v1.Terminal.CommandStatesEntry
+	32, // 39: fallout.terminal.persistence.v1.Session.terminals:type_name -> fallout.terminal.persistence.v1.Terminal
+	33, // 40: fallout.terminal.persistence.v1.Session.terminal_groups:type_name -> fallout.terminal.persistence.v1.TerminalGroup
+	22, // 41: fallout.terminal.persistence.v1.Session.facility:type_name -> fallout.terminal.persistence.v1.Facility
+	27, // 42: fallout.terminal.persistence.v1.Terminal.CommandStatesEntry.value:type_name -> fallout.terminal.persistence.v1.CommandExecutionState
+	43, // [43:43] is the sub-list for method output_type
+	43, // [43:43] is the sub-list for method input_type
+	43, // [43:43] is the sub-list for extension type_name
+	43, // [43:43] is the sub-list for extension extendee
+	0,  // [0:43] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_persistence_v1_session_proto_init() }
@@ -928,28 +2705,50 @@ func file_fallout_terminal_persistence_v1_session_proto_init() {
 	if File_fallout_terminal_persistence_v1_session_proto != nil {
 		return
 	}
-	file_fallout_terminal_persistence_v1_session_proto_msgTypes[6].OneofWrappers = []any{
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[5].OneofWrappers = []any{}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[12].OneofWrappers = []any{
+		(*DiagnosticEffect_CapabilityBlock)(nil),
+		(*DiagnosticEffect_DiagnosticPath)(nil),
+		(*DiagnosticEffect_RecordSubstitution)(nil),
+		(*DiagnosticEffect_DisplayInstability)(nil),
+	}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[13].OneofWrappers = []any{
+		(*DiagnosticRecoveryReference_Transition)(nil),
+		(*DiagnosticRecoveryReference_RecoveryProgramId)(nil),
+		(*DiagnosticRecoveryReference_PrivateOverseerAction)(nil),
+	}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[14].OneofWrappers = []any{
+		(*DiagnosticCondition_Device)(nil),
+		(*DiagnosticCondition_Terminal)(nil),
+	}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[16].OneofWrappers = []any{
+		(*FacilityActionConfig_Transitions)(nil),
+		(*FacilityActionConfig_RecoveryProgramId)(nil),
+	}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[23].OneofWrappers = []any{}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[26].OneofWrappers = []any{
 		(*CommandContent_StateChange)(nil),
 		(*CommandContent_TerminalTransition)(nil),
 	}
-	file_fallout_terminal_persistence_v1_session_proto_msgTypes[8].OneofWrappers = []any{
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[28].OneofWrappers = []any{
 		(*ContentNode_Folder)(nil),
 		(*ContentNode_Command)(nil),
 		(*ContentNode_Entry)(nil),
 	}
-	file_fallout_terminal_persistence_v1_session_proto_msgTypes[11].OneofWrappers = []any{}
+	file_fallout_terminal_persistence_v1_session_proto_msgTypes[31].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_persistence_v1_session_proto_rawDesc), len(file_fallout_terminal_persistence_v1_session_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   13,
+			NumEnums:      3,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_fallout_terminal_persistence_v1_session_proto_goTypes,
 		DependencyIndexes: file_fallout_terminal_persistence_v1_session_proto_depIdxs,
+		EnumInfos:         file_fallout_terminal_persistence_v1_session_proto_enumTypes,
 		MessageInfos:      file_fallout_terminal_persistence_v1_session_proto_msgTypes,
 	}.Build()
 	File_fallout_terminal_persistence_v1_session_proto = out.File

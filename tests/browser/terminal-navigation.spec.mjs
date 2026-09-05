@@ -1010,6 +1010,8 @@ test('stale target approval fails safely and keeps the source terminal active', 
   const player = await openPlayer(browser);
   try {
     await player.page.locator('.term-row', { hasText: 'ПЕРЕЙТИ В ОХРАНУ' }).first().click();
+    await expectPendingTransitionSurface(player.page);
+    await expect(overseer.getByRole('dialog', { name: 'ПЕРЕХОД МЕЖДУ ТЕРМИНАЛАМИ' })).toHaveCount(1);
     expect((await request.post(`${FIXTURE}/remove-target`)).ok()).toBe(true);
     await decideNavigation(overseer, 'approve');
     await expect(overseer.locator('#coordinationError')).toContainText(/ИЗМЕНИЛАСЬ|НЕ СУЩЕСТВУЕТ|no longer|changed/i);

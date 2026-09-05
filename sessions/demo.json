@@ -7,7 +7,7 @@
       "id": "t_demo1",
       "name": "Терминал смотрителя — Убежище 76",
       "hackLevel": 0,
-      "introText": "ROBCO TERMLINK // УБЕЖИЩЕ 76\nДОПУСК: СМОТРИТЕЛЬ",
+      "introText": "ROBCO TERMLINK // УБЕЖИЩЕ 76\nЦЕНТРАЛЬНЫЙ ПУЛЬТ СМОТРИТЕЛЯ\nДЕНЬ ВОЗРОЖДЕНИЯ // 06:42",
       "root": {
         "children": [
           {
@@ -15,108 +15,284 @@
               {
                 "id": "n_entry_vault_parameters",
                 "type": "entry",
-                "name": "ПАРАМЕТРЫ УБЕЖИЩА 76",
-                "description": "ДИРЕКТИВА VAULT-TEC // УБЕЖИЩЕ-КОНТРОЛЬ\n\nУбежище 76 должно сохранять лучших специалистов Америки в течение двадцати пяти лет после закрытия гермодвери. После получения сигнала «Всё чисто» жители обязаны выйти в Аппалачи и приступить к восстановлению инфраструктуры. Смотритель отвечает за готовность персонала, запасов и маршрута эвакуации."
+                "name": "ПРОТОКОЛ ВОЗРОЖДЕНИЯ",
+                "description": "ДИРЕКТИВА 76-25\n\nЧерез двадцать пять лет после закрытия гермодвери жители должны выйти в Аппалачи и восстановить гражданскую инфраструктуру. Смотритель обязан открыть маршрут, проверить наружные станции и оставить автоматику в безопасном режиме."
               },
               {
                 "id": "n_entry_vault_shutdown",
                 "type": "entry",
-                "name": "ОБЯЗАТЕЛЬНОЕ ОТКЛЮЧЕНИЕ",
+                "name": "СВОДКА ЭВАКУАЦИИ",
                 "blocks": [
                   {
                     "id": "b_vault_shutdown_heading",
-                    "initialText": "СЛУЖЕБНОЕ УВЕДОМЛЕНИЕ"
+                    "initialText": "МАРШРУТ ВЫХОДА: ОЖИДАНИЕ"
                   },
                   {
                     "id": "b_vault_shutdown_body",
-                    "initialText": "Через сутки после Дня Возрождения жилые системы перейдут в режим окончательного отключения. Подача воздуха прекратится последней. Оставаться внутри после завершения отсчёта опасно. Убежище выполнило свою задачу; дальнейшая миссия находится на поверхности."
+                    "initialText": "Жилые секции пусты. Последняя группа жителей ждёт зелёного сигнала у атриума. После её выхода автоматика начнёт суточный цикл отключения."
+                  },
+                  {
+                    "id": "b_vault_door_status",
+                    "initialText": "ГЕРМОДВЕРЬ: ЗАПЕРТА",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "vault-door-main",
+                          "stateId": "open"
+                        },
+                        "text": "ГЕРМОДВЕРЬ: ОТКРЫТА // МАРШРУТ СВОБОДЕН"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b_vault_alarm_status",
+                    "initialText": "СИГНАЛ ЭВАКУАЦИИ: ОТКЛЮЧЁН",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "evacuation-alarm",
+                          "stateId": "evacuation"
+                        },
+                        "text": "СИГНАЛ ЭВАКУАЦИИ: АКТИВЕН // СЛЕДУЙТЕ К ВЫХОДУ"
+                      }
+                    ]
                   }
                 ]
+              },
+              {
+                "id": "n_entry_open_route",
+                "type": "entry",
+                "name": "НАРУЖНЫЙ МАРШРУТ ПОДТВЕРЖДЁН",
+                "description": "Датчики у порога видят дневной свет. Радиомаяк РС-04 отвечает на служебном канале. Выход разрешён.",
+                "visibleWhen": {
+                  "deviceId": "vault-door-main",
+                  "stateId": "open"
+                }
               }
             ],
-            "id": "n_folder_1",
+            "id": "n_folder_directives",
             "name": "ДИРЕКТИВЫ VAULT-TEC",
             "type": "folder"
           },
           {
             "children": [
               {
-                "id": "n_entry_1",
+                "id": "n_entry_facility_status",
                 "type": "entry",
-                "name": "23 ОКТЯБРЯ 2102",
-                "description": "ДЕНЬ ВОЗРОЖДЕНИЯ\n\nДвадцать пять лет подготовки завершены. Раздающие пункты у выхода укомплектованы водой, медикаментами, карточками навыков и переносными модулями C.A.M.P. Всем жителям предписано забрать Pip-Boy, следовать указателям Vault Boy и покинуть Убежище 76. Аппалачи ждут."
+                "name": "СОСТОЯНИЕ УБЕЖИЩА",
+                "blocks": [
+                  {
+                    "id": "b_grid_status",
+                    "initialText": "РЕЗЕРВНАЯ СЕТЬ: НЕТ ПИТАНИЯ",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "power-grid-main",
+                          "stateId": "online"
+                        },
+                        "text": "РЕЗЕРВНАЯ СЕТЬ: В НОРМЕ // 88% НАГРУЗКИ"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b_ventilation_status",
+                    "initialText": "ВЕНТИЛЯЦИЯ: ЗАГРЯЗНЕНИЕ В КОНТУРЕ",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "ventilation-main",
+                          "stateId": "filtered"
+                        },
+                        "text": "ВЕНТИЛЯЦИЯ: ФИЛЬТРАЦИЯ ВОССТАНОВЛЕНА"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b_reactor_status",
+                    "initialText": "РЕАКТОР: АВАРИЙНАЯ ОСТАНОВКА",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "reactor-main",
+                          "stateId": "standby"
+                        },
+                        "text": "РЕАКТОР: ДЕЖУРНЫЙ РЕЖИМ"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b_robot_status",
+                    "initialText": "ПОСТ МИСТЕРА ПОМОЩНИКА: ЗАРЯДКА",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "robot-pod-atrium",
+                          "stateId": "patrol"
+                        },
+                        "text": "ПОСТ МИСТЕРА ПОМОЩНИКА: ПАТРУЛЬ"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "b_water_status",
+                    "initialText": "ОЧИСТКА ВОДЫ: ТЕХНИЧЕСКИЙ РЕЖИМ",
+                    "facilityTextVariants": [
+                      {
+                        "when": {
+                          "deviceId": "water-purifier-76",
+                          "stateId": "potable"
+                        },
+                        "text": "ОЧИСТКА ВОДЫ: ПИТЬЕВОЙ РЕЗЕРВ ГОТОВ"
+                      }
+                    ]
+                  }
+                ]
               },
               {
-                "id": "n_entry_overseer_address",
-                "type": "entry",
-                "name": "ОБРАЩЕНИЕ СМОТРИТЕЛЯ",
-                "description": "Жители Убежища 76! Сегодня мы открываем дверь в мир, которого не видели четверть века. Вы были отобраны за знания, выдержку и способность действовать вместе. Не задерживайтесь у выхода, помогайте друг другу и помните: восстановление Америки начинается с нас."
+                "children": [
+                  {
+                    "id": "n_diag_grid",
+                    "type": "entry",
+                    "name": "НЕТ ПИТАНИЯ",
+                    "description": "Главный рубильник Р-76 находится в нижнем машинном зале. После ручного взвода разрешён удалённый запуск резервной сети."
+                  },
+                  {
+                    "id": "n_diag_door",
+                    "type": "entry",
+                    "name": "ПРИВОД ГЕРМОДВЕРИ НЕ ОТВЕЧАЕТ",
+                    "description": "Проверьте питание шкафа ВД-1. Смотритель может снять аварийную блокировку через закрытый служебный канал."
+                  }
+                ],
+                "id": "n_folder_diagnostics",
+                "name": "АВАРИЙНАЯ ДИАГНОСТИКА",
+                "type": "folder",
+                "visibleWhen": {
+                  "deviceId": "power-grid-main",
+                  "stateId": "offline"
+                }
               }
             ],
-            "id": "n_folder_2",
-            "name": "ДЕНЬ ВОЗРОЖДЕНИЯ",
+            "id": "n_folder_facility",
+            "name": "СИСТЕМЫ ОБЪЕКТА",
             "type": "folder"
           },
           {
             "children": [
               {
-                "id": "n_entry_overseer_mission",
-                "type": "entry",
-                "name": "ЗАДАНИЕ СМОТРИТЕЛЮ",
-                "description": "КЛАССИФИКАЦИЯ: ТОЛЬКО ДЛЯ СМОТРИТЕЛЯ\n\nПосле выхода установить состояние ядерных комплексов АЛЬФА, БРАВО и ЧАРЛИ. Если системы запуска сохранили работоспособность, исключить доступ посторонних организаций. Полномочия местных властей и вооружённых групп не отменяют приоритет Vault-Tec."
+                "id": "n_cmd_1",
+                "type": "command",
+                "name": "Активировать маршрут выхода",
+                "text": "Маршрут к гермодвери освещён. Указатели Vault Boy получают питание.",
+                "stateChange": {
+                  "completedName": "Маршрут выхода активирован",
+                  "confirmationText": "Подать питание на коридор и указатели Дня Возрождения?",
+                  "entryContentChange": {
+                    "blockId": "b_vault_shutdown_heading",
+                    "completedText": "МАРШРУТ ВЫХОДА: ОСВЕЩЁН // УКАЗАТЕЛИ АКТИВНЫ"
+                  }
+                }
               },
               {
-                "id": "n_entry_overseer_departure",
-                "type": "entry",
-                "name": "ПОСЛЕДНЯЯ ЗАПИСЬ",
-                "description": "Праздник закончился, последние инструкции записаны, а раздающие станции готовы. Я выйду первой и отмечу безопасный путь. Если вы читаете это позже остальных, не пытайтесь переждать внутри: берите снаряжение и двигайтесь к выходу. Увидимся в Аппалачах."
+                "id": "n_cmd_prime_grid",
+                "type": "command",
+                "name": "Запустить резервную сеть",
+                "text": "Резервная сеть принимает нагрузку убежища.",
+                "stateChange": {
+                  "completedName": "Резервная сеть запущена",
+                  "confirmationText": "Подтвердить запуск взведённой резервной сети?",
+                  "facilityAction": {
+                    "transitions": {
+                      "transitions": [
+                        {
+                          "deviceId": "power-grid-main",
+                          "transitionId": "restore"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "facilityNameVariants": [
+                  {
+                    "when": {
+                      "deviceId": "power-grid-main",
+                      "stateId": "online"
+                    },
+                    "text": "Резервная сеть работает"
+                  }
+                ]
+              },
+              {
+                "id": "n_cmd_open_evacuation",
+                "type": "command",
+                "name": "Открыть выход и подать сигнал",
+                "text": "Гермодверь открывается; в атриуме звучит сигнал эвакуации.",
+                "stateChange": {
+                  "completedName": "Выход открыт",
+                  "confirmationText": "Открыть гермодверь и включить сигнал последней эвакуации?",
+                  "entryContentChange": {
+                    "blockId": "b_vault_shutdown_body",
+                    "completedText": "Последняя группа получила зелёный сигнал. Гермодверь открыта, наружный маршрут отмечен маяками."
+                  },
+                  "facilityAction": {
+                    "transitions": {
+                      "transitions": [
+                        {
+                          "deviceId": "vault-door-main",
+                          "transitionId": "open"
+                        },
+                        {
+                          "deviceId": "evacuation-alarm",
+                          "transitionId": "sound-evacuation"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "facilityNameVariants": [
+                  {
+                    "when": {
+                      "deviceId": "vault-door-main",
+                      "stateId": "open"
+                    },
+                    "text": "Выход уже открыт"
+                  }
+                ],
+                "availableWhen": {
+                  "deviceId": "power-grid-main",
+                  "stateId": "online"
+                }
+              },
+              {
+                "id": "n_cmd_air_recovery",
+                "type": "command",
+                "name": "Загрузить кассету очистки воздуха",
+                "text": "Калибровочная кассета принята. Вентиляция продувает загрязнённый контур.",
+                "stateChange": {
+                  "completedName": "Воздушный контур очищен",
+                  "confirmationText": "Запустить программу ВОЗДУХ-76 с сервисной кассеты?",
+                  "facilityAction": {
+                    "recoveryProgramId": "air-recovery-76"
+                  }
+                }
+              },
+              {
+                "id": "n_cmd_ordinary_1",
+                "type": "command",
+                "name": "Проверить наружные датчики",
+                "text": "ТЕМПЕРАТУРА: 14°C\nВЕТЕР: ЮГО-ВОСТОЧНЫЙ\nРАДИОФОН: В ПРЕДЕЛАХ ДОПУСКА\nМАЯК РС-04: ОТВЕЧАЕТ"
+              },
+              {
+                "id": "n_cmd_state_change_1",
+                "type": "command",
+                "name": "Открыть аварийный канал этого пульта",
+                "terminalTransition": {
+                  "targetTerminalId": "t_demo2"
+                }
               }
             ],
-            "id": "n_folder_3",
-            "name": "АРХИВ СМОТРИТЕЛЯ",
+            "id": "n_folder_actions",
+            "name": "ПРОТОКОЛ ВЫХОДА",
             "type": "folder"
-          },
-          {
-            "id": "n_cmd_1",
-            "type": "command",
-            "name": "Активировать маршрут выхода",
-            "text": "Маршрут к гермодвери освещён. Аварийные указатели и стенды Vault Boy получают питание.",
-            "stateChange": {
-              "completedName": "Маршрут выхода активирован",
-              "confirmationText": "Подать резервное питание на коридор и указатели Дня Возрождения?",
-              "entryContentChange": {
-                "blockId": "b_vault_shutdown_heading",
-                "completedText": "СЛУЖЕБНОЕ УВЕДОМЛЕНИЕ · МАРШРУТ ВЫХОДА АКТИВИРОВАН"
-              }
-            }
-          },
-          {
-            "id": "n_cmd_life_support",
-            "type": "command",
-            "name": "Продлить работу жилых систем",
-            "text": "Работа жилых систем продлена до завершения эвакуации.",
-            "stateChange": {
-              "completedName": "Жилые системы продлены",
-              "confirmationText": "Продлить работу жилых систем до завершения эвакуации?",
-              "entryContentChange": {
-                "blockId": "b_vault_shutdown_body",
-                "completedText": "Жилые системы продолжат работу до подтверждённого завершения эвакуации. После выхода последнего жителя начнётся окончательное отключение."
-              }
-            }
-          },
-          {
-            "id": "n_cmd_state_change_1",
-            "type": "command",
-            "name": "Подключиться к службе безопасности",
-            "terminalTransition": {
-              "targetTerminalId": "t_demo2"
-            }
-          },
-          {
-            "id": "n_cmd_ordinary_1",
-            "type": "command",
-            "name": "Проверить статус гермодвери",
-            "text": "ГЕРМОДВЕРЬ: ОТКРЫТА\nЦИКЛ ЗАКРЫТИЯ: ЗАБЛОКИРОВАН\nВНЕШНИЕ ДАТЧИКИ: НЕТ СИГНАЛА\nРЕЖИМ УБЕЖИЩА: ДЕНЬ ВОЗРОЖДЕНИЯ"
           }
         ],
         "id": "root",
@@ -126,78 +302,307 @@
       "commandStates": {
         "n_cmd_1": {
           "completedName": "Маршрут выхода активирован",
-          "resultText": "Маршрут к гермодвери освещён. Аварийные указатели и стенды Vault Boy получают питание.",
+          "resultText": "Маршрут к гермодвери освещён. Указатели Vault Boy получают питание.",
           "entryContentChange": {
             "blockId": "b_vault_shutdown_heading",
-            "completedText": "СЛУЖЕБНОЕ УВЕДОМЛЕНИЕ · МАРШРУТ ВЫХОДА АКТИВИРОВАН"
+            "completedText": "МАРШРУТ ВЫХОДА: ОСВЕЩЁН // УКАЗАТЕЛИ АКТИВНЫ"
           }
         },
-        "n_cmd_life_support": {
-          "completedName": "Жилые системы продлены",
-          "resultText": "Работа жилых систем продлена до завершения эвакуации.",
-          "entryContentChange": {
-            "blockId": "b_vault_shutdown_body",
-            "completedText": "Жилые системы продолжат работу до подтверждённого завершения эвакуации. После выхода последнего жителя начнётся окончательное отключение."
-          }
+        "n_cmd_prime_grid": {
+          "completedName": "Резервная сеть запущена",
+          "resultText": "Резервная сеть принимает нагрузку убежища."
         }
       }
     },
     {
       "id": "t_demo2",
-      "name": "Терминал службы безопасности — Убежище 76",
+      "name": "Терминал смотрителя — аварийный удалённый доступ",
       "hackLevel": 5,
       "introText": "",
       "root": {
         "children": [
           {
-            "children": [
+            "id": "n2_entry_channel",
+            "type": "entry",
+            "name": "КАНАЛ СМОТРИТЕЛЯ 76/ОМЕГА",
+            "blocks": [
               {
-                "id": "n_entry_locked",
-                "type": "entry",
-                "name": "ПОСЛЕДНИЙ ОБХОД",
-                "description": "23.10.2102 // 06:40\n\nЖилые секции пусты. Раздающие пункты переданы мистерам Помощникам. Оружейная опечатана, резервное снаряжение выдано дежурной смене. Гермодверь открыта; повторное закрытие программно запрещено."
+                "id": "b2_network_status",
+                "initialText": "СЛУЖЕБНАЯ СЕТЬ: ИЗОЛИРОВАНА",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "network-overseer",
+                      "stateId": "connected"
+                    },
+                    "text": "СЛУЖЕБНАЯ СЕТЬ: СОЕДИНЕНИЕ ВОССТАНОВЛЕНО"
+                  }
+                ]
               },
               {
-                "id": "n_entry_security_incident",
-                "type": "entry",
-                "name": "НЕСАНКЦИОНИРОВАННЫЙ ДОСТУП",
-                "description": "22.10.2102 // 21:17\n\nСработал датчик у терминала отдела кадров. Нарушитель не обнаружен. Начальник смены напоминает: праздничный пропуск не даёт права просматривать личные дела. До завершения очистки архива сектор остаётся под наблюдением."
-              },
-              {
-                "id": "n_entry_security_purge",
-                "type": "entry",
-                "name": "ОЧИСТКА ЛИЧНЫХ ДЕЛ",
-                "description": "СТАТУС: ЗАВЕРШЕНО\n\nАлфавитные каталоги жителей удалены согласно процедуре Дня Возрождения. Незавершённые назначения закрыты. Сохранены только сведения, необходимые роботизированному персоналу для обслуживания пустого Убежища 76."
+                "id": "b2_channel_note",
+                "initialText": "УДАЛЁННОЕ ЗЕРКАЛО ЦЕНТРАЛЬНОГО ПУЛЬТА. Запись 06:37: неизвестный служебный ключ изолировал внешние ретрансляторы. Последняя команда пришла с насосной станции РС-04."
               }
-            ],
-            "id": "n_folder_locked",
-            "name": "СЛУЖЕБНЫЕ ЗАПИСИ",
-            "type": "folder"
+            ]
           },
           {
             "children": [
               {
-                "id": "n_entry_door_control",
+                "id": "n2_diag_network",
                 "type": "entry",
-                "name": "КОНТРОЛЬ ГЕРМОДВЕРИ",
-                "description": "ВНУТРЕННИЙ ПОСТ: СВОБОДЕН\nВНЕШНИЙ ПОСТ: НЕТ СВЯЗИ\nПРИВОД ДВЕРИ: ЦИКЛ ЗАВЕРШЁН\nРУЧНАЯ БЛОКИРОВКА: ОТКЛЮЧЕНА\n\nНе допускайте скопления людей у порога. После выхода последнего жителя передать контроль мистеру Помощнику Пеннингтону."
-              },
-              {
-                "id": "n_entry_security_final",
-                "type": "entry",
-                "name": "ФИНАЛЬНАЯ СВОДКА",
-                "description": "Личный состав службы безопасности покинул объект. Внутренние камеры переведены в архивный режим. Если кто-то всё ещё находится в жилых секциях, направьте его к выходу: системы жизнеобеспечения скоро начнут необратимое отключение."
+                "name": "КАНАЛ ИЗОЛИРОВАН",
+                "description": "Вставьте кассету СЕТЬ-76 в считыватель центрального пульта. Если подпись не читается, Смотритель может подтвердить восстановление через закрытый контур."
               }
             ],
-            "id": "n_folder_security_control",
-            "name": "КОНТРОЛЬ ВХОДА",
-            "type": "folder"
+            "id": "n2_folder_diagnostics",
+            "name": "СЕТЕВАЯ ДИАГНОСТИКА",
+            "type": "folder",
+            "visibleWhen": {
+              "deviceId": "network-overseer",
+              "stateId": "connected"
+            }
           },
           {
-            "id": "n_cmd_security_summary",
+            "id": "n2_cmd_network_recovery",
             "type": "command",
-            "name": "Запросить сводку безопасности",
-            "text": "ТРЕВОГИ: 0\nАКТИВНЫЕ ПОСТЫ: 0\nРОБОТИЗИРОВАННЫЙ ПЕРСОНАЛ: В СЕТИ\nРЕЖИМ ОБЪЕКТА: ЭВАКУАЦИЯ ЗАВЕРШЕНА"
+            "name": "Запустить СЕТЬ-76",
+            "text": "Маршрутизаторы приняли доверенную таблицу; служебный канал снова доступен.",
+            "stateChange": {
+              "completedName": "Служебная сеть восстановлена",
+              "confirmationText": "Запустить подписанную программу восстановления СЕТЬ-76?",
+              "facilityAction": {
+                "recoveryProgramId": "network-recovery-76"
+              }
+            }
+          },
+          {
+            "id": "n2_cmd_trace",
+            "type": "command",
+            "name": "Проследить последний пакет",
+            "text": "ИСТОЧНИК: РС-04 / НАСОСНАЯ СТАНЦИЯ\nУЧЁТНАЯ ЗАПИСЬ: УДАЛЕНА\nМАРШРУТ: УБЕЖИЩЕ 76 → АТЛАС → РС-04"
+          },
+          {
+            "id": "n2_cmd_return",
+            "type": "command",
+            "name": "Вернуться к локальному пульту",
+            "terminalTransition": {
+              "targetTerminalId": "t_demo1"
+            }
+          }
+        ],
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder"
+      }
+    },
+    {
+      "id": "t_demo_hack_1",
+      "name": "Терминал агронома — теплица Убежища 76",
+      "hackLevel": 1,
+      "introText": "ROBCO INDUSTRIES UNIFIED OPERATING SYSTEM\nТЕПЛИЦА 76 // СМЕНА ЗАВЕРШЕНА",
+      "root": {
+        "children": [
+          {
+            "id": "n3_entry_crop",
+            "type": "entry",
+            "name": "ПОСЛЕДНИЙ УРОЖАЙ",
+            "description": "Картофель и мутафрукты переданы в раздающие пункты. Доктор Максвелл оставил две кассеты семян для первого лагеря на поверхности."
+          },
+          {
+            "id": "n3_entry_air",
+            "type": "entry",
+            "name": "ВОЗДУШНЫЙ КОНТУР",
+            "blocks": [
+              {
+                "id": "b3_air_record",
+                "initialText": "ФИЛЬТРЫ: ТРЕБУЕТСЯ ПРОДУВКА",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "ventilation-main",
+                      "stateId": "filtered"
+                    },
+                    "text": "ФИЛЬТРЫ: ЧИСТО // КОНТУР ГОТОВ К ОТКЛЮЧЕНИЮ"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "n3_diag_display",
+            "type": "entry",
+            "name": "НЕСТАБИЛЬНОСТЬ ЭКРАНА",
+            "description": "Ослаб контакт видеоконтроллера. Данные не повреждены; перезапуск дисплея безопасен.",
+            "visibleWhen": {
+              "deviceId": "ventilation-main",
+              "stateId": "filtered"
+            }
+          },
+          {
+            "id": "n3_cmd_read_sensors",
+            "type": "command",
+            "name": "Снять показания спор",
+            "text": "СПОРЫ: 3 ЧАСТИЦЫ/М³\nВЛАЖНОСТЬ: 61%\nУРОЖАЙ: ПЕРЕДАН"
+          }
+        ],
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder"
+      }
+    },
+    {
+      "id": "t_demo_hack_2",
+      "name": "Терминал грузового лифта — нижний машинный зал",
+      "hackLevel": 2,
+      "introText": "VAULT-TEC MATERIAL TRANSIT\nЛИФТ Г-2 // НИЖНИЙ ПОСТ",
+      "root": {
+        "children": [
+          {
+            "id": "n4_entry_manifest",
+            "type": "entry",
+            "name": "ГРУЗОВАЯ ВЕДОМОСТЬ",
+            "blocks": [
+              {
+                "id": "b4_elevator_status",
+                "initialText": "КАБИНА: НИЖНИЙ УРОВЕНЬ",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "freight-elevator",
+                      "stateId": "upper"
+                    },
+                    "text": "КАБИНА: ВЕРХНИЙ УРОВЕНЬ // ГРУЗ ВЫДАН"
+                  }
+                ]
+              },
+              {
+                "id": "b4_manifest",
+                "initialText": "ГРУЗ: 14 ЯЩИКОВ C.A.M.P.\nПОЛУЧАТЕЛЬ: РАЗДАЮЩИЙ ПУНКТ АТРИУМА"
+              }
+            ]
+          },
+          {
+            "id": "n4_cmd_call_lift",
+            "type": "command",
+            "name": "Вернуть кабину вниз",
+            "text": "Кабина грузового лифта возвращена в машинный зал.",
+            "stateChange": {
+              "completedName": "Кабина внизу",
+              "confirmationText": "Вернуть пустую кабину на нижний пост?",
+              "facilityAction": {
+                "transitions": {
+                  "transitions": [
+                    {
+                      "deviceId": "freight-elevator",
+                      "transitionId": "lower"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder"
+      }
+    },
+    {
+      "id": "t_demo_hack_3",
+      "name": "Терминал внешней охраны — пост у гермодвери",
+      "hackLevel": 3,
+      "introText": "УБЕЖИЩЕ 76 // ВНЕШНИЙ ПОСТ ОХРАНЫ\nСЕАНС ДЕЖУРНОГО ЗАКРЫТ",
+      "root": {
+        "children": [
+          {
+            "id": "n5_entry_security",
+            "type": "entry",
+            "name": "ПЕРИМЕТР",
+            "blocks": [
+              {
+                "id": "b5_turret_status",
+                "initialText": "ТУРЕЛЬ: БЕЗОПАСНЫЙ РЕЖИМ",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "security-turret",
+                      "stateId": "tracking"
+                    },
+                    "text": "ТУРЕЛЬ: СОПРОВОЖДЕНИЕ ЦЕЛЕЙ"
+                  }
+                ]
+              },
+              {
+                "id": "b5_guard_note",
+                "initialText": "Последний обход завершён в 06:21. Следы у дороги принадлежат каравану жителей."
+              }
+            ]
+          },
+          {
+            "id": "n5_diag_auth",
+            "type": "entry",
+            "name": "ТАБЛИЦА ДОПУСКА ПОВРЕЖДЕНА",
+            "description": "Локальный жетон начальника смены не совпадает с архивной подписью. Только закрытое подтверждение Смотрителя может очистить таблицу.",
+            "visibleWhen": {
+              "deviceId": "security-turret",
+              "stateId": "tracking"
+            }
+          },
+          {
+            "id": "n5_cmd_scan",
+            "type": "command",
+            "name": "Сканировать дорогу",
+            "text": "ДВИЖЕНИЕ: НЕТ\nМИНЫ: СНЯТЫ\nМАРШРУТ К ЛЕСОПИЛКЕ: ПРОХОДИМ"
+          }
+        ],
+        "id": "root",
+        "name": "ROOT",
+        "type": "folder"
+      }
+    },
+    {
+      "id": "t_demo_hack_4",
+      "name": "Терминал ретранслятора — станция АТЛАС-76",
+      "hackLevel": 4,
+      "introText": "USAF RELAY ATLAS-76\nАВТОНОМНЫЙ АРХИВ // СИГНАЛ НЕСТАБИЛЕН",
+      "root": {
+        "children": [
+          {
+            "id": "n6_entry_archive",
+            "type": "entry",
+            "name": "ПОСЛЕДНЯЯ ПЕРЕДАЧА",
+            "blocks": [
+              {
+                "id": "b6_archive_record",
+                "initialText": "06:37 // РС-04: ДАВЛЕНИЕ ПАДАЕТ. СЕРВИСНАЯ БРИГАДА НЕ ВЕРНУЛАСЬ."
+              }
+            ]
+          },
+          {
+            "id": "n6_entry_robot",
+            "type": "entry",
+            "name": "КУРЬЕРСКИЙ ПОСТ",
+            "blocks": [
+              {
+                "id": "b6_robot_status",
+                "initialText": "МОДУЛЬ КУРЬЕРА: ЗАРЯДКА",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "robot-pod-atrium",
+                      "stateId": "patrol"
+                    },
+                    "text": "МОДУЛЬ КУРЬЕРА: МАРШРУТ РС-04"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "n6_cmd_decode",
+            "type": "command",
+            "name": "Повторить повреждённую передачу",
+            "text": "...НАСОСНАЯ РС-04... КРАСНЫЙ КЛАПАН... НЕ ДАВАЙТЕ ВОДЕ ДОЙТИ ДО... [ОБРЫВ]"
           }
         ],
         "id": "root",
@@ -208,12 +613,662 @@
   ],
   "terminalGroups": [
     {
-      "id": "vault-76-route",
-      "name": "Убежище 76",
+      "id": "vault-76-overseer-console",
+      "name": "Центральный терминал Смотрителя 76",
       "terminalIds": [
         "t_demo1",
         "t_demo2"
       ]
+    },
+    {
+      "id": "vault-76-greenhouse",
+      "name": "Терминал теплицы 76",
+      "terminalIds": [
+        "t_demo_hack_1"
+      ]
+    },
+    {
+      "id": "vault-76-freight-lift",
+      "name": "Терминал грузового лифта Г-2",
+      "terminalIds": [
+        "t_demo_hack_2"
+      ]
+    },
+    {
+      "id": "vault-76-outer-security",
+      "name": "Терминал внешнего поста 76",
+      "terminalIds": [
+        "t_demo_hack_3"
+      ]
+    },
+    {
+      "id": "atlas-76-relay",
+      "name": "Терминал ретранслятора АТЛАС-76",
+      "terminalIds": [
+        "t_demo_hack_4"
+      ]
     }
-  ]
+  ],
+  "facility": {
+    "revision": 12,
+    "devices": [
+      {
+        "id": "power-grid-main",
+        "name": "Резервная сеть Убежища 76",
+        "kind": "power-grid",
+        "initialStateId": "offline",
+        "currentStateId": "online",
+        "states": [
+          {
+            "id": "offline",
+            "name": "Нет питания"
+          },
+          {
+            "id": "online",
+            "name": "В работе"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "restore",
+            "name": "Запустить резервную сеть",
+            "sourceStateId": "offline",
+            "destinationStateId": "online",
+            "conditionEffects": [
+              {
+                "conditionId": "grid-unpowered",
+                "active": false
+              }
+            ],
+            "recovery": true
+          },
+          {
+            "id": "shutdown",
+            "name": "Отключить резервную сеть",
+            "sourceStateId": "online",
+            "destinationStateId": "offline",
+            "conditionEffects": [
+              {
+                "conditionId": "grid-unpowered",
+                "active": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "vault-door-main",
+        "name": "Гермодверь Убежища 76",
+        "kind": "door",
+        "initialStateId": "sealed",
+        "currentStateId": "sealed",
+        "states": [
+          {
+            "id": "sealed",
+            "name": "Заперта"
+          },
+          {
+            "id": "open",
+            "name": "Открыта"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "open",
+            "name": "Открыть гермодверь",
+            "sourceStateId": "sealed",
+            "destinationStateId": "open",
+            "preconditions": [
+              {
+                "deviceId": "power-grid-main",
+                "stateId": "online"
+              }
+            ],
+            "conditionEffects": [
+              {
+                "conditionId": "door-offline",
+                "active": false
+              }
+            ],
+            "recovery": true
+          },
+          {
+            "id": "seal",
+            "name": "Запереть гермодверь",
+            "sourceStateId": "open",
+            "destinationStateId": "sealed"
+          }
+        ]
+      },
+      {
+        "id": "evacuation-alarm",
+        "name": "Сигнал эвакуации",
+        "kind": "alarm",
+        "initialStateId": "quiet",
+        "currentStateId": "quiet",
+        "states": [
+          {
+            "id": "quiet",
+            "name": "Тишина"
+          },
+          {
+            "id": "evacuation",
+            "name": "Эвакуация"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "sound-evacuation",
+            "name": "Подать сигнал эвакуации",
+            "sourceStateId": "quiet",
+            "destinationStateId": "evacuation"
+          },
+          {
+            "id": "silence",
+            "name": "Отключить сигнал",
+            "sourceStateId": "evacuation",
+            "destinationStateId": "quiet"
+          }
+        ]
+      },
+      {
+        "id": "network-overseer",
+        "name": "Служебная сеть Смотрителя",
+        "kind": "network-segment",
+        "initialStateId": "isolated",
+        "currentStateId": "isolated",
+        "states": [
+          {
+            "id": "isolated",
+            "name": "Изолирована"
+          },
+          {
+            "id": "connected",
+            "name": "Подключена"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "connect",
+            "name": "Восстановить служебную сеть",
+            "sourceStateId": "isolated",
+            "destinationStateId": "connected",
+            "preconditions": [
+              {
+                "deviceId": "power-grid-main",
+                "stateId": "online"
+              }
+            ],
+            "conditionEffects": [
+              {
+                "conditionId": "network-isolated",
+                "active": false
+              }
+            ],
+            "recovery": true
+          },
+          {
+            "id": "isolate",
+            "name": "Изолировать служебную сеть",
+            "sourceStateId": "connected",
+            "destinationStateId": "isolated",
+            "conditionEffects": [
+              {
+                "conditionId": "network-isolated",
+                "active": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ventilation-main",
+        "name": "Контур вентиляции теплицы",
+        "kind": "ventilation",
+        "initialStateId": "contaminated",
+        "currentStateId": "contaminated",
+        "states": [
+          {
+            "id": "contaminated",
+            "name": "Загрязнён"
+          },
+          {
+            "id": "filtered",
+            "name": "Очищен"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "purge",
+            "name": "Продуть воздушный контур",
+            "sourceStateId": "contaminated",
+            "destinationStateId": "filtered",
+            "conditionEffects": [
+              {
+                "conditionId": "air-spore-bloom",
+                "active": false
+              }
+            ],
+            "recovery": true
+          },
+          {
+            "id": "contaminate",
+            "name": "Смоделировать загрязнение",
+            "sourceStateId": "filtered",
+            "destinationStateId": "contaminated",
+            "conditionEffects": [
+              {
+                "conditionId": "air-spore-bloom",
+                "active": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reactor-main",
+        "name": "Реактор Убежища 76",
+        "kind": "reactor",
+        "initialStateId": "scrammed",
+        "currentStateId": "standby",
+        "states": [
+          {
+            "id": "scrammed",
+            "name": "Аварийная остановка"
+          },
+          {
+            "id": "standby",
+            "name": "Дежурный режим"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "standby",
+            "name": "Перевести в дежурный режим",
+            "sourceStateId": "scrammed",
+            "destinationStateId": "standby"
+          },
+          {
+            "id": "scram",
+            "name": "Остановить реактор",
+            "sourceStateId": "standby",
+            "destinationStateId": "scrammed"
+          }
+        ]
+      },
+      {
+        "id": "security-turret",
+        "name": "Турель внешнего поста",
+        "kind": "turret",
+        "initialStateId": "safe",
+        "currentStateId": "safe",
+        "states": [
+          {
+            "id": "safe",
+            "name": "Безопасный режим"
+          },
+          {
+            "id": "tracking",
+            "name": "Сопровождение"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "track",
+            "name": "Включить сопровождение",
+            "sourceStateId": "safe",
+            "destinationStateId": "tracking"
+          },
+          {
+            "id": "safe",
+            "name": "Вернуть безопасный режим",
+            "sourceStateId": "tracking",
+            "destinationStateId": "safe"
+          }
+        ]
+      },
+      {
+        "id": "robot-pod-atrium",
+        "name": "Пост мистера Помощника в атриуме",
+        "kind": "robot-pod",
+        "initialStateId": "charging",
+        "currentStateId": "patrol",
+        "states": [
+          {
+            "id": "charging",
+            "name": "Зарядка"
+          },
+          {
+            "id": "patrol",
+            "name": "Патруль"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "deploy",
+            "name": "Отправить курьера",
+            "sourceStateId": "charging",
+            "destinationStateId": "patrol"
+          },
+          {
+            "id": "dock",
+            "name": "Вернуть на зарядку",
+            "sourceStateId": "patrol",
+            "destinationStateId": "charging"
+          }
+        ]
+      },
+      {
+        "id": "freight-elevator",
+        "name": "Грузовой лифт Г-2",
+        "kind": "elevator",
+        "initialStateId": "lower",
+        "currentStateId": "upper",
+        "states": [
+          {
+            "id": "lower",
+            "name": "Нижний уровень"
+          },
+          {
+            "id": "upper",
+            "name": "Верхний уровень"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "raise",
+            "name": "Поднять кабину",
+            "sourceStateId": "lower",
+            "destinationStateId": "upper"
+          },
+          {
+            "id": "lower",
+            "name": "Опустить кабину",
+            "sourceStateId": "upper",
+            "destinationStateId": "lower"
+          }
+        ]
+      },
+      {
+        "id": "water-purifier-76",
+        "name": "Опытный очиститель воды",
+        "kind": "custom",
+        "customKind": "water-purifier",
+        "initialStateId": "service",
+        "currentStateId": "potable",
+        "states": [
+          {
+            "id": "service",
+            "name": "Технический режим"
+          },
+          {
+            "id": "potable",
+            "name": "Питьевая вода"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "certify",
+            "name": "Подтвердить питьевой резерв",
+            "sourceStateId": "service",
+            "destinationStateId": "potable"
+          },
+          {
+            "id": "service",
+            "name": "Вернуть технический режим",
+            "sourceStateId": "potable",
+            "destinationStateId": "service"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "door-offline",
+        "name": "Контроллер гермодвери не отвечает",
+        "category": "offline",
+        "device": {
+          "deviceId": "vault-door-main"
+        },
+        "initialActive": false,
+        "currentActive": false,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "execute-command"
+            }
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "t_demo1",
+              "nodeId": "n_diag_door"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "transition": {
+              "deviceId": "vault-door-main",
+              "transitionId": "open"
+            }
+          },
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "grid-unpowered",
+        "name": "Резервная сеть обесточена",
+        "category": "unpowered",
+        "device": {
+          "deviceId": "power-grid-main"
+        },
+        "initialActive": true,
+        "currentActive": false,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "execute-command"
+            }
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "t_demo1",
+              "nodeId": "n_diag_grid"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "transition": {
+              "deviceId": "power-grid-main",
+              "transitionId": "restore"
+            }
+          },
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "network-isolated",
+        "name": "Закрытый канал изолирован",
+        "category": "network-isolated",
+        "terminal": {
+          "terminalId": "t_demo2"
+        },
+        "initialActive": true,
+        "currentActive": true,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "terminal-transition"
+            }
+          },
+          {
+            "capabilityBlock": {
+              "capability": "run-recovery-program"
+            }
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "t_demo2",
+              "nodeId": "n2_diag_network"
+            }
+          },
+          {
+            "recordSubstitution": {
+              "terminalId": "t_demo2",
+              "blockId": "b2_network_status",
+              "replacementText": "СЛУЖЕБНАЯ СЕТЬ: ИЗ*ЛИР?ВАНА\nТАБЛИЦА МАРШРУТОВ НЕ ЧИТАЕТСЯ"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "recoveryProgramId": "network-recovery-76"
+          },
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "relay-storage-damaged",
+        "name": "Архив ретранслятора повреждён",
+        "category": "storage-damaged",
+        "terminal": {
+          "terminalId": "t_demo_hack_4"
+        },
+        "initialActive": false,
+        "currentActive": true,
+        "effects": [
+          {
+            "recordSubstitution": {
+              "terminalId": "t_demo_hack_4",
+              "blockId": "b6_archive_record",
+              "replacementText": "06:3? // РС-04: ДАВЛ?НИЕ ПАДАЕТ. КР?СНЫЙ КЛАПАН... [CRC ERROR]"
+            }
+          },
+          {
+            "displayInstability": {}
+          }
+        ],
+        "recovery": [
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "guard-authorization-corrupted",
+        "name": "Таблица допуска внешнего поста повреждена",
+        "category": "authorization-corrupted",
+        "terminal": {
+          "terminalId": "t_demo_hack_3"
+        },
+        "initialActive": false,
+        "currentActive": false,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "hack"
+            }
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "t_demo_hack_3",
+              "nodeId": "n5_diag_auth"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "greenhouse-display-unstable",
+        "name": "Видеоконтроллер теплицы нестабилен",
+        "category": "display-unstable",
+        "terminal": {
+          "terminalId": "t_demo_hack_1"
+        },
+        "initialActive": false,
+        "currentActive": false,
+        "effects": [
+          {
+            "displayInstability": {}
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "t_demo_hack_1",
+              "nodeId": "n3_diag_display"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "air-spore-bloom",
+        "name": "Споровое загрязнение воздушного контура",
+        "category": "custom",
+        "customCategory": "biohazard",
+        "device": {
+          "deviceId": "ventilation-main"
+        },
+        "initialActive": true,
+        "currentActive": true,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "view-entry"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "transition": {
+              "deviceId": "ventilation-main",
+              "transitionId": "purge"
+            }
+          },
+          {
+            "recoveryProgramId": "air-recovery-76"
+          },
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      }
+    ],
+    "recoveryPrograms": [
+      {
+        "id": "network-recovery-76",
+        "name": "СЕТЬ-76",
+        "transitions": [
+          {
+            "deviceId": "network-overseer",
+            "transitionId": "connect"
+          }
+        ]
+      },
+      {
+        "id": "air-recovery-76",
+        "name": "ВОЗДУХ-76",
+        "transitions": [
+          {
+            "deviceId": "ventilation-main",
+            "transitionId": "purge"
+          }
+        ]
+      }
+    ]
+  }
 }

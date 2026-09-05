@@ -29,7 +29,7 @@ async function assignPlayer(page) {
 
 async function activateCRTFixture(request, state = 'content') {
   const response = await request.post(`/__fixture/local/crt/${state}`);
-  expect(response.status()).toBe(204);
+  expect(response.status(), await response.text()).toBe(204);
 }
 
 async function approveCRTCommand(page, request, { verifyInputLock = true } = {}) {
@@ -855,6 +855,58 @@ test.describe('CRT hacking code reveal', () => {
     await page.keyboard.press('b');
     await expect(page.locator('#hackInputPreview')).toHaveText('b');
     expect(mutations).toEqual([]);
+  });
+});
+
+test.describe('authoritative terminal presentation effects', () => {
+  test('display instability preserves authored content and stops on replacement or teardown', async ({ page, request }) => {
+    await resetAndOpen({ page, request });
+    await assignPlayer(page);
+    await activateCRTFixture(request, 'display-unstable');
+
+    const screen = page.locator('#screen');
+    await expect(screen).toHaveAttribute('data-presentation-effect', 'display-unstable');
+    await page.keyboard.press('Shift');
+    await expect(page.locator('.term-row')).toHaveCount(25);
+    await page.waitForTimeout(200);
+    const authoredRows = await page.locator('.term-row').allTextContents();
+
+    await page.evaluate(() => {
+      window.__unstableContentMutations = 0;
+      window.__unstableContentObserver = new MutationObserver(records => {
+        window.__unstableContentMutations += records.reduce(
+          (count, record) => count + record.addedNodes.length + record.removedNodes.length,
+          0,
+        );
+      });
+      window.__unstableContentObserver.observe(document.querySelector('#termBody'), {
+        childList: true,
+        subtree: true,
+      });
+      window.__unstableAnimations = document.querySelector('#screen').getAnimations({ subtree: true })
+        .filter(animation => animation.animationName?.startsWith('facility-'));
+    });
+    await expect.poll(() => page.evaluate(() => window.__unstableAnimations.length)).toBe(2);
+    await page.waitForTimeout(800);
+    expect(await page.locator('.term-row').allTextContents()).toEqual(authoredRows);
+    expect(await page.evaluate(() => window.__unstableContentMutations)).toBe(0);
+
+    await activateCRTFixture(request, 'display-stable');
+    await expect(screen).not.toHaveAttribute('data-presentation-effect');
+    await expect.poll(() => page.evaluate(() =>
+      document.querySelector('#screen').getAnimations({ subtree: true })
+        .filter(animation => animation.animationName?.startsWith('facility-')).length,
+    )).toBe(0);
+    expect(await page.evaluate(() =>
+      window.__unstableAnimations.every(animation => animation.playState === 'idle'),
+    )).toBe(true);
+
+    await activateCRTFixture(request, 'display-unstable');
+    await expect(screen).toHaveAttribute('data-presentation-effect', 'display-unstable');
+    const teardown = await request.post('/__fixture/local/crt/waiting');
+    expect(teardown.status()).toBe(204);
+    await expect(screen).not.toHaveAttribute('data-presentation-effect');
+    await expect(page.locator('#assignedWaiting')).toBeVisible();
   });
 });
 

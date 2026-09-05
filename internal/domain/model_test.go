@@ -639,6 +639,10 @@ func seedProjection(t *testing.T, value reflect.Value, path string, depth int) {
 			}
 		}
 	case reflect.Slice:
+		if value.Type() == reflect.TypeFor[json.RawMessage]() {
+			value.SetBytes([]byte(`true`))
+			return
+		}
 		value.Set(reflect.MakeSlice(value.Type(), 1, 1))
 		seedProjection(t, value.Index(0), path+"[0]", depth+1)
 	case reflect.Map:

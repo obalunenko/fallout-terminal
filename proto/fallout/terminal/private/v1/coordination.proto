@@ -86,6 +86,13 @@ message PlayerConfigMetadata {
   string name = 4;
 }
 
+message PendingFacilityActionSummary {
+  uint64 expected_facility_revision = 1;
+  repeated string device_ids = 2;
+  repeated string condition_ids = 3;
+  optional string recovery_program_id = 4;
+}
+
 message PendingCommandExecution {
   string request_id = 1;
   string broadcast_id = 2;
@@ -94,6 +101,7 @@ message PendingCommandExecution {
   string command_name = 5;
   string confirmation_text = 6;
   string command_mode = 7;
+  optional PendingFacilityActionSummary facility_action = 8;
 }
 
 message PendingTerminalNavigation {
@@ -126,4 +134,5 @@ message CoordinationState {
   optional PendingCommandExecution pending_command_execution = 7;
   optional PendingTerminalNavigation pending_terminal_navigation = 8;
   optional TerminalNavigationNotice terminal_navigation_notice = 9;
+  optional uint64 facility_revision = 10;
 }
