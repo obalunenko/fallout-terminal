@@ -1,0 +1,374 @@
+{
+  "workflow": "companion",
+  "specName": "Facility Story Guide",
+  "branch": "036-facility-authoring-ux",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T16:21:18.414Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T16:21:58.806Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T16:21:59.354Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T16:21:59.554Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T16:21:59.755Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T16:21:59.957Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T16:22:00.158Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T16:24:51.545Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T16:30:04.958Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T16:38:31.472Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T16:44:07.650Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T16:44:07.860Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "start",
+      "by": "ai",
+      "at": "2026-09-05T18:58:11.249Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T19:03:46.783Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T19:05:54.215Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T19:05:54.429Z"
+    }
+  ],
+  "telemetryInstanceId": "a7053a0c-4125-45ea-9561-707c770aa06e",
+  "last_action": "All 6 tasks complete; 56/56 affected browser tests passed; macOS app rebuilt and signed.",
+  "classification": {
+    "projectedFiles": 5,
+    "projectedTasks": 4,
+    "scopeSignal": "none",
+    "verdict": "simple"
+  },
+  "unattended": true,
+  "size": "simple",
+  "intent": "Explain facility configuration through a continuous narrative and contextual steps",
+  "approach": "Add a native guide over existing authoring dialogs and group relationships by story purpose",
+  "expectations": [
+    "No persisted story groups or automatic scenario generation"
+  ],
+  "context": [
+    "Preserve uncommitted feature 036 UX and private authority"
+  ],
+  "coverage": {
+    "FR-001": {
+      "title": "Ordered collapsible narrative setup guide",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "FR-002": {
+      "title": "Continuous Russian door example and relevant actions",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "FR-003": {
+      "title": "Selected-device context and missing-prerequisite routes",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing command and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing entry and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::explains the optional recovery prerequisite and resumes after adding a transition without saving"
+      ]
+    },
+    "FR-004": {
+      "title": "Current draft configuration counts without readiness claims",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing command and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing entry and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::explains the optional recovery prerequisite and resumes after adding a transition without saving"
+      ]
+    },
+    "FR-005": {
+      "title": "Separate command actions and player information",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "FR-006": {
+      "title": "Optional faults/recovery and contextual form instructions",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "FR-007": {
+      "title": "Explicit save and detached preview with no guide writes",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing command and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing entry and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::explains the optional recovery prerequisite and resumes after adding a transition without saving"
+      ]
+    },
+    "FR-008": {
+      "title": "Keyboard and responsive access",
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing command and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::saves a staged story before creating a missing entry and resumes binding without losing edits",
+        "tests/browser/facility-authoring-ux.spec.mjs::explains the optional recovery prerequisite and resumes after adding a transition without saving"
+      ]
+    }
+  },
+  "currentTask": "T006",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added five-step narrative guide markup, contextual form explanations, optional section copy, and responsive styling inside the scrollable detail panel.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Connected context-aware guide actions to existing forms and save/preview, separated action and information lists, added binding-specific instructions and a recovery-program choice for command actions.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added passing journeys for an empty door story with one save and preview, program-to-command configuration, contextual selection/discard, keyboard collapse, missing destinations, and full-demo responsive guide captures.",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Updated narrative demo instructions, inspected full-demo desktop/narrow guidance, fixed guide focus return, passed 26 authoring and 53 affected journeys, rebuilt the macOS app, and recorded validation.",
+      "files": [
+        "sessions/demo-capability-paths.md",
+        "specs/037-facility-story-guide/validation.md",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added explicit draft save checkpoints before terminal configuration; verified command and entry creation, rejected saves, return binding, and preservation in 28 browser tests and both frontend builds.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/facility-authoring-ux.spec.mjs",
+        "tests/browser/fixtures/desktop-bindings.js",
+        "sessions/demo-capability-paths.md",
+        "specs/037-facility-story-guide/validation.md"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Explained optional recovery transition prerequisites with a selected-device editor route; verified keyboard return, program creation without saves, and desktop/narrow captures in 3 focused tests.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/facility-authoring-ux.spec.mjs",
+        "specs/037-facility-story-guide/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Authoring browser journeys including guide focus return",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs --reporter=line",
+      "result": "PASS 26/26"
+    },
+    {
+      "what": "Affected facility and demo browser journeys",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs facility-diagnostics.spec.mjs facility-lifecycle.spec.mjs facility-player-state.spec.mjs demo-session.spec.mjs --reporter=line",
+      "result": "PASS 53/53; subsequent focus-only refinement passed the 26 authoring tests"
+    },
+    {
+      "what": "Production frontends and rebuilt macOS app",
+      "command": "task package",
+      "result": "PASS",
+      "warnings": [
+        "Node experimental localStorage warning in generated contract checks; checks succeeded"
+      ]
+    },
+    {
+      "what": "Visual guide review",
+      "command": "Inspect actual-demo captures at 1440x900 and 800x700",
+      "result": "PASS; adjacent desktop guide, stacked narrow layout, wrapping controls and sticky step navigation"
+    },
+    {
+      "what": "Syntax and whitespace",
+      "command": "node --check frontend/overseer/src/overseer.js; node --check tests/browser/facility-authoring-ux.spec.mjs; git diff --check",
+      "result": "PASS"
+    },
+    {
+      "what": "T005 authoring regression",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs --reporter=line",
+      "result": "28/28 passed",
+      "warnings": [
+        "NO_COLOR ignored when FORCE_COLOR is set; display-only warning"
+      ]
+    },
+    {
+      "what": "Convergence prerequisite journeys and responsive captures",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs --grep \"optional recovery prerequisite|saves a staged story\" --reporter=line",
+      "result": "3/3 passed; manually inspected desktop 1440x900 and narrow 800x700 captures; no horizontal overflow",
+      "warnings": [
+        "NO_COLOR ignored when FORCE_COLOR is set; display-only warning"
+      ]
+    },
+    {
+      "what": "Production frontend build after T005",
+      "command": "task frontend:build",
+      "result": "Both frontends passed under Node.js v26.8.1",
+      "warnings": []
+    },
+    {
+      "what": "Final affected facility and demo regression",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs facility-diagnostics.spec.mjs facility-lifecycle.spec.mjs facility-player-state.spec.mjs demo-session.spec.mjs --reporter=line",
+      "result": "56/56 passed",
+      "warnings": [
+        "NO_COLOR ignored when FORCE_COLOR is set; display-only warning"
+      ]
+    },
+    {
+      "what": "Final native package after both convergence fixes",
+      "command": "task package",
+      "result": "PASS: generated contracts and bindings, both frontends, macOS arm64 compilation and signing; rebuilt build/bin/Fallout Terminal.app",
+      "warnings": [
+        "Generated contract checks emitted Node experimental localStorage warning; checks passed"
+      ]
+    },
+    {
+      "what": "JavaScript syntax and whitespace",
+      "command": "node --check frontend/overseer/src/overseer.js; node --check tests/browser/facility-authoring-ux.spec.mjs; node --check tests/browser/fixtures/desktop-bindings.js; git diff --check",
+      "result": "PASS",
+      "warnings": []
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Use a collapsible narrative guide derived from the existing facility draft.",
+      "why": "Provides order and context without a second draft or persisted readiness flags.",
+      "rejected": "A separate wizard data store."
+    },
+    {
+      "decision": "Expose the existing recoveryProgramId choice in command-action authoring.",
+      "why": "A guide that creates a program also needs a usable path to connect it to a player command.",
+      "rejected": "Instructions pointing at a configuration option the UI did not provide."
+    },
+    {
+      "decision": "Use an explicitly labeled save checkpoint before guide navigation to terminal editing when the facility draft is dirty",
+      "why": "Terminal editing autosaves and otherwise invalidates the retained facility draft; successful save preserves the selected device and refreshes the catalog on return",
+      "rejected": "Implicit autosave, silent discard, automatic merging, or a second draft store"
+    },
+    {
+      "decision": "Explain missing recovery transitions with a direct selected-device editor action",
+      "why": "Optional recovery should remain discoverable without being reported as a readiness error",
+      "rejected": "Silently hiding program creation"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "An initial recovery test assumed an unused command in a fully configured fixture; corrected it to edit an existing command. No residual failure.",
+      "step": "implement"
+    },
+    {
+      "note": "Browser and build verification completed; the rebuilt native app was not launched for an interactive smoke test.",
+      "step": "implement"
+    }
+  ],
+  "step_summaries": {
+    "implement": {
+      "summary": "Completed T005–T006: explicit draft-safe terminal setup checkpoint and actionable optional recovery prerequisites; 56 browser tests and macOS package pass.",
+      "key_finding": "26 authoring and 53 affected browser tests pass; macOS app rebuilt.",
+      "risks": "Native interactive smoke not run; browser visual and behavior verification completed."
+    }
+  }
+}

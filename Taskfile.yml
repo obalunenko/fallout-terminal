@@ -327,7 +327,7 @@ tasks:
       - task: deps:frontend
       - task: deps:browser
       - '{{.NPM}} exec --prefix tests/browser -- playwright install chromium'
-      - '{{.NPM}} test --prefix tests/browser'
+      - '{{.NPM}} test --prefix tests/browser -- {{.CLI_ARGS}}'
 
   check:
     desc: Run the main local quality gates.

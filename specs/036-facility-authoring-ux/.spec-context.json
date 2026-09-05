@@ -1,0 +1,569 @@
+{
+  "workflow": "companion",
+  "specName": "facility authoring ux",
+  "branch": "036-facility-authoring-ux",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T10:15:08.119Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T10:18:05.957Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T10:18:06.121Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:19:30.669Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:20:35.497Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T10:20:35.679Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T10:20:35.750Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:21:45.690Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T10:21:45.828Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T10:21:45.900Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:27:36.404Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:28:03.217Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:29:20.658Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:31:47.081Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "agent",
+      "at": "2026-09-05T10:35:25.792Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T10:37:08.004Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T11:28:13.112Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T11:33:25.207Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T11:41:02.790Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T11:41:56.404Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T11:49:17.047Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T11:56:42.707Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T11:56:42.781Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-05T12:24:08.078Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T12:24:58.399Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T12:31:07.838Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-05T12:35:55.016Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-05T12:35:55.240Z"
+    }
+  ],
+  "unattended": true,
+  "telemetryInstanceId": "2173c9bc-1e32-41c9-84d3-f3868c6de7ea",
+  "coverage": {
+    "FR-001": {
+      "title": "Device edits preserve references, current state, and unedited attributes.",
+      "tasks": [
+        "T001",
+        "T002"
+      ]
+    },
+    "FR-002": {
+      "title": "Incomplete references produce focused errors.",
+      "tasks": [
+        "T001",
+        "T002"
+      ]
+    },
+    "FR-003": {
+      "title": "All forms stage into one explicit draft with session save and discard.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T004"
+      ]
+    },
+    "FR-004": {
+      "title": "Failed saves and session updates preserve pending edits.",
+      "tasks": [
+        "T001",
+        "T003"
+      ],
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::retains a staged draft across a newer durable session and discards into the canonical update"
+      ]
+    },
+    "FR-005": {
+      "title": "Device selection shows adjacent responsive details.",
+      "tasks": [
+        "T004",
+        "T005"
+      ],
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::keeps the actual ten-device demo usable at desktop and narrow widths"
+      ]
+    },
+    "FR-006": {
+      "title": "Search and readable states, active faults, and targets.",
+      "tasks": [
+        "T005"
+      ]
+    },
+    "FR-007": {
+      "title": "Reset/recovery confirmations name scope and effect.",
+      "tasks": [
+        "T003",
+        "T005"
+      ]
+    },
+    "FR-008": {
+      "title": "Readable dependencies navigate all supported targets.",
+      "tasks": [
+        "T007"
+      ],
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs::opens condition and recovery-program dependencies for editing and reports a missing target"
+      ]
+    },
+    "FR-009": {
+      "title": "Bindings and recovery programs support edit and removal.",
+      "tasks": [
+        "T006"
+      ]
+    },
+    "FR-010": {
+      "title": "Command properties expose transitions and prerequisites.",
+      "tasks": [
+        "T007"
+      ]
+    },
+    "FR-011": {
+      "title": "Readable transition summaries, expandable rules, explicit fault effects, sticky actions.",
+      "tasks": [
+        "T004",
+        "T008"
+      ]
+    },
+    "FR-012": {
+      "title": "Detached preview identifies saved basis, changes, hidden and unavailable content.",
+      "tasks": [
+        "T008"
+      ]
+    },
+    "FR-013": {
+      "title": "Identifiers are secondary details.",
+      "tasks": [
+        "T005",
+        "T007"
+      ]
+    },
+    "FR-014": {
+      "title": "Browser regression coverage for all affected workflows.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T012"
+      ],
+      "tests": [
+        "tests/browser/facility-authoring-ux.spec.mjs",
+        "tests/browser/facility-authoring.spec.mjs",
+        "tests/browser/facility-diagnostics.spec.mjs",
+        "tests/browser/facility-lifecycle.spec.mjs",
+        "tests/browser/facility-player-state.spec.mjs",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    }
+  },
+  "classification": {
+    "projectedFiles": 8,
+    "projectedTasks": 13,
+    "scopeSignal": "larger",
+    "verdict": "normal"
+  },
+  "size": "normal",
+  "intent": "Make facility authoring safe, readable, and easy to operate.",
+  "expectations": [
+    "No new player behavior, persistence shape, or public capability"
+  ],
+  "context": [
+    "area: frontend/overseer/src and facility browser journeys",
+    "constraint: preserve feature 035 private authority and portable session model"
+  ],
+  "approach": "Preserve reference data and one explicit draft; present adjacent device details and contextual editable relationships; compare server-resolved previews.",
+  "decisions": [
+    {
+      "decision": "Retain complete dirty draft and its base revision on session updates",
+      "why": "Bindings live outside the facility aggregate and must not be lost",
+      "rejected": "Silent merge of only facility definitions"
+    },
+    {
+      "decision": "Edit conditions by cloning the original and overlaying only form-represented scope, category, capability, and private recovery fields.",
+      "why": "Dependency navigation must lead to a useful editor without erasing advanced effects, recovery references, runtime flags, or future-compatible fields.",
+      "rejected": "Rebuild the condition only from the simplified form."
+    },
+    {
+      "decision": "Load sessions/demo.json into the existing browser authoring fixture through its revision-checked save endpoint.",
+      "why": "This verifies the exact shipped 10-device dataset without adding a second fixture scenario or production-only test path.",
+      "rejected": "Treat the smaller synthetic fixture as full-demo visual evidence."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Frontend-only UX improvements with existing private contracts and browser regression gates"
+    },
+    "tasks": {
+      "summary": "12 tasks in 10 ordered waves covering all four user stories"
+    },
+    "specify": {
+      "summary": "Specified four prioritized facility-authoring UX stories and fourteen testable requirements from the feature-035 screenshot and source review.",
+      "key_finding": "The baseline exposed seven connected UX gaps in draft safety, information hierarchy, relationship maintenance, transition clarity, and consequence preview.",
+      "risks": "The follow-up must retain feature 035 private-authority and portable-session behavior while changing the authoring surface."
+    },
+    "implement": {
+      "summary": "Completed convergence with stale-draft conflict coverage, editable condition/program dependency destinations, missing-target feedback, and responsive visual proof using the actual ten-device demo.",
+      "key_finding": "All FR-001 through FR-014 and SC-001 through SC-006 now pass with 22 focused and 49 affected browser journeys.",
+      "risks": "No known residual product risk; one Playwright install preflight stalled only under a PTY and all non-PTY Taskfile validations passed."
+    }
+  },
+  "currentTask": "T015",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added multi-transition reference/recovery preservation, focused incomplete-row validation, explicit staging/save/discard and failed-save retention regressions; targeted browser run reproduces cleared prerequisite device on graph open.",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Restricted state refresh, retained original entity fields and rejected incomplete references",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Unified draft staging and explicit publication, retained stale drafts, and guarded live operations",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added searchable device details, readable live and initial states, scoped relationships and explicit operation consequences",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Built responsive searchable device sidebar and adjacent details, persistent session draft actions, readable transition/reference styling, and sticky facility dialog footers; static HTML nesting/unique IDs and diff checks passed.",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Added binding and recovery-program editing/removal with complete transition lists and retained metadata",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Made dependency rows readable and navigable to transition, program, condition, node, or block editors; exposed facility actions with readable transition context directly in command editing.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added readable transition summaries, expandable counted rules, explicit activate/remove fault effects, and automatic comparative saved-data previews with changed, hidden, unavailable, and stale-response handling.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Expanded browser coverage for preservation, draft publication, responsive and keyboard layout, transition clarity, relationship editing, dependency navigation, command context, comparative preview, and dirty-preview guards; updated legacy authoring expectations.",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs",
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Updated the demo acceptance guide for searchable adjacent details, shared draft apply/save/discard, transition disclosures, relationship maintenance, dependency navigation, command-context actions, automatic comparative previews, and live-operation guards.",
+      "files": [
+        "sessions/demo-capability-paths.md"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Completed simplification and integration review; passed 19 focused and 46 affected browser journeys, production frontend builds, repository quality gates, Go tests, native build, and macOS packaging; recorded evidence.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "specs/036-facility-authoring-ux/validation.md"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Visually compared the implemented facility workspace and dialogs with all eight feature-035 screenshots at 1440x900 and 800x700; confirmed adjacent/stacked responsive layout, sticky graph actions, comparative preview clarity and final FR-001 through FR-014 coverage; recorded evidence and constitution recheck.",
+      "files": [
+        "specs/036-facility-authoring-ux/validation.md"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added and passed a browser regression proving dirty facility drafts survive newer durable session events, stale saves are rejected without a write, and discard adopts the canonical update.",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Opened condition dependencies in a safe prefilled editor, preserved unrepresented condition effects/recovery/runtime fields, and added passing coverage for condition, program, and missing dependency destinations.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Loaded the actual ten-device demo through the authoring fixture, passed and visually inspected adjacent desktop and overflow-free narrow layouts, and corrected the recorded evidence.",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs",
+        "specs/036-facility-authoring-ux/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Focused facility authoring browser journeys",
+      "result": "PASS — 19/19",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs --reporter=line"
+    },
+    {
+      "what": "Affected facility and demo browser regression set",
+      "result": "PASS — 46/46",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs facility-diagnostics.spec.mjs facility-lifecycle.spec.mjs facility-player-state.spec.mjs demo-session.spec.mjs --reporter=line"
+    },
+    {
+      "what": "Repository quality, native build, and package gates",
+      "result": "PASS",
+      "command": "task check; task test; task build; task package"
+    },
+    {
+      "what": "Desktop, narrow, graph, and preview visual inspection",
+      "result": "PASS",
+      "command": "exact-width browser capture at 1440x900 and 800x700"
+    },
+    {
+      "what": "JavaScript syntax and diff hygiene",
+      "command": "node --check frontend/overseer/src/overseer.js; node --check tests/browser/facility-authoring-ux.spec.mjs; git diff --check",
+      "result": "PASS",
+      "warnings": []
+    },
+    {
+      "what": "Production frontend bundles",
+      "command": "task frontend:build",
+      "result": "PASS — Overseer and client bundles",
+      "warnings": []
+    },
+    {
+      "what": "Focused facility authoring browser journeys after convergence",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs --reporter=line",
+      "result": "PASS — 22/22",
+      "warnings": []
+    },
+    {
+      "what": "Affected facility and demo browser regression set after convergence",
+      "command": "task browser:test -- facility-authoring-ux.spec.mjs facility-authoring.spec.mjs facility-diagnostics.spec.mjs facility-lifecycle.spec.mjs facility-player-state.spec.mjs demo-session.spec.mjs --reporter=line",
+      "result": "PASS — 49/49",
+      "warnings": []
+    },
+    {
+      "what": "Actual demo responsive visual inspection",
+      "command": "Playwright capture using sessions/demo.json at 1440x900 and 800x700",
+      "result": "PASS — adjacent desktop layout and overflow-free narrow stack with all 10 devices",
+      "warnings": []
+    },
+    {
+      "what": "Repository quality gate after convergence",
+      "command": "task check",
+      "result": "PASS — format, vet, lint, race, protobuf, bindings, and SpecKit update checks",
+      "warnings": []
+    }
+  ],
+  "concerns": [
+    {
+      "note": "The Playwright install preflight stalled once when run under a PTY; the same Taskfile workflow completed normally without a PTY on the focused and full validation runs.",
+      "step": "implement"
+    }
+  ],
+  "last_action": "convergence complete — 22 focused and 49 affected browser tests pass"
+}
