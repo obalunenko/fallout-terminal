@@ -191,6 +191,176 @@ func commandLifecycleLiveState(phase domain.CommandExecutionPhase, completed boo
 	return live
 }
 
+func TestFacilityEffectiveStreamsConvergeForControllerAndObserverAtMonotonicRevisions(t *testing.T) {
+	t.Parallel()
+
+	controllerSnapshot, err := SnapshotToProto(facilityEffectiveSnapshot(domain.PlayerRoleActive, 80, false))
+	require.NoError(t, err)
+	observerSnapshot, err := SnapshotToProto(facilityEffectiveSnapshot(domain.PlayerRoleObserver, 80, false))
+	require.NoError(t, err)
+	controller := NewSubscription(t.Context(), "facility-controller", "session-controller", &playerv1.SubscriptionMessage{
+		Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: controllerSnapshot},
+	}, 2)
+	t.Cleanup(controller.Close)
+	observer := NewSubscription(t.Context(), "facility-observer", "session-observer", &playerv1.SubscriptionMessage{
+		Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: observerSnapshot},
+	}, 2)
+	t.Cleanup(observer.Close)
+	legacyDomain := facilityEffectiveSnapshot(domain.PlayerRoleActive, 80, false)
+	legacyDomain.Terminal.Live.Tree.Children[0].Available = nil
+	legacySnapshot, err := SnapshotToProto(legacyDomain)
+	require.NoError(t, err)
+	legacy := NewSubscription(t.Context(), "facility-legacy", "session-legacy", &playerv1.SubscriptionMessage{
+		Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: legacySnapshot},
+	}, 1)
+	t.Cleanup(legacy.Close)
+
+	assertFacilityEffectiveTerminal(t, controller.Snapshot().GetSnapshot().GetTerminalPresentation().GetLiveTerminal(), false)
+	assertFacilityEffectiveTerminal(t, observer.Snapshot().GetSnapshot().GetTerminalPresentation().GetLiveTerminal(), false)
+	legacyCommand := legacy.Snapshot().GetSnapshot().GetTerminalPresentation().GetLiveTerminal().GetTree().GetFolder().GetChildren()[0].GetCommand()
+	require.Nil(t, legacyCommand.Available, "absence must keep legacy commands available")
+
+	openPresentation := facilityEffectiveSnapshot(domain.PlayerRoleActive, 81, true).Terminal
+	openUpdate, err := CompoundUpdateToProto(&domain.CompoundUpdate{Revision: 81, Terminal: &openPresentation})
+	require.NoError(t, err)
+	message := &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_Update{Update: openUpdate}}
+	require.True(t, controller.Offer(message))
+	require.True(t, observer.Offer(message))
+
+	controllerUpdate := (<-controller.Updates()).GetUpdate()
+	observerUpdate := (<-observer.Updates()).GetUpdate()
+	require.Equal(t, uint64(81), controllerUpdate.GetRevision())
+	require.Equal(t, controllerUpdate.GetRevision(), observerUpdate.GetRevision())
+	controllerTerminal := controllerUpdate.GetTerminalPresentation().GetLiveTerminal()
+	observerTerminal := observerUpdate.GetTerminalPresentation().GetLiveTerminal()
+	assertFacilityEffectiveTerminal(t, controllerTerminal, true)
+	assertFacilityEffectiveTerminal(t, observerTerminal, true)
+	require.True(t, proto.Equal(controllerTerminal, observerTerminal), "controller and observer must receive the same effective facility presentation")
+
+	require.True(t, controller.Offer(message), "same revision must remain an idempotent no-op")
+	select {
+	case unexpected := <-controller.Updates():
+		assert.Failf(t, "duplicate facility revision delivered", "update = %#v", unexpected)
+	default:
+	}
+	require.False(t, controller.Offer(facilityStreamUpdate(t, 80, false)), "a facility projection must never regress its stream revision")
+	require.Eventually(t, func() bool {
+		return errors.Is(context.Cause(controller.context), errSubscriptionRevisionRegressed)
+	}, time.Second, time.Millisecond)
+}
+
+func TestFacilityReconnectStartsFromOneCompleteCurrentSnapshot(t *testing.T) {
+	t.Parallel()
+
+	initial, err := SnapshotToProto(facilityEffectiveSnapshot(domain.PlayerRoleActive, 120, false))
+	require.NoError(t, err)
+	before := NewSubscription(t.Context(), "facility-before", "session-controller", &playerv1.SubscriptionMessage{
+		Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: initial},
+	}, 1)
+	t.Cleanup(before.Close)
+	require.True(t, before.Offer(facilityStreamUpdate(t, 121, true)))
+	changed := (<-before.Updates()).GetUpdate()
+	assertFacilityEffectiveTerminal(t, changed.GetTerminalPresentation().GetLiveTerminal(), true)
+	before.Close()
+
+	current, err := SnapshotToProto(facilityEffectiveSnapshot(domain.PlayerRoleActive, 121, true))
+	require.NoError(t, err)
+	reconnected := NewSubscription(t.Context(), "facility-reconnected", "session-controller", &playerv1.SubscriptionMessage{
+		Payload: &playerv1.SubscriptionMessage_Snapshot{Snapshot: current},
+	}, 1)
+	t.Cleanup(reconnected.Close)
+
+	restored := reconnected.Snapshot().GetSnapshot()
+	require.Equal(t, uint64(121), restored.GetRevision())
+	require.Equal(t, playerv1.PlayerRole_PLAYER_ROLE_ACTIVE, restored.GetPlayerState().GetRole())
+	assertFacilityEffectiveTerminal(t, restored.GetTerminalPresentation().GetLiveTerminal(), true)
+	select {
+	case unexpected := <-reconnected.Updates():
+		assert.Failf(t, "reconnect replayed a partial facility update", "update = %#v", unexpected)
+	default:
+	}
+}
+
+func facilityEffectiveSnapshot(role domain.PlayerRole, revision uint64, open bool) *domain.PersonalizedSnapshot {
+	available := open
+	phase := domain.PlayerPhaseObserving
+	if role == domain.PlayerRoleActive {
+		phase = domain.PlayerPhaseControlling
+	}
+	commandName := "OPEN SECURITY DOOR"
+	commandText := "Door controls unavailable"
+	entryText := "SECURITY DOOR: SEALED"
+	effects := []domain.TerminalPresentationEffect{
+		domain.TerminalPresentationEffectDisplayUnstable,
+		domain.TerminalPresentationEffect("unbounded-content-destruction"),
+	}
+	if open {
+		commandName = "SEAL SECURITY DOOR"
+		commandText = "Door controls ready"
+		entryText = "SECURITY DOOR: OPEN"
+		effects = nil
+	}
+	return &domain.PersonalizedSnapshot{
+		RecognitionHandle: domain.RecognitionHandle("facility-recognition-" + string(role)),
+		Revision:          revision,
+		PlayerState: &domain.PlayerState{
+			SessionID: "session-" + domain.LogicalSessionID(role), FallbackName: "PLAYER",
+			Role: role, Phase: phase, BroadcastID: "broadcast-facility", ActiveTerminalID: "terminal-security",
+		},
+		Terminal: domain.TerminalPresentation{Live: &domain.PublicLiveState{
+			TerminalID: "terminal-security", TerminalName: "Security",
+			Tree: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{
+				{ID: "door-command", Type: domain.NodeCommand, Name: commandName, Text: commandText, Available: new(available)},
+				{ID: "door-status", Type: domain.NodeEntry, Name: "DOOR STATUS", Description: entryText},
+			}},
+			Nav: domain.NavState{Path: []string{"root"}, Mode: "list"},
+			Presentation: domain.ControllerTerminalPresentation{
+				Kind: domain.ControllerTerminalPresentationMenu, ContextKey: "menu:root", TargetID: "door-command",
+			},
+			Effects: effects,
+		}},
+	}
+}
+
+func facilityStreamUpdate(t *testing.T, revision uint64, open bool) *playerv1.SubscriptionMessage {
+	t.Helper()
+	presentation := facilityEffectiveSnapshot(domain.PlayerRoleActive, revision, open).Terminal
+	update, err := CompoundUpdateToProto(&domain.CompoundUpdate{Revision: revision, Terminal: &presentation})
+	require.NoError(t, err)
+	return &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_Update{Update: update}}
+}
+
+func assertFacilityEffectiveTerminal(t *testing.T, terminal *playerv1.LiveTerminal, open bool) {
+	t.Helper()
+	require.NotNil(t, terminal)
+	require.Equal(t, "terminal-security", terminal.GetTerminalId())
+	require.NotNil(t, terminal.GetNavigation())
+	require.Equal(t, []string{"root"}, terminal.GetNavigation().GetPath())
+	require.NotNil(t, terminal.GetControllerPresentation())
+	require.Equal(t, "door-command", terminal.GetControllerPresentation().GetMenu().GetTargetId())
+	children := terminal.GetTree().GetFolder().GetChildren()
+	require.Len(t, children, 2, "every facility publication must carry the complete effective tree")
+	command := children[0]
+	require.Equal(t, "door-command", command.GetId())
+	require.NotNil(t, command.GetCommand().Available, "effective availability must retain optional presence")
+	require.Equal(t, open, command.GetCommand().GetAvailable())
+	entry := children[1]
+	require.Equal(t, "door-status", entry.GetId())
+	if open {
+		require.Equal(t, "SEAL SECURITY DOOR", command.GetName())
+		require.Equal(t, "Door controls ready", command.GetCommand().GetText())
+		require.Equal(t, "SECURITY DOOR: OPEN", entry.GetEntry().GetDescription())
+		require.Empty(t, terminal.GetEffects())
+		return
+	}
+	require.Equal(t, "OPEN SECURITY DOOR", command.GetName())
+	require.Equal(t, "Door controls unavailable", command.GetCommand().GetText())
+	require.Equal(t, "SECURITY DOOR: SEALED", entry.GetEntry().GetDescription())
+	require.Equal(t, []playerv1.TerminalPresentationEffect{
+		playerv1.TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE,
+	}, terminal.GetEffects(), "only bounded player-safe effects may cross the stream")
+}
+
 func (transport publicIngressTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	forwarded := request.Clone(request.Context())
 	targetURL := *request.URL

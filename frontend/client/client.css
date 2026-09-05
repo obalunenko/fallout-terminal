@@ -66,6 +66,52 @@ html, body {
   99% { opacity: .96; }
 }
 
+.screen[data-presentation-effect~="display-unstable"] {
+  animation: facility-display-instability 720ms steps(2, end) infinite;
+}
+
+.screen[data-presentation-effect~="display-unstable"] .scanlines {
+  animation: facility-scanline-instability 480ms steps(2, end) infinite;
+}
+
+@keyframes facility-display-instability {
+  0%, 100% {
+    filter: none;
+    transform: translateX(0);
+    text-shadow: 0 0 4px rgba(87, 255, 110, .75), 0 0 12px rgba(87, 255, 110, .35);
+  }
+  33% {
+    filter: contrast(1.08) brightness(.96);
+    transform: translateX(-1px);
+    text-shadow: 1px 0 4px rgba(87, 255, 110, .72), -1px 0 9px rgba(255, 224, 138, .2);
+  }
+  66% {
+    filter: contrast(.96) brightness(1.04);
+    transform: translateX(1px);
+    text-shadow: -1px 0 4px rgba(87, 255, 110, .72), 1px 0 9px rgba(127, 192, 255, .18);
+  }
+}
+
+@keyframes facility-scanline-instability {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(2px); opacity: .88; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen[data-presentation-effect~="display-unstable"],
+  .screen[data-presentation-effect~="display-unstable"] .scanlines {
+    animation: none;
+  }
+  .screen[data-presentation-effect~="display-unstable"] {
+    filter: contrast(1.04);
+    box-shadow:
+      0 0 34px rgba(60, 255, 90, .22),
+      inset 0 0 60px rgba(0, 0, 0, .85),
+      inset 1px 0 rgba(255, 224, 138, .12),
+      inset -1px 0 rgba(127, 192, 255, .12);
+  }
+}
+
 .scanlines {
   position: absolute;
   inset: 0;
@@ -324,6 +370,31 @@ html, body {
   background: #57ff6e;
   color: #021002;
   text-shadow: none;
+}
+.term-row[aria-disabled="true"] {
+  color: #a9c9a2;
+  cursor: not-allowed;
+  opacity: .78;
+  box-shadow: inset 3px 0 0 currentColor;
+}
+.term-row[aria-disabled="true"]::after {
+  content: ' [UNAVAILABLE]';
+  font-size: var(--font-chrome);
+  letter-spacing: .5px;
+  white-space: nowrap;
+}
+.term-row[aria-disabled="true"].sel {
+  background: rgba(87, 255, 110, .12);
+  color: #d8ffb8;
+  outline: 1px dashed currentColor;
+  outline-offset: -1px;
+  text-shadow: inherit;
+}
+
+@media (forced-colors: active) {
+  .term-row[aria-disabled="true"] {
+    color: GrayText;
+  }
 }
 
 /* ── Entry (record) full view ─────────────────────────── */

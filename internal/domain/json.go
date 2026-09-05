@@ -8,9 +8,32 @@ import (
 )
 
 var (
-	sessionFields  = fieldSet("version", "name", "playerConfig", "terminals", "terminalGroups")
+	sessionFields  = fieldSet("version", "name", "playerConfig", "terminals", "terminalGroups", "facility")
 	terminalFields = fieldSet("id", "name", "hackLevel", "introText", "root", "commandStates")
-	nodeFields     = fieldSet("id", "type", "name", "children", "text", "description", "blocks", "stateChange", "terminalTransition")
+	nodeFields     = fieldSet(
+		"id", "type", "name", "children", "text", "description", "blocks", "stateChange", "terminalTransition",
+		"facilityNameVariants", "visibleWhen", "availableWhen",
+	)
+	entryContentBlockFields       = fieldSet("id", "initialText", "facilityTextVariants")
+	facilityFields                = fieldSet("revision", "devices", "conditions", "recoveryPrograms")
+	facilityDeviceFields          = fieldSet("id", "name", "kind", "customKind", "initialStateId", "currentStateId", "states", "transitions")
+	facilityDeviceStateFields     = fieldSet("id", "name")
+	facilityTransitionFields      = fieldSet("id", "name", "sourceStateId", "destinationStateId", "preconditions", "conditionEffects", "recovery")
+	facilityEqualityFields        = fieldSet("deviceId", "stateId")
+	facilityRequestFields         = fieldSet("deviceId", "transitionId")
+	facilityConditionEffectFields = fieldSet("conditionId", "active")
+	diagnosticDeviceScopeFields   = fieldSet("deviceId")
+	diagnosticTerminalScopeFields = fieldSet("terminalId")
+	capabilityBlockEffectFields   = fieldSet("capability")
+	diagnosticPathEffectFields    = fieldSet("terminalId", "nodeId")
+	recordSubstitutionFields      = fieldSet("terminalId", "blockId", "replacementText")
+	diagnosticEffectFields        = fieldSet("capabilityBlock", "diagnosticPath", "recordSubstitution", "displayInstability")
+	diagnosticRecoveryFields      = fieldSet("transition", "recoveryProgramId", "privateOverseerAction")
+	diagnosticConditionFields     = fieldSet("id", "name", "category", "customCategory", "device", "terminal", "initialActive", "currentActive", "effects", "recovery")
+	recoveryProgramFields         = fieldSet("id", "name", "transitions")
+	facilityActionFields          = fieldSet("transitions", "recoveryProgramId")
+	facilityTransitionListFields  = fieldSet("transitions")
+	facilityTextVariantFields     = fieldSet("when", "text")
 )
 
 // DecodePlayerConfig strictly decodes one standalone version-1 authored roster.
@@ -215,6 +238,415 @@ func (n ContentNode) MarshalJSON() ([]byte, error) {
 	}
 	raw["children"] = children
 	return json.Marshal(raw)
+}
+
+// UnmarshalJSON retains unknown entry-content block fields.
+func (b *EntryContentBlock) UnmarshalJSON(data []byte) error {
+	type alias EntryContentBlock
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	b.Extra = extrasFrom(data, entryContentBlockFields)
+	decoded.Extra = b.Extra
+	*b = EntryContentBlock(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown entry-content block fields.
+func (b EntryContentBlock) MarshalJSON() ([]byte, error) {
+	type alias EntryContentBlock
+	return marshalWithExtras(alias(b), b.Extra, entryContentBlockFields)
+}
+
+// UnmarshalJSON retains unknown facility fields.
+func (f *Facility) UnmarshalJSON(data []byte) error {
+	type alias Facility
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	f.Extra = extrasFrom(data, facilityFields)
+	decoded.Extra = f.Extra
+	*f = Facility(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility fields.
+func (f Facility) MarshalJSON() ([]byte, error) {
+	type alias Facility
+	return marshalWithExtras(alias(f), f.Extra, facilityFields)
+}
+
+// UnmarshalJSON retains unknown facility-device fields.
+func (d *FacilityDevice) UnmarshalJSON(data []byte) error {
+	type alias FacilityDevice
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	d.Extra = extrasFrom(data, facilityDeviceFields)
+	decoded.Extra = d.Extra
+	*d = FacilityDevice(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility-device fields.
+func (d FacilityDevice) MarshalJSON() ([]byte, error) {
+	type alias FacilityDevice
+	return marshalWithExtras(alias(d), d.Extra, facilityDeviceFields)
+}
+
+// UnmarshalJSON retains unknown facility-device state fields.
+func (s *FacilityDeviceState) UnmarshalJSON(data []byte) error {
+	type alias FacilityDeviceState
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	s.Extra = extrasFrom(data, facilityDeviceStateFields)
+	decoded.Extra = s.Extra
+	*s = FacilityDeviceState(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility-device state fields.
+func (s FacilityDeviceState) MarshalJSON() ([]byte, error) {
+	type alias FacilityDeviceState
+	return marshalWithExtras(alias(s), s.Extra, facilityDeviceStateFields)
+}
+
+// UnmarshalJSON retains unknown facility-device transition fields.
+func (t *FacilityDeviceTransition) UnmarshalJSON(data []byte) error {
+	type alias FacilityDeviceTransition
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	t.Extra = extrasFrom(data, facilityTransitionFields)
+	decoded.Extra = t.Extra
+	*t = FacilityDeviceTransition(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility-device transition fields.
+func (t FacilityDeviceTransition) MarshalJSON() ([]byte, error) {
+	type alias FacilityDeviceTransition
+	return marshalWithExtras(alias(t), t.Extra, facilityTransitionFields)
+}
+
+// UnmarshalJSON retains unknown facility state-equality fields.
+func (e *FacilityStateEquality) UnmarshalJSON(data []byte) error {
+	type alias FacilityStateEquality
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, facilityEqualityFields)
+	decoded.Extra = e.Extra
+	*e = FacilityStateEquality(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility state-equality fields.
+func (e FacilityStateEquality) MarshalJSON() ([]byte, error) {
+	type alias FacilityStateEquality
+	return marshalWithExtras(alias(e), e.Extra, facilityEqualityFields)
+}
+
+// UnmarshalJSON retains unknown facility transition-request fields.
+func (r *FacilityTransitionRequest) UnmarshalJSON(data []byte) error {
+	type alias FacilityTransitionRequest
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	r.Extra = extrasFrom(data, facilityRequestFields)
+	decoded.Extra = r.Extra
+	*r = FacilityTransitionRequest(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility transition-request fields.
+func (r FacilityTransitionRequest) MarshalJSON() ([]byte, error) {
+	type alias FacilityTransitionRequest
+	return marshalWithExtras(alias(r), r.Extra, facilityRequestFields)
+}
+
+// UnmarshalJSON retains unknown facility condition-effect fields.
+func (e *FacilityConditionEffect) UnmarshalJSON(data []byte) error {
+	type alias FacilityConditionEffect
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, facilityConditionEffectFields)
+	decoded.Extra = e.Extra
+	*e = FacilityConditionEffect(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility condition-effect fields.
+func (e FacilityConditionEffect) MarshalJSON() ([]byte, error) {
+	type alias FacilityConditionEffect
+	return marshalWithExtras(alias(e), e.Extra, facilityConditionEffectFields)
+}
+
+// UnmarshalJSON retains unknown device-scope fields.
+func (s *DiagnosticDeviceScope) UnmarshalJSON(data []byte) error {
+	type alias DiagnosticDeviceScope
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	s.Extra = extrasFrom(data, diagnosticDeviceScopeFields)
+	decoded.Extra = s.Extra
+	*s = DiagnosticDeviceScope(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown device-scope fields.
+func (s DiagnosticDeviceScope) MarshalJSON() ([]byte, error) {
+	type alias DiagnosticDeviceScope
+	return marshalWithExtras(alias(s), s.Extra, diagnosticDeviceScopeFields)
+}
+
+// UnmarshalJSON retains unknown terminal-scope fields.
+func (s *DiagnosticTerminalScope) UnmarshalJSON(data []byte) error {
+	type alias DiagnosticTerminalScope
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	s.Extra = extrasFrom(data, diagnosticTerminalScopeFields)
+	decoded.Extra = s.Extra
+	*s = DiagnosticTerminalScope(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown terminal-scope fields.
+func (s DiagnosticTerminalScope) MarshalJSON() ([]byte, error) {
+	type alias DiagnosticTerminalScope
+	return marshalWithExtras(alias(s), s.Extra, diagnosticTerminalScopeFields)
+}
+
+// UnmarshalJSON retains unknown capability-block fields.
+func (e *CapabilityBlockEffect) UnmarshalJSON(data []byte) error {
+	type alias CapabilityBlockEffect
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, capabilityBlockEffectFields)
+	decoded.Extra = e.Extra
+	*e = CapabilityBlockEffect(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown capability-block fields.
+func (e CapabilityBlockEffect) MarshalJSON() ([]byte, error) {
+	type alias CapabilityBlockEffect
+	return marshalWithExtras(alias(e), e.Extra, capabilityBlockEffectFields)
+}
+
+// UnmarshalJSON retains unknown diagnostic-path fields.
+func (e *DiagnosticPathEffect) UnmarshalJSON(data []byte) error {
+	type alias DiagnosticPathEffect
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, diagnosticPathEffectFields)
+	decoded.Extra = e.Extra
+	*e = DiagnosticPathEffect(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown diagnostic-path fields.
+func (e DiagnosticPathEffect) MarshalJSON() ([]byte, error) {
+	type alias DiagnosticPathEffect
+	return marshalWithExtras(alias(e), e.Extra, diagnosticPathEffectFields)
+}
+
+// UnmarshalJSON retains unknown record-substitution fields.
+func (e *RecordSubstitutionEffect) UnmarshalJSON(data []byte) error {
+	type alias RecordSubstitutionEffect
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, recordSubstitutionFields)
+	decoded.Extra = e.Extra
+	*e = RecordSubstitutionEffect(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown record-substitution fields.
+func (e RecordSubstitutionEffect) MarshalJSON() ([]byte, error) {
+	type alias RecordSubstitutionEffect
+	return marshalWithExtras(alias(e), e.Extra, recordSubstitutionFields)
+}
+
+// UnmarshalJSON retains unknown display-instability fields.
+func (e *DisplayInstabilityEffect) UnmarshalJSON(data []byte) error {
+	type alias DisplayInstabilityEffect
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, nil)
+	decoded.Extra = e.Extra
+	*e = DisplayInstabilityEffect(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown display-instability fields.
+func (e DisplayInstabilityEffect) MarshalJSON() ([]byte, error) {
+	type alias DisplayInstabilityEffect
+	return marshalWithExtras(alias(e), e.Extra, nil)
+}
+
+// UnmarshalJSON retains unknown diagnostic-effect wrapper fields.
+func (e *DiagnosticEffect) UnmarshalJSON(data []byte) error {
+	type alias DiagnosticEffect
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	e.Extra = extrasFrom(data, diagnosticEffectFields)
+	decoded.Extra = e.Extra
+	*e = DiagnosticEffect(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown diagnostic-effect wrapper fields.
+func (e DiagnosticEffect) MarshalJSON() ([]byte, error) {
+	type alias DiagnosticEffect
+	return marshalWithExtras(alias(e), e.Extra, diagnosticEffectFields)
+}
+
+// UnmarshalJSON retains unknown diagnostic-recovery wrapper fields.
+func (r *DiagnosticRecoveryReference) UnmarshalJSON(data []byte) error {
+	type alias DiagnosticRecoveryReference
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	r.Extra = extrasFrom(data, diagnosticRecoveryFields)
+	decoded.Extra = r.Extra
+	*r = DiagnosticRecoveryReference(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown diagnostic-recovery wrapper fields.
+func (r DiagnosticRecoveryReference) MarshalJSON() ([]byte, error) {
+	type alias DiagnosticRecoveryReference
+	return marshalWithExtras(alias(r), r.Extra, diagnosticRecoveryFields)
+}
+
+// UnmarshalJSON retains unknown diagnostic-condition fields.
+func (c *DiagnosticCondition) UnmarshalJSON(data []byte) error {
+	type alias DiagnosticCondition
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	c.Extra = extrasFrom(data, diagnosticConditionFields)
+	decoded.Extra = c.Extra
+	*c = DiagnosticCondition(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown diagnostic-condition fields.
+func (c DiagnosticCondition) MarshalJSON() ([]byte, error) {
+	type alias DiagnosticCondition
+	return marshalWithExtras(alias(c), c.Extra, diagnosticConditionFields)
+}
+
+// UnmarshalJSON retains unknown recovery-program fields.
+func (p *RecoveryProgram) UnmarshalJSON(data []byte) error {
+	type alias RecoveryProgram
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	p.Extra = extrasFrom(data, recoveryProgramFields)
+	decoded.Extra = p.Extra
+	*p = RecoveryProgram(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown recovery-program fields.
+func (p RecoveryProgram) MarshalJSON() ([]byte, error) {
+	type alias RecoveryProgram
+	return marshalWithExtras(alias(p), p.Extra, recoveryProgramFields)
+}
+
+// UnmarshalJSON retains unknown facility-action fields.
+func (a *FacilityActionConfig) UnmarshalJSON(data []byte) error {
+	type alias FacilityActionConfig
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	a.Extra = extrasFrom(data, facilityActionFields)
+	decoded.Extra = a.Extra
+	*a = FacilityActionConfig(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility-action fields.
+func (a FacilityActionConfig) MarshalJSON() ([]byte, error) {
+	type alias FacilityActionConfig
+	return marshalWithExtras(alias(a), a.Extra, facilityActionFields)
+}
+
+// UnmarshalJSON accepts the version-1 transition-list object and the early
+// direct-array fixture shape while retaining unknown fields in either form.
+func (l *FacilityTransitionList) UnmarshalJSON(data []byte) error {
+	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("[")) {
+		var transitions []FacilityTransitionRequest
+		if err := json.Unmarshal(data, &transitions); err != nil {
+			return err
+		}
+		*l = FacilityTransitionList{Transitions: transitions}
+		return nil
+	}
+
+	type alias FacilityTransitionList
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	l.Extra = extrasFrom(data, facilityTransitionListFields)
+	decoded.Extra = l.Extra
+	*l = FacilityTransitionList(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility transition-list fields.
+func (l FacilityTransitionList) MarshalJSON() ([]byte, error) {
+	type alias FacilityTransitionList
+	return marshalWithExtras(alias(l), l.Extra, facilityTransitionListFields)
+}
+
+// UnmarshalJSON retains unknown facility text-variant fields.
+func (v *FacilityTextVariant) UnmarshalJSON(data []byte) error {
+	type alias FacilityTextVariant
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	v.Extra = extrasFrom(data, facilityTextVariantFields)
+	decoded.Extra = v.Extra
+	*v = FacilityTextVariant(decoded)
+	return nil
+}
+
+// MarshalJSON restores unknown facility text-variant fields.
+func (v FacilityTextVariant) MarshalJSON() ([]byte, error) {
+	type alias FacilityTextVariant
+	return marshalWithExtras(alias(v), v.Extra, facilityTextVariantFields)
 }
 
 func fieldSet(fields ...string) map[string]struct{} {

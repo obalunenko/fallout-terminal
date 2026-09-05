@@ -552,6 +552,450 @@ export class CoordinationCommandResult {
 }
 
 /**
+ * FacilityAuthoringPayload is the complete private facility draft and the
+ * canonical revisions against which the Overseer reviewed it.
+ */
+export class FacilityAuthoringPayload {
+    /**
+     * Creates a new FacilityAuthoringPayload instance.
+     * @param {Partial<FacilityAuthoringPayload>} [$$source = {}] - The source object to create the FacilityAuthoringPayload.
+     */
+    constructor($$source = {}) {
+        if (!("session" in $$source)) {
+            /**
+             * @member
+             * @type {domain$0.Session | null}
+             */
+            this["session"] = null;
+        }
+        if (!("expectedSessionRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedSessionRevision"] = 0;
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityAuthoringPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityAuthoringPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityAuthoringPayload(/** @type {Partial<FacilityAuthoringPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDependencyInspectionPayload identifies one stable authored entity
+ * without exposing the facility graph through the player service.
+ */
+export class FacilityDependencyInspectionPayload {
+    /**
+     * Creates a new FacilityDependencyInspectionPayload instance.
+     * @param {Partial<FacilityDependencyInspectionPayload>} [$$source = {}] - The source object to create the FacilityDependencyInspectionPayload.
+     */
+    constructor($$source = {}) {
+        if (!("target" in $$source)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityEntityReference | null}
+             */
+            this["target"] = null;
+        }
+        if (!("expectedSessionRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedSessionRevision"] = 0;
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDependencyInspectionPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDependencyInspectionPayload}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType4;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("target" in $$parsedSource) {
+            $$parsedSource["target"] = $$createField0_0($$parsedSource["target"]);
+        }
+        return new FacilityDependencyInspectionPayload(/** @type {Partial<FacilityDependencyInspectionPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDependencyInspectionResult is the detached private dependency
+ * projection for one canonical session revision.
+ */
+export class FacilityDependencyInspectionResult {
+    /**
+     * Creates a new FacilityDependencyInspectionResult instance.
+     * @param {Partial<FacilityDependencyInspectionResult>} [$$source = {}] - The source object to create the FacilityDependencyInspectionResult.
+     */
+    constructor($$source = {}) {
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (!("failure" in $$source)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityFailureCode}
+             */
+            this["failure"] = domain$0.FacilityFailureCode.$zero;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityIssue[] | undefined}
+             */
+            this["issues"] = undefined;
+        }
+        if (!("sessionRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["sessionRevision"] = 0;
+        }
+        if (!("facilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["facilityRevision"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityDependencyReport | null | undefined}
+             */
+            this["report"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDependencyInspectionResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDependencyInspectionResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType6;
+        const $$createField5_0 = $$createType8;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("issues" in $$parsedSource) {
+            $$parsedSource["issues"] = $$createField2_0($$parsedSource["issues"]);
+        }
+        if ("report" in $$parsedSource) {
+            $$parsedSource["report"] = $$createField5_0($$parsedSource["report"]);
+        }
+        return new FacilityDependencyInspectionResult(/** @type {Partial<FacilityDependencyInspectionResult>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDeviceResetPayload restores one device and its directly scoped
+ * conditions after the Overseer confirms the operation.
+ */
+export class FacilityDeviceResetPayload {
+    /**
+     * Creates a new FacilityDeviceResetPayload instance.
+     * @param {Partial<FacilityDeviceResetPayload>} [$$source = {}] - The source object to create the FacilityDeviceResetPayload.
+     */
+    constructor($$source = {}) {
+        if (!("deviceId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["deviceId"] = "";
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDeviceResetPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDeviceResetPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityDeviceResetPayload(/** @type {Partial<FacilityDeviceResetPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityPreviewPayload selects one detached state or condition override for
+ * a single terminal at the exact facility revision inspected by the Overseer.
+ */
+export class FacilityPreviewPayload {
+    /**
+     * Creates a new FacilityPreviewPayload instance.
+     * @param {Partial<FacilityPreviewPayload>} [$$source = {}] - The source object to create the FacilityPreviewPayload.
+     */
+    constructor($$source = {}) {
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityDeviceStatePreview | null | undefined}
+             */
+            this["deviceState"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityConditionPreview | null | undefined}
+             */
+            this["condition"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityPreviewPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityPreviewPayload}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType10;
+        const $$createField3_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("deviceState" in $$parsedSource) {
+            $$parsedSource["deviceState"] = $$createField2_0($$parsedSource["deviceState"]);
+        }
+        if ("condition" in $$parsedSource) {
+            $$parsedSource["condition"] = $$createField3_0($$parsedSource["condition"]);
+        }
+        return new FacilityPreviewPayload(/** @type {Partial<FacilityPreviewPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityPreviewResult is a detached, private effective terminal projection.
+ */
+export class FacilityPreviewResult {
+    /**
+     * Creates a new FacilityPreviewResult instance.
+     * @param {Partial<FacilityPreviewResult>} [$$source = {}] - The source object to create the FacilityPreviewResult.
+     */
+    constructor($$source = {}) {
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityFailureCode | undefined}
+             */
+            this["failure"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityIssue[] | undefined}
+             */
+            this["issues"] = undefined;
+        }
+        if (!("facilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["facilityRevision"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.PublicLiveState | null | undefined}
+             */
+            this["terminal"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityPreviewResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityPreviewResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType6;
+        const $$createField4_0 = $$createType14;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("issues" in $$parsedSource) {
+            $$parsedSource["issues"] = $$createField2_0($$parsedSource["issues"]);
+        }
+        if ("terminal" in $$parsedSource) {
+            $$parsedSource["terminal"] = $$createField4_0($$parsedSource["terminal"]);
+        }
+        return new FacilityPreviewResult(/** @type {Partial<FacilityPreviewResult>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityRecoveryPayload selects one authored private recovery against the
+ * exact facility revision reviewed by the Overseer.
+ */
+export class FacilityRecoveryPayload {
+    /**
+     * Creates a new FacilityRecoveryPayload instance.
+     * @param {Partial<FacilityRecoveryPayload>} [$$source = {}] - The source object to create the FacilityRecoveryPayload.
+     */
+    constructor($$source = {}) {
+        if (!("conditionId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["conditionId"] = "";
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+        if (!("recovery" in $$source)) {
+            /**
+             * @member
+             * @type {domain$0.DiagnosticRecoveryReference | null}
+             */
+            this["recovery"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityRecoveryPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityRecoveryPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityRecoveryPayload(/** @type {Partial<FacilityRecoveryPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityResetPayload restores every authored current value after the
+ * Overseer confirms the operation.
+ */
+export class FacilityResetPayload {
+    /**
+     * Creates a new FacilityResetPayload instance.
+     * @param {Partial<FacilityResetPayload>} [$$source = {}] - The source object to create the FacilityResetPayload.
+     */
+    constructor($$source = {}) {
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityResetPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityResetPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityResetPayload(/** @type {Partial<FacilityResetPayload>} */($$parsedSource));
+    }
+}
+
+/**
  * GeneratedPlayerPasswordResult is deliberately not reusable and contains no
  * snapshot. GeneratedPassword is populated only after secure-store replacement
  * and settings persistence both succeed.
@@ -892,7 +1336,7 @@ export class PlayerConfigCommandResult {
      * @returns {PlayerConfigCommandResult}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType4;
+        const $$createField3_0 = $$createType16;
         const $$createField5_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playerConfig" in $$parsedSource) {
@@ -970,7 +1414,7 @@ export class PublicAccessCommandResult {
      * @returns {PublicAccessCommandResult}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType5;
+        const $$createField2_0 = $$createType17;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("snapshot" in $$parsedSource) {
             $$parsedSource["snapshot"] = $$createField2_0($$parsedSource["snapshot"]);
@@ -1096,8 +1540,8 @@ export class PublicAccessSnapshot {
      * @returns {PublicAccessSnapshot}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType6;
-        const $$createField3_0 = $$createType7;
+        const $$createField0_0 = $$createType18;
+        const $$createField3_0 = $$createType19;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("preferences" in $$parsedSource) {
             $$parsedSource["preferences"] = $$createField0_0($$parsedSource["preferences"]);
@@ -1274,6 +1718,13 @@ export class ResolveCommandExecutionResult {
              */
             this["state"] = null;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {domain$0.FacilityOperationResult | null | undefined}
+             */
+            this["facilityResult"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -1285,9 +1736,13 @@ export class ResolveCommandExecutionResult {
      */
     static createFrom($$source = {}) {
         const $$createField2_0 = $$createType2;
+        const $$createField3_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("state" in $$parsedSource) {
             $$parsedSource["state"] = $$createField2_0($$parsedSource["state"]);
+        }
+        if ("facilityResult" in $$parsedSource) {
+            $$parsedSource["facilityResult"] = $$createField3_0($$parsedSource["facilityResult"]);
         }
         return new ResolveCommandExecutionResult(/** @type {Partial<ResolveCommandExecutionResult>} */($$parsedSource));
     }
@@ -1419,8 +1874,8 @@ export class RuntimeStatus {
      * @returns {RuntimeStatus}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType9;
-        const $$createField2_0 = $$createType11;
+        const $$createField0_0 = $$createType23;
+        const $$createField2_0 = $$createType25;
         const $$createField7_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("serverInfo" in $$parsedSource) {
@@ -1652,7 +2107,7 @@ export class TerminalGroupReplacementPayload {
      * @returns {TerminalGroupReplacementPayload}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType13;
+        const $$createField0_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terminalGroups" in $$parsedSource) {
             $$parsedSource["terminalGroups"] = $$createField0_0($$parsedSource["terminalGroups"]);
@@ -1868,14 +2323,28 @@ export class TerminalSwitchDecisionPayload {
 const $$createType0 = ApplicationUpdateSnapshot.createFrom;
 const $$createType1 = domain$0.MasterCoordinationState.createFrom;
 const $$createType2 = $Create.Nullable($$createType1);
-const $$createType3 = domain$0.PlayerConfigMetadata.createFrom;
+const $$createType3 = domain$0.FacilityEntityReference.createFrom;
 const $$createType4 = $Create.Nullable($$createType3);
-const $$createType5 = PublicAccessSnapshot.createFrom;
-const $$createType6 = PublicAccessPreferences.createFrom;
-const $$createType7 = PublicAccessStatus.createFrom;
-const $$createType8 = domain$0.ServerInfo.createFrom;
-const $$createType9 = $Create.Nullable($$createType8);
-const $$createType10 = domain$0.PublicHackState.createFrom;
-const $$createType11 = $Create.Nullable($$createType10);
-const $$createType12 = domain$0.TerminalGroup.createFrom;
-const $$createType13 = $Create.Array($$createType12);
+const $$createType5 = domain$0.FacilityIssue.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = domain$0.FacilityDependencyReport.createFrom;
+const $$createType8 = $Create.Nullable($$createType7);
+const $$createType9 = domain$0.FacilityDeviceStatePreview.createFrom;
+const $$createType10 = $Create.Nullable($$createType9);
+const $$createType11 = domain$0.FacilityConditionPreview.createFrom;
+const $$createType12 = $Create.Nullable($$createType11);
+const $$createType13 = domain$0.PublicLiveState.createFrom;
+const $$createType14 = $Create.Nullable($$createType13);
+const $$createType15 = domain$0.PlayerConfigMetadata.createFrom;
+const $$createType16 = $Create.Nullable($$createType15);
+const $$createType17 = PublicAccessSnapshot.createFrom;
+const $$createType18 = PublicAccessPreferences.createFrom;
+const $$createType19 = PublicAccessStatus.createFrom;
+const $$createType20 = domain$0.FacilityOperationResult.createFrom;
+const $$createType21 = $Create.Nullable($$createType20);
+const $$createType22 = domain$0.ServerInfo.createFrom;
+const $$createType23 = $Create.Nullable($$createType22);
+const $$createType24 = domain$0.PublicHackState.createFrom;
+const $$createType25 = $Create.Nullable($$createType24);
+const $$createType26 = domain$0.TerminalGroup.createFrom;
+const $$createType27 = $Create.Array($$createType26);

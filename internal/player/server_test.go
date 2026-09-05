@@ -98,3 +98,24 @@ func TestServerRecordsOnlyUnexpectedServeExit(t *testing.T) {
 	require.NotContains(t, records[0].Fields, "error")
 	require.NotContains(t, fmt.Sprintf("%#v", records[0]), serveErr.Error())
 }
+
+func TestServerRecordsOnlySafePlayerBoundaryCorrelation(t *testing.T) {
+	t.Parallel()
+
+	logs := testutil.NewRecordingLogger()
+	server := &Server{log: logs}
+	server.recordBoundaryAudit(BoundaryAuditEvent{
+		Name: "player.boundary.request_outcome", Outcome: "not-controller",
+		SessionID: "logical-1", Role: "observer", RequestID: "request-1", Mode: "navigate",
+	})
+
+	records := logs.Records()
+	require.Len(t, records, 1)
+	require.Equal(t, "warn", records[0].Level)
+	require.Equal(t, "player boundary audit event", records[0].Message)
+	require.Equal(t, map[string]any{
+		"event": "player.boundary.request_outcome", "outcome": "not-controller",
+		"session_id": "logical-1", "role": "observer", "request_id": "request-1", "mode": "navigate",
+	}, records[0].Fields)
+	require.NotContains(t, fmt.Sprintf("%#v", records[0]), "recognition")
+}

@@ -176,6 +176,101 @@ func TestRevalidate(t *testing.T) {
 	}
 }
 
+func TestApplyActionRejectsAuthoritativelyUnavailableCommand(t *testing.T) {
+	t.Parallel()
+
+	tree := navigationTree()
+	setCommandAvailability(&tree, "root-command", new(false))
+	assert.Equal(t, Default(), ApplyAction(Default(), tree, "command", "root-command"))
+
+	setCommandAvailability(&tree, "root-command", new(true))
+	assert.Equal(t,
+		navState([]string{"root"}, "list", "", "root-command"),
+		ApplyAction(Default(), tree, "command", "root-command"),
+	)
+
+	// Absence preserves the version-1 behavior for ordinary commands.
+	setCommandAvailability(&tree, "root-command", nil)
+	assert.Equal(t,
+		navState([]string{"root"}, "list", "", "root-command"),
+		ApplyAction(Default(), tree, "command", "root-command"),
+	)
+}
+
+func TestRevalidateRepairsHiddenCurrentAndTargetToNearestValidParent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		state domain.NavState
+		tree  domain.ContentNode
+		want  domain.NavState
+	}{
+		{
+			name:  "hidden current folder falls back to visible parent",
+			state: navState([]string{"root", "docs", "nested"}, "entry", "deep-entry", ""),
+			tree:  treeWithout("nested"),
+			want:  domain.NavState{Path: []string{"root", "docs"}, Mode: "list"},
+		},
+		{
+			name:  "hidden open entry returns to its parent menu",
+			state: navState([]string{"root", "docs"}, "entry", "report", ""),
+			tree:  treeWithout("report"),
+			want:  domain.NavState{Path: []string{"root", "docs"}, Mode: "list"},
+		},
+		{
+			name:  "hidden selected command returns to its parent menu",
+			state: navState([]string{"root", "docs"}, "list", "", "read"),
+			tree:  treeWithout("read"),
+			want:  domain.NavState{Path: []string{"root", "docs"}, Mode: "list"},
+		},
+		{
+			name:  "unavailable selected command returns to its parent menu",
+			state: navState([]string{"root", "docs"}, "list", "", "read"),
+			tree: func() domain.ContentNode {
+				tree := navigationTree()
+				setCommandAvailability(&tree, "read", new(false))
+				return tree
+			}(),
+			want: domain.NavState{Path: []string{"root", "docs"}, Mode: "list"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, test.want, Revalidate(test.state, test.tree))
+		})
+	}
+
+	hiddenTargetTree := treeWithout("archive")
+	assert.Equal(t, Default(), ApplyAction(Default(), hiddenTargetTree, "enter", "archive"))
+}
+
+func TestBackAndAcknowledgementRemainAvailableWhenCommandsAreBlocked(t *testing.T) {
+	t.Parallel()
+
+	tree := navigationTree()
+	setCommandAvailability(&tree, "root-command", new(false))
+	setCommandAvailability(&tree, "read", new(false))
+
+	assert.Equal(t,
+		Default(),
+		ApplyAction(navState([]string{"root", "docs"}, "list", "", "read"), tree, "back", ""),
+		"Back must leave a valid folder even when command execution is blocked",
+	)
+	assert.Equal(t,
+		Default(),
+		ApplyAction(navState([]string{"root"}, "list", "", "root-command"), tree, "back", ""),
+		"Back must acknowledge an unavailable command result at the root",
+	)
+	assert.Equal(t,
+		domain.NavState{Path: []string{"root", "docs"}, Mode: "list"},
+		ApplyAction(navState([]string{"root", "docs"}, "entry", "report", ""), tree, "back", ""),
+		"Back must close an entry while command execution is blocked",
+	)
+}
+
 func TestStableFolderLookupAndReturnRestoration(t *testing.T) {
 	t.Parallel()
 
@@ -281,6 +376,19 @@ func removeNode(parent *domain.ContentNode, nodeID string) bool {
 			return true
 		}
 		if removeNode(&parent.Children[index], nodeID) {
+			return true
+		}
+	}
+	return false
+}
+
+func setCommandAvailability(tree *domain.ContentNode, nodeID string, available *bool) bool {
+	if tree.ID == nodeID && tree.Type == domain.NodeCommand {
+		tree.Available = available
+		return true
+	}
+	for index := range tree.Children {
+		if setCommandAvailability(&tree.Children[index], nodeID, available) {
 			return true
 		}
 	}

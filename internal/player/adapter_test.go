@@ -298,6 +298,63 @@ func TestForwardTransitionRejectionReusesCommandPresentationWithoutPendingNaviga
 	require.Equal(t, "open-terminal-b", got.GetCommandExecution().GetCommandNodeId())
 }
 
+func TestContentCommandAvailabilityUsesOptionalPresenceAndMapsExplicitFalse(t *testing.T) {
+	t.Parallel()
+
+	t.Run("absence keeps legacy commands available", func(t *testing.T) {
+		t.Parallel()
+
+		generated := ContentNodeToProto(domain.ContentNode{
+			ID: "diagnostic", Type: domain.NodeCommand, Name: "DIAGNOSTIC", Text: "READY",
+		}).GetCommand()
+		require.NotNil(t, generated)
+		field := generated.ProtoReflect().Descriptor().Fields().ByName("available")
+		require.NotNil(t, field, "ContentCommand.available must be an additive optional field")
+		require.True(t, field.HasPresence())
+		require.False(t, generated.ProtoReflect().Has(field), "legacy commands must omit availability")
+	})
+
+	t.Run("explicit false is preserved", func(t *testing.T) {
+		t.Parallel()
+
+		node := domain.ContentNode{
+			ID: "diagnostic", Type: domain.NodeCommand, Name: "DIAGNOSTIC", Text: "READY",
+		}
+		setDomainOptionalBoolField(t, &node, "Available", false)
+
+		generated := ContentNodeToProto(node).GetCommand()
+		require.NotNil(t, generated)
+		field := generated.ProtoReflect().Descriptor().Fields().ByName("available")
+		require.NotNil(t, field)
+		require.True(t, generated.ProtoReflect().Has(field))
+		require.False(t, generated.ProtoReflect().Get(field).Bool())
+	})
+}
+
+func TestLiveToProtoMapsOnlyBoundedTerminalPresentationEffects(t *testing.T) {
+	t.Parallel()
+
+	state := &domain.PublicLiveState{
+		TerminalID:   "terminal-1",
+		TerminalName: "Terminal",
+		Tree:         domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT"},
+		Nav:          domain.NavState{Path: []string{"root"}, Mode: "list"},
+	}
+	setDomainStringSliceField(t, state, "Effects", []string{"display-unstable"})
+
+	generated := LiveToProto(state)
+	field := generated.ProtoReflect().Descriptor().Fields().ByName("effects")
+	require.NotNil(t, field, "LiveTerminal.effects must be an additive repeated enum")
+	require.True(t, field.IsList())
+	require.Equal(t, protoreflect.EnumKind, field.Kind())
+	require.Equal(t, 2, field.Enum().Values().Len(), "the public effect vocabulary must remain bounded")
+	require.Equal(t, protoreflect.Name("TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED"), field.Enum().Values().Get(0).Name())
+	require.Equal(t, protoreflect.Name("TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE"), field.Enum().Values().Get(1).Name())
+	require.Equal(t, 1, generated.ProtoReflect().Get(field).List().Len())
+	require.Equal(t, protoreflect.Name("TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE"),
+		field.Enum().Values().ByNumber(generated.ProtoReflect().Get(field).List().Get(0).Enum()).Name())
+}
+
 // The runtime projection types are introduced by the implementation wave
 // after these RED tests. Reflection keeps the package buildable while still
 // pinning their required field names, pointer presence, and string enum values.
@@ -324,6 +381,36 @@ func clearDomainOptionalField(t *testing.T, target any, fieldName string) {
 	require.Truef(t, field.IsValid(), "domain %T must expose %s", target, fieldName)
 	require.Equal(t, reflect.Pointer, field.Kind())
 	field.SetZero()
+}
+
+func setDomainOptionalBoolField(t *testing.T, target any, fieldName string, content bool) {
+	t.Helper()
+	value := reflect.ValueOf(target)
+	require.Equal(t, reflect.Pointer, value.Kind())
+	field := value.Elem().FieldByName(fieldName)
+	require.Truef(t, field.IsValid(), "domain %T must expose %s", target, fieldName)
+	require.Truef(t, field.CanSet(), "domain %T field %s must be settable", target, fieldName)
+	require.Equal(t, reflect.Pointer, field.Kind())
+	require.Equal(t, reflect.Bool, field.Type().Elem().Kind())
+	pointer := reflect.New(field.Type().Elem())
+	pointer.Elem().SetBool(content)
+	field.Set(pointer)
+}
+
+func setDomainStringSliceField(t *testing.T, target any, fieldName string, values []string) {
+	t.Helper()
+	value := reflect.ValueOf(target)
+	require.Equal(t, reflect.Pointer, value.Kind())
+	field := value.Elem().FieldByName(fieldName)
+	require.Truef(t, field.IsValid(), "domain %T must expose %s", target, fieldName)
+	require.Truef(t, field.CanSet(), "domain %T field %s must be settable", target, fieldName)
+	require.Equal(t, reflect.Slice, field.Kind())
+	require.Equal(t, reflect.String, field.Type().Elem().Kind())
+	result := reflect.MakeSlice(field.Type(), len(values), len(values))
+	for index, content := range values {
+		result.Index(index).SetString(content)
+	}
+	field.Set(result)
 }
 
 func requireDomainOptionalStructField(t *testing.T, target any, fieldName string) reflect.Value {

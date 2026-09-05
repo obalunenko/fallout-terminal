@@ -118,6 +118,10 @@ func (log *RunLog) CurrentPath() string {
 	return log.currentPath
 }
 
+// Write keeps logging failures out of application control flow whenever the
+// retained sink or configured fallback accepts the complete record. Retention
+// is best effort when no fallback is configured; a retention failure
+// permanently degrades this run and emits at most one safe fallback warning.
 func (log *RunLog) Write(record []byte) (int, error) {
 	log.mu.Lock()
 	defer log.mu.Unlock()

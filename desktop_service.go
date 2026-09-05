@@ -53,6 +53,30 @@ func (service *desktopService) ReplaceTerminalGroups(payload TerminalGroupReplac
 	return service.core.ReplaceTerminalGroups(payload)
 }
 
+func (service *desktopService) InspectFacilityDependencies(payload FacilityDependencyInspectionPayload) FacilityDependencyInspectionResult {
+	return service.core.InspectFacilityDependencies(payload)
+}
+
+func (service *desktopService) SaveFacilityAuthoring(payload FacilityAuthoringPayload) domain.FacilityOperationResult {
+	return service.core.SaveFacilityAuthoring(payload)
+}
+
+func (service *desktopService) PreviewFacility(payload FacilityPreviewPayload) FacilityPreviewResult {
+	return service.core.PreviewFacility(payload)
+}
+
+func (service *desktopService) ResetFacilityDevice(payload FacilityDeviceResetPayload) domain.FacilityOperationResult {
+	return service.core.ResetFacilityDevice(payload)
+}
+
+func (service *desktopService) ResetFacility(payload FacilityResetPayload) domain.FacilityOperationResult {
+	return service.core.ResetFacility(payload)
+}
+
+func (service *desktopService) RecoverFacilityCondition(payload FacilityRecoveryPayload) domain.FacilityOperationResult {
+	return service.core.RecoverFacilityCondition(payload)
+}
+
 func (service *desktopService) LoadReferencedPlayerConfig() PlayerConfigCommandResult {
 	return service.core.LoadReferencedPlayerConfig()
 }

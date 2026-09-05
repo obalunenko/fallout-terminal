@@ -4,12 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -264,7 +266,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
 	}
 
-	const stableDescriptorShape = "016a6cc89e984d710b76be9b9e03b1ed239e93b594c960af3f35a6978d805def"
+	const stableDescriptorShape = "7a73a3143e8d13808ed68a61fc6a3a69423347d891ffcf3fbe6e93c6893f0ab2"
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
@@ -415,6 +417,146 @@ func TestBundledDemoShowcasesEveryCommandBehavior(t *testing.T) {
 		"bundled demo must showcase cross-terminal navigation")
 }
 
+func TestBundledDemoInventoryCoversReachableSessionGraph(t *testing.T) {
+	t.Parallel()
+
+	root := assetRepositoryRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "sessions", "demo.json"))
+	require.NoError(t, err)
+	demo, err := domain.DecodeSession(raw)
+	require.NoError(t, err)
+	inventoryRaw, err := os.ReadFile(filepath.Join(root, "sessions", "demo-capability-paths.md"))
+	require.NoError(t, err)
+	inventory := string(inventoryRaw)
+
+	require.Equal(t, 1, demo.Version)
+	require.Len(t, demo.Terminals, 6)
+	hackLevels := make([]int, 0, len(demo.Terminals))
+	terminalGroup := make(map[string]string, len(demo.Terminals))
+	for _, group := range demo.TerminalGroups {
+		require.NotEmpty(t, group.TerminalIDs, "group %s must contain one terminal installation view", group.ID)
+		for _, terminalID := range group.TerminalIDs {
+			_, duplicate := terminalGroup[terminalID]
+			require.False(t, duplicate, "terminal %s belongs to more than one group", terminalID)
+			terminalGroup[terminalID] = group.ID
+		}
+	}
+	require.Equal(t, map[string]string{
+		"t_demo1":       "vault-76-overseer-console",
+		"t_demo2":       "vault-76-overseer-console",
+		"t_demo_hack_1": "vault-76-greenhouse",
+		"t_demo_hack_2": "vault-76-freight-lift",
+		"t_demo_hack_3": "vault-76-outer-security",
+		"t_demo_hack_4": "atlas-76-relay",
+	}, terminalGroup)
+
+	transitions := make(map[string][]string)
+	completedCommands := 0
+	completedEntryContent := 0
+	for _, terminal := range demo.Terminals {
+		hackLevels = append(hackLevels, terminal.HackLevel)
+		for _, state := range terminal.CommandStates {
+			completedCommands++
+			if state.EntryContentChange != nil {
+				completedEntryContent++
+			}
+		}
+
+		var visit func(domain.ContentNode)
+		visit = func(node domain.ContentNode) {
+			if node.ID != "root" {
+				assert.Contains(t, inventory, "`"+node.ID+"`", "inventory omits reachable node %s", node.ID)
+			}
+			switch node.Type {
+			case domain.NodeFolder:
+				require.NotEmpty(t, node.Children, "folder %s is an accidental dead end", node.ID)
+			case domain.NodeEntry:
+				require.True(t, strings.TrimSpace(node.Description) != "" || len(node.Blocks) > 0,
+					"entry %s has no player-visible content", node.ID)
+			case domain.NodeCommand:
+				require.True(t, strings.TrimSpace(node.Text) != "" || node.TerminalTransition != nil,
+					"command %s has no result or transition", node.ID)
+				if node.TerminalTransition != nil {
+					targetID := node.TerminalTransition.TargetTerminalID
+					require.Equal(t, terminalGroup[terminal.ID], terminalGroup[targetID],
+						"transition %s crosses independent terminal groups", node.ID)
+					transitions[terminal.ID] = append(transitions[terminal.ID], targetID)
+				}
+			}
+			for _, child := range node.Children {
+				visit(child)
+			}
+		}
+		visit(terminal.Root)
+	}
+	slices.Sort(hackLevels)
+	require.Equal(t, []int{0, 1, 2, 3, 4, 5}, hackLevels)
+	require.Contains(t, transitions["t_demo1"], "t_demo2")
+	require.Contains(t, transitions["t_demo2"], "t_demo1")
+	require.GreaterOrEqual(t, completedCommands, 2)
+	require.GreaterOrEqual(t, completedEntryContent, 1)
+
+	require.NotNil(t, demo.Facility)
+	for _, device := range demo.Facility.Devices {
+		assert.Contains(t, inventory, "`"+device.ID+"`", "inventory omits device %s", device.ID)
+	}
+	for _, condition := range demo.Facility.Conditions {
+		assert.Contains(t, inventory, "`"+condition.ID+"`", "inventory omits condition %s", condition.ID)
+		require.NotEmpty(t, condition.Recovery, "condition %s has no authored escape path", condition.ID)
+	}
+	for _, program := range demo.Facility.RecoveryPrograms {
+		assert.Contains(t, inventory, "`"+program.ID+"`", "inventory omits recovery program %s", program.ID)
+	}
+	for _, role := range []string{"Overseer", "controller", "observer"} {
+		assert.Contains(t, inventory, role, "inventory omits the %s journey", role)
+	}
+
+	forbiddenWarning := regexp.MustCompile(`(?i)licen[cs]e|copyright|intellectual[ -]property|hobby[ -]project|fan[ -]project|attribution|лиценз|авторск|интеллектуальн|хобби|любительск|предупрежден`)
+	assert.NotRegexp(t, forbiddenWarning, string(raw), "player-visible demo must remain entirely in-world")
+}
+
+func TestBundledDemoVersionOneSaveAndReopenPreservesCompatibleUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	root := assetRepositoryRoot(t)
+	raw, err := os.ReadFile(filepath.Join(root, "sessions", "demo.json"))
+	require.NoError(t, err)
+	demo, err := domain.DecodeSession(raw)
+	require.NoError(t, err)
+
+	demo.Extra = map[string]json.RawMessage{
+		"futureDemoMetadata": json.RawMessage(`{"mode":"preserve"}`),
+	}
+	demo.Terminals[0].Extra = map[string]json.RawMessage{
+		"futureTerminalTelemetry": json.RawMessage(`{"channel":76}`),
+	}
+	demo.Terminals[0].Root.Extra = map[string]json.RawMessage{
+		"futureRootPresentation": json.RawMessage(`true`),
+	}
+	require.NotNil(t, demo.Facility)
+	demo.Facility.Extra = map[string]json.RawMessage{
+		"futureFacilityPolicy": json.RawMessage(`{"revision":13}`),
+	}
+
+	saved, err := domain.EncodeSession(demo)
+	require.NoError(t, err)
+	reopened, err := domain.DecodeSession(saved)
+	require.NoError(t, err)
+	resaved, err := domain.EncodeSession(reopened)
+	require.NoError(t, err)
+	require.Equal(t, saved, resaved, "reopened demo must encode to the same portable document")
+	require.Equal(t, demo.Version, reopened.Version)
+	require.Equal(t, demo.TerminalGroups, reopened.TerminalGroups)
+	require.Equal(t, demo.Terminals[0].CommandStates, reopened.Terminals[0].CommandStates)
+	require.JSONEq(t, string(demo.Extra["futureDemoMetadata"]), string(reopened.Extra["futureDemoMetadata"]))
+	require.JSONEq(t, string(demo.Terminals[0].Extra["futureTerminalTelemetry"]), string(reopened.Terminals[0].Extra["futureTerminalTelemetry"]))
+	require.JSONEq(t, string(demo.Facility.Extra["futureFacilityPolicy"]), string(reopened.Facility.Extra["futureFacilityPolicy"]))
+	assert.Contains(t, string(saved), `"futureDemoMetadata"`)
+	assert.Contains(t, string(saved), `"futureTerminalTelemetry"`)
+	assert.Contains(t, string(saved), `"futureRootPresentation"`)
+	assert.Contains(t, string(saved), `"futureFacilityPolicy"`)
+}
+
 func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	t.Parallel()
 
@@ -434,8 +576,8 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
-		"proto/schema-revision.txt":                       "19b3736dd34573668bede187d45d4e3bd294337db554fda70436dcd453e00214",
-		"proto/compatibility-baseline.binpb":              "b0004a0b4dbfabd1b6cce0c183b7b42a3f104261b1c047fc5d2ebe40932be3a7",
+		"proto/schema-revision.txt":                       "a0dc1c535b2c6858d050d46ea4dcffa0e9b442fa78e3ee7011c286ec5584857d",
+		"proto/compatibility-baseline.binpb":              "01266b7dc0062633458b8047df4c16d1a648160cb79a45b3ff45c0b9af8bdcb5",
 	}
 	for relative, want := range wantDigests {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
@@ -2066,7 +2208,7 @@ func TestPlayerCRTMotionAndRevealAssetContract(t *testing.T) {
 	} {
 		assert.Contains(t, compactCSS, fragment)
 	}
-	assert.NotContains(t, strings.ToLower(css), "prefers-reduced-motion")
+	assert.Contains(t, strings.ToLower(css), "@media (prefers-reduced-motion: reduce)")
 
 	for _, fragment := range []string{
 		"const REVEAL_DELAY_MS = 40",
@@ -2469,26 +2611,61 @@ func TestMacOSPackageVerificationCoversResourcesSignatureAndCanonicalIdentity(t 
 	}
 }
 
-func TestActiveWailsV3DocumentsStaySeparateFromHistoricalEvidence(t *testing.T) {
+func TestAcceptedWailsV3RuntimeStaysSeparateFromHistoricalMigrationEvidence(t *testing.T) {
 	t.Parallel()
 
 	root := assetRepositoryRoot(t)
 	readmeRaw, err := os.ReadFile(filepath.Join(root, "README.md"))
 	require.NoError(t, err)
 	readme := string(readmeRaw)
-	assert.Contains(t, readme, "docs/wails-v3-migration-rollback.md")
+	for _, required := range []string{
+		"Wails `v3.0.0-beta.15`",
+		"[История миграции Wails v2 → v3](docs/wails-v3-migration-rollback.md)",
+		"[исторический quickstart/acceptance record](specs/006-wails-v3-migration/quickstart.md)",
+	} {
+		assert.Contains(t, readme, required)
+	}
+	assert.NotContains(t, readme, "активная процедура возврата на Wails v2")
 
 	rollbackRaw, err := os.ReadFile(filepath.Join(root, "docs", "wails-v3-migration-rollback.md"))
 	require.NoError(t, err)
 	rollback := string(rollbackRaw)
-	assert.Contains(t, rollback, "specs/006-wails-v3-migration/")
-	assert.Contains(t, rollback, "specs/001-wails-v2-migration/")
-	assert.Contains(t, rollback, "docs/wails-migration-rollback.md")
+	for _, required := range []string{
+		"# Historical Wails v2-to-v3 Migration and Cutover Record",
+		"This file is historical evidence only.",
+		"exactly pinned Wails v3.0.0-beta.15 runtime",
+		"Wails v2 is not a production",
+		"specs/006-wails-v3-migration/",
+		"specs/001-wails-v2-migration/",
+		"docs/wails-migration-rollback.md",
+		"github.com/wailsapp/wails/v3 v3.0.0-beta.8",
+		"@wailsio/runtime` `3.0.0-beta.8",
+	} {
+		assert.Contains(t, rollback, required)
+	}
+	for _, forbidden := range []string{
+		"This record governs",
+		"remains the production fallback",
+		"is the only canonical rollback reference",
+		"Wails v3 is accepted only",
+	} {
+		assert.NotContains(t, rollback, forbidden)
+	}
 
 	scannerRaw, err := os.ReadFile(filepath.Join(root, "scripts", "wails-v3-cutover-check.sh"))
 	require.NoError(t, err)
 	scanner := string(scannerRaw)
 	for _, required := range []string{
+		"accepted_wails_version='3.0.0-beta.15'",
+		"root Go module does not pin accepted Wails",
+		"Wails tool module does not pin accepted Wails",
+		"Overseer manifest does not pin accepted Wails",
+		"frontend lock does not resolve accepted Wails",
+		"README does not label the Wails v3 migration quickstart as historical",
+		"README does not label the Wails v2-to-v3 migration record as historical",
+		"Wails v2-to-v3 migration record does not disclaim current authority",
+		"Wails v2-to-v3 migration record lost its historical beta.8 target",
+		"historical Wails migration material still claims active authority",
 		"active Go source contains v2 or dual-runtime code",
 		"application module still resolves Wails v2",
 		"frontend source/generated/bundle contains a v2 global or dual-runtime fallback",

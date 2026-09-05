@@ -1058,7 +1058,7 @@ func TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTarget
 	opened := service.Open(t.Context())
 	require.True(t, opened.OK, "Open() = %#v", opened)
 	require.NotNil(t, opened.Session)
-	require.Len(t, opened.Session.Terminals, 2)
+	require.Len(t, opened.Session.Terminals, 6)
 	transition := findNodeByID(&opened.Session.Terminals[0].Root, "n_cmd_state_change_1")
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
@@ -1067,7 +1067,7 @@ func TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTarget
 	require.True(t, saved.OK, "Save() = %#v", saved)
 	reopened := service.Open(t.Context())
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
-	require.Len(t, reopened.Session.Terminals, 2)
+	require.Len(t, reopened.Session.Terminals, 6)
 	transition = findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
@@ -1632,6 +1632,100 @@ func TestStaleFullSavePreservesCanonicalFrozenStateAndAppliesAuthoredEdits(t *te
 	assert.Equal(t, wantFrozen, reopened.Terminals[0].CommandStates["doors"])
 }
 
+func TestOrdinarySavePreservesProtectedFacilityCurrentValuesAndRevision(t *testing.T) {
+	t.Parallel()
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "protected-facility-save.json")
+	canonical := facilitySessionForSaveTest()
+	fileSystem.SeedFile(target, mustEncodeSession(t, canonical))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.NotNil(t, opened.Session.Facility)
+
+	forged := facilitySessionForSaveTest()
+	forged.Name = "Authored name change"
+	forged.Facility.Revision = 999
+	forged.Facility.Devices[0].CurrentStateID = "offline"
+	forged.Facility.Conditions[0].CurrentActive = true
+
+	saved := service.Save(t.Context(), forged, 1)
+	require.True(t, saved.OK, "Save() = %#v", saved)
+	assert.Equal(t, uint64(1), saved.RequestedRevision)
+	assert.Equal(t, uint64(1), saved.SavedRevision)
+
+	active := service.Snapshot()
+	require.NotNil(t, active.Session)
+	require.NotNil(t, active.Session.Facility)
+	assert.Equal(t, "Authored name change", active.Session.Name)
+	assert.Equal(t, uint64(12), active.Session.Facility.Revision)
+	assert.Equal(t, "online", active.Session.Facility.Devices[0].CurrentStateID)
+	assert.False(t, active.Session.Facility.Conditions[0].CurrentActive)
+
+	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	require.NotNil(t, persisted.Facility)
+	assert.Equal(t, uint64(12), persisted.Facility.Revision)
+	assert.Equal(t, "online", persisted.Facility.Devices[0].CurrentStateID)
+	assert.False(t, persisted.Facility.Conditions[0].CurrentActive)
+}
+
+func TestDocumentRevisionAdvancesIndependentlyOfFacilityRevision(t *testing.T) {
+	t.Parallel()
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "distinct-document-facility-revisions.json")
+	initial := facilitySessionForSaveTest()
+	initial.Facility.Revision = 41
+	fileSystem.SeedFile(target, mustEncodeSession(t, initial))
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+	require.NotNil(t, opened.Session)
+	require.NotNil(t, opened.Session.Facility)
+	assert.Zero(t, service.Snapshot().SavedRevision)
+	assert.Equal(t, uint64(41), opened.Session.Facility.Revision)
+
+	first := facilitySessionForSaveTest()
+	first.Name = "Document revision one"
+	first.Facility.Revision = 41
+	firstSave := service.Save(t.Context(), first, 1)
+	require.True(t, firstSave.OK, "first Save() = %#v", firstSave)
+	assert.Equal(t, uint64(1), firstSave.SavedRevision)
+	firstActive := service.Snapshot()
+	require.NotNil(t, firstActive.Session)
+	require.NotNil(t, firstActive.Session.Facility)
+	assert.Equal(t, uint64(41), firstActive.Session.Facility.Revision)
+
+	second := facilitySessionForSaveTest()
+	second.Name = "Document revision two"
+	second.Terminals[0].IntroText = "Updated authored introduction"
+	second.Facility.Revision = 41
+	secondSave := service.Save(t.Context(), second, 2)
+	require.True(t, secondSave.OK, "second Save() = %#v", secondSave)
+	assert.Equal(t, uint64(2), secondSave.SavedRevision)
+
+	active := service.Snapshot()
+	assert.Equal(t, uint64(2), active.RequestedRevision)
+	assert.Equal(t, uint64(2), active.SavedRevision)
+	require.NotNil(t, active.Session)
+	require.NotNil(t, active.Session.Facility)
+	assert.Equal(t, uint64(41), active.Session.Facility.Revision)
+	assert.Equal(t, "Document revision two", active.Session.Name)
+	assert.Equal(t, "Updated authored introduction", active.Session.Terminals[0].IntroText)
+
+	reopened := service.Open(t.Context())
+	require.True(t, reopened.OK, "reopen = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	require.NotNil(t, reopened.Session.Facility)
+	assert.Equal(t, uint64(41), reopened.Session.Facility.Revision)
+	assert.Zero(t, service.Snapshot().SavedRevision)
+}
+
 func TestEntryContentPersistencePreservesFrozenTargetsAcrossStaleMoveRenameAndReopen(t *testing.T) {
 	t.Parallel()
 
@@ -2098,6 +2192,214 @@ func TestCompletedCommandStateSurvivesFreshProcessReopen(t *testing.T) {
 	assert.Equal(t, want, durable.Terminals[0].CommandStates["doors"])
 }
 
+func TestCommittedFacilityStateSurvivesFreshProcessReopen(t *testing.T) {
+	t.Parallel()
+
+	target := filepath.Join(t.TempDir(), "facility-process-restart.json")
+	initial := mustEncodeSession(t, facilityWorldActionSession())
+	require.NoError(t, os.WriteFile(target, initial, 0o600))
+	executable, err := os.Executable()
+	require.NoError(t, err)
+
+	for _, mode := range []string{"commit", "reopen"} {
+		command := exec.CommandContext(t.Context(), executable, "-test.run=^TestFacilityFreshProcessHelper$", "-test.v")
+		command.Env = append(os.Environ(),
+			"FALLOUT_FACILITY_PROCESS_MODE="+mode,
+			"FALLOUT_FACILITY_PROCESS_PATH="+target,
+		)
+		output, runErr := command.CombinedOutput()
+		require.NoError(t, runErr, "fresh facility process %q failed:\n%s", mode, output)
+	}
+
+	durable, err := domain.DecodeSession(mustReadFile(t, target))
+	require.NoError(t, err)
+	assert.Equal(t, facilitySessionAfterCommittedWorldAction(), durable)
+}
+
+func TestFacilityFreshProcessHelper(t *testing.T) {
+	mode := os.Getenv("FALLOUT_FACILITY_PROCESS_MODE")
+	if mode == "" {
+		t.Skip("helper runs only in a fresh subprocess")
+	}
+	target := os.Getenv("FALLOUT_FACILITY_PROCESS_PATH")
+	require.NotEmpty(t, target, "FALLOUT_FACILITY_PROCESS_PATH is empty")
+
+	service := NewService(NewStorage(nil), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+		defer cancel()
+		require.NoError(t, service.Shutdown(ctx))
+	})
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() in %s facility process = %#v", mode, opened)
+	require.NotNil(t, opened.Session)
+
+	switch mode {
+	case "commit":
+		result := service.ApplyWorldAction(t.Context(), WorldActionRequest{
+			CorrelationID:            "fresh-process-facility-action",
+			TerminalID:               "terminal",
+			CommandID:                "restore-and-open",
+			ExpectedFacilityRevision: 9,
+			Transitions: []domain.FacilityTransitionRequest{
+				{DeviceID: "power", TransitionID: "restore"},
+				{DeviceID: "door", TransitionID: "open"},
+			},
+		})
+		require.True(t, result.OK, "ApplyWorldAction() in fresh process = %#v", result)
+		require.True(t, result.Changed)
+		assert.Equal(t, facilitySessionAfterCommittedWorldAction(), *result.Session)
+	case "reopen":
+		assert.Equal(t, facilitySessionAfterCommittedWorldAction(), *opened.Session)
+		snapshot := service.Snapshot()
+		assert.Zero(t, snapshot.RequestedRevision, "document revisions are process-local")
+		assert.Zero(t, snapshot.SavedRevision, "document revisions are process-local")
+		assert.Equal(t, uint64(10), snapshot.Session.Facility.Revision, "facility revision is durable")
+	default:
+		require.Failf(t, "unknown facility helper mode", "%q", mode)
+	}
+}
+
+func TestLegacySessionReopenAndSaveKeepsFacilityAbsent(t *testing.T) {
+	t.Parallel()
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "legacy-without-facility.json")
+	legacy := validSession("Legacy without facility")
+	fileSystem.SeedFile(target, mustEncodeSession(t, legacy))
+
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open(legacy) = %#v", opened)
+	require.NotNil(t, opened.Session)
+	assert.Nil(t, opened.Session.Facility)
+	require.Nil(t, service.Snapshot().Session.Facility)
+
+	saved := service.Save(t.Context(), domain.CloneSession(*opened.Session), 1)
+	require.True(t, saved.OK, "Save(legacy) = %#v", saved)
+	require.NoError(t, service.Shutdown(t.Context()))
+
+	restarted := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = restarted.Shutdown(context.WithoutCancel(t.Context())) })
+	reopened := restarted.Open(t.Context())
+	require.True(t, reopened.OK, "reopen legacy = %#v", reopened)
+	require.NotNil(t, reopened.Session)
+	assert.Nil(t, reopened.Session.Facility)
+	restartedSnapshot := restarted.Snapshot()
+	assert.Nil(t, restartedSnapshot.Session.Facility)
+	assert.Zero(t, restartedSnapshot.RequestedRevision)
+	assert.Zero(t, restartedSnapshot.SavedRevision)
+
+	durable, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
+	require.NoError(t, err)
+	assert.Nil(t, durable.Facility)
+}
+
+func TestSnapshotExposesDetachedCanonicalFacilityIndependentlyFromDocumentRevision(t *testing.T) {
+	t.Parallel()
+
+	fileSystem := testutil.NewFakeFileSystem()
+	target := filepath.Join(testCampaignsRoot, "facility-snapshot.json")
+	want := facilityWorldActionSession()
+	fileSystem.SeedFile(target, mustEncodeSession(t, want))
+
+	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{OpenResult: target}, testLocations)
+	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+	opened := service.Open(t.Context())
+	require.True(t, opened.OK, "Open() = %#v", opened)
+
+	snapshot := service.Snapshot()
+	assert.Zero(t, snapshot.RequestedRevision)
+	assert.Zero(t, snapshot.SavedRevision)
+	require.NotNil(t, snapshot.Session)
+	require.NotNil(t, snapshot.Session.Facility)
+	assert.Equal(t, want.Facility.Revision, snapshot.Session.Facility.Revision)
+	assert.Equal(t, want.Facility.Devices[0].CurrentStateID, snapshot.Session.Facility.Devices[0].CurrentStateID)
+	assert.Equal(t, want.Facility.Conditions[0].CurrentActive, snapshot.Session.Facility.Conditions[0].CurrentActive)
+
+	snapshot.Session.Facility.Revision++
+	snapshot.Session.Facility.Devices[0].CurrentStateID = "online"
+	snapshot.Session.Facility.Conditions[0].CurrentActive = false
+	canonical := service.Snapshot()
+	require.NotNil(t, canonical.Session)
+	require.NotNil(t, canonical.Session.Facility)
+	assert.Equal(t, want.Facility.Revision, canonical.Session.Facility.Revision)
+	assert.Equal(t, want.Facility.Devices[0].CurrentStateID, canonical.Session.Facility.Devices[0].CurrentStateID)
+	assert.Equal(t, want.Facility.Conditions[0].CurrentActive, canonical.Session.Facility.Conditions[0].CurrentActive)
+}
+
+func TestOpenRejectsIncompleteCommittedFacilityWithoutReplacingActiveSession(t *testing.T) {
+	t.Parallel()
+
+	validFacility := mustEncodeSession(t, facilityWorldActionSession())
+	for _, test := range []struct {
+		name string
+		data func(*testing.T) []byte
+	}{
+		{
+			name: "truncated document",
+			data: func(_ *testing.T) []byte {
+				return validFacility[:len(validFacility)-12]
+			},
+		},
+		{
+			name: "missing protected current state",
+			data: func(t *testing.T) []byte {
+				return mutateFacilityDocument(t, validFacility, func(facility map[string]any) {
+					devices, ok := facility["devices"].([]any)
+					require.True(t, ok)
+					require.NotEmpty(t, devices)
+					device, ok := devices[0].(map[string]any)
+					require.True(t, ok)
+					delete(device, "currentStateId")
+				})
+			},
+		},
+		{
+			name: "missing referenced condition",
+			data: func(t *testing.T) []byte {
+				return mutateFacilityDocument(t, validFacility, func(facility map[string]any) {
+					facility["conditions"] = []any{}
+				})
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			fileSystem := testutil.NewFakeFileSystem()
+			activePath := filepath.Join(testCampaignsRoot, "safe-legacy-"+test.name+".json")
+			incompletePath := filepath.Join(testCampaignsRoot, "incomplete-facility-"+test.name+".json")
+			legacy := validSession("Safe legacy")
+			fileSystem.SeedFile(activePath, mustEncodeSession(t, legacy))
+			incomplete := test.data(t)
+			fileSystem.SeedFile(incompletePath, incomplete)
+			dialog := &testutil.FakeDialog{OpenResult: activePath}
+			service := NewService(NewStorage(fileSystem), dialog, testLocations)
+			t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
+			opened := service.Open(t.Context())
+			require.True(t, opened.OK)
+			require.NotNil(t, opened.Session)
+			safeCanonical := domain.CloneSession(*opened.Session)
+
+			dialog.OpenResult = incompletePath
+			failed := service.Open(t.Context())
+
+			assert.False(t, failed.OK)
+			assert.False(t, failed.Canceled)
+			assert.NotEmpty(t, failed.Error)
+			assert.NotContains(t, failed.Error, string(incomplete))
+			assert.Nil(t, failed.Session)
+			snapshot := service.Snapshot()
+			assert.Equal(t, activePath, snapshot.Path)
+			require.NotNil(t, snapshot.Session)
+			assert.Equal(t, safeCanonical, *snapshot.Session)
+			assert.Nil(t, snapshot.Session.Facility)
+			assert.Empty(t, fileSystem.WriteCalls())
+		})
+	}
+}
+
 func TestCommandStateFreshProcessHelper(t *testing.T) {
 	mode := os.Getenv("FALLOUT_COMMAND_STATE_PROCESS_MODE")
 	if mode == "" {
@@ -2130,6 +2432,37 @@ func mustReadFile(t *testing.T, path string) []byte {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err, "ReadFile(%q)", path)
 	return data
+}
+
+func facilitySessionAfterCommittedWorldAction() domain.Session {
+	session := domain.CloneSession(facilityWorldActionSession())
+	session.Facility.Revision++
+	session.Facility.Devices[0].CurrentStateID = "online"
+	session.Facility.Devices[1].CurrentStateID = "open"
+	session.Facility.Conditions[0].CurrentActive = false
+	session.Terminals[0].CommandStates = map[string]domain.CommandExecutionState{
+		"restore-and-open": {
+			CompletedName: "POWER RESTORED; DOOR OPEN",
+			ResultText:    "Power restored and door opened.",
+		},
+	}
+	return session
+}
+
+func mutateFacilityDocument(
+	t *testing.T,
+	data []byte,
+	mutate func(map[string]any),
+) []byte {
+	t.Helper()
+	var document map[string]any
+	require.NoError(t, json.Unmarshal(data, &document))
+	facility, ok := document["facility"].(map[string]any)
+	require.True(t, ok, "encoded session facility has type %T", document["facility"])
+	mutate(facility)
+	mutated, err := json.Marshal(document)
+	require.NoError(t, err)
+	return mutated
 }
 
 func stateChangingSession(name string) domain.Session {
@@ -2248,6 +2581,48 @@ func validSession(name string) domain.Session {
 				Children: []domain.ContentNode{},
 			},
 		}},
+	}
+}
+
+func facilitySessionForSaveTest() domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Facility save",
+		Terminals: []domain.Terminal{{
+			ID: "terminal", Name: "Facility terminal",
+			Root: domain.ContentNode{
+				ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{},
+			},
+		}},
+		Facility: &domain.Facility{
+			Revision: 12,
+			Devices: []domain.FacilityDevice{{
+				ID: "power-grid", Name: "Main power grid", Kind: domain.FacilityDeviceKind("power-grid"),
+				InitialStateID: "offline", CurrentStateID: "online",
+				States: []domain.FacilityDeviceState{
+					{ID: "offline", Name: "Offline"},
+					{ID: "online", Name: "Online"},
+				},
+				Transitions: []domain.FacilityDeviceTransition{{
+					ID: "restore", Name: "Restore power", SourceStateID: "offline", DestinationStateID: "online",
+					ConditionEffects: []domain.FacilityConditionEffect{{ConditionID: "power-unpowered", Active: false}},
+					Recovery:         true,
+				}},
+			}},
+			Conditions: []domain.DiagnosticCondition{{
+				ID: "power-unpowered", Name: "Main grid unpowered", Category: domain.DiagnosticConditionCategory("unpowered"),
+				Device:        &domain.DiagnosticDeviceScope{DeviceID: "power-grid"},
+				InitialActive: true,
+				CurrentActive: false,
+				Effects: []domain.DiagnosticEffect{{
+					CapabilityBlock: &domain.CapabilityBlockEffect{Capability: domain.FacilityCapability("execute-command")},
+				}},
+				Recovery: []domain.DiagnosticRecoveryReference{{
+					Transition: &domain.FacilityTransitionRequest{DeviceID: "power-grid", TransitionID: "restore"},
+				}},
+			}},
+			RecoveryPrograms: []domain.RecoveryProgram{},
+		},
 	}
 }
 

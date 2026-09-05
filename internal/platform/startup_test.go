@@ -424,33 +424,37 @@ func TestStandaloneMacOSWorkflowIsRemovedFromActiveAutomation(t *testing.T) {
 	assert.NotContains(t, protoCheck, "wails-macos.yml")
 }
 
-func TestWailsV3RollbackRecordHasIdentitySafetyTriggersAndHonestEvidenceFields(t *testing.T) {
+func TestHistoricalWailsV3MigrationRecordHasIdentitySafetyAndHonestEvidence(t *testing.T) {
 	t.Parallel()
 
 	root := repositoryRoot(t)
 	rollback := readAcceptanceDocument(t, filepath.Join(root, "docs", "wails-v3-migration-rollback.md"))
 	for _, required := range []string{
+		"# Historical Wails v2-to-v3 Migration and Cutover Record",
+		"This file is historical evidence only.",
 		"f1084b3df8b5630862bdf7a0f347b599156653ef",
 		"Source verification | `PASS`",
 		"Artifact status | `BUILT FOR DRILL — ACCEPTED FOR THIS DRILL`",
 		"Executable SHA-256 | `c1faf7fe4f2ed0abc5c4814b8e71805f5b57a65b817fd3a45bbcc90bdaf29530`",
-		"invent or prefill an artifact digest",
+		"The record intentionally contains only artifact",
+		"digests that were actually collected",
 		"bcb207704657a92f9902f4ac04ef11765b18f031",
 		"provenance only—not the build candidate",
-		"## Rollback Triggers",
+		"## Historical Rollback Triggers",
 		"| Trigger | Required action | Decision owner |",
-		"## Data-Safe Rollback Procedure",
+		"## Historical Data-Safe Rollback Drill Procedure",
 		"safety copies",
-		"Record SHA-256 values for the originals and safety copies",
-		"separate maintenance worktree or clone",
-		"Open only the safety-copy version-1 data without migration or conversion",
-		"## Rollback Drill Evidence",
+		"SHA-256 values were recorded for the originals and safety copies",
+		"A separate maintenance worktree or clone was created",
+		"Only the safety-copy version-1 data was opened",
+		"## Historical Rollback Drill Evidence",
 		"Overall drill result | `PASS`",
 	} {
 		assert.Contains(t, rollback, required)
 	}
 	assert.NotContains(t, rollback, "Artifact status | `PASS`")
-	assert.Contains(t, rollback, "immutable source commit remains canonical rollback authority")
+	assert.NotContains(t, rollback, "immutable source commit remains canonical rollback authority")
+	assert.Contains(t, rollback, "during feature 006, the immutable source commit remained the rollback reference")
 }
 
 func TestAcceptanceEvidenceUsesOneCanonicalPostElectronCandidate(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -56,15 +57,52 @@ func TestPresentationUplinkOpenPublishesReadyToMatchingSubscription(t *testing.T
 	require.NoError(t, err)
 }
 
+func TestBoundaryAuditRegistrationReplacesOwnedSinkAndIsolatesPanics(t *testing.T) {
+	t.Parallel()
+
+	configuredCalls := 0
+	service, err := NewConnectService(ConnectServiceConfig{
+		Coordinator: newConnectTestCoordinator(t),
+		BoundaryAudit: func(BoundaryAuditEvent) {
+			configuredCalls++
+			panic("configured audit sink failed")
+		},
+	})
+	require.NoError(t, err)
+
+	firstCalls := 0
+	unregisterFirst := service.registerServerBoundaryAudit(func(BoundaryAuditEvent) { firstCalls++ })
+	secondCalls := 0
+	unregisterSecond := service.registerServerBoundaryAudit(func(BoundaryAuditEvent) { secondCalls++ })
+
+	service.emitBoundaryAudit(BoundaryAuditEvent{Name: "player.boundary.request_received", Outcome: "received"})
+	require.Equal(t, 1, configuredCalls)
+	require.Zero(t, firstCalls, "a replaced server sink must not remain registered")
+	require.Equal(t, 1, secondCalls, "a configured sink panic must not suppress the server sink")
+
+	unregisterFirst()
+	service.emitBoundaryAudit(BoundaryAuditEvent{Name: "player.boundary.request_outcome", Outcome: "accepted"})
+	require.Equal(t, 2, configuredCalls)
+	require.Equal(t, 2, secondCalls, "an obsolete owner must not unregister the current sink")
+
+	unregisterSecond()
+	service.emitBoundaryAudit(BoundaryAuditEvent{Name: "player.boundary.request_outcome", Outcome: "accepted"})
+	require.Equal(t, 3, configuredCalls)
+	require.Equal(t, 2, secondCalls)
+}
+
 func TestConnectSubscribeBeginsWithCompleteSnapshotAndSelectsCharacter(t *testing.T) {
 	var service *ConnectService
+	boundaryAudits := testutil.NewFakeOrderedEffectSink[BoundaryAuditEvent]()
 	coordinator := newConnectTestCoordinator(t, func(effect control.Effect) {
 		if service != nil {
 			service.PublishEffect(effect)
 		}
 	})
 	var err error
-	service, err = NewConnectService(ConnectServiceConfig{Coordinator: coordinator})
+	service, err = NewConnectService(ConnectServiceConfig{
+		Coordinator: coordinator, BoundaryAudit: boundaryAudits.Enqueue,
+	})
 	require.NoError(t, err)
 
 	path, handler := playerv1connect.NewPlayerServiceHandler(service)
@@ -116,6 +154,40 @@ func TestConnectSubscribeBeginsWithCompleteSnapshotAndSelectsCharacter(t *testin
 	require.NotNil(t, update)
 	require.Equal(t, response.Msg.GetRevision(), update.GetRevision())
 	require.NotNil(t, update.GetPlayerState())
+
+	boundary := boundaryAudits.Values()
+	require.Len(t, boundary, 4)
+	require.Equal(t, []BoundaryAuditEvent{
+		{
+			Name: "player.boundary.recognition", Outcome: "issued",
+			SessionID: domain.LogicalSessionID(snapshot.GetPlayerState().GetLogicalSessionId()),
+			Role:      domain.PlayerRoleUnassigned, Mode: "subscribe",
+		},
+		{
+			Name: "player.boundary.connection", Outcome: "connected",
+			SessionID: domain.LogicalSessionID(snapshot.GetPlayerState().GetLogicalSessionId()),
+			Role:      domain.PlayerRoleUnassigned, Mode: "subscribe",
+		},
+		{
+			Name: "player.boundary.request_received", Outcome: "received",
+			SessionID: domain.LogicalSessionID(snapshot.GetPlayerState().GetLogicalSessionId()),
+			Role:      domain.PlayerRoleUnassigned, RequestID: "request-1", Mode: "select-character",
+		},
+		{
+			Name: "player.boundary.request_outcome", Outcome: "accepted",
+			SessionID: domain.LogicalSessionID(snapshot.GetPlayerState().GetLogicalSessionId()),
+			Role:      domain.PlayerRoleActive, RequestID: "request-1", Mode: "select-character",
+		},
+	}, boundary)
+
+	cancelStream(errors.New("boundary disconnect"))
+	waitContext, cancelWait := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancelWait)
+	require.True(t, boundaryAudits.WaitForCount(waitContext, 5))
+	disconnected := boundaryAudits.Values()[4]
+	require.Equal(t, "player.boundary.connection", disconnected.Name)
+	require.Equal(t, "disconnected", disconnected.Outcome)
+	require.Equal(t, domain.PlayerRoleActive, disconnected.Role)
 }
 
 func TestConnectSubscribeHandleMatrixRejectsInvalidWithoutCanonicalEffects(t *testing.T) {

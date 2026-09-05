@@ -237,6 +237,10 @@ function runtimeLogsFailureFixtureActive() {
 	return new URLSearchParams(globalThis.location?.search ?? '').has('runtime-logs-failure');
 }
 
+function runtimeLogsUnavailableFixtureActive() {
+	return new URLSearchParams(globalThis.location?.search ?? '').has('runtime-logs-unavailable');
+}
+
 async function playerManagementFixtureCommand(path, payload) {
   const response = await fetch(`/__fixture/player-management/${path}`, {
     method: payload === undefined ? 'GET' : 'POST',
@@ -714,6 +718,14 @@ export function OpenLogLocation() {
 			activeLogPath: '',
 		});
 	}
+	if (runtimeLogsUnavailableFixtureActive()) {
+		return Promise.resolve({
+			ok: true,
+			error: '',
+			directoryPath: '/Users/fixture/Application Support/Fallout Terminal/logs',
+			activeLogPath: '',
+		});
+	}
 	const deferred = state.terminalActionDeferred.get('OpenLogLocation');
 	if (deferred) return deferred.promise;
 	if (state.terminalActionNextResults.has('OpenLogLocation')) {
@@ -757,6 +769,90 @@ export function ReplaceTerminalGroups(payload) {
     },
   });
 }
+export function InspectFacilityDependencies(payload) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method: 'InspectFacilityDependencies', args: [retained] });
+  if (state.terminalActionNextResults.has('InspectFacilityDependencies')) {
+    const result = structuredClone(state.terminalActionNextResults.get('InspectFacilityDependencies'));
+    state.terminalActionNextResults.delete('InspectFacilityDependencies');
+    return Promise.resolve(result);
+  }
+  return Promise.resolve({
+    ok: true,
+    failure: '',
+    issues: [],
+    sessionRevision: retained.expectedSessionRevision,
+    facilityRevision: retained.expectedFacilityRevision,
+    report: {
+      target: structuredClone(retained.target),
+      dependencies: [{
+        kind: 'command-action',
+        sourceId: 'open-door',
+        targetId: retained.target?.entityId ?? '',
+        property: 'stateChange.facilityAction.transitions[0].deviceId',
+        terminalId: 'terminal-security',
+      }],
+    },
+  });
+}
+export function PreviewFacility(payload) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method: 'PreviewFacility', args: [retained] });
+  if (state.terminalActionNextResults.has('PreviewFacility')) {
+    const result = structuredClone(state.terminalActionNextResults.get('PreviewFacility'));
+    state.terminalActionNextResults.delete('PreviewFacility');
+    return Promise.resolve(result);
+  }
+  return Promise.resolve({
+    ok: true,
+    failure: '',
+    issues: [],
+    facilityRevision: retained.expectedFacilityRevision,
+    terminal: {
+      terminalId: retained.terminalId,
+      terminalName: 'Preview terminal',
+      revision: 31,
+      tree: { id: 'root', type: 'folder', name: 'ROOT', children: [] },
+    },
+  });
+}
+function facilityOperationFixture(method, payload, affectedDeviceIds, affectedConditionIds) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method, args: [retained] });
+  if (state.terminalActionNextResults.has(method)) {
+    const result = structuredClone(state.terminalActionNextResults.get(method));
+    state.terminalActionNextResults.delete(method);
+    return Promise.resolve(result);
+  }
+  const resultingFacilityRevision = Number(retained.expectedFacilityRevision ?? 0) + 1;
+  return Promise.resolve({
+    ok: true,
+    changed: true,
+    correlationId: retained.correlationId ?? '',
+    failure: '',
+    issues: [],
+    sessionRevision: 19,
+    previousFacilityRevision: retained.expectedFacilityRevision ?? 0,
+    resultingFacilityRevision,
+    affectedDeviceIds,
+    affectedConditionIds,
+    session: {
+      version: 1,
+      name: 'Facility operation',
+      terminals: [],
+      facility: { revision: resultingFacilityRevision, devices: [], conditions: [], recoveryPrograms: [] },
+    },
+  });
+}
+export const RecoverFacilityCondition = payload => facilityOperationFixture(
+  'RecoverFacilityCondition', payload, [], [payload?.conditionId ?? ''],
+);
+export const ResetFacility = payload => facilityOperationFixture(
+  'ResetFacility', payload, ['security-door'], [],
+);
+export const ResetFacilityDevice = payload => facilityOperationFixture(
+  'ResetFacilityDevice', payload, [payload?.deviceId ?? ''], [],
+);
 export const RequestTerminalActivation = (...args) => terminalAction('RequestTerminalActivation', args);
 export const RequestTerminalClear = (...args) => terminalAction('RequestTerminalClear', args);
 export const ResetFailedHack = (...args) => record('ResetFailedHack', args);
@@ -787,6 +883,33 @@ export async function ResolveTerminalNavigation(payload) {
 		method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(retained),
 	});
 	return response.json();
+}
+export function SaveFacilityAuthoring(payload) {
+  const retained = structuredClone(payload ?? {});
+  state.calls.push({ method: 'SaveFacilityAuthoring', args: [retained] });
+  if (state.terminalActionNextResults.has('SaveFacilityAuthoring')) {
+    const result = structuredClone(state.terminalActionNextResults.get('SaveFacilityAuthoring'));
+    state.terminalActionNextResults.delete('SaveFacilityAuthoring');
+    return Promise.resolve(result);
+  }
+  const resultingFacilityRevision = Number(retained.expectedFacilityRevision ?? 0) + 1;
+  const canonicalSession = structuredClone(retained.session);
+  if (canonicalSession?.facility && typeof canonicalSession.facility === 'object') {
+    canonicalSession.facility.revision = resultingFacilityRevision;
+  }
+  return Promise.resolve({
+    ok: true,
+    changed: true,
+    correlationId: retained.correlationId ?? '',
+    failure: '',
+    issues: [],
+    sessionRevision: Number(retained.expectedSessionRevision ?? 0) + 1,
+    previousFacilityRevision: retained.expectedFacilityRevision ?? 0,
+    resultingFacilityRevision,
+    affectedDeviceIds: ['security-door'],
+    affectedConditionIds: [],
+    session: canonicalSession,
+  });
 }
 export async function ResetCommandState(payload) {
   if (!authoringFixtureActive()) return record('ResetCommandState', [payload]);

@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 40 methods and seven named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 46 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -51,6 +51,7 @@ test('desktop facade retains one v2 service with 40 methods and seven named even
     'GetApplicationUpdateStatus',
     'GetPublicAccess',
     'GetRuntimeStatus',
+    'InspectFacilityDependencies',
     'LoadReferencedPlayerConfig',
     'MoveCharacter',
     'NewPlayerConfig',
@@ -59,12 +60,16 @@ test('desktop facade retains one v2 service with 40 methods and seven named even
     'OpenPlayerConfig',
     'OpenSession',
     'OpenURL',
+    'PreviewFacility',
+    'RecoverFacilityCondition',
     'ReleaseCharacter',
     'RenameLogicalSession',
     'ReplaceTerminalGroups',
     'RequestTerminalActivation',
     'RequestTerminalClear',
     'ResetCommandState',
+    'ResetFacility',
+    'ResetFacilityDevice',
     'ResetFailedHack',
     'ResetTerminalCommandStates',
     'ResolveApplicationUpdateOffer',
@@ -72,6 +77,7 @@ test('desktop facade retains one v2 service with 40 methods and seven named even
     'ResolveCommandExecution',
     'ResolveTerminalNavigation',
     'ResolveTerminalSwitch',
+    'SaveFacilityAuthoring',
     'SavePublicAccessSettings',
     'SaveSession',
     'SetActiveController',
@@ -149,6 +155,377 @@ test('terminal-group replacement forwards both revisions and returns detached ca
     { id: 'group-charlie', name: 'Charlie', terminalIds: ['terminal-c'] },
   ]);
   expect(observed.call.args[0].terminalGroups[0].terminalIds).toEqual(['terminal-a', 'terminal-b']);
+});
+
+test('facility authoring and dependency inspection preserve typed revisions and detached data', async ({ page }) => {
+  const request = {
+    session: {
+      version: 1,
+      name: 'Facility draft',
+      terminals: [],
+      facility: { revision: 7, devices: [], conditions: [], recoveryPrograms: [] },
+    },
+    expectedSessionRevision: 17,
+    expectedFacilityRevision: 7,
+    correlationId: 'authoring-17',
+  };
+
+  const observed = await page.evaluate(async candidate => {
+    const pending = desktopAPI.saveFacilityAuthoring(candidate);
+    candidate.session.name = 'mutated after invocation';
+    candidate.expectedSessionRevision = -1;
+    const saved = await pending;
+    saved.session.name = 'mutated result';
+
+    const inspected = await desktopAPI.inspectFacilityDependencies({
+      target: { kind: 'device', entityId: 'security-door' },
+      expectedSessionRevision: 18,
+      expectedFacilityRevision: 8,
+    });
+    __desktopFixture.setNextTerminalActionResult('InspectFacilityDependencies', {
+      ok: false,
+      failure: 'missing-reference',
+      issues: [{
+        code: 'missing-reference',
+        entityKind: 'device-state',
+        entityId: 'sealed',
+        referenceKind: 'owner',
+        referenceId: 'security-door',
+      }],
+      sessionRevision: 18,
+      facilityRevision: 8,
+      report: null,
+    });
+    const failed = await desktopAPI.inspectFacilityDependencies({
+      target: { kind: 'device-state', entityId: 'sealed', ownerId: 'security-door' },
+      expectedSessionRevision: 18,
+      expectedFacilityRevision: 8,
+    });
+    return {
+      saved,
+      inspected,
+      failed,
+      savedFrozen: Object.isFrozen(saved),
+      dependencyFrozen: Object.isFrozen(inspected.report.dependencies[0]),
+      calls: __desktopFixture.calls.filter(call => [
+        'SaveFacilityAuthoring', 'InspectFacilityDependencies',
+      ].includes(call.method)).slice(-3),
+    };
+  }, request);
+
+  expect(observed.saved).toEqual(expect.objectContaining({
+    ok: true,
+    changed: true,
+    correlationId: 'authoring-17',
+    failure: '',
+    sessionRevision: 18,
+    previousFacilityRevision: 7,
+    resultingFacilityRevision: 8,
+    affectedDeviceIds: ['security-door'],
+  }));
+  expect(observed.savedFrozen).toBe(true);
+  expect(observed.calls[0].args[0]).toEqual(request);
+  expect(observed.calls[0].args[0].session.name).toBe('Facility draft');
+  expect(observed.inspected).toEqual(expect.objectContaining({
+    ok: true,
+    failure: '',
+    sessionRevision: 18,
+    facilityRevision: 8,
+    report: {
+      target: { kind: 'device', entityId: 'security-door' },
+      dependencies: [{
+        kind: 'command-action',
+        sourceId: 'open-door',
+        targetId: 'security-door',
+        property: 'stateChange.facilityAction.transitions[0].deviceId',
+        terminalId: 'terminal-security',
+      }],
+    },
+  }));
+  expect(observed.dependencyFrozen).toBe(true);
+  expect(observed.failed).toEqual(expect.objectContaining({
+    ok: false,
+    failure: 'missing-reference',
+    issues: [{
+      code: 'missing-reference',
+      entityKind: 'device-state',
+      entityId: 'sealed',
+      referenceKind: 'owner',
+      referenceId: 'security-door',
+    }],
+    report: null,
+  }));
+  expect(observed.calls[1].args[0].target).toEqual({ kind: 'device', entityId: 'security-door' });
+  expect(Object.hasOwn(observed.calls[1].args[0].target, 'ownerId')).toBe(false);
+  expect(observed.calls[2].args[0].target.ownerId).toBe('security-door');
+});
+
+test('facility authoring rejects inconsistent or out-of-order successful responses', async ({ page }) => {
+  const observed = await page.evaluate(async () => {
+    const request = {
+      session: {
+        version: 1,
+        name: 'Facility draft',
+        terminals: [],
+        facility: { revision: 7, devices: [], conditions: [], recoveryPrograms: [] },
+      },
+      expectedSessionRevision: 17,
+      expectedFacilityRevision: 7,
+      correlationId: 'authoring-17',
+    };
+    const success = {
+      ok: true,
+      changed: true,
+      correlationId: request.correlationId,
+      failure: '',
+      issues: [],
+      sessionRevision: 18,
+      previousFacilityRevision: 7,
+      resultingFacilityRevision: 8,
+      session: {
+        ...request.session,
+        facility: { ...request.session.facility, revision: 8 },
+      },
+    };
+    const candidates = [
+      { ...success, correlationId: 'another-operation' },
+      { ...success, previousFacilityRevision: 6 },
+      { ...success, resultingFacilityRevision: 10 },
+      { ...success, sessionRevision: 16 },
+      { ...success, sessionRevision: 19 },
+      { ...success, session: null },
+      { ...success, session: request.session },
+      { ...success, session: { ...success.session, facility: { ...success.session.facility, revision: 9 } } },
+      {
+        ...success,
+        changed: false,
+        sessionRevision: 18,
+        resultingFacilityRevision: 7,
+        session: request.session,
+      },
+      {
+        ...success,
+        changed: false,
+        sessionRevision: 17,
+        resultingFacilityRevision: 8,
+      },
+    ];
+    const results = [];
+    for (const candidate of candidates) {
+      __desktopFixture.setNextTerminalActionResult('SaveFacilityAuthoring', candidate);
+      results.push(await desktopAPI.saveFacilityAuthoring(request));
+    }
+    __desktopFixture.setNextTerminalActionResult('SaveFacilityAuthoring', {
+      ...success,
+      changed: false,
+      sessionRevision: 17,
+      resultingFacilityRevision: 7,
+      session: null,
+    });
+    return { failures: results, unchanged: await desktopAPI.saveFacilityAuthoring(request) };
+  });
+
+  expect(observed.failures).toHaveLength(10);
+  for (const result of observed.failures) {
+    expect(result).toEqual(expect.objectContaining({
+      ok: false,
+      changed: false,
+      correlationId: 'authoring-17',
+      failure: 'conflict',
+      sessionRevision: 17,
+      previousFacilityRevision: 7,
+      resultingFacilityRevision: 7,
+      session: null,
+    }));
+    expect(result.issues).toEqual([{ code: 'conflict', entityKind: 'desktop-result' }]);
+  }
+  expect(observed.unchanged).toEqual(expect.objectContaining({
+    ok: true,
+    changed: false,
+    sessionRevision: 17,
+    previousFacilityRevision: 7,
+    resultingFacilityRevision: 7,
+    session: null,
+  }));
+});
+
+test('facility inspection, preview, resets, and recovery use normalized detached contracts', async ({ page }) => {
+  const observed = await page.evaluate(async () => {
+    const previewRequest = {
+      expectedFacilityRevision: 8,
+      terminalId: 'terminal-security',
+      deviceState: { deviceId: 'security-door', stateId: 'open' },
+    };
+    const recoveryRequest = {
+      conditionId: 'grid-offline',
+      expectedFacilityRevision: 8,
+      correlationId: 'recover-8',
+      recovery: { transition: { deviceId: 'power-grid', transitionId: 'restore' } },
+    };
+    const previewPending = desktopAPI.previewFacility(previewRequest);
+    const recoveryPending = desktopAPI.recoverFacilityCondition(recoveryRequest);
+    previewRequest.deviceState.stateId = 'offline';
+    recoveryRequest.recovery.transition.transitionId = 'mutated';
+    const [preview, recovery, deviceReset, facilityReset] = await Promise.all([
+      previewPending,
+      recoveryPending,
+      desktopAPI.resetFacilityDevice({
+        deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8',
+      }),
+      desktopAPI.resetFacility({ expectedFacilityRevision: 8, correlationId: 'facility-reset-8' }),
+    ]);
+    preview.terminal.terminalName = 'mutated result';
+    recovery.session.name = 'mutated result';
+    return {
+      preview,
+      recovery,
+      deviceReset,
+      facilityReset,
+      calls: __desktopFixture.calls.filter(call => [
+        'PreviewFacility', 'RecoverFacilityCondition', 'ResetFacilityDevice', 'ResetFacility',
+      ].includes(call.method)).slice(-4),
+    };
+  });
+
+  expect(observed.calls).toEqual([
+    {
+      method: 'PreviewFacility',
+      args: [{
+        expectedFacilityRevision: 8,
+        terminalId: 'terminal-security',
+        deviceState: { DeviceID: 'security-door', StateID: 'open' },
+      }],
+    },
+    {
+      method: 'RecoverFacilityCondition',
+      args: [{
+        conditionId: 'grid-offline',
+        expectedFacilityRevision: 8,
+        correlationId: 'recover-8',
+        recovery: { transition: { deviceId: 'power-grid', transitionId: 'restore' } },
+      }],
+    },
+    {
+      method: 'ResetFacilityDevice',
+      args: [{ deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8' }],
+    },
+    {
+      method: 'ResetFacility',
+      args: [{ expectedFacilityRevision: 8, correlationId: 'facility-reset-8' }],
+    },
+  ]);
+  expect(observed.preview).toEqual(expect.objectContaining({
+    ok: true,
+    failure: '',
+    facilityRevision: 8,
+    terminal: expect.objectContaining({ terminalId: 'terminal-security', terminalName: 'mutated result' }),
+  }));
+  expect(observed.recovery).toEqual(expect.objectContaining({
+    ok: true,
+    changed: true,
+    correlationId: 'recover-8',
+    previousFacilityRevision: 8,
+    resultingFacilityRevision: 9,
+    affectedConditionIds: ['grid-offline'],
+  }));
+  expect(observed.deviceReset).toEqual(expect.objectContaining({
+    ok: true,
+    changed: true,
+    correlationId: 'device-reset-8',
+    affectedDeviceIds: ['security-door'],
+  }));
+  expect(observed.facilityReset).toEqual(expect.objectContaining({
+    ok: true,
+    changed: true,
+    correlationId: 'facility-reset-8',
+    resultingFacilityRevision: 9,
+  }));
+});
+
+test('facility read and mutation calls reject inconsistent successful revisions', async ({ page }) => {
+  const observed = await page.evaluate(async () => {
+    __desktopFixture.setNextTerminalActionResult('InspectFacilityDependencies', {
+      ok: true,
+      facilityRevision: 9,
+      sessionRevision: 18,
+      report: {
+        target: { kind: 'device', entityId: 'security-door' },
+        dependencies: [],
+      },
+    });
+    const inspection = await desktopAPI.inspectFacilityDependencies({
+      target: { kind: 'device', entityId: 'security-door' },
+      expectedSessionRevision: 18,
+      expectedFacilityRevision: 8,
+    });
+
+    __desktopFixture.setNextTerminalActionResult('PreviewFacility', {
+      ok: true,
+      facilityRevision: 9,
+      terminal: { terminalId: 'terminal-security' },
+    });
+    const preview = await desktopAPI.previewFacility({
+      expectedFacilityRevision: 8,
+      terminalId: 'terminal-security',
+      condition: { conditionId: 'grid-offline', active: false },
+    });
+
+    __desktopFixture.setNextTerminalActionResult('ResetFacilityDevice', {
+      ok: true,
+      changed: true,
+      correlationId: 'device-reset-8',
+      sessionRevision: 19,
+      previousFacilityRevision: 8,
+      resultingFacilityRevision: 10,
+      affectedDeviceIds: ['security-door'],
+      session: { version: 1, terminals: [], facility: { revision: 10 } },
+    });
+    const reset = await desktopAPI.resetFacilityDevice({
+      deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8',
+    });
+
+    __desktopFixture.setNextTerminalActionResult('RecoverFacilityCondition', {
+      ok: false,
+      changed: false,
+      correlationId: 'recover-8',
+      failure: 'stale-revision',
+      issues: [{ code: 'stale-revision', entityKind: 'facility' }],
+      previousFacilityRevision: 9,
+      resultingFacilityRevision: 9,
+    });
+    const staleRecovery = await desktopAPI.recoverFacilityCondition({
+      conditionId: 'grid-offline',
+      expectedFacilityRevision: 8,
+      correlationId: 'recover-8',
+      recovery: { privateOverseerAction: true },
+    });
+    return { inspection, preview, reset, staleRecovery };
+  });
+
+  for (const result of [observed.inspection, observed.preview, observed.reset]) {
+    expect(result).toEqual(expect.objectContaining({
+      ok: false,
+      failure: 'conflict',
+      issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+    }));
+  }
+  expect(observed.inspection).toEqual(expect.objectContaining({ sessionRevision: 18, facilityRevision: 8 }));
+  expect(observed.preview).toEqual(expect.objectContaining({ facilityRevision: 8, terminal: null }));
+  expect(observed.reset).toEqual(expect.objectContaining({
+    changed: false,
+    correlationId: 'device-reset-8',
+    previousFacilityRevision: 8,
+    resultingFacilityRevision: 8,
+    session: null,
+  }));
+  expect(observed.staleRecovery).toEqual(expect.objectContaining({
+    ok: false,
+    changed: false,
+    correlationId: 'recover-8',
+    failure: 'stale-revision',
+    previousFacilityRevision: 9,
+    resultingFacilityRevision: 9,
+  }));
 });
 
 test('multi-link legacy partial and complete candidates remain exact at the desktop facade', async ({ page }) => {

@@ -843,8 +843,8 @@ func TestEffectiveTreeProjectionIsDetachedFromAuthoredAndRuntimeState(t *testing
 	assert.Equal(t, "POWER: ONLINE\n\nCOOLING: OFFLINE\n\nSTATUS: NOMINAL", second.Tree.Children[0].Description)
 	assert.Equal(t, "POWER: OFFLINE", second.Tree.Children[0].Blocks[0].InitialText)
 	assert.Equal(t, "POWER: ONLINE", second.Tree.Children[2].StateChange.EntryContentChange.CompletedText)
-	assert.Empty(t, runtime.Tree.Children[0].Description)
-	assert.Equal(t, "POWER: OFFLINE", runtime.Tree.Children[0].Blocks[0].InitialText)
+	assert.Empty(t, runtime.AuthoredTree.Children[0].Description)
+	assert.Equal(t, "POWER: OFFLINE", runtime.AuthoredTree.Children[0].Blocks[0].InitialText)
 	assert.Equal(t, "POWER: ONLINE", runtime.CommandStates["restore-power"].EntryContentChange.CompletedText)
 	assert.Empty(t, target.Tree.Children[0].Description)
 	assert.Equal(t, "POWER: OFFLINE", target.Tree.Children[0].Blocks[0].InitialText)
@@ -1125,6 +1125,68 @@ func TestOrdinaryCommandKeepsLegacyResultPathWithoutExecutionPresentation(t *tes
 	}
 }
 
+func TestFacilityProjectionIsDeterministicDetachedAndOverridesCompletedPresentation(t *testing.T) {
+	t.Parallel()
+
+	authored := domain.ContentNode{
+		ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+		Children: []domain.ContentNode{
+			{
+				ID: "open-door", Type: domain.NodeCommand, Name: "OPEN DOOR", Text: "Opening.",
+				FacilityNameVariants: []domain.FacilityTextVariant{{
+					When: domain.FacilityStateEquality{DeviceID: "door", StateID: "open"},
+					Text: "DOOR OPEN",
+				}},
+			},
+			{
+				ID: "door-status", Type: domain.NodeEntry, Name: "STATUS",
+				Blocks: []domain.EntryContentBlock{{
+					ID: "door-state", InitialText: "SEALED",
+					FacilityTextVariants: []domain.FacilityTextVariant{{
+						When: domain.FacilityStateEquality{DeviceID: "door", StateID: "open"},
+						Text: "OPEN",
+					}},
+				}},
+			},
+		},
+	}
+	completed := map[string]domain.CommandExecutionState{
+		"open-door": {
+			CompletedName: "LEGACY COMPLETE",
+			ResultText:    "Legacy result.",
+			EntryContentChange: &domain.EntryContentChange{
+				BlockID: "door-state", CompletedText: "LEGACY BLOCK",
+			},
+		},
+	}
+	facility := &domain.Facility{Devices: []domain.FacilityDevice{{
+		ID: "door", Name: "Door", Kind: domain.FacilityDeviceKind("door"),
+		InitialStateID: "sealed", CurrentStateID: "open",
+		States: []domain.FacilityDeviceState{{ID: "sealed", Name: "Sealed"}, {ID: "open", Name: "Open"}},
+	}}}
+	facilityBefore := domain.CloneFacility(facility)
+
+	first := projectFacility(authored, completed, facility, "terminal-a")
+	second := projectFacility(authored, completed, facility, "terminal-a")
+	require.Equal(t, facilityBefore, facility, "projection must not mutate canonical facility input")
+	require.Equal(t, first, second)
+	require.Len(t, first.Tree.Children, 2)
+	assert.Equal(t, "DOOR OPEN", first.Tree.Children[0].Name,
+		"matching facility name variant must override the completed-command name")
+	assert.Equal(t, "Legacy result.", first.Tree.Children[0].Text,
+		"facility bindings must not replace the completed command result lifecycle")
+	assert.Equal(t, "OPEN", first.Tree.Children[1].Description,
+		"matching facility block variant must override the frozen completed block")
+
+	first.Tree.Children[0].Name = "MUTATED PROJECTION"
+	first.Tree.Children[1].Blocks[0].FacilityTextVariants[0].Text = "MUTATED VARIANT"
+	facility.Devices[0].CurrentStateID = "sealed"
+	assert.Equal(t, "OPEN DOOR", authored.Children[0].Name)
+	assert.Equal(t, "OPEN", authored.Children[1].Blocks[0].FacilityTextVariants[0].Text)
+	assert.Equal(t, "DOOR OPEN", second.Tree.Children[0].Name)
+	assert.Equal(t, "OPEN", second.Tree.Children[1].Description)
+}
+
 func stateChangingTarget() domain.TerminalTarget {
 	return domain.TerminalTarget{
 		TerminalID: "terminal-1", TerminalName: "Overseer",
@@ -1211,6 +1273,7 @@ func cloneTerminalRuntimeForTest(runtime *domain.TerminalRuntime) *domain.Termin
 		return nil
 	}
 	clone := *runtime
+	clone.AuthoredTree = domain.CloneContentNode(runtime.AuthoredTree)
 	clone.Tree = domain.CloneContentNode(runtime.Tree)
 	clone.Nav = cloneNav(runtime.Nav)
 	if runtime.CommandExecution != nil {

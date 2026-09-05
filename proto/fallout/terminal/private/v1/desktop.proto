@@ -4,6 +4,7 @@ package fallout.terminal.private.v1;
 
 import "fallout/terminal/persistence/v1/player_config.proto";
 import "fallout/terminal/persistence/v1/session.proto";
+import "fallout/terminal/player/v1/terminal.proto";
 import "fallout/terminal/private/v1/coordination.proto";
 
 option go_package = "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1";
@@ -86,6 +87,153 @@ message ResolveCommandExecutionResult {
   bool ok = 1;
   optional string error = 2;
   CoordinationState state = 3;
+  FacilityOperationResult facility_result = 4;
+}
+
+enum FacilityFailureCode {
+  FACILITY_FAILURE_CODE_UNSPECIFIED = 0;
+  FACILITY_FAILURE_CODE_REJECTED = 1;
+  FACILITY_FAILURE_CODE_MISSING_REFERENCE = 2;
+  FACILITY_FAILURE_CODE_INVALID_TRANSITION = 3;
+  FACILITY_FAILURE_CODE_PRECONDITION_FAILED = 4;
+  FACILITY_FAILURE_CODE_STALE_REVISION = 5;
+  FACILITY_FAILURE_CODE_CONFLICT = 6;
+  FACILITY_FAILURE_CODE_DUPLICATE = 7;
+  FACILITY_FAILURE_CODE_INVALID_CONFIGURATION = 8;
+  FACILITY_FAILURE_CODE_PERSISTENCE_FAILED = 9;
+  FACILITY_FAILURE_CODE_RUNTIME_CONTEXT_ENDED = 10;
+}
+
+enum FacilityEntityKind {
+  FACILITY_ENTITY_KIND_UNSPECIFIED = 0;
+  FACILITY_ENTITY_KIND_DEVICE = 1;
+  FACILITY_ENTITY_KIND_DEVICE_STATE = 2;
+  FACILITY_ENTITY_KIND_DEVICE_TRANSITION = 3;
+  FACILITY_ENTITY_KIND_CONDITION = 4;
+  FACILITY_ENTITY_KIND_RECOVERY_PROGRAM = 5;
+}
+
+enum FacilityDependencyKind {
+  FACILITY_DEPENDENCY_KIND_UNSPECIFIED = 0;
+  FACILITY_DEPENDENCY_KIND_TRANSITION_PRECONDITION = 1;
+  FACILITY_DEPENDENCY_KIND_TRANSITION_CONDITION_EFFECT = 2;
+  FACILITY_DEPENDENCY_KIND_RECOVERY_REFERENCE = 3;
+  FACILITY_DEPENDENCY_KIND_RECOVERY_PROGRAM_TRANSITION = 4;
+  FACILITY_DEPENDENCY_KIND_COMMAND_ACTION = 5;
+  FACILITY_DEPENDENCY_KIND_NAME_VARIANT = 6;
+  FACILITY_DEPENDENCY_KIND_ENTRY_CONTENT_VARIANT = 7;
+  FACILITY_DEPENDENCY_KIND_VISIBILITY = 8;
+  FACILITY_DEPENDENCY_KIND_AVAILABILITY = 9;
+  FACILITY_DEPENDENCY_KIND_DIAGNOSTIC_SCOPE = 10;
+  FACILITY_DEPENDENCY_KIND_DIAGNOSTIC_EFFECT = 11;
+}
+
+message FacilityIssue {
+  FacilityFailureCode code = 1;
+  string entity_kind = 2;
+  optional string entity_id = 3;
+  optional string reference_kind = 4;
+  optional string reference_id = 5;
+}
+
+message FacilityOperationResult {
+  bool ok = 1;
+  bool changed = 2;
+  string correlation_id = 3;
+  FacilityFailureCode failure = 4;
+  repeated FacilityIssue issues = 5;
+  uint64 session_revision = 6;
+  uint64 previous_facility_revision = 7;
+  uint64 resulting_facility_revision = 8;
+  repeated string affected_device_ids = 9;
+  repeated string affected_condition_ids = 10;
+  fallout.terminal.persistence.v1.Session session = 11;
+}
+
+message FacilityEntityReference {
+  FacilityEntityKind kind = 1;
+  string entity_id = 2;
+  optional string owner_id = 3;
+}
+
+message FacilityDependency {
+  FacilityDependencyKind kind = 1;
+  string source_id = 2;
+  string target_id = 3;
+  string property = 4;
+  optional string terminal_id = 5;
+}
+
+message FacilityDependencyReport {
+  FacilityEntityReference target = 1;
+  repeated FacilityDependency dependencies = 2;
+}
+
+message InspectFacilityDependenciesRequest {
+  FacilityEntityReference target = 1;
+  uint64 expected_session_revision = 2;
+  uint64 expected_facility_revision = 3;
+}
+
+message InspectFacilityDependenciesResult {
+  bool ok = 1;
+  FacilityFailureCode failure = 2;
+  repeated FacilityIssue issues = 3;
+  uint64 session_revision = 4;
+  uint64 facility_revision = 5;
+  FacilityDependencyReport report = 6;
+}
+
+message PreviewFacilityDeviceState {
+  string device_id = 1;
+  string state_id = 2;
+}
+
+message PreviewFacilityCondition {
+  string condition_id = 1;
+  bool active = 2;
+}
+
+message PreviewFacilityRequest {
+  uint64 expected_facility_revision = 1;
+  string terminal_id = 2;
+  oneof preview {
+    PreviewFacilityDeviceState device_state = 3;
+    PreviewFacilityCondition condition = 4;
+  }
+}
+
+message PreviewFacilityResult {
+  bool ok = 1;
+  FacilityFailureCode failure = 2;
+  repeated FacilityIssue issues = 3;
+  uint64 facility_revision = 4;
+  fallout.terminal.player.v1.LiveTerminal terminal = 5;
+}
+
+message SaveFacilityAuthoringRequest {
+  fallout.terminal.persistence.v1.Session session = 1;
+  uint64 expected_session_revision = 2;
+  uint64 expected_facility_revision = 3;
+  string correlation_id = 4;
+}
+
+message ResetFacilityDeviceRequest {
+  string device_id = 1;
+  uint64 expected_facility_revision = 2;
+  string correlation_id = 3;
+}
+
+message ResetFacilityRequest {
+  uint64 expected_facility_revision = 1;
+  string correlation_id = 2;
+}
+
+message RecoverFacilityConditionRequest {
+  string condition_id = 1;
+  uint64 expected_facility_revision = 2;
+  string correlation_id = 3;
+  fallout.terminal.persistence.v1.DiagnosticRecoveryReference recovery = 4;
 }
 
 message ResolveTerminalNavigationRequest {
