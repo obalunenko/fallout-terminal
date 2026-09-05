@@ -1,0 +1,523 @@
+{
+  "version": 1,
+  "name": "Vault 81 facility",
+  "terminals": [
+    {
+      "id": "terminal-security",
+      "name": "Security Control",
+      "hackLevel": 2,
+      "introText": "VAULT 81 SECURITY NETWORK",
+      "root": {
+        "id": "root",
+        "type": "folder",
+        "name": "ROOT",
+        "children": [
+          {
+            "id": "facility-status",
+            "type": "entry",
+            "name": "FACILITY STATUS",
+            "blocks": [
+              {
+                "id": "power-status",
+                "initialText": "POWER GRID: OFFLINE",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "power-grid-main",
+                      "stateId": "online"
+                    },
+                    "text": "POWER GRID: ONLINE"
+                  }
+                ]
+              },
+              {
+                "id": "door-status",
+                "initialText": "VAULT DOOR: SEALED",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "vault-door-alpha",
+                      "stateId": "open"
+                    },
+                    "text": "VAULT DOOR: OPEN"
+                  }
+                ]
+              },
+              {
+                "id": "network-status",
+                "initialText": "NETWORK: ISOLATED",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "network-core",
+                      "stateId": "connected"
+                    },
+                    "text": "NETWORK: CONNECTED"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "restore-power",
+            "type": "command",
+            "name": "RESTORE MAIN POWER",
+            "text": "Main facility power restored.",
+            "stateChange": {
+              "completedName": "MAIN POWER RESTORED",
+              "confirmationText": "Authorize restoration of main facility power?",
+              "entryContentChange": {
+                "blockId": "power-status",
+                "completedText": "POWER GRID: RESTORED"
+              },
+              "facilityAction": {
+                "transitions": {
+                  "transitions": [
+                    {
+                      "deviceId": "power-grid-main",
+                      "transitionId": "restore"
+                    }
+                  ]
+                }
+              }
+            },
+            "facilityNameVariants": [
+              {
+                "when": {
+                  "deviceId": "power-grid-main",
+                  "stateId": "online"
+                },
+                "text": "MAIN POWER ONLINE"
+              }
+            ]
+          },
+          {
+            "id": "open-vault-door",
+            "type": "command",
+            "name": "OPEN VAULT DOOR",
+            "text": "The vault door is opening.",
+            "stateChange": {
+              "completedName": "VAULT DOOR OPENED",
+              "confirmationText": "Authorize the vault door release?",
+              "facilityAction": {
+                "transitions": {
+                  "transitions": [
+                    {
+                      "deviceId": "vault-door-alpha",
+                      "transitionId": "open"
+                    }
+                  ]
+                }
+              }
+            },
+            "facilityNameVariants": [
+              {
+                "when": {
+                  "deviceId": "vault-door-alpha",
+                  "stateId": "open"
+                },
+                "text": "VAULT DOOR OPEN"
+              }
+            ],
+            "availableWhen": {
+              "deviceId": "power-grid-main",
+              "stateId": "online"
+            }
+          },
+          {
+            "id": "reconnect-network",
+            "type": "command",
+            "name": "RUN NETWORK RECOVERY",
+            "text": "The network recovery program completed.",
+            "stateChange": {
+              "completedName": "NETWORK RECOVERY COMPLETE",
+              "confirmationText": "Run the authorized network recovery holotape?",
+              "facilityAction": {
+                "recoveryProgramId": "network-recovery"
+              }
+            }
+          },
+          {
+            "id": "maintenance-record",
+            "type": "entry",
+            "name": "NETWORK MAINTENANCE RECORD",
+            "description": "The network backbone is operating within normal parameters.",
+            "visibleWhen": {
+              "deviceId": "network-core",
+              "stateId": "connected"
+            }
+          },
+          {
+            "id": "diagnostics",
+            "type": "folder",
+            "name": "DIAGNOSTICS",
+            "children": [
+              {
+                "id": "power-diagnostic",
+                "type": "entry",
+                "name": "POWER FAILURE",
+                "description": "Main-grid startup requires local breaker authorization."
+              },
+              {
+                "id": "network-diagnostic",
+                "type": "entry",
+                "name": "NETWORK ISOLATION",
+                "description": "Load the approved network recovery holotape."
+              }
+            ]
+          }
+        ]
+      },
+      "commandStates": {
+        "restore-power": {
+          "completedName": "MAIN POWER RESTORED",
+          "resultText": "Main facility power restored.",
+          "entryContentChange": {
+            "blockId": "power-status",
+            "completedText": "POWER GRID: RESTORED"
+          }
+        }
+      }
+    },
+    {
+      "id": "terminal-archives",
+      "name": "Records Archive",
+      "hackLevel": 0,
+      "introText": "VAULT 81 ARCHIVAL STORAGE",
+      "root": {
+        "id": "root",
+        "type": "folder",
+        "name": "ROOT",
+        "children": [
+          {
+            "id": "archive-index",
+            "type": "entry",
+            "name": "ARCHIVE INDEX",
+            "blocks": [
+              {
+                "id": "archive-record",
+                "initialText": "Resident census: 257 active records."
+              }
+            ]
+          },
+          {
+            "id": "remote-door-status",
+            "type": "entry",
+            "name": "ENTRANCE STATUS",
+            "facilityNameVariants": [
+              {
+                "when": {
+                  "deviceId": "vault-door-alpha",
+                  "stateId": "open"
+                },
+                "text": "ENTRANCE OPEN"
+              }
+            ],
+            "blocks": [
+              {
+                "id": "remote-door-record",
+                "initialText": "The primary entrance is sealed.",
+                "facilityTextVariants": [
+                  {
+                    "when": {
+                      "deviceId": "vault-door-alpha",
+                      "stateId": "open"
+                    },
+                    "text": "The primary entrance is open."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "terminalGroups": [
+    {
+      "id": "vault-operations",
+      "name": "Vault Operations",
+      "terminalIds": [
+        "terminal-security",
+        "terminal-archives"
+      ]
+    }
+  ],
+  "facility": {
+    "revision": 7,
+    "devices": [
+      {
+        "id": "power-grid-main",
+        "name": "Main Power Grid",
+        "kind": "power-grid",
+        "initialStateId": "offline",
+        "currentStateId": "online",
+        "states": [
+          {
+            "id": "offline",
+            "name": "Offline"
+          },
+          {
+            "id": "online",
+            "name": "Online"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "restore",
+            "name": "Restore main power",
+            "sourceStateId": "offline",
+            "destinationStateId": "online",
+            "conditionEffects": [
+              {
+                "conditionId": "power-unpowered",
+                "active": false
+              }
+            ],
+            "recovery": true
+          },
+          {
+            "id": "shutdown",
+            "name": "Shut down main power",
+            "sourceStateId": "online",
+            "destinationStateId": "offline",
+            "conditionEffects": [
+              {
+                "conditionId": "power-unpowered",
+                "active": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "vault-door-alpha",
+        "name": "Primary Vault Door",
+        "kind": "door",
+        "initialStateId": "sealed",
+        "currentStateId": "sealed",
+        "states": [
+          {
+            "id": "sealed",
+            "name": "Sealed"
+          },
+          {
+            "id": "open",
+            "name": "Open"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "open",
+            "name": "Open the vault door",
+            "sourceStateId": "sealed",
+            "destinationStateId": "open",
+            "preconditions": [
+              {
+                "deviceId": "power-grid-main",
+                "stateId": "online"
+              }
+            ],
+            "conditionEffects": [
+              {
+                "conditionId": "door-offline",
+                "active": false
+              }
+            ]
+          },
+          {
+            "id": "seal",
+            "name": "Seal the vault door",
+            "sourceStateId": "open",
+            "destinationStateId": "sealed"
+          }
+        ]
+      },
+      {
+        "id": "network-core",
+        "name": "Vault Network Core",
+        "kind": "network-segment",
+        "initialStateId": "isolated",
+        "currentStateId": "isolated",
+        "states": [
+          {
+            "id": "isolated",
+            "name": "Isolated"
+          },
+          {
+            "id": "connected",
+            "name": "Connected"
+          }
+        ],
+        "transitions": [
+          {
+            "id": "connect",
+            "name": "Reconnect the network core",
+            "sourceStateId": "isolated",
+            "destinationStateId": "connected",
+            "preconditions": [
+              {
+                "deviceId": "power-grid-main",
+                "stateId": "online"
+              }
+            ],
+            "conditionEffects": [
+              {
+                "conditionId": "network-isolated",
+                "active": false
+              }
+            ],
+            "recovery": true
+          },
+          {
+            "id": "isolate",
+            "name": "Isolate the network core",
+            "sourceStateId": "connected",
+            "destinationStateId": "isolated",
+            "conditionEffects": [
+              {
+                "conditionId": "network-isolated",
+                "active": true
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "power-unpowered",
+        "name": "Main grid unpowered",
+        "category": "unpowered",
+        "device": {
+          "deviceId": "power-grid-main"
+        },
+        "initialActive": true,
+        "currentActive": false,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "execute-command"
+            }
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "terminal-security",
+              "nodeId": "power-diagnostic"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "transition": {
+              "deviceId": "power-grid-main",
+              "transitionId": "restore"
+            }
+          },
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "door-offline",
+        "name": "Door controller offline",
+        "category": "offline",
+        "device": {
+          "deviceId": "vault-door-alpha"
+        },
+        "initialActive": false,
+        "currentActive": false,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "execute-command"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "network-isolated",
+        "name": "Security network isolated",
+        "category": "network-isolated",
+        "terminal": {
+          "terminalId": "terminal-security"
+        },
+        "initialActive": true,
+        "currentActive": true,
+        "effects": [
+          {
+            "capabilityBlock": {
+              "capability": "terminal-transition"
+            }
+          },
+          {
+            "diagnosticPath": {
+              "terminalId": "terminal-security",
+              "nodeId": "network-diagnostic"
+            }
+          },
+          {
+            "recordSubstitution": {
+              "terminalId": "terminal-security",
+              "blockId": "network-status",
+              "replacementText": "N?TW0RK: IS*L/ATED\nPACKET INDEX UNREADABLE"
+            }
+          }
+        ],
+        "recovery": [
+          {
+            "recoveryProgramId": "network-recovery"
+          },
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      },
+      {
+        "id": "archive-storage-damaged",
+        "name": "Archive storage damaged",
+        "category": "storage-damaged",
+        "terminal": {
+          "terminalId": "terminal-archives"
+        },
+        "initialActive": true,
+        "currentActive": true,
+        "effects": [
+          {
+            "recordSubstitution": {
+              "terminalId": "terminal-archives",
+              "blockId": "archive-record",
+              "replacementText": "R?SIDENT CENSUS: 2_7 ACT?VE REC?RDS"
+            }
+          },
+          {
+            "displayInstability": {}
+          }
+        ],
+        "recovery": [
+          {
+            "privateOverseerAction": true
+          }
+        ]
+      }
+    ],
+    "recoveryPrograms": [
+      {
+        "id": "network-recovery",
+        "name": "Vault Network Recovery",
+        "transitions": [
+          {
+            "deviceId": "network-core",
+            "transitionId": "connect"
+          }
+        ]
+      }
+    ]
+  }
+}

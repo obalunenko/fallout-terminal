@@ -10,6 +10,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"connectrpc.com/connect/v2"
@@ -38,6 +39,7 @@ type ConnectServiceConfig struct {
 	Hub           *SubscriptionHub
 	Assets        fs.FS
 	OnClientCount func(int)
+	BoundaryAudit BoundaryAudit
 }
 
 // ConnectService implements the generated public handler with one server
@@ -51,6 +53,17 @@ type ConnectService struct {
 	assets        fs.FS
 	onClientCount func(int)
 	sequence      atomic.Uint64
+
+	boundaryMu    sync.RWMutex
+	boundaryAudit BoundaryAudit
+	serverAudit   BoundaryAudit
+	serverAuditID uint64
+	identities    map[domain.RecognitionHandle]boundaryIdentity
+}
+
+type boundaryIdentity struct {
+	sessionID domain.LogicalSessionID
+	role      domain.PlayerRole
 }
 
 // NewConnectService validates the public service's narrow dependencies.
@@ -67,7 +80,84 @@ func NewConnectService(config ConnectServiceConfig) (*ConnectService, error) {
 	return &ConnectService{
 		coordinator: config.Coordinator, queueSize: config.QueueSize, hub: config.Hub,
 		assets: config.Assets, onClientCount: config.OnClientCount,
+		boundaryAudit: config.BoundaryAudit, identities: make(map[domain.RecognitionHandle]boundaryIdentity),
 	}, nil
+}
+
+func (service *ConnectService) registerServerBoundaryAudit(audit BoundaryAudit) func() {
+	if service == nil || audit == nil {
+		return func() {}
+	}
+	service.boundaryMu.Lock()
+	service.serverAuditID++
+	auditID := service.serverAuditID
+	service.serverAudit = audit
+	service.boundaryMu.Unlock()
+	return func() {
+		service.boundaryMu.Lock()
+		if service.serverAuditID == auditID {
+			service.serverAudit = nil
+		}
+		service.boundaryMu.Unlock()
+	}
+}
+
+func (service *ConnectService) emitBoundaryAudit(event BoundaryAuditEvent) {
+	if service == nil {
+		return
+	}
+	service.boundaryMu.RLock()
+	audit := service.boundaryAudit
+	serverAudit := service.serverAudit
+	service.boundaryMu.RUnlock()
+	invokeBoundaryAudit(audit, event)
+	invokeBoundaryAudit(serverAudit, event)
+}
+
+func invokeBoundaryAudit(audit BoundaryAudit, event BoundaryAuditEvent) {
+	if audit == nil {
+		return
+	}
+	func() {
+		defer func() { _ = recover() }()
+		audit(event)
+	}()
+}
+
+func (service *ConnectService) rememberBoundaryIdentity(
+	handle domain.RecognitionHandle,
+	sessionID domain.LogicalSessionID,
+	role domain.PlayerRole,
+) {
+	if service == nil || handle == "" || sessionID == "" {
+		return
+	}
+	service.boundaryMu.Lock()
+	service.identities[handle] = boundaryIdentity{sessionID: sessionID, role: role}
+	service.boundaryMu.Unlock()
+}
+
+func (service *ConnectService) boundaryIdentity(handle domain.RecognitionHandle) boundaryIdentity {
+	if service == nil || handle == "" {
+		return boundaryIdentity{}
+	}
+	service.boundaryMu.RLock()
+	identity := service.identities[handle]
+	service.boundaryMu.RUnlock()
+	return identity
+}
+
+func boundaryRequestEvent(
+	name string,
+	outcome string,
+	identity boundaryIdentity,
+	requestID domain.RequestID,
+	mode string,
+) BoundaryAuditEvent {
+	return BoundaryAuditEvent{
+		Name: name, Outcome: outcome, SessionID: identity.sessionID,
+		Role: identity.role, RequestID: requestID, Mode: mode,
+	}
 }
 
 // NewConnectHandler builds the sole generated public handler with the common
@@ -98,6 +188,9 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *playerv1.
 	}
 	handle, err := SubscribeRecognition(request)
 	if err != nil {
+		service.emitBoundaryAudit(BoundaryAuditEvent{
+			Name: "player.boundary.recognition", Outcome: "invalid", Mode: "subscribe",
+		})
 		return publicConnectError(err)
 	}
 	clientInstanceID, err := SubscribeClientInstance(request)
@@ -118,17 +211,39 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *playerv1.
 		service.hub.Register(physical)
 	})
 	if err != nil {
+		service.emitBoundaryAudit(BoundaryAuditEvent{
+			Name: "player.boundary.connection", Outcome: "failed", Mode: "subscribe",
+		})
 		return connect.NewError(connect.CodeUnavailable, "player subscription is temporarily unavailable")
 	}
 	if conversionErr != nil || snapshot == nil || physical == nil {
 		service.coordinator.DetachConnection(connectionID)
 		return connect.NewError(connect.CodeInternal, "could not build player snapshot")
 	}
+	identity := boundaryIdentity{sessionID: snapshot.PlayerState.SessionID, role: snapshot.PlayerState.Role}
+	service.rememberBoundaryIdentity(snapshot.RecognitionHandle, identity.sessionID, identity.role)
+	recognitionOutcome := "issued"
+	if handle != nil {
+		recognitionOutcome = "replaced"
+		if *handle == snapshot.RecognitionHandle {
+			recognitionOutcome = "recognized"
+		}
+	}
+	service.emitBoundaryAudit(boundaryRequestEvent(
+		"player.boundary.recognition", recognitionOutcome, identity, "", "subscribe",
+	))
+	service.emitBoundaryAudit(boundaryRequestEvent(
+		"player.boundary.connection", "connected", identity, "", "subscribe",
+	))
 	service.emitClientCount()
 	defer func() {
 		service.hub.Unregister(connectionID)
 		service.emitClientCount()
 		service.coordinator.DetachConnection(connectionID)
+		service.emitBoundaryAudit(boundaryRequestEvent(
+			"player.boundary.connection", "disconnected",
+			service.boundaryIdentity(snapshot.RecognitionHandle), "", "subscribe",
+		))
 	}()
 
 	if err := stream.Send(physical.Snapshot()); err != nil {
@@ -257,9 +372,19 @@ func (service *ConnectService) processPresentationUplink(uplink *PresentationUpl
 		}
 		mutation, err := PresentationIntentFromProto(intent)
 		if err != nil {
+			service.emitInvalidBoundaryRequest("presentation")
 			return publicConnectError(err)
 		}
+		identity := service.boundaryIdentity(uplink.Binding.RecognitionHandle)
+		service.emitBoundaryAudit(boundaryRequestEvent(
+			"player.boundary.request_received", "received", identity,
+			mutation.Command.RequestID, "presentation",
+		))
 		result := service.coordinator.DispatchPlayerAction(uplink.ConnectionID, mutation.Command)
+		service.emitBoundaryAudit(boundaryRequestEvent(
+			"player.boundary.request_outcome", control.ActionAuditOutcome(result),
+			service.boundaryIdentity(uplink.Binding.RecognitionHandle), mutation.Command.RequestID, "presentation",
+		))
 		message := &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_PresentationUplinkResult{
 			PresentationUplinkResult: &playerv1.PresentationUplinkResult{
 				ClientInstanceId: uplink.Binding.ClientInstanceID, UplinkGeneration: uplink.Binding.Generation,
@@ -279,6 +404,9 @@ func (service *ConnectService) PublishEffect(effect control.Effect) {
 		return
 	}
 	update := effect.Update
+	if update.Player != nil && update.Player.SessionID == effect.SessionID {
+		service.updateBoundaryRole(effect.SessionID, update.Player.Role)
+	}
 	if update.Player != nil && update.Player.Notice != nil &&
 		(update.Player.SessionID != effect.SessionID || update.Player.Role != domain.PlayerRoleActive) {
 		update = domain.CloneCompoundUpdate(update)
@@ -289,6 +417,17 @@ func (service *ConnectService) PublishEffect(effect control.Effect) {
 		return
 	}
 	service.hub.Offer(effect.SessionID, &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_Update{Update: generated}})
+}
+
+func (service *ConnectService) updateBoundaryRole(sessionID domain.LogicalSessionID, role domain.PlayerRole) {
+	service.boundaryMu.Lock()
+	defer service.boundaryMu.Unlock()
+	for handle, identity := range service.identities {
+		if identity.sessionID == sessionID {
+			identity.role = role
+			service.identities[handle] = identity
+		}
+	}
 }
 
 func (service *ConnectService) emitClientCount() {
@@ -306,14 +445,24 @@ func (service *ConnectService) SelectCharacter(_ context.Context, request *playe
 	}
 	mutation, err := SelectionFromProto(request, "")
 	if err != nil {
+		service.emitInvalidBoundaryRequest("select-character")
 		return nil, publicConnectError(err)
 	}
+	identity := service.boundaryIdentity(mutation.RecognitionHandle)
+	service.emitBoundaryAudit(boundaryRequestEvent(
+		"player.boundary.request_received", "received", identity,
+		mutation.Selection.RequestID, "select-character",
+	))
 	result := service.coordinator.SelectCharacterForRecognition(
 		mutation.RecognitionHandle,
 		mutation.Selection.RequestID,
 		mutation.Selection.BroadcastID,
 		mutation.Selection.CharacterID,
 	)
+	service.emitBoundaryAudit(boundaryRequestEvent(
+		"player.boundary.request_outcome", control.ActionAuditOutcome(result),
+		service.boundaryIdentity(mutation.RecognitionHandle), mutation.Selection.RequestID, "select-character",
+	))
 	return ActionResultToProto(result), nil
 }
 
@@ -324,6 +473,7 @@ func (service *ConnectService) Navigate(_ context.Context, request *playerv1.Nav
 	}
 	mutation, err := NavigateFromProto(request)
 	if err != nil {
+		service.emitInvalidBoundaryRequest("navigate")
 		return nil, publicConnectError(err)
 	}
 	return service.dispatchRuntimeMutation(mutation), nil
@@ -336,6 +486,7 @@ func (service *ConnectService) Guess(_ context.Context, request *playerv1.GuessR
 	}
 	mutation, err := GuessFromProto(request)
 	if err != nil {
+		service.emitInvalidBoundaryRequest("guess")
 		return nil, publicConnectError(err)
 	}
 	return service.dispatchRuntimeMutation(mutation), nil
@@ -348,6 +499,7 @@ func (service *ConnectService) ActivatePattern(_ context.Context, request *playe
 	}
 	mutation, err := ActivatePatternFromProto(request)
 	if err != nil {
+		service.emitInvalidBoundaryRequest("activate-pattern")
 		return nil, publicConnectError(err)
 	}
 	return service.dispatchRuntimeMutation(mutation), nil
@@ -361,6 +513,7 @@ func (service *ConnectService) SetPresentation(_ context.Context, request *playe
 	}
 	mutation, err := PresentationFromProto(request)
 	if err != nil {
+		service.emitInvalidBoundaryRequest("presentation")
 		return nil, publicConnectError(err)
 	}
 	return service.dispatchRuntimeMutation(mutation), nil
@@ -405,8 +558,41 @@ func (service *ConnectService) SoundManifest(ctx context.Context, request *playe
 }
 
 func (service *ConnectService) dispatchRuntimeMutation(mutation RuntimeMutation) *playerv1.ActionResult {
+	identity := service.boundaryIdentity(mutation.RecognitionHandle)
+	mode := boundaryRuntimeMode(mutation.Command)
+	service.emitBoundaryAudit(boundaryRequestEvent(
+		"player.boundary.request_received", "received", identity, mutation.Command.RequestID, mode,
+	))
 	result := service.coordinator.DispatchPlayerActionForRecognition(mutation.RecognitionHandle, mutation.Command)
+	service.emitBoundaryAudit(boundaryRequestEvent(
+		"player.boundary.request_outcome", control.ActionAuditOutcome(result),
+		service.boundaryIdentity(mutation.RecognitionHandle), mutation.Command.RequestID, mode,
+	))
 	return ActionResultToProto(result)
+}
+
+func (service *ConnectService) emitInvalidBoundaryRequest(mode string) {
+	service.emitBoundaryAudit(BoundaryAuditEvent{
+		Name: "player.boundary.request_received", Outcome: "received", Mode: mode,
+	})
+	service.emitBoundaryAudit(BoundaryAuditEvent{
+		Name: "player.boundary.request_outcome", Outcome: "invalid", Mode: mode,
+	})
+}
+
+func boundaryRuntimeMode(command domain.RuntimeCommand) string {
+	switch command.Kind {
+	case domain.RuntimeCommandNavigate:
+		return "navigate"
+	case domain.RuntimeCommandGuess:
+		return "guess"
+	case domain.RuntimeCommandActivatePattern:
+		return "activate-pattern"
+	case domain.RuntimeCommandPresentation:
+		return "presentation"
+	default:
+		return "invalid"
+	}
 }
 
 func publicConnectError(err error) error {

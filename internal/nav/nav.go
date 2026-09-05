@@ -66,7 +66,7 @@ func ApplyAction(state domain.NavState, tree domain.ContentNode, action, nodeID 
 			return next
 		}
 		node := directChild(folder, nodeID, domain.NodeCommand)
-		if node == nil {
+		if !availableCommand(node) {
 			return next
 		}
 		next.CommandNodeID = new(node.ID)
@@ -94,8 +94,11 @@ func Revalidate(state domain.NavState, tree domain.ContentNode) domain.NavState 
 		next.Mode = modeList
 	}
 
-	if state.CommandNodeID != nil && directChild(folder, *state.CommandNodeID, domain.NodeCommand) != nil {
-		next.CommandNodeID = new(*state.CommandNodeID)
+	if state.CommandNodeID != nil {
+		command := directChild(folder, *state.CommandNodeID, domain.NodeCommand)
+		if availableCommand(command) {
+			next.CommandNodeID = new(*state.CommandNodeID)
+		}
 	}
 
 	return next
@@ -179,6 +182,10 @@ func directChild(parent domain.ContentNode, nodeID, nodeType string) *domain.Con
 		}
 	}
 	return nil
+}
+
+func availableCommand(command *domain.ContentNode) bool {
+	return command != nil && (command.Available == nil || *command.Available)
 }
 
 func cloneState(state domain.NavState) domain.NavState {

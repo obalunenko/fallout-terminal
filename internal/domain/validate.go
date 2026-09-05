@@ -40,10 +40,18 @@ const (
 	// responsive client clamps them to its rendered page count.
 	MaxPresentationPageIndex = 10000
 	// MaxSoundCategoryBytes bounds typed sound adapter input before lookup.
-	MaxSoundCategoryBytes = 32
-	maxNameBytes          = 256
-	maxIntroBytes         = 64 * 1024
-	maxBodyBytes          = 1024 * 1024
+	MaxSoundCategoryBytes           = 32
+	maxNameBytes                    = 256
+	maxIntroBytes                   = 64 * 1024
+	maxBodyBytes                    = 1024 * 1024
+	maxFacilityDevices              = 1000
+	maxFacilityStatesPerDevice      = 1000
+	maxFacilityTransitionsPerDevice = 10000
+	maxFacilityConditions           = 1000
+	maxFacilityRecoveryPrograms     = 1000
+	maxFacilityItemsPerList         = 1000
+	maxFacilityItems                = 100000
+	maxFacilityReferences           = 100000
 )
 
 // PublicField identifies one finitely bounded public scalar category.
@@ -238,6 +246,9 @@ func ValidateSession(session Session) error {
 		}
 	}
 	if err := validateTerminalGroups(session, terminalIDs); err != nil {
+		return err
+	}
+	if err := validateFacility(session, terminalIDs); err != nil {
 		return err
 	}
 	return nil
@@ -506,6 +517,819 @@ func validateTerminalGroups(session Session, terminalIDs map[string]struct{}) er
 		if _, exists := members[terminal.ID]; !exists {
 			return fmt.Errorf("terminals[%d].id %q is missing from terminalGroups", terminalIndex, terminal.ID)
 		}
+	}
+	return nil
+}
+
+type facilityDeviceIndex struct {
+	device      FacilityDevice
+	states      map[string]struct{}
+	transitions map[string]FacilityDeviceTransition
+}
+
+type facilityTerminalIndex struct {
+	nodes  map[string]ContentNode
+	blocks map[string]struct{}
+}
+
+type facilityPresentationTarget struct {
+	terminalID string
+	targetID   string
+}
+
+type facilityGraphValidator struct {
+	facility               *Facility
+	devices                map[string]facilityDeviceIndex
+	conditions             map[string]DiagnosticCondition
+	programs               map[string]RecoveryProgram
+	terminals              map[string]facilityTerminalIndex
+	itemCount              int
+	referenceCount         int
+	diagnosticPathOwners   map[facilityPresentationTarget]string
+	recordSubstituteOwners map[facilityPresentationTarget]string
+}
+
+func validateFacility(session Session, terminalIDs map[string]struct{}) error {
+	validator := facilityGraphValidator{
+		facility:               session.Facility,
+		devices:                make(map[string]facilityDeviceIndex),
+		conditions:             make(map[string]DiagnosticCondition),
+		programs:               make(map[string]RecoveryProgram),
+		terminals:              make(map[string]facilityTerminalIndex, len(session.Terminals)),
+		diagnosticPathOwners:   make(map[facilityPresentationTarget]string),
+		recordSubstituteOwners: make(map[facilityPresentationTarget]string),
+	}
+	for _, terminal := range session.Terminals {
+		index := facilityTerminalIndex{nodes: make(map[string]ContentNode), blocks: make(map[string]struct{})}
+		collectFacilityTerminalIndex(terminal.Root, index)
+		validator.terminals[terminal.ID] = index
+	}
+	if session.Facility == nil {
+		return validator.validateTerminalBindingsAndActions(session)
+	}
+	if err := validateExtras("facility", session.Facility.Extra, facilityFields); err != nil {
+		return err
+	}
+	if session.Facility.Devices == nil {
+		return fmt.Errorf("facility.devices must be an array")
+	}
+	if session.Facility.Conditions == nil {
+		return fmt.Errorf("facility.conditions must be an array")
+	}
+	if session.Facility.RecoveryPrograms == nil {
+		return fmt.Errorf("facility.recoveryPrograms must be an array")
+	}
+	if err := validateFacilityListLimit("facility.devices", len(session.Facility.Devices), maxFacilityDevices); err != nil {
+		return err
+	}
+	if err := validateFacilityListLimit("facility.conditions", len(session.Facility.Conditions), maxFacilityConditions); err != nil {
+		return err
+	}
+	if err := validateFacilityListLimit("facility.recoveryPrograms", len(session.Facility.RecoveryPrograms), maxFacilityRecoveryPrograms); err != nil {
+		return err
+	}
+	if err := validator.addItems("facility", len(session.Facility.Devices)+len(session.Facility.Conditions)+len(session.Facility.RecoveryPrograms)); err != nil {
+		return err
+	}
+	if err := validator.indexDevices(); err != nil {
+		return err
+	}
+	if err := validator.indexConditions(terminalIDs); err != nil {
+		return err
+	}
+	if err := validator.indexPrograms(); err != nil {
+		return err
+	}
+	if err := validator.validateDeviceReferences(); err != nil {
+		return err
+	}
+	if err := validator.validateConditions(); err != nil {
+		return err
+	}
+	if err := validator.validateRecoveryPrograms(); err != nil {
+		return err
+	}
+	return validator.validateTerminalBindingsAndActions(session)
+}
+
+func collectFacilityTerminalIndex(node ContentNode, index facilityTerminalIndex) {
+	index.nodes[node.ID] = node
+	for _, block := range node.Blocks {
+		index.blocks[block.ID] = struct{}{}
+	}
+	for _, child := range node.Children {
+		collectFacilityTerminalIndex(child, index)
+	}
+}
+
+func (validator *facilityGraphValidator) indexDevices() error {
+	for deviceIndex := range validator.facility.Devices {
+		device := validator.facility.Devices[deviceIndex]
+		path := fmt.Sprintf("facility.devices[%d]", deviceIndex)
+		if err := validateFacilityID(path+".id", device.ID); err != nil {
+			return err
+		}
+		if _, exists := validator.devices[device.ID]; exists {
+			return fmt.Errorf("%s.id duplicates %q", path, device.ID)
+		}
+		if err := validateRequiredString(path+".name", device.Name, maxNameBytes); err != nil {
+			return err
+		}
+		if err := validateFacilityDeviceKind(path, device); err != nil {
+			return err
+		}
+		if err := validateExtras(path, device.Extra, facilityDeviceFields); err != nil {
+			return err
+		}
+		if len(device.States) == 0 {
+			return fmt.Errorf("%s.states must contain at least one state", path)
+		}
+		if err := validateFacilityListLimit(path+".states", len(device.States), maxFacilityStatesPerDevice); err != nil {
+			return err
+		}
+		if err := validateFacilityListLimit(path+".transitions", len(device.Transitions), maxFacilityTransitionsPerDevice); err != nil {
+			return err
+		}
+		if err := validator.addItems(path, len(device.States)+len(device.Transitions)); err != nil {
+			return err
+		}
+
+		states := make(map[string]struct{}, len(device.States))
+		stateNames := make(map[string]struct{}, len(device.States))
+		for stateIndex, state := range device.States {
+			statePath := fmt.Sprintf("%s.states[%d]", path, stateIndex)
+			if err := validateFacilityID(statePath+".id", state.ID); err != nil {
+				return err
+			}
+			if _, exists := states[state.ID]; exists {
+				return fmt.Errorf("%s.id duplicates %q", statePath, state.ID)
+			}
+			states[state.ID] = struct{}{}
+			if err := validateRequiredString(statePath+".name", state.Name, maxNameBytes); err != nil {
+				return err
+			}
+			normalizedName := strings.ToLower(strings.TrimSpace(state.Name))
+			if _, exists := stateNames[normalizedName]; exists {
+				return fmt.Errorf("%s.name duplicates normalized state name %q", statePath, strings.TrimSpace(state.Name))
+			}
+			stateNames[normalizedName] = struct{}{}
+			if err := validateExtras(statePath, state.Extra, facilityDeviceStateFields); err != nil {
+				return err
+			}
+		}
+		stateReferences := []struct {
+			field string
+			id    string
+		}{
+			{field: "initialStateId", id: device.InitialStateID},
+			{field: "currentStateId", id: device.CurrentStateID},
+		}
+		for _, reference := range stateReferences {
+			if err := validateFacilityID(path+"."+reference.field, reference.id); err != nil {
+				return err
+			}
+			if _, exists := states[reference.id]; !exists {
+				return fmt.Errorf("%s.%s references unknown state %q", path, reference.field, reference.id)
+			}
+		}
+
+		transitions := make(map[string]FacilityDeviceTransition, len(device.Transitions))
+		for transitionIndex, transition := range device.Transitions {
+			transitionPath := fmt.Sprintf("%s.transitions[%d]", path, transitionIndex)
+			if err := validateFacilityID(transitionPath+".id", transition.ID); err != nil {
+				return err
+			}
+			if _, exists := transitions[transition.ID]; exists {
+				return fmt.Errorf("%s.id duplicates %q", transitionPath, transition.ID)
+			}
+			transitions[transition.ID] = transition
+			if err := validateRequiredString(transitionPath+".name", transition.Name, maxNameBytes); err != nil {
+				return err
+			}
+			if err := validateExtras(transitionPath, transition.Extra, facilityTransitionFields); err != nil {
+				return err
+			}
+			if _, exists := states[transition.SourceStateID]; !exists {
+				return fmt.Errorf("%s.sourceStateId references unknown state %q", transitionPath, transition.SourceStateID)
+			}
+			if _, exists := states[transition.DestinationStateID]; !exists {
+				return fmt.Errorf("%s.destinationStateId references unknown state %q", transitionPath, transition.DestinationStateID)
+			}
+			if transition.SourceStateID == transition.DestinationStateID {
+				return fmt.Errorf("%s destination state must differ from source state", transitionPath)
+			}
+			if err := validateFacilityListLimit(transitionPath+".preconditions", len(transition.Preconditions), maxFacilityItemsPerList); err != nil {
+				return err
+			}
+			if err := validateFacilityListLimit(transitionPath+".conditionEffects", len(transition.ConditionEffects), maxFacilityItemsPerList); err != nil {
+				return err
+			}
+			if err := validator.addItems(transitionPath, len(transition.Preconditions)+len(transition.ConditionEffects)); err != nil {
+				return err
+			}
+		}
+		validator.devices[device.ID] = facilityDeviceIndex{device: device, states: states, transitions: transitions}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) indexConditions(terminalIDs map[string]struct{}) error {
+	for conditionIndex, condition := range validator.facility.Conditions {
+		path := fmt.Sprintf("facility.conditions[%d]", conditionIndex)
+		if err := validateFacilityID(path+".id", condition.ID); err != nil {
+			return err
+		}
+		if _, exists := validator.conditions[condition.ID]; exists {
+			return fmt.Errorf("%s.id duplicates %q", path, condition.ID)
+		}
+		validator.conditions[condition.ID] = condition
+		if err := validateRequiredString(path+".name", condition.Name, maxNameBytes); err != nil {
+			return err
+		}
+		if err := validateDiagnosticConditionCategory(path, condition); err != nil {
+			return err
+		}
+		if err := validateExtras(path, condition.Extra, diagnosticConditionFields); err != nil {
+			return err
+		}
+		if (condition.Device == nil) == (condition.Terminal == nil) {
+			return fmt.Errorf("%s must configure exactly one device or terminal scope", path)
+		}
+		if condition.Device != nil {
+			if err := validateExtras(path+".device", condition.Device.Extra, diagnosticDeviceScopeFields); err != nil {
+				return err
+			}
+			if _, exists := validator.devices[condition.Device.DeviceID]; !exists {
+				return fmt.Errorf("%s.device.deviceId references unknown device %q", path, condition.Device.DeviceID)
+			}
+		}
+		if condition.Terminal != nil {
+			if err := validateExtras(path+".terminal", condition.Terminal.Extra, diagnosticTerminalScopeFields); err != nil {
+				return err
+			}
+			if _, exists := terminalIDs[condition.Terminal.TerminalID]; !exists {
+				return fmt.Errorf("%s.terminal.terminalId references unknown terminal %q", path, condition.Terminal.TerminalID)
+			}
+		}
+		if len(condition.Effects) == 0 {
+			return fmt.Errorf("%s.effects must contain at least one effect", path)
+		}
+		if err := validateFacilityListLimit(path+".effects", len(condition.Effects), maxFacilityItemsPerList); err != nil {
+			return err
+		}
+		if err := validateFacilityListLimit(path+".recovery", len(condition.Recovery), maxFacilityItemsPerList); err != nil {
+			return err
+		}
+		if err := validator.addItems(path, len(condition.Effects)+len(condition.Recovery)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) indexPrograms() error {
+	for programIndex, program := range validator.facility.RecoveryPrograms {
+		path := fmt.Sprintf("facility.recoveryPrograms[%d]", programIndex)
+		if err := validateFacilityID(path+".id", program.ID); err != nil {
+			return err
+		}
+		if _, exists := validator.programs[program.ID]; exists {
+			return fmt.Errorf("%s.id duplicates %q", path, program.ID)
+		}
+		validator.programs[program.ID] = program
+		if err := validateRequiredString(path+".name", program.Name, maxNameBytes); err != nil {
+			return err
+		}
+		if err := validateExtras(path, program.Extra, recoveryProgramFields); err != nil {
+			return err
+		}
+		if len(program.Transitions) == 0 {
+			return fmt.Errorf("%s.transitions must contain at least one transition", path)
+		}
+		if err := validateFacilityListLimit(path+".transitions", len(program.Transitions), maxFacilityItemsPerList); err != nil {
+			return err
+		}
+		if err := validator.addItems(path, len(program.Transitions)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateDeviceReferences() error {
+	for deviceIndex, device := range validator.facility.Devices {
+		for transitionIndex, transition := range device.Transitions {
+			path := fmt.Sprintf("facility.devices[%d].transitions[%d]", deviceIndex, transitionIndex)
+			preconditionDevices := make(map[string]struct{}, len(transition.Preconditions))
+			for preconditionIndex, precondition := range transition.Preconditions {
+				preconditionPath := fmt.Sprintf("%s.preconditions[%d]", path, preconditionIndex)
+				if precondition.DeviceID == device.ID {
+					return fmt.Errorf("%s must reference another device", preconditionPath)
+				}
+				if _, exists := preconditionDevices[precondition.DeviceID]; exists {
+					return fmt.Errorf("%s repeats precondition device %q", preconditionPath, precondition.DeviceID)
+				}
+				preconditionDevices[precondition.DeviceID] = struct{}{}
+				if err := validator.validateEquality(preconditionPath, precondition); err != nil {
+					return err
+				}
+			}
+			conditionEffects := make(map[string]bool, len(transition.ConditionEffects))
+			for effectIndex, effect := range transition.ConditionEffects {
+				effectPath := fmt.Sprintf("%s.conditionEffects[%d]", path, effectIndex)
+				if err := validator.addReference(effectPath); err != nil {
+					return err
+				}
+				if err := validateExtras(effectPath, effect.Extra, facilityConditionEffectFields); err != nil {
+					return err
+				}
+				if _, exists := validator.conditions[effect.ConditionID]; !exists {
+					return fmt.Errorf("%s.conditionId references unknown condition %q", effectPath, effect.ConditionID)
+				}
+				if active, exists := conditionEffects[effect.ConditionID]; exists {
+					if active != effect.Active {
+						return fmt.Errorf("%s contradicts another effect for condition %q", effectPath, effect.ConditionID)
+					}
+					return fmt.Errorf("%s repeats condition %q", effectPath, effect.ConditionID)
+				}
+				conditionEffects[effect.ConditionID] = effect.Active
+			}
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateConditions() error {
+	for conditionIndex, condition := range validator.facility.Conditions {
+		path := fmt.Sprintf("facility.conditions[%d]", conditionIndex)
+		blocksProgress := false
+		for effectIndex, effect := range condition.Effects {
+			effectPath := fmt.Sprintf("%s.effects[%d]", path, effectIndex)
+			if err := validator.validateDiagnosticEffect(effectPath, condition, effect); err != nil {
+				return err
+			}
+			blocksProgress = blocksProgress || effect.CapabilityBlock != nil
+		}
+		hasViableRecovery := false
+		for recoveryIndex, recovery := range condition.Recovery {
+			clearsCondition, err := validator.validateRecoveryReference(
+				fmt.Sprintf("%s.recovery[%d]", path, recoveryIndex),
+				condition.ID,
+				recovery,
+			)
+			if err != nil {
+				return err
+			}
+			hasViableRecovery = hasViableRecovery || clearsCondition
+		}
+		if (blocksProgress || len(condition.Recovery) != 0) && !hasViableRecovery {
+			return fmt.Errorf("%s must provide recovery that clears the condition", path)
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateDiagnosticEffect(
+	path string,
+	condition DiagnosticCondition,
+	effect DiagnosticEffect,
+) error {
+	if err := validator.addReference(path); err != nil {
+		return err
+	}
+	if err := validateExtras(path, effect.Extra, diagnosticEffectFields); err != nil {
+		return err
+	}
+	variants := 0
+	if effect.CapabilityBlock != nil {
+		variants++
+		if err := validateExtras(path+".capabilityBlock", effect.CapabilityBlock.Extra, capabilityBlockEffectFields); err != nil {
+			return err
+		}
+		if !validFacilityCapability(effect.CapabilityBlock.Capability) {
+			return fmt.Errorf("%s.capabilityBlock.capability %q is unsupported", path, effect.CapabilityBlock.Capability)
+		}
+	}
+	if effect.DiagnosticPath != nil {
+		variants++
+		value := effect.DiagnosticPath
+		if err := validateExtras(path+".diagnosticPath", value.Extra, diagnosticPathEffectFields); err != nil {
+			return err
+		}
+		terminal, exists := validator.terminals[value.TerminalID]
+		if !exists {
+			return fmt.Errorf("%s.diagnosticPath.terminalId references unknown terminal %q", path, value.TerminalID)
+		}
+		if _, exists := terminal.nodes[value.NodeID]; !exists {
+			return fmt.Errorf("%s.diagnosticPath.nodeId references unknown node %q in terminal %q", path, value.NodeID, value.TerminalID)
+		}
+		if condition.Terminal != nil && value.TerminalID != condition.Terminal.TerminalID {
+			return fmt.Errorf("%s.diagnosticPath.terminalId must match condition terminal scope %q", path, condition.Terminal.TerminalID)
+		}
+		target := facilityPresentationTarget{terminalID: value.TerminalID, targetID: value.NodeID}
+		if owner, exists := validator.diagnosticPathOwners[target]; exists {
+			return fmt.Errorf("%s.diagnosticPath overlaps condition %q", path, owner)
+		}
+		validator.diagnosticPathOwners[target] = condition.ID
+	}
+	if effect.RecordSubstitution != nil {
+		variants++
+		value := effect.RecordSubstitution
+		if err := validateExtras(path+".recordSubstitution", value.Extra, recordSubstitutionFields); err != nil {
+			return err
+		}
+		if len([]byte(value.ReplacementText)) > maxBodyBytes {
+			return fmt.Errorf("%s.recordSubstitution.replacementText exceeds %d bytes", path, maxBodyBytes)
+		}
+		terminal, exists := validator.terminals[value.TerminalID]
+		if !exists {
+			return fmt.Errorf("%s.recordSubstitution.terminalId references unknown terminal %q", path, value.TerminalID)
+		}
+		if _, exists := terminal.blocks[value.BlockID]; !exists {
+			return fmt.Errorf("%s.recordSubstitution.blockId references unknown block %q in terminal %q", path, value.BlockID, value.TerminalID)
+		}
+		if condition.Terminal != nil && value.TerminalID != condition.Terminal.TerminalID {
+			return fmt.Errorf("%s.recordSubstitution.terminalId must match condition terminal scope %q", path, condition.Terminal.TerminalID)
+		}
+		target := facilityPresentationTarget{terminalID: value.TerminalID, targetID: value.BlockID}
+		if owner, exists := validator.recordSubstituteOwners[target]; exists {
+			return fmt.Errorf("%s.recordSubstitution overlaps condition %q", path, owner)
+		}
+		validator.recordSubstituteOwners[target] = condition.ID
+	}
+	if effect.DisplayInstability != nil {
+		variants++
+		if err := validateExtras(path+".displayInstability", effect.DisplayInstability.Extra, nil); err != nil {
+			return err
+		}
+	}
+	if variants != 1 {
+		return fmt.Errorf("%s must configure exactly one diagnostic effect", path)
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateRecoveryReference(
+	path string,
+	conditionID string,
+	recovery DiagnosticRecoveryReference,
+) (bool, error) {
+	if err := validator.addReference(path); err != nil {
+		return false, err
+	}
+	if err := validateExtras(path, recovery.Extra, diagnosticRecoveryFields); err != nil {
+		return false, err
+	}
+	variants := 0
+	clearsCondition := false
+	if recovery.Transition != nil {
+		variants++
+		if err := validator.validateTransitionRequests(path+".transition", []FacilityTransitionRequest{*recovery.Transition}); err != nil {
+			return false, err
+		}
+		transition := validator.devices[recovery.Transition.DeviceID].transitions[recovery.Transition.TransitionID]
+		if !transition.Recovery {
+			return false, fmt.Errorf("%s.transition must reference a recovery transition", path)
+		}
+		clearsCondition = transitionClearsCondition(transition, conditionID)
+	}
+	if recovery.RecoveryProgramID != nil {
+		variants++
+		if err := validateFacilityID(path+".recoveryProgramId", *recovery.RecoveryProgramID); err != nil {
+			return false, err
+		}
+		program, exists := validator.programs[*recovery.RecoveryProgramID]
+		if !exists {
+			return false, fmt.Errorf("%s.recoveryProgramId references unknown recovery program %q", path, *recovery.RecoveryProgramID)
+		}
+		for _, request := range program.Transitions {
+			device, exists := validator.devices[request.DeviceID]
+			if !exists {
+				return false, fmt.Errorf("%s.recoveryProgramId references a program with unknown device %q", path, request.DeviceID)
+			}
+			transition, exists := device.transitions[request.TransitionID]
+			if !exists {
+				return false, fmt.Errorf("%s.recoveryProgramId references a program with unknown transition %q", path, request.TransitionID)
+			}
+			if !transition.Recovery {
+				return false, fmt.Errorf("%s.recoveryProgramId references a program with non-recovery transition %q", path, request.TransitionID)
+			}
+			clearsCondition = clearsCondition || transitionClearsCondition(transition, conditionID)
+		}
+	}
+	if recovery.PrivateOverseerAction != nil {
+		variants++
+		if !*recovery.PrivateOverseerAction {
+			return false, fmt.Errorf("%s.privateOverseerAction must be true when configured", path)
+		}
+		clearsCondition = true
+	}
+	if variants != 1 {
+		return false, fmt.Errorf("%s must configure exactly one recovery variant", path)
+	}
+	return clearsCondition, nil
+}
+
+func transitionClearsCondition(transition FacilityDeviceTransition, conditionID string) bool {
+	for _, effect := range transition.ConditionEffects {
+		if effect.ConditionID == conditionID && !effect.Active {
+			return true
+		}
+	}
+	return false
+}
+
+func (validator *facilityGraphValidator) validateRecoveryPrograms() error {
+	for programIndex, program := range validator.facility.RecoveryPrograms {
+		path := fmt.Sprintf("facility.recoveryPrograms[%d].transitions", programIndex)
+		if err := validator.validateTransitionRequests(path, program.Transitions); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateTerminalBindingsAndActions(session Session) error {
+	for terminalIndex, terminal := range session.Terminals {
+		var visit func(string, ContentNode) error
+		visit = func(path string, node ContentNode) error {
+			if err := validator.validateTextVariants(path+".facilityNameVariants", node.FacilityNameVariants, maxNameBytes, false); err != nil {
+				return err
+			}
+			if node.VisibleWhen != nil {
+				if node.ID == "root" {
+					return fmt.Errorf("%s.visibleWhen cannot hide the terminal root", path)
+				}
+				if err := validator.validateEquality(path+".visibleWhen", *node.VisibleWhen); err != nil {
+					return err
+				}
+			}
+			if node.AvailableWhen != nil {
+				if node.Type != NodeCommand {
+					return fmt.Errorf("%s.availableWhen is valid only on commands", path)
+				}
+				if err := validator.validateEquality(path+".availableWhen", *node.AvailableWhen); err != nil {
+					return err
+				}
+			}
+			for blockIndex, block := range node.Blocks {
+				blockPath := fmt.Sprintf("%s.blocks[%d]", path, blockIndex)
+				if err := validateExtras(blockPath, block.Extra, entryContentBlockFields); err != nil {
+					return err
+				}
+				if err := validator.validateTextVariants(blockPath+".facilityTextVariants", block.FacilityTextVariants, maxBodyBytes, true); err != nil {
+					return err
+				}
+			}
+			if node.StateChange != nil && node.StateChange.FacilityAction != nil {
+				if err := validator.validateFacilityAction(path+".stateChange.facilityAction", *node.StateChange.FacilityAction); err != nil {
+					return err
+				}
+			}
+			for childIndex, child := range node.Children {
+				if err := visit(fmt.Sprintf("%s.children[%d]", path, childIndex), child); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if err := visit(fmt.Sprintf("terminals[%d].root", terminalIndex), terminal.Root); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateTextVariants(path string, variants []FacilityTextVariant, maxTextBytes int, allowEmpty bool) error {
+	if err := validateFacilityListLimit(path, len(variants), maxFacilityItemsPerList); err != nil {
+		return err
+	}
+	controllingDevice := ""
+	states := make(map[string]struct{}, len(variants))
+	for index, variant := range variants {
+		variantPath := fmt.Sprintf("%s[%d]", path, index)
+		if err := validateExtras(variantPath, variant.Extra, facilityTextVariantFields); err != nil {
+			return err
+		}
+		if err := validator.validateEquality(variantPath+".when", variant.When); err != nil {
+			return err
+		}
+		if controllingDevice == "" {
+			controllingDevice = variant.When.DeviceID
+		} else if controllingDevice != variant.When.DeviceID {
+			return fmt.Errorf("%s must use one controlling device", path)
+		}
+		if _, exists := states[variant.When.StateID]; exists {
+			return fmt.Errorf("%s repeats state %q", path, variant.When.StateID)
+		}
+		states[variant.When.StateID] = struct{}{}
+		if allowEmpty {
+			if len([]byte(variant.Text)) > maxTextBytes {
+				return fmt.Errorf("%s.text exceeds %d bytes", variantPath, maxTextBytes)
+			}
+		} else if err := validateRequiredString(variantPath+".text", variant.Text, maxTextBytes); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateFacilityAction(path string, action FacilityActionConfig) error {
+	if validator.facility == nil {
+		return fmt.Errorf("%s requires a configured facility", path)
+	}
+	if err := validateExtras(path, action.Extra, facilityActionFields); err != nil {
+		return err
+	}
+	if (action.Transitions == nil) == (action.RecoveryProgramID == nil) {
+		return fmt.Errorf("%s must configure exactly one transition list or recovery program", path)
+	}
+	if action.Transitions != nil {
+		if err := validateExtras(path+".transitions", action.Transitions.Extra, facilityTransitionListFields); err != nil {
+			return err
+		}
+		return validator.validateTransitionRequests(path+".transitions.transitions", action.Transitions.Transitions)
+	}
+	if err := validateFacilityID(path+".recoveryProgramId", *action.RecoveryProgramID); err != nil {
+		return err
+	}
+	if _, exists := validator.programs[*action.RecoveryProgramID]; !exists {
+		return fmt.Errorf("%s.recoveryProgramId references unknown recovery program %q", path, *action.RecoveryProgramID)
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateTransitionRequests(path string, requests []FacilityTransitionRequest) error {
+	if len(requests) == 0 {
+		return fmt.Errorf("%s must contain at least one transition", path)
+	}
+	if err := validateFacilityListLimit(path, len(requests), maxFacilityItemsPerList); err != nil {
+		return err
+	}
+	requested := make(map[string]FacilityDeviceTransition, len(requests))
+	conditionEffects := make(map[string]bool)
+	for requestIndex, request := range requests {
+		requestPath := fmt.Sprintf("%s[%d]", path, requestIndex)
+		if err := validator.addReference(requestPath); err != nil {
+			return err
+		}
+		if err := validateExtras(requestPath, request.Extra, facilityRequestFields); err != nil {
+			return err
+		}
+		device, exists := validator.devices[request.DeviceID]
+		if !exists {
+			return fmt.Errorf("%s.deviceId references unknown device %q", requestPath, request.DeviceID)
+		}
+		if _, exists := requested[request.DeviceID]; exists {
+			return fmt.Errorf("%s repeats device %q", requestPath, request.DeviceID)
+		}
+		transition, exists := device.transitions[request.TransitionID]
+		if !exists {
+			return fmt.Errorf("%s.transitionId references unknown transition %q on device %q", requestPath, request.TransitionID, request.DeviceID)
+		}
+		requested[request.DeviceID] = transition
+		for _, effect := range transition.ConditionEffects {
+			if active, exists := conditionEffects[effect.ConditionID]; exists && active != effect.Active {
+				return fmt.Errorf("%s creates contradictory effects for condition %q", path, effect.ConditionID)
+			}
+			conditionEffects[effect.ConditionID] = effect.Active
+		}
+	}
+	return validateFacilityActionDependencies(path, requested)
+}
+
+func validateFacilityActionDependencies(path string, requested map[string]FacilityDeviceTransition) error {
+	edges := make(map[string][]string, len(requested))
+	for deviceID, transition := range requested {
+		for _, precondition := range transition.Preconditions {
+			other, exists := requested[precondition.DeviceID]
+			if !exists {
+				continue
+			}
+			if precondition.StateID != other.SourceStateID {
+				return fmt.Errorf("%s cannot satisfy precondition on transitioning device %q from one pre-state", path, precondition.DeviceID)
+			}
+			edges[deviceID] = append(edges[deviceID], precondition.DeviceID)
+		}
+	}
+	visiting := make(map[string]bool, len(requested))
+	visited := make(map[string]bool, len(requested))
+	var visit func(string) bool
+	visit = func(deviceID string) bool {
+		if visiting[deviceID] {
+			return true
+		}
+		if visited[deviceID] {
+			return false
+		}
+		visiting[deviceID] = true
+		if slices.ContainsFunc(edges[deviceID], visit) {
+			return true
+		}
+		visiting[deviceID] = false
+		visited[deviceID] = true
+		return false
+	}
+	for deviceID := range requested {
+		if visit(deviceID) {
+			return fmt.Errorf("%s contains a cyclic transition precondition", path)
+		}
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) validateEquality(path string, equality FacilityStateEquality) error {
+	if err := validator.addReference(path); err != nil {
+		return err
+	}
+	if err := validateExtras(path, equality.Extra, facilityEqualityFields); err != nil {
+		return err
+	}
+	device, exists := validator.devices[equality.DeviceID]
+	if !exists {
+		return fmt.Errorf("%s.deviceId references unknown device %q", path, equality.DeviceID)
+	}
+	if _, exists := device.states[equality.StateID]; !exists {
+		return fmt.Errorf("%s.stateId references unknown state %q on device %q", path, equality.StateID, equality.DeviceID)
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) addReference(path string) error {
+	validator.referenceCount++
+	if validator.referenceCount > maxFacilityReferences {
+		return fmt.Errorf("%s exceeds facility reference limit %d", path, maxFacilityReferences)
+	}
+	return nil
+}
+
+func (validator *facilityGraphValidator) addItems(path string, count int) error {
+	validator.itemCount += count
+	if validator.itemCount > maxFacilityItems {
+		return fmt.Errorf("%s exceeds facility item limit %d", path, maxFacilityItems)
+	}
+	return nil
+}
+
+func validateFacilityDeviceKind(path string, device FacilityDevice) error {
+	switch device.Kind {
+	case FacilityDeviceKindDoor, FacilityDeviceKindTurret, FacilityDeviceKindPowerGrid,
+		FacilityDeviceKindReactor, FacilityDeviceKindVentilation, FacilityDeviceKindAlarm,
+		FacilityDeviceKindRobotPod, FacilityDeviceKindElevator, FacilityDeviceKindNetworkSegment:
+		if device.CustomKind != "" {
+			return fmt.Errorf("%s.customKind is valid only for a custom device", path)
+		}
+	case FacilityDeviceKindCustom:
+		if err := validateRequiredString(path+".customKind", device.CustomKind, maxNameBytes); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("%s.kind %q is unsupported", path, device.Kind)
+	}
+	return nil
+}
+
+func validateDiagnosticConditionCategory(path string, condition DiagnosticCondition) error {
+	switch condition.Category {
+	case DiagnosticConditionCategoryOffline, DiagnosticConditionCategoryUnpowered,
+		DiagnosticConditionCategoryNetworkIsolated, DiagnosticConditionCategoryStorageDamaged,
+		DiagnosticConditionCategoryAuthorizationCorrupted, DiagnosticConditionCategoryDisplayUnstable:
+		if condition.CustomCategory != "" {
+			return fmt.Errorf("%s.customCategory is valid only for a custom condition", path)
+		}
+	case DiagnosticConditionCategoryCustom:
+		if err := validateRequiredString(path+".customCategory", condition.CustomCategory, maxNameBytes); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("%s.category %q is unsupported", path, condition.Category)
+	}
+	return nil
+}
+
+func validFacilityCapability(capability FacilityCapability) bool {
+	switch capability {
+	case FacilityCapabilityExecuteCommand, FacilityCapabilityViewEntry, FacilityCapabilityHack,
+		FacilityCapabilityTerminalTransition, FacilityCapabilityRunRecoveryProgram:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateFacilityID(path, value string) error {
+	if err := validateRequiredString(path, value, maxNameBytes); err != nil {
+		return err
+	}
+	if strings.TrimSpace(value) != value || !utf8.ValidString(value) {
+		return fmt.Errorf("%s must be trimmed valid UTF-8", path)
+	}
+	return nil
+}
+
+func validateFacilityListLimit(path string, length, limit int) error {
+	if length > limit {
+		return fmt.Errorf("%s exceeds limit %d", path, limit)
 	}
 	return nil
 }

@@ -106,6 +106,27 @@ button {
 
 .main { flex: 1 1 auto; display: flex; min-height: 0; }
 
+.workspace-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 7px 18px 0;
+  border-bottom: 1px solid #2a3520;
+  background: #0f1209;
+}
+.workspace-tabs .btn {
+  position: relative;
+  bottom: -1px;
+  min-width: 128px;
+  border-bottom-color: #2a3520;
+}
+.workspace-tabs .btn[aria-selected="true"] {
+  border-color: #6fae55;
+  border-bottom-color: #0b0d0a;
+  background: #0b0d0a;
+  color: #d8ffb8;
+}
+
 /* ── Application update ───────────────────────────────── */
 .application-update-status-panel {
   position: fixed;
@@ -1842,6 +1863,232 @@ button {
 }
 .terminal-transition-fields select { width: 100%; }
 
+/* ── Facility authoring ───────────────────────────────── */
+.facility-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: clamp(14px, 2vw, 24px);
+  background:
+    linear-gradient(rgba(111, 174, 85, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(111, 174, 85, .025) 1px, transparent 1px),
+    #0b0d0a;
+  background-size: 24px 24px;
+}
+.facility-workspace[hidden] { display: none; }
+.facility-workspace-header,
+.facility-workspace-grid > section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.facility-workspace-header {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #3a4a30;
+}
+.facility-workspace-header h1,
+.facility-workspace-grid h2,
+#facilitySelectionEditor h2,
+#facilityConditionSelectionEditor h2,
+.facility-dialog h2 {
+  margin: 0;
+  color: #d8ffb8;
+  letter-spacing: 1.5px;
+}
+.facility-workspace-header h1 { font-size: 19px; }
+.facility-workspace-header p,
+.facility-dialog-panel > p {
+  margin: 5px 0 0;
+  color: #6f9a5f;
+  line-height: 1.4;
+}
+.facility-feedback {
+  display: grid;
+  gap: 7px;
+  min-height: 22px;
+  margin-bottom: 12px;
+}
+#facilityStatus,
+#facilitySelectionStatus,
+[id^="facility"][id$="Status"],
+#facilityRepairImpact {
+  color: #9fe89a;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+#facilityValidation,
+#facilitySelectionError,
+[id^="facility"][id$="Error"] {
+  padding: 7px 8px;
+  border: 1px solid #8a3a2a;
+  background: #1d0e0a;
+  color: #ff9a7a;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+#facilityValidation[hidden],
+#facilitySelectionError[hidden],
+[id^="facility"][id$="Error"][hidden] { display: none; }
+.facility-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.facility-workspace-grid > section,
+#facilitySelectionEditor {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #2a3520;
+  background: rgba(15, 18, 9, .94);
+}
+#facilityConditionSelectionEditor {
+  min-width: 0;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #2a3520;
+  background: rgba(15, 18, 9, .94);
+}
+#facilityConditionSelectionEditor h2 { margin: 0 0 8px; font-size: 13px; }
+#facilityConditionSelectionEditor > [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.facility-workspace-grid h2,
+#facilitySelectionEditor h2 { font-size: 13px; }
+.facility-workspace-grid > section > header { margin-bottom: 10px; }
+#facilityDeviceList,
+#facilityBindingList,
+#facilityConditionList,
+#facilityRecoveryProgramList,
+#facilityDependencyList {
+  display: grid;
+  gap: 7px;
+}
+[data-facility-kind][data-facility-id],
+.facility-dependency-row {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #253018;
+  background: #10140c;
+  color: #9fe89a;
+  overflow-wrap: anywhere;
+}
+.facility-preview-tree {
+  display: grid;
+  gap: 7px;
+  max-height: min(46vh, 420px);
+  overflow: auto;
+  padding: 9px;
+  border: 1px solid #253018;
+  background: #080b06;
+}
+.facility-preview-node {
+  display: grid;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 7px;
+  border-left: 1px solid #3a4a30;
+}
+.facility-preview-node > p { margin: 0; white-space: pre-wrap; }
+[data-facility-kind][data-facility-id]:hover,
+[data-facility-kind][data-facility-id]:focus-within,
+[data-facility-selected="true"] {
+  border-color: #6fae55;
+  background: #182012;
+}
+[data-facility-invalid="true"],
+.facility-invalid-reference {
+  border-color: #c65a3a;
+  background: #21120e;
+  color: #ffb19c;
+}
+.facility-dependency-row {
+  display: grid;
+  grid-template-columns: minmax(110px, .7fr) minmax(0, 1.3fr);
+  gap: 6px 12px;
+}
+.facility-dependency-kind { color: #ffe08a; }
+.facility-dependency-property { color: #6f9a5f; }
+.facility-dependency-navigation { grid-column: 2; justify-self: start; }
+#facilitySelectionEditor {
+  margin-top: 12px;
+}
+#facilitySelectionEditor > .field-input { width: 100%; margin: 7px 0 10px; }
+#facilitySelectionEditor > [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.facility-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid #6fae55;
+  background: #0d0f09;
+  color: #b9ffb0;
+  box-shadow: 0 16px 52px rgba(0, 0, 0, .72);
+}
+.facility-dialog[hidden] { display: none; }
+.facility-dialog::backdrop { background: rgba(2, 4, 2, .84); }
+.facility-dialog-panel {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100dvh - 34px);
+  overflow: auto;
+  padding: clamp(18px, 3vw, 28px);
+}
+.facility-dialog fieldset {
+  min-width: 0;
+  margin: 2px 0;
+  padding: 10px;
+  border: 1px solid #3a4a30;
+}
+.facility-dialog legend { padding: 0 6px; color: #ffe08a; }
+.facility-dialog label { color: #6f9a5f; font-size: 11px; line-height: 1.35; }
+.facility-dialog label > .field-input { width: 100%; margin-top: 4px; }
+.facility-dialog textarea { resize: vertical; }
+.facility-dialog [role="group"] {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.facility-dialog :is(input, select, textarea, button):focus-visible,
+#facilityWorkspaceTab:focus-visible,
+#terminalWorkspaceTab:focus-visible {
+  outline: 2px solid #ffe08a;
+  outline-offset: 3px;
+}
+#facilityDeviceStates,
+#facilityDeviceTransitions {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.facility-state-row,
+.facility-transition-row {
+  display: grid;
+  align-items: end;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid #253018;
+  background: #10140c;
+}
+.facility-state-row { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
+.facility-transition-row { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+#facilityRepairImpact {
+  min-height: 34px;
+  padding: 8px;
+  border: 1px solid #3a4a30;
+  background: #10140c;
+}
+
 @media (max-width: 1050px) {
   .term-panel { width: 280px; }
   .terminal-group-name { font-size: 11px; }
@@ -1849,10 +2096,13 @@ button {
   .tree-hdr-actions { gap: 5px; }
   .tree-hdr-actions .btn { padding-inline: 8px; }
   .session-claimed-controls .btn { flex: 1 1 92px; }
+  .facility-transition-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .facility-transition-row > .btn { justify-self: end; }
 }
 
 @media (max-width: 820px) {
   .topbar { padding-inline: 10px; }
+  .workspace-tabs { padding-inline: 10px; }
   .title-main { font-size: 16px; letter-spacing: 2px; }
   .term-panel { width: 260px; }
   .term-list { padding: 4px; }
@@ -1875,9 +2125,11 @@ button {
   .player-management-row { grid-template-columns: 1fr; }
   .player-management-row-actions { justify-content: flex-end; }
   .logical-session-dialog-header { align-items: stretch; flex-direction: column; }
+  .facility-workspace-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px), (max-height: 560px) {
+  .workspace-tabs .btn { flex: 1 1 0; min-width: 0; }
   .application-update-status-panel {
     inset: auto 10px 10px;
     width: auto;
@@ -1962,6 +2214,22 @@ button {
   .player-management-row-fields { grid-template-columns: 1fr; }
   .player-management-row-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .player-management-row-actions .btn { min-width: 0; }
+  .facility-workspace { padding: 10px; }
+  .facility-workspace-header,
+  .facility-workspace-grid > section > header { align-items: stretch; flex-direction: column; }
+  .facility-workspace-header .btn,
+  .facility-workspace-grid > section > header .btn { width: 100%; }
+  .facility-dialog {
+    width: calc(100vw - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+  .facility-dialog-panel { max-height: calc(100dvh - 22px); padding: 16px; }
+  .facility-state-row,
+  .facility-transition-row,
+  .facility-dependency-row { grid-template-columns: 1fr; }
+  .facility-state-row > .btn,
+  .facility-transition-row > .btn { width: 100%; }
+  .facility-dialog [role="group"] { display: grid; grid-template-columns: 1fr; }
 }
 
 @media (max-height: 720px) {

@@ -119,6 +119,52 @@ func (TerminalNavigationDirection) EnumDescriptor() ([]byte, []int) {
 	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{1}
 }
 
+type TerminalPresentationEffect int32
+
+const (
+	TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED      TerminalPresentationEffect = 0
+	TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE TerminalPresentationEffect = 1
+)
+
+// Enum value maps for TerminalPresentationEffect.
+var (
+	TerminalPresentationEffect_name = map[int32]string{
+		0: "TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED",
+		1: "TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE",
+	}
+	TerminalPresentationEffect_value = map[string]int32{
+		"TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED":      0,
+		"TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE": 1,
+	}
+)
+
+func (x TerminalPresentationEffect) Enum() *TerminalPresentationEffect {
+	p := new(TerminalPresentationEffect)
+	*p = x
+	return p
+}
+
+func (x TerminalPresentationEffect) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TerminalPresentationEffect) Descriptor() protoreflect.EnumDescriptor {
+	return file_fallout_terminal_player_v1_terminal_proto_enumTypes[2].Descriptor()
+}
+
+func (TerminalPresentationEffect) Type() protoreflect.EnumType {
+	return &file_fallout_terminal_player_v1_terminal_proto_enumTypes[2]
+}
+
+func (x TerminalPresentationEffect) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TerminalPresentationEffect.Descriptor instead.
+func (TerminalPresentationEffect) EnumDescriptor() ([]byte, []int) {
+	return file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP(), []int{2}
+}
+
 type CommandExecutionPresentation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Phase         CommandExecutionPhase  `protobuf:"varint,1,opt,name=phase,proto3,enum=fallout.terminal.player.v1.CommandExecutionPhase" json:"phase,omitempty"`
@@ -718,6 +764,7 @@ func (x *ContentFolder) GetChildren() []*ContentNode {
 type ContentCommand struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Available     *bool                  `protobuf:"varint,2,opt,name=available,proto3,oneof" json:"available,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -757,6 +804,13 @@ func (x *ContentCommand) GetText() string {
 		return x.Text
 	}
 	return ""
+}
+
+func (x *ContentCommand) GetAvailable() bool {
+	if x != nil && x.Available != nil {
+		return *x.Available
+	}
+	return false
 }
 
 type ContentEntry struct {
@@ -929,6 +983,7 @@ type LiveTerminal struct {
 	CommandExecution       *CommandExecutionPresentation   `protobuf:"bytes,8,opt,name=command_execution,json=commandExecution,proto3,oneof" json:"command_execution,omitempty"`
 	TerminalNavigation     *TerminalNavigationPresentation `protobuf:"bytes,9,opt,name=terminal_navigation,json=terminalNavigation,proto3,oneof" json:"terminal_navigation,omitempty"`
 	ControllerPresentation *ControllerTerminalPresentation `protobuf:"bytes,10,opt,name=controller_presentation,json=controllerPresentation,proto3" json:"controller_presentation,omitempty"`
+	Effects                []TerminalPresentationEffect    `protobuf:"varint,11,rep,packed,name=effects,proto3,enum=fallout.terminal.player.v1.TerminalPresentationEffect" json:"effects,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -1029,6 +1084,13 @@ func (x *LiveTerminal) GetTerminalNavigation() *TerminalNavigationPresentation {
 func (x *LiveTerminal) GetControllerPresentation() *ControllerTerminalPresentation {
 	if x != nil {
 		return x.ControllerPresentation
+	}
+	return nil
+}
+
+func (x *LiveTerminal) GetEffects() []TerminalPresentationEffect {
+	if x != nil {
+		return x.Effects
 	}
 	return nil
 }
@@ -1195,9 +1257,12 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"\ahacking\x18\x05 \x01(\v2*.fallout.terminal.player.v1.HackingPreviewH\x00R\ahackingB\x0e\n" +
 	"\fpresentation\"T\n" +
 	"\rContentFolder\x12C\n" +
-	"\bchildren\x18\x01 \x03(\v2'.fallout.terminal.player.v1.ContentNodeR\bchildren\"$\n" +
+	"\bchildren\x18\x01 \x03(\v2'.fallout.terminal.player.v1.ContentNodeR\bchildren\"U\n" +
 	"\x0eContentCommand\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"0\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12!\n" +
+	"\tavailable\x18\x02 \x01(\bH\x00R\tavailable\x88\x01\x01B\f\n" +
+	"\n" +
+	"_available\"0\n" +
 	"\fContentEntry\x12 \n" +
 	"\vdescription\x18\x01 \x01(\tR\vdescription\"\x8b\x02\n" +
 	"\vContentNode\x12\x0e\n" +
@@ -1206,7 +1271,7 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"\x06folder\x18\x03 \x01(\v2).fallout.terminal.player.v1.ContentFolderH\x00R\x06folder\x12F\n" +
 	"\acommand\x18\x04 \x01(\v2*.fallout.terminal.player.v1.ContentCommandH\x00R\acommand\x12@\n" +
 	"\x05entry\x18\x05 \x01(\v2(.fallout.terminal.player.v1.ContentEntryH\x00R\x05entryB\t\n" +
-	"\acontent\"\xe4\x05\n" +
+	"\acontent\"\xb6\x06\n" +
 	"\fLiveTerminal\x12\x1f\n" +
 	"\vterminal_id\x18\x01 \x01(\tR\n" +
 	"terminalId\x12#\n" +
@@ -1223,7 +1288,8 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"\x11command_execution\x18\b \x01(\v28.fallout.terminal.player.v1.CommandExecutionPresentationH\x00R\x10commandExecution\x88\x01\x01\x12p\n" +
 	"\x13terminal_navigation\x18\t \x01(\v2:.fallout.terminal.player.v1.TerminalNavigationPresentationH\x01R\x12terminalNavigation\x88\x01\x01\x12s\n" +
 	"\x17controller_presentation\x18\n" +
-	" \x01(\v2:.fallout.terminal.player.v1.ControllerTerminalPresentationR\x16controllerPresentationB\x14\n" +
+	" \x01(\v2:.fallout.terminal.player.v1.ControllerTerminalPresentationR\x16controllerPresentation\x12P\n" +
+	"\aeffects\x18\v \x03(\x0e26.fallout.terminal.player.v1.TerminalPresentationEffectR\aeffectsB\x14\n" +
 	"\x12_command_executionB\x16\n" +
 	"\x14_terminal_navigation\"\x10\n" +
 	"\x0eNoLiveTerminal\"\xcf\x01\n" +
@@ -1238,7 +1304,10 @@ const file_fallout_terminal_player_v1_terminal_proto_rawDesc = "" +
 	"\x1bTerminalNavigationDirection\x12-\n" +
 	")TERMINAL_NAVIGATION_DIRECTION_UNSPECIFIED\x10\x00\x12)\n" +
 	"%TERMINAL_NAVIGATION_DIRECTION_FORWARD\x10\x01\x12(\n" +
-	"$TERMINAL_NAVIGATION_DIRECTION_RETURN\x10\x02B\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
+	"$TERMINAL_NAVIGATION_DIRECTION_RETURN\x10\x02*}\n" +
+	"\x1aTerminalPresentationEffect\x12,\n" +
+	"(TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED\x10\x00\x121\n" +
+	"-TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE\x10\x01B\\ZZgithub.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1;playerv1b\x06proto3"
 
 var (
 	file_fallout_terminal_player_v1_terminal_proto_rawDescOnce sync.Once
@@ -1252,56 +1321,58 @@ func file_fallout_terminal_player_v1_terminal_proto_rawDescGZIP() []byte {
 	return file_fallout_terminal_player_v1_terminal_proto_rawDescData
 }
 
-var file_fallout_terminal_player_v1_terminal_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_fallout_terminal_player_v1_terminal_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_fallout_terminal_player_v1_terminal_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_fallout_terminal_player_v1_terminal_proto_goTypes = []any{
 	(CommandExecutionPhase)(0),                    // 0: fallout.terminal.player.v1.CommandExecutionPhase
 	(TerminalNavigationDirection)(0),              // 1: fallout.terminal.player.v1.TerminalNavigationDirection
-	(*CommandExecutionPresentation)(nil),          // 2: fallout.terminal.player.v1.CommandExecutionPresentation
-	(*TerminalReturnTarget)(nil),                  // 3: fallout.terminal.player.v1.TerminalReturnTarget
-	(*PendingTerminalNavigationPresentation)(nil), // 4: fallout.terminal.player.v1.PendingTerminalNavigationPresentation
-	(*TerminalNavigationPresentation)(nil),        // 5: fallout.terminal.player.v1.TerminalNavigationPresentation
-	(*NoControllerTerminalPresentation)(nil),      // 6: fallout.terminal.player.v1.NoControllerTerminalPresentation
-	(*MenuSelection)(nil),                         // 7: fallout.terminal.player.v1.MenuSelection
-	(*InformationPagePosition)(nil),               // 8: fallout.terminal.player.v1.InformationPagePosition
-	(*HackingPreview)(nil),                        // 9: fallout.terminal.player.v1.HackingPreview
-	(*ControllerTerminalPresentation)(nil),        // 10: fallout.terminal.player.v1.ControllerTerminalPresentation
-	(*ContentFolder)(nil),                         // 11: fallout.terminal.player.v1.ContentFolder
-	(*ContentCommand)(nil),                        // 12: fallout.terminal.player.v1.ContentCommand
-	(*ContentEntry)(nil),                          // 13: fallout.terminal.player.v1.ContentEntry
-	(*ContentNode)(nil),                           // 14: fallout.terminal.player.v1.ContentNode
-	(*LiveTerminal)(nil),                          // 15: fallout.terminal.player.v1.LiveTerminal
-	(*NoLiveTerminal)(nil),                        // 16: fallout.terminal.player.v1.NoLiveTerminal
-	(*TerminalPresentation)(nil),                  // 17: fallout.terminal.player.v1.TerminalPresentation
-	(*NavigationState)(nil),                       // 18: fallout.terminal.player.v1.NavigationState
-	(*PublicHackState)(nil),                       // 19: fallout.terminal.player.v1.PublicHackState
+	(TerminalPresentationEffect)(0),               // 2: fallout.terminal.player.v1.TerminalPresentationEffect
+	(*CommandExecutionPresentation)(nil),          // 3: fallout.terminal.player.v1.CommandExecutionPresentation
+	(*TerminalReturnTarget)(nil),                  // 4: fallout.terminal.player.v1.TerminalReturnTarget
+	(*PendingTerminalNavigationPresentation)(nil), // 5: fallout.terminal.player.v1.PendingTerminalNavigationPresentation
+	(*TerminalNavigationPresentation)(nil),        // 6: fallout.terminal.player.v1.TerminalNavigationPresentation
+	(*NoControllerTerminalPresentation)(nil),      // 7: fallout.terminal.player.v1.NoControllerTerminalPresentation
+	(*MenuSelection)(nil),                         // 8: fallout.terminal.player.v1.MenuSelection
+	(*InformationPagePosition)(nil),               // 9: fallout.terminal.player.v1.InformationPagePosition
+	(*HackingPreview)(nil),                        // 10: fallout.terminal.player.v1.HackingPreview
+	(*ControllerTerminalPresentation)(nil),        // 11: fallout.terminal.player.v1.ControllerTerminalPresentation
+	(*ContentFolder)(nil),                         // 12: fallout.terminal.player.v1.ContentFolder
+	(*ContentCommand)(nil),                        // 13: fallout.terminal.player.v1.ContentCommand
+	(*ContentEntry)(nil),                          // 14: fallout.terminal.player.v1.ContentEntry
+	(*ContentNode)(nil),                           // 15: fallout.terminal.player.v1.ContentNode
+	(*LiveTerminal)(nil),                          // 16: fallout.terminal.player.v1.LiveTerminal
+	(*NoLiveTerminal)(nil),                        // 17: fallout.terminal.player.v1.NoLiveTerminal
+	(*TerminalPresentation)(nil),                  // 18: fallout.terminal.player.v1.TerminalPresentation
+	(*NavigationState)(nil),                       // 19: fallout.terminal.player.v1.NavigationState
+	(*PublicHackState)(nil),                       // 20: fallout.terminal.player.v1.PublicHackState
 }
 var file_fallout_terminal_player_v1_terminal_proto_depIdxs = []int32{
 	0,  // 0: fallout.terminal.player.v1.CommandExecutionPresentation.phase:type_name -> fallout.terminal.player.v1.CommandExecutionPhase
 	1,  // 1: fallout.terminal.player.v1.PendingTerminalNavigationPresentation.direction:type_name -> fallout.terminal.player.v1.TerminalNavigationDirection
-	3,  // 2: fallout.terminal.player.v1.TerminalNavigationPresentation.return_target:type_name -> fallout.terminal.player.v1.TerminalReturnTarget
-	4,  // 3: fallout.terminal.player.v1.TerminalNavigationPresentation.pending:type_name -> fallout.terminal.player.v1.PendingTerminalNavigationPresentation
-	6,  // 4: fallout.terminal.player.v1.ControllerTerminalPresentation.none:type_name -> fallout.terminal.player.v1.NoControllerTerminalPresentation
-	7,  // 5: fallout.terminal.player.v1.ControllerTerminalPresentation.menu:type_name -> fallout.terminal.player.v1.MenuSelection
-	8,  // 6: fallout.terminal.player.v1.ControllerTerminalPresentation.page:type_name -> fallout.terminal.player.v1.InformationPagePosition
-	9,  // 7: fallout.terminal.player.v1.ControllerTerminalPresentation.hacking:type_name -> fallout.terminal.player.v1.HackingPreview
-	14, // 8: fallout.terminal.player.v1.ContentFolder.children:type_name -> fallout.terminal.player.v1.ContentNode
-	11, // 9: fallout.terminal.player.v1.ContentNode.folder:type_name -> fallout.terminal.player.v1.ContentFolder
-	12, // 10: fallout.terminal.player.v1.ContentNode.command:type_name -> fallout.terminal.player.v1.ContentCommand
-	13, // 11: fallout.terminal.player.v1.ContentNode.entry:type_name -> fallout.terminal.player.v1.ContentEntry
-	14, // 12: fallout.terminal.player.v1.LiveTerminal.tree:type_name -> fallout.terminal.player.v1.ContentNode
-	18, // 13: fallout.terminal.player.v1.LiveTerminal.navigation:type_name -> fallout.terminal.player.v1.NavigationState
-	19, // 14: fallout.terminal.player.v1.LiveTerminal.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
-	2,  // 15: fallout.terminal.player.v1.LiveTerminal.command_execution:type_name -> fallout.terminal.player.v1.CommandExecutionPresentation
-	5,  // 16: fallout.terminal.player.v1.LiveTerminal.terminal_navigation:type_name -> fallout.terminal.player.v1.TerminalNavigationPresentation
-	10, // 17: fallout.terminal.player.v1.LiveTerminal.controller_presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
-	15, // 18: fallout.terminal.player.v1.TerminalPresentation.live_terminal:type_name -> fallout.terminal.player.v1.LiveTerminal
-	16, // 19: fallout.terminal.player.v1.TerminalPresentation.no_live_terminal:type_name -> fallout.terminal.player.v1.NoLiveTerminal
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	4,  // 2: fallout.terminal.player.v1.TerminalNavigationPresentation.return_target:type_name -> fallout.terminal.player.v1.TerminalReturnTarget
+	5,  // 3: fallout.terminal.player.v1.TerminalNavigationPresentation.pending:type_name -> fallout.terminal.player.v1.PendingTerminalNavigationPresentation
+	7,  // 4: fallout.terminal.player.v1.ControllerTerminalPresentation.none:type_name -> fallout.terminal.player.v1.NoControllerTerminalPresentation
+	8,  // 5: fallout.terminal.player.v1.ControllerTerminalPresentation.menu:type_name -> fallout.terminal.player.v1.MenuSelection
+	9,  // 6: fallout.terminal.player.v1.ControllerTerminalPresentation.page:type_name -> fallout.terminal.player.v1.InformationPagePosition
+	10, // 7: fallout.terminal.player.v1.ControllerTerminalPresentation.hacking:type_name -> fallout.terminal.player.v1.HackingPreview
+	15, // 8: fallout.terminal.player.v1.ContentFolder.children:type_name -> fallout.terminal.player.v1.ContentNode
+	12, // 9: fallout.terminal.player.v1.ContentNode.folder:type_name -> fallout.terminal.player.v1.ContentFolder
+	13, // 10: fallout.terminal.player.v1.ContentNode.command:type_name -> fallout.terminal.player.v1.ContentCommand
+	14, // 11: fallout.terminal.player.v1.ContentNode.entry:type_name -> fallout.terminal.player.v1.ContentEntry
+	15, // 12: fallout.terminal.player.v1.LiveTerminal.tree:type_name -> fallout.terminal.player.v1.ContentNode
+	19, // 13: fallout.terminal.player.v1.LiveTerminal.navigation:type_name -> fallout.terminal.player.v1.NavigationState
+	20, // 14: fallout.terminal.player.v1.LiveTerminal.hacking:type_name -> fallout.terminal.player.v1.PublicHackState
+	3,  // 15: fallout.terminal.player.v1.LiveTerminal.command_execution:type_name -> fallout.terminal.player.v1.CommandExecutionPresentation
+	6,  // 16: fallout.terminal.player.v1.LiveTerminal.terminal_navigation:type_name -> fallout.terminal.player.v1.TerminalNavigationPresentation
+	11, // 17: fallout.terminal.player.v1.LiveTerminal.controller_presentation:type_name -> fallout.terminal.player.v1.ControllerTerminalPresentation
+	2,  // 18: fallout.terminal.player.v1.LiveTerminal.effects:type_name -> fallout.terminal.player.v1.TerminalPresentationEffect
+	16, // 19: fallout.terminal.player.v1.TerminalPresentation.live_terminal:type_name -> fallout.terminal.player.v1.LiveTerminal
+	17, // 20: fallout.terminal.player.v1.TerminalPresentation.no_live_terminal:type_name -> fallout.terminal.player.v1.NoLiveTerminal
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_player_v1_terminal_proto_init() }
@@ -1322,6 +1393,7 @@ func file_fallout_terminal_player_v1_terminal_proto_init() {
 		(*ControllerTerminalPresentation_Page)(nil),
 		(*ControllerTerminalPresentation_Hacking)(nil),
 	}
+	file_fallout_terminal_player_v1_terminal_proto_msgTypes[10].OneofWrappers = []any{}
 	file_fallout_terminal_player_v1_terminal_proto_msgTypes[12].OneofWrappers = []any{
 		(*ContentNode_Folder)(nil),
 		(*ContentNode_Command)(nil),
@@ -1337,7 +1409,7 @@ func file_fallout_terminal_player_v1_terminal_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_player_v1_terminal_proto_rawDesc), len(file_fallout_terminal_player_v1_terminal_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
