@@ -929,6 +929,23 @@ export async function ResetTerminalCommandStates(payload) {
 }
 export const ResolveTerminalSwitch = (...args) => record('ResolveTerminalSwitch', args);
 export async function SaveSession(session) {
+  if (globalThis.location?.pathname === '/__fixture/facility-authoring/overseer') {
+    const retained = structuredClone(session);
+    state.calls.push({ method: 'SaveSession', args: [retained] });
+    const statusResponse = await fetch('/__fixture/facility-authoring/status');
+    const status = await statusResponse.json();
+    const response = await fetch('/__fixture/facility-authoring/save', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session: retained, expectedSessionRevision: status.sessionRevision,
+        expectedFacilityRevision: retained.facility?.revision || 0,
+        correlationId: 'terminal-autosave-authoring-journey',
+      }),
+    });
+    const result = await response.json();
+    if (result.ok) emitFixtureEvent('session-state', { revision: result.sessionRevision, session: result.session });
+    return { ok: result.ok, error: result.failure || '', savedRevision: result.sessionRevision };
+  }
 	if (terminalNavigationFixtureActive()) {
 		const retained = structuredClone(session);
 		state.calls.push({ method: 'SaveSession', args: [retained] });
