@@ -15,6 +15,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,6 +26,7 @@ import (
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/nav"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/player"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 )
@@ -35,6 +38,34 @@ const (
 	fixtureRandomSeed        = uint64(0x435254)
 	fixtureApprovalRequestID = "approval-request-1"
 	fixturePlayerRevision    = uint64(41)
+
+	fixtureFacilityTerminalID               = "terminal-facility-security"
+	fixtureFacilityCommandID                = "command-open-security-door"
+	fixtureFacilityDoorID                   = "device-security-door"
+	fixtureFacilityAlarmID                  = "device-security-alarm"
+	fixtureFacilityCondition                = "condition-security-authorization"
+	fixtureFacilityPowerID                  = "device-primary-power"
+	fixtureFacilityCoolingID                = "device-reactor-cooling"
+	fixtureFacilityReactorID                = "device-main-reactor"
+	fixtureFacilityNetworkID                = "device-operations-network"
+	fixtureFacilityOfflineConditionID       = "condition-security-offline"
+	fixtureFacilityUnpoweredConditionID     = "condition-reactor-unpowered"
+	fixtureFacilityNetworkConditionID       = "condition-network-isolated"
+	fixtureFacilityStorageConditionID       = "condition-archive-damaged"
+	fixtureFacilityDisplayConditionID       = "condition-reactor-display"
+	fixtureFacilityCustomConditionID        = "condition-cooling-contamination"
+	fixtureFacilityNetworkRecoveryProgramID = "program-network-recovery"
+	fixtureFacilityDiagnosticTerminalID     = "terminal-facility-diagnostics"
+	fixtureFacilityDiagnosticRemoteID       = "terminal-facility-diagnostics-remote"
+
+	fixtureFacilityReactorTerminalID     = "terminal-facility-reactor"
+	fixtureFacilityMaintenanceTerminalID = "terminal-facility-maintenance"
+	fixtureFacilityNetworkTerminalID     = "terminal-facility-network"
+	fixtureFacilityArchiveTerminalID     = "terminal-facility-archive"
+
+	fixtureFacilityOperationsGroupID  = "group-facility-operations"
+	fixtureFacilityEngineeringGroupID = "group-facility-engineering"
+	fixtureFacilityRecordsGroupID     = "group-facility-records"
 )
 
 type ids struct{ next atomic.Uint64 }
@@ -51,6 +82,1398 @@ type fixtureCommandStateStore struct {
 	revision      uint64
 	executeWrites int
 	failNext      bool
+}
+
+type fixtureFacilityPlayerState struct {
+	mu sync.Mutex
+
+	scenario           string
+	projectionSession  *domain.Session
+	resetNavigationFor string
+	revision           uint64
+	deviceStates       map[string]string
+	lastRequestID      string
+	lastResult         *fixtureFacilityResult
+	resolutionAttempts int
+	durableWrites      int
+	successfulActions  int
+	duplicateResults   int
+}
+
+type fixtureFacilityDiagnosticState struct {
+	mu sync.Mutex
+
+	active   bool
+	scenario string
+	session  domain.Session
+	audit    fixtureFacilityDiagnosticAudit
+}
+
+type fixtureFacilityDiagnosticAudit struct {
+	DurableWrites        int `json:"durableWrites"`
+	ApprovedRecoveries   int `json:"approvedRecoveries"`
+	PrivateRecoveries    int `json:"privateRecoveries"`
+	ProjectionReplays    int `json:"projectionReplays"`
+	VisualStateMutations int `json:"visualStateMutations"`
+}
+
+type fixtureFacilityDiagnosticSnapshot struct {
+	ActiveCondition       map[string]string                   `json:"activeCondition"`
+	Facility              fixtureFacilitySnapshot             `json:"facility"`
+	BlockedCapabilities   []domain.FacilityCapability         `json:"blockedCapabilities"`
+	PresentationEffects   []domain.TerminalPresentationEffect `json:"presentationEffects"`
+	AuthoredRecordDigest  string                              `json:"authoredRecordDigest"`
+	AuthoredContentDigest string                              `json:"authoredContentDigest"`
+	Audit                 fixtureFacilityDiagnosticAudit      `json:"audit"`
+}
+
+type fixtureFacilityResult struct {
+	OK                        bool                       `json:"ok"`
+	Changed                   bool                       `json:"changed"`
+	CorrelationID             string                     `json:"correlationId"`
+	Failure                   domain.FacilityFailureCode `json:"failure"`
+	PreviousFacilityRevision  uint64                     `json:"previousFacilityRevision"`
+	ResultingFacilityRevision uint64                     `json:"resultingFacilityRevision"`
+	AffectedDeviceIDs         []string                   `json:"affectedDeviceIds"`
+	AffectedConditionIDs      []string                   `json:"affectedConditionIds"`
+}
+
+type fixtureFacilityStateResponse struct {
+	Facility           fixtureFacilitySnapshot `json:"facility"`
+	LastFacilityResult *fixtureFacilityResult  `json:"lastFacilityResult,omitempty"`
+	Audit              fixtureFacilityAudit    `json:"audit"`
+}
+
+type fixtureFacilitySnapshot struct {
+	Revision        uint64            `json:"revision"`
+	DeviceStates    map[string]string `json:"deviceStates"`
+	ConditionStates map[string]bool   `json:"conditionStates"`
+	DeviceIDs       []string          `json:"deviceIds"`
+	TerminalCount   int               `json:"terminalCount"`
+	GroupCount      int               `json:"groupCount"`
+}
+
+type fixtureFacilityAudit struct {
+	ResolutionAttempts     int `json:"resolutionAttempts"`
+	DurableWrites          int `json:"durableWrites"`
+	SuccessfulWorldActions int `json:"successfulWorldActions"`
+	DuplicateResults       int `json:"duplicateResults"`
+}
+
+type fixtureFacilityAuthoringState struct {
+	mu sync.Mutex
+
+	session         domain.Session
+	sessionRevision uint64
+	saveCalls       int
+	repairWrites    int
+	previewCalls    int
+	resetWrites     int
+	recoveryWrites  int
+	publishedEvents int
+	nextFailure     string
+}
+
+type fixtureFacilityAuthoringSnapshot struct {
+	Facility             *domain.Facility `json:"facility"`
+	SaveCalls            int              `json:"saveCalls"`
+	RepairWrites         int              `json:"repairWrites"`
+	BindingCount         int              `json:"bindingCount"`
+	BrokenReferenceCount int              `json:"brokenReferenceCount"`
+	SessionRevision      uint64           `json:"sessionRevision"`
+	PreviewCalls         int              `json:"previewCalls"`
+	ResetWrites          int              `json:"resetWrites"`
+	RecoveryWrites       int              `json:"recoveryWrites"`
+	PublishedEvents      int              `json:"publishedEvents"`
+}
+
+type fixtureFacilityPreviewRequest struct {
+	ExpectedFacilityRevision uint64                             `json:"expectedFacilityRevision"`
+	TerminalID               string                             `json:"terminalId"`
+	DeviceState              *domain.FacilityDeviceStatePreview `json:"deviceState,omitempty"`
+	Condition                *domain.FacilityConditionPreview   `json:"condition,omitempty"`
+}
+
+type fixtureFacilityDeviceResetRequest struct {
+	DeviceID                 string `json:"deviceId"`
+	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+	CorrelationID            string `json:"correlationId"`
+}
+
+type fixtureFacilityResetRequest struct {
+	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+	CorrelationID            string `json:"correlationId"`
+}
+
+type fixtureFacilityRecoveryRequest struct {
+	ConditionID              string                              `json:"conditionId"`
+	ExpectedFacilityRevision uint64                              `json:"expectedFacilityRevision"`
+	CorrelationID            string                              `json:"correlationId"`
+	Recovery                 *domain.DiagnosticRecoveryReference `json:"recovery"`
+}
+
+type fixtureFacilityInspectionResult struct {
+	OK               bool                             `json:"ok"`
+	Failure          domain.FacilityFailureCode       `json:"failure,omitempty"`
+	Issues           []domain.FacilityIssue           `json:"issues,omitempty"`
+	SessionRevision  uint64                           `json:"sessionRevision"`
+	FacilityRevision uint64                           `json:"facilityRevision"`
+	Report           *domain.FacilityDependencyReport `json:"report,omitempty"`
+}
+
+type fixtureFacilityAuthoringRequest struct {
+	Session                  domain.Session `json:"session"`
+	ExpectedSessionRevision  uint64         `json:"expectedSessionRevision"`
+	ExpectedFacilityRevision uint64         `json:"expectedFacilityRevision"`
+	CorrelationID            string         `json:"correlationId"`
+}
+
+type fixtureFacilityInspectionRequest struct {
+	Target                   domain.FacilityEntityReference `json:"target"`
+	ExpectedSessionRevision  uint64                         `json:"expectedSessionRevision"`
+	ExpectedFacilityRevision uint64                         `json:"expectedFacilityRevision"`
+}
+
+func (state *fixtureFacilityAuthoringState) reset(scenario string) error {
+	scenario = strings.TrimSpace(scenario)
+	if scenario == "" {
+		scenario = "authored"
+	}
+	if scenario != "empty" && scenario != "referenced-device" && scenario != "authored" && scenario != "operations" {
+		return fmt.Errorf("unknown facility authoring scenario %q", scenario)
+	}
+	session := facilityAuthoringFixtureSession(scenario == "empty")
+	if scenario == "operations" {
+		for index := range session.Facility.Devices {
+			device := &session.Facility.Devices[index]
+			if device.ID == fixtureFacilityPowerID || device.ID == fixtureFacilityCoolingID {
+				device.CurrentStateID = "online"
+			}
+		}
+		privateRecovery := func() []domain.DiagnosticRecoveryReference {
+			return []domain.DiagnosticRecoveryReference{{PrivateOverseerAction: new(true)}}
+		}
+		capability := func(value domain.FacilityCapability) []domain.DiagnosticEffect {
+			return []domain.DiagnosticEffect{{CapabilityBlock: &domain.CapabilityBlockEffect{Capability: value}}}
+		}
+		session.Facility.Conditions = []domain.DiagnosticCondition{
+			{
+				ID: fixtureFacilityUnpoweredConditionID, Name: "Reactor controls unpowered",
+				Category: domain.DiagnosticConditionCategoryUnpowered,
+				Device:   &domain.DiagnosticDeviceScope{DeviceID: fixtureFacilityPowerID},
+				Effects:  capability(domain.FacilityCapabilityExecuteCommand), Recovery: privateRecovery(),
+			},
+			{
+				ID: fixtureFacilityCondition, Name: "Security authorization corrupted",
+				Category:      domain.DiagnosticConditionCategoryAuthorizationCorrupted,
+				Device:        &domain.DiagnosticDeviceScope{DeviceID: fixtureFacilityDoorID},
+				InitialActive: false, CurrentActive: true,
+				Effects: capability(domain.FacilityCapabilityViewEntry), Recovery: privateRecovery(),
+			},
+		}
+	}
+	if err := domain.ValidateSession(session); err != nil {
+		return fmt.Errorf("invalid facility authoring fixture: %w", err)
+	}
+	state.mu.Lock()
+	state.session = session
+	state.sessionRevision = 1
+	state.saveCalls = 0
+	state.repairWrites = 0
+	state.previewCalls = 0
+	state.resetWrites = 0
+	state.recoveryWrites = 0
+	state.publishedEvents = 0
+	state.nextFailure = ""
+	state.mu.Unlock()
+	return nil
+}
+
+func (state *fixtureFacilityAuthoringState) sessionSnapshot() (domain.Session, uint64) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return domain.CloneSession(state.session), state.sessionRevision
+}
+
+func (state *fixtureFacilityAuthoringState) inspect(
+	request fixtureFacilityInspectionRequest,
+) fixtureFacilityInspectionResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	facilityRevision := fixtureSessionFacilityRevision(state.session)
+	result := fixtureFacilityInspectionResult{
+		SessionRevision: state.sessionRevision, FacilityRevision: facilityRevision,
+	}
+	if request.ExpectedSessionRevision != state.sessionRevision || request.ExpectedFacilityRevision != facilityRevision {
+		result.Failure = domain.FacilityFailureStaleRevision
+		return result
+	}
+	report, issues := domain.BuildFacilityDependencyReport(state.session, request.Target)
+	if len(issues) != 0 {
+		result.Failure = issues[0].Code
+		result.Issues = slices.Clone(issues)
+		return result
+	}
+	result.OK = true
+	result.Report = &report
+	return result
+}
+
+func (state *fixtureFacilityAuthoringState) save(
+	request fixtureFacilityAuthoringRequest,
+) domain.FacilityOperationResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	previousFacilityRevision := fixtureSessionFacilityRevision(state.session)
+	failure := func(code domain.FacilityFailureCode, issues []domain.FacilityIssue) domain.FacilityOperationResult {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID, Failure: code, Issues: slices.Clone(issues),
+			SessionRevision: state.sessionRevision, PreviousFacilityRevision: previousFacilityRevision,
+			ResultingFacilityRevision: previousFacilityRevision,
+		}
+	}
+	if request.ExpectedSessionRevision != state.sessionRevision ||
+		request.ExpectedFacilityRevision != previousFacilityRevision {
+		return failure(domain.FacilityFailureStaleRevision, nil)
+	}
+	if strings.TrimSpace(request.CorrelationID) == "" {
+		return failure(domain.FacilityFailureInvalidConfiguration, nil)
+	}
+
+	candidate := domain.CloneSession(request.Session)
+	protectFixtureFacilityCurrentValues(state.session.Facility, candidate.Facility)
+	if candidate.Facility != nil {
+		candidate.Facility.Revision = previousFacilityRevision
+	}
+	issues := domain.ValidateFacilityAuthoringCandidate(state.session, candidate)
+	if len(issues) != 0 {
+		return failure(domain.FacilityFailureInvalidConfiguration, issues)
+	}
+	if reflect.DeepEqual(state.session, candidate) {
+		canonical := domain.CloneSession(state.session)
+		return domain.FacilityOperationResult{
+			OK: true, CorrelationID: request.CorrelationID, SessionRevision: state.sessionRevision,
+			PreviousFacilityRevision: previousFacilityRevision, ResultingFacilityRevision: previousFacilityRevision,
+			Session: &canonical,
+		}
+	}
+
+	affectedDevices, affectedConditions := fixtureFacilityAffectedIDs(state.session.Facility, candidate.Facility)
+	removedReferencedDevice := fixtureFacilityHasDevice(state.session.Facility, fixtureFacilityPowerID) &&
+		!fixtureFacilityHasDevice(candidate.Facility, fixtureFacilityPowerID)
+	if candidate.Facility != nil {
+		candidate.Facility.Revision = previousFacilityRevision + 1
+	}
+	state.session = domain.CloneSession(candidate)
+	state.sessionRevision++
+	state.saveCalls++
+	if removedReferencedDevice {
+		state.repairWrites++
+	}
+	canonical := domain.CloneSession(state.session)
+	return domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: request.CorrelationID,
+		SessionRevision: state.sessionRevision, PreviousFacilityRevision: previousFacilityRevision,
+		ResultingFacilityRevision: fixtureSessionFacilityRevision(state.session),
+		AffectedDeviceIDs:         affectedDevices, AffectedConditionIDs: affectedConditions,
+		Session: &canonical,
+	}
+}
+
+func (state *fixtureFacilityAuthoringState) snapshot() fixtureFacilityAuthoringSnapshot {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	broken := 0
+	if err := domain.ValidateSession(state.session); err != nil {
+		broken = 1
+	}
+	return fixtureFacilityAuthoringSnapshot{
+		Facility: domain.CloneFacility(state.session.Facility), SaveCalls: state.saveCalls,
+		RepairWrites: state.repairWrites, BindingCount: fixtureFacilityBindingCount(state.session),
+		BrokenReferenceCount: broken, SessionRevision: state.sessionRevision,
+		PreviewCalls: state.previewCalls, ResetWrites: state.resetWrites,
+		RecoveryWrites: state.recoveryWrites, PublishedEvents: state.publishedEvents,
+	}
+}
+
+func (state *fixtureFacilityAuthoringState) preview(
+	request fixtureFacilityPreviewRequest,
+) map[string]any {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.previewCalls++
+	revision := fixtureSessionFacilityRevision(state.session)
+	if request.ExpectedFacilityRevision != revision {
+		return map[string]any{"ok": false, "failure": domain.FacilityFailureStaleRevision, "facilityRevision": revision}
+	}
+	terminal := fixtureTerminalByID(&state.session, request.TerminalID)
+	if terminal == nil || (request.DeviceState == nil) == (request.Condition == nil) {
+		return map[string]any{"ok": false, "failure": domain.FacilityFailureMissingReference, "facilityRevision": revision}
+	}
+	facility := domain.CloneFacility(state.session.Facility)
+	if request.DeviceState != nil {
+		device := fixtureFacilityDeviceByID(facility, request.DeviceState.DeviceID)
+		if device == nil || !slices.ContainsFunc(device.States, func(value domain.FacilityDeviceState) bool {
+			return value.ID == request.DeviceState.StateID
+		}) {
+			return map[string]any{"ok": false, "failure": domain.FacilityFailureMissingReference, "facilityRevision": revision}
+		}
+		device.CurrentStateID = request.DeviceState.StateID
+	}
+	if request.Condition != nil {
+		condition := fixtureFacilityConditionByID(facility, request.Condition.ConditionID)
+		if condition == nil {
+			return map[string]any{"ok": false, "failure": domain.FacilityFailureMissingReference, "facilityRevision": revision}
+		}
+		condition.CurrentActive = request.Condition.Active
+	}
+	tree := domain.CloneContentNode(terminal.Root)
+	fixtureProjectFacilityVariants(&tree, facility)
+	projection := domain.PublicLiveState{
+		TerminalID: terminal.ID, TerminalName: terminal.Name, Tree: tree,
+		HackLevel: terminal.HackLevel, IntroText: terminal.IntroText,
+	}
+	return map[string]any{"ok": true, "facilityRevision": revision, "terminal": projection}
+}
+
+func (state *fixtureFacilityAuthoringState) nextOperationFailure(failure string) {
+	state.mu.Lock()
+	state.nextFailure = strings.TrimSpace(failure)
+	state.mu.Unlock()
+}
+
+func (state *fixtureFacilityAuthoringState) operationFailure(
+	correlationID string,
+	expectedRevision uint64,
+) *domain.FacilityOperationResult {
+	current := fixtureSessionFacilityRevision(state.session)
+	failure := state.nextFailure
+	state.nextFailure = ""
+	if expectedRevision != current {
+		failure = "stale-revision"
+	}
+	if failure == "" {
+		return nil
+	}
+	code := domain.FacilityFailurePersistenceFailed
+	if failure == "stale-revision" {
+		code = domain.FacilityFailureStaleRevision
+	}
+	return &domain.FacilityOperationResult{
+		CorrelationID: correlationID, Failure: code, SessionRevision: state.sessionRevision,
+		PreviousFacilityRevision: current, ResultingFacilityRevision: current,
+	}
+}
+
+func (state *fixtureFacilityAuthoringState) resetDevice(
+	request fixtureFacilityDeviceResetRequest,
+) domain.FacilityOperationResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if failed := state.operationFailure(request.CorrelationID, request.ExpectedFacilityRevision); failed != nil {
+		return *failed
+	}
+	device := fixtureFacilityDeviceByID(state.session.Facility, request.DeviceID)
+	if device == nil {
+		return domain.FacilityOperationResult{CorrelationID: request.CorrelationID, Failure: domain.FacilityFailureMissingReference}
+	}
+	previous := state.session.Facility.Revision
+	device.CurrentStateID = device.InitialStateID
+	affectedConditions := make([]string, 0)
+	for index := range state.session.Facility.Conditions {
+		condition := &state.session.Facility.Conditions[index]
+		if condition.Device == nil || condition.Device.DeviceID != request.DeviceID {
+			continue
+		}
+		condition.CurrentActive = condition.InitialActive
+		affectedConditions = append(affectedConditions, condition.ID)
+	}
+	state.session.Facility.Revision++
+	state.sessionRevision++
+	state.resetWrites++
+	state.publishedEvents++
+	canonical := domain.CloneSession(state.session)
+	return domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: request.CorrelationID,
+		SessionRevision: state.sessionRevision, PreviousFacilityRevision: previous,
+		ResultingFacilityRevision: state.session.Facility.Revision,
+		AffectedDeviceIDs:         []string{request.DeviceID}, AffectedConditionIDs: affectedConditions,
+		Session: &canonical,
+	}
+}
+
+func (state *fixtureFacilityAuthoringState) resetFacility(
+	request fixtureFacilityResetRequest,
+) domain.FacilityOperationResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if failed := state.operationFailure(request.CorrelationID, request.ExpectedFacilityRevision); failed != nil {
+		return *failed
+	}
+	previous := state.session.Facility.Revision
+	deviceIDs := make([]string, 0, len(state.session.Facility.Devices))
+	conditionIDs := make([]string, 0, len(state.session.Facility.Conditions))
+	for index := range state.session.Facility.Devices {
+		device := &state.session.Facility.Devices[index]
+		device.CurrentStateID = device.InitialStateID
+		deviceIDs = append(deviceIDs, device.ID)
+	}
+	for index := range state.session.Facility.Conditions {
+		condition := &state.session.Facility.Conditions[index]
+		condition.CurrentActive = condition.InitialActive
+		conditionIDs = append(conditionIDs, condition.ID)
+	}
+	slices.Sort(deviceIDs)
+	slices.Sort(conditionIDs)
+	state.session.Facility.Revision++
+	state.sessionRevision++
+	state.resetWrites++
+	state.publishedEvents++
+	canonical := domain.CloneSession(state.session)
+	return domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: request.CorrelationID,
+		SessionRevision: state.sessionRevision, PreviousFacilityRevision: previous,
+		ResultingFacilityRevision: state.session.Facility.Revision,
+		AffectedDeviceIDs:         deviceIDs, AffectedConditionIDs: conditionIDs, Session: &canonical,
+	}
+}
+
+func (state *fixtureFacilityAuthoringState) recover(
+	request fixtureFacilityRecoveryRequest,
+) domain.FacilityOperationResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if failed := state.operationFailure(request.CorrelationID, request.ExpectedFacilityRevision); failed != nil {
+		return *failed
+	}
+	condition := fixtureFacilityConditionByID(state.session.Facility, request.ConditionID)
+	if condition == nil || request.Recovery == nil || request.Recovery.PrivateOverseerAction == nil ||
+		!*request.Recovery.PrivateOverseerAction {
+		return domain.FacilityOperationResult{CorrelationID: request.CorrelationID, Failure: domain.FacilityFailureMissingReference}
+	}
+	previous := state.session.Facility.Revision
+	condition.CurrentActive = false
+	state.session.Facility.Revision++
+	state.sessionRevision++
+	state.recoveryWrites++
+	state.publishedEvents++
+	canonical := domain.CloneSession(state.session)
+	return domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: request.CorrelationID,
+		SessionRevision: state.sessionRevision, PreviousFacilityRevision: previous,
+		ResultingFacilityRevision: state.session.Facility.Revision,
+		AffectedConditionIDs:      []string{request.ConditionID}, Session: &canonical,
+	}
+}
+
+func fixtureFacilityConditionByID(facility *domain.Facility, conditionID string) *domain.DiagnosticCondition {
+	if facility == nil {
+		return nil
+	}
+	for index := range facility.Conditions {
+		if facility.Conditions[index].ID == conditionID {
+			return &facility.Conditions[index]
+		}
+	}
+	return nil
+}
+
+func fixtureProjectFacilityVariants(node *domain.ContentNode, facility *domain.Facility) {
+	states := make(map[string]string, len(facility.Devices))
+	for _, device := range facility.Devices {
+		states[device.ID] = device.CurrentStateID
+	}
+	for _, variant := range node.FacilityNameVariants {
+		if states[variant.When.DeviceID] == variant.When.StateID {
+			node.Name = variant.Text
+		}
+	}
+	for index := range node.Blocks {
+		block := &node.Blocks[index]
+		for _, variant := range block.FacilityTextVariants {
+			if states[variant.When.DeviceID] == variant.When.StateID {
+				block.InitialText = variant.Text
+			}
+		}
+	}
+	for index := range node.Children {
+		fixtureProjectFacilityVariants(&node.Children[index], facility)
+	}
+}
+
+func fixtureSessionFacilityRevision(session domain.Session) uint64 {
+	if session.Facility == nil {
+		return 0
+	}
+	return session.Facility.Revision
+}
+
+func (state *fixtureFacilityDiagnosticState) reset(scenario string) error {
+	session, activeConditionID, err := facilityDiagnosticSession(strings.TrimSpace(scenario))
+	if err != nil {
+		return err
+	}
+	if err := domain.ValidateSession(session); err != nil {
+		return fmt.Errorf("invalid facility diagnostic fixture: %w", err)
+	}
+	state.mu.Lock()
+	state.active = true
+	state.scenario = strings.TrimSpace(scenario)
+	state.session = domain.CloneSession(session)
+	state.audit = fixtureFacilityDiagnosticAudit{}
+	state.mu.Unlock()
+	if activeConditionID == "" {
+		return errors.New("facility diagnostic fixture has no active condition")
+	}
+	return nil
+}
+
+func (state *fixtureFacilityDiagnosticState) deactivate() {
+	state.mu.Lock()
+	state.active = false
+	state.mu.Unlock()
+}
+
+func (state *fixtureFacilityDiagnosticState) sessionSnapshot() (domain.Session, bool) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if !state.active {
+		return domain.Session{}, false
+	}
+	return domain.CloneSession(state.session), true
+}
+
+func (state *fixtureFacilityDiagnosticState) projectionFacility() *domain.Facility {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if !state.active {
+		return nil
+	}
+	return domain.CloneFacility(state.session.Facility)
+}
+
+func (state *fixtureFacilityDiagnosticState) target() (domain.TerminalTarget, bool) {
+	session, ok := state.sessionSnapshot()
+	if !ok {
+		return domain.TerminalTarget{}, false
+	}
+	terminal := fixtureTerminalByID(&session, fixtureFacilityDiagnosticTerminalID)
+	if terminal == nil {
+		return domain.TerminalTarget{}, false
+	}
+	return fixtureTarget(*terminal), true
+}
+
+func (state *fixtureFacilityDiagnosticState) replay() {
+	state.mu.Lock()
+	state.audit.ProjectionReplays++
+	state.mu.Unlock()
+}
+
+func (state *fixtureFacilityDiagnosticState) recover(conditionID string, private bool) (domain.FacilityOperationResult, error) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if !state.active || state.session.Facility == nil {
+		return domain.FacilityOperationResult{}, errors.New("facility diagnostic fixture is inactive")
+	}
+	condition := fixtureDiagnosticConditionByID(state.session.Facility, conditionID)
+	if condition == nil || !condition.CurrentActive {
+		return domain.FacilityOperationResult{}, errors.New("diagnostic condition is not active")
+	}
+	previous := state.session.Facility.Revision
+	condition.CurrentActive = false
+	state.session.Facility.Revision++
+	state.audit.DurableWrites++
+	if private {
+		state.audit.PrivateRecoveries++
+	} else {
+		state.audit.ApprovedRecoveries++
+	}
+	canonical := domain.CloneSession(state.session)
+	return domain.FacilityOperationResult{
+		OK: true, Changed: true, PreviousFacilityRevision: previous,
+		ResultingFacilityRevision: state.session.Facility.Revision,
+		AffectedConditionIDs:      []string{conditionID}, Session: &canonical,
+	}, nil
+}
+
+func (state *fixtureFacilityDiagnosticState) snapshot() fixtureFacilityDiagnosticSnapshot {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	conditionStates := make(map[string]bool)
+	activeCondition := map[string]string{}
+	blocked := make([]domain.FacilityCapability, 0)
+	presentationEffects := make([]domain.TerminalPresentationEffect, 0)
+	if state.session.Facility != nil {
+		for _, condition := range state.session.Facility.Conditions {
+			conditionStates[condition.ID] = condition.CurrentActive
+			if !condition.CurrentActive {
+				continue
+			}
+			activeCondition["id"] = condition.ID
+			activeCondition["category"] = string(condition.Category)
+			if condition.CustomCategory != "" {
+				activeCondition["customCategory"] = condition.CustomCategory
+			}
+			for _, effect := range condition.Effects {
+				if effect.CapabilityBlock != nil {
+					blocked = append(blocked, effect.CapabilityBlock.Capability)
+				}
+				if effect.DisplayInstability != nil {
+					presentationEffects = append(presentationEffects, domain.TerminalPresentationEffectDisplayUnstable)
+				}
+			}
+		}
+	}
+	return fixtureFacilityDiagnosticSnapshot{
+		ActiveCondition: activeCondition,
+		Facility: fixtureFacilitySnapshot{
+			Revision:        fixtureSessionFacilityRevision(state.session),
+			ConditionStates: conditionStates,
+		},
+		BlockedCapabilities: blocked, PresentationEffects: presentationEffects,
+		AuthoredRecordDigest:  fixtureDiagnosticDigest(fixtureDiagnosticAuthoredRecord()),
+		AuthoredContentDigest: fixtureDiagnosticDigest(fixtureDiagnosticAuthoredContent()),
+		Audit:                 state.audit,
+	}
+}
+
+func fixtureDiagnosticConditionByID(facility *domain.Facility, conditionID string) *domain.DiagnosticCondition {
+	if facility == nil {
+		return nil
+	}
+	for index := range facility.Conditions {
+		if facility.Conditions[index].ID == conditionID {
+			return &facility.Conditions[index]
+		}
+	}
+	return nil
+}
+
+func fixtureDiagnosticDigest(value string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(value)))
+}
+
+func fixtureDiagnosticAuthoredRecord() string {
+	return strings.Repeat("RECORD 04-B // SECTOR 7 CORRIDOR PRESSURE NOMINAL\n", 96) + "END OF AUTHORED RECORD"
+}
+
+func fixtureDiagnosticDamagedRecord() string {
+	return strings.Repeat("R_C_RD 04-B // S_CT_R 7 C_RR_PT_D ??__??\n", 96) + "_ND _F D_M_G_D R_C_RD"
+}
+
+func fixtureDiagnosticAuthoredContent() string {
+	return "STABLE REFERENCE\nAFFECTED ENTRY\nAFFECTED COMMAND\nREMOTE TERMINAL\nDAMAGED RECORD"
+}
+
+func facilityDiagnosticSession(scenario string) (domain.Session, string, error) {
+	conditionID := map[string]string{
+		"offline":                   fixtureFacilityOfflineConditionID,
+		"unpowered":                 fixtureFacilityUnpoweredConditionID,
+		"transition-recovery":       fixtureFacilityUnpoweredConditionID,
+		"network-isolated":          fixtureFacilityNetworkConditionID,
+		"program-recovery":          fixtureFacilityNetworkConditionID,
+		"storage-damaged":           fixtureFacilityStorageConditionID,
+		"storage-damaged-multipage": fixtureFacilityStorageConditionID,
+		"authorization-corrupted":   fixtureFacilityCondition,
+		"private-recovery-escape":   fixtureFacilityCondition,
+		"display-unstable":          fixtureFacilityDisplayConditionID,
+		"custom":                    fixtureFacilityCustomConditionID,
+	}[scenario]
+	if conditionID == "" {
+		return domain.Session{}, "", fmt.Errorf("unknown facility diagnostic scenario %q", scenario)
+	}
+
+	privateRecovery := true
+	terminalScope := func() *domain.DiagnosticTerminalScope {
+		return &domain.DiagnosticTerminalScope{TerminalID: fixtureFacilityDiagnosticTerminalID}
+	}
+	privateReference := func() domain.DiagnosticRecoveryReference {
+		return domain.DiagnosticRecoveryReference{PrivateOverseerAction: &privateRecovery}
+	}
+	capability := func(value domain.FacilityCapability) domain.DiagnosticEffect {
+		return domain.DiagnosticEffect{CapabilityBlock: &domain.CapabilityBlockEffect{Capability: value}}
+	}
+	condition := func(id, name string, category domain.DiagnosticConditionCategory, effects ...domain.DiagnosticEffect) domain.DiagnosticCondition {
+		active := id == conditionID
+		return domain.DiagnosticCondition{
+			ID: id, Name: name, Category: category, Terminal: terminalScope(),
+			InitialActive: active, CurrentActive: active, Effects: effects,
+			Recovery: []domain.DiagnosticRecoveryReference{privateReference()},
+		}
+	}
+
+	conditions := []domain.DiagnosticCondition{
+		condition(fixtureFacilityOfflineConditionID, "Security terminal offline", domain.DiagnosticConditionCategoryOffline,
+			capability(domain.FacilityCapabilityViewEntry)),
+		condition(fixtureFacilityUnpoweredConditionID, "Reactor controls unpowered", domain.DiagnosticConditionCategoryUnpowered,
+			capability(domain.FacilityCapabilityExecuteCommand)),
+		condition(fixtureFacilityNetworkConditionID, "Operations network isolated", domain.DiagnosticConditionCategoryNetworkIsolated,
+			capability(domain.FacilityCapabilityTerminalTransition),
+			domain.DiagnosticEffect{DiagnosticPath: &domain.DiagnosticPathEffect{
+				TerminalID: fixtureFacilityDiagnosticTerminalID, NodeID: "diagnostic-isolation",
+			}}),
+		condition(fixtureFacilityStorageConditionID, "Archive storage damaged", domain.DiagnosticConditionCategoryStorageDamaged,
+			domain.DiagnosticEffect{RecordSubstitution: &domain.RecordSubstitutionEffect{
+				TerminalID: fixtureFacilityDiagnosticTerminalID, BlockID: "block-damaged-record",
+				ReplacementText: fixtureDiagnosticDamagedRecord(),
+			}}),
+		condition(fixtureFacilityCondition, "Security authorization corrupted", domain.DiagnosticConditionCategoryAuthorizationCorrupted,
+			capability(domain.FacilityCapabilityExecuteCommand)),
+		condition(fixtureFacilityDisplayConditionID, "Reactor display unstable", domain.DiagnosticConditionCategoryDisplayUnstable,
+			domain.DiagnosticEffect{DisplayInstability: &domain.DisplayInstabilityEffect{}}),
+		condition(fixtureFacilityCustomConditionID, "Cooling loop contamination", domain.DiagnosticConditionCategoryCustom,
+			capability(domain.FacilityCapabilityHack)),
+	}
+	conditions[len(conditions)-1].CustomCategory = "coolant-contamination"
+
+	state := func(id, name string) domain.FacilityDeviceState {
+		return domain.FacilityDeviceState{ID: id, Name: name}
+	}
+	devices := []domain.FacilityDevice{
+		{
+			ID: fixtureFacilityPowerID, Name: "Primary power grid", Kind: domain.FacilityDeviceKindPowerGrid,
+			InitialStateID: "offline", CurrentStateID: "offline",
+			States: []domain.FacilityDeviceState{state("offline", "Offline"), state("online", "Online")},
+			Transitions: []domain.FacilityDeviceTransition{{
+				ID: "restore", Name: "Restore primary power", SourceStateID: "offline", DestinationStateID: "online",
+				ConditionEffects: []domain.FacilityConditionEffect{{ConditionID: fixtureFacilityUnpoweredConditionID, Active: false}},
+				Recovery:         true,
+			}},
+		},
+		{
+			ID: fixtureFacilityNetworkID, Name: "Operations network", Kind: domain.FacilityDeviceKindNetworkSegment,
+			InitialStateID: "isolated", CurrentStateID: "isolated",
+			States: []domain.FacilityDeviceState{state("isolated", "Isolated"), state("connected", "Connected")},
+			Transitions: []domain.FacilityDeviceTransition{{
+				ID: "reconnect", Name: "Reconnect operations network", SourceStateID: "isolated", DestinationStateID: "connected",
+				ConditionEffects: []domain.FacilityConditionEffect{{ConditionID: fixtureFacilityNetworkConditionID, Active: false}},
+				Recovery:         true,
+			}},
+		},
+	}
+	conditions[1].Recovery = append(conditions[1].Recovery, domain.DiagnosticRecoveryReference{
+		Transition: &domain.FacilityTransitionRequest{DeviceID: fixtureFacilityPowerID, TransitionID: "restore"},
+	})
+	programID := fixtureFacilityNetworkRecoveryProgramID
+	conditions[2].Recovery = append(conditions[2].Recovery, domain.DiagnosticRecoveryReference{RecoveryProgramID: &programID})
+
+	falseVisibility := &domain.FacilityStateEquality{DeviceID: fixtureFacilityPowerID, StateID: "online"}
+	entry := func(id, name, description string) domain.ContentNode {
+		return domain.ContentNode{ID: id, Type: domain.NodeEntry, Name: name, Description: description}
+	}
+	stableReference := entry("stable-reference", "STABLE REFERENCE", "AUTHORED CONTENT REMAINS INTACT")
+	accessEntry := func(id, name string) domain.ContentNode {
+		return entry(id, name, "Ошибка доступа")
+	}
+	diagnosticPath := domain.ContentNode{
+		ID: "diagnostic-isolation", Type: domain.NodeEntry, Name: "ISOLATION DIAGNOSTICS",
+		Description: "NETWORK SEGMENT ISOLATED // BACK PATH AVAILABLE", VisibleWhen: falseVisibility,
+	}
+	damagedRecord := domain.ContentNode{
+		ID: "damaged-record", Type: domain.NodeEntry, Name: "DAMAGED RECORD",
+		Blocks: []domain.EntryContentBlock{{ID: "block-damaged-record", InitialText: fixtureDiagnosticAuthoredRecord()}},
+	}
+	restorePower := domain.ContentNode{
+		ID: "restore-primary-power", Type: domain.NodeCommand, Name: "RESTORE PRIMARY POWER", Text: "PRIMARY POWER RESTORED",
+	}
+	recoverNetwork := domain.ContentNode{
+		ID: "run-network-recovery", Type: domain.NodeCommand, Name: "RUN NETWORK RECOVERY HOLOTAPE", Text: "NETWORK RECOVERY COMPLETE",
+	}
+	children := []domain.ContentNode{stableReference, diagnosticPath, damagedRecord}
+	switch scenario {
+	case "offline":
+		children = append(children, accessEntry("affected-entry", "AFFECTED ENTRY"))
+	case "unpowered":
+		children = append(children, accessEntry("affected-command", "AFFECTED COMMAND"))
+	case "transition-recovery":
+		children = append(children, restorePower)
+	case "network-isolated":
+		children = append(children, accessEntry("remote-terminal", "REMOTE TERMINAL"))
+	case "program-recovery":
+		children = append(children, recoverNetwork)
+	case "authorization-corrupted":
+		children = append(children, accessEntry("security-override", "SECURITY OVERRIDE"))
+	case "private-recovery-escape":
+		children = append(children, accessEntry("affected-command", "AFFECTED COMMAND"))
+	case "custom":
+		children = append(children, accessEntry("affected-hack", "AFFECTED HACK"))
+	}
+	session := domain.Session{
+		Version: 1, Name: "Facility diagnostic fixture",
+		Terminals: []domain.Terminal{
+			{
+				ID: fixtureFacilityDiagnosticTerminalID, Name: "Facility diagnostics", IntroText: "FACILITY DIAGNOSTIC NETWORK",
+				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: children},
+			},
+			{
+				ID: fixtureFacilityDiagnosticRemoteID, Name: "Remote diagnostics", IntroText: "REMOTE DIAGNOSTICS",
+				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}},
+			},
+		},
+		Facility: &domain.Facility{
+			Revision: 7, Devices: devices, Conditions: conditions,
+			RecoveryPrograms: []domain.RecoveryProgram{{
+				ID: fixtureFacilityNetworkRecoveryProgramID, Name: "VAULT-TEC NETWORK RECOVERY",
+				Transitions: []domain.FacilityTransitionRequest{{DeviceID: fixtureFacilityNetworkID, TransitionID: "reconnect"}},
+			}},
+		},
+	}
+	return session, conditionID, nil
+}
+
+func (state *fixtureFacilityPlayerState) reset(scenario string) error {
+	scenario = strings.TrimSpace(scenario)
+	if scenario == "" {
+		scenario = "ready"
+	}
+	switch scenario {
+	case "ready", "stale-revision", "conflict", "persistence-failure", "concurrent-resolution", "shared-projection":
+	default:
+		return fmt.Errorf("unknown facility player-state scenario %q", scenario)
+	}
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.scenario = scenario
+	state.projectionSession = nil
+	state.resetNavigationFor = ""
+	state.revision = 0
+	state.deviceStates = map[string]string{
+		fixtureFacilityDoorID:  "locked",
+		fixtureFacilityAlarmID: "armed",
+	}
+	state.lastRequestID = ""
+	state.lastResult = nil
+	state.resolutionAttempts = 0
+	state.durableWrites = 0
+	state.successfulActions = 0
+	state.duplicateResults = 0
+	if scenario == "shared-projection" {
+		session := facilityProjectionSession()
+		state.projectionSession = &session
+	}
+	return nil
+}
+
+func (state *fixtureFacilityPlayerState) session() (domain.Session, bool) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.projectionSession == nil {
+		return domain.Session{}, false
+	}
+	return domain.CloneSession(*state.projectionSession), true
+}
+
+func (state *fixtureFacilityPlayerState) target(terminalID string) (domain.TerminalTarget, bool) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.projectionSession == nil {
+		return domain.TerminalTarget{}, false
+	}
+	terminal := fixtureTerminalByID(state.projectionSession, terminalID)
+	if terminal == nil {
+		return domain.TerminalTarget{}, false
+	}
+	return fixtureTarget(*terminal), true
+}
+
+func (state *fixtureFacilityPlayerState) projectionFacility() *domain.Facility {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.projectionSession == nil {
+		return nil
+	}
+	return domain.CloneFacility(state.projectionSession.Facility)
+}
+
+func (state *fixtureFacilityPlayerState) resetNavigation(terminalID string) {
+	state.mu.Lock()
+	state.resetNavigationFor = terminalID
+	state.mu.Unlock()
+}
+
+func (state *fixtureFacilityPlayerState) takeNavigationReset(terminalID string) bool {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.resetNavigationFor != terminalID {
+		return false
+	}
+	state.resetNavigationFor = ""
+	return true
+}
+
+func (state *fixtureFacilityPlayerState) applyProjectionTransition() error {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.projectionSession == nil || state.projectionSession.Facility == nil {
+		return errors.New("shared facility projection is not active")
+	}
+	facility := state.projectionSession.Facility
+	door := fixtureFacilityDeviceByID(facility, fixtureFacilityDoorID)
+	alarm := fixtureFacilityDeviceByID(facility, fixtureFacilityAlarmID)
+	if door == nil || alarm == nil {
+		return errors.New("shared facility projection is incomplete")
+	}
+	if door.CurrentStateID == "open" && alarm.CurrentStateID == "silent" {
+		return nil
+	}
+	if door.CurrentStateID != "locked" || alarm.CurrentStateID != "armed" {
+		return errors.New("shared facility projection has an invalid transition source")
+	}
+	door.CurrentStateID = "open"
+	alarm.CurrentStateID = "silent"
+	security := fixtureTerminalByID(state.projectionSession, fixtureFacilityTerminalID)
+	if security == nil {
+		return errors.New("shared facility security terminal is missing")
+	}
+	security.CommandStates = map[string]domain.CommandExecutionState{
+		fixtureFacilityCommandID: {
+			CompletedName: "SECURITY DOOR OPEN // LEGACY SNAPSHOT", ResultText: "Previously completed command result.",
+			EntryContentChange: &domain.EntryContentChange{
+				BlockID: "block-security-door", CompletedText: "SECURITY DOOR: LEGACY COMMAND COMPLETE",
+			},
+		},
+	}
+	for index := range facility.Conditions {
+		if facility.Conditions[index].ID == fixtureFacilityCondition {
+			facility.Conditions[index].CurrentActive = false
+		}
+	}
+	facility.Revision++
+	return nil
+}
+
+func (state *fixtureFacilityPlayerState) moveTerminal(terminalID, groupID string) error {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.projectionSession == nil {
+		return errors.New("shared facility projection is not active")
+	}
+	if fixtureTerminalByID(state.projectionSession, terminalID) == nil {
+		return fmt.Errorf("unknown shared facility terminal %q", terminalID)
+	}
+	targetGroup := -1
+	for index := range state.projectionSession.TerminalGroups {
+		group := &state.projectionSession.TerminalGroups[index]
+		if group.ID == groupID {
+			targetGroup = index
+		}
+		group.TerminalIDs = removeFixtureString(group.TerminalIDs, terminalID)
+	}
+	if targetGroup < 0 {
+		return fmt.Errorf("unknown shared facility group %q", groupID)
+	}
+	state.projectionSession.TerminalGroups[targetGroup].TerminalIDs = append(
+		state.projectionSession.TerminalGroups[targetGroup].TerminalIDs, terminalID,
+	)
+	return nil
+}
+
+func (state *fixtureFacilityPlayerState) scenarioForAttempt(requestID string) string {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.resolutionAttempts++
+	if state.lastRequestID == "" {
+		state.lastRequestID = requestID
+	}
+	return state.scenario
+}
+
+func (state *fixtureFacilityPlayerState) ApplyWorldAction(
+	_ context.Context,
+	request control.FacilityMutationRequest,
+) domain.FacilityOperationResult {
+	state.mu.Lock()
+	scenario := state.scenario
+	state.mu.Unlock()
+
+	switch scenario {
+	case "stale-revision":
+		failure := state.recordFailure(request.CorrelationID, domain.FacilityFailureStaleRevision)
+		return fixtureFacilityOperationResult(failure, 0, nil)
+	case "persistence-failure":
+		failure := state.recordFailure(request.CorrelationID, domain.FacilityFailurePersistenceFailed)
+		return fixtureFacilityOperationResult(failure, 0, nil)
+	}
+
+	success := state.recordSuccess(request.CorrelationID)
+	commandStates := map[string]domain.CommandExecutionState{
+		fixtureFacilityCommandID: {
+			CompletedName: "SECURITY DOOR OPEN",
+			ResultText:    "Security door and alarm updated.",
+		},
+	}
+	session := facilityPlayerSession(commandStates)
+	session.Facility.Revision = success.ResultingFacilityRevision
+	for index := range session.Facility.Devices {
+		switch session.Facility.Devices[index].ID {
+		case fixtureFacilityDoorID:
+			session.Facility.Devices[index].CurrentStateID = "open"
+		case fixtureFacilityAlarmID:
+			session.Facility.Devices[index].CurrentStateID = "silent"
+		}
+	}
+	for index := range session.Facility.Conditions {
+		if session.Facility.Conditions[index].ID == fixtureFacilityCondition {
+			session.Facility.Conditions[index].CurrentActive = false
+		}
+	}
+	return fixtureFacilityOperationResult(success, 1, &session)
+}
+
+func fixtureFacilityOperationResult(
+	result fixtureFacilityResult,
+	sessionRevision uint64,
+	session *domain.Session,
+) domain.FacilityOperationResult {
+	return domain.FacilityOperationResult{
+		OK: result.OK, Changed: result.Changed, CorrelationID: result.CorrelationID,
+		Failure: result.Failure, SessionRevision: sessionRevision,
+		PreviousFacilityRevision: result.PreviousFacilityRevision, ResultingFacilityRevision: result.ResultingFacilityRevision,
+		AffectedDeviceIDs: slices.Clone(result.AffectedDeviceIDs), AffectedConditionIDs: slices.Clone(result.AffectedConditionIDs),
+		Session: session,
+	}
+}
+
+func (state *fixtureFacilityPlayerState) currentRequestID() string {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return state.lastRequestID
+}
+
+func (state *fixtureFacilityPlayerState) recordRejected(requestID string) fixtureFacilityResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	result := state.resultLocked(requestID, domain.FacilityFailureRejected)
+	state.lastResult = new(result)
+	return result
+}
+
+func (state *fixtureFacilityPlayerState) recordFailure(
+	requestID string,
+	failure domain.FacilityFailureCode,
+) fixtureFacilityResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	result := state.resultLocked(requestID, failure)
+	state.lastResult = new(result)
+	return result
+}
+
+func (state *fixtureFacilityPlayerState) recordSuccess(requestID string) fixtureFacilityResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if state.successfulActions != 0 {
+		return state.recordDuplicateLocked(requestID)
+	}
+	previousRevision := state.revision
+	state.revision++
+	state.deviceStates[fixtureFacilityDoorID] = "open"
+	state.deviceStates[fixtureFacilityAlarmID] = "silent"
+	state.durableWrites++
+	state.successfulActions++
+	result := fixtureFacilityResult{
+		OK: true, Changed: true, CorrelationID: requestID,
+		PreviousFacilityRevision:  previousRevision,
+		ResultingFacilityRevision: state.revision,
+		AffectedDeviceIDs:         []string{fixtureFacilityDoorID, fixtureFacilityAlarmID},
+		AffectedConditionIDs:      []string{fixtureFacilityCondition},
+	}
+	state.lastResult = new(result)
+	return result
+}
+
+func (state *fixtureFacilityPlayerState) recordDuplicate(requestID string) fixtureFacilityResult {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return state.recordDuplicateLocked(requestID)
+}
+
+func (state *fixtureFacilityPlayerState) recordDuplicateLocked(requestID string) fixtureFacilityResult {
+	state.duplicateResults++
+	result := state.resultLocked(requestID, domain.FacilityFailureDuplicate)
+	state.lastResult = new(result)
+	return result
+}
+
+func (state *fixtureFacilityPlayerState) resultLocked(
+	requestID string,
+	failure domain.FacilityFailureCode,
+) fixtureFacilityResult {
+	return fixtureFacilityResult{
+		CorrelationID:             requestID,
+		Failure:                   failure,
+		PreviousFacilityRevision:  state.revision,
+		ResultingFacilityRevision: state.revision,
+		AffectedDeviceIDs:         []string{fixtureFacilityDoorID, fixtureFacilityAlarmID},
+		AffectedConditionIDs:      []string{fixtureFacilityCondition},
+	}
+}
+
+func (state *fixtureFacilityPlayerState) snapshot() fixtureFacilityStateResponse {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	deviceStates := maps.Clone(state.deviceStates)
+	var lastResult *fixtureFacilityResult
+	if state.lastResult != nil {
+		result := *state.lastResult
+		result.AffectedDeviceIDs = append([]string(nil), state.lastResult.AffectedDeviceIDs...)
+		result.AffectedConditionIDs = append([]string(nil), state.lastResult.AffectedConditionIDs...)
+		lastResult = &result
+	}
+	facilitySnapshot := fixtureFacilitySnapshot{Revision: state.revision, DeviceStates: deviceStates}
+	if state.projectionSession != nil && state.projectionSession.Facility != nil {
+		facilitySnapshot = projectionFacilitySnapshot(*state.projectionSession)
+	}
+	return fixtureFacilityStateResponse{
+		Facility:           facilitySnapshot,
+		LastFacilityResult: lastResult,
+		Audit: fixtureFacilityAudit{
+			ResolutionAttempts:     state.resolutionAttempts,
+			DurableWrites:          state.durableWrites,
+			SuccessfulWorldActions: state.successfulActions,
+			DuplicateResults:       state.duplicateResults,
+		},
+	}
+}
+
+// fixtureFacilityLifecycle keeps the browser fixture's canonical session as
+// the only facility authority while exercising the production projector.
+type fixtureFacilityLifecycle struct {
+	base        *live.Service
+	state       *fixtureFacilityPlayerState
+	diagnostics *fixtureFacilityDiagnosticState
+}
+
+type fixtureFacilityLifecycleState struct {
+	mu sync.Mutex
+
+	session                   domain.Session
+	hydratedBeforePublication bool
+	staleResolutions          int
+	restoreSequence           []fixtureFacilityRestore
+}
+
+type fixtureFacilityRestore struct {
+	Action               string `json:"action"`
+	FacilityBeforePublic bool   `json:"facilityBeforePublic"`
+}
+
+type fixtureFacilityLifecycleSnapshot struct {
+	Facility                  *fixtureFacilitySnapshot `json:"facility"`
+	PersistedFacility         *fixtureFacilitySnapshot `json:"persistedFacility"`
+	HydratedBeforePublication bool                     `json:"hydratedBeforePublication"`
+	PendingRequests           int                      `json:"pendingRequests"`
+	StaleResolutions          int                      `json:"staleResolutions"`
+	RestoreSequence           []fixtureFacilityRestore `json:"restoreSequence"`
+}
+
+func (state *fixtureFacilityLifecycleState) reset(scenario string) error {
+	scenario = strings.TrimSpace(scenario)
+	if scenario == "" {
+		scenario = "persisted"
+	}
+	var session domain.Session
+	switch scenario {
+	case "persisted", "pending":
+		session = facilityLifecycleSession()
+	case "legacy-v1":
+		session = facilityLifecycleLegacySession()
+	default:
+		return fmt.Errorf("unknown facility lifecycle scenario %q", scenario)
+	}
+
+	state.mu.Lock()
+	state.session = domain.CloneSession(session)
+	state.hydratedBeforePublication = false
+	state.staleResolutions = 0
+	state.restoreSequence = nil
+	state.mu.Unlock()
+	return nil
+}
+
+func (state *fixtureFacilityLifecycleState) loadedSession() domain.Session {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return domain.CloneSession(state.session)
+}
+
+func (state *fixtureFacilityLifecycleState) recordHydration(action string, pendingInvalidated bool) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.hydratedBeforePublication = true
+	if pendingInvalidated {
+		state.staleResolutions++
+	}
+	if action != "" {
+		state.restoreSequence = append(state.restoreSequence, fixtureFacilityRestore{
+			Action: action, FacilityBeforePublic: true,
+		})
+	}
+}
+
+func (state *fixtureFacilityLifecycleState) snapshot(service *control.Service) fixtureFacilityLifecycleSnapshot {
+	state.mu.Lock()
+	session := domain.CloneSession(state.session)
+	hydrated := state.hydratedBeforePublication
+	staleResolutions := state.staleResolutions
+	restoreSequence := slices.Clone(state.restoreSequence)
+	state.mu.Unlock()
+
+	var facility *fixtureFacilitySnapshot
+	if session.Facility != nil {
+		snapshot := projectionFacilitySnapshot(session)
+		facility = &snapshot
+	}
+	persisted := facility
+	if facility != nil {
+		clone := *facility
+		clone.DeviceStates = maps.Clone(facility.DeviceStates)
+		clone.ConditionStates = maps.Clone(facility.ConditionStates)
+		clone.DeviceIDs = slices.Clone(facility.DeviceIDs)
+		persisted = &clone
+	}
+	pendingRequests := 0
+	if service != nil && service.Snapshot().PendingCommandExecution != nil {
+		pendingRequests = 1
+	}
+	return fixtureFacilityLifecycleSnapshot{
+		Facility:                  facility,
+		PersistedFacility:         persisted,
+		HydratedBeforePublication: hydrated,
+		PendingRequests:           pendingRequests,
+		StaleResolutions:          staleResolutions,
+		RestoreSequence:           restoreSequence,
+	}
+}
+
+func (lifecycle *fixtureFacilityLifecycle) CreateRuntime(target domain.TerminalTarget) (*domain.TerminalRuntime, *domain.PublicLiveState) {
+	lifecycle.state.takeNavigationReset(target.TerminalID)
+	runtime, projection := lifecycle.base.CreateRuntime(target)
+	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	return runtime, projection
+}
+
+func (lifecycle *fixtureFacilityLifecycle) UpdateRuntime(runtime *domain.TerminalRuntime, target domain.TerminalTarget) *domain.PublicLiveState {
+	if lifecycle.state.takeNavigationReset(target.TerminalID) {
+		runtime.Nav = nav.Default()
+	}
+	projection := lifecycle.base.UpdateRuntime(runtime, target)
+	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	return projection
+}
+
+func applyFixturePresentationEffects(
+	runtime *domain.TerminalRuntime,
+	projection *domain.PublicLiveState,
+	effects []domain.TerminalPresentationEffect,
+) {
+	if runtime != nil {
+		runtime.Effects = slices.Clone(effects)
+	}
+	if projection != nil {
+		projection.Effects = slices.Clone(effects)
+	}
+}
+
+func (lifecycle *fixtureFacilityLifecycle) ProjectFacility(runtime *domain.TerminalRuntime, facility *domain.Facility) *domain.PublicLiveState {
+	if projected := lifecycle.diagnostics.projectionFacility(); projected != nil {
+		facility = projected
+	} else if projected := lifecycle.state.projectionFacility(); projected != nil {
+		facility = projected
+	}
+	fixtureEffects := slices.Clone(runtime.Effects)
+	projection := lifecycle.base.ProjectFacility(runtime, facility)
+	if facility == nil || len(fixtureEffects) != 0 {
+		applyFixturePresentationEffects(runtime, projection, fixtureEffects)
+	}
+	return projection
+}
+
+func (lifecycle *fixtureFacilityLifecycle) ProjectRuntime(runtime *domain.TerminalRuntime) *domain.PublicLiveState {
+	return lifecycle.base.ProjectRuntime(runtime)
+}
+
+func (lifecycle *fixtureFacilityLifecycle) SuspendRuntime(runtime *domain.TerminalRuntime) {
+	lifecycle.base.SuspendRuntime(runtime)
+}
+
+func (lifecycle *fixtureFacilityLifecycle) ReactivateRuntime(
+	runtime *domain.TerminalRuntime,
+	target domain.TerminalTarget,
+) *domain.PublicLiveState {
+	if lifecycle.state.takeNavigationReset(target.TerminalID) {
+		runtime.Nav = nav.Default()
+	}
+	projection := lifecycle.base.ReactivateRuntime(runtime, target)
+	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	return projection
+}
+
+func (lifecycle *fixtureFacilityLifecycle) DiscardRuntime(
+	target domain.TerminalTarget,
+) (*domain.TerminalRuntime, *domain.PublicLiveState) {
+	lifecycle.state.takeNavigationReset(target.TerminalID)
+	runtime, projection := lifecycle.base.DiscardRuntime(target)
+	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	return runtime, projection
+}
+
+func (lifecycle *fixtureFacilityLifecycle) ResetFailedHack(
+	runtime *domain.TerminalRuntime,
+	target domain.TerminalTarget,
+) (*domain.TerminalRuntime, *domain.PublicLiveState) {
+	replacement, projection := lifecycle.base.ResetFailedHack(runtime, target)
+	applyFixturePresentationEffects(replacement, projection, target.Effects)
+	return replacement, projection
+}
+
+func fixtureFacilityDeviceByID(facility *domain.Facility, deviceID string) *domain.FacilityDevice {
+	if facility == nil {
+		return nil
+	}
+	for index := range facility.Devices {
+		if facility.Devices[index].ID == deviceID {
+			return &facility.Devices[index]
+		}
+	}
+	return nil
+}
+
+func removeFixtureString(values []string, target string) []string {
+	result := values[:0]
+	for _, value := range values {
+		if value != target {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func projectionFacilitySnapshot(session domain.Session) fixtureFacilitySnapshot {
+	facility := session.Facility
+	if facility == nil {
+		return fixtureFacilitySnapshot{}
+	}
+	deviceStates := make(map[string]string, len(facility.Devices))
+	deviceIDs := make([]string, 0, len(facility.Devices))
+	for _, device := range facility.Devices {
+		deviceIDs = append(deviceIDs, device.ID)
+		deviceStates[device.ID] = device.CurrentStateID
+	}
+	conditionStates := make(map[string]bool, len(facility.Conditions))
+	for _, condition := range facility.Conditions {
+		conditionStates[condition.ID] = condition.CurrentActive
+	}
+	return fixtureFacilitySnapshot{
+		Revision:        facility.Revision,
+		DeviceStates:    deviceStates,
+		ConditionStates: conditionStates,
+		DeviceIDs:       deviceIDs,
+		TerminalCount:   len(session.Terminals),
+		GroupCount:      len(session.TerminalGroups),
+	}
 }
 
 var fixtureCommandResult = "Доступ в сектор разрешён.\n" +
@@ -760,6 +2183,29 @@ func (store *fixtureCommandStateStore) ExecuteCommandState(_ context.Context, te
 		store.failNext = false
 		return control.CommandStateMutation{}, errors.New("fixture atomic persistence failed")
 	}
+	if terminalID == fixtureFacilityTerminalID {
+		if commandID != fixtureFacilityCommandID {
+			return control.CommandStateMutation{}, errors.New("fixture facility command identity is invalid")
+		}
+		changed := false
+		if _, completed := store.states[commandID]; !completed {
+			if store.states == nil {
+				store.states = make(map[string]domain.CommandExecutionState)
+			}
+			store.states[commandID] = domain.CommandExecutionState{
+				CompletedName: "SECURITY DOOR OPEN",
+				ResultText:    "Security door and alarm updated.",
+			}
+			store.revision++
+			store.executeWrites++
+			changed = true
+		}
+		return control.CommandStateMutation{
+			Changed:  changed,
+			Revision: store.revision,
+			Session:  facilityPlayerSession(store.states),
+		}, nil
+	}
 	if terminalID != "terminal-stateful" {
 		return control.CommandStateMutation{}, errors.New("fixture command identity is invalid")
 	}
@@ -834,6 +2280,18 @@ func (store *fixtureCommandStateStore) target() domain.TerminalTarget {
 	target := stateChangingApprovalTarget()
 	target.CommandStates = cloneFixtureCommandStates(store.states)
 	return target
+}
+
+func (store *fixtureCommandStateStore) facilityTarget() domain.TerminalTarget {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return facilityPlayerTarget(store.states)
+}
+
+func (store *fixtureCommandStateStore) facilitySession() domain.Session {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	return facilityPlayerSession(store.states)
 }
 
 func (store *fixtureCommandStateStore) syncTarget() domain.TerminalTarget {
@@ -1219,6 +2677,75 @@ func restartStateChangingBroadcast(service *control.Service, target domain.Termi
 	return activateLifecycleTerminal(service, target)
 }
 
+func facilityPlayerCoordinationState(service *control.Service) (map[string]any, error) {
+	encoded, err := json.Marshal(service.Snapshot())
+	if err != nil {
+		return nil, fmt.Errorf("encode facility coordination state: %w", err)
+	}
+	var state map[string]any
+	if err := json.Unmarshal(encoded, &state); err != nil {
+		return nil, fmt.Errorf("decode facility coordination state: %w", err)
+	}
+	pending, ok := state["pendingCommandExecution"].(map[string]any)
+	if !ok || pending["commandId"] != fixtureFacilityCommandID {
+		return state, nil
+	}
+	pending["facilityAction"] = map[string]any{
+		"expectedFacilityRevision": 0,
+		"deviceIds":                []string{fixtureFacilityDoorID, fixtureFacilityAlarmID},
+		"conditionIds":             []string{fixtureFacilityCondition},
+	}
+	return state, nil
+}
+
+func resolveFacilityPlayerCommand(
+	ctx context.Context,
+	service *control.Service,
+	fixture *fixtureFacilityPlayerState,
+	requestID string,
+	decision domain.CommandExecutionDecision,
+) (*domain.MasterCoordinationState, fixtureFacilityResult, bool, error) {
+	if requestID == "" {
+		if pending := service.Snapshot().PendingCommandExecution; pending != nil {
+			requestID = pending.RequestID
+		} else {
+			requestID = fixture.currentRequestID()
+		}
+	}
+	scenario := fixture.scenarioForAttempt(requestID)
+	if decision == domain.CommandExecutionApprove &&
+		(scenario == "stale-revision" || scenario == "persistence-failure" || scenario == "conflict") {
+		failure := domain.FacilityFailureCode(scenario)
+		if scenario == "persistence-failure" {
+			failure = domain.FacilityFailurePersistenceFailed
+		}
+		coordination, _, _, resolveErr := service.ResolveCommandExecution(ctx, requestID, domain.CommandExecutionReject)
+		return coordination, fixture.recordFailure(requestID, failure), false, resolveErr
+	}
+
+	coordination, _, facilityResult, resolveErr := service.ResolveCommandExecution(ctx, requestID, decision)
+	if resolveErr != nil && facilityResult == nil {
+		return coordination, fixture.recordDuplicate(requestID), false, resolveErr
+	}
+	if decision == domain.CommandExecutionReject {
+		return coordination, fixture.recordRejected(requestID), resolveErr == nil, resolveErr
+	}
+	if facilityResult != nil {
+		if facilityResult.Failure == domain.FacilityFailureDuplicate {
+			return coordination, fixture.recordDuplicate(requestID), false, resolveErr
+		}
+		result := fixtureFacilityResult{
+			OK: facilityResult.OK, Changed: facilityResult.Changed, CorrelationID: facilityResult.CorrelationID,
+			Failure:                  facilityResult.Failure,
+			PreviousFacilityRevision: facilityResult.PreviousFacilityRevision, ResultingFacilityRevision: facilityResult.ResultingFacilityRevision,
+			AffectedDeviceIDs:    slices.Clone(facilityResult.AffectedDeviceIDs),
+			AffectedConditionIDs: slices.Clone(facilityResult.AffectedConditionIDs),
+		}
+		return coordination, result, result.OK, resolveErr
+	}
+	return coordination, fixture.recordDuplicate(requestID), false, resolveErr
+}
+
 func main() {
 	rootContext := context.Background()
 	ctx, stop := signal.NotifyContext(rootContext, os.Interrupt, syscall.SIGTERM)
@@ -1227,6 +2754,22 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func validFixtureRuntimeLogID(value string) bool {
+	if value == "" || len(value) > 128 {
+		return false
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' ||
+			character == '-' || character == '_' || character == '.' || character == ':' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func run(ctx context.Context) error {
@@ -1240,6 +2783,19 @@ func run(ctx context.Context) error {
 	fixtureHackRandom := &fixtureRandom{state: fixtureRandomSeed}
 	approvalStore := &fixtureCommandStateStore{}
 	approvalStore.reset()
+	facilityPlayerState := &fixtureFacilityPlayerState{}
+	if err := facilityPlayerState.reset("ready"); err != nil {
+		return fmt.Errorf("reset facility player-state fixture: %w", err)
+	}
+	facilityLifecycleState := &fixtureFacilityLifecycleState{}
+	if err := facilityLifecycleState.reset("persisted"); err != nil {
+		return fmt.Errorf("reset facility lifecycle fixture: %w", err)
+	}
+	facilityAuthoringState := &fixtureFacilityAuthoringState{}
+	if err := facilityAuthoringState.reset("authored"); err != nil {
+		return fmt.Errorf("reset facility authoring fixture: %w", err)
+	}
+	facilityDiagnosticState := &fixtureFacilityDiagnosticState{}
 	authoringStore := &fixtureAuthoringStore{}
 	authoringStore.reset()
 	terminalGroupingStore := &fixtureTerminalGroupingStore{}
@@ -1248,18 +2804,33 @@ func run(ctx context.Context) error {
 	}
 	playerManagementStore := &fixturePlayerManagementStore{}
 	playerManagementStore.reset()
+	runtimeLogRoot, err := os.MkdirTemp("", "fallout-terminal-browser-runtime-logs-")
+	if err != nil {
+		return fmt.Errorf("create retained-log fixture directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(runtimeLogRoot) }()
+	runtimeLogDirectory := filepath.Join(runtimeLogRoot, "logs")
+	if err := os.MkdirAll(runtimeLogDirectory, 0o700); err != nil {
+		return fmt.Errorf("create retained-log fixture: %w", err)
+	}
+	runtimeLogPath := filepath.Join(runtimeLogDirectory, "application-current.log")
+	var runtimeLogMu sync.RWMutex
 	navigationCatalog := &fixtureTerminalCatalog{}
 	navigationCatalog.replace(terminalNavigationSession())
 	var navigationPending atomic.Bool
 	var navigationProjectionRevision atomic.Uint64
 	liveService := live.New(fixtureHackRandom, nil)
+	facilityLifecycle := &fixtureFacilityLifecycle{
+		base: liveService, state: facilityPlayerState, diagnostics: facilityDiagnosticState,
+	}
 	var connectPlayer *player.ConnectService
 	service := control.New(control.Config{
 		IDs:               &ids{},
 		Runtime:           liveService,
-		Terminals:         liveService,
+		Terminals:         facilityLifecycle,
 		TrustedHack:       liveService,
 		CommandStateStore: approvalStore,
+		FacilityStore:     facilityPlayerState,
 		TerminalCatalog:   navigationCatalog,
 		Enqueue: func(effect control.Effect) {
 			if connectPlayer != nil {
@@ -1267,6 +2838,9 @@ func run(ctx context.Context) error {
 			}
 		},
 	})
+	if _, err := service.ReplaceFacility(facilityPlayerSession(nil).Facility); err != nil {
+		return fmt.Errorf("install facility player-state fixture: %w", err)
+	}
 	presentationGate := &fixturePresentationGate{Service: service, context: ctx}
 	presentationHub := player.NewSubscriptionHub()
 	connectPlayer, err = player.NewConnectService(player.ConnectServiceConfig{
@@ -1316,6 +2890,16 @@ func run(ctx context.Context) error {
 		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("GET /__fixture/facility-diagnostics/overseer.js", func(response http.ResponseWriter, _ *http.Request) {
+		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/overseer.js"))
+		if readErr != nil {
+			http.Error(response, "fixture overseer script is unavailable", http.StatusInternalServerError)
+			return
+		}
+		script := strings.Replace(string(raw), `>ОДОБРИТЬ</button>`, `>ПОДТВЕРДИТЬ</button>`, 1)
+		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = response.Write([]byte(script))
 	})
 	mux.HandleFunc("POST /__fixture/player-management/reset", func(response http.ResponseWriter, _ *http.Request) {
 		playerManagementStore.reset()
@@ -1396,6 +2980,50 @@ func run(ctx context.Context) error {
 		page = strings.Replace(page, `id="mainLayout" style="display:none"`, `id="mainLayout" style="display:flex"`, 1)
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("POST /__fixture/runtime-logs/seed", func(response http.ResponseWriter, request *http.Request) {
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		var payload struct {
+			CorrelationID string            `json:"correlationId"`
+			Forbidden     map[string]string `json:"forbidden"`
+		}
+		if err := decoder.Decode(&payload); err != nil || !validFixtureRuntimeLogID(payload.CorrelationID) {
+			http.Error(response, "invalid retained-log fixture", http.StatusBadRequest)
+			return
+		}
+		contents := fmt.Sprintf(
+			"event=command.request_received outcome=pending request_id=%s role=active\n"+
+				"event=facility.request_received outcome=pending request_id=%s correlation_id=%s facility_action=command previous_facility_revision=7 resulting_facility_revision=7\n"+
+				"event=facility.decision decision=approve outcome=succeeded request_id=%s correlation_id=%s facility_action=command previous_facility_revision=7 resulting_facility_revision=8\n",
+			payload.CorrelationID,
+			payload.CorrelationID,
+			payload.CorrelationID,
+			payload.CorrelationID,
+			payload.CorrelationID,
+		)
+		runtimeLogMu.Lock()
+		err := os.WriteFile(runtimeLogPath, []byte(contents), 0o600)
+		runtimeLogMu.Unlock()
+		if err != nil {
+			http.Error(response, "retained-log fixture is unavailable", http.StatusInternalServerError)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/runtime-logs/current", func(response http.ResponseWriter, _ *http.Request) {
+		runtimeLogMu.RLock()
+		contents, err := os.ReadFile(runtimeLogPath)
+		runtimeLogMu.RUnlock()
+		if err != nil {
+			http.Error(response, "retained-log fixture is unavailable", http.StatusNotFound)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(struct {
+			Path     string `json:"path"`
+			Contents string `json:"contents"`
+		}{Path: runtimeLogPath, Contents: string(contents)})
 	})
 	mux.HandleFunc("GET /__fixture/state-changing-command-authoring", func(response http.ResponseWriter, _ *http.Request) {
 		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
@@ -1626,7 +3254,7 @@ export async function RequestTerminalActivation(payload) {
 			http.Error(response, "invalid terminal grouping command decision", http.StatusBadRequest)
 			return
 		}
-		state, _, err := service.ResolveCommandExecution(request.Context(), payload.RequestID, payload.Decision)
+		state, _, _, err := service.ResolveCommandExecution(request.Context(), payload.RequestID, payload.Decision)
 		result := map[string]any{"ok": err == nil, "state": state}
 		if err != nil {
 			result["error"] = err.Error()
@@ -1760,7 +3388,7 @@ export async function RequestTerminalActivation(payload) {
 			navigationProjectionRevision.Add(1)
 			state = service.Snapshot()
 		} else if pending := service.Snapshot().PendingCommandExecution; pending != nil && pending.RequestID == payload.RequestID {
-			resolved, _, resolveErr := service.ResolveCommandExecution(request.Context(), payload.RequestID, domain.CommandExecutionDecision(payload.Decision))
+			resolved, _, _, resolveErr := service.ResolveCommandExecution(request.Context(), payload.RequestID, domain.CommandExecutionDecision(payload.Decision))
 			if resolveErr != nil {
 				response.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(response).Encode(map[string]any{"ok": false, "error": resolveErr.Error(), "state": resolved})
@@ -1943,7 +3571,7 @@ export async function RequestTerminalActivation(payload) {
 				requestID = current.RequestID
 			}
 		}
-		state, _, resolveErr := service.ResolveCommandExecution(request.Context(), requestID, domain.CommandExecutionDecision(payload.Decision))
+		state, _, _, resolveErr := service.ResolveCommandExecution(request.Context(), requestID, domain.CommandExecutionDecision(payload.Decision))
 		result := map[string]any{"ok": resolveErr == nil, "state": state}
 		if resolveErr != nil {
 			result["error"] = resolveErr.Error()
@@ -2017,7 +3645,7 @@ export async function RequestTerminalActivation(payload) {
 				requestID = current.RequestID
 			}
 		}
-		state, _, resolveErr := service.ResolveCommandExecution(request.Context(), requestID, domain.CommandExecutionDecision(payload.Decision))
+		state, _, _, resolveErr := service.ResolveCommandExecution(request.Context(), requestID, domain.CommandExecutionDecision(payload.Decision))
 		result := map[string]any{"ok": resolveErr == nil, "state": state}
 		if resolveErr != nil {
 			result["error"] = resolveErr.Error()
@@ -2066,6 +3694,813 @@ export async function RequestTerminalActivation(payload) {
 			"completed":       completed,
 		})
 	})
+	mux.HandleFunc("GET /__fixture/facility-diagnostics/overseer", func(response http.ResponseWriter, _ *http.Request) {
+		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
+		if readErr != nil {
+			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
+			return
+		}
+		page := strings.Replace(string(raw), `<head>`, `<head>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/facility-diagnostics/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/facility-diagnostics/desktop-bindings.js"}}</script>`, 1)
+		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
+		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/facility-diagnostics/overseer.js`)
+		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("GET /__fixture/facility-diagnostics/desktop-bindings.js", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = fmt.Fprint(response, `import * as base from "/__fixture/desktop-bindings.js";
+export * from "/__fixture/desktop-bindings.js";
+
+async function coordinationState() {
+  const response = await fetch("/__fixture/facility-diagnostics/coordination");
+  if (!response.ok) throw new Error("facility diagnostics coordination is unavailable");
+  return response.json();
+}
+
+export const Events = {
+  On(name, callback) {
+    if (name !== "coordination-state") return base.Events.On(name, callback);
+    let active = true;
+    let previous = "";
+    const poll = async () => {
+      try {
+        const state = await coordinationState();
+        const encoded = JSON.stringify(state);
+        if (!active || encoded === previous) return;
+        previous = encoded;
+        callback({ data: state });
+      } catch {
+        // The next deterministic poll retries while the fixture is active.
+      }
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 25);
+    return () => { active = false; clearInterval(interval); };
+  },
+};
+
+export async function GetRuntimeStatus() {
+  const status = await base.GetRuntimeStatus();
+  return { ...status, coordinationState: await coordinationState() };
+}
+
+export async function OpenSession() {
+  const response = await fetch("/__fixture/facility-diagnostics/session");
+  return {
+    ok: response.ok,
+    error: response.ok ? "" : "facility diagnostics session is unavailable",
+    filePath: "/private/tmp/fallout-facility-diagnostics.json",
+    session: response.ok ? await response.json() : null,
+  };
+}
+
+export async function ResolveCommandExecution(payload) {
+  const response = await fetch("/__fixture/facility-diagnostics/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload ?? {}),
+  });
+  return response.json();
+}
+`)
+	})
+	mux.HandleFunc("POST /__fixture/facility-diagnostics/reset", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Scenario string `json:"scenario"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility diagnostic reset", http.StatusBadRequest)
+			return
+		}
+		if err := facilityDiagnosticState.reset(payload.Scenario); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := facilityPlayerState.reset("ready"); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		approvalStore.reset()
+		fixtureHackRandom.reset()
+		presentationGate.reset()
+		navigationCatalog.replace(func() domain.Session {
+			session, _ := facilityDiagnosticState.sessionSnapshot()
+			return session
+		}())
+		if _, err := service.EndBroadcast(); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		if _, err := service.StartBroadcast(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		target, ok := facilityDiagnosticState.target()
+		if !ok {
+			http.Error(response, "facility diagnostic terminal is unavailable", http.StatusInternalServerError)
+			return
+		}
+		if _, err := service.RequestTerminalActivation(target); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/facility-diagnostics/session", func(response http.ResponseWriter, _ *http.Request) {
+		session, ok := facilityDiagnosticState.sessionSnapshot()
+		if !ok {
+			http.Error(response, "facility diagnostic fixture is inactive", http.StatusConflict)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(session)
+	})
+	mux.HandleFunc("GET /__fixture/facility-diagnostics/coordination", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(service.Snapshot())
+	})
+	mux.HandleFunc("GET /__fixture/facility-diagnostics/state", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityDiagnosticState.snapshot())
+	})
+	mux.HandleFunc("POST /__fixture/facility-diagnostics/replay-projection", func(response http.ResponseWriter, _ *http.Request) {
+		target, ok := facilityDiagnosticState.target()
+		if !ok {
+			http.Error(response, "facility diagnostic fixture is inactive", http.StatusConflict)
+			return
+		}
+		facilityDiagnosticState.replay()
+		if _, err := service.RefreshActiveTerminal(target); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/facility-diagnostics/resolve", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			RequestID string                          `json:"requestId"`
+			Decision  domain.CommandExecutionDecision `json:"decision"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil ||
+			(payload.Decision != domain.CommandExecutionApprove && payload.Decision != domain.CommandExecutionReject) {
+			http.Error(response, "invalid facility diagnostic decision", http.StatusBadRequest)
+			return
+		}
+		pending := service.Snapshot().PendingCommandExecution
+		commandID := ""
+		if pending != nil && pending.RequestID == payload.RequestID {
+			commandID = pending.CommandID
+		}
+		state, _, _, resolveErr := service.ResolveCommandExecution(request.Context(), payload.RequestID, payload.Decision)
+		var facilityResult *domain.FacilityOperationResult
+		if resolveErr == nil && payload.Decision == domain.CommandExecutionApprove {
+			conditionID := map[string]string{
+				"restore-primary-power": fixtureFacilityUnpoweredConditionID,
+				"run-network-recovery":  fixtureFacilityNetworkConditionID,
+			}[commandID]
+			if conditionID != "" {
+				result, recoverErr := facilityDiagnosticState.recover(conditionID, false)
+				if recoverErr != nil {
+					resolveErr = recoverErr
+				} else {
+					result.CorrelationID = payload.RequestID
+					facilityResult = &result
+					target, _ := facilityDiagnosticState.target()
+					state, resolveErr = service.RefreshActiveTerminal(target)
+				}
+			}
+		}
+		result := map[string]any{"ok": resolveErr == nil, "state": state, "facilityResult": facilityResult}
+		if resolveErr != nil {
+			result["error"] = "facility diagnostic decision failed"
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/facility-diagnostics/recover-private", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			ConditionID              string `json:"conditionId"`
+			ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+			CorrelationID            string `json:"correlationId"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil || strings.TrimSpace(payload.CorrelationID) == "" {
+			http.Error(response, "invalid private facility recovery", http.StatusBadRequest)
+			return
+		}
+		before := facilityDiagnosticState.snapshot().Facility.Revision
+		if payload.ExpectedFacilityRevision != before {
+			http.Error(response, "stale facility revision", http.StatusConflict)
+			return
+		}
+		result, recoverErr := facilityDiagnosticState.recover(payload.ConditionID, true)
+		if recoverErr != nil {
+			http.Error(response, recoverErr.Error(), http.StatusConflict)
+			return
+		}
+		result.CorrelationID = payload.CorrelationID
+		target, _ := facilityDiagnosticState.target()
+		if _, err := service.RefreshActiveTerminal(target); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("GET /__fixture/facility-authoring/overseer", func(response http.ResponseWriter, _ *http.Request) {
+		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
+		if readErr != nil {
+			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
+			return
+		}
+		page := strings.Replace(string(raw), `<head>`, `<head>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/facility-authoring/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/facility-authoring/desktop-bindings.js"}}</script>`, 1)
+		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
+		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
+		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("GET /__fixture/facility-authoring/desktop-bindings.js", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = fmt.Fprint(response, `import * as base from "/__fixture/desktop-bindings.js";
+export * from "/__fixture/desktop-bindings.js";
+
+async function fixtureStatus() {
+  const response = await fetch("/__fixture/facility-authoring/status");
+  if (!response.ok) throw new Error("facility authoring fixture is unavailable");
+  return response.json();
+}
+
+export async function GetRuntimeStatus() {
+  const [status, fixture] = await Promise.all([base.GetRuntimeStatus(), fixtureStatus()]);
+  return { ...status, savedRevision: fixture.sessionRevision };
+}
+
+export async function OpenSession() {
+  const response = await fetch("/__fixture/facility-authoring/session");
+  return {
+    ok: response.ok,
+    error: response.ok ? "" : "facility authoring session is unavailable",
+    filePath: "/private/tmp/fallout-facility-authoring.json",
+    session: response.ok ? await response.json() : null,
+  };
+}
+
+async function post(path, payload) {
+  const response = await fetch("/__fixture/facility-authoring/" + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(structuredClone(payload ?? {})),
+  });
+  if (!response.ok) throw new Error("facility authoring " + path + " failed");
+  return response.json();
+}
+
+export const SaveFacilityAuthoring = payload => post("save", payload);
+export const InspectFacilityDependencies = payload => post("inspect", payload);
+export const PreviewFacility = payload => post("preview", payload);
+export const ResetFacilityDevice = payload => post("reset-device", payload);
+export const ResetFacility = payload => post("reset-facility", payload);
+export const RecoverFacilityCondition = payload => post("recover", payload);
+`)
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/reset", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Scenario string `json:"scenario"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility authoring reset", http.StatusBadRequest)
+			return
+		}
+		if err := facilityAuthoringState.reset(payload.Scenario); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/facility-authoring/status", func(response http.ResponseWriter, _ *http.Request) {
+		_, revision := facilityAuthoringState.sessionSnapshot()
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]uint64{"sessionRevision": revision})
+	})
+	mux.HandleFunc("GET /__fixture/facility-authoring/session", func(response http.ResponseWriter, _ *http.Request) {
+		session, _ := facilityAuthoringState.sessionSnapshot()
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(session)
+	})
+	mux.HandleFunc("GET /__fixture/facility-authoring/state", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.snapshot())
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/inspect", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityInspectionRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility dependency inspection", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.inspect(payload))
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/save", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityAuthoringRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility authoring save", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.save(payload))
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/next-operation", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Failure string `json:"failure"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid next facility operation", http.StatusBadRequest)
+			return
+		}
+		facilityAuthoringState.nextOperationFailure(payload.Failure)
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/preview", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityPreviewRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility preview", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.preview(payload))
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/reset-device", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityDeviceResetRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility device reset", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.resetDevice(payload))
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/reset-facility", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityResetRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility reset", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.resetFacility(payload))
+	})
+	mux.HandleFunc("POST /__fixture/facility-authoring/recover", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityRecoveryRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility recovery", http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityAuthoringState.recover(payload))
+	})
+
+	mux.HandleFunc("GET /__fixture/facility-player-state/overseer", func(response http.ResponseWriter, _ *http.Request) {
+		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
+		if readErr != nil {
+			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
+			return
+		}
+		page := strings.Replace(string(raw), `<head>`, `<head>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/facility-player-state/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/facility-player-state/desktop-bindings.js"}}</script>`, 1)
+		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
+		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/facility-diagnostics/overseer.js`)
+		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("GET /__fixture/facility-player-state/desktop-bindings.js", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = fmt.Fprint(response, `import * as base from "/__fixture/desktop-bindings.js";
+export * from "/__fixture/desktop-bindings.js";
+
+async function coordinationState() {
+  const response = await fetch("/__fixture/facility-player-state/coordination");
+  if (!response.ok) throw new Error("facility coordination fixture is unavailable");
+  return response.json();
+}
+
+export const Events = {
+  On(name, callback) {
+    if (name !== "coordination-state") return base.Events.On(name, callback);
+    let active = true;
+    let previous = "";
+    const poll = async () => {
+      try {
+        const state = await coordinationState();
+        const encoded = JSON.stringify(state);
+        if (!active || encoded === previous) return;
+        previous = encoded;
+        callback({ data: state });
+      } catch {
+        // The next deterministic poll retries while the fixture is active.
+      }
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 25);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  },
+};
+
+export async function GetRuntimeStatus() {
+  const status = await base.GetRuntimeStatus();
+  return { ...status, coordinationState: await coordinationState() };
+}
+
+export async function OpenSession() {
+  const response = await fetch("/__fixture/facility-player-state/session");
+  return {
+    ok: response.ok,
+    error: response.ok ? "" : "facility session fixture is unavailable",
+    filePath: "/private/tmp/fallout-facility-player-state.json",
+    session: response.ok ? await response.json() : null,
+  };
+}
+
+export async function ResolveCommandExecution(payload) {
+  const response = await fetch("/__fixture/facility-player-state/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload ?? {}),
+  });
+  return response.json();
+}
+`)
+	})
+	mux.HandleFunc("POST /__fixture/facility-player-state/reset", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Scenario string `json:"scenario"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility player-state reset", http.StatusBadRequest)
+			return
+		}
+		if err := facilityPlayerState.reset(payload.Scenario); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if facilityPlayerState.projectionFacility() == nil {
+			if _, err := service.ReplaceFacility(facilityPlayerSession(nil).Facility); err != nil {
+				http.Error(response, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		facilityDiagnosticState.deactivate()
+		approvalStore.reset()
+		fixtureHackRandom.reset()
+		presentationGate.reset()
+		if err := edge.reset(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if _, err := service.EndBroadcast(); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		if _, err := service.StartBroadcast(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		target := approvalStore.facilityTarget()
+		if sharedTarget, ok := facilityPlayerState.target(fixtureFacilityTerminalID); ok {
+			target = sharedTarget
+		}
+		if _, err := service.RequestTerminalActivation(target); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/facility-player-state/session", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		if session, ok := facilityPlayerState.session(); ok {
+			_ = json.NewEncoder(response).Encode(session)
+			return
+		}
+		_ = json.NewEncoder(response).Encode(approvalStore.facilitySession())
+	})
+	mux.HandleFunc("GET /__fixture/facility-player-state/coordination", func(response http.ResponseWriter, _ *http.Request) {
+		state, stateErr := facilityPlayerCoordinationState(service)
+		if stateErr != nil {
+			http.Error(response, stateErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(state)
+	})
+	mux.HandleFunc("GET /__fixture/facility-player-state/state", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityPlayerState.snapshot())
+	})
+	mux.HandleFunc("POST /__fixture/facility-player-state/resolve", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			RequestID string                          `json:"requestId"`
+			Decision  domain.CommandExecutionDecision `json:"decision"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil ||
+			(payload.Decision != domain.CommandExecutionApprove && payload.Decision != domain.CommandExecutionReject) {
+			http.Error(response, "invalid facility command decision", http.StatusBadRequest)
+			return
+		}
+		coordination, facilityResult, ok, resolveErr := resolveFacilityPlayerCommand(
+			request.Context(), service, facilityPlayerState, payload.RequestID, payload.Decision,
+		)
+		result := map[string]any{
+			"ok": ok, "state": coordination, "facilityResult": facilityResult,
+		}
+		if resolveErr != nil {
+			result["error"] = "facility command decision failed"
+		} else if !ok {
+			result["error"] = "facility command could not change shared state"
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/facility-player-state/repeat-current-decision", func(response http.ResponseWriter, request *http.Request) {
+		if pending := service.Snapshot().PendingCommandExecution; pending != nil {
+			facilityPlayerState.scenarioForAttempt(pending.RequestID)
+			result := map[string]any{
+				"ok": false, "state": service.Snapshot(),
+				"facilityResult": facilityPlayerState.recordDuplicate(pending.RequestID),
+				"error":          "facility command decision failed",
+			}
+			response.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(response).Encode(result)
+			return
+		}
+		coordination, facilityResult, ok, resolveErr := resolveFacilityPlayerCommand(
+			request.Context(), service, facilityPlayerState, "", domain.CommandExecutionApprove,
+		)
+		result := map[string]any{
+			"ok": ok, "state": coordination, "facilityResult": facilityResult,
+		}
+		if resolveErr != nil {
+			result["error"] = "facility command decision failed"
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(result)
+	})
+	mux.HandleFunc("POST /__fixture/facility-player-state/activate-terminal", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			TerminalID string `json:"terminalId"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid shared facility terminal activation", http.StatusBadRequest)
+			return
+		}
+		target, ok := facilityPlayerState.target(payload.TerminalID)
+		if !ok {
+			http.Error(response, "unknown shared facility terminal", http.StatusBadRequest)
+			return
+		}
+		facilityPlayerState.resetNavigation(payload.TerminalID)
+		if _, err := service.RequestTerminalActivation(target); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/facility-player-state/apply-projection-transition", func(response http.ResponseWriter, _ *http.Request) {
+		if err := facilityPlayerState.applyProjectionTransition(); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		coordination := service.Snapshot()
+		if coordination.Broadcast == nil || coordination.Broadcast.ActiveTerminalID == nil {
+			http.Error(response, "shared facility terminal is not active", http.StatusConflict)
+			return
+		}
+		target, ok := facilityPlayerState.target(*coordination.Broadcast.ActiveTerminalID)
+		if !ok {
+			http.Error(response, "active shared facility terminal is unknown", http.StatusConflict)
+			return
+		}
+		if _, err := service.RefreshActiveTerminal(target); err != nil {
+			http.Error(response, err.Error(), http.StatusConflict)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/facility-player-state/move-terminal", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			TerminalID string `json:"terminalId"`
+			GroupID    string `json:"groupId"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid shared facility group move", http.StatusBadRequest)
+			return
+		}
+		if err := facilityPlayerState.moveTerminal(payload.TerminalID, payload.GroupID); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		coordination := service.Snapshot()
+		if coordination.Broadcast != nil && coordination.Broadcast.ActiveTerminalID != nil {
+			target, ok := facilityPlayerState.target(*coordination.Broadcast.ActiveTerminalID)
+			if !ok {
+				http.Error(response, "active shared facility terminal is unknown", http.StatusConflict)
+				return
+			}
+			if _, err := service.RefreshActiveTerminal(target); err != nil {
+				http.Error(response, err.Error(), http.StatusConflict)
+				return
+			}
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+
+	installFacilityLifecycle := func(action string, restartBroadcast bool) error {
+		loaded := facilityLifecycleState.loadedSession()
+		navigationCatalog.replace(loaded)
+		pendingInvalidated := service.Snapshot().PendingCommandExecution != nil
+		if restartBroadcast {
+			if _, err := service.EndBroadcast(); err != nil {
+				return err
+			}
+		}
+		if _, err := service.ReplaceFacility(loaded.Facility); err != nil {
+			return err
+		}
+		facilityLifecycleState.recordHydration(action, pendingInvalidated)
+		if !restartBroadcast {
+			return nil
+		}
+		if _, err := service.StartBroadcast(); err != nil {
+			return err
+		}
+		return activateLifecycleTerminal(service, fixtureTarget(loaded.Terminals[0]))
+	}
+	mux.HandleFunc("GET /__fixture/facility-lifecycle/overseer", func(response http.ResponseWriter, _ *http.Request) {
+		raw, readErr := os.ReadFile(filepath.Clean("../../frontend/overseer/src/index.html"))
+		if readErr != nil {
+			http.Error(response, "fixture overseer page is unavailable", http.StatusInternalServerError)
+			return
+		}
+		page := strings.Replace(string(raw), `<head>`, `<head>
+<script type="importmap">{"imports":{"@wailsio/runtime":"/__fixture/facility-lifecycle/desktop-bindings.js","/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js":"/__fixture/facility-lifecycle/desktop-bindings.js"}}</script>`, 1)
+		page = strings.ReplaceAll(page, `./overseer.css`, `/__fixture/overseer.css`)
+		page = strings.ReplaceAll(page, `./overseer.js`, `/__fixture/overseer.js`)
+		page = strings.ReplaceAll(page, `./desktop-api.js`, `/__fixture/desktop-api.js`)
+		response.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = response.Write([]byte(page))
+	})
+	mux.HandleFunc("GET /__fixture/facility-lifecycle/desktop-bindings.js", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = fmt.Fprint(response, `import * as base from "/__fixture/desktop-bindings.js";
+export * from "/__fixture/desktop-bindings.js";
+
+async function coordinationState() {
+  const response = await fetch("/__fixture/facility-lifecycle/coordination");
+  if (!response.ok) throw new Error("facility lifecycle coordination fixture is unavailable");
+  return response.json();
+}
+
+export const Events = {
+  On(name, callback) {
+    if (name !== "coordination-state") return base.Events.On(name, callback);
+    let active = true;
+    let previous = "";
+    const poll = async () => {
+      try {
+        const state = await coordinationState();
+        const encoded = JSON.stringify(state);
+        if (!active || encoded === previous) return;
+        previous = encoded;
+        callback({ data: state });
+      } catch {
+        // The next deterministic poll retries while the fixture is active.
+      }
+    };
+    void poll();
+    const interval = setInterval(() => { void poll(); }, 25);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  },
+};
+
+export async function GetRuntimeStatus() {
+  const status = await base.GetRuntimeStatus();
+  return { ...status, coordinationState: await coordinationState() };
+}
+
+export async function OpenSession() {
+  const response = await fetch("/__fixture/facility-lifecycle/session");
+  return {
+    ok: response.ok,
+    error: response.ok ? "" : "facility lifecycle session fixture is unavailable",
+    filePath: "/private/tmp/fallout-facility-lifecycle.json",
+    session: response.ok ? await response.json() : null,
+  };
+}
+`)
+	})
+	mux.HandleFunc("POST /__fixture/facility-lifecycle/reset", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			Scenario string `json:"scenario"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid facility lifecycle reset", http.StatusBadRequest)
+			return
+		}
+		if err := facilityLifecycleState.reset(payload.Scenario); err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := facilityPlayerState.reset("ready"); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		facilityDiagnosticState.deactivate()
+		approvalStore.reset()
+		fixtureHackRandom.reset()
+		presentationGate.reset()
+		if err := edge.reset(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := installFacilityLifecycle("", true); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /__fixture/facility-lifecycle/session", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityLifecycleState.loadedSession())
+	})
+	mux.HandleFunc("GET /__fixture/facility-lifecycle/coordination", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(service.Snapshot())
+	})
+	mux.HandleFunc("GET /__fixture/facility-lifecycle/state", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(facilityLifecycleState.snapshot(service))
+	})
+	mux.HandleFunc("POST /__fixture/facility-lifecycle/stop-start-broadcast", func(response http.ResponseWriter, _ *http.Request) {
+		if err := installFacilityLifecycle("", true); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /__fixture/facility-lifecycle/reload-session", func(response http.ResponseWriter, _ *http.Request) {
+		if err := installFacilityLifecycle("", false); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.WriteHeader(http.StatusNoContent)
+	})
+	for _, action := range []string{"restart-process", "self-update-handoff"} {
+		mux.HandleFunc("POST /__fixture/facility-lifecycle/"+action, func(response http.ResponseWriter, _ *http.Request) {
+			if err := installFacilityLifecycle(action, true); err != nil {
+				http.Error(response, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			response.WriteHeader(http.StatusNoContent)
+		})
+	}
 	mux.HandleFunc("GET /__fixture/overseer.css", func(response http.ResponseWriter, request *http.Request) {
 		http.ServeFile(response, request, "../../frontend/overseer/src/overseer.css")
 	})
@@ -2079,6 +4514,7 @@ export async function RequestTerminalActivation(payload) {
 		http.ServeFile(response, request, "fixtures/desktop-bindings.js")
 	})
 	mux.HandleFunc("POST /__fixture/reset", func(response http.ResponseWriter, _ *http.Request) {
+		facilityDiagnosticState.deactivate()
 		fixtureHackRandom.reset()
 		presentationGate.reset()
 		if err := edge.reset(); err != nil {
@@ -2150,7 +4586,7 @@ export async function RequestTerminalActivation(payload) {
 			http.Error(response, "CRT command approval is not pending", http.StatusConflict)
 			return
 		}
-		if _, _, err := service.ResolveCommandExecution(request.Context(), pending.RequestID, domain.CommandExecutionApprove); err != nil {
+		if _, _, _, err := service.ResolveCommandExecution(request.Context(), pending.RequestID, domain.CommandExecutionApprove); err != nil {
 			http.Error(response, err.Error(), http.StatusConflict)
 			return
 		}
@@ -2174,6 +4610,19 @@ export async function RequestTerminalActivation(payload) {
 			target := crtReplacementTerminal()
 			if _, err := service.UpdateLiveTerminal(target.Tree, &target.IntroText); err != nil {
 				http.Error(response, err.Error(), http.StatusConflict)
+				return
+			}
+		case "display-unstable":
+			target := crtFixtureTerminal()
+			target.TerminalID = "terminal-crt-display-unstable"
+			target.Effects = []domain.TerminalPresentationEffect{domain.TerminalPresentationEffectDisplayUnstable}
+			if !activateCRTTerminal(service, response, target) {
+				return
+			}
+		case "display-stable":
+			target := crtFixtureTerminal()
+			target.TerminalID = "terminal-crt-display-stable"
+			if !activateCRTTerminal(service, response, target) {
 				return
 			}
 		case "waiting":
@@ -2368,6 +4817,480 @@ func fixtureTerminal() domain.TerminalTarget {
 			},
 		},
 	}
+}
+
+func facilityPlayerTarget(states map[string]domain.CommandExecutionState) domain.TerminalTarget {
+	locked := domain.FacilityStateEquality{DeviceID: fixtureFacilityDoorID, StateID: "locked"}
+	return domain.TerminalTarget{
+		TerminalID:   fixtureFacilityTerminalID,
+		TerminalName: "Security control",
+		HackLevel:    0,
+		IntroText:    "SECURITY CONTROL // FACILITY NETWORK",
+		Tree: domain.ContentNode{
+			ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+			Children: []domain.ContentNode{{
+				ID: fixtureFacilityCommandID, Type: domain.NodeCommand,
+				Name: "OPEN SECURITY DOOR", Text: "Security door and alarm updated.",
+				FacilityNameVariants: []domain.FacilityTextVariant{{
+					When: domain.FacilityStateEquality{DeviceID: fixtureFacilityDoorID, StateID: "open"},
+					Text: "SECURITY DOOR OPEN",
+				}},
+				AvailableWhen: &locked,
+				StateChange: &domain.StateChangeConfig{
+					CompletedName:    "SECURITY DOOR OPEN",
+					ConfirmationText: "Authorize the security-sector world action?",
+					FacilityAction: &domain.FacilityActionConfig{Transitions: &domain.FacilityTransitionList{
+						Transitions: []domain.FacilityTransitionRequest{
+							{DeviceID: fixtureFacilityDoorID, TransitionID: "open"},
+							{DeviceID: fixtureFacilityAlarmID, TransitionID: "silence"},
+						},
+					}},
+				},
+			}},
+		},
+		CommandStates: cloneFixtureCommandStates(states),
+	}
+}
+
+func facilityPlayerSession(states map[string]domain.CommandExecutionState) domain.Session {
+	target := facilityPlayerTarget(states)
+	return domain.Session{
+		Version: 1,
+		Name:    "Facility player-state fixture",
+		Terminals: []domain.Terminal{{
+			ID: target.TerminalID, Name: target.TerminalName, HackLevel: target.HackLevel,
+			IntroText: target.IntroText, Root: target.Tree, CommandStates: target.CommandStates,
+		}},
+		Facility: &domain.Facility{
+			Devices: []domain.FacilityDevice{
+				{
+					ID: fixtureFacilityDoorID, Name: "Security sector door", Kind: domain.FacilityDeviceKindDoor,
+					InitialStateID: "locked", CurrentStateID: "locked",
+					States: []domain.FacilityDeviceState{{ID: "locked", Name: "Locked"}, {ID: "open", Name: "Open"}},
+					Transitions: []domain.FacilityDeviceTransition{{
+						ID: "open", Name: "Open", SourceStateID: "locked", DestinationStateID: "open",
+						ConditionEffects: []domain.FacilityConditionEffect{{ConditionID: fixtureFacilityCondition, Active: false}},
+						Recovery:         true,
+					}},
+				},
+				{
+					ID: fixtureFacilityAlarmID, Name: "Security alarm", Kind: domain.FacilityDeviceKindAlarm,
+					InitialStateID: "armed", CurrentStateID: "armed",
+					States: []domain.FacilityDeviceState{{ID: "armed", Name: "Armed"}, {ID: "silent", Name: "Silent"}},
+					Transitions: []domain.FacilityDeviceTransition{{
+						ID: "silence", Name: "Silence", SourceStateID: "armed", DestinationStateID: "silent",
+					}},
+				},
+			},
+			Conditions: []domain.DiagnosticCondition{{
+				ID: fixtureFacilityCondition, Name: "Security authorization corrupted",
+				Category:      domain.DiagnosticConditionCategoryAuthorizationCorrupted,
+				Device:        &domain.DiagnosticDeviceScope{DeviceID: fixtureFacilityDoorID},
+				InitialActive: true, CurrentActive: true,
+				Effects: []domain.DiagnosticEffect{{
+					CapabilityBlock: &domain.CapabilityBlockEffect{Capability: domain.FacilityCapabilityHack},
+				}},
+				Recovery: []domain.DiagnosticRecoveryReference{{
+					Transition: &domain.FacilityTransitionRequest{DeviceID: fixtureFacilityDoorID, TransitionID: "open"},
+				}},
+			}},
+			RecoveryPrograms: []domain.RecoveryProgram{},
+		},
+	}
+}
+
+func facilityProjectionSession() domain.Session {
+	equality := func(deviceID, stateID string) domain.FacilityStateEquality {
+		return domain.FacilityStateEquality{DeviceID: deviceID, StateID: stateID}
+	}
+	variant := func(deviceID, stateID, text string) domain.FacilityTextVariant {
+		return domain.FacilityTextVariant{When: equality(deviceID, stateID), Text: text}
+	}
+	entry := func(id, name string, blocks ...domain.EntryContentBlock) domain.ContentNode {
+		return domain.ContentNode{ID: id, Type: domain.NodeEntry, Name: name, Blocks: blocks}
+	}
+	terminal := func(id, name string, children ...domain.ContentNode) domain.Terminal {
+		return domain.Terminal{
+			ID: id, Name: name, IntroText: strings.ToUpper(name) + " // FACILITY NETWORK",
+			Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: children},
+		}
+	}
+
+	security := terminal(fixtureFacilityTerminalID, "Security control",
+		func() domain.ContentNode {
+			node := entry("entry-security-status", "FACILITY STATUS",
+				domain.EntryContentBlock{
+					ID: "block-security-power", InitialText: "PRIMARY POWER: OFFLINE",
+					FacilityTextVariants: []domain.FacilityTextVariant{variant(fixtureFacilityPowerID, "online", "PRIMARY POWER: ONLINE")},
+				},
+				domain.EntryContentBlock{
+					ID: "block-security-door", InitialText: "SECURITY DOOR: LOCKED",
+					FacilityTextVariants: []domain.FacilityTextVariant{variant(fixtureFacilityDoorID, "open", "SECURITY DOOR: OPEN")},
+				},
+			)
+			node.FacilityNameVariants = []domain.FacilityTextVariant{variant(fixtureFacilityDoorID, "open", "FACILITY STATUS // ACCESS OPEN")}
+			return node
+		}(),
+		domain.ContentNode{
+			ID: fixtureFacilityCommandID, Type: domain.NodeCommand, Name: "OPEN SECURITY DOOR",
+			Text:          "Security door and alarm updated.",
+			AvailableWhen: new(equality(fixtureFacilityPowerID, "online")),
+			StateChange: &domain.StateChangeConfig{
+				CompletedName: "SECURITY DOOR OPEN", ConfirmationText: "Authorize the security-sector world action?",
+				EntryContentChange: &domain.EntryContentChange{
+					BlockID: "block-security-door", CompletedText: "SECURITY DOOR: LEGACY COMMAND COMPLETE",
+				},
+				FacilityAction: &domain.FacilityActionConfig{Transitions: &domain.FacilityTransitionList{
+					Transitions: []domain.FacilityTransitionRequest{
+						{DeviceID: fixtureFacilityDoorID, TransitionID: "open"},
+						{DeviceID: fixtureFacilityAlarmID, TransitionID: "silence"},
+					},
+				}},
+			},
+		},
+		domain.ContentNode{
+			ID: "folder-restricted-archive", Type: domain.NodeFolder, Name: "RESTRICTED ARCHIVE",
+			VisibleWhen: new(equality(fixtureFacilityDoorID, "open")),
+			Children: []domain.ContentNode{{
+				ID: "entry-security-clearance", Type: domain.NodeEntry, Name: "CLEARANCE ACCEPTED",
+				Description: "Protected records are now available.",
+			}},
+		},
+	)
+	reactor := terminal(fixtureFacilityReactorTerminalID, "Reactor control",
+		entry("entry-reactor-status", "REACTOR STATUS",
+			domain.EntryContentBlock{
+				ID: "block-reactor-power", InitialText: "CONTROL POWER: OFFLINE",
+				FacilityTextVariants: []domain.FacilityTextVariant{variant(fixtureFacilityPowerID, "online", "CONTROL POWER: ONLINE")},
+			},
+			domain.EntryContentBlock{
+				ID: "block-reactor-core", InitialText: "REACTOR CORE: OFFLINE",
+				FacilityTextVariants: []domain.FacilityTextVariant{variant(fixtureFacilityReactorID, "online", "REACTOR CORE: ONLINE")},
+			},
+		),
+	)
+	maintenance := terminal(fixtureFacilityMaintenanceTerminalID, "Maintenance station",
+		domain.ContentNode{
+			ID: "folder-maintenance-diagnostics", Type: domain.NodeFolder, Name: "DIAGNOSTIC TOOLS",
+			Children: []domain.ContentNode{{
+				ID: "command-network-recovery", Type: domain.NodeCommand, Name: "RUN NETWORK RECOVERY HOLOTAPE",
+				Text: "Network recovery program completed.",
+			}},
+		},
+	)
+	network := terminal(fixtureFacilityNetworkTerminalID, "Network operations",
+		entry("entry-network-report", "NETWORK STATUS", domain.EntryContentBlock{
+			ID: "block-network-status", InitialText: "NETWORK: ISOLATED",
+			FacilityTextVariants: []domain.FacilityTextVariant{variant(fixtureFacilityNetworkID, "connected", "NETWORK: CONNECTED")},
+		}),
+	)
+	archive := terminal(fixtureFacilityArchiveTerminalID, "Records archive",
+		entry("entry-archive-record", "RECORD 04-B", domain.EntryContentBlock{
+			ID: "block-archive-record", InitialText: "RECORD 04-B // SECTOR 7 CORRIDOR PRESSURE NOMINAL",
+		}),
+	)
+
+	condition := func(id, name string, category domain.DiagnosticConditionCategory, active bool) domain.DiagnosticCondition {
+		return domain.DiagnosticCondition{
+			ID: id, Name: name, Category: category, Terminal: &domain.DiagnosticTerminalScope{TerminalID: fixtureFacilityTerminalID},
+			InitialActive: active, CurrentActive: active,
+		}
+	}
+	conditions := []domain.DiagnosticCondition{
+		condition("condition-security-offline", "Security terminal offline", domain.DiagnosticConditionCategoryOffline, false),
+		condition("condition-reactor-unpowered", "Reactor controls unpowered", domain.DiagnosticConditionCategoryUnpowered, false),
+		condition("condition-network-isolated", "Operations network isolated", domain.DiagnosticConditionCategoryNetworkIsolated, false),
+		condition("condition-archive-damaged", "Archive storage damaged", domain.DiagnosticConditionCategoryStorageDamaged, false),
+		condition(fixtureFacilityCondition, "Security authorization corrupted", domain.DiagnosticConditionCategoryAuthorizationCorrupted, true),
+		condition("condition-reactor-display", "Reactor display unstable", domain.DiagnosticConditionCategoryDisplayUnstable, false),
+		condition("condition-cooling-contamination", "Cooling loop contamination", domain.DiagnosticConditionCategoryCustom, false),
+	}
+	conditions[4].Device = &domain.DiagnosticDeviceScope{DeviceID: fixtureFacilityDoorID}
+	conditions[4].Terminal = nil
+
+	device := func(id, name string, kind domain.FacilityDeviceKind, initial, current string, states ...domain.FacilityDeviceState) domain.FacilityDevice {
+		return domain.FacilityDevice{
+			ID: id, Name: name, Kind: kind, InitialStateID: initial, CurrentStateID: current, States: states,
+		}
+	}
+	devices := []domain.FacilityDevice{
+		device(fixtureFacilityPowerID, "Primary power grid", domain.FacilityDeviceKindPowerGrid, "offline", "online",
+			domain.FacilityDeviceState{ID: "offline", Name: "Offline"}, domain.FacilityDeviceState{ID: "online", Name: "Online"}),
+		device(fixtureFacilityCoolingID, "Reactor cooling loop", domain.FacilityDeviceKindVentilation, "offline", "online",
+			domain.FacilityDeviceState{ID: "offline", Name: "Offline"}, domain.FacilityDeviceState{ID: "online", Name: "Online"}),
+		device(fixtureFacilityReactorID, "Main reactor", domain.FacilityDeviceKindReactor, "offline", "online",
+			domain.FacilityDeviceState{ID: "offline", Name: "Offline"}, domain.FacilityDeviceState{ID: "online", Name: "Online"}),
+		device(fixtureFacilityDoorID, "Security sector door", domain.FacilityDeviceKindDoor, "locked", "locked",
+			domain.FacilityDeviceState{ID: "locked", Name: "Locked"}, domain.FacilityDeviceState{ID: "open", Name: "Open"}),
+		device(fixtureFacilityAlarmID, "Security alarm", domain.FacilityDeviceKindAlarm, "armed", "armed",
+			domain.FacilityDeviceState{ID: "armed", Name: "Armed"}, domain.FacilityDeviceState{ID: "silent", Name: "Silent"}),
+		device(fixtureFacilityNetworkID, "Operations network", domain.FacilityDeviceKindNetworkSegment, "isolated", "connected",
+			domain.FacilityDeviceState{ID: "isolated", Name: "Isolated"}, domain.FacilityDeviceState{ID: "connected", Name: "Connected"}),
+	}
+	devices[3].Transitions = []domain.FacilityDeviceTransition{{
+		ID: "open", Name: "Open security door", SourceStateID: "locked", DestinationStateID: "open",
+		Preconditions:    []domain.FacilityStateEquality{equality(fixtureFacilityPowerID, "online")},
+		ConditionEffects: []domain.FacilityConditionEffect{{ConditionID: fixtureFacilityCondition, Active: false}},
+	}}
+	devices[4].Transitions = []domain.FacilityDeviceTransition{{
+		ID: "silence", Name: "Silence security alarm", SourceStateID: "armed", DestinationStateID: "silent",
+	}}
+
+	return domain.Session{
+		Version: 1, Name: "Multi-terminal facility projection fixture",
+		Terminals: []domain.Terminal{security, reactor, maintenance, network, archive},
+		TerminalGroups: []domain.TerminalGroup{
+			{ID: fixtureFacilityOperationsGroupID, Name: "Operations", TerminalIDs: []string{fixtureFacilityTerminalID, fixtureFacilityNetworkTerminalID}},
+			{ID: fixtureFacilityEngineeringGroupID, Name: "Engineering", TerminalIDs: []string{fixtureFacilityReactorTerminalID, fixtureFacilityMaintenanceTerminalID}},
+			{ID: fixtureFacilityRecordsGroupID, Name: "Records", TerminalIDs: []string{fixtureFacilityArchiveTerminalID}},
+		},
+		Facility: &domain.Facility{Revision: 7, Devices: devices, Conditions: conditions, RecoveryPrograms: []domain.RecoveryProgram{}},
+	}
+}
+
+func facilityLifecycleSession() domain.Session {
+	open := domain.FacilityStateEquality{DeviceID: fixtureFacilityDoorID, StateID: "open"}
+	return domain.Session{
+		Version: 1,
+		Name:    "Persistent facility lifecycle fixture",
+		Terminals: []domain.Terminal{{
+			ID: fixtureFacilityTerminalID, Name: "Security control", IntroText: "FACILITY STATE RESTORED",
+			Root: domain.ContentNode{
+				ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+				Children: []domain.ContentNode{
+					{
+						ID: "entry-lifecycle-door", Type: domain.NodeEntry, Name: "SECURITY DOOR: LOCKED",
+						Description: "The durable facility state controls this record.",
+						FacilityNameVariants: []domain.FacilityTextVariant{{
+							When: open, Text: "SECURITY DOOR: OPEN",
+						}},
+					},
+					{
+						ID: "command-secure-lifecycle-door", Type: domain.NodeCommand, Name: "SECURE SECURITY DOOR",
+						Text: "Security door request recorded.",
+						StateChange: &domain.StateChangeConfig{
+							CompletedName: "SECURITY DOOR SECURED", ConfirmationText: "Secure the security door?",
+						},
+					},
+				},
+			},
+		}},
+		Facility: &domain.Facility{
+			Revision: 12,
+			Devices: []domain.FacilityDevice{
+				{
+					ID: fixtureFacilityDoorID, Name: "Security sector door", Kind: domain.FacilityDeviceKindDoor,
+					InitialStateID: "locked", CurrentStateID: "open",
+					States: []domain.FacilityDeviceState{{ID: "locked", Name: "Locked"}, {ID: "open", Name: "Open"}},
+				},
+				{
+					ID: fixtureFacilityAlarmID, Name: "Security alarm", Kind: domain.FacilityDeviceKindAlarm,
+					InitialStateID: "armed", CurrentStateID: "silent",
+					States: []domain.FacilityDeviceState{{ID: "armed", Name: "Armed"}, {ID: "silent", Name: "Silent"}},
+				},
+			},
+			Conditions:       []domain.DiagnosticCondition{},
+			RecoveryPrograms: []domain.RecoveryProgram{},
+		},
+	}
+}
+
+func facilityLifecycleLegacySession() domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Legacy lifecycle fixture",
+		Terminals: []domain.Terminal{{
+			ID: "terminal-legacy-lifecycle", Name: "Legacy terminal", IntroText: "VERSION 1 SESSION RESTORED",
+			Root: domain.ContentNode{
+				ID: "root", Type: domain.NodeFolder, Name: "ROOT",
+				Children: []domain.ContentNode{{
+					ID: "entry-legacy-ready", Type: domain.NodeEntry, Name: "LEGACY TERMINAL READY",
+					Description: "No facility state is authored for this session.",
+				}},
+			},
+		}},
+	}
+}
+
+func facilityAuthoringFixtureSession(empty bool) domain.Session {
+	equality := func(deviceID, stateID string) domain.FacilityStateEquality {
+		return domain.FacilityStateEquality{DeviceID: deviceID, StateID: stateID}
+	}
+	securityEntry := domain.ContentNode{
+		ID: "entry-security-status", Type: domain.NodeEntry, Name: "FACILITY STATUS",
+		Blocks: []domain.EntryContentBlock{{ID: "block-security-power", InitialText: "PRIMARY POWER: OFFLINE"}},
+	}
+	startReactor := domain.ContentNode{
+		ID: "command-start-reactor", Type: domain.NodeCommand, Name: "START MAIN REACTOR",
+		Text: "Main reactor startup complete.",
+	}
+	if !empty {
+		securityEntry.Blocks[0].FacilityTextVariants = []domain.FacilityTextVariant{{
+			When: equality(fixtureFacilityPowerID, "online"), Text: "PRIMARY POWER: ONLINE",
+		}}
+		startReactor.AvailableWhen = new(equality(fixtureFacilityPowerID, "online"))
+	}
+	terminal := func(id, name string, children ...domain.ContentNode) domain.Terminal {
+		return domain.Terminal{
+			ID: id, Name: name, Root: domain.ContentNode{
+				ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: children,
+			},
+		}
+	}
+	session := domain.Session{
+		Version: 1, Name: "Facility authoring browser fixture",
+		Terminals: []domain.Terminal{
+			terminal(fixtureFacilityTerminalID, "Security control", securityEntry),
+			terminal(fixtureFacilityReactorTerminalID, "Reactor control", startReactor),
+		},
+		Facility: &domain.Facility{
+			Devices: []domain.FacilityDevice{}, Conditions: []domain.DiagnosticCondition{},
+			RecoveryPrograms: []domain.RecoveryProgram{},
+		},
+	}
+	if empty {
+		return session
+	}
+	restorableDevice := func(id, name string, kind domain.FacilityDeviceKind) domain.FacilityDevice {
+		return domain.FacilityDevice{
+			ID: id, Name: name, Kind: kind, InitialStateID: "offline", CurrentStateID: "offline",
+			States: []domain.FacilityDeviceState{{ID: "offline", Name: "Offline"}, {ID: "online", Name: "Online"}},
+			Transitions: []domain.FacilityDeviceTransition{{
+				ID: "restore", Name: "Restore", SourceStateID: "offline", DestinationStateID: "online", Recovery: true,
+			}},
+		}
+	}
+	session.Facility = &domain.Facility{
+		Revision: 7,
+		Devices: []domain.FacilityDevice{
+			restorableDevice(fixtureFacilityPowerID, "Primary power grid", domain.FacilityDeviceKindPowerGrid),
+			restorableDevice(fixtureFacilityCoolingID, "Reactor cooling loop", domain.FacilityDeviceKindVentilation),
+			{
+				ID: fixtureFacilityDoorID, Name: "Security sector door", Kind: domain.FacilityDeviceKindDoor,
+				InitialStateID: "locked", CurrentStateID: "locked",
+				States: []domain.FacilityDeviceState{{ID: "locked", Name: "Locked"}, {ID: "open", Name: "Open"}},
+			},
+		},
+		Conditions: []domain.DiagnosticCondition{},
+		RecoveryPrograms: []domain.RecoveryProgram{{
+			ID: "program-network-recovery", Name: "VAULT-TEC NETWORK RECOVERY",
+			Transitions: []domain.FacilityTransitionRequest{{DeviceID: fixtureFacilityPowerID, TransitionID: "restore"}},
+		}},
+	}
+	return session
+}
+
+func protectFixtureFacilityCurrentValues(current, candidate *domain.Facility) {
+	if candidate == nil {
+		return
+	}
+	devices := make(map[string]string)
+	conditions := make(map[string]bool)
+	if current != nil {
+		for _, device := range current.Devices {
+			devices[device.ID] = device.CurrentStateID
+		}
+		for _, condition := range current.Conditions {
+			conditions[condition.ID] = condition.CurrentActive
+		}
+	}
+	for index := range candidate.Devices {
+		device := &candidate.Devices[index]
+		device.CurrentStateID = device.InitialStateID
+		if value, ok := devices[device.ID]; ok {
+			device.CurrentStateID = value
+		}
+	}
+	for index := range candidate.Conditions {
+		condition := &candidate.Conditions[index]
+		condition.CurrentActive = condition.InitialActive
+		if value, ok := conditions[condition.ID]; ok {
+			condition.CurrentActive = value
+		}
+	}
+}
+
+func fixtureFacilityAffectedIDs(current, candidate *domain.Facility) ([]string, []string) {
+	deviceBefore := make(map[string]domain.FacilityDevice)
+	deviceAfter := make(map[string]domain.FacilityDevice)
+	conditionBefore := make(map[string]domain.DiagnosticCondition)
+	conditionAfter := make(map[string]domain.DiagnosticCondition)
+	if current != nil {
+		for _, device := range current.Devices {
+			device.CurrentStateID = ""
+			deviceBefore[device.ID] = device
+		}
+		for _, condition := range current.Conditions {
+			condition.CurrentActive = false
+			conditionBefore[condition.ID] = condition
+		}
+	}
+	if candidate != nil {
+		for _, device := range candidate.Devices {
+			device.CurrentStateID = ""
+			deviceAfter[device.ID] = device
+		}
+		for _, condition := range candidate.Conditions {
+			condition.CurrentActive = false
+			conditionAfter[condition.ID] = condition
+		}
+	}
+	deviceIDs := fixtureChangedFacilityIDs(deviceBefore, deviceAfter)
+	conditionIDs := fixtureChangedFacilityIDs(conditionBefore, conditionAfter)
+	return deviceIDs, conditionIDs
+}
+
+func fixtureChangedFacilityIDs[T any](before, after map[string]T) []string {
+	ids := make(map[string]struct{}, len(before)+len(after))
+	for id := range before {
+		ids[id] = struct{}{}
+	}
+	for id := range after {
+		ids[id] = struct{}{}
+	}
+	changed := make([]string, 0, len(ids))
+	for id := range ids {
+		left, leftOK := before[id]
+		right, rightOK := after[id]
+		if leftOK != rightOK || !reflect.DeepEqual(left, right) {
+			changed = append(changed, id)
+		}
+	}
+	slices.Sort(changed)
+	return changed
+}
+
+func fixtureFacilityHasDevice(facility *domain.Facility, deviceID string) bool {
+	if facility == nil {
+		return false
+	}
+	return slices.ContainsFunc(facility.Devices, func(device domain.FacilityDevice) bool {
+		return device.ID == deviceID
+	})
+}
+
+func fixtureFacilityBindingCount(session domain.Session) int {
+	count := 0
+	var visit func(domain.ContentNode)
+	visit = func(node domain.ContentNode) {
+		count += len(node.FacilityNameVariants)
+		if node.VisibleWhen != nil {
+			count++
+		}
+		if node.AvailableWhen != nil {
+			count++
+		}
+		for _, block := range node.Blocks {
+			count += len(block.FacilityTextVariants)
+		}
+		for _, child := range node.Children {
+			visit(child)
+		}
+	}
+	for _, terminal := range session.Terminals {
+		visit(terminal.Root)
+	}
+	return count
 }
 
 func stateChangingApprovalTarget() domain.TerminalTarget {

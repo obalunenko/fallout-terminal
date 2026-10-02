@@ -19,6 +19,11 @@ enum TerminalNavigationDirection {
   TERMINAL_NAVIGATION_DIRECTION_RETURN = 2;
 }
 
+enum TerminalPresentationEffect {
+  TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED = 0;
+  TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE = 1;
+}
+
 message CommandExecutionPresentation {
   CommandExecutionPhase phase = 1;
   string command_node_id = 2;
@@ -74,6 +79,7 @@ message ContentFolder {
 
 message ContentCommand {
   string text = 1;
+  optional bool available = 2;
 }
 
 message ContentEntry {
@@ -101,6 +107,7 @@ message LiveTerminal {
   optional CommandExecutionPresentation command_execution = 8;
   optional TerminalNavigationPresentation terminal_navigation = 9;
   ControllerTerminalPresentation controller_presentation = 10;
+  repeated TerminalPresentationEffect effects = 11;
 }
 
 message NoLiveTerminal {}

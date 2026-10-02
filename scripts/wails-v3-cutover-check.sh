@@ -3,6 +3,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+accepted_wails_version='3.0.0-beta.15'
 
 fail() {
   printf 'wails-v3 cutover check: %s\n' "$1" >&2
@@ -76,6 +77,71 @@ check_task_orchestration() {
   grep -Eq '^help:' "${root}/Makefile" || { fail 'Makefile does not expose non-mutating help'; return 1; }
 }
 
+check_current_wails_pins() {
+  local root="$1"
+
+  grep -Eq '^[[:space:]]*(require[[:space:]]+)?github\.com/wailsapp/wails/v3[[:space:]]+v3\.0\.0-beta\.15([[:space:]]|$)' "${root}/go.mod" || {
+    fail "root Go module does not pin accepted Wails ${accepted_wails_version}"
+    return 1
+  }
+  grep -Eq '^[[:space:]]*(require[[:space:]]+)?github\.com/wailsapp/wails/v3[[:space:]]+v3\.0\.0-beta\.15([[:space:]]|$)' "${root}/tools/wails/go.mod" || {
+    fail "Wails tool module does not pin accepted Wails ${accepted_wails_version}"
+    return 1
+  }
+  grep -Eq '"@wailsio/runtime"[[:space:]]*:[[:space:]]*"3\.0\.0-beta\.15"' "${root}/frontend/overseer/package.json" || {
+    fail "Overseer manifest does not pin accepted Wails ${accepted_wails_version}"
+    return 1
+  }
+  awk -v accepted="${accepted_wails_version}" '
+    /"node_modules\/@wailsio\/runtime": \{/ { in_runtime = 1; next }
+    in_runtime && $0 ~ "\"version\": \"" accepted "\"" { found = 1 }
+    in_runtime && /^[[:space:]]*},?[[:space:]]*$/ { exit }
+    END { exit(found ? 0 : 1) }
+  ' "${root}/frontend/package-lock.json" || {
+    fail "frontend lock does not resolve accepted Wails ${accepted_wails_version}"
+    return 1
+  }
+  grep -Fq 'Wails `v3.0.0-beta.15`' "${root}/README.md" || {
+    fail "README does not identify accepted Wails ${accepted_wails_version}"
+    return 1
+  }
+}
+
+check_historical_migration_records() {
+  local root="$1"
+  local readme="${root}/README.md"
+  local record="${root}/docs/wails-v3-migration-rollback.md"
+  local matches
+
+  grep -Eqi '([Hh]istor|[Ии]стор).*specs/006-wails-v3-migration/quickstart\.md|specs/006-wails-v3-migration/quickstart\.md.*([Hh]istor|[Ии]стор)' "${readme}" || {
+    fail 'README does not label the Wails v3 migration quickstart as historical'
+    return 1
+  }
+  grep -Eqi '([Hh]istor|[Ии]стор).*docs/wails-v3-migration-rollback\.md|docs/wails-v3-migration-rollback\.md.*([Hh]istor|[Ии]стор)' "${readme}" || {
+    fail 'README does not label the Wails v2-to-v3 migration record as historical'
+    return 1
+  }
+  grep -Eq '^# Historical Wails v2-to-v3 Migration and Cutover Record$' "${record}" || {
+    fail 'Wails v2-to-v3 migration record is not clearly labeled as historical'
+    return 1
+  }
+  grep -Fq 'This file is historical evidence only.' "${record}" || {
+    fail 'Wails v2-to-v3 migration record does not disclaim current authority'
+    return 1
+  }
+  grep -Fq 'v3.0.0-beta.8' "${record}" && grep -Fq '@wailsio/runtime' "${record}" || {
+    fail 'Wails v2-to-v3 migration record lost its historical beta.8 target'
+    return 1
+  }
+
+  matches="$(grep -En 'This record governs|remains the production fallback|is the only canonical rollback reference|Wails v3 is accepted only|активная процедура возврата на Wails v2' "${readme}" "${record}" 2>/dev/null || true)"
+  [[ -z "${matches}" ]] || {
+    printf '%s\n' "${matches}" >&2
+    fail 'historical Wails migration material still claims active authority'
+    return 1
+  }
+}
+
 scan_tree() {
   local root="$1"
   local matches
@@ -84,6 +150,7 @@ scan_tree() {
     [[ ! -e "${root}/${obsolete}" ]] || { fail "obsolete active artifact remains: ${obsolete}"; return 1; }
   done
   check_task_orchestration "${root}" || return
+  check_current_wails_pins "${root}" || return
 
   matches="$(find "${root}" \( -path '*/.git' -o -path '*/node_modules' -o -path '*/specs' \) -prune -o -type f -name '*.go' ! -name '*_test.go' \
     -exec grep -EnH 'github\.com/wailsapp/wails/v2|WAILS_V2|USE_WAILS_V2|legacyWails|dual.?runtime' {} + || true)"
@@ -113,9 +180,7 @@ scan_tree() {
 
   [[ -f "${root}/specs/001-wails-v2-migration/spec.md" ]] || { fail 'historical Wails v2 spec is missing'; return 1; }
   [[ -f "${root}/docs/wails-migration-rollback.md" ]] || { fail 'historical Electron-to-Wails rollback record is missing'; return 1; }
-  grep -Eq 'specs/006-wails-v3-migration/quickstart\.md' "${root}/README.md" || { fail 'README does not link the active Wails v3 quickstart'; return 1; }
-  grep -Eq 'docs/wails-v3-migration-rollback\.md' "${root}/README.md" || { fail 'README does not link the active Wails v3 rollback record'; return 1; }
-  grep -Eqi 'histor|истор' "${root}/README.md" || { fail 'README does not identify earlier migration records as history'; return 1; }
+  check_historical_migration_records "${root}" || return
 }
 
 self_test() {
@@ -125,8 +190,9 @@ self_test() {
   mkdir -p "${fixture}/build/darwin" "${fixture}/frontend/overseer/src" "${fixture}/frontend/overseer/bindings" "${fixture}/frontend/overseer/dist" \
     "${fixture}/internal/app" "${fixture}/scripts" "${fixture}/.github/workflows" \
     "${fixture}/specs/001-wails-v2-migration" "${fixture}/specs/099-completed" \
-    "${fixture}/tools/helper" "${fixture}/docs"
+    "${fixture}/tools/helper" "${fixture}/tools/wails" "${fixture}/docs"
   printf 'module example.test/app\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.15\n' >"${fixture}/go.mod"
+  printf 'module example.test/tools/wails\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.15\n' >"${fixture}/tools/wails/go.mod"
   : >"${fixture}/go.sum"
   printf 'tools:\n\t@go install tool\nhelp:\n\t@printf '\''Run task --list.\\n'\''\n' >"${fixture}/Makefile"
   printf '%s\n' \
@@ -145,12 +211,50 @@ self_test() {
   printf 'package main\nimport _ "github.com/obalunenko/Fallout-Terminal/internal/toolfixture"\n' >"${fixture}/tools/helper/main.go"
   printf 'package history\nimport _ "github.com/obalunenko/Fallout-Terminal/internal/history"\n' >"${fixture}/specs/099-completed/example.go"
   printf 'export const ready = true;\n' >"${fixture}/frontend/overseer/src/app.js"
+  printf '{"dependencies":{"@wailsio/runtime":"3.0.0-beta.15"}}\n' >"${fixture}/frontend/overseer/package.json"
+  printf '%s\n' \
+    '{' \
+    '  "packages": {' \
+    '    "node_modules/@wailsio/runtime": {' \
+    '      "version": "3.0.0-beta.15"' \
+    '    }' \
+    '  }' \
+    '}' >"${fixture}/frontend/package-lock.json"
   printf 'export const generated = true;\n' >"${fixture}/frontend/overseer/bindings/service.js"
   printf '<!doctype html>\n' >"${fixture}/frontend/overseer/dist/index.html"
-  printf 'Active: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md. Earlier records are historical evidence.\n' >"${fixture}/README.md"
+  printf 'Current runtime: Wails `v3.0.0-beta.15`. Historical records: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md.\n' >"${fixture}/README.md"
   printf '# Historical v2 spec\n' >"${fixture}/specs/001-wails-v2-migration/spec.md"
   printf '# Historical rollback\n' >"${fixture}/docs/wails-migration-rollback.md"
+  printf '# Historical Wails v2-to-v3 Migration and Cutover Record\n\nThis file is historical evidence only. Recorded v3.0.0-beta.8 and @wailsio/runtime beta.8 targets.\n' >"${fixture}/docs/wails-v3-migration-rollback.md"
   scan_tree "${fixture}"
+
+  printf 'module example.test/app\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.14\n' >"${fixture}/go.mod"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted the wrong active Wails runtime'; return 1; fi
+  printf 'module example.test/app\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.15\n' >"${fixture}/go.mod"
+
+  printf 'module example.test/tools/wails\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.14\n' >"${fixture}/tools/wails/go.mod"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted the wrong Wails tool runtime'; return 1; fi
+  printf 'module example.test/tools/wails\n\ngo 1.27.0\n\nrequire github.com/wailsapp/wails/v3 v3.0.0-beta.15\n' >"${fixture}/tools/wails/go.mod"
+
+  printf '{"dependencies":{"@wailsio/runtime":"3.0.0-beta.14"}}\n' >"${fixture}/frontend/overseer/package.json"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted the wrong Overseer Wails runtime'; return 1; fi
+  printf '{"dependencies":{"@wailsio/runtime":"3.0.0-beta.15"}}\n' >"${fixture}/frontend/overseer/package.json"
+
+  sed -i.bak 's/3\.0\.0-beta\.15/3.0.0-beta.14/' "${fixture}/frontend/package-lock.json"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted the wrong locked Wails runtime'; return 1; fi
+  mv "${fixture}/frontend/package-lock.json.bak" "${fixture}/frontend/package-lock.json"
+
+  printf 'Current runtime: Wails `v3.0.0-beta.15`. Active: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md.\n' >"${fixture}/README.md"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted active migration-record authority'; return 1; fi
+  printf 'Current runtime: Wails `v3.0.0-beta.15`. Historical records: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md.\n' >"${fixture}/README.md"
+
+  printf '# Wails v3 Migration Rollback and Cutover Record\n\nThis file is historical evidence only. Recorded v3.0.0-beta.8 and @wailsio/runtime beta.8 targets.\n' >"${fixture}/docs/wails-v3-migration-rollback.md"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted an unlabeled migration record'; return 1; fi
+  printf '# Historical Wails v2-to-v3 Migration and Cutover Record\n\nThis file is historical evidence only. Recorded v3.0.0-beta.8 and @wailsio/runtime beta.8 targets.\n' >"${fixture}/docs/wails-v3-migration-rollback.md"
+
+  printf '# Historical Wails v2-to-v3 Migration and Cutover Record\n\nThis file is historical evidence only.\n' >"${fixture}/docs/wails-v3-migration-rollback.md"
+  if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted a historical record without its beta.8 target'; return 1; fi
+  printf '# Historical Wails v2-to-v3 Migration and Cutover Record\n\nThis file is historical evidence only. Recorded v3.0.0-beta.8 and @wailsio/runtime beta.8 targets.\n' >"${fixture}/docs/wails-v3-migration-rollback.md"
 
   printf 'package app\nimport _ "github.com/wailsapp/wails/v2"\n' >"${fixture}/internal/app/app.go"
   if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted an active v2 Go import'; return 1; fi
@@ -180,7 +284,7 @@ self_test() {
 
   printf '\ngo run ./cmd/build package\n' >>"${fixture}/README.md"
   if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted a direct-Go public package command'; return 1; fi
-  printf 'Active: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md. Earlier records are historical evidence.\n' >"${fixture}/README.md"
+  printf 'Current runtime: Wails `v3.0.0-beta.15`. Historical records: specs/006-wails-v3-migration/quickstart.md and docs/wails-v3-migration-rollback.md.\n' >"${fixture}/README.md"
 
   printf 'wails build\n' >>"${fixture}/README.md"
   if scan_tree "${fixture}" >/dev/null 2>&1; then fail 'self-test accepted a bare v2 Wails command'; return 1; fi

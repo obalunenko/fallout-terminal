@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "npm test --prefix ../../tests/browser -- state-changing-command-authoring.spec.mjs state-changing-command-approval.spec.mjs desktop-api.spec.mjs"
+    "test": "npm test --prefix ../../tests/browser -- state-changing-command-authoring.spec.mjs state-changing-command-approval.spec.mjs desktop-api.spec.mjs facility-player-state.spec.mjs facility-authoring.spec.mjs facility-diagnostics.spec.mjs facility-lifecycle.spec.mjs overseer-runtime-logs.spec.mjs"
   },
   "devDependencies": {
     "vite": "8.1.5"

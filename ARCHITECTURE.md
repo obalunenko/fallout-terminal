@@ -337,7 +337,7 @@ The system has several explicit state owners:
 
 | State | Owner | Lifetime |
 |---|---|---|
-| Session document and durable command state | `internal/session/` | Versioned JSON file |
+| Session document, facility, and durable command state | `internal/session/` | Versioned JSON file |
 | Player configuration | `internal/playerconfig/` | Versioned JSON file |
 | Live terminal and hacking state | `internal/live/` | Process lifetime |
 | Logical sessions, roster, controller, and coordination revisions | `internal/control/` | Process lifetime, with explicit durable seams |
@@ -352,6 +352,70 @@ project does not use a relational database or ORM.
 Autosave targets the explicitly selected session file and uses the session service as the durable
 mutation owner. Runtime-only connection, navigation, hacking, and tunnel state does not enter the
 session document unless a feature explicitly evolves that contract.
+
+### Facility Authority and Revisions
+
+The optional facility aggregate is session-wide. `internal/session/` owns its durable JSON value
+and performs atomic world-action, authoring, recovery, and reset writes. `internal/control/` holds
+one detached process snapshot outside `LiveBroadcast` and serializes every operation against it.
+`internal/live/` is a pure projection service; terminals, terminal groups, and frontends do not own
+or independently mutate device or diagnostic state.
+
+Three revisions describe different boundaries and must not be substituted for one another:
+
+| Revision | Meaning |
+|---|---|
+| Session revision | Guards replacement of the complete durable session document. |
+| Facility revision | Guards the facility graph and current device/condition values inside that document. |
+| Coordination revision | Orders accepted process-runtime changes and complete master/player publications. |
+
+A facility write returns the resulting session and facility revisions. The coordinator installs
+that canonical result and then advances its own revision. No-op and rejected operations retain the
+current facility revision; callers compare each expected revision only with its matching owner.
+
+### Facility Transaction Order
+
+1. A facility-backed player command enters the existing private approval lifecycle. Control stores
+   a detached action fingerprint, expected source states, and expected facility revision; no world
+   state changes at this point.
+2. Approval holds the coordinator transaction lock, re-resolves the authored command, and checks
+   the current graph, fingerprint, source states, preconditions, and facility revision.
+3. The session service evaluates every requested transition against one immutable pre-state, builds
+   one candidate containing the command snapshot and all device/condition results, and performs at
+   most one atomic document replacement.
+4. Control validates the returned detached canonical session before installing its facility and
+   command states. It then reprojects all terminal runtimes, repairs navigation, advances the
+   coordination revision once, and publishes complete snapshots.
+
+Private authoring, recovery, and reset use the same serialized durability boundary. A stale,
+duplicate, invalid, concurrent, or persistence-failed operation returns a typed result and leaves
+every affected device and condition unchanged.
+
+### Facility Projection and Lifecycle
+
+Effective terminal presentation is rebuilt deterministically in this order: authored base tree,
+completed-command snapshots, matching device-state bindings, then active diagnostic overrides.
+EntryContent variants compose by stable block ID. Hidden nodes are omitted, unavailable commands
+remain visible with explicit availability, and bounded diagnostic effects are output values only;
+projection never mutates facility state or authored input.
+
+Session open, reload, restart restoration, and update handoff replace the coordinator facility
+snapshot before resumed publications. An absent facility explicitly clears it for compatible
+version-1 sessions. Broadcast stop does not clear the facility. Active and suspended terminal
+runtimes retain an authored tree and are reprojected from the current shared snapshot on activation,
+reactivation, authored terminal changes, and group moves. Group moves never clone or retarget
+facility entities, and facility replacement invalidates pending actions captured from an older
+graph.
+
+### Audit Ownership
+
+Control emits the authoritative player and facility lifecycle facts, including correlations, typed
+outcomes, revisions, sorted safe IDs, and committed previous and resulting states. The player
+server emits separate redacted transport-boundary records for recognition, connection, and request
+ingress/egress. Root composition maps these closed facts into the retained runtime logger, while
+`internal/diagnostics/` owns retention and failure isolation. Audit records exclude authored text,
+display names, secrets, and raw errors, and no load, validation, replay, recovery, reset, or
+projection path reads them as state.
 
 ## Player Server and Publication
 

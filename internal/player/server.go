@@ -22,6 +22,20 @@ var (
 	errPlayerServerStopped   = errors.New("player server stopped")
 )
 
+// BoundaryAuditEvent is the redacted correlation envelope emitted where a
+// public request enters or leaves the player transport.
+type BoundaryAuditEvent struct {
+	Name      string
+	Outcome   string
+	SessionID domain.LogicalSessionID
+	Role      domain.PlayerRole
+	RequestID domain.RequestID
+	Mode      string
+}
+
+// BoundaryAudit records one bounded player transport event.
+type BoundaryAudit func(BoundaryAuditEvent)
+
 // Config contains the generated Connect player server's process-local
 // dependencies. Assets are the complete built player application.
 type Config struct {
@@ -49,6 +63,8 @@ type Server struct {
 	stopDone   chan struct{}
 	stopErr    error
 	workers    sync.WaitGroup
+
+	unregisterBoundaryAudit func()
 }
 
 // NewServer validates construction-only dependencies without acquiring a
@@ -70,7 +86,34 @@ func NewServer(ctx context.Context, config Config) (*Server, error) {
 	if serverLogger == nil {
 		serverLogger = logger.FromContext(ctx)
 	}
-	return &Server{config: config, log: serverLogger, root: ctx}, nil
+	server := &Server{config: config, log: serverLogger, root: ctx}
+	return server, nil
+}
+
+func (server *Server) recordBoundaryAudit(event BoundaryAuditEvent) {
+	if server == nil || server.log == nil || event.Name == "" || event.Outcome == "" {
+		return
+	}
+	fields := logger.Fields{"event": event.Name, "outcome": event.Outcome}
+	if event.SessionID != "" {
+		fields["session_id"] = string(event.SessionID)
+	}
+	if event.Role != "" {
+		fields["role"] = string(event.Role)
+	}
+	if event.RequestID != "" {
+		fields["request_id"] = string(event.RequestID)
+	}
+	if event.Mode != "" {
+		fields["mode"] = event.Mode
+	}
+	entry := server.log.WithFields(fields)
+	switch event.Outcome {
+	case "accepted", "connected", "disconnected", "issued", "received", "recognized":
+		entry.Info("player boundary audit event")
+	default:
+		entry.Warn("player boundary audit event")
+	}
 }
 
 // Start acquires the listener before returning its usable local address.
@@ -112,6 +155,7 @@ func (server *Server) Start(ctx context.Context) (domain.ServerInfo, error) {
 	server.info = listenerInfo(listener, server.config.Address)
 	server.started = true
 	server.stopDone = make(chan struct{})
+	server.unregisterBoundaryAudit = server.config.Connect.registerServerBoundaryAudit(server.recordBoundaryAudit)
 
 	rpcPath, rpcHandler := NewConnectHandler(server.config.Connect)
 	application := NewApplicationHandler(server.config.Assets, rpcPath, rpcHandler)
@@ -187,7 +231,12 @@ func (server *Server) Stop(ctx context.Context) error {
 	}
 	if !server.started {
 		server.stopped = true
+		unregisterBoundaryAudit := server.unregisterBoundaryAudit
+		server.unregisterBoundaryAudit = nil
 		server.mu.Unlock()
+		if unregisterBoundaryAudit != nil {
+			unregisterBoundaryAudit()
+		}
 		return nil
 	}
 	if server.stopping {
@@ -233,8 +282,13 @@ func (server *Server) Stop(ctx context.Context) error {
 	server.stopping = false
 	server.stopped = true
 	server.stopErr = shutdownErr
+	unregisterBoundaryAudit := server.unregisterBoundaryAudit
+	server.unregisterBoundaryAudit = nil
 	close(server.stopDone)
 	server.mu.Unlock()
+	if unregisterBoundaryAudit != nil {
+		unregisterBoundaryAudit()
+	}
 	return shutdownErr
 }
 

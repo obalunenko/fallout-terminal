@@ -300,3 +300,62 @@ func TestRunLogDegradesSafelyOnRotationWriteAndCleanupFailures(t *testing.T) {
 		assert.LessOrEqual(t, retainedBytes, int64(16))
 	})
 }
+
+func TestRunLogRetainsCurrentAndPreviousEvidenceWhenFallbackSinkFails(t *testing.T) {
+	t.Parallel()
+	directory := filepath.Join(t.TempDir(), "logs")
+	require.NoError(t, os.MkdirAll(directory, 0o700))
+	previousPath := filepath.Join(directory, "application-20260902T000000.000000000Z-previous-run-000.log")
+	require.NoError(t, os.WriteFile(previousPath, []byte("previous evidence\n"), 0o600))
+	previousTime := time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, os.Chtimes(previousPath, previousTime, previousTime))
+
+	log, err := Open(Options{
+		Directory: directory, Fallback: &failingRetainedFile{err: errors.New("fallback unavailable")},
+		RunID: "current-run", MaxSegmentBytes: 64, MaxSegments: 2,
+		Now: func() time.Time { return previousTime.Add(24 * time.Hour) },
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, log.Close()) })
+
+	currentRecord := []byte("current evidence\n")
+	written, err := log.Write(currentRecord)
+	require.NoError(t, err, "a failed fallback must not affect an available retained sink")
+	assert.Equal(t, len(currentRecord), written)
+
+	previous, err := os.ReadFile(previousPath)
+	require.NoError(t, err)
+	assert.Equal(t, "previous evidence\n", string(previous))
+	current, err := os.ReadFile(log.CurrentPath())
+	require.NoError(t, err)
+	assert.Equal(t, currentRecord, current)
+	entries, err := os.ReadDir(directory)
+	require.NoError(t, err)
+	assert.LessOrEqual(t, len(entries), 2)
+}
+
+func TestRunLogRetainedSinkFailureFallsBackWithOneSafeWarning(t *testing.T) {
+	t.Parallel()
+	var fallback bytes.Buffer
+	log, err := Open(Options{
+		Directory: filepath.Join(t.TempDir(), "logs"), Fallback: &fallback, RunID: "safe-run",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, log.Close()) })
+
+	log.mu.Lock()
+	require.NoError(t, log.file.Close())
+	log.file = &failingRetainedFile{err: errors.New("SECRET raw retained failure")}
+	log.mu.Unlock()
+
+	for _, record := range []string{"first audit\n", "second audit\n"} {
+		written, writeErr := log.Write([]byte(record))
+		require.NoError(t, writeErr, "retained-log failure must not escape when fallback remains available")
+		assert.Equal(t, len(record), written)
+	}
+
+	assert.Equal(t, "first audit\n"+
+		"level=WARN run_id=safe-run operation=diagnostics.retention outcome=degraded error_category=storage_unavailable\n"+
+		"second audit\n", fallback.String())
+	assert.NotContains(t, fallback.String(), "SECRET")
+}

@@ -5,6 +5,20 @@
 export {
     CommandApprovalMode,
     CommandExecutionDecision,
+    CommandExecutionPhase,
+    CommandExecutionPresentation,
+    ControllerTerminalPresentation,
+    ControllerTerminalPresentationKind,
+    FacilityConditionPreview,
+    FacilityDependency,
+    FacilityDependencyKind,
+    FacilityDependencyReport,
+    FacilityDeviceStatePreview,
+    FacilityEntityKind,
+    FacilityEntityReference,
+    FacilityFailureCode,
+    FacilityIssue,
+    FacilityOperationResult,
     HackColumn,
     HackWord,
     MasterBroadcastState,
@@ -15,16 +29,22 @@ export {
     MasterRosterEntry,
     MasterSessionEntry,
     MasterTerminalNavigationNotice,
+    NavState,
+    PendingTerminalNavigationPresentation,
     PlayerCharacter,
     PlayerConfigMetadata,
     PlayerRole,
     PublicHackPattern,
     PublicHackState,
+    PublicLiveState,
     ServerInfo,
     TerminalGroup,
     TerminalNavigationDecision,
     TerminalNavigationDirection,
     TerminalNavigationNoticeReason,
+    TerminalNavigationPresentation,
+    TerminalPresentationEffect,
+    TerminalReturnTarget,
     TerminalSwitchChoice
 } from "./models.js";
 
@@ -46,8 +66,20 @@ import * as $models from "./models.js";
  */
 
 /**
+ * DiagnosticRecoveryReference is one allowlisted recovery variant. Validation
+ * requires exactly one pointer to be non-nil.
+ * @typedef {$models.DiagnosticRecoveryReference} DiagnosticRecoveryReference
+ */
+
+/**
  * LogicalSessionID identifies one browser profile for the lifetime of a server process.
  * @typedef {$models.LogicalSessionID} LogicalSessionID
+ */
+
+/**
+ * PendingFacilityAction is the detached world-action intent captured during
+ * the existing private command approval lifecycle.
+ * @typedef {$models.PendingFacilityAction} PendingFacilityAction
  */
 
 /**

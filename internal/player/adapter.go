@@ -466,7 +466,7 @@ func LiveToProto(state *domain.PublicLiveState) *playerv1.LiveTerminal {
 	if state == nil {
 		return nil
 	}
-	return &playerv1.LiveTerminal{
+	result := &playerv1.LiveTerminal{
 		TerminalId:             state.TerminalID,
 		TerminalName:           state.TerminalName,
 		Tree:                   ContentNodeToProto(state.Tree),
@@ -477,6 +477,23 @@ func LiveToProto(state *domain.PublicLiveState) *playerv1.LiveTerminal {
 		CommandExecution:       commandExecutionToProto(state.CommandExecution),
 		TerminalNavigation:     terminalNavigationToProto(state.TerminalNavigation),
 		ControllerPresentation: controllerPresentationToProto(state.Presentation),
+	}
+	for _, effect := range state.Effects {
+		if mapped, ok := terminalPresentationEffectToProto(effect); ok {
+			result.Effects = append(result.Effects, mapped)
+		}
+	}
+	return result
+}
+
+func terminalPresentationEffectToProto(effect domain.TerminalPresentationEffect) (playerv1.TerminalPresentationEffect, bool) {
+	switch effect {
+	case domain.TerminalPresentationEffectDisplayUnstable:
+		return playerv1.TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE, true
+	case domain.TerminalPresentationEffectUnspecified:
+		return playerv1.TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED, false
+	default:
+		return playerv1.TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED, false
 	}
 }
 
@@ -579,7 +596,11 @@ func ContentNodeToProto(node domain.ContentNode) *playerv1.ContentNode {
 		}
 		result.Content = &playerv1.ContentNode_Folder{Folder: &playerv1.ContentFolder{Children: children}}
 	case domain.NodeCommand:
-		result.Content = &playerv1.ContentNode_Command{Command: &playerv1.ContentCommand{Text: node.Text}}
+		command := &playerv1.ContentCommand{Text: node.Text}
+		if node.Available != nil {
+			command.Available = new(*node.Available)
+		}
+		result.Content = &playerv1.ContentNode_Command{Command: command}
 	case domain.NodeEntry:
 		result.Content = &playerv1.ContentNode_Entry{Entry: &playerv1.ContentEntry{Description: node.Description}}
 	}

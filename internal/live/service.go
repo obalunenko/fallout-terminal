@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -131,9 +132,11 @@ func (service *Service) CreateRuntime(target domain.TerminalTarget) (*domain.Ter
 }
 
 func (service *Service) createRuntimeLocked(target domain.TerminalTarget) (*domain.TerminalRuntime, *domain.PublicLiveState) {
+	authored := domain.CloneContentNode(target.Tree)
 	state := &domain.TerminalRuntime{
 		TerminalID: target.TerminalID, TerminalName: target.TerminalName,
-		Tree: domain.CloneContentNode(target.Tree), HackLevel: target.HackLevel, IntroText: target.IntroText,
+		AuthoredTree: authored, Tree: effectiveTree(authored, target.CommandStates),
+		HackLevel: target.HackLevel, IntroText: target.IntroText,
 		Nav: nav.Default(), Lifecycle: domain.TerminalLifecycleActive,
 		CommandStates: cloneCommandStates(target.CommandStates),
 	}
@@ -165,12 +168,34 @@ func (service *Service) UpdateRuntime(state *domain.TerminalRuntime, target doma
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	state.TerminalName = target.TerminalName
-	state.Tree = domain.CloneContentNode(target.Tree)
+	state.AuthoredTree = domain.CloneContentNode(target.Tree)
 	state.CommandStates = cloneCommandStates(target.CommandStates)
+	state.Tree = effectiveTree(state.AuthoredTree, state.CommandStates)
 	state.IntroText = target.IntroText
 	if state.Hack == nil {
 		state.HackLevel = target.HackLevel
 	}
+	state.Nav = nav.Revalidate(state.Nav, state.Tree)
+	revalidateControllerPresentation(state)
+	return publicTerminalRuntime(state)
+}
+
+// ProjectFacility refreshes one checkpoint's effective presentation from its
+// retained authored tree and the shared facility snapshot.
+func (service *Service) ProjectFacility(state *domain.TerminalRuntime, facility *domain.Facility) *domain.PublicLiveState {
+	if service == nil || state == nil {
+		return nil
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	authored := state.AuthoredTree
+	if authored.ID == "" {
+		authored = state.Tree
+		state.AuthoredTree = domain.CloneContentNode(authored)
+	}
+	projection := projectFacility(authored, state.CommandStates, facility, state.TerminalID)
+	state.Tree = projection.Tree
+	state.Effects = slices.Clone(projection.Effects)
 	state.Nav = nav.Revalidate(state.Nav, state.Tree)
 	revalidateControllerPresentation(state)
 	return publicTerminalRuntime(state)
@@ -208,8 +233,9 @@ func (service *Service) ReactivateRuntime(state *domain.TerminalRuntime, target 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	state.TerminalName = target.TerminalName
-	state.Tree = domain.CloneContentNode(target.Tree)
+	state.AuthoredTree = domain.CloneContentNode(target.Tree)
 	state.CommandStates = cloneCommandStates(target.CommandStates)
+	state.Tree = effectiveTree(state.AuthoredTree, state.CommandStates)
 	state.IntroText = target.IntroText
 	if state.Hack == nil {
 		state.HackLevel = target.HackLevel
@@ -375,7 +401,8 @@ func terminalRuntime(state *domain.LiveState) *domain.TerminalRuntime {
 	}
 	return &domain.TerminalRuntime{
 		TerminalID: state.TerminalID, TerminalName: state.TerminalName,
-		Tree: state.Tree, HackLevel: state.HackLevel, IntroText: state.IntroText,
+		AuthoredTree: domain.CloneContentNode(state.Tree), Tree: domain.CloneContentNode(state.Tree),
+		HackLevel: state.HackLevel, IntroText: state.IntroText,
 		Nav: state.Nav, Hack: state.Hack, Lifecycle: domain.TerminalLifecycleActive,
 	}
 }
@@ -386,10 +413,11 @@ func publicTerminalRuntime(state *domain.TerminalRuntime) *domain.PublicLiveStat
 	}
 	return &domain.PublicLiveState{
 		TerminalID: state.TerminalID, TerminalName: state.TerminalName,
-		Tree: effectiveTree(state.Tree, state.CommandStates), HackLevel: state.HackLevel, IntroText: state.IntroText,
+		Tree: domain.CloneContentNode(state.Tree), HackLevel: state.HackLevel, IntroText: state.IntroText,
 		Nav: cloneNav(state.Nav), Hack: hack.PublicState(state.Hack),
 		CommandExecution: cloneCommandExecution(state.CommandExecution),
 		Presentation:     state.Presentation,
+		Effects:          slices.Clone(state.Effects),
 	}
 }
 

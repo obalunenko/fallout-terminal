@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"slices"
 
+	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
+	playerservice "github.com/obalunenko/Fallout-Terminal/v2/internal/player"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
@@ -748,6 +751,226 @@ func restoreContentNodeShape(node *domain.ContentNode, template domain.ContentNo
 	}
 }
 
+func publicLiveStateFromPrivate(terminal *playerv1.LiveTerminal) (*domain.PublicLiveState, error) {
+	if terminal == nil || terminal.Tree == nil {
+		return nil, fmt.Errorf("live terminal tree is required")
+	}
+	tree, err := publicContentNodeFromPrivate(terminal.Tree)
+	if err != nil {
+		return nil, err
+	}
+	navigation, err := publicNavigationFromPrivate(terminal.Navigation)
+	if err != nil {
+		return nil, err
+	}
+	presentation, err := controllerPresentationFromPrivate(terminal.ControllerPresentation)
+	if err != nil {
+		return nil, err
+	}
+	result := &domain.PublicLiveState{
+		TerminalID:   terminal.GetTerminalId(),
+		TerminalName: terminal.GetTerminalName(),
+		Tree:         tree,
+		HackLevel:    int(terminal.GetHackLevel()),
+		IntroText:    terminal.GetIntroText(),
+		Nav:          navigation,
+		Hack:         publicHackFromPrivate(terminal.Hacking),
+		Presentation: presentation,
+	}
+	if terminal.CommandExecution != nil {
+		execution, conversionErr := commandExecutionPresentationFromPrivate(terminal.CommandExecution)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		result.CommandExecution = execution
+	}
+	if terminal.TerminalNavigation != nil {
+		navigationPresentation, conversionErr := terminalNavigationPresentationFromPrivate(terminal.TerminalNavigation)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		result.TerminalNavigation = navigationPresentation
+	}
+	if terminal.Effects != nil {
+		result.Effects = make([]domain.TerminalPresentationEffect, 0, len(terminal.Effects))
+		for _, effect := range terminal.Effects {
+			switch effect {
+			case playerv1.TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_DISPLAY_UNSTABLE:
+				result.Effects = append(result.Effects, domain.TerminalPresentationEffectDisplayUnstable)
+			case playerv1.TerminalPresentationEffect_TERMINAL_PRESENTATION_EFFECT_UNSPECIFIED:
+				continue
+			default:
+				return nil, fmt.Errorf("unsupported terminal presentation effect %d", effect)
+			}
+		}
+	}
+	return result, nil
+}
+
+func publicContentNodeFromPrivate(node *playerv1.ContentNode) (domain.ContentNode, error) {
+	if node == nil {
+		return domain.ContentNode{}, fmt.Errorf("content node is required")
+	}
+	result := domain.ContentNode{ID: node.GetId(), Name: node.GetName()}
+	switch content := node.GetContent().(type) {
+	case *playerv1.ContentNode_Folder:
+		if content.Folder == nil {
+			return domain.ContentNode{}, fmt.Errorf("content folder is required")
+		}
+		result.Type = domain.NodeFolder
+		if content.Folder.Children != nil {
+			result.Children = make([]domain.ContentNode, len(content.Folder.Children))
+			for index, child := range content.Folder.Children {
+				converted, err := publicContentNodeFromPrivate(child)
+				if err != nil {
+					return domain.ContentNode{}, err
+				}
+				result.Children[index] = converted
+			}
+		}
+	case *playerv1.ContentNode_Command:
+		if content.Command == nil {
+			return domain.ContentNode{}, fmt.Errorf("content command is required")
+		}
+		result.Type = domain.NodeCommand
+		result.Text = content.Command.GetText()
+		if content.Command.Available != nil {
+			result.Available = new(content.Command.GetAvailable())
+		}
+	case *playerv1.ContentNode_Entry:
+		if content.Entry == nil {
+			return domain.ContentNode{}, fmt.Errorf("content entry is required")
+		}
+		result.Type = domain.NodeEntry
+		result.Description = content.Entry.GetDescription()
+	default:
+		return domain.ContentNode{}, fmt.Errorf("content node variant is required")
+	}
+	return result, nil
+}
+
+func publicNavigationFromPrivate(navigation *playerv1.NavigationState) (domain.NavState, error) {
+	if navigation == nil {
+		return domain.NavState{}, fmt.Errorf("navigation state is required")
+	}
+	result := domain.NavState{Path: slices.Clone(navigation.GetPath())}
+	switch navigation.GetMode() {
+	case playerv1.NavigationMode_NAVIGATION_MODE_LIST:
+		result.Mode = "list"
+	case playerv1.NavigationMode_NAVIGATION_MODE_ENTRY:
+		result.Mode = "entry"
+	default:
+		return domain.NavState{}, fmt.Errorf("unsupported navigation mode %d", navigation.GetMode())
+	}
+	if navigation.ViewEntryId != nil {
+		result.ViewEntryID = new(navigation.GetViewEntryId())
+	}
+	if navigation.CommandNodeId != nil {
+		result.CommandNodeID = new(navigation.GetCommandNodeId())
+	}
+	return result, nil
+}
+
+func commandExecutionPresentationFromPrivate(
+	presentation *playerv1.CommandExecutionPresentation,
+) (*domain.CommandExecutionPresentation, error) {
+	if presentation == nil {
+		return nil, nil
+	}
+	result := &domain.CommandExecutionPresentation{CommandID: presentation.GetCommandNodeId()}
+	switch presentation.GetPhase() {
+	case playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_PENDING:
+		result.Phase = domain.CommandExecutionPhasePending
+	case playerv1.CommandExecutionPhase_COMMAND_EXECUTION_PHASE_REJECTED:
+		result.Phase = domain.CommandExecutionPhaseRejected
+	default:
+		return nil, fmt.Errorf("unsupported command execution phase %d", presentation.GetPhase())
+	}
+	return result, nil
+}
+
+func terminalNavigationPresentationFromPrivate(
+	presentation *playerv1.TerminalNavigationPresentation,
+) (*domain.TerminalNavigationPresentation, error) {
+	if presentation == nil {
+		return nil, nil
+	}
+	result := &domain.TerminalNavigationPresentation{RouteDepth: presentation.GetRouteDepth()}
+	if presentation.ReturnTarget != nil {
+		result.ReturnTarget = &domain.TerminalReturnTarget{
+			TerminalID: presentation.ReturnTarget.GetTerminalId(), TerminalName: presentation.ReturnTarget.GetTerminalName(),
+		}
+	}
+	if presentation.Pending != nil {
+		direction, err := previewTerminalNavigationDirectionFromPrivate(presentation.Pending.GetDirection())
+		if err != nil {
+			return nil, err
+		}
+		result.Pending = &domain.PendingTerminalNavigationPresentation{
+			Direction: direction, TargetTerminalID: presentation.Pending.GetTargetTerminalId(),
+			TargetTerminalName: presentation.Pending.GetTargetTerminalName(),
+		}
+	}
+	return result, nil
+}
+
+func previewTerminalNavigationDirectionFromPrivate(
+	direction playerv1.TerminalNavigationDirection,
+) (domain.TerminalNavigationDirection, error) {
+	switch direction {
+	case playerv1.TerminalNavigationDirection_TERMINAL_NAVIGATION_DIRECTION_FORWARD:
+		return domain.TerminalNavigationForward, nil
+	case playerv1.TerminalNavigationDirection_TERMINAL_NAVIGATION_DIRECTION_RETURN:
+		return domain.TerminalNavigationReturn, nil
+	default:
+		return "", fmt.Errorf("unsupported terminal navigation direction %d", direction)
+	}
+}
+
+func controllerPresentationFromPrivate(
+	presentation *playerv1.ControllerTerminalPresentation,
+) (domain.ControllerTerminalPresentation, error) {
+	if presentation == nil {
+		return domain.ControllerTerminalPresentation{}, fmt.Errorf("controller presentation is required")
+	}
+	result := domain.ControllerTerminalPresentation{ContextKey: presentation.GetContextKey()}
+	switch variant := presentation.GetPresentation().(type) {
+	case *playerv1.ControllerTerminalPresentation_None:
+		if variant.None == nil {
+			return domain.ControllerTerminalPresentation{}, fmt.Errorf("empty controller presentation is required")
+		}
+		result.Kind = domain.ControllerTerminalPresentationNone
+	case *playerv1.ControllerTerminalPresentation_Menu:
+		if variant.Menu == nil {
+			return domain.ControllerTerminalPresentation{}, fmt.Errorf("menu controller presentation is required")
+		}
+		result.Kind = domain.ControllerTerminalPresentationMenu
+		result.TargetID = variant.Menu.GetTargetId()
+	case *playerv1.ControllerTerminalPresentation_Page:
+		if variant.Page == nil {
+			return domain.ControllerTerminalPresentation{}, fmt.Errorf("page controller presentation is required")
+		}
+		result.Kind = domain.ControllerTerminalPresentationPage
+		result.PageIndex = variant.Page.GetPageIndex()
+	case *playerv1.ControllerTerminalPresentation_Hacking:
+		if variant.Hacking == nil {
+			return domain.ControllerTerminalPresentation{}, fmt.Errorf("hacking controller presentation is required")
+		}
+		result.Kind = domain.ControllerTerminalPresentationHacking
+		switch target := variant.Hacking.GetTarget().(type) {
+		case *playerv1.HackingPreview_TargetId:
+			result.TargetID = target.TargetId
+		case *playerv1.HackingPreview_PatternId:
+			result.PatternID = target.PatternId
+		default:
+			return domain.ControllerTerminalPresentation{}, fmt.Errorf("hacking preview target is required")
+		}
+	default:
+		return domain.ControllerTerminalPresentation{}, fmt.Errorf("controller presentation variant is required")
+	}
+	return result, nil
+}
+
 func runtimeStatusToPrivate(status RuntimeStatus) *privatev1.RuntimeStatus {
 	// Lifecycle phase is intentionally not serialized. Existing server-info and
 	// startup-error fields are the complete Overseer-visible startup projection.
@@ -993,9 +1216,561 @@ func routeResolveCommandExecutionResult(result ResolveCommandExecutionResult) Re
 	if result.Error != "" {
 		semantic.Error = &result.Error
 	}
-	return ResolveCommandExecutionResult{
+	if result.FacilityResult != nil {
+		facilityResult, err := facilityOperationResultToPrivate(*result.FacilityResult)
+		if err != nil {
+			return ResolveCommandExecutionResult{
+				Error: "facility operation result could not be represented by the private contract",
+				State: domain.CloneMasterCoordinationState(result.State),
+			}
+		}
+		semantic.FacilityResult = facilityResult
+	}
+	routed := ResolveCommandExecutionResult{
 		OK: semantic.GetOk(), Error: semantic.GetError(), State: coordinationStateFromPrivate(semantic.GetState()),
 	}
+	if semantic.FacilityResult != nil {
+		facilityResult, err := facilityOperationResultFromPrivate(semantic.FacilityResult, *result.FacilityResult)
+		if err != nil {
+			return ResolveCommandExecutionResult{
+				Error: "facility operation result could not be represented by the private contract",
+				State: domain.CloneMasterCoordinationState(result.State),
+			}
+		}
+		routed.FacilityResult = facilityResult
+	}
+	return routed
+}
+
+func facilityOperationResultToPrivate(result domain.FacilityOperationResult) (*privatev1.FacilityOperationResult, error) {
+	semantic := &privatev1.FacilityOperationResult{
+		Ok:                        result.OK,
+		Changed:                   result.Changed,
+		CorrelationId:             result.CorrelationID,
+		Failure:                   facilityFailureCodeToPrivate(result.Failure),
+		SessionRevision:           result.SessionRevision,
+		PreviousFacilityRevision:  result.PreviousFacilityRevision,
+		ResultingFacilityRevision: result.ResultingFacilityRevision,
+		AffectedDeviceIds:         slices.Clone(result.AffectedDeviceIDs),
+		AffectedConditionIds:      slices.Clone(result.AffectedConditionIDs),
+	}
+	if result.Issues != nil {
+		semantic.Issues = make([]*privatev1.FacilityIssue, len(result.Issues))
+		for index, issue := range result.Issues {
+			semantic.Issues[index] = facilityIssueToPrivate(issue)
+		}
+	}
+	if result.Session != nil {
+		session, err := sessionservice.SessionToProto(*result.Session)
+		if err != nil {
+			return nil, fmt.Errorf("mapping facility operation session: %w", err)
+		}
+		semantic.Session = session
+	}
+	return semantic, nil
+}
+
+func facilityOperationResultFromPrivate(
+	result *privatev1.FacilityOperationResult,
+	template domain.FacilityOperationResult,
+) (*domain.FacilityOperationResult, error) {
+	if result == nil {
+		return nil, nil
+	}
+	failure := facilityFailureCodeFromPrivate(result.GetFailure())
+	if result.GetFailure() == privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED && template.Failure == "" {
+		failure = ""
+	}
+	native := &domain.FacilityOperationResult{
+		OK:                        result.GetOk(),
+		Changed:                   result.GetChanged(),
+		CorrelationID:             result.GetCorrelationId(),
+		Failure:                   failure,
+		SessionRevision:           result.GetSessionRevision(),
+		PreviousFacilityRevision:  result.GetPreviousFacilityRevision(),
+		ResultingFacilityRevision: result.GetResultingFacilityRevision(),
+		AffectedDeviceIDs:         slices.Clone(result.GetAffectedDeviceIds()),
+		AffectedConditionIDs:      slices.Clone(result.GetAffectedConditionIds()),
+	}
+	if result.Issues != nil {
+		native.Issues = make([]domain.FacilityIssue, len(result.Issues))
+		for index, issue := range result.Issues {
+			native.Issues[index] = facilityIssueFromPrivate(issue)
+		}
+	}
+	if result.Session != nil {
+		sessionTemplate := domain.Session{}
+		if template.Session != nil {
+			sessionTemplate = *template.Session
+		}
+		session, err := sessionservice.SessionFromProto(result.Session, sessionTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("mapping facility operation session: %w", err)
+		}
+		restoreSessionNativeShape(&session, sessionTemplate)
+		native.Session = &session
+	}
+	return native, nil
+}
+
+func facilityIssueToPrivate(issue domain.FacilityIssue) *privatev1.FacilityIssue {
+	semantic := &privatev1.FacilityIssue{
+		Code:       facilityFailureCodeToPrivate(issue.Code),
+		EntityKind: issue.EntityKind,
+	}
+	if issue.EntityID != nil {
+		semantic.EntityId = new(*issue.EntityID)
+	}
+	if issue.ReferenceKind != nil {
+		semantic.ReferenceKind = new(*issue.ReferenceKind)
+	}
+	if issue.ReferenceID != nil {
+		semantic.ReferenceId = new(*issue.ReferenceID)
+	}
+	return semantic
+}
+
+func facilityIssueFromPrivate(issue *privatev1.FacilityIssue) domain.FacilityIssue {
+	if issue == nil {
+		return domain.FacilityIssue{}
+	}
+	native := domain.FacilityIssue{
+		Code:       facilityFailureCodeFromPrivate(issue.GetCode()),
+		EntityKind: issue.GetEntityKind(),
+	}
+	if issue.EntityId != nil {
+		native.EntityID = new(issue.GetEntityId())
+	}
+	if issue.ReferenceKind != nil {
+		native.ReferenceKind = new(issue.GetReferenceKind())
+	}
+	if issue.ReferenceId != nil {
+		native.ReferenceID = new(issue.GetReferenceId())
+	}
+	return native
+}
+
+func facilityAuthoringRequestToPrivate(request controlservice.FacilityAuthoringRequest) (*privatev1.SaveFacilityAuthoringRequest, error) {
+	session, err := sessionservice.SessionToProto(request.Candidate)
+	if err != nil {
+		return nil, fmt.Errorf("mapping facility authoring candidate: %w", err)
+	}
+	return &privatev1.SaveFacilityAuthoringRequest{
+		Session:                  session,
+		ExpectedSessionRevision:  request.ExpectedSessionRevision,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+	}, nil
+}
+
+func facilityAuthoringRequestFromPrivate(
+	request *privatev1.SaveFacilityAuthoringRequest,
+	template domain.Session,
+) (controlservice.FacilityAuthoringRequest, error) {
+	if request == nil || request.Session == nil {
+		return controlservice.FacilityAuthoringRequest{}, fmt.Errorf("facility authoring session is required")
+	}
+	candidate, err := sessionservice.SessionFromProto(request.Session, template)
+	if err != nil {
+		return controlservice.FacilityAuthoringRequest{}, fmt.Errorf("mapping facility authoring candidate: %w", err)
+	}
+	restoreSessionNativeShape(&candidate, template)
+	return controlservice.FacilityAuthoringRequest{
+		Candidate:                candidate,
+		ExpectedSessionRevision:  request.GetExpectedSessionRevision(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+	}, nil
+}
+
+func facilityRecoveryRequestToPrivate(
+	request controlservice.FacilityRecoveryRequest,
+) (*privatev1.RecoverFacilityConditionRequest, error) {
+	if request.Recovery == nil {
+		return nil, fmt.Errorf("facility recovery reference is required")
+	}
+	recovery, err := diagnosticRecoveryReferenceToPrivate(*request.Recovery)
+	if err != nil {
+		return nil, err
+	}
+	return &privatev1.RecoverFacilityConditionRequest{
+		ConditionId:              request.ConditionID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+		Recovery:                 recovery,
+	}, nil
+}
+
+func facilityRecoveryRequestFromPrivate(
+	request *privatev1.RecoverFacilityConditionRequest,
+) (controlservice.FacilityRecoveryRequest, error) {
+	if request == nil || request.Recovery == nil {
+		return controlservice.FacilityRecoveryRequest{}, fmt.Errorf("facility recovery reference is required")
+	}
+	recovery, err := diagnosticRecoveryReferenceFromPrivate(request.Recovery)
+	if err != nil {
+		return controlservice.FacilityRecoveryRequest{}, err
+	}
+	return controlservice.FacilityRecoveryRequest{
+		ConditionID:              request.GetConditionId(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+		Recovery:                 &recovery,
+	}, nil
+}
+
+func facilityPreviewRequestToPrivate(preview domain.FacilityPreview) (*privatev1.PreviewFacilityRequest, error) {
+	semantic := &privatev1.PreviewFacilityRequest{
+		ExpectedFacilityRevision: preview.ExpectedFacilityRevision,
+		TerminalId:               preview.TerminalID,
+	}
+	switch {
+	case preview.DeviceState != nil && preview.Condition == nil:
+		semantic.Preview = &privatev1.PreviewFacilityRequest_DeviceState{
+			DeviceState: &privatev1.PreviewFacilityDeviceState{
+				DeviceId: preview.DeviceState.DeviceID,
+				StateId:  preview.DeviceState.StateID,
+			},
+		}
+	case preview.DeviceState == nil && preview.Condition != nil:
+		semantic.Preview = &privatev1.PreviewFacilityRequest_Condition{
+			Condition: &privatev1.PreviewFacilityCondition{
+				ConditionId: preview.Condition.ConditionID,
+				Active:      preview.Condition.Active,
+			},
+		}
+	default:
+		return nil, fmt.Errorf("exactly one facility preview variant is required")
+	}
+	return semantic, nil
+}
+
+func facilityPreviewRequestFromPrivate(request *privatev1.PreviewFacilityRequest) (domain.FacilityPreview, error) {
+	if request == nil {
+		return domain.FacilityPreview{}, fmt.Errorf("facility preview request is required")
+	}
+	preview := domain.FacilityPreview{
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		TerminalID:               request.GetTerminalId(),
+	}
+	switch variant := request.GetPreview().(type) {
+	case *privatev1.PreviewFacilityRequest_DeviceState:
+		if variant.DeviceState == nil {
+			return domain.FacilityPreview{}, fmt.Errorf("facility device-state preview is required")
+		}
+		preview.DeviceState = &domain.FacilityDeviceStatePreview{
+			DeviceID: variant.DeviceState.GetDeviceId(),
+			StateID:  variant.DeviceState.GetStateId(),
+		}
+	case *privatev1.PreviewFacilityRequest_Condition:
+		if variant.Condition == nil {
+			return domain.FacilityPreview{}, fmt.Errorf("facility condition preview is required")
+		}
+		preview.Condition = &domain.FacilityConditionPreview{
+			ConditionID: variant.Condition.GetConditionId(),
+			Active:      variant.Condition.GetActive(),
+		}
+	default:
+		return domain.FacilityPreview{}, fmt.Errorf("facility preview variant is required")
+	}
+	return preview, nil
+}
+
+func facilityPreviewResultToPrivate(result controlservice.FacilityPreviewResult) *privatev1.PreviewFacilityResult {
+	semantic := &privatev1.PreviewFacilityResult{
+		Ok:               result.OK,
+		Failure:          facilityFailureCodeToPrivate(result.Failure),
+		FacilityRevision: result.FacilityRevision,
+		Terminal:         playerservice.LiveToProto(result.Terminal),
+	}
+	if result.Issues != nil {
+		semantic.Issues = make([]*privatev1.FacilityIssue, len(result.Issues))
+		for index, issue := range result.Issues {
+			semantic.Issues[index] = facilityIssueToPrivate(issue)
+		}
+	}
+	return semantic
+}
+
+func facilityPreviewResultFromPrivate(result *privatev1.PreviewFacilityResult) (controlservice.FacilityPreviewResult, error) {
+	if result == nil {
+		return controlservice.FacilityPreviewResult{}, fmt.Errorf("facility preview result is required")
+	}
+	failure := facilityFailureCodeFromPrivate(result.GetFailure())
+	if result.GetOk() && result.GetFailure() == privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED {
+		failure = ""
+	}
+	native := controlservice.FacilityPreviewResult{
+		OK:               result.GetOk(),
+		Failure:          failure,
+		FacilityRevision: result.GetFacilityRevision(),
+	}
+	if result.Issues != nil {
+		native.Issues = make([]domain.FacilityIssue, len(result.Issues))
+		for index, issue := range result.Issues {
+			native.Issues[index] = facilityIssueFromPrivate(issue)
+		}
+	}
+	if result.Terminal != nil {
+		terminal, err := publicLiveStateFromPrivate(result.Terminal)
+		if err != nil {
+			return controlservice.FacilityPreviewResult{}, fmt.Errorf("mapping facility preview terminal: %w", err)
+		}
+		native.Terminal = terminal
+	}
+	return native, nil
+}
+
+func facilityDeviceResetRequestToPrivate(request controlservice.FacilityDeviceResetRequest) *privatev1.ResetFacilityDeviceRequest {
+	return &privatev1.ResetFacilityDeviceRequest{
+		DeviceId:                 request.DeviceID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+	}
+}
+
+func facilityDeviceResetRequestFromPrivate(request *privatev1.ResetFacilityDeviceRequest) controlservice.FacilityDeviceResetRequest {
+	if request == nil {
+		return controlservice.FacilityDeviceResetRequest{}
+	}
+	return controlservice.FacilityDeviceResetRequest{
+		DeviceID:                 request.GetDeviceId(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+	}
+}
+
+func facilityResetRequestToPrivate(request controlservice.FacilityResetRequest) *privatev1.ResetFacilityRequest {
+	return &privatev1.ResetFacilityRequest{
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+	}
+}
+
+func facilityResetRequestFromPrivate(request *privatev1.ResetFacilityRequest) controlservice.FacilityResetRequest {
+	if request == nil {
+		return controlservice.FacilityResetRequest{}
+	}
+	return controlservice.FacilityResetRequest{
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+	}
+}
+
+func diagnosticRecoveryReferenceToPrivate(
+	reference domain.DiagnosticRecoveryReference,
+) (*persistencev1.DiagnosticRecoveryReference, error) {
+	result := &persistencev1.DiagnosticRecoveryReference{}
+	switch {
+	case reference.Transition != nil && reference.RecoveryProgramID == nil && reference.PrivateOverseerAction == nil:
+		result.Recovery = &persistencev1.DiagnosticRecoveryReference_Transition{
+			Transition: &persistencev1.FacilityTransitionRequest{
+				DeviceId: reference.Transition.DeviceID, TransitionId: reference.Transition.TransitionID,
+			},
+		}
+	case reference.Transition == nil && reference.RecoveryProgramID != nil && reference.PrivateOverseerAction == nil:
+		result.Recovery = &persistencev1.DiagnosticRecoveryReference_RecoveryProgramId{
+			RecoveryProgramId: *reference.RecoveryProgramID,
+		}
+	case reference.Transition == nil && reference.RecoveryProgramID == nil && reference.PrivateOverseerAction != nil:
+		result.Recovery = &persistencev1.DiagnosticRecoveryReference_PrivateOverseerAction{
+			PrivateOverseerAction: *reference.PrivateOverseerAction,
+		}
+	default:
+		return nil, fmt.Errorf("exactly one facility recovery variant is required")
+	}
+	return result, nil
+}
+
+func diagnosticRecoveryReferenceFromPrivate(
+	reference *persistencev1.DiagnosticRecoveryReference,
+) (domain.DiagnosticRecoveryReference, error) {
+	if reference == nil {
+		return domain.DiagnosticRecoveryReference{}, fmt.Errorf("facility recovery reference is required")
+	}
+	result := domain.DiagnosticRecoveryReference{}
+	switch recovery := reference.GetRecovery().(type) {
+	case *persistencev1.DiagnosticRecoveryReference_Transition:
+		if recovery.Transition == nil {
+			return domain.DiagnosticRecoveryReference{}, fmt.Errorf("facility recovery transition is required")
+		}
+		result.Transition = &domain.FacilityTransitionRequest{
+			DeviceID: recovery.Transition.GetDeviceId(), TransitionID: recovery.Transition.GetTransitionId(),
+		}
+	case *persistencev1.DiagnosticRecoveryReference_RecoveryProgramId:
+		result.RecoveryProgramID = new(recovery.RecoveryProgramId)
+	case *persistencev1.DiagnosticRecoveryReference_PrivateOverseerAction:
+		result.PrivateOverseerAction = new(recovery.PrivateOverseerAction)
+	default:
+		return domain.DiagnosticRecoveryReference{}, fmt.Errorf("facility recovery variant is required")
+	}
+	return result, nil
+}
+
+type facilityDependencyInspectionRequest struct {
+	Target                   *domain.FacilityEntityReference
+	ExpectedSessionRevision  uint64
+	ExpectedFacilityRevision uint64
+}
+
+func facilityDependencyInspectionRequestToPrivate(request facilityDependencyInspectionRequest) *privatev1.InspectFacilityDependenciesRequest {
+	semantic := &privatev1.InspectFacilityDependenciesRequest{
+		ExpectedSessionRevision:  request.ExpectedSessionRevision,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+	}
+	if request.Target != nil {
+		semantic.Target = facilityEntityReferenceToPrivate(*request.Target)
+	}
+	return semantic
+}
+
+func facilityDependencyInspectionRequestFromPrivate(request *privatev1.InspectFacilityDependenciesRequest) facilityDependencyInspectionRequest {
+	if request == nil {
+		return facilityDependencyInspectionRequest{}
+	}
+	native := facilityDependencyInspectionRequest{
+		ExpectedSessionRevision:  request.GetExpectedSessionRevision(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+	}
+	if request.Target != nil {
+		target := facilityEntityReferenceFromPrivate(request.Target)
+		native.Target = &target
+	}
+	return native
+}
+
+type facilityDependencyInspectionResult struct {
+	OK               bool
+	Failure          domain.FacilityFailureCode
+	Issues           []domain.FacilityIssue
+	SessionRevision  uint64
+	FacilityRevision uint64
+	Report           *domain.FacilityDependencyReport
+}
+
+func facilityDependencyInspectionResultToPrivate(result facilityDependencyInspectionResult) *privatev1.InspectFacilityDependenciesResult {
+	semantic := &privatev1.InspectFacilityDependenciesResult{
+		Ok:               result.OK,
+		Failure:          facilityFailureCodeToPrivate(result.Failure),
+		SessionRevision:  result.SessionRevision,
+		FacilityRevision: result.FacilityRevision,
+	}
+	if result.Issues != nil {
+		semantic.Issues = make([]*privatev1.FacilityIssue, len(result.Issues))
+		for index, issue := range result.Issues {
+			semantic.Issues[index] = facilityIssueToPrivate(issue)
+		}
+	}
+	if result.Report != nil {
+		semantic.Report = facilityDependencyReportToPrivate(*result.Report)
+	}
+	return semantic
+}
+
+func facilityDependencyInspectionResultFromPrivate(result *privatev1.InspectFacilityDependenciesResult) facilityDependencyInspectionResult {
+	if result == nil {
+		return facilityDependencyInspectionResult{}
+	}
+	failure := facilityFailureCodeFromPrivate(result.GetFailure())
+	if result.GetOk() && result.GetFailure() == privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED {
+		failure = ""
+	}
+	native := facilityDependencyInspectionResult{
+		OK:               result.GetOk(),
+		Failure:          failure,
+		SessionRevision:  result.GetSessionRevision(),
+		FacilityRevision: result.GetFacilityRevision(),
+	}
+	if result.Issues != nil {
+		native.Issues = make([]domain.FacilityIssue, len(result.Issues))
+		for index, issue := range result.Issues {
+			native.Issues[index] = facilityIssueFromPrivate(issue)
+		}
+	}
+	if result.Report != nil {
+		report := facilityDependencyReportFromPrivate(result.Report)
+		native.Report = &report
+	}
+	return native
+}
+
+func facilityDependencyReportToPrivate(report domain.FacilityDependencyReport) *privatev1.FacilityDependencyReport {
+	semantic := &privatev1.FacilityDependencyReport{Target: facilityEntityReferenceToPrivate(report.Target)}
+	if report.Dependencies != nil {
+		semantic.Dependencies = make([]*privatev1.FacilityDependency, len(report.Dependencies))
+		for index, dependency := range report.Dependencies {
+			semantic.Dependencies[index] = facilityDependencyToPrivate(dependency)
+		}
+	}
+	return semantic
+}
+
+func facilityDependencyReportFromPrivate(report *privatev1.FacilityDependencyReport) domain.FacilityDependencyReport {
+	if report == nil {
+		return domain.FacilityDependencyReport{}
+	}
+	native := domain.FacilityDependencyReport{Target: facilityEntityReferenceFromPrivate(report.Target)}
+	if report.Dependencies != nil {
+		native.Dependencies = make([]domain.FacilityDependency, len(report.Dependencies))
+		for index, dependency := range report.Dependencies {
+			native.Dependencies[index] = facilityDependencyFromPrivate(dependency)
+		}
+	}
+	return native
+}
+
+func facilityEntityReferenceToPrivate(reference domain.FacilityEntityReference) *privatev1.FacilityEntityReference {
+	semantic := &privatev1.FacilityEntityReference{
+		Kind:     facilityEntityKindToPrivate(reference.Kind),
+		EntityId: reference.EntityID,
+	}
+	if reference.OwnerID != nil {
+		semantic.OwnerId = new(*reference.OwnerID)
+	}
+	return semantic
+}
+
+func facilityEntityReferenceFromPrivate(reference *privatev1.FacilityEntityReference) domain.FacilityEntityReference {
+	if reference == nil {
+		return domain.FacilityEntityReference{}
+	}
+	native := domain.FacilityEntityReference{
+		Kind:     facilityEntityKindFromPrivate(reference.GetKind()),
+		EntityID: reference.GetEntityId(),
+	}
+	if reference.OwnerId != nil {
+		native.OwnerID = new(reference.GetOwnerId())
+	}
+	return native
+}
+
+func facilityDependencyToPrivate(dependency domain.FacilityDependency) *privatev1.FacilityDependency {
+	semantic := &privatev1.FacilityDependency{
+		Kind:     facilityDependencyKindToPrivate(dependency.Kind),
+		SourceId: dependency.SourceID,
+		TargetId: dependency.TargetID,
+		Property: dependency.Property,
+	}
+	if dependency.TerminalID != nil {
+		semantic.TerminalId = new(*dependency.TerminalID)
+	}
+	return semantic
+}
+
+func facilityDependencyFromPrivate(dependency *privatev1.FacilityDependency) domain.FacilityDependency {
+	if dependency == nil {
+		return domain.FacilityDependency{}
+	}
+	native := domain.FacilityDependency{
+		Kind:     facilityDependencyKindFromPrivate(dependency.GetKind()),
+		SourceID: dependency.GetSourceId(),
+		TargetID: dependency.GetTargetId(),
+		Property: dependency.GetProperty(),
+	}
+	if dependency.TerminalId != nil {
+		native.TerminalID = new(dependency.GetTerminalId())
+	}
+	return native
 }
 
 func routeResolveTerminalNavigationResult(result ResolveTerminalNavigationResult) ResolveTerminalNavigationResult {
@@ -1110,6 +1885,9 @@ func coordinationStateToPrivate(state *domain.MasterCoordinationState) *privatev
 		Revision:        state.Revision,
 		PlayerConfig:    playerConfigMetadataToPrivate(state.PlayerConfig),
 	}
+	if state.FacilityRevision != nil {
+		result.FacilityRevision = new(*state.FacilityRevision)
+	}
 	for _, entry := range state.Roster {
 		mapped := &privatev1.CharacterState{
 			CharacterId:         string(entry.ID),
@@ -1165,7 +1943,8 @@ func coordinationStateToPrivate(state *domain.MasterCoordinationState) *privatev
 			RequestId: pending.RequestID, BroadcastId: string(pending.BroadcastID),
 			TerminalId: pending.TerminalID, CommandId: pending.CommandID,
 			CommandName: pending.CommandName, ConfirmationText: pending.ConfirmationText,
-			CommandMode: string(pending.Mode),
+			CommandMode:    string(pending.Mode),
+			FacilityAction: pendingFacilityActionSummaryToPrivate(pending.FacilityAction),
 		}
 	}
 	if state.PendingTerminalNavigation != nil {
@@ -1197,6 +1976,9 @@ func coordinationStateFromPrivate(state *privatev1.CoordinationState) *domain.Ma
 		return nil
 	}
 	result := &domain.MasterCoordinationState{Revision: state.GetRevision(), PlayerConfig: playerConfigMetadataFromPrivate(state.GetPlayerConfig())}
+	if state.FacilityRevision != nil {
+		result.FacilityRevision = new(state.GetFacilityRevision())
+	}
 	for _, entry := range state.GetRoster() {
 		mapped := domain.MasterRosterEntry{
 			ID:                  domain.CharacterID(entry.GetCharacterId()),
@@ -1255,7 +2037,7 @@ func coordinationStateFromPrivate(state *privatev1.CoordinationState) *domain.Ma
 			RequestID: pending.GetRequestId(), BroadcastID: domain.BroadcastID(pending.GetBroadcastId()),
 			TerminalID: pending.GetTerminalId(), CommandID: pending.GetCommandId(),
 			CommandName: pending.GetCommandName(), Mode: domain.CommandApprovalMode(pending.GetCommandMode()),
-			ConfirmationText: pending.GetConfirmationText(),
+			ConfirmationText: pending.GetConfirmationText(), FacilityAction: pendingFacilityActionSummaryFromPrivate(pending.GetFacilityAction()),
 		}
 	}
 	if state.PendingTerminalNavigation != nil {
@@ -1278,6 +2060,46 @@ func coordinationStateFromPrivate(state *privatev1.CoordinationState) *domain.Ma
 			value := notice.GetTargetTerminalId()
 			result.TerminalNavigationNotice.TargetTerminalID = &value
 		}
+	}
+	return result
+}
+
+func pendingFacilityActionSummaryToPrivate(action *domain.PendingFacilityAction) *privatev1.PendingFacilityActionSummary {
+	if action == nil {
+		return nil
+	}
+	result := &privatev1.PendingFacilityActionSummary{
+		ExpectedFacilityRevision: action.ExpectedFacilityRevision,
+		ConditionIds:             slices.Clone(action.AffectedConditionIDs),
+	}
+	if action.TransitionRequests != nil {
+		result.DeviceIds = make([]string, len(action.TransitionRequests))
+		for index, transition := range action.TransitionRequests {
+			result.DeviceIds[index] = transition.DeviceID
+		}
+	}
+	if action.RecoveryProgramID != nil {
+		result.RecoveryProgramId = new(*action.RecoveryProgramID)
+	}
+	return result
+}
+
+func pendingFacilityActionSummaryFromPrivate(summary *privatev1.PendingFacilityActionSummary) *domain.PendingFacilityAction {
+	if summary == nil {
+		return nil
+	}
+	result := &domain.PendingFacilityAction{
+		ExpectedFacilityRevision: summary.GetExpectedFacilityRevision(),
+		AffectedConditionIDs:     slices.Clone(summary.GetConditionIds()),
+	}
+	if summary.DeviceIds != nil {
+		result.TransitionRequests = make([]domain.FacilityTransitionRequest, len(summary.DeviceIds))
+		for index, deviceID := range summary.DeviceIds {
+			result.TransitionRequests[index].DeviceID = deviceID
+		}
+	}
+	if summary.RecoveryProgramId != nil {
+		result.RecoveryProgramID = new(summary.GetRecoveryProgramId())
 	}
 	return result
 }
@@ -1526,6 +2348,164 @@ func commandExecutionDecisionFromPrivate(decision privatev1.CommandExecutionDeci
 		return domain.CommandExecutionReject
 	default:
 		return ""
+	}
+}
+
+func facilityFailureCodeToPrivate(code domain.FacilityFailureCode) privatev1.FacilityFailureCode {
+	switch code {
+	case domain.FacilityFailureRejected:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_REJECTED
+	case domain.FacilityFailureMissingReference:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_MISSING_REFERENCE
+	case domain.FacilityFailureInvalidTransition:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_INVALID_TRANSITION
+	case domain.FacilityFailurePreconditionFailed:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_PRECONDITION_FAILED
+	case domain.FacilityFailureStaleRevision:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_STALE_REVISION
+	case domain.FacilityFailureConflict:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_CONFLICT
+	case domain.FacilityFailureDuplicate:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_DUPLICATE
+	case domain.FacilityFailureInvalidConfiguration:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_INVALID_CONFIGURATION
+	case domain.FacilityFailurePersistenceFailed:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_PERSISTENCE_FAILED
+	case domain.FacilityFailureRuntimeContextEnded:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_RUNTIME_CONTEXT_ENDED
+	case domain.FacilityFailureUnspecified:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED
+	default:
+		return privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED
+	}
+}
+
+func facilityFailureCodeFromPrivate(code privatev1.FacilityFailureCode) domain.FacilityFailureCode {
+	switch code {
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_REJECTED:
+		return domain.FacilityFailureRejected
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_MISSING_REFERENCE:
+		return domain.FacilityFailureMissingReference
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_INVALID_TRANSITION:
+		return domain.FacilityFailureInvalidTransition
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_PRECONDITION_FAILED:
+		return domain.FacilityFailurePreconditionFailed
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_STALE_REVISION:
+		return domain.FacilityFailureStaleRevision
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_CONFLICT:
+		return domain.FacilityFailureConflict
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_DUPLICATE:
+		return domain.FacilityFailureDuplicate
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_INVALID_CONFIGURATION:
+		return domain.FacilityFailureInvalidConfiguration
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_PERSISTENCE_FAILED:
+		return domain.FacilityFailurePersistenceFailed
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_RUNTIME_CONTEXT_ENDED:
+		return domain.FacilityFailureRuntimeContextEnded
+	case privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED:
+		return domain.FacilityFailureUnspecified
+	default:
+		return domain.FacilityFailureUnspecified
+	}
+}
+
+func facilityEntityKindToPrivate(kind domain.FacilityEntityKind) privatev1.FacilityEntityKind {
+	switch kind {
+	case domain.FacilityEntityKindDevice:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE
+	case domain.FacilityEntityKindDeviceState:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE_STATE
+	case domain.FacilityEntityKindDeviceTransition:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE_TRANSITION
+	case domain.FacilityEntityKindCondition:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_CONDITION
+	case domain.FacilityEntityKindRecoveryProgram:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_RECOVERY_PROGRAM
+	case domain.FacilityEntityKindUnspecified:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_UNSPECIFIED
+	default:
+		return privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_UNSPECIFIED
+	}
+}
+
+func facilityEntityKindFromPrivate(kind privatev1.FacilityEntityKind) domain.FacilityEntityKind {
+	switch kind {
+	case privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE:
+		return domain.FacilityEntityKindDevice
+	case privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE_STATE:
+		return domain.FacilityEntityKindDeviceState
+	case privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE_TRANSITION:
+		return domain.FacilityEntityKindDeviceTransition
+	case privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_CONDITION:
+		return domain.FacilityEntityKindCondition
+	case privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_RECOVERY_PROGRAM:
+		return domain.FacilityEntityKindRecoveryProgram
+	case privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_UNSPECIFIED:
+		return domain.FacilityEntityKindUnspecified
+	default:
+		return domain.FacilityEntityKindUnspecified
+	}
+}
+
+func facilityDependencyKindToPrivate(kind domain.FacilityDependencyKind) privatev1.FacilityDependencyKind {
+	switch kind {
+	case domain.FacilityDependencyKindTransitionPrecondition:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_TRANSITION_PRECONDITION
+	case domain.FacilityDependencyKindTransitionConditionEffect:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_TRANSITION_CONDITION_EFFECT
+	case domain.FacilityDependencyKindRecoveryReference:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_RECOVERY_REFERENCE
+	case domain.FacilityDependencyKindRecoveryProgramTransition:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_RECOVERY_PROGRAM_TRANSITION
+	case domain.FacilityDependencyKindCommandAction:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_COMMAND_ACTION
+	case domain.FacilityDependencyKindNameVariant:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_NAME_VARIANT
+	case domain.FacilityDependencyKindEntryContentVariant:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_ENTRY_CONTENT_VARIANT
+	case domain.FacilityDependencyKindVisibility:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_VISIBILITY
+	case domain.FacilityDependencyKindAvailability:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_AVAILABILITY
+	case domain.FacilityDependencyKindDiagnosticScope:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_DIAGNOSTIC_SCOPE
+	case domain.FacilityDependencyKindDiagnosticEffect:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_DIAGNOSTIC_EFFECT
+	case domain.FacilityDependencyKindUnspecified:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_UNSPECIFIED
+	default:
+		return privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_UNSPECIFIED
+	}
+}
+
+func facilityDependencyKindFromPrivate(kind privatev1.FacilityDependencyKind) domain.FacilityDependencyKind {
+	switch kind {
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_TRANSITION_PRECONDITION:
+		return domain.FacilityDependencyKindTransitionPrecondition
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_TRANSITION_CONDITION_EFFECT:
+		return domain.FacilityDependencyKindTransitionConditionEffect
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_RECOVERY_REFERENCE:
+		return domain.FacilityDependencyKindRecoveryReference
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_RECOVERY_PROGRAM_TRANSITION:
+		return domain.FacilityDependencyKindRecoveryProgramTransition
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_COMMAND_ACTION:
+		return domain.FacilityDependencyKindCommandAction
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_NAME_VARIANT:
+		return domain.FacilityDependencyKindNameVariant
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_ENTRY_CONTENT_VARIANT:
+		return domain.FacilityDependencyKindEntryContentVariant
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_VISIBILITY:
+		return domain.FacilityDependencyKindVisibility
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_AVAILABILITY:
+		return domain.FacilityDependencyKindAvailability
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_DIAGNOSTIC_SCOPE:
+		return domain.FacilityDependencyKindDiagnosticScope
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_DIAGNOSTIC_EFFECT:
+		return domain.FacilityDependencyKindDiagnosticEffect
+	case privatev1.FacilityDependencyKind_FACILITY_DEPENDENCY_KIND_UNSPECIFIED:
+		return domain.FacilityDependencyKindUnspecified
+	default:
+		return domain.FacilityDependencyKindUnspecified
 	}
 }
 

@@ -570,10 +570,17 @@ test('take-off-air prevents duplicates and focuses the surviving broadcast contr
 test('bundled read-only demo exposes every configurable command mode and a completed example', async () => {
   const demo = JSON.parse(await readFile(BUNDLED_DEMO_URL, 'utf8'));
   const terminalIDs = new Set(demo.terminals.map(terminal => terminal.id));
-  expect([...terminalIDs]).toEqual(['t_demo1', 't_demo2']);
+  expect([...terminalIDs]).toEqual([
+    't_demo1',
+    't_demo2',
+    't_demo_hack_1',
+    't_demo_hack_2',
+    't_demo_hack_3',
+    't_demo_hack_4',
+  ]);
   expect(demo.playerConfig).toBe('demo-players.json');
-  expect(demo.terminals.some(terminal => terminal.hackLevel === 0)).toBe(true);
-  expect(demo.terminals.some(terminal => terminal.hackLevel > 0 && terminal.hackLevel <= 5)).toBe(true);
+  expect(demo.terminals.map(terminal => terminal.hackLevel).sort((left, right) => left - right))
+    .toEqual([0, 1, 2, 3, 4, 5]);
   expect(demo.terminals.some(terminal => terminal.introText.trim() !== '')).toBe(true);
   expect(demo.terminals.some(terminal => terminal.introText === '')).toBe(true);
   const nodes = demo.terminals.flatMap((terminal) => {

@@ -1,0 +1,2981 @@
+{
+  "workflow": "companion",
+  "specName": "facility state system",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T20:36:09.681Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T20:40:14.848Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T20:41:40.151Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T20:48:17.848Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T20:52:57.561Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T20:53:49.554Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T21:07:51.210Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:13:26.440Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T21:15:23.119Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-03T21:15:39.926Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:16:51.956Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:19:25.607Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:21:58.319Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:24:29.839Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:25:41.157Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:25:50.124Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:26:32.827Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:28:33.875Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:30:01.023Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:30:10.221Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:30:26.471Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:31:45.820Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:32:21.608Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:32:25.202Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:32:44.958Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:33:42.085Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:38:47.592Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:42:57.547Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:43:37.804Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:48:23.821Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:58:22.415Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T21:59:51.497Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:02:50.752Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:02:58.161Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:09:54.781Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:14:09.761Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:14:58.902Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:15:37.618Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:25:59.520Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:29:54.521Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:30:52.977Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:37:47.906Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:40:47.509Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:40:51.136Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:41:03.712Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:41:32.813Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:42:22.469Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:46:04.301Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:47:07.149Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:49:46.460Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T22:50:49.057Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:04:07.319Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:06:02.451Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:07:49.615Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:14:37.949Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:15:51.980Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:17:49.783Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:18:05.551Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:21:30.124Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T050",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:24:28.002Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T051",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:32:27.819Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T052",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:36:52.125Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T053",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:48:06.920Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T054",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:48:44.958Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T055",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:50:04.022Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T057",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:53:24.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T056",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:53:58.618Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T058",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T23:54:16.582Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T059",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:12:06.279Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T061",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:14:20.620Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T063",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:15:38.605Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T060",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:17:35.335Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T062",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:18:14.597Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T064",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:20:23.152Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T066",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:22:42.871Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T065",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:27:18.194Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T067",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:33:11.913Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T070",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:36:05.160Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T069",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:42:01.191Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T068",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T00:43:09.575Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T074",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:02:06.310Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T071",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:03:33.036Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T072",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:04:20.355Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T073",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:07:27.222Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T075",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:10:38.273Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T076",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:12:54.264Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T077",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:17:09.648Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T078",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:21:46.443Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T079",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:26:39.231Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T080",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:27:12.194Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T081",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:28:43.689Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T082",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:36:44.669Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T083",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:38:56.699Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T087",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:40:41.627Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T084",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:42:09.010Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T085",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:42:42.206Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T086",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:46:54.783Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T088",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:50:29.941Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T089",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:55:07.688Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T090",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T01:58:18.688Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T091",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:05:17.096Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T094",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:07:51.515Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T093",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:07:54.111Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T095",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:07:59.982Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T096",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:10:04.403Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T092",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:10:20.543Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T097",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:15:30.360Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T098",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:21:15.263Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T101",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:22:43.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T100",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:27:55.444Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T099",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:32:57.529Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T102",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:38:55.600Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T105",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:40:15.121Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T103",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:40:17.961Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T104",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:40:27.748Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T106",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:40:43.852Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T107",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:54:20.938Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T108",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T02:55:28.520Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T109",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T03:03:36.627Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T110",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T03:11:09.329Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T111",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T03:24:19.226Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T03:24:19.246Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "start",
+      "by": "ai",
+      "at": "2026-09-04T07:08:27.152Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T112",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T07:08:33.546Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T113",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T07:16:03.356Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T114",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T07:17:37.122Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T115",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T07:20:48.477Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T116",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T07:22:39.463Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-1",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-04T07:22:39.537Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-2",
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-04T11:44:46.647Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T118",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T11:45:04.127Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T117",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T11:48:52.571Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T119",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T11:49:07.158Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T120",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T11:53:26.939Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T121",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T11:57:27.851Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T122",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T12:04:55.846Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T123",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-04T12:19:24.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": "convergence-2",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-04T12:19:24.566Z"
+    }
+  ],
+  "telemetryInstanceId": "bc11f332-2f8c-4a29-98c4-469549d26b61",
+  "last_action": "all 123 tasks complete — task check, task test, 252 browser journeys, frontend build, startup/cutover, desktop build, macOS package, secret scan, and diff hygiene pass",
+  "coverage": {
+    "FR-001": {
+      "title": "The authoring experience MUST let an Overseer define reusable facility devices with a stable identity, display name, device kind, authored initial state, current state, and a finite set of named states.",
+      "tasks": [
+        "T012",
+        "T017",
+        "T045",
+        "T048",
+        "T049",
+        "T050",
+        "T057",
+        "T059"
+      ]
+    },
+    "FR-002": {
+      "title": "Each facility device transition MUST identify one device, one allowed source state, one destination state, and an authored transition name.",
+      "tasks": [
+        "T012",
+        "T017",
+        "T045",
+        "T048",
+        "T049",
+        "T059"
+      ]
+    },
+    "FR-003": {
+      "title": "Facility validation MUST reject duplicate identities, duplicate state names within a device, unknown initial states, and transitions whose source or destination does not belong to the device.",
+      "tasks": [
+        "T004",
+        "T020",
+        "T045",
+        "T049"
+      ]
+    },
+    "FR-004": {
+      "title": "Facility devices and their current states MUST be owned by the session-wide facility rather than by a terminal or terminal group.",
+      "tasks": [
+        "T009",
+        "T017",
+        "T018",
+        "T025",
+        "T029",
+        "T042",
+        "T089"
+      ]
+    },
+    "FR-005": {
+      "title": "Moving a terminal between groups MUST NOT clone, reset, delete, or retarget any facility device or reference.",
+      "tasks": [
+        "T036",
+        "T041",
+        "T042"
+      ]
+    },
+    "FR-006": {
+      "title": "A terminal command MUST be able to request one or more authored device transitions as one world action through the existing private approval lifecycle.",
+      "tasks": [
+        "T012",
+        "T021",
+        "T022",
+        "T025",
+        "T026",
+        "T029"
+      ]
+    },
+    "FR-007": {
+      "title": "A requested world action MUST NOT mutate device state, condition state, saved revisions, or state-driven presentation before approval.",
+      "tasks": [
+        "T021",
+        "T022",
+        "T024",
+        "T025",
+        "T029"
+      ]
+    },
+    "FR-008": {
+      "title": "Rejection or dismissal of a requested player world action MUST leave facility state unchanged and MUST reuse the current authoritative access-error presentation with an explicit rejected result.",
+      "tasks": [
+        "T022",
+        "T023",
+        "T024",
+        "T027",
+        "T029",
+        "T030",
+        "T032"
+      ]
+    },
+    "FR-009": {
+      "title": "Approval MUST revalidate every requested device, transition, expected source state, precondition, and relevant revision against the current canonical facility state.",
+      "tasks": [
+        "T021",
+        "T022",
+        "T025",
+        "T029"
+      ]
+    },
+    "FR-010": {
+      "title": "A multi-device world action MUST apply all requested transitions or leave every affected device unchanged.",
+      "tasks": [
+        "T021",
+        "T025",
+        "T029"
+      ]
+    },
+    "FR-011": {
+      "title": "A successful world action MUST advance the canonical facility revision once and MUST perform at most one durable commit.",
+      "tasks": [
+        "T021",
+        "T025",
+        "T029"
+      ]
+    },
+    "FR-012": {
+      "title": "A persistence failure MUST leave the prior facility state authoritative and MUST NOT publish a successful result or partial projection.",
+      "tasks": [
+        "T021",
+        "T022",
+        "T023",
+        "T025",
+        "T029",
+        "T030"
+      ]
+    },
+    "FR-013": {
+      "title": "Repeated decisions for the same correlated request MUST NOT produce more than one committed world action.",
+      "tasks": [
+        "T021",
+        "T022",
+        "T025",
+        "T029"
+      ]
+    },
+    "FR-014": {
+      "title": "Concurrent world actions with overlapping affected devices MUST serialize through the centralized player-action transaction so at most one action can commit from the same expected state.",
+      "tasks": [
+        "T022",
+        "T025",
+        "T029"
+      ]
+    },
+    "FR-015": {
+      "title": "Missing references, invalid transitions, failed preconditions, stale revisions, conflicts, and persistence failures MUST return stable structured failure categories with safe affected identities.",
+      "tasks": [
+        "T015",
+        "T021",
+        "T022",
+        "T027",
+        "T028",
+        "T029",
+        "T030"
+      ]
+    },
+    "FR-016": {
+      "title": "Facility failure handling MUST NOT depend on matching human-readable error message text.",
+      "tasks": [
+        "T027",
+        "T028",
+        "T030"
+      ]
+    },
+    "FR-017": {
+      "title": "An Overseer MUST be able to bind a menu label variant to equality between one device and one known state.",
+      "tasks": [
+        "T012",
+        "T033",
+        "T038",
+        "T045",
+        "T048",
+        "T057",
+        "T059"
+      ]
+    },
+    "FR-018": {
+      "title": "An Overseer MUST be able to bind an EntryContent block variant to equality between one device and one known state.",
+      "tasks": [
+        "T012",
+        "T033",
+        "T038",
+        "T045",
+        "T048",
+        "T057",
+        "T059"
+      ]
+    },
+    "FR-019": {
+      "title": "An Overseer MUST be able to bind command availability to equality between one device and one known state.",
+      "tasks": [
+        "T012",
+        "T013",
+        "T033",
+        "T034",
+        "T038",
+        "T039",
+        "T040",
+        "T043",
+        "T044",
+        "T048",
+        "T059"
+      ]
+    },
+    "FR-020": {
+      "title": "An Overseer MUST be able to bind simple content visibility to equality between one device and one known state.",
+      "tasks": [
+        "T012",
+        "T033",
+        "T034",
+        "T038",
+        "T039",
+        "T048",
+        "T059"
+      ]
+    },
+    "FR-021": {
+      "title": "Authoring validation MUST reject a presentation or behavior condition whose compared state does not belong to its referenced device.",
+      "tasks": [
+        "T020",
+        "T045",
+        "T049",
+        "T050"
+      ]
+    },
+    "FR-022": {
+      "title": "Connected player and Overseer presentations MUST refresh state-driven labels, blocks, availability, and visibility from the newly committed facility state without requiring session reload.",
+      "tasks": [
+        "T033",
+        "T035",
+        "T037",
+        "T038",
+        "T040",
+        "T042",
+        "T043"
+      ]
+    },
+    "FR-023": {
+      "title": "When a facility binding and a completed-command snapshot affect the same presentation property, the facility binding MUST determine that property's effective value.",
+      "tasks": [
+        "T010",
+        "T033",
+        "T038"
+      ]
+    },
+    "FR-024": {
+      "title": "The existing completed-command result and completion lifecycle MUST remain authoritative for command-result presentation even when that command also requests facility transitions.",
+      "tasks": [
+        "T021",
+        "T022",
+        "T025",
+        "T029",
+        "T033",
+        "T038"
+      ]
+    },
+    "FR-025": {
+      "title": "Device-driven content MUST be derived from canonical facility state and authored variants rather than persisted as another completed-command snapshot.",
+      "tasks": [
+        "T017",
+        "T025",
+        "T033",
+        "T038"
+      ]
+    },
+    "FR-026": {
+      "title": "A diagnostic condition MUST have a stable identity, authored category, affected terminal or device, authored initial status, current status, and explicitly selected effects.",
+      "tasks": [
+        "T012",
+        "T017",
+        "T020",
+        "T060",
+        "T064"
+      ]
+    },
+    "FR-027": {
+      "title": "The authored diagnostic categories MUST include offline, unpowered, network-isolated, storage-damaged, authorization-corrupted, and display-unstable conditions, and MUST allow additional named authored faults with the same bounded behavior model.",
+      "tasks": [
+        "T012",
+        "T017",
+        "T060",
+        "T063",
+        "T064"
+      ]
+    },
+    "FR-028": {
+      "title": "A diagnostic condition MUST be able to block explicitly selected capabilities without changing unrelated capabilities.",
+      "tasks": [
+        "T060",
+        "T061",
+        "T062",
+        "T063",
+        "T064",
+        "T066",
+        "T067"
+      ]
+    },
+    "FR-029": {
+      "title": "A diagnostic condition MUST be able to expose an authored diagnostic menu or diagnostic content path.",
+      "tasks": [
+        "T060",
+        "T061",
+        "T063",
+        "T064",
+        "T066",
+        "T067"
+      ]
+    },
+    "FR-030": {
+      "title": "A diagnostic condition MUST be able to select authored partial-record variants without randomly deleting or permanently altering source content.",
+      "tasks": [
+        "T060",
+        "T061",
+        "T063",
+        "T064",
+        "T066",
+        "T069",
+        "T070"
+      ]
+    },
+    "FR-031": {
+      "title": "Repeated rendering of the same facility and condition state MUST produce the same content, visibility, availability, and navigation result.",
+      "tasks": [
+        "T010",
+        "T033",
+        "T038",
+        "T061",
+        "T063",
+        "T066"
+      ]
+    },
+    "FR-032": {
+      "title": "Visual corruption or instability effects MUST NOT mutate facility state, condition state, authored content, or durable session data merely because an effect plays.",
+      "tasks": [
+        "T061",
+        "T063",
+        "T066",
+        "T069",
+        "T070"
+      ]
+    },
+    "FR-033": {
+      "title": "Recovery from an active condition MUST occur only through an approved authored device transition, a compatible authored holotape program, or a confirmed private Overseer action.",
+      "tasks": [
+        "T012",
+        "T060",
+        "T062",
+        "T064",
+        "T065",
+        "T067",
+        "T068"
+      ]
+    },
+    "FR-034": {
+      "title": "A compatible holotape recovery program MUST be limited to selecting authored recovery actions and MUST NOT execute arbitrary scripts or expressions.",
+      "tasks": [
+        "T012",
+        "T060",
+        "T064",
+        "T065",
+        "T067"
+      ]
+    },
+    "FR-035": {
+      "title": "Approved device states, condition states, and facility revisions MUST persist across broadcast stop, application restart, supported self-update, and session reload.",
+      "tasks": [
+        "T001",
+        "T084",
+        "T085",
+        "T086",
+        "T087",
+        "T088",
+        "T089",
+        "T090",
+        "T091"
+      ]
+    },
+    "FR-036": {
+      "title": "Pending world-action approvals MUST be transient and MUST become incapable of committing after their broadcast, session, or application runtime context ends.",
+      "tasks": [
+        "T022",
+        "T029",
+        "T085",
+        "T089",
+        "T090"
+      ]
+    },
+    "FR-037": {
+      "title": "The Overseer MUST be able to inspect every direct dependency on a selected device, state, transition, or condition before changing its identity or deleting it.",
+      "tasks": [
+        "T045",
+        "T047",
+        "T048",
+        "T049",
+        "T052",
+        "T053",
+        "T057",
+        "T059",
+        "T071",
+        "T072",
+        "T074",
+        "T077",
+        "T078",
+        "T083"
+      ]
+    },
+    "FR-038": {
+      "title": "Previewing a device state or condition MUST NOT change canonical state, revisions, pending approvals, saved data, or connected player presentation.",
+      "tasks": [
+        "T061",
+        "T063",
+        "T072",
+        "T074",
+        "T075",
+        "T077",
+        "T078",
+        "T083"
+      ]
+    },
+    "FR-039": {
+      "title": "A confirmed single-device reset MUST restore that device and its device-scoped conditions to authored initial values in one facility revision without changing unrelated devices.",
+      "tasks": [
+        "T071",
+        "T072",
+        "T074",
+        "T076",
+        "T077",
+        "T079",
+        "T083"
+      ]
+    },
+    "FR-040": {
+      "title": "A confirmed whole-facility reset MUST restore all devices and diagnostic conditions to authored initial values through one atomic durable commit.",
+      "tasks": [
+        "T071",
+        "T072",
+        "T074",
+        "T076",
+        "T077",
+        "T079",
+        "T083"
+      ]
+    },
+    "FR-041": {
+      "title": "A failed reset MUST leave all device states, condition states, revisions, and player projections at their last committed values.",
+      "tasks": [
+        "T071",
+        "T072",
+        "T073",
+        "T074",
+        "T076",
+        "T077",
+        "T079"
+      ]
+    },
+    "FR-042": {
+      "title": "Every player presentation affected by device state or diagnostic conditions MUST retain an authoritative escape path, and the Overseer MUST retain a private recovery action when authored restrictions make normal player progress unusable.",
+      "tasks": [
+        "T020",
+        "T034",
+        "T039",
+        "T062",
+        "T063",
+        "T067",
+        "T074",
+        "T077",
+        "T083"
+      ]
+    },
+    "FR-043": {
+      "title": "The Overseer interface MUST support creating, editing, validating, and inspecting devices, states, transitions, conditions, references, and recovery paths without manual JSON editing.",
+      "tasks": [
+        "T048",
+        "T052",
+        "T053",
+        "T054",
+        "T055",
+        "T056",
+        "T057",
+        "T058",
+        "T059",
+        "T074",
+        "T078",
+        "T079",
+        "T080",
+        "T081",
+        "T082",
+        "T083"
+      ]
+    },
+    "FR-044": {
+      "title": "Deleting or changing the stable identity of a referenced facility entity MUST be blocked until every affected reference is explicitly removed, repaired, or reassigned.",
+      "tasks": [
+        "T045",
+        "T048",
+        "T049",
+        "T050",
+        "T059"
+      ]
+    },
+    "FR-045": {
+      "title": "An explicit multi-reference repair or reassignment MUST save all selected reference changes together or leave every reference unchanged.",
+      "tasks": [
+        "T045",
+        "T046",
+        "T048",
+        "T049",
+        "T050",
+        "T051",
+        "T059"
+      ]
+    },
+    "FR-046": {
+      "title": "Changing a facility entity's display name while preserving its stable identity MUST preserve its current state, transitions, conditions, and references.",
+      "tasks": [
+        "T045",
+        "T046",
+        "T048",
+        "T049",
+        "T050",
+        "T059"
+      ]
+    },
+    "FR-047": {
+      "title": "Publication of authored facility changes MUST validate the complete affected reference and recovery graph before those changes become available to players.",
+      "tasks": [
+        "T020",
+        "T045",
+        "T046",
+        "T049",
+        "T050",
+        "T051"
+      ]
+    },
+    "FR-048": {
+      "title": "Facility requests, approvals, rejections, transitions, structured failures, and resets MUST emit retained runtime-log records with a shared correlation identity for each action.",
+      "tasks": [
+        "T092",
+        "T093",
+        "T094",
+        "T097",
+        "T098",
+        "T100"
+      ]
+    },
+    "FR-049": {
+      "title": "Facility log records MUST identify safe device identities, action category, outcome category, and relevant facility revisions without recording authored labels, content, secrets, or raw private errors.",
+      "tasks": [
+        "T092",
+        "T094",
+        "T097",
+        "T100",
+        "T101"
+      ]
+    },
+    "FR-050": {
+      "title": "Retained logs MUST remain diagnostic evidence and MUST NOT be read as a source for facility state, replay, recovery, or conflict resolution.",
+      "tasks": [
+        "T095",
+        "T100",
+        "T101"
+      ]
+    },
+    "FR-051": {
+      "title": "Ordinary commands, legacy state-changing commands, terminal transitions, hacking, player roles, and existing command-driven EntryContent completion behavior MUST remain usable without facility configuration.",
+      "tasks": [
+        "T005",
+        "T008",
+        "T010",
+        "T084",
+        "T087",
+        "T088",
+        "T111"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestBundledDemoShowcasesEveryCommandBehavior",
+        "tests/browser/state-changing-command-authoring.spec.mjs::bundled read-only demo exposes every configurable command mode and a completed example",
+        "tests/browser/demo-session.spec.mjs::documented controller and observer roles converge through the live browser journey"
+      ]
+    },
+    "FR-052": {
+      "title": "Version-1 sessions without facility data MUST load and save without manual conversion, invented devices, or changes to their existing player-visible behavior.",
+      "tasks": [
+        "T001",
+        "T005",
+        "T006",
+        "T008",
+        "T084",
+        "T087",
+        "T088"
+      ]
+    },
+    "FR-053": {
+      "title": "Facility state loading MUST reject or safely quarantine incomplete committed facility data rather than exposing a partially restored world to players.",
+      "tasks": [
+        "T005",
+        "T008",
+        "T084",
+        "T088",
+        "T090"
+      ]
+    },
+    "FR-054": {
+      "title": "Reset, transition, and recovery actions MUST invalidate any older pending request whose expected facility revision or affected state is no longer current.",
+      "tasks": [
+        "T022",
+        "T029",
+        "T062",
+        "T067",
+        "T072",
+        "T077",
+        "T085",
+        "T089"
+      ]
+    },
+    "SC-001": {
+      "title": "100 consecutive atomic multi-device approvals",
+      "tasks": [
+        "T112"
+      ],
+      "tests": [
+        "internal/session/facility_test.go::TestApplyWorldActionCommits100ConsecutiveMultiDeviceCandidatesAtomically"
+      ]
+    },
+    "SC-003": {
+      "title": "five terminals across three groups converge within one second",
+      "tasks": [
+        "T113"
+      ],
+      "tests": [
+        "tests/browser/facility-player-state.spec.mjs::one facility projection converges across five terminals",
+        "observers",
+        "and reconnects"
+      ]
+    },
+    "SC-004": {
+      "title": "100 terminal group moves preserve facility identity",
+      "tasks": [
+        "T114"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestReplaceTerminalGroupsMoves100TerminalsWithoutChangingSharedFacility"
+      ]
+    },
+    "SC-005": {
+      "title": "all diagnostic categories remain deterministic across 100 replays",
+      "tasks": [
+        "T115"
+      ],
+      "tests": [
+        "internal/live/facility_test.go::TestFacilityDiagnosticCategoriesAreStableAcross100Replays"
+      ]
+    },
+    "SC-011": {
+      "title": "1000 duplicate stale disjoint and overlapping attempts commit at most once",
+      "tasks": [
+        "T116"
+      ],
+      "tests": [
+        "internal/control/facility_test.go::TestFacilityActionStress1000AttemptsCommitAtMostOnceWithoutSplitState"
+      ]
+    },
+    "SC-010": {
+      "title": "All maintained version-1 compatibility sessions preserve legacy and additive behavior",
+      "tasks": [
+        "T122"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestBundledDemoVersionOneSaveAndReopenPreservesCompatibleUnknownFields",
+        "internal/session/service_test.go::TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTargets",
+        "wails_host_test.go::TestWailsSaveSessionBindingRetainsAllRealDemoTerminals"
+      ]
+    },
+    "CONST-IX": {
+      "title": "The canonical demo is complete, diegetic, reachable, and terminal-group coherent",
+      "tasks": [
+        "T117",
+        "T120",
+        "T121",
+        "T122"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestBundledDemoInventoryCoversReachableSessionGraph",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "CONST-VII": {
+      "title": "Completed runtime migrations remain historical and superseded protocols have no current authority",
+      "tasks": [
+        "T118"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go::TestAcceptedWailsV3RuntimeStaysSeparateFromHistoricalMigrationEvidence",
+        "internal/platform/startup_test.go::TestHistoricalWailsV3MigrationRecordHasIdentitySafetyAndHonestEvidence"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 30,
+    "projectedTasks": 60,
+    "scopeSignal": "larger",
+    "verdict": "oversized"
+  },
+  "context": [
+    "area: persistent session domain and version-1 contract",
+    "area: centralized player-action coordination and approval lifecycle",
+    "area: live terminal projection and Overseer authoring",
+    "area: retained runtime-log system",
+    "constraint: extend existing command state and EntryContent behavior without a parallel text-state mechanism",
+    "Constitution convergence pass for Principles VII, VIII, IX, Governance, and Testing and Quality Gates."
+  ],
+  "intent": "Give tabletop sessions one durable, shared, authorable facility state whose approved atomic changes project consistently across every terminal.",
+  "expectations": [
+    "No arbitrary scripting or general expression language.",
+    "No random hardware degradation or nondeterministic fault activation.",
+    "No permanent destruction of authored content.",
+    "No combat resolution or automatic repair-success determination.",
+    "No smart-lighting integration, physical smoke control, or scene-cue automation."
+  ],
+  "approach": "Persist one optional session-wide facility in JSON v1; extend state-changing commands so command completion and all device or condition changes use one coordinator-held atomic store call; derive every terminal presentation from the saved facility through one pure evaluator.",
+  "decisions": [
+    {
+      "decision": "Keep facility authority in the version-1 session",
+      "why": "It already owns durable campaign state and atomic replacement.",
+      "rejected": "A separate facility file or runtime logs."
+    },
+    {
+      "decision": "Keep document, facility, and coordination revisions distinct",
+      "why": "Each protects durable storage, world-action staleness, or publication ordering.",
+      "rejected": "Reusing one revision for all boundaries."
+    },
+    {
+      "decision": "Extend existing state-changing commands with facility actions",
+      "why": "It preserves the approval and immutable completion lifecycle.",
+      "rejected": "A new command behavior or approval system."
+    },
+    {
+      "decision": "Commit completion and facility transitions in one store operation",
+      "why": "One candidate and one atomic write prevent split state.",
+      "rejected": "Sequential command and facility saves."
+    },
+    {
+      "decision": "Use one global persistent facility revision",
+      "why": "Strict total ordering makes stale and concurrent requests deterministic.",
+      "rejected": "Per-device revisions."
+    },
+    {
+      "decision": "Use one pure evaluator for authorization and projection",
+      "why": "Server decisions and rendered state cannot drift.",
+      "rejected": "Frontend-only or separate evaluators."
+    },
+    {
+      "decision": "Apply base, completion, device, then diagnostic precedence",
+      "why": "The order preserves legacy snapshots and deterministic authored faults.",
+      "rejected": "Last-edited or list-order precedence."
+    },
+    {
+      "decision": "Model diagnostics as bounded typed condition effects",
+      "why": "Conditions share facility persistence and cannot become executable expressions.",
+      "rejected": "Random faults or a separate diagnostics store."
+    },
+    {
+      "decision": "Model holotape recovery as allowlisted authored programs",
+      "why": "No holotape subsystem exists and bounded selectors avoid scripting.",
+      "rejected": "A runtime interpreter or deferring recovery compatibility."
+    },
+    {
+      "decision": "Use typed private failures and the existing player access-error view",
+      "why": "Stable codes support repair and logs while preserving player navigation.",
+      "rejected": "Message-text matching or a second player error surface."
+    },
+    {
+      "decision": "Partition the 1000-attempt coordinator stress matrix into four 250-attempt cases",
+      "why": "This directly covers committed duplicate retries, stale identities, disjoint multi-device actions, and overlapping approvals while retaining exact write-count and final-state assertions.",
+      "rejected": "One homogeneous retry loop that could not distinguish the required request classes."
+    },
+    {
+      "decision": "Replay every diagnostic category through both the pure projector and detached preview path",
+      "why": "The two outputs jointly cover capability, content, effects, navigation, authored inputs, completed-command state, and persistent facility immutability.",
+      "rejected": "Comparing rendered text alone."
+    },
+    {
+      "decision": "Treat the two Overseer demo members as local and remote views of one console",
+      "why": "Constitution IX requires members of one group to preserve one in-world terminal identity and ordered access-context transitions.",
+      "rejected": "Grouping independent machines by building or narrative location."
+    },
+    {
+      "decision": "Place every independent demo machine in its own terminal group",
+      "why": "The greenhouse, lift, security post, and ATLAS relay are separate installations even where locations are related.",
+      "rejected": "Using terminal groups as building or department containers."
+    },
+    {
+      "decision": "Keep initial/current facility deltas and completed command snapshots in the canonical demo",
+      "why": "One portable session can visibly demonstrate persistence, bound projections, and reset behavior while the inventory gives exact recovery steps.",
+      "rejected": "A pristine demo that hides completed and changed-state branches."
+    },
+    {
+      "decision": "Forward the facility browser fixture through the complete terminal lifecycle interface",
+      "why": "The fixture must preserve authoritative replacement and navigation semantics while layering deterministic facility projections.",
+      "rejected": "Suppressing the failing grouping and navigation browser coverage."
+    },
+    {
+      "decision": "Retain Wails v2 and beta.8 references only as labeled historical evidence",
+      "why": "The accepted runtime is beta.15 and completed migrations cannot remain active rollback authority.",
+      "rejected": "Keeping Wails v2 as a current production fallback."
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Planned an additive facility aggregate, one-write world actions, deterministic shared projections, typed diagnostics, and full Overseer authoring.",
+      "key_finding": "The existing coordinator and session mutation seams can guarantee atomicity only if command completion and facility changes are combined before the single durable write."
+    },
+    "tasks": {
+      "summary": "111 tasks across Setup, Foundational, seven user-story phases, and Polish; explicit waves place tests before implementation and reserve final suite ownership for Polish."
+    },
+    "implement": {
+      "summary": "Completed constitutional convergence: the canonical version-1 demo now exercises all session-driven capabilities in one coherent narrative, terminal groups model one installation each, Wails history is non-authoritative, the browser fixture is repaired, and every supported local gate passes.",
+      "key_finding": "A complete demo needs both authored current-state examples and a tested capability-to-path inventory so every hidden, gated, completed, reset, recovery, and role branch remains reachable without JSON editing.",
+      "risks": [
+        "Real authenticated ngrok journeys and non-macOS matching-host packages remain conditional and were explicitly NOT RUN."
+      ]
+    }
+  },
+  "currentTask": "T123",
+  "task_summaries": {
+    "T003": {
+      "status": "DONE",
+      "did": "Registered focused facility browser suites",
+      "files": [
+        "frontend/overseer/package.json"
+      ]
+    },
+    "T001": {
+      "status": "DONE",
+      "did": "Added representative version-1 facility session fixture",
+      "files": [
+        "internal/testutil/testdata/session-v1-facility.json"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added reusable facility browser fixture builders and validated their module exports",
+      "files": [
+        "tests/browser/fixtures/facility-session.mjs"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added failing legacy absence and nested facility JSON preservation tests",
+      "files": [
+        "internal/domain/json_test.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Added failing facility persistence protobuf contract tests",
+      "files": [
+        "internal/session/contract_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added failing facility domain model and invariant tests",
+      "files": [
+        "internal/domain/facility_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Added failing public adapter tests for optional command availability and bounded presentation effects",
+      "files": [
+        "internal/player/adapter_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added failing deterministic facility projection precedence and detachment test",
+      "files": [
+        "internal/live/service_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added failing tests for protected facility state and distinct revisions",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Added failing additive facility descriptor contract tests",
+      "files": [
+        "app_contract_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Added failing shared coordinator facility snapshot lifecycle tests",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Added optional player command availability and bounded terminal presentation effects",
+      "files": [
+        "proto/fallout/terminal/player/v1/terminal.proto"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Extended the persistence session schema with facility and diagnostic contracts",
+      "files": [
+        "proto/fallout/terminal/persistence/v1/session.proto"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added redacted pending facility action summary and optional coordination facility revision",
+      "files": [
+        "proto/fallout/terminal/private/v1/coordination.proto"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Added typed private facility issues, operation results, authoring, preview, reset, and recovery requests",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Regenerated governed Go and ECMAScript protobuf outputs, synchronized schema revision, and refreshed compatibility baseline",
+      "files": [
+        "internal/gen",
+        "frontend/client/gen",
+        "proto/schema-revision.txt",
+        "proto/compatibility-baseline.binpb"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Added facility domain types and deep clone support",
+      "files": [
+        "internal/domain/facility.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added explicit facility JSON adapters with nested unknown-field preservation",
+      "files": [
+        "internal/domain/json.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Extended facility-aware session and runtime models with detached deep clones",
+      "files": [
+        "internal/domain/model.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Added bounded whole-session facility graph validation",
+      "files": [
+        "internal/domain/validate.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Added failing controller and observer facility approval browser journeys",
+      "files": [
+        "tests/browser/facility-player-state.spec.mjs"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Added failing atomic world-action store tests",
+      "files": [
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Added failing App facility approval lifecycle tests",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added failing coordinator facility approval transaction tests",
+      "files": [
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Implemented atomic durable facility world actions",
+      "files": [
+        "internal/session/facility.go",
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Added coordinator facility store seam, snapshots, fingerprints, detached results, and safe audit facts",
+      "files": [
+        "internal/control/facility.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Added typed facility failure sentinels and code mappings without message matching",
+      "files": [
+        "internal/control/errors.go",
+        "internal/control/errors_test.go"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Added private facility approval summary and structured outcome adapters",
+      "files": [
+        "app_contract.go"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Integrated atomic facility command approval and typed outcomes",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/facility.go",
+        "internal/control/service_test.go",
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Integrated typed facility approval outcomes and canonical session publication",
+      "files": [
+        "app.go",
+        "app_contract.go",
+        "app_test.go"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Added redacted facility approval impact and typed failure reconciliation",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/desktop-api.js"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Added deterministic facility player-state browser fixture routes, typed outcomes, replay handling, and four-result command resolution call sites",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Added group-move invariants for shared facility state, bindings, and pending actions",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Added failing effective-tree navigation tests for unavailable commands, hidden-path repair, and unconditional escape actions",
+      "files": [
+        "internal/nav/nav_test.go"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Added failing deterministic facility projection and precedence tests",
+      "files": [
+        "internal/live/facility_test.go"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Added failing facility public stream convergence and reconnect tests",
+      "files": [
+        "internal/player/public_stream_test.go"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Added five-terminal shared projection, reconnect, live EntryContent, responsive pagination, and group-move journeys",
+      "files": [
+        "tests/browser/facility-player-state.spec.mjs"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Implemented deterministic detached facility projection",
+      "files": [
+        "internal/live/facility.go"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "Enforced effective command availability and navigation repair",
+      "files": [
+        "internal/nav/nav.go"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Preserved canonical facility state through ordinary saves and terminal-group replacements while rejecting facility authoring changes",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "Mapped optional command availability and bounded public terminal effects",
+      "files": [
+        "internal/player/adapter.go",
+        "internal/player/adapter_test.go"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Integrated shared facility reprojection across terminal runtime lifecycle",
+      "files": [
+        "internal/control/service.go",
+        "internal/domain/model.go",
+        "internal/live/service.go",
+        "internal/control/service_test.go",
+        "internal/live/service_test.go",
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Styled unavailable player commands accessibly without changing menu order",
+      "files": [
+        "frontend/client/client.css"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Rendered unavailable commands and reconciled live EntryContent updates",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Added accessible no-JSON facility authoring, dependency repair, rename/delete guard, cancellation, and validation journeys",
+      "files": [
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "Added failing revision-aware facility authoring transaction tests",
+      "files": [
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "Added failing facility dependency indexing and authoring validation tests",
+      "files": [
+        "internal/domain/facility_test.go"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Added failing private facility authoring and dependency inspection contract tests",
+      "files": [
+        "app_contract_test.go"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Implemented deterministic facility dependency reports and complete repair validation",
+      "files": [
+        "internal/domain/facility.go"
+      ]
+    },
+    "T050": {
+      "status": "DONE",
+      "did": "Follow-up fixed authoring result consistency, affected IDs, and conflict typing",
+      "files": [
+        "internal/session/facility.go",
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T051": {
+      "status": "DONE",
+      "did": "Hardened canonical authoring validation, stale pending results, and failed store sanitization",
+      "files": [
+        "internal/control/facility.go",
+        "internal/control/facility_test.go",
+        "internal/control/service.go"
+      ]
+    },
+    "T052": {
+      "status": "DONE",
+      "did": "Added detached facility authoring and dependency contract adapters",
+      "files": [
+        "app_contract.go",
+        "app_contract_test.go"
+      ]
+    },
+    "T053": {
+      "status": "DONE",
+      "did": "Follow-up wired facility stores, ordered canonical session publication before coordination, and guarded inspection from pending drafts",
+      "files": [
+        "app.go",
+        "main.go",
+        "app_test.go",
+        "app_contract_test.go"
+      ]
+    },
+    "T054": {
+      "status": "DONE",
+      "did": "Added transparent desktop facility authoring and dependency inspection forwards",
+      "files": [
+        "desktop_service.go"
+      ]
+    },
+    "T055": {
+      "status": "DONE",
+      "did": "Refreshed deterministic Wails bindings and exact allowlist for the added recovery method",
+      "files": [
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/models.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js",
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T057": {
+      "status": "DONE",
+      "did": "Added accessible facility authoring workspace and editor dialogs",
+      "files": [
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T056": {
+      "status": "DONE",
+      "did": "Added normalized facility authoring and dependency inspection desktop API calls",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T058": {
+      "status": "DONE",
+      "did": "Added responsive facility workspace, graph row, dependency, invalid-reference, dialog, focus, status, and error styles.",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T059": {
+      "status": "DONE",
+      "did": "Implemented revision-safe accessible facility authoring and dependency repair",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T061": {
+      "status": "DONE",
+      "did": "Added deterministic diagnostic projection coverage for scoped capability blocks, forced diagnostic paths, multipage record substitutions and precedence, repeated display effects, input immutability, and safe conflicting-substitution suppression.",
+      "files": [
+        "internal/live/facility_test.go"
+      ]
+    },
+    "T063": {
+      "status": "DONE",
+      "did": "Added failing accessible deterministic diagnostic and recovery browser journeys",
+      "files": [
+        "tests/browser/facility-diagnostics.spec.mjs"
+      ]
+    },
+    "T060": {
+      "status": "DONE",
+      "did": "Added failing diagnostic condition and bounded recovery-program expansion tests",
+      "files": [
+        "internal/domain/facility_test.go"
+      ]
+    },
+    "T062": {
+      "status": "DONE",
+      "did": "Added failing coordinator recovery, capability blocking, and escape authority tests",
+      "files": [
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T064": {
+      "status": "DONE",
+      "did": "Required recovery-marked viable condition recovery and exact terminal diagnostic targets",
+      "files": [
+        "internal/domain/validate.go",
+        "internal/domain/facility_test.go"
+      ]
+    },
+    "T066": {
+      "status": "DONE",
+      "did": "Precomputed terminal device references once per deterministic projection",
+      "files": [
+        "internal/live/facility.go",
+        "internal/live/facility_test.go"
+      ]
+    },
+    "T065": {
+      "status": "DONE",
+      "did": "Follow-up preserved runtime fail-closed coverage by corrupting only the opened canonical recovery graph",
+      "files": [
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T067": {
+      "status": "DONE",
+      "did": "Enforced diagnostic capability blocks and routed approved and private recovery through atomic facility persistence",
+      "files": [
+        "internal/control/facility.go",
+        "internal/control/service.go",
+        "main.go"
+      ]
+    },
+    "T070": {
+      "status": "DONE",
+      "did": "Added bounded authoritative display-instability styling with small deterministic scanline/contrast shifts, content-preserving opacity, and a reduced-motion presentation.",
+      "files": [
+        "frontend/client/client.css"
+      ]
+    },
+    "T069": {
+      "status": "DONE",
+      "did": "Rendered deterministic authoritative display-instability effects",
+      "files": [
+        "frontend/client/client.js",
+        "tests/browser/crt-rendering.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T068": {
+      "status": "DONE",
+      "did": "Hardened recovery result reconciliation and suppressed publication for malformed coordinator outcomes",
+      "files": [
+        "app.go",
+        "app_test.go",
+        "main.go"
+      ]
+    },
+    "T074": {
+      "status": "DONE",
+      "did": "Added failing browser journeys for detached device and fault preview, reset cancellation and confirmation, stale and persistence failure handling, whole-facility reset, and private recovery focus restoration.",
+      "files": [
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T071": {
+      "status": "DONE",
+      "did": "Added failing atomic facility reset store tests for scope, initial values, no-op, stale revision, and rollback",
+      "files": [
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T072": {
+      "status": "DONE",
+      "did": "Added failing coordinator tests for detached facility inspection and preview plus atomic reset publication",
+      "files": [
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T073": {
+      "status": "DONE",
+      "did": "Added failing private and App tests for facility inspection, preview, reset, recovery, typed failures, and canonical newer-revision publication",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T075": {
+      "status": "DONE",
+      "did": "Implemented detached side-effect-free facility state and condition preview projection",
+      "files": [
+        "internal/live/facility.go",
+        "internal/live/facility_test.go"
+      ]
+    },
+    "T076": {
+      "status": "DONE",
+      "did": "Implemented atomic single-device and whole-facility reset persistence",
+      "files": [
+        "internal/session/facility.go",
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T077": {
+      "status": "DONE",
+      "did": "Implemented coordinator inspection, detached preview, and atomic device and facility reset operations",
+      "files": [
+        "internal/control/facility.go"
+      ]
+    },
+    "T078": {
+      "status": "DONE",
+      "did": "Added private facility inspect, preview, reset, and recovery contract adapters with exact typed presence and detached live projections",
+      "files": [
+        "app_contract.go"
+      ]
+    },
+    "T079": {
+      "status": "DONE",
+      "did": "Added validated App preview and reset methods with typed failures and canonical session-before-coordination publication",
+      "files": [
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T080": {
+      "status": "DONE",
+      "did": "Exposed typed facility preview, device reset, whole-facility reset, inspection, authoring, and recovery through the registered desktop service; production build passes and the allowlist is intentionally pending T081 regeneration.",
+      "files": [
+        "desktop_service.go"
+      ]
+    },
+    "T081": {
+      "status": "DONE",
+      "did": "Regenerated final Wails facility bindings and updated exact 46-method desktop allowlists",
+      "files": [
+        "app_contract_test.go",
+        "scripts/wails-bindings-check.sh",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/models.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js"
+      ]
+    },
+    "T082": {
+      "status": "DONE",
+      "did": "Added revision-safe normalized facility operation calls to the Overseer desktop API",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T083": {
+      "status": "DONE",
+      "did": "Added facility dependency navigation, detached previews, confirmed resets and recovery with canonical reconciliation and focus restoration",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T087": {
+      "status": "DONE",
+      "did": "Added failing lifecycle browser journeys for broadcast stop/start, stale pending invalidation on session reload, fresh-process and self-update restoration before reconnect, and legacy version-1 loading without invented facility state.",
+      "files": [
+        "tests/browser/facility-lifecycle.spec.mjs"
+      ]
+    },
+    "T084": {
+      "status": "DONE",
+      "did": "Added facility fresh-process, legacy nil-default, and incomplete committed-data load tests",
+      "files": [
+        "internal/session/service_test.go"
+      ]
+    },
+    "T085": {
+      "status": "DONE",
+      "did": "Added failing coordinator lifecycle tests for detached facility hydration, broadcast restart, session replacement invalidation, and current-state reactivation",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T086": {
+      "status": "DONE",
+      "did": "Added failing App lifecycle restoration and session epoch ordering tests",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T088": {
+      "status": "DONE",
+      "did": "Exposed and verified detached canonical facility state independently from process-local document revisions",
+      "files": [
+        "internal/session/service.go",
+        "internal/session/service_test.go"
+      ]
+    },
+    "T089": {
+      "status": "DONE",
+      "did": "Implemented validated detached facility replacement and legacy clearing with pending invalidation and runtime reprojection",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T090": {
+      "status": "DONE",
+      "did": "Restored loaded facility epochs before App lifecycle publication",
+      "files": [
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T091": {
+      "status": "DONE",
+      "did": "Wired facility persistence, lifecycle replacement, and deterministic browser lifecycle composition",
+      "files": [
+        "main.go",
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/facility-lifecycle.spec.mjs"
+      ]
+    },
+    "T094": {
+      "status": "DONE",
+      "did": "Added failing retained facility audit mapping and redaction tests",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T093": {
+      "status": "DONE",
+      "did": "Added failing universal player-action audit matrix for navigation, hacking guess/pattern, presentation, accepted, replayed, duplicate, stale-broadcast, and unauthorized outcomes with correlation, role, terminal context, closed action mode, and target redaction.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T095": {
+      "status": "DONE",
+      "did": "Added retained-log retention and sink-failure isolation tests",
+      "files": [
+        "internal/diagnostics/retained_log_test.go"
+      ]
+    },
+    "T096": {
+      "status": "DONE",
+      "did": "Added failing browser coverage for correlated redacted retained facility activity",
+      "files": [
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "T092": {
+      "status": "DONE",
+      "did": "Added failing facility audit lifecycle and redaction contract tests",
+      "files": [
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T097": {
+      "status": "DONE",
+      "did": "Added closed facility audit categories and redacted state transition evidence",
+      "files": [
+        "internal/control/facility.go",
+        "internal/control/service.go",
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T098": {
+      "status": "DONE",
+      "did": "Added universal redacted player action request and outcome audit records",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T101": {
+      "status": "DONE",
+      "did": "Verified retained-log failure isolation and documented its best-effort sink contract",
+      "files": [
+        "internal/diagnostics/retained_log.go"
+      ]
+    },
+    "T100": {
+      "status": "DONE",
+      "did": "Routed closed facility audit facts into retained logs with allowlisted redacted fields",
+      "files": [
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T099": {
+      "status": "DONE",
+      "did": "Added redacted player transport boundary correlation records",
+      "files": [
+        "internal/player/server.go",
+        "internal/player/server_test.go",
+        "internal/player/handler.go",
+        "internal/player/handler_test.go"
+      ]
+    },
+    "T102": {
+      "status": "DONE",
+      "did": "Surfaced safe retained-log availability warnings and completed the browser log fixture workflow",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/fixtures/desktop-bindings.js",
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "T105": {
+      "status": "DONE",
+      "did": "Added a validation matrix mapping SC-001 through SC-012 and Constitution Principle VIII to package, contract, browser, lifecycle, redaction, and final-gate evidence.",
+      "files": [
+        "specs/035-facility-state-system/validation.md"
+      ]
+    },
+    "T103": {
+      "status": "DONE",
+      "did": "Documented facility authority revisions transactions projection lifecycle and audit ownership",
+      "files": [
+        "ARCHITECTURE.md"
+      ]
+    },
+    "T104": {
+      "status": "DONE",
+      "did": "Documented Overseer facility authoring, preview, recovery, reset, and retained-log workflows",
+      "files": [
+        "README.md"
+      ]
+    },
+    "T106": {
+      "status": "DONE",
+      "did": "Guarded exact facility desktop methods and generated payload/result signatures",
+      "files": [
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T107": {
+      "status": "DONE",
+      "did": "Applied Go quality and simplification review: unified four session facility commit paths, normalized failed facility results, scoped master-event deferrals, hardened authoring and contract validation, removed inspection fallback, made player audit sinks lifecycle-safe and panic-isolated, and centralized closed action outcomes.",
+      "files": [
+        "internal/session/facility.go",
+        "internal/control/facility.go",
+        "internal/control/service.go",
+        "internal/player/handler.go",
+        "internal/player/server.go",
+        "app.go",
+        "app_contract.go",
+        "main.go",
+        "app_test.go",
+        "app_contract_test.go",
+        "internal/control/facility_test.go",
+        "internal/player/handler_test.go"
+      ]
+    },
+    "T108": {
+      "status": "DONE",
+      "did": "Ran go fix ./... under the repository macOS build flags, reviewed the three changed files for intentional Go 1.27 modernization, formatted all Go sources, and reran the facility package suite successfully.",
+      "files": [
+        "app_test.go",
+        "internal/domain/facility_test.go",
+        "internal/domain/validate.go",
+        "Taskfile.yml"
+      ]
+    },
+    "T109": {
+      "status": "DONE",
+      "did": "Passed task proto:format:check (exit 0), task proto:lint (exit 0), scripts/proto-check.sh (exit 0; two deterministic generations and generated Go/client contract builds), task proto:drift:check (exit 0; deliberate drift rejected), task proto:breaking (exit 0; all five negative fixtures rejected), and task bindings:check (exit 0; exactly 46 methods and seven events). Initial task proto:check hit sandbox DNS; its approved retry was stopped after hanging, then the canonical script passed locally."
+    },
+    "T110": {
+      "status": "DONE",
+      "did": "Node 26.8.1: task frontend:build passed; combined facility browser batch passed 35/35, desktop API facility coverage passed 4/4, and CRT display-instability coverage passed 1/1 after joining the player fixture to the real FacilityStore path",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/facility-player-state.spec.mjs"
+      ]
+    },
+    "T111": {
+      "status": "DONE",
+      "did": "Passed final task vet, task lint (0 issues), task test, and task test:race gates; fixed four final lint findings; refreshed intentional facility protobuf/schema compatibility digests and deterministic display-instability reduced-motion asset contract; reconciled SC-001 through SC-012 and Constitution VIII evidence.",
+      "files": [
+        "app.go",
+        "internal/control/service.go",
+        "internal/platform/assets_test.go",
+        "scripts/wails-v3-contract-check.sh",
+        "specs/035-facility-state-system/validation.md"
+      ]
+    },
+    "T112": {
+      "status": "DONE",
+      "did": "Added a 100-command alternating two-device session test proving every consecutive approved world action performs one atomic write and one facility revision with the complete persisted state.",
+      "files": [
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T113": {
+      "status": "DONE",
+      "did": "Bound the five-terminal three-group browser journey to 1,000 ms for controller and observer EntryContent, precedence, labels, visibility, availability, and terminal projections; all seven focused journeys passed.",
+      "files": [
+        "tests/browser/facility-player-state.spec.mjs"
+      ]
+    },
+    "T114": {
+      "status": "DONE",
+      "did": "Added a 100-terminal two-group replacement test proving every terminal keeps its facility binding while canonical device identities, states, count, and facility revision remain unchanged.",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T115": {
+      "status": "DONE",
+      "did": "Added and verified a deterministic 100-replay matrix for all seven diagnostic condition categories, comparing projected capabilities and content, preview navigation, authored inputs, completed-command state, and persistent facility state.",
+      "files": [
+        "internal/live/facility_test.go"
+      ]
+    },
+    "T116": {
+      "status": "DONE",
+      "did": "Added and verified a 1,000-attempt facility approval stress matrix covering duplicate retries, stale request identities, disjoint multi-device atomic actions, and overlapping approvals with at-most-once persistence and coherent final facility state.",
+      "files": [
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T118": {
+      "status": "DONE",
+      "did": "Reclassified Wails migration records as historical and aligned the cutover guard with the accepted beta.15 runtime",
+      "files": [
+        "README.md",
+        "docs/wails-v3-migration-rollback.md",
+        "scripts/wails-v3-cutover-check.sh",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T117": {
+      "status": "DONE",
+      "did": "Expanded the version-1 narrative demo to cover all session-driven content, hacking, facility, diagnostic, recovery, preview, and reset capabilities",
+      "files": [
+        "sessions/demo.json"
+      ]
+    },
+    "T119": {
+      "status": "DONE",
+      "did": "Fixed CRT replacement and browser fixture isolation so authoritative grouping and navigation journeys pass",
+      "files": [
+        "tests/browser/crt-rendering.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T120": {
+      "status": "DONE",
+      "did": "Clarified demo groups as independent terminal installations with local and remote access views and documented authoring semantics",
+      "files": [
+        "sessions/demo.json",
+        "README.md"
+      ]
+    },
+    "T121": {
+      "status": "DONE",
+      "did": "Added a reviewable capability-to-path inventory covering every demo node, role, hacking level, facility mode, recovery, preview, reset, and version-1 round trip",
+      "files": [
+        "sessions/demo-capability-paths.md"
+      ]
+    },
+    "T122": {
+      "status": "DONE",
+      "did": "Added executable demo acceptance for capability routes, all hack and facility modes, terminal-group identity, portable version-1 unknown-field round trips, narrative purity, dead-end protection, and live controller-observer convergence",
+      "files": [
+        "internal/platform/assets_test.go",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "T123": {
+      "status": "DONE",
+      "did": "Reconciled Principles VIII and IX, marked the feature implemented, and recorded passing demo, Go, browser, cutover, frontend, build, and macOS package gates with unavailable conditionals explicitly NOT RUN",
+      "files": [
+        "specs/035-facility-state-system/plan.md",
+        "specs/035-facility-state-system/spec.md",
+        "specs/035-facility-state-system/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Affected Go package suite",
+      "command": "go test ./internal/session ./internal/live ./internal/control -count=1",
+      "result": "passed"
+    },
+    {
+      "what": "Repository vet gate",
+      "command": "task vet",
+      "result": "passed"
+    },
+    {
+      "what": "Repository lint gate",
+      "command": "task lint",
+      "result": "passed with 0 issues",
+      "warnings": [
+        "sandbox prevented golangci-lint cache writes; analysis completed successfully"
+      ]
+    },
+    {
+      "what": "Repository test gate",
+      "command": "task test",
+      "result": "passed"
+    },
+    {
+      "what": "Repository race gate",
+      "command": "task test:race",
+      "result": "passed"
+    },
+    {
+      "what": "Five-terminal facility browser convergence",
+      "command": "npm test --prefix tests/browser -- facility-player-state.spec.mjs",
+      "result": "7 of 7 passed under Node 26.8.1; convergence case completed in 891 ms"
+    },
+    {
+      "what": "Canonical demo capability acceptance",
+      "command": "go test ./internal/platform -run TestBundledDemo -count=1; npm test --prefix tests/browser -- demo-session.spec.mjs",
+      "result": "passed; version-1 round trip, unknown fields, inventory reachability, roles, hacking levels, facility modes, group identity, dead ends, and warning exclusions verified"
+    },
+    {
+      "what": "Repository quality gate after constitutional convergence",
+      "command": "task check",
+      "result": "passed; formatting, vet, lint with 0 issues, complete race suite, protobuf checks, Wails bindings, and Spec Kit update tests"
+    },
+    {
+      "what": "Ordinary Go test gate after constitutional convergence",
+      "command": "task test",
+      "result": "passed for every Go package"
+    },
+    {
+      "what": "Complete browser acceptance suite",
+      "command": "npm test --prefix tests/browser",
+      "result": "252 passed and 2 conditionally skipped",
+      "warnings": [
+        "the two real authenticated ngrok journeys were NOT RUN because external endpoint credentials were not supplied",
+        "expected TLS probe handshake messages were emitted by certificate-rejection scenarios"
+      ]
+    },
+    {
+      "what": "Production frontend build",
+      "command": "task frontend:build",
+      "result": "passed for Overseer and player bundles under Node.js 26.8.1"
+    },
+    {
+      "what": "Startup and Wails cutover contracts",
+      "command": "task startup:check; scripts/wails-v3-cutover-check.sh --self-test; scripts/wails-v3-cutover-check.sh",
+      "result": "passed; beta.15 remains accepted and v2 material is historical-only"
+    },
+    {
+      "what": "Governed desktop build",
+      "command": "task build",
+      "result": "passed for macOS arm64"
+    },
+    {
+      "what": "Supported-host package",
+      "command": "task package",
+      "result": "passed for macOS arm64 including dependency-license verification and bundle signing",
+      "warnings": [
+        "Node.js emitted a benign experimental localStorage warning during contract verification"
+      ]
+    },
+    {
+      "what": "Go modernization and diagnostics",
+      "command": "go fix ./...; gopls check changed non-generated Go files",
+      "result": "passed with no modernization drift or diagnostics",
+      "warnings": [
+        "the first gopls attempt used a sandbox-blocked default cache; the required rerun with a workspace-safe GOCACHE passed"
+      ]
+    },
+    {
+      "what": "Secret and diff hygiene",
+      "command": "scripts/secret-leak-check.sh; git diff --check HEAD",
+      "result": "passed"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "The canonical browser dependency task stalled in npm audit, so the locked already-installed browser dependencies were used for the passing focused Playwright run. Sandboxed repository tests could not bind loopback sockets; the same canonical task test and task test:race gates passed through the approved unrestricted bash path.",
+      "step": "implement"
+    }
+  ]
+}

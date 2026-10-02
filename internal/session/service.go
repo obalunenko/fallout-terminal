@@ -754,7 +754,9 @@ func (service *Service) AssociatePlayerConfig(ctx context.Context, playerConfigP
 	return SessionResult{OK: true, FilePath: active.Path, Session: sessionPointer(candidate)}
 }
 
-// Snapshot returns detached state safe for concurrent callers to inspect.
+// Snapshot returns detached state safe for concurrent callers to inspect. The
+// document revisions are process-local; any facility revision and current
+// values in Session are the canonical values loaded from durable storage.
 func (service *Service) Snapshot() ActiveSession {
 	if service == nil {
 		return ActiveSession{SaveState: SaveStateIdle}
@@ -1016,28 +1018,7 @@ func cloneActive(active ActiveSession) ActiveSession {
 }
 
 func cloneSession(session domain.Session) domain.Session {
-	copy := session
-	copy.Extra = cloneExtra(session.Extra)
-	copy.TerminalGroups = domain.CloneTerminalGroups(session.TerminalGroups)
-	copy.Terminals = make([]domain.Terminal, len(session.Terminals))
-	for index, terminal := range session.Terminals {
-		copy.Terminals[index] = terminal
-		copy.Terminals[index].Extra = cloneExtra(terminal.Extra)
-		copy.Terminals[index].Root = domain.CloneContentNode(terminal.Root)
-		copy.Terminals[index].CommandStates = domain.CloneCommandExecutionStates(terminal.CommandStates)
-	}
-	return copy
-}
-
-func cloneExtra(extra map[string]json.RawMessage) map[string]json.RawMessage {
-	if extra == nil {
-		return nil
-	}
-	copy := make(map[string]json.RawMessage, len(extra))
-	for key, value := range extra {
-		copy[key] = append([]byte(nil), value...)
-	}
-	return copy
+	return domain.CloneSession(session)
 }
 
 func clearCommandStates(session *domain.Session) {
@@ -1052,6 +1033,9 @@ func clearCommandStates(session *domain.Session) {
 func mergeCanonicalSessionState(authored, canonical domain.Session) (domain.Session, error) {
 	merged := mergeCanonicalTerminalGroups(authored, canonical)
 	if err := validateAuthoredTransitionChanges(merged, canonical); err != nil {
+		return domain.Session{}, err
+	}
+	if err := preserveCanonicalFacility(&merged, canonical); err != nil {
 		return domain.Session{}, err
 	}
 	canonicalByTerminal := make(map[string]domain.Terminal, len(canonical.Terminals))
@@ -1084,6 +1068,130 @@ func mergeCanonicalSessionState(authored, canonical domain.Session) (domain.Sess
 		return domain.Session{}, err
 	}
 	return merged, nil
+}
+
+func preserveCanonicalFacility(candidate *domain.Session, canonical domain.Session) error {
+	if candidate.Facility == nil || canonical.Facility == nil {
+		if candidate.Facility != nil || canonical.Facility != nil {
+			return fmt.Errorf("facility authoring changes require the dedicated facility operation")
+		}
+		return nil
+	}
+
+	normalized := domain.CloneFacility(candidate.Facility)
+	normalized.Revision = canonical.Facility.Revision
+	canonicalDevices := make(map[string]domain.FacilityDevice, len(canonical.Facility.Devices))
+	for _, device := range canonical.Facility.Devices {
+		canonicalDevices[device.ID] = device
+	}
+	for index := range normalized.Devices {
+		if device, ok := canonicalDevices[normalized.Devices[index].ID]; ok {
+			normalized.Devices[index].CurrentStateID = device.CurrentStateID
+		}
+	}
+	canonicalConditions := make(map[string]domain.DiagnosticCondition, len(canonical.Facility.Conditions))
+	for _, condition := range canonical.Facility.Conditions {
+		canonicalConditions[condition.ID] = condition
+	}
+	for index := range normalized.Conditions {
+		if condition, ok := canonicalConditions[normalized.Conditions[index].ID]; ok {
+			normalized.Conditions[index].CurrentActive = condition.CurrentActive
+		}
+	}
+
+	normalizedData, err := json.Marshal(normalized)
+	if err != nil {
+		return fmt.Errorf("encode candidate facility: %w", err)
+	}
+	canonicalData, err := json.Marshal(canonical.Facility)
+	if err != nil {
+		return fmt.Errorf("encode canonical facility: %w", err)
+	}
+	if !bytes.Equal(normalizedData, canonicalData) {
+		return fmt.Errorf("facility authoring changes require the dedicated facility operation")
+	}
+	if err := validateFacilityBindingsUnchanged(*candidate, canonical); err != nil {
+		return err
+	}
+	candidate.Facility = domain.CloneFacility(canonical.Facility)
+	return nil
+}
+
+type facilityBindingKey struct {
+	terminalID string
+	nodeID     string
+	blockID    string
+}
+
+func validateFacilityBindingsUnchanged(candidate, canonical domain.Session) error {
+	candidateBindings, err := facilityBindings(candidate)
+	if err != nil {
+		return err
+	}
+	canonicalBindings, err := facilityBindings(canonical)
+	if err != nil {
+		return err
+	}
+	if len(candidateBindings) != len(canonicalBindings) {
+		return fmt.Errorf("facility binding changes require the dedicated facility operation")
+	}
+	for key, canonicalBinding := range canonicalBindings {
+		candidateBinding, ok := candidateBindings[key]
+		if !ok || !bytes.Equal(candidateBinding, canonicalBinding) {
+			return fmt.Errorf("facility binding changes require the dedicated facility operation")
+		}
+	}
+	return nil
+}
+
+func facilityBindings(session domain.Session) (map[facilityBindingKey][]byte, error) {
+	bindings := make(map[facilityBindingKey][]byte)
+	for _, terminal := range session.Terminals {
+		var visit func(domain.ContentNode) error
+		visit = func(node domain.ContentNode) error {
+			action := (*domain.FacilityActionConfig)(nil)
+			if node.StateChange != nil {
+				action = node.StateChange.FacilityAction
+			}
+			if len(node.FacilityNameVariants) != 0 || node.VisibleWhen != nil || node.AvailableWhen != nil || action != nil {
+				binding, err := json.Marshal(struct {
+					NameVariants  []domain.FacilityTextVariant  `json:"nameVariants,omitempty"`
+					VisibleWhen   *domain.FacilityStateEquality `json:"visibleWhen,omitempty"`
+					AvailableWhen *domain.FacilityStateEquality `json:"availableWhen,omitempty"`
+					Action        *domain.FacilityActionConfig  `json:"action,omitempty"`
+				}{
+					NameVariants:  node.FacilityNameVariants,
+					VisibleWhen:   node.VisibleWhen,
+					AvailableWhen: node.AvailableWhen,
+					Action:        action,
+				})
+				if err != nil {
+					return fmt.Errorf("encode facility node binding: %w", err)
+				}
+				bindings[facilityBindingKey{terminalID: terminal.ID, nodeID: node.ID}] = binding
+			}
+			for _, block := range node.Blocks {
+				if len(block.FacilityTextVariants) == 0 {
+					continue
+				}
+				binding, err := json.Marshal(block.FacilityTextVariants)
+				if err != nil {
+					return fmt.Errorf("encode facility block binding: %w", err)
+				}
+				bindings[facilityBindingKey{terminalID: terminal.ID, blockID: block.ID}] = binding
+			}
+			for _, child := range node.Children {
+				if err := visit(child); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		if err := visit(terminal.Root); err != nil {
+			return nil, err
+		}
+	}
+	return bindings, nil
 }
 
 type terminalTransitionKey struct {
