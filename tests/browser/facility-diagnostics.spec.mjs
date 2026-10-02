@@ -187,6 +187,7 @@ test('replaying display instability is deterministic and cannot mutate or delete
       await expect(participant.page.locator('#screen')).toHaveAttribute(
         'data-presentation-effect', /(^|\s)display-unstable(\s|$)/,
       );
+      await expect(participant.page.locator('.term-row', { hasText: 'DAMAGED RECORD' })).toBeVisible();
       presentations.push(await participant.page.locator('#termList').innerText());
     }
     expect(new Set(presentations).size).toBe(1);
