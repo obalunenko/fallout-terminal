@@ -193,11 +193,12 @@
     <header class="facility-workspace-header">
       <div>
         <h1>ОБЪЕКТЫ И СОСТОЯНИЯ</h1>
-        <p>Общие устройства, условия и привязки текущей сессии.</p>
+        <p>Соберите сцену: что может измениться, что сделают игроки и как терминал покажет результат.</p>
       </div>
       <div role="group" aria-label="Действия с объектом">
         <button class="btn btn-danger" id="btnResetFacility" type="button" aria-haspopup="dialog" aria-controls="facilityResetDialog">СБРОСИТЬ ВЕСЬ ОБЪЕКТ</button>
-        <button class="btn btn-accent" id="btnSaveFacility" type="button">СОХРАНИТЬ ОБЪЕКТЫ</button>
+        <button class="btn btn-secondary" id="btnDiscardFacility" type="button" disabled>ОТМЕНИТЬ ИЗМЕНЕНИЯ</button>
+        <button class="btn btn-accent" id="btnSaveFacility" type="button">СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ</button>
       </div>
     </header>
 
@@ -207,71 +208,106 @@
     </div>
 
     <div class="facility-workspace-grid">
-      <section aria-labelledby="facilityDevicesHeading">
+      <section class="facility-device-sidebar" aria-labelledby="facilityDevicesHeading">
         <header>
           <h2 id="facilityDevicesHeading">УСТРОЙСТВА</h2>
-          <button class="btn btn-primary" id="btnAddFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityDeviceDialog">ДОБАВИТЬ УСТРОЙСТВО</button>
+          <button class="btn btn-primary" id="btnAddFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityDeviceDialog" aria-label="ДОБАВИТЬ УСТРОЙСТВО">+ УСТРОЙСТВО</button>
         </header>
-        <div id="facilityDeviceList" role="list" aria-label="Устройства объекта"></div>
+        <label class="field-label-inline" for="facilityDeviceSearch">Поиск устройств</label>
+        <input class="field-input" id="facilityDeviceSearch" type="search" placeholder="Название или идентификатор" autocomplete="off">
+        <div id="facilityDeviceList" role="group" aria-label="Устройства объекта"></div>
       </section>
 
-      <section aria-labelledby="facilityBindingsHeading">
-        <header>
-          <h2 id="facilityBindingsHeading">ПРИВЯЗКИ</h2>
-          <button class="btn btn-primary" id="btnAddFacilityBinding" type="button" aria-haspopup="dialog" aria-controls="facilityBindingDialog">ДОБАВИТЬ ПРИВЯЗКУ</button>
-        </header>
-        <div id="facilityBindingList" role="list" aria-label="Привязки объекта"></div>
-      </section>
+      <div class="facility-detail-panel" id="facilityDetailPanel" role="region" aria-label="Сведения об объекте">
+        <details class="facility-story-guide" id="facilityStoryGuide" open>
+          <summary>КАК СОБРАТЬ СЦЕНАРИЙ · 5 ШАГОВ</summary>
+          <p class="facility-story-intro">Начните с одной сцены: «Игроки находят запертую дверь. Команда на терминале открывает её, а запись сообщает, что путь свободен».</p>
+          <nav class="facility-story-steps" aria-label="Шаги настройки сценария">
+            <button type="button" data-story-step="0" aria-current="step">1. Объект</button>
+            <button type="button" data-story-step="1">2. Действие</button>
+            <button type="button" data-story-step="2">3. Результат</button>
+            <button type="button" data-story-step="3">4. Осложнения</button>
+            <button type="button" data-story-step="4">5. Проверка</button>
+          </nav>
+          <section class="facility-story-step" aria-labelledby="facilityStoryTitle">
+            <h2 id="facilityStoryTitle" tabindex="-1"></h2>
+            <p id="facilityStoryExplanation"></p>
+            <p id="facilityStoryExample" class="facility-story-example"></p>
+            <p id="facilityStoryContext" role="status" aria-live="polite"></p>
+            <div id="facilityStoryActions" class="facility-related-actions"></div>
+          </section>
+          <div class="facility-story-navigation">
+            <button class="btn btn-secondary" id="btnFacilityStoryBack" type="button">ПРЕДЫДУЩИЙ ШАГ</button>
+            <span>Можно идти по порядку или вернуться к любому шагу.</span>
+            <button class="btn btn-secondary" id="btnFacilityStoryNext" type="button">СЛЕДУЮЩИЙ ШАГ</button>
+          </div>
+        </details>
+        <div class="facility-detail-heading">
+          <p id="facilitySelectionEmpty">Выберите устройство слева, чтобы увидеть его состояние и связанные правила. Сейчас показана вся сессия.</p>
+          <button class="btn btn-secondary" id="btnClearFacilitySelection" type="button" hidden>ВСЯ СЕССИЯ</button>
+        </div>
+        <section id="facilitySelectionEditor" aria-labelledby="facilitySelectionHeading" hidden>
+          <h2 id="facilitySelectionHeading">ВЫБРАННОЕ УСТРОЙСТВО</h2>
+          <label class="field-label-inline" for="facilitySelectedDeviceName">НАЗВАНИЕ УСТРОЙСТВА</label>
+          <input class="field-input" id="facilitySelectedDeviceName" name="selectedDeviceName" type="text" maxlength="256" autocomplete="off">
+          <div role="group" aria-label="Действия с выбранным устройством">
+            <button class="btn btn-secondary" id="btnInspectFacilityDependencies" type="button" aria-haspopup="dialog" aria-controls="facilityDependencyDialog">ЗАВИСИМОСТИ</button>
+            <button class="btn btn-secondary" id="btnPreviewFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityPreviewDialog">ПРЕДПРОСМОТР СОСТОЯНИЯ</button>
+            <button class="btn btn-danger" id="btnResetFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityDeviceResetDialog">СБРОСИТЬ УСТРОЙСТВО</button>
+            <button class="btn btn-primary" id="btnSaveFacilityDeviceChanges" type="button">ПРИМЕНИТЬ К ЧЕРНОВИКУ</button>
+            <button class="btn btn-danger" id="btnDeleteFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityRepairDialog">УДАЛИТЬ УСТРОЙСТВО</button>
+          </div>
+          <div id="facilitySelectionStatus" role="status" aria-live="polite" aria-atomic="true"></div>
+          <div id="facilitySelectionError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
+        </section>
+        <div id="facilityDeviceSummary" class="facility-device-summary" hidden></div>
 
-      <section aria-labelledby="facilityConditionsHeading">
-        <header>
-          <h2 id="facilityConditionsHeading">ДИАГНОСТИЧЕСКИЕ УСЛОВИЯ</h2>
-          <button class="btn btn-primary" id="btnAddFacilityCondition" type="button" aria-haspopup="dialog" aria-controls="facilityConditionDialog">ДОБАВИТЬ УСЛОВИЕ</button>
-        </header>
-        <div id="facilityConditionList" role="list" aria-label="Диагностические условия"></div>
-      </section>
+        <section id="facilityConditionSelectionEditor" aria-labelledby="facilityConditionSelectionHeading" hidden>
+          <h2 id="facilityConditionSelectionHeading">ВЫБРАННОЕ УСЛОВИЕ</h2>
+          <div id="facilitySelectedConditionSummary"></div>
+          <div role="group" aria-label="Действия с выбранным условием">
+            <button class="btn btn-secondary" id="btnPreviewFacilityCondition" type="button" aria-haspopup="dialog" aria-controls="facilityPreviewDialog">ПРЕДПРОСМОТР УСЛОВИЯ</button>
+            <button class="btn btn-primary" id="btnRecoverFacilityCondition" type="button" aria-haspopup="dialog" aria-controls="facilityRecoveryConfirmationDialog">ВОССТАНОВИТЬ УСЛОВИЕ</button>
+          </div>
+        </section>
 
-      <section aria-labelledby="facilityProgramsHeading">
-        <header>
-          <h2 id="facilityProgramsHeading">ПРОГРАММЫ ВОССТАНОВЛЕНИЯ</h2>
-          <button class="btn btn-primary" id="btnAddFacilityRecoveryProgram" type="button" aria-haspopup="dialog" aria-controls="facilityRecoveryProgramDialog">ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ</button>
-        </header>
-        <div id="facilityRecoveryProgramList" role="list" aria-label="Программы восстановления"></div>
-      </section>
+        <section class="facility-related-section" aria-labelledby="facilityBindingsHeading">
+          <header>
+            <h2 id="facilityBindingsHeading">ДЕЙСТВИЯ И ИНФОРМАЦИЯ ДЛЯ ИГРОКОВ</h2>
+            <button class="btn btn-primary" id="btnAddFacilityBinding" type="button" aria-haspopup="dialog" aria-controls="facilityBindingDialog">ДОБАВИТЬ ПРИВЯЗКУ</button>
+          </header>
+          <p class="facility-section-help">Привязка связывает устройство с терминалом: команда меняет мир, а текст или меню показывают его состояние.</p>
+          <div id="facilityBindingList" aria-label="Привязки объекта"></div>
+        </section>
+
+        <section class="facility-related-section" aria-labelledby="facilityConditionsHeading">
+          <header>
+            <h2 id="facilityConditionsHeading">ДИАГНОСТИЧЕСКИЕ УСЛОВИЯ</h2>
+            <button class="btn btn-primary" id="btnAddFacilityCondition" type="button" aria-haspopup="dialog" aria-controls="facilityConditionDialog">ДОБАВИТЬ УСЛОВИЕ</button>
+          </header>
+          <p class="facility-section-help">Необязательно · Что мешает героям? Неисправность — отдельное осложнение, например отказ привода двери. Название задаёт историю, выбранный эффект — ограничение.</p>
+          <div id="facilityConditionList" role="group" aria-label="Диагностические условия"></div>
+        </section>
+
+        <section class="facility-related-section" aria-labelledby="facilityProgramsHeading">
+          <header>
+            <h2 id="facilityProgramsHeading">ПРОГРАММЫ ВОССТАНОВЛЕНИЯ</h2>
+            <button class="btn btn-primary" id="btnAddFacilityRecoveryProgram" type="button" aria-label="ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ" aria-haspopup="dialog" aria-controls="facilityRecoveryProgramDialog">ДОБАВИТЬ ПРОГРАММУ</button>
+          </header>
+          <p class="facility-section-help">Необязательно · Как вернуть всё в строй? Программа объединяет переходы, например восстановление питания и открытие двери. Для запуска игроками её нужно связать с командой терминала.</p>
+          <div id="facilityRecoveryProgramList" role="list" aria-label="Программы восстановления"></div>
+        </section>
+      </div>
     </div>
-
-    <section id="facilitySelectionEditor" aria-labelledby="facilitySelectionHeading" hidden>
-      <h2 id="facilitySelectionHeading">ВЫБРАННОЕ УСТРОЙСТВО</h2>
-      <label class="field-label-inline" for="facilitySelectedDeviceName">НАЗВАНИЕ УСТРОЙСТВА</label>
-      <input class="field-input" id="facilitySelectedDeviceName" name="selectedDeviceName" type="text" maxlength="256" autocomplete="off">
-      <div role="group" aria-label="Действия с выбранным устройством">
-        <button class="btn btn-secondary" id="btnInspectFacilityDependencies" type="button" aria-haspopup="dialog" aria-controls="facilityDependencyDialog">ЗАВИСИМОСТИ</button>
-        <button class="btn btn-secondary" id="btnPreviewFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityPreviewDialog">ПРЕДПРОСМОТР СОСТОЯНИЯ</button>
-        <button class="btn btn-danger" id="btnResetFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityDeviceResetDialog">СБРОСИТЬ УСТРОЙСТВО</button>
-        <button class="btn btn-primary" id="btnSaveFacilityDeviceChanges" type="button">СОХРАНИТЬ ИЗМЕНЕНИЯ</button>
-        <button class="btn btn-danger" id="btnDeleteFacilityDevice" type="button" aria-haspopup="dialog" aria-controls="facilityRepairDialog">УДАЛИТЬ УСТРОЙСТВО</button>
-      </div>
-      <div id="facilitySelectionStatus" role="status" aria-live="polite" aria-atomic="true"></div>
-      <div id="facilitySelectionError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    </section>
-
-    <section id="facilityConditionSelectionEditor" aria-labelledby="facilityConditionSelectionHeading" hidden>
-      <h2 id="facilityConditionSelectionHeading">ВЫБРАННОЕ УСЛОВИЕ</h2>
-      <div id="facilitySelectedConditionSummary"></div>
-      <div role="group" aria-label="Действия с выбранным условием">
-        <button class="btn btn-secondary" id="btnPreviewFacilityCondition" type="button" aria-haspopup="dialog" aria-controls="facilityPreviewDialog">ПРЕДПРОСМОТР УСЛОВИЯ</button>
-        <button class="btn btn-primary" id="btnRecoverFacilityCondition" type="button" aria-haspopup="dialog" aria-controls="facilityRecoveryConfirmationDialog">ВОССТАНОВИТЬ УСЛОВИЕ</button>
-      </div>
-    </section>
   </section>
 </div><!-- /layout -->
 
 <dialog class="facility-dialog" id="facilityDeviceDialog" aria-modal="true" aria-labelledby="facilityDeviceDialogTitle" aria-describedby="facilityDeviceDialogDescription facilityDeviceError" hidden>
   <form class="facility-dialog-panel" id="facilityDeviceForm" novalidate>
     <h2 id="facilityDeviceDialogTitle">УСТРОЙСТВО ОБЪЕКТА</h2>
-    <p id="facilityDeviceDialogDescription">Задайте стабильный идентификатор и конечный граф состояний устройства.</p>
-    <label class="field-label-inline" for="facilityDeviceID">ИДЕНТИФИКАТОР</label>
-    <input class="field-input" id="facilityDeviceID" name="deviceId" type="text" maxlength="256" autocomplete="off" required aria-describedby="facilityDeviceError">
+    <p id="facilityDeviceDialogDescription">Что в сцене может измениться? Например, «Дверь в убежище»: сначала «Заперта», после действия «Открыть дверь» — «Открыта». Заполните название и тип, затем состояния и переход. Применение обновит общий черновик сессии.</p>
+    <label class="field-label-inline facility-technical-label" for="facilityDeviceID">ИДЕНТИФИКАТОР</label>
+    <input class="field-input facility-technical-input" id="facilityDeviceID" name="deviceId" type="text" maxlength="256" autocomplete="off" required aria-describedby="facilityDeviceError">
     <label class="field-label-inline" for="facilityDeviceName">НАЗВАНИЕ</label>
     <input class="field-input" id="facilityDeviceName" name="deviceName" type="text" maxlength="256" autocomplete="off" required>
     <label class="field-label-inline" for="facilityDeviceKind">ТИП</label>
@@ -291,6 +327,7 @@
 
     <fieldset>
       <legend>СОСТОЯНИЯ</legend>
+      <p class="facility-section-help">Как объект выглядит до и после события? Для двери задайте «Заперта» и «Открыта». Идентификаторы заполняются из названий; игрокам понятнее сами названия.</p>
       <div id="facilityDeviceStates"></div>
       <button class="btn btn-secondary" id="btnAddFacilityState" type="button">ДОБАВИТЬ СОСТОЯНИЕ</button>
     </fieldset>
@@ -298,23 +335,25 @@
     <select class="field-input" id="facilityDeviceInitialState" name="initialStateId" required>
       <option value="">ВЫБЕРИТЕ СОСТОЯНИЕ</option>
     </select>
+    <p class="facility-section-help">Начальное состояние — точка старта и результат сброса. Его изменение у существующего устройства не меняет текущее состояние во время игры.</p>
 
     <fieldset>
       <legend>ПЕРЕХОДЫ</legend>
+      <p class="facility-section-help">Какое событие меняет объект? «Открыть дверь»: «Заперта» → «Открыта». Затем свяжите этот переход с командой терминала на шаге «Действие». Сам переход ещё не создаёт кнопку для игроков.</p>
       <div id="facilityDeviceTransitions"></div>
       <button class="btn btn-secondary" id="btnAddFacilityTransition" type="button">ДОБАВИТЬ ПЕРЕХОД</button>
     </fieldset>
     <div id="facilityDeviceStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="facilityDeviceError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <div role="group" aria-label="Редактирование устройства">
+    <div class="facility-dialog-actions" role="group" aria-label="Редактирование устройства">
       <button class="btn btn-secondary" id="btnCancelFacilityDevice" type="button">ОТМЕНА</button>
-      <button class="btn btn-primary" id="btnSaveFacilityDevice" type="submit">СОХРАНИТЬ УСТРОЙСТВО</button>
+      <button class="btn btn-primary" id="btnSaveFacilityDevice" type="submit">ПРИМЕНИТЬ К ЧЕРНОВИКУ</button>
     </div>
   </form>
 
   <template id="facilityStateRowTemplate">
     <div class="facility-state-row">
-      <label>ИДЕНТИФИКАТОР СОСТОЯНИЯ
+      <label class="facility-technical-label">ИДЕНТИФИКАТОР СОСТОЯНИЯ
         <input class="field-input facility-state-id" name="stateId" type="text" maxlength="256" autocomplete="off" required>
       </label>
       <label>НАЗВАНИЕ СОСТОЯНИЯ
@@ -326,7 +365,7 @@
 
   <template id="facilityTransitionRowTemplate">
     <div class="facility-transition-row">
-      <label>ИДЕНТИФИКАТОР ПЕРЕХОДА
+      <label class="facility-technical-label">ИДЕНТИФИКАТОР ПЕРЕХОДА
         <input class="field-input facility-transition-id" name="transitionId" type="text" maxlength="256" autocomplete="off" required>
       </label>
       <label>НАЗВАНИЕ ПЕРЕХОДА
@@ -343,9 +382,10 @@
   </template>
 </dialog>
 
-<dialog class="facility-dialog" id="facilityPreviewDialog" aria-modal="true" aria-labelledby="facilityPreviewDialogTitle" aria-describedby="facilityPreviewStatus facilityPreviewError" hidden>
+<dialog class="facility-dialog" id="facilityPreviewDialog" aria-modal="true" aria-labelledby="facilityPreviewDialogTitle" aria-describedby="facilityPreviewContext facilityPreviewChanges facilityPreviewStatus facilityPreviewError" hidden>
   <div class="facility-dialog-panel">
     <h2 id="facilityPreviewDialogTitle">ПРЕДПРОСМОТР ОБЪЕКТА</h2>
+    <p id="facilityPreviewContext">Предпросмотр использует сохранённую конфигурацию сессии и не влияет на игроков.</p>
     <label class="field-label-inline" for="facilityPreviewTerminal">ТЕРМИНАЛ</label>
     <select class="field-input" id="facilityPreviewTerminal"></select>
     <label class="field-label-inline" id="facilityPreviewStateLabel" for="facilityPreviewState">СОСТОЯНИЕ</label>
@@ -353,10 +393,11 @@
     <label id="facilityPreviewActiveLabel" hidden>
       <input id="facilityPreviewActive" type="checkbox"> АКТИВНО
     </label>
+    <div id="facilityPreviewChanges" role="status" aria-live="polite"></div>
     <div id="facilityPreviewTree" class="facility-preview-tree" aria-label="Эффективное содержимое"></div>
     <div id="facilityPreviewStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="facilityPreviewError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <div role="group" aria-label="Предпросмотр объекта">
+    <div class="facility-dialog-actions" role="group" aria-label="Предпросмотр объекта">
       <button class="btn btn-primary" id="btnRefreshFacilityPreview" type="button">ОБНОВИТЬ ПРЕДПРОСМОТР</button>
       <button class="btn btn-secondary" id="btnCloseFacilityPreview" type="button">ЗАКРЫТЬ</button>
     </div>
@@ -367,7 +408,7 @@
   <div class="facility-dialog-panel">
     <h2 id="facilityDeviceResetDialogTitle">ПОДТВЕРЖДЕНИЕ СБРОСА УСТРОЙСТВА</h2>
     <p>Текущее состояние устройства и связанные условия вернутся к начальным значениям.</p>
-    <div role="group" aria-label="Подтверждение сброса устройства">
+    <div class="facility-dialog-actions" role="group" aria-label="Подтверждение сброса устройства">
       <button class="btn btn-secondary" id="btnCancelFacilityDeviceReset" type="button">ОТМЕНА</button>
       <button class="btn btn-danger" id="btnConfirmFacilityDeviceReset" type="button">СБРОСИТЬ</button>
     </div>
@@ -378,7 +419,7 @@
   <div class="facility-dialog-panel">
     <h2 id="facilityResetDialogTitle">ПОДТВЕРЖДЕНИЕ СБРОСА ОБЪЕКТА</h2>
     <p>Все устройства и диагностические условия вернутся к авторским начальным значениям.</p>
-    <div role="group" aria-label="Подтверждение сброса объекта">
+    <div class="facility-dialog-actions" role="group" aria-label="Подтверждение сброса объекта">
       <button class="btn btn-secondary" id="btnCancelFacilityReset" type="button">ОТМЕНА</button>
       <button class="btn btn-danger" id="btnConfirmFacilityReset" type="button">СБРОСИТЬ ВСЁ</button>
     </div>
@@ -389,7 +430,7 @@
   <div class="facility-dialog-panel">
     <h2 id="facilityRecoveryConfirmationDialogTitle">ПОДТВЕРЖДЕНИЕ ВОССТАНОВЛЕНИЯ</h2>
     <p>Применить авторский частный путь восстановления выбранного условия?</p>
-    <div role="group" aria-label="Подтверждение восстановления условия">
+    <div class="facility-dialog-actions" role="group" aria-label="Подтверждение восстановления условия">
       <button class="btn btn-secondary" id="btnCancelFacilityRecovery" type="button">ОТМЕНА</button>
       <button class="btn btn-primary" id="btnConfirmFacilityRecovery" type="button">ВОССТАНОВИТЬ</button>
     </div>
@@ -399,7 +440,7 @@
 <dialog class="facility-dialog" id="facilityConditionDialog" aria-modal="true" aria-labelledby="facilityConditionDialogTitle" aria-describedby="facilityConditionDialogDescription facilityConditionError" hidden>
   <form class="facility-dialog-panel" id="facilityConditionForm" novalidate>
     <h2 id="facilityConditionDialogTitle">ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ</h2>
-    <p id="facilityConditionDialogDescription">Условие включается только явным переходом и применяет выбранный диагностический эффект.</p>
+    <p id="facilityConditionDialogDescription">Необязательное осложнение: например, «Привод двери повреждён». Выберите, на что оно действует и какую возможность блокирует. Категория и название сами по себе ничего не меняют: активацию или снятие неисправности задайте в эффектах перехода. Восстановление оператором позволит снять её вручную во время игры.</p>
     <label class="field-label-inline" for="facilityConditionID">ИДЕНТИФИКАТОР</label>
     <input class="field-input" id="facilityConditionID" name="conditionId" type="text" maxlength="256" autocomplete="off" required aria-describedby="facilityConditionError">
     <label class="field-label-inline" for="facilityConditionName">НАЗВАНИЕ</label>
@@ -432,9 +473,9 @@
     </label>
     <div id="facilityConditionStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="facilityConditionError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <div role="group" aria-label="Редактирование диагностического условия">
+    <div class="facility-dialog-actions" role="group" aria-label="Редактирование диагностического условия">
       <button class="btn btn-secondary" id="btnCancelFacilityCondition" type="button">ОТМЕНА</button>
-      <button class="btn btn-primary" id="btnSaveFacilityCondition" type="submit">СОХРАНИТЬ УСЛОВИЕ</button>
+      <button class="btn btn-primary" id="btnSaveFacilityCondition" type="submit">ПРИМЕНИТЬ К ЧЕРНОВИКУ</button>
     </div>
   </form>
 </dialog>
@@ -442,7 +483,7 @@
 <dialog class="facility-dialog" id="facilityRecoveryProgramDialog" aria-modal="true" aria-labelledby="facilityRecoveryProgramDialogTitle" aria-describedby="facilityRecoveryProgramDialogDescription facilityRecoveryProgramError" hidden>
   <form class="facility-dialog-panel" id="facilityRecoveryProgramForm" novalidate>
     <h2 id="facilityRecoveryProgramDialogTitle">ПРОГРАММА ВОССТАНОВЛЕНИЯ</h2>
-    <p id="facilityRecoveryProgramDialogDescription">Программа запускает только выбранные разрешённые переходы.</p>
+    <p id="facilityRecoveryProgramDialogDescription">Необязательный план восстановления: выберите переходы, например «Восстановить питание» и «Открыть дверь». Программа выполнит их вместе; все предусловия должны выполняться до запуска. Если дверь требует уже включённого питания, восстановите питание отдельным действием. После применения вернитесь к шагу «Действие»: в привязке команды выберите эту программу в поле «Что запустить».</p>
     <label class="field-label-inline" for="facilityRecoveryProgramID">ИДЕНТИФИКАТОР</label>
     <input class="field-input" id="facilityRecoveryProgramID" name="programId" type="text" maxlength="256" autocomplete="off" required aria-describedby="facilityRecoveryProgramError">
     <label class="field-label-inline" for="facilityRecoveryProgramName">НАЗВАНИЕ</label>
@@ -453,9 +494,9 @@
     <select class="field-input" id="facilityRecoveryProgramTransition" name="programTransitionId" required></select>
     <div id="facilityRecoveryProgramStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="facilityRecoveryProgramError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <div role="group" aria-label="Редактирование программы восстановления">
+    <div class="facility-dialog-actions" role="group" aria-label="Редактирование программы восстановления">
       <button class="btn btn-secondary" id="btnCancelFacilityRecoveryProgram" type="button">ОТМЕНА</button>
-      <button class="btn btn-primary" id="btnSaveFacilityRecoveryProgram" type="submit">СОХРАНИТЬ ПРОГРАММУ</button>
+      <button class="btn btn-primary" id="btnSaveFacilityRecoveryProgram" type="submit">ПРИМЕНИТЬ К ЧЕРНОВИКУ</button>
     </div>
   </form>
 </dialog>
@@ -463,7 +504,7 @@
 <dialog class="facility-dialog" id="facilityBindingDialog" aria-modal="true" aria-labelledby="facilityBindingDialogTitle" aria-describedby="facilityBindingDialogDescription facilityBindingError" hidden>
   <form class="facility-dialog-panel" id="facilityBindingForm" novalidate>
     <h2 id="facilityBindingDialogTitle">ПРИВЯЗКА ОБЪЕКТА</h2>
-    <p id="facilityBindingDialogDescription">Свяжите один элемент терминала с известным состоянием устройства.</p>
+    <p id="facilityBindingDialogDescription">Что игрок делает или узнаёт на терминале? Выберите тип привязки, затем терминал и его элемент.</p>
     <label class="field-label-inline" for="facilityBindingTerminal">ТЕРМИНАЛ</label>
     <select class="field-input" id="facilityBindingTerminal" name="bindingTerminalId" required></select>
     <label class="field-label-inline" for="facilityBindingNode">ЭЛЕМЕНТ</label>
@@ -476,9 +517,9 @@
     <textarea class="field-input" id="facilityBindingText" name="bindingText" rows="4" required></textarea>
     <div id="facilityBindingStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="facilityBindingError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <div role="group" aria-label="Редактирование привязки объекта">
+    <div class="facility-dialog-actions" role="group" aria-label="Редактирование привязки объекта">
       <button class="btn btn-secondary" id="btnCancelFacilityBinding" type="button">ОТМЕНА</button>
-      <button class="btn btn-primary" id="btnSaveFacilityBinding" type="submit">СОХРАНИТЬ ПРИВЯЗКУ</button>
+      <button class="btn btn-primary" id="btnSaveFacilityBinding" type="submit">ПРИМЕНИТЬ К ЧЕРНОВИКУ</button>
     </div>
   </form>
 </dialog>
@@ -486,27 +527,29 @@
 <dialog class="facility-dialog" id="facilityDependencyDialog" aria-modal="true" aria-labelledby="facilityDependencyDialogTitle" aria-describedby="facilityDependencyDialogDescription facilityDependencyStatus facilityDependencyError" hidden>
   <div class="facility-dialog-panel">
     <h2 id="facilityDependencyDialogTitle">ЗАВИСИМОСТИ ОБЪЕКТА</h2>
-    <p id="facilityDependencyDialogDescription">Все места, которые ссылаются на выбранный стабильный идентификатор.</p>
+    <p id="facilityDependencyDialogDescription">Связанные элементы, правила и действия выбранного объекта.</p>
     <div id="facilityDependencyList" role="list" aria-label="Зависимости выбранного объекта"></div>
     <div id="facilityDependencyStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="facilityDependencyError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
-    <button class="btn btn-secondary" id="btnCloseFacilityDependencies" type="button">ЗАКРЫТЬ</button>
+    <div class="facility-dialog-actions" role="group" aria-label="Просмотр зависимостей">
+      <button class="btn btn-secondary" id="btnCloseFacilityDependencies" type="button">ЗАКРЫТЬ</button>
+    </div>
   </div>
 </dialog>
 
 <dialog class="facility-dialog" id="facilityRepairDialog" aria-modal="true" aria-labelledby="facilityRepairDialogTitle" aria-describedby="facilityRepairDialogDescription facilityRepairError" hidden>
   <div class="facility-dialog-panel">
     <h2 id="facilityRepairDialogTitle">ИСПРАВЛЕНИЕ ССЫЛОК</h2>
-    <p id="facilityRepairDialogDescription">Удаление доступно после полного исправления всех ссылок.</p>
+    <p id="facilityRepairDialogDescription">Удаление доступно после полного исправления всех ссылок. Результат останется в черновике до сохранения изменений сессии.</p>
     <div id="facilityRepairError" role="alert" aria-live="assertive" aria-atomic="true" hidden></div>
     <label class="field-label-inline" for="facilityRepairTarget">ПЕРЕНАЗНАЧИТЬ НА</label>
     <select class="field-input" id="facilityRepairTarget" name="repairTargetId"></select>
     <button class="btn btn-secondary" id="btnValidateFacilityRepair" type="button">ПРОВЕРИТЬ ИСПРАВЛЕНИЕ</button>
     <div id="facilityRepairImpact" role="status" aria-live="polite" aria-atomic="true"></div>
-    <div role="group" aria-label="Исправление и удаление объекта">
+    <div class="facility-dialog-actions" role="group" aria-label="Исправление и удаление объекта">
       <button class="btn btn-secondary" id="btnCancelFacilityRepair" type="button">ОТМЕНА</button>
-      <button class="btn btn-danger" id="btnDeleteFacilityWithoutRepair" type="button" disabled>УДАЛИТЬ</button>
-      <button class="btn btn-danger" id="btnApplyFacilityRepair" type="button" disabled>ПРИМЕНИТЬ И УДАЛИТЬ</button>
+      <button class="btn btn-danger" id="btnDeleteFacilityWithoutRepair" type="button" disabled>УДАЛИТЬ В ЧЕРНОВИКЕ</button>
+      <button class="btn btn-danger" id="btnApplyFacilityRepair" type="button" disabled>ИСПРАВИТЬ И УДАЛИТЬ В ЧЕРНОВИКЕ</button>
     </div>
   </div>
 </dialog>

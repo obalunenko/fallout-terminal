@@ -1865,10 +1865,13 @@ button {
 
 /* ── Facility authoring ───────────────────────────────── */
 .facility-workspace {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  overflow: auto;
-  padding: clamp(14px, 2vw, 24px);
+  overflow: hidden;
+  padding: clamp(12px, 1.5vw, 20px);
   background:
     linear-gradient(rgba(111, 174, 85, .025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(111, 174, 85, .025) 1px, transparent 1px),
@@ -1877,17 +1880,29 @@ button {
 }
 .facility-workspace[hidden] { display: none; }
 .facility-workspace-header,
-.facility-workspace-grid > section > header {
+.facility-device-sidebar > header,
+.facility-related-section > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 .facility-workspace-header {
+  flex: 0 0 auto;
   margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid #3a4a30;
 }
+.facility-workspace-header > div { min-width: 0; }
+.facility-workspace-header > [role="group"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 60%;
+}
+.facility-workspace .btn,
+.facility-dialog .btn { white-space: normal; overflow-wrap: anywhere; }
 .facility-workspace-header h1,
 .facility-workspace-grid h2,
 #facilitySelectionEditor h2,
@@ -1901,10 +1916,11 @@ button {
 .facility-workspace-header p,
 .facility-dialog-panel > p {
   margin: 5px 0 0;
-  color: #6f9a5f;
+  color: #9bb88c;
   line-height: 1.4;
 }
 .facility-feedback {
+  flex: 0 0 auto;
   display: grid;
   gap: 7px;
   min-height: 22px;
@@ -1933,16 +1949,109 @@ button {
 [id^="facility"][id$="Error"][hidden] { display: none; }
 .facility-workspace-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   gap: 12px;
 }
-.facility-workspace-grid > section,
-#facilitySelectionEditor {
+.facility-device-sidebar,
+.facility-detail-panel {
   min-width: 0;
+  min-height: 0;
   padding: 12px;
   border: 1px solid #2a3520;
   background: rgba(15, 18, 9, .94);
 }
+.facility-device-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+.facility-device-sidebar > header { flex-wrap: wrap; }
+.facility-device-sidebar > .field-input { flex: 0 0 auto; width: 100%; min-width: 0; }
+.facility-device-sidebar > .field-label-inline { margin: 0; color: #9bb88c; }
+#facilityDeviceList {
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  scrollbar-gutter: stable;
+  padding: 2px 3px 4px 2px;
+}
+.facility-detail-panel {
+  overflow: auto;
+  scrollbar-gutter: stable;
+  scroll-padding: 12px;
+}
+.facility-story-guide {
+  min-width: 0;
+  margin-bottom: 20px;
+  padding: 14px;
+  border: 1px solid #54763d;
+  background: #14200f;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.facility-story-guide > summary { cursor: pointer; color: #d8ffb8; }
+.facility-story-intro { color: #b2cba0; margin: 12px 0; }
+.facility-story-steps { display: flex; flex-wrap: wrap; gap: 6px; position: sticky; top: 0; z-index: 1; background: #14200f; }
+.facility-story-steps button {
+  flex: 1 1 105px;
+  padding: 7px 9px;
+  border: 1px solid #456334;
+  background: #0d1309;
+  color: #b9ffb0;
+  font: inherit;
+  cursor: pointer;
+}
+.facility-story-steps [aria-current="step"] { border-color: #ffe08a; color: #ffe08a; background: #292814; }
+.facility-story-step { padding-block: 14px; }
+.facility-story-step h2 { margin: 0 0 8px; color: #ffe08a; }
+.facility-story-step p { margin: 8px 0; }
+.facility-story-example { padding-left: 12px; border-left: 2px solid #769c56; color: #d8ffb8; }
+#facilityStoryContext { color: #b2cba0; }
+.facility-story-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid #456334; }
+.facility-story-navigation span { flex: 1 1 160px; color: #9bb88c; font-size: 12px; }
+.facility-story-guide .btn { white-space: normal; }
+.facility-section-help { color: #a9c39b; font-size: 13px; line-height: 1.5; margin: 8px 0 12px; overflow-wrap: anywhere; }
+.facility-binding-group { min-width: 0; margin-bottom: 14px; }
+.facility-binding-group h3 { font-size: 13px; color: #ffe08a; margin: 8px 0; }
+.facility-binding-group > [role="list"] { display: grid; gap: 7px; }
+.facility-detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 10px;
+}
+.facility-detail-heading:has(> [hidden]:only-child),
+.facility-detail-heading:has(> [hidden] + [hidden]) { display: none; }
+#facilitySelectionEmpty {
+  margin: 0;
+  color: #9bb88c;
+  line-height: 1.6;
+}
+#btnClearFacilitySelection { margin-left: auto; margin-bottom: 12px; }
+#facilitySelectionEditor { min-width: 0; }
+.facility-device-summary {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #456334;
+  background: #14200f;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.facility-device-summary[hidden] { display: none; }
+.facility-device-summary p { margin: 0; }
+.facility-device-status { color: #d8ffb8; line-height: 1.5; }
+.facility-related-section { margin-top: 22px; min-width: 0; }
+.facility-related-section > header { flex-wrap: wrap; margin-bottom: 10px; }
+.facility-related-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.facility-technical-details { color: #9bb88c; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.facility-technical-details summary { cursor: pointer; }
+.facility-technical-details[open] summary { margin-bottom: 6px; }
+.facility-technical-details code { font-family: inherit; }
 #facilityConditionSelectionEditor {
   min-width: 0;
   margin-top: 12px;
@@ -1959,7 +2068,6 @@ button {
 }
 .facility-workspace-grid h2,
 #facilitySelectionEditor h2 { font-size: 13px; }
-.facility-workspace-grid > section > header { margin-bottom: 10px; }
 #facilityDeviceList,
 #facilityBindingList,
 #facilityConditionList,
@@ -1975,6 +2083,7 @@ button {
   border: 1px solid #253018;
   background: #10140c;
   color: #9fe89a;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .facility-preview-tree {
@@ -1994,6 +2103,20 @@ button {
   border-left: 1px solid #3a4a30;
 }
 .facility-preview-node > p { margin: 0; white-space: pre-wrap; }
+.facility-preview-node-status { color: #ffe08a; font-size: 11px; letter-spacing: .05em; }
+.facility-preview-changed { border-left: 3px solid #ffe08a; background: #211f0e; }
+.facility-preview-unavailable { border-left: 3px solid #ed9d83; color: #edb5a3; background: #211410; }
+#facilityPreviewChanges { color: #ffe08a; line-height: 1.5; white-space: pre-wrap; }
+.command-facility-action {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #456334;
+  background: #10140c;
+}
+.command-facility-action-summary { white-space: pre-wrap; line-height: 1.5; color: #d8ffb8; }
+.command-facility-action .btn { justify-self: start; }
 [data-facility-kind][data-facility-id]:hover,
 [data-facility-kind][data-facility-id]:focus-within,
 [data-facility-selected="true"] {
@@ -2012,11 +2135,8 @@ button {
   gap: 6px 12px;
 }
 .facility-dependency-kind { color: #ffe08a; }
-.facility-dependency-property { color: #6f9a5f; }
+.facility-dependency-property { color: #9bb88c; }
 .facility-dependency-navigation { grid-column: 2; justify-self: start; }
-#facilitySelectionEditor {
-  margin-top: 12px;
-}
 #facilitySelectionEditor > .field-input { width: 100%; margin: 7px 0 10px; }
 #facilitySelectionEditor > [role="group"] {
   display: flex;
@@ -2036,12 +2156,16 @@ button {
 .facility-dialog[hidden] { display: none; }
 .facility-dialog::backdrop { background: rgba(2, 4, 2, .84); }
 .facility-dialog-panel {
+  --facility-dialog-padding: clamp(18px, 3vw, 28px);
   display: grid;
   gap: 10px;
   max-height: calc(100dvh - 34px);
   overflow: auto;
-  padding: clamp(18px, 3vw, 28px);
+  padding: var(--facility-dialog-padding);
+  padding-bottom: 0;
+  scroll-padding-block: 16px 100px;
 }
+.facility-dialog-panel > .field-input { min-width: 0; width: 100%; }
 .facility-dialog fieldset {
   min-width: 0;
   margin: 2px 0;
@@ -2049,7 +2173,10 @@ button {
   border: 1px solid #3a4a30;
 }
 .facility-dialog legend { padding: 0 6px; color: #ffe08a; }
-.facility-dialog label { color: #6f9a5f; font-size: 11px; line-height: 1.35; }
+.facility-dialog label { min-width: 0; color: #a9c39b; font-size: 12px; line-height: 1.5; }
+.facility-dialog .facility-technical-label { color: #9bb88c; font-size: 11px; }
+.facility-technical-input,
+.facility-technical-label .field-input { color: #9bb88c; }
 .facility-dialog label > .field-input { width: 100%; margin-top: 4px; }
 .facility-dialog textarea { resize: vertical; }
 .facility-dialog [role="group"] {
@@ -2059,7 +2186,19 @@ button {
   gap: 8px;
   margin-top: 4px;
 }
+.facility-dialog .facility-dialog-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 10px calc(-1 * var(--facility-dialog-padding)) 0;
+  padding: 14px var(--facility-dialog-padding);
+  border-top: 1px solid #456334;
+  background: #11170d;
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, .35);
+}
 .facility-dialog :is(input, select, textarea, button):focus-visible,
+.facility-workspace :is(input, select, textarea, button, summary):focus-visible,
+.facility-dialog summary:focus-visible,
 #facilityWorkspaceTab:focus-visible,
 #terminalWorkspaceTab:focus-visible {
   outline: 2px solid #ffe08a;
@@ -2081,7 +2220,33 @@ button {
   background: #10140c;
 }
 .facility-state-row { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
-.facility-transition-row { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+.facility-transition-row { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; gap: 12px; }
+.facility-transition-row > .btn { grid-column: 1 / -1; justify-self: end; }
+.facility-transition-summary {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #3a4a30;
+  color: #d8ffb8;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.facility-transition-references { grid-column: 1 / -1; min-width: 0; }
+details.facility-transition-references > summary { cursor: pointer; color: #ffe08a; line-height: 1.5; padding: 6px 0; }
+details.facility-transition-references[open] > summary { margin-bottom: 10px; }
+.facility-transition-references > div { display: grid; gap: 10px; }
+.facility-transition-reference-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  margin-block: 8px;
+  padding: 10px;
+  border: 1px solid #3a4a30;
+}
+.facility-transition-reference-row > .field-input { min-width: 0; width: 100%; }
+.facility-transition-reference-row > button { grid-column: 1 / -1; justify-self: end; }
 #facilityRepairImpact {
   min-height: 34px;
   padding: 8px;
@@ -2096,8 +2261,8 @@ button {
   .tree-hdr-actions { gap: 5px; }
   .tree-hdr-actions .btn { padding-inline: 8px; }
   .session-claimed-controls .btn { flex: 1 1 92px; }
-  .facility-transition-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .facility-transition-row > .btn { justify-self: end; }
+  .facility-workspace-header { align-items: start; }
+  .facility-workspace-header > [role="group"] { max-width: 55%; }
 }
 
 @media (max-width: 820px) {
@@ -2125,7 +2290,12 @@ button {
   .player-management-row { grid-template-columns: 1fr; }
   .player-management-row-actions { justify-content: flex-end; }
   .logical-session-dialog-header { align-items: stretch; flex-direction: column; }
-  .facility-workspace-grid { grid-template-columns: 1fr; }
+  .facility-workspace-grid { grid-template-columns: 1fr; overflow: auto; align-content: start; }
+  .facility-device-sidebar { min-height: 190px; max-height: 260px; }
+  .facility-detail-panel { overflow: visible; }
+  .facility-workspace-header { flex-direction: column; gap: 10px; }
+  .facility-workspace-header > [role="group"] { max-width: none; justify-content: flex-start; }
+  .facility-workspace-header .btn { font-size: 12px; padding: 7px 10px; }
 }
 
 @media (max-width: 620px), (max-height: 560px) {
@@ -2216,17 +2386,19 @@ button {
   .player-management-row-actions .btn { min-width: 0; }
   .facility-workspace { padding: 10px; }
   .facility-workspace-header,
-  .facility-workspace-grid > section > header { align-items: stretch; flex-direction: column; }
+  .facility-related-section > header { align-items: stretch; flex-direction: column; }
   .facility-workspace-header .btn,
-  .facility-workspace-grid > section > header .btn { width: 100%; }
+  .facility-related-section > header .btn { width: 100%; }
   .facility-dialog {
     width: calc(100vw - 20px);
     max-height: calc(100dvh - 20px);
   }
-  .facility-dialog-panel { max-height: calc(100dvh - 22px); padding: 16px; }
+  .facility-dialog-panel { --facility-dialog-padding: 16px; max-height: calc(100dvh - 22px); }
   .facility-state-row,
   .facility-transition-row,
+  .facility-transition-reference-row,
   .facility-dependency-row { grid-template-columns: 1fr; }
+  .facility-dependency-navigation { grid-column: 1; }
   .facility-state-row > .btn,
   .facility-transition-row > .btn { width: 100%; }
   .facility-dialog [role="group"] { display: grid; grid-template-columns: 1fr; }

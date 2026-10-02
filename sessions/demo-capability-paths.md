@@ -18,10 +18,11 @@ deliberately outside this inventory.
 4. Unless a row says otherwise, return with **НАЗАД** until the terminal root is visible. A command
    result returns with its acknowledgement control; rejecting a state-changing command leaves the
    same command reachable and changes no facility state.
-5. A facility prerequisite is prepared without editing JSON: use **ОБЪЕКТЫ**, select the named
-   device or condition, change its current authored value, and save; use **ПРЕДПРОСМОТР** when the
-   row explicitly calls for non-mutating preview. Use **СБРОСИТЬ УСТРОЙСТВО** or
-   **СБРОСИТЬ ВЕСЬ ОБЪЕКТ** to recover authored initial values.
+5. Facility authoring uses one explicit draft. In **ОБЪЕКТЫ**, changes made with
+   **ПРИМЕНИТЬ К ЧЕРНОВИКУ** remain private until **СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ**; use
+   **ОТМЕНИТЬ ИЗМЕНЕНИЯ** to restore the saved configuration. **ПРЕДПРОСМОТР** requires a clean
+   draft and compares the saved current value with a detached hypothetical value. Use
+   **СБРОСИТЬ УСТРОЙСТВО** or **СБРОСИТЬ ВЕСЬ ОБЪЕКТ** for confirmed live-state recovery.
 
 ## Terminal installations and access
 
@@ -89,20 +90,71 @@ The controller performs actions while the observer verifies the same authoritati
 
 ## Facility authoring, diagnostics, preview, and reset
 
+### Prepare a story with the in-app guide
+
+Open **ОБЪЕКТЫ → КАК СОБРАТЬ СЦЕНАРИЙ · 5 ШАГОВ**. The guide is open by default;
+collapse it during play to give the device controls more space. Select a device on the left
+to make the guide use that device's draft. The counts describe configured relationships, not
+a guarantee that the scenario is correct.
+
+Use one continuous example: players encounter a locked door, request that it open from a
+terminal, and see a status record change to **Путь свободен**.
+
+| Step | Story decision | Configuration route |
+|---|---|---|
+| **1. Объект** | What can change? A door starts **Заперта** and can become **Открыта**. | Create a door device, its two named states and initial state. Add the **Открыть дверь** transition from closed to open. Applying selects the device in the guide. |
+| **2. Действие** | What do players do? They request **Открыть дверь** on a terminal. | Use **СВЯЗАТЬ С КОМАНДОЙ** or edit an existing command action; choose the door and opening transition. If there is no suitable command, the guide routes to **ТЕРМИНАЛЫ** to create one. A transition alone does not create a player command. |
+| **3. Результат** | How do players notice the change? A status record says **Путь свободен**. | Open the display-rule editor; choose the terminal, entry, block, and open state. Keep **Дверь заперта** as the block's original text and use **Путь свободен** for the open-state variant. Name, visibility, and availability rules are alternative display choices. |
+| **4. Осложнения** | Optional: what obstructs the scene and how is it repaired? | Add a fault and choose its blocking effect; activate/remove it in transition effects. Operator recovery is a manual escape path. A recovery program combines transitions; return to **2. Действие**, open the command action, and choose that program under **ЧТО ЗАПУСТИТЬ**. |
+| **5. Проверка** | Does the saved scene show the expected result? | Save the shared draft once, then preview the open state on the relevant terminal. Finally request the actual command as a player and approve it as Overseer. Preview checks presentation without performing the action. |
+
+If a command or display destination is missing while your facility draft has changes, use
+**СОХРАНИТЬ ЧЕРНОВИК И ОТКРЫТЬ ТЕРМИНАЛЫ**. This is an explicit save checkpoint:
+terminal editing autosaves separately, so the guide first saves the device work and only
+switches tabs after success. A rejected save keeps you on the guide with your selected draft
+intact. Create the command or entry, then return to **ОБЪЕКТЫ** to bind it to the selected
+device. Those new binding edits remain a draft until you explicitly save again. Merely
+moving between guide steps never saves anything.
+
+Prerequisites are checked against the state **before** a command or recovery program runs.
+For example, if opening the door requires power already on, restoring power and opening that
+door cannot satisfy the prerequisite within one atomic program: restore power first with a
+separate action, then request the opening action. Use faults/programs only if the story needs
+them; a basic door scene does not require either.
+
+Relationship groups distinguish **Что делают игроки** (command actions) from **Что видят игроки**
+(display and availability rules). Both retain contextual edit/remove controls. The guide adds no
+content or saved progress merely by moving between steps; all changes still use the shared draft.
+
+### Inspect and maintain existing scenes
+
 The Overseer reaches every row from **ОБЪЕКТЫ** after opening the demo. Selecting an item exposes
-its stable ID, authored states/transitions, dependencies, and current value. Saving exercises the
-canonical graph; **ПРЕДПРОСМОТР** exercises a non-mutating terminal projection; confirmed reset
-exercises the durable reset path.
+its readable current/initial value and related rules beside the searchable device list. Technical
+IDs remain under **Технические идентификаторы**. Device graphs summarize each transition as
+source → destination; expand **ПРЕДУСЛОВИЯ И ЭФФЕКТЫ** only when editing advanced rules, including
+the explicit **АКТИВИРОВАТЬ НЕИСПРАВНОСТЬ** / **СНЯТЬ НЕИСПРАВНОСТЬ** choice.
+
+Device, binding, and recovery-program dialogs only update the shared draft. Review all staged
+changes, then use the single **СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ** action. A failed save keeps the draft;
+**ОТМЕНИТЬ ИЗМЕНЕНИЯ** discards it as one unit. Binding and program rows provide **Изменить** and
+**Удалить** actions. **ЗАВИСИМОСТИ → ОТКРЫТЬ** follows readable references to their command, entry
+block, device transition, condition, or recovery program. Selecting a command under
+**ТЕРМИНАЛЫ** also shows **ДЕЙСТВИЕ УСТРОЙСТВ** and opens that command's preselected action editor.
+
+**ПРЕДПРОСМОТР** resolves automatically when opened or when its terminal/state/condition changes.
+It labels the saved baseline and hypothetical target, highlights changed and unavailable content,
+lists hidden items, and never changes players or revisions. **ОБНОВИТЬ ПРЕДПРОСМОТР** remains a
+retry action. Save or discard a dirty draft before preview, reset, or private recovery.
 
 | Capability | Stable assets | Exact Overseer route and expected outcome | Recovery |
 |---|---|---|---|
-| All ten device kinds | `power-grid-main` (`power-grid`), `vault-door-main` (`door`), `evacuation-alarm` (`alarm`), `network-overseer` (`network-segment`), `ventilation-main` (`ventilation`), `reactor-main` (`reactor`), `security-turret` (`turret`), `robot-pod-atrium` (`robot-pod`), `freight-elevator` (`elevator`), `water-purifier-76` (`custom:water-purifier`) | **ОБЪЕКТЫ → УСТРОЙСТВА → [device]**. Inspect two states and both directed transitions for each device; **ЗАВИСИМОСТИ** lists every command, binding, condition, and recovery reference before destructive edits. | Cancel leaves the graph untouched; save a corrected graph or reset |
+| All ten device kinds | `power-grid-main` (`power-grid`), `vault-door-main` (`door`), `evacuation-alarm` (`alarm`), `network-overseer` (`network-segment`), `ventilation-main` (`ventilation`), `reactor-main` (`reactor`), `security-turret` (`turret`), `robot-pod-atrium` (`robot-pod`), `freight-elevator` (`elevator`), `water-purifier-76` (`custom:water-purifier`) | **ОБЪЕКТЫ → Поиск устройств → [device] → РЕДАКТИРОВАТЬ ГРАФ**. Inspect readable transition summaries and expand advanced rules; **ПРИМЕНИТЬ К ЧЕРНОВИКУ** stages the complete graph. **ЗАВИСИМОСТИ** lists every command, binding, condition, and recovery reference before destructive edits. | Cancel leaves the form untouched; discard the shared draft or save it once |
 | Direct single-device transition | `n_cmd_prime_grid` → `power-grid-main/restore` | Player route above, controller request, Overseer approval; exactly one device changes. | Reject leaves state unchanged; reset device |
 | Direct atomic multi-device transition | `n_cmd_open_evacuation` → `vault-door-main/open` + `evacuation-alarm/sound-evacuation` | Player route above; both transitions commit together only after approval. | Reject/failure changes neither; reset devices/facility |
-| Recovery program | `air-recovery-76`, `network-recovery-76` | **ОБЪЕКТЫ → ПРОГРАММЫ ВОССТАНОВЛЕНИЯ → [program]** for authoring; execute through `n_cmd_air_recovery` or `n2_cmd_network_recovery`. | Reset target device/facility |
+| Recovery program | `air-recovery-76`, `network-recovery-76` | **ОБЪЕКТЫ → [related device] → ПРОГРАММЫ ВОССТАНОВЛЕНИЯ → Изменить** for authoring; stage with **ПРИМЕНИТЬ К ЧЕРНОВИКУ** and publish with the session-wide save. Execute through `n_cmd_air_recovery` or `n2_cmd_network_recovery`. | Reset target device/facility; referenced programs explain why removal is blocked |
 | Bound name/content/visibility/availability | `facilityNameVariants`, `facilityTextVariants`, `visibleWhen`, `availableWhen` | Use **ПРЕДПРОСМОТР** with the referenced state and terminal, then follow the corresponding player rows. Preview changes only the dialog; saving or an approved transition publishes the canonical variant to controller and observer. | Close preview; reset device/facility |
-| State preview | any device, for example `vault-door-main=open` on `t_demo1` | **ОБЪЕКТЫ → УСТРОЙСТВА → Гермодверь Убежища 76 → ПРЕДПРОСМОТР → СОСТОЯНИЕ: Открыта → ТЕРМИНАЛ: t_demo1 → ОБНОВИТЬ ПРЕДПРОСМОТР**. The preview shows the open-route projection without changing revision or players. | **ЗАКРЫТЬ** |
-| Condition preview | any condition, for example `relay-storage-damaged` on `t_demo_hack_4` | **ОБЪЕКТЫ → УСЛОВИЯ → Архив ретранслятора повреждён → ПРЕДПРОСМОТР → АКТИВНО → ОБНОВИТЬ ПРЕДПРОСМОТР**. Shows substitution/instability only in preview. | **ЗАКРЫТЬ** |
+| State preview | any device, for example `vault-door-main=open` on `t_demo1` | With no dirty draft: **ОБЪЕКТЫ → Поиск устройств → Гермодверь Убежища 76 → ПРЕДПРОСМОТР СОСТОЯНИЯ → СОСТОЯНИЕ: Открыта → ТЕРМИНАЛ: t_demo1**. It resolves automatically and compares the saved state with the open-route projection without changing revision or players. | **ЗАКРЫТЬ** |
+| Condition preview | any condition, for example `relay-storage-damaged` on `t_demo_hack_4` | With no dirty draft: **ОБЪЕКТЫ → ДИАГНОСТИЧЕСКИЕ УСЛОВИЯ → Архив ретранслятора повреждён → ПРЕДПРОСМОТР УСЛОВИЯ → АКТИВНО**. The comparison resolves automatically and shows substitution/instability only in preview. | **ЗАКРЫТЬ** |
 | Single-device reset | a device whose current differs from initial, including shipped `power-grid-main`, `reactor-main`, `robot-pod-atrium`, `freight-elevator`, or `water-purifier-76` | **ОБЪЕКТЫ → УСТРОЙСТВА → [device] → СБРОСИТЬ УСТРОЙСТВО → confirm**. Restores that device and its device-scoped initial conditions in one revision without changing unrelated devices. | Reapply an authored transition if desired |
 | Whole-facility reset | `facility.revision=12` graph | **ОБЪЕКТЫ → СБРОСИТЬ ВЕСЬ ОБЪЕКТ → confirm**. All devices and conditions return to authored initial values in one revision. | Continue from the authored initial scenario |
 
