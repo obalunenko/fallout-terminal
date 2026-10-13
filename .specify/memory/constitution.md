@@ -1,13 +1,17 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.2 -> 8.1.3
+- Version change: 8.1.3 -> 8.2.0
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Advance the sole accepted Wails v3 runtime, isolated CLI, frontend runtime, and generated-binding
-    baseline from v3.0.0-beta.15 to mutually compatible v3.0.0-beta.28 pins
+  - Testing and Quality Gates: adopt the Google Go Style hierarchy and required Go quality skill
+  - Testing and Quality Gates: require immediate t.Cleanup registration and cancellation-safe cleanup
+  - Testing and Quality Gates: require reviewed go fix modernization before Go-source commits
+  - Testing and Quality Gates: use Task validation with macOS deployment-target and CGO settings
+  - Testing and Quality Gates: select Node.js through .nvmrc and require Task node:check before npm
+  - Development Workflow: apply the governed style, modernization, and resource-cleanup conventions
 - Updated templates: None
 - Follow-up TODOs: None
 -->
@@ -431,6 +435,18 @@ independently without sacrificing deterministic local and CI behavior.
 
 ## Testing and Quality Gates
 
+Go code creation, modification, simplification, and review MUST apply
+[Google's Go Style Guide](https://google.github.io/styleguide/go/). The
+[core guide](https://google.github.io/styleguide/go/guide) is the canonical baseline;
+[style decisions](https://google.github.io/styleguide/go/decisions) are subordinate normative
+guidance, and [best practices](https://google.github.io/styleguide/go/best-practices) are advisory.
+Quality decisions MUST prioritize clarity, simplicity, concision, maintainability, and consistency
+in that order. Standard language constructs and the standard library MUST be preferred when
+sufficient. More specific repository instructions, configured formatters and linters, and package
+conventions MUST guide choices the Google documents leave open. Style guidance MUST NOT justify
+unrelated churn in stable code. Go work MUST use `.agents/skills/go-code-quality-review/SKILL.md`
+so implementation and review apply the same quality baseline.
+
 Go code MUST use colocated tests and deterministic fakes at filesystem, dialog, process, provider,
 secure-store, random, network, clock, stream, and event boundaries. Concurrency-sensitive code MUST
 pass the race detector. Browser journeys use Playwright under `tests/browser/`. The root
@@ -450,34 +466,57 @@ Go tests MUST follow these conventions:
   context and derive cancellation, timeout, or values from it. `context.Background()` and
   `context.TODO()` MUST NOT replace `t.Context()` in tests except when the behavior of those exact
   contexts is itself the subject of the test.
+- Every test-owned resource MUST register cleanup with `t.Cleanup` immediately after acquisition.
+  Test-lifetime resource cleanup MUST NOT use `defer`; cleanup MUST remain owned by the correct test
+  or subtest and run after `Fatal` or `FailNow`. Function-scope `defer` MAY remain for lexical control
+  flow that cannot wait for test cleanup, such as unlocking a mutex or balancing `WaitGroup.Done`.
+- Cleanup that needs a context MUST derive it from `context.WithoutCancel(t.Context())`, because
+  `t.Context()` is canceled before cleanup functions run. Shutdown that can block MUST additionally
+  use a bounded timeout so cleanup cannot hang the test.
 - Tests involving protobuf messages or descriptors MUST compare them with
   `github.com/google/go-cmp/cmp` and protobuf-aware helpers under
   `google.golang.org/protobuf/testing`, normally `protocmp.Transform()` or more specific
   `protocmp` options. Applicable message conformance checks MUST use `prototest`. Direct
   `reflect.DeepEqual` or generic Testify equality assertions on protobuf messages are prohibited.
 
+Before every commit containing Go source changes, `go fix ./...` MUST run from the repository root
+following the [official modernization guidance](https://go.dev/blog/gofix). It MUST run before final
+formatting and validation. Every generated edit MUST be reviewed, and only intentional
+modernization changes MAY be retained.
+
+On macOS, repository-wide Go validation MUST use `task vet`, `task test`, and `task test:race` as
+applicable. These targets apply the project's macOS 13 deployment target and matching CGO flags.
+An equivalent direct Go check MUST set `MACOSX_DEPLOYMENT_TARGET=13.0`,
+`CGO_CFLAGS=-mmacosx-version-min=13.0`, and
+`CGO_LDFLAGS="-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries"` so validation and native
+builds target the same supported macOS baseline.
+
+JavaScript work MUST use the Node.js version selected by `.nvmrc`. NVM users MUST run `nvm use`
+from the repository root before JavaScript work. Dependency installation, frontend builds, and
+browser tests MUST use Taskfile workflows. Their `node:check` preflight MUST run before npm and
+reject a runtime older than the minimum declared in `Taskfile.yml`, so dependency resolution and
+validation use the governed Node.js toolchain.
+
 Applicable commands MUST succeed before a change is considered complete:
 
-- `gofmt -l .` produces no Go source paths.
-- `go vet ./...` succeeds.
+- `task fmt:check` reports no unformatted Go source paths.
+- `task vet` succeeds.
 - `task lint` succeeds using the root `.golangci.yml` and pinned `tools/golangci-lint` module.
-- `go test ./...` succeeds.
-- `go test -race ./...` succeeds for changes affecting concurrent runtime, player, live, control,
+- `task test` succeeds.
+- `task test:race` succeeds for changes affecting concurrent runtime, player, live, control,
   session, stream, startup, or tunnel behavior.
-- `npm ci --prefix frontend` installs the single locked frontend workspace, and
-  `npm run build:overseer --prefix frontend` succeeds for Overseer, bridge, embedding, or packaging
-  changes.
-- `npm run build:client --prefix frontend` succeeds for player-client, embedding, generated
+- `task deps:frontend` installs the single locked frontend workspace, and `task frontend:build`
+  builds both production interfaces for Overseer, bridge, player-client, embedding, generated
   ECMAScript, asset, or packaging changes.
-- `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` succeed for affected player
+- `task browser:test` installs locked browser-test dependencies and runs the affected player
   journeys when the required local environment is available.
 - `task dev` is the canonical repository-root development entrypoint and passes affected
   interactive Overseer/client journeys without a separately started frontend or player server. It
   MUST delegate to the owned Go application plan and MUST NOT create a separate frontend or player
   server.
-- `go tool -modfile=tools/wails/go.mod wails3 generate bindings -clean -d frontend/overseer/bindings ./...` succeeds and produces
-  no unexplained working-tree drift; both generated bindings and protobuf generation remain
-  deterministic and MUST NOT be edited manually.
+- `task bindings:check` succeeds and proves deterministic Wails binding generation with no
+  unexplained working-tree drift; both generated bindings and protobuf generation MUST NOT be
+  edited manually.
 - `task build` succeeds after both `frontend/overseer/` and `frontend/client/` production builds
   succeed; accepted distribution GOOS/GOARCH inputs MUST reach the same typed Go target plan.
 - `task package` succeeds and produces the existing self-contained macOS Apple Silicon application
@@ -579,8 +618,10 @@ cutover cleanup, and owned-resource shutdown.
    server-streamed, and private capabilities outside the public player service. A browser
    client-stream MAY carry only the optional high-frequency presentation intents permitted by
    Principle III and MUST preserve its unary fallback.
-7. Run the automated and interactive verification defined in the plan. Go tests MUST follow the
-   governed assertion, table-driven, `t.Context()`, and protobuf-comparison conventions. Run all
+7. Apply the governed Go style and quality skill, run reviewed `go fix ./...` before Go-source
+   commits, then run final formatting and the automated and interactive verification defined in
+   the plan through Task. Go tests MUST follow the governed assertion, table-driven, `t.Context()`,
+   `t.Cleanup`, cancellation-safe cleanup, and protobuf-comparison conventions. Run all
    applicable Buf, generation-drift, breaking-change, streaming, privilege-separation, and
    session-compatibility gates. Public-access changes MUST also run secure-store failure, secret-
    leak, lifecycle-race, stale-completion, protected-endpoint publication, local-fallback, and
@@ -619,4 +660,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.1.3 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13
+**Version**: 8.2.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13
