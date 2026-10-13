@@ -1,14 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.1 -> 8.1.2
-- Modified principles: None
+- Version change: 8.2.0 -> 8.3.0
+- Modified principles: III. Use ConnectRPC and Keep State Server-Authoritative (title unchanged)
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Advance the sole accepted Wails v3 runtime, isolated CLI, frontend runtime, and generated-binding
-    baseline from v3.0.0-beta.13 to mutually compatible v3.0.0-beta.15 pins
-- Updated templates: None
+  - Principle III: adopt Connect Go v2 generated messages, streams, and transport separation
+  - Dependency Rules: pin the accepted Connect Go runtime and isolated generator at v2.0.0
+  - Migration impact: preserve protobuf schemas, RPC cardinality, wire compatibility, and input limits
+- Updated templates: .specify/templates/plan-template.md (Connect Go v2 dependency baseline)
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -22,7 +23,7 @@ state uses the portable version-1 JSON session document; live terminal, navigati
 connection, startup, and tunnel state is owned by the running application.
 
 The production architecture is a Go 1.27 modular monolith whose sole accepted production desktop
-runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.15 implementation. Runtime, CLI,
+runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.28 implementation. Runtime, CLI,
 frontend, and generated-binding versions MUST remain mutually compatible and reproducibly pinned
 in their owning dependency graphs.
 
@@ -141,6 +142,17 @@ structured application messages or state.
 All network RPC communication MUST use ConnectRPC with code generated from the governed schemas for
 Go and ECMAScript. Handwritten JSON wire envelopes, handwritten RPC routers, and duplicated network
 transport DTOs are prohibited.
+
+The accepted Go RPC API MUST use `connectrpc.com/connect/v2`. Service handlers and clients MUST
+consume the regenerated v2 API with plain protobuf messages and generated stream types. Service
+registration belongs on `connect.Server`; HTTP serving and client transports MUST use the
+`connecthttp` adapter at the player transport or composition boundary. These transport APIs MUST
+remain outside canonical domain and coordination logic.
+
+The Connect Go v2 migration changes the Go API, not the governed protobuf packages or wire
+protocol. Runtime and generator upgrades MUST preserve the established RPC cardinality, browser
+client interoperability, validation and public-error behavior, and configured encoded-body and
+decoded-message limits unless a separately specified contract change explicitly revises them.
 
 Browser-originated canonical mutations MUST retain unary RPCs as the portable default.
 Authoritative live updates MUST use server-streaming RPCs. An optional client-streaming browser
@@ -267,11 +279,18 @@ that form or proxy a parallel workflow graph.
 ## Dependency Rules
 
 - Root composition and `internal/platform/` adapters MAY depend on the repository's exactly pinned
-  `github.com/wailsapp/wails/v3` v3.0.0-beta.15 runtime because they are the Wails v3 composition and
+  `github.com/wailsapp/wails/v3` v3.0.0-beta.28 runtime because they are the Wails v3 composition and
   platform boundaries. No other `internal/` package MAY import Wails.
 - Protobuf schema modules are upstream contract dependencies. Generated Go and ECMAScript outputs
   MUST depend only on pinned generators and runtimes and MUST be consumed through explicit boundary
   adapters.
+- The root application module MUST pin `connectrpc.com/connect/v2` at `v2.0.0` as the accepted Go
+  RPC runtime. The Go Connect generator MUST be declared as
+  `connectrpc.com/connect/v2/cmd/protoc-gen-connect-go` in the independent
+  `tools/protoc-gen-connect-go/` module, with its parent module pinned at `v2.0.0`. Future upgrades
+  MUST update the owning modules, version checks, generated contracts, and compatibility evidence
+  together. Transitive dependencies of other isolated development tools remain owned by those
+  tool modules and do not select the application's RPC API version.
 - `internal/domain/`, `internal/nav/`, `internal/hack/`, `internal/live/`, `internal/control/`,
   `internal/session/`, `internal/playerconfig/`, and `internal/player/` MUST remain independent of
   Wails. Their existing permitted domain, protobuf-adapter, ConnectRPC, HTTP, and asset dependencies
@@ -431,6 +450,18 @@ independently without sacrificing deterministic local and CI behavior.
 
 ## Testing and Quality Gates
 
+Go code creation, modification, simplification, and review MUST apply
+[Google's Go Style Guide](https://google.github.io/styleguide/go/). The
+[core guide](https://google.github.io/styleguide/go/guide) is the canonical baseline;
+[style decisions](https://google.github.io/styleguide/go/decisions) are subordinate normative
+guidance, and [best practices](https://google.github.io/styleguide/go/best-practices) are advisory.
+Quality decisions MUST prioritize clarity, simplicity, concision, maintainability, and consistency
+in that order. Standard language constructs and the standard library MUST be preferred when
+sufficient. More specific repository instructions, configured formatters and linters, and package
+conventions MUST guide choices the Google documents leave open. Style guidance MUST NOT justify
+unrelated churn in stable code. Go work MUST use `.agents/skills/go-code-quality-review/SKILL.md`
+so implementation and review apply the same quality baseline.
+
 Go code MUST use colocated tests and deterministic fakes at filesystem, dialog, process, provider,
 secure-store, random, network, clock, stream, and event boundaries. Concurrency-sensitive code MUST
 pass the race detector. Browser journeys use Playwright under `tests/browser/`. The root
@@ -450,34 +481,57 @@ Go tests MUST follow these conventions:
   context and derive cancellation, timeout, or values from it. `context.Background()` and
   `context.TODO()` MUST NOT replace `t.Context()` in tests except when the behavior of those exact
   contexts is itself the subject of the test.
+- Every test-owned resource MUST register cleanup with `t.Cleanup` immediately after acquisition.
+  Test-lifetime resource cleanup MUST NOT use `defer`; cleanup MUST remain owned by the correct test
+  or subtest and run after `Fatal` or `FailNow`. Function-scope `defer` MAY remain for lexical control
+  flow that cannot wait for test cleanup, such as unlocking a mutex or balancing `WaitGroup.Done`.
+- Cleanup that needs a context MUST derive it from `context.WithoutCancel(t.Context())`, because
+  `t.Context()` is canceled before cleanup functions run. Shutdown that can block MUST additionally
+  use a bounded timeout so cleanup cannot hang the test.
 - Tests involving protobuf messages or descriptors MUST compare them with
   `github.com/google/go-cmp/cmp` and protobuf-aware helpers under
   `google.golang.org/protobuf/testing`, normally `protocmp.Transform()` or more specific
   `protocmp` options. Applicable message conformance checks MUST use `prototest`. Direct
   `reflect.DeepEqual` or generic Testify equality assertions on protobuf messages are prohibited.
 
+Before every commit containing Go source changes, `go fix ./...` MUST run from the repository root
+following the [official modernization guidance](https://go.dev/blog/gofix). It MUST run before final
+formatting and validation. Every generated edit MUST be reviewed, and only intentional
+modernization changes MAY be retained.
+
+On macOS, repository-wide Go validation MUST use `task vet`, `task test`, and `task test:race` as
+applicable. These targets apply the project's macOS 13 deployment target and matching CGO flags.
+An equivalent direct Go check MUST set `MACOSX_DEPLOYMENT_TARGET=13.0`,
+`CGO_CFLAGS=-mmacosx-version-min=13.0`, and
+`CGO_LDFLAGS="-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries"` so validation and native
+builds target the same supported macOS baseline.
+
+JavaScript work MUST use the Node.js version selected by `.nvmrc`. NVM users MUST run `nvm use`
+from the repository root before JavaScript work. Dependency installation, frontend builds, and
+browser tests MUST use Taskfile workflows. Their `node:check` preflight MUST run before npm and
+reject a runtime older than the minimum declared in `Taskfile.yml`, so dependency resolution and
+validation use the governed Node.js toolchain.
+
 Applicable commands MUST succeed before a change is considered complete:
 
-- `gofmt -l .` produces no Go source paths.
-- `go vet ./...` succeeds.
+- `task fmt:check` reports no unformatted Go source paths.
+- `task vet` succeeds.
 - `task lint` succeeds using the root `.golangci.yml` and pinned `tools/golangci-lint` module.
-- `go test ./...` succeeds.
-- `go test -race ./...` succeeds for changes affecting concurrent runtime, player, live, control,
+- `task test` succeeds.
+- `task test:race` succeeds for changes affecting concurrent runtime, player, live, control,
   session, stream, startup, or tunnel behavior.
-- `npm ci --prefix frontend` installs the single locked frontend workspace, and
-  `npm run build:overseer --prefix frontend` succeeds for Overseer, bridge, embedding, or packaging
-  changes.
-- `npm run build:client --prefix frontend` succeeds for player-client, embedding, generated
+- `task deps:frontend` installs the single locked frontend workspace, and `task frontend:build`
+  builds both production interfaces for Overseer, bridge, player-client, embedding, generated
   ECMAScript, asset, or packaging changes.
-- `npm ci --prefix tests/browser` and `npm test --prefix tests/browser` succeed for affected player
+- `task browser:test` installs locked browser-test dependencies and runs the affected player
   journeys when the required local environment is available.
 - `task dev` is the canonical repository-root development entrypoint and passes affected
   interactive Overseer/client journeys without a separately started frontend or player server. It
   MUST delegate to the owned Go application plan and MUST NOT create a separate frontend or player
   server.
-- `go tool -modfile=tools/wails/go.mod wails3 generate bindings -clean -d frontend/overseer/bindings ./...` succeeds and produces
-  no unexplained working-tree drift; both generated bindings and protobuf generation remain
-  deterministic and MUST NOT be edited manually.
+- `task bindings:check` succeeds and proves deterministic Wails binding generation with no
+  unexplained working-tree drift; both generated bindings and protobuf generation MUST NOT be
+  edited manually.
 - `task build` succeeds after both `frontend/overseer/` and `frontend/client/` production builds
   succeed; accepted distribution GOOS/GOARCH inputs MUST reach the same typed Go target plan.
 - `task package` succeeds and produces the existing self-contained macOS Apple Silicon application
@@ -579,8 +633,10 @@ cutover cleanup, and owned-resource shutdown.
    server-streamed, and private capabilities outside the public player service. A browser
    client-stream MAY carry only the optional high-frequency presentation intents permitted by
    Principle III and MUST preserve its unary fallback.
-7. Run the automated and interactive verification defined in the plan. Go tests MUST follow the
-   governed assertion, table-driven, `t.Context()`, and protobuf-comparison conventions. Run all
+7. Apply the governed Go style and quality skill, run reviewed `go fix ./...` before Go-source
+   commits, then run final formatting and the automated and interactive verification defined in
+   the plan through Task. Go tests MUST follow the governed assertion, table-driven, `t.Context()`,
+   `t.Cleanup`, cancellation-safe cleanup, and protobuf-comparison conventions. Run all
    applicable Buf, generation-drift, breaking-change, streaming, privilege-separation, and
    session-compatibility gates. Public-access changes MUST also run secure-store failure, secret-
    leak, lifecycle-race, stale-completion, protected-endpoint publication, local-fallback, and
@@ -619,4 +675,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.1.2 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-28
+**Version**: 8.3.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13

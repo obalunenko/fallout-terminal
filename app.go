@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"net/url"
 	"strings"
 	"sync"
@@ -129,6 +128,11 @@ type coordinationCommandExecutionService interface {
 	ResolveCommandExecution(context.Context, string, domain.CommandExecutionDecision) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
 }
 
+type coordinationCommandStateResetService interface {
+	ResetCommandState(context.Context, string, string) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
+	ResetTerminalCommandStates(context.Context, string) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
+}
+
 type coordinationTerminalNavigationService interface {
 	ResolveTerminalNavigation(string, domain.TerminalNavigationDecision) (*domain.MasterCoordinationState, error)
 }
@@ -182,6 +186,10 @@ type DesktopRuntime interface {
 	Close(context.Context) error
 }
 
+type logDirectoryOpener interface {
+	OpenDirectory(string) error
+}
+
 // EventSink publishes narrow, public values to the Overseer frontend.
 type EventSink interface {
 	Emit(name string, payload any) error
@@ -231,6 +239,9 @@ type AppDependencies struct {
 	Player               PlayerServer
 	Desktop              DesktopRuntime
 	Browser              Browser
+	LogDirectoryOpener   logDirectoryOpener
+	LogDirectory         string
+	ActiveLogPath        func() string
 	Clipboard            ClipboardWriter
 	Events               EventSink
 	PublicSettings       PublicAccessSettingsStore
@@ -261,6 +272,15 @@ type RuntimeStatus struct {
 type CommandResult struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+}
+
+// LogAccessResult identifies the fixed retained-log location even when the
+// native shell cannot open it, so the Overseer can navigate there manually.
+type LogAccessResult struct {
+	OK            bool   `json:"ok"`
+	Error         string `json:"error,omitempty"`
+	DirectoryPath string `json:"directoryPath"`
+	ActiveLogPath string `json:"activeLogPath,omitempty"`
 }
 
 // ApplicationUpdateSnapshot is the narrow, non-sensitive update projection
@@ -625,6 +645,65 @@ func (app *App) recordOperation(operation, outcome string, fields logger.Fields)
 	}
 }
 
+func (app *App) recordAuditEvents(events []controlservice.AuditEvent, revision uint64) {
+	if app == nil || app.log == nil {
+		return
+	}
+	for _, event := range events {
+		fields := logger.Fields{"event": event.Name, "outcome": event.Outcome, "revision": revision}
+		if event.Decision != "" {
+			fields["decision"] = event.Decision
+		}
+		if event.Reason != "" {
+			fields["reason"] = event.Reason
+		}
+		if event.SessionID != "" {
+			fields["session_id"] = string(event.SessionID)
+		}
+		if event.Role != "" {
+			fields["role"] = string(event.Role)
+		}
+		if event.PreviousRole != "" {
+			fields["previous_role"] = string(event.PreviousRole)
+		}
+		if event.RequestID != "" {
+			fields["request_id"] = event.RequestID
+		}
+		if event.BroadcastID != "" {
+			fields["broadcast_id"] = string(event.BroadcastID)
+		}
+		if event.TerminalID != "" {
+			fields["terminal_id"] = event.TerminalID
+		}
+		if event.CommandID != "" {
+			fields["command_id"] = event.CommandID
+		}
+		if event.Mode != "" {
+			fields["mode"] = event.Mode
+		}
+		if event.PuzzleID != "" {
+			fields["puzzle_id"] = event.PuzzleID
+		}
+		if event.PreviousPuzzleID != "" {
+			fields["previous_puzzle_id"] = event.PreviousPuzzleID
+		}
+		if strings.HasPrefix(event.Name, "hack.") {
+			fields["attempts_left"] = event.AttemptsLeft
+			if event.Name == "hack.started" {
+				fields["hack_level"] = event.HackLevel
+				fields["attempts_max"] = event.AttemptsMax
+			}
+		}
+		entry := app.log.WithFields(fields)
+		switch event.Outcome {
+		case "failed", "declined", "rejected", "stale", "superseded", "duplicate", "invalid", "conflict", "interrupted":
+			entry.Warn("runtime audit event")
+		default:
+			entry.Info("runtime audit event")
+		}
+	}
+}
+
 func operationOutcome(ok, canceled bool) string {
 	if ok {
 		return "succeeded"
@@ -651,7 +730,10 @@ func (app *App) emitEvent(name string, payload any) {
 		return
 	}
 	if err := app.deps.Events.Emit(name, payload); err != nil && app.log != nil {
-		app.log.WithError(err).WithField("event", name).Error("desktop event delivery failed")
+		app.log.WithFields(logger.Fields{
+			"error_category": "delivery_failed",
+			"event":          name,
+		}).Error("desktop event delivery failed")
 	}
 }
 
@@ -2077,9 +2159,17 @@ func (app *App) ResetCommandState(payload ResetCommandStatePayload) SessionState
 		return routeSessionStateResult(SessionStateResult{Error: "command ID must not be blank"})
 	}
 	payload = routeResetCommandStateRequest(payload)
+	if coordination, ok := app.deps.Coordination.(coordinationCommandStateResetService); ok {
+		state, mutation, err := coordination.ResetCommandState(
+			app.contextSnapshot(), payload.TerminalID, payload.CommandID,
+		)
+		if !errors.Is(err, controlservice.ErrCommandStateStorageUnavailable) {
+			return app.completeCoordinatedCommandStateReset(state, mutation, err)
+		}
+	}
 	commands, ok := app.deps.Sessions.(sessionCommandStateCommands)
 	if !ok {
-		return routeSessionStateResult(SessionStateResult{Error: "session service is unavailable"})
+		return routeSessionStateResult(SessionStateResult{Error: "coordination service is unavailable"})
 	}
 	result := commands.ResetCommandState(app.contextSnapshot(), payload.TerminalID, payload.CommandID)
 	return app.completeCommandStateReset(payload.TerminalID, result)
@@ -2096,12 +2186,43 @@ func (app *App) ResetTerminalCommandStates(payload ResetTerminalCommandStatesPay
 		return routeSessionStateResult(SessionStateResult{Error: "terminal ID must not be blank"})
 	}
 	payload = routeResetTerminalCommandStatesRequest(payload)
+	if coordination, ok := app.deps.Coordination.(coordinationCommandStateResetService); ok {
+		state, mutation, err := coordination.ResetTerminalCommandStates(app.contextSnapshot(), payload.TerminalID)
+		if !errors.Is(err, controlservice.ErrCommandStateStorageUnavailable) {
+			return app.completeCoordinatedCommandStateReset(state, mutation, err)
+		}
+	}
 	commands, ok := app.deps.Sessions.(sessionCommandStateCommands)
 	if !ok {
-		return routeSessionStateResult(SessionStateResult{Error: "session service is unavailable"})
+		return routeSessionStateResult(SessionStateResult{Error: "coordination service is unavailable"})
 	}
 	result := commands.ResetTerminalCommandStates(app.contextSnapshot(), payload.TerminalID)
 	return app.completeCommandStateReset(payload.TerminalID, result)
+}
+
+func (app *App) completeCoordinatedCommandStateReset(
+	state *domain.MasterCoordinationState,
+	mutation *controlservice.CommandStateMutation,
+	err error,
+) SessionStateResult {
+	if state != nil {
+		app.publishCoordinationStateIfNewer(state)
+	}
+	if err != nil {
+		return routeSessionStateResult(SessionStateResult{Error: err.Error()})
+	}
+	if mutation == nil {
+		return routeSessionStateResult(SessionStateResult{Error: "command state reset returned no session"})
+	}
+
+	canonical := domain.CloneSession(mutation.Session)
+	app.acceptSessionStateRevision(mutation.Revision)
+	if mutation.Changed {
+		app.publishSessionState(SessionStateEvent{Revision: mutation.Revision, Session: &canonical})
+	}
+	return routeSessionStateResult(SessionStateResult{
+		OK: true, Revision: mutation.Revision, Session: sessionPointerForApp(canonical),
+	})
 }
 
 func (app *App) completeCommandStateReset(terminalID string, result sessionservice.CommandStateResult) SessionStateResult {
@@ -2174,12 +2295,7 @@ func (app *App) canonicalCommandStates(terminalID string) map[string]domain.Comm
 }
 
 func cloneCommandExecutionStates(states map[string]domain.CommandExecutionState) map[string]domain.CommandExecutionState {
-	if len(states) == 0 {
-		return nil
-	}
-	clone := make(map[string]domain.CommandExecutionState, len(states))
-	maps.Copy(clone, states)
-	return clone
+	return domain.CloneCommandExecutionStates(states)
 }
 
 func terminalForSessionState(session *domain.Session, terminalID string) *domain.Terminal {
@@ -2279,6 +2395,25 @@ func (app *App) OpenURL(rawURL string) CommandResult {
 		return commandFailure("could not open the external URL")
 	}
 	return routeCommandResult(CommandResult{OK: true})
+}
+
+// OpenLogLocation opens the application-owned retained-log directory. The
+// frontend supplies no path and cannot use this operation as a file launcher.
+func (app *App) OpenLogLocation() LogAccessResult {
+	result := LogAccessResult{DirectoryPath: app.deps.LogDirectory}
+	if app.deps.ActiveLogPath != nil {
+		result.ActiveLogPath = app.deps.ActiveLogPath()
+	}
+	if app.deps.LogDirectoryOpener == nil || result.DirectoryPath == "" {
+		result.Error = "The application log directory is unavailable."
+		return routeLogAccessResult(result)
+	}
+	if err := app.deps.LogDirectoryOpener.OpenDirectory(result.DirectoryPath); err != nil {
+		result.Error = "Could not open the application log directory."
+		return routeLogAccessResult(result)
+	}
+	result.OK = true
+	return routeLogAccessResult(result)
 }
 
 func (app *App) failLocked(cause error) error {

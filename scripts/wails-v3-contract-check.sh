@@ -178,7 +178,7 @@ scan_root_module() {
     return 1
   fi
 
-  if grep -En '^[[:space:]]*(github\.com/bufbuild/buf|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect/cmd/protoc-gen-connect-go)([[:space:]]|$)' "$root_module"; then
+  if grep -En '^[[:space:]]*(github\.com/bufbuild/buf|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect(/v2)?/cmd/protoc-gen-connect-go)([[:space:]]|$)' "$root_module"; then
     fail 'root application go.mod contains a tool-only dependency'
     return 1
   fi
@@ -208,7 +208,7 @@ scan_lifecycle_schema() {
     fail 'reviewed private update schema changed unexpectedly'
     return 1
   }
-  [[ "$revision_digest" == 4dbbf2c119511e08aa10374ef97948518460b95bd687568bedfaf001bd4e8212 ]] || {
+  [[ "$revision_digest" == 19b3736dd34573668bede187d45d4e3bd294337db554fda70436dcd453e00214 ]] || {
     fail 'reviewed schema revision record changed unexpectedly'
     return 1
   }

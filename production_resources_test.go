@@ -59,7 +59,7 @@ func TestWailsV3HostKeepsOverseerAndClientResourceBoundariesSeparate(t *testing.
 	hostText := string(hostSource)
 	require.Contains(t, mainText, `fs.Sub(overseerSource, "frontend/overseer/dist")`)
 	require.Contains(t, mainText, `fs.Sub(clientSource, "frontend/client/dist")`)
-	require.Contains(t, mainText, "composeApplication(rootContext, host, clientAssets)")
+	require.Contains(t, mainText, "composeApplication(rootContext, host, clientAssets, locations, retainedLog)")
 	require.Contains(t, mainText, "signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)")
 	require.Contains(t, hostText, "application.AssetFileServerFS(overseerAssets)")
 	require.Contains(t, hostText, "newDesktopService(core)")

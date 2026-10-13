@@ -2597,6 +2597,12 @@ function renderTerminalNavigationPendingScreen() {
   });
 }
 
+function resetBackControl() {
+  backBtn.classList.remove('terminal-return');
+  backBtn.textContent = '[ НАЗАД ]';
+  backBtn.removeAttribute('aria-label');
+}
+
 function renderCommandRecordSurface({ kind, key, title, text, showBack }) {
   cancelReveal(termList);
   cancelReveal(termOutput);
@@ -2606,6 +2612,7 @@ function renderCommandRecordSurface({ kind, key, title, text, showBack }) {
   termOutput.classList.remove('command-screen', 'command-execution-status', 'command-result-screen');
   termPrompt.hidden = false;
   backBtn.hidden = false;
+  resetBackControl();
   backBtn.classList.toggle('layout-placeholder', !showBack);
   backBtn.disabled = !showBack;
   backBtn.setAttribute('aria-hidden', String(!showBack));
@@ -2622,8 +2629,8 @@ function renderCommandRecordSurface({ kind, key, title, text, showBack }) {
 
 function renderNormalScreen() {
   termOutput.classList.remove('command-screen', 'command-execution-status', 'command-result-screen');
-  backBtn.classList.remove('layout-placeholder', 'terminal-return');
-  backBtn.textContent = '[ НАЗАД ]';
+  backBtn.classList.remove('layout-placeholder');
+  resetBackControl();
   backBtn.disabled = false;
   backBtn.removeAttribute('aria-hidden');
   cancelReveal(hackColumns);

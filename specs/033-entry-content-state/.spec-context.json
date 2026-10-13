@@ -1,0 +1,908 @@
+{
+  "workflow": "companion",
+  "specName": "entry content state",
+  "branch": "develop",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T22:30:48.821Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T22:35:46.227Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T22:38:04.488Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T22:46:06.597Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T22:47:34.183Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T22:48:52.624Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T23:00:31.533Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:05:04.575Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T23:06:00.416Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-09-02T23:06:33.120Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:11:53.486Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:12:28.136Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:16:35.145Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:18:28.668Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:24:57.316Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:28:12.659Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:31:49.104Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:32:03.045Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:40:29.323Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:41:27.780Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:43:39.701Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:44:47.594Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:47:11.285Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-02T23:47:17.254Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-02T23:53:01.432Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T00:01:25.438Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T00:07:49.109Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T00:09:51.135Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T00:14:19.751Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T00:14:59.966Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T00:19:31.787Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T00:21:53.996Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T00:22:09.761Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T00:23:29.029Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-09-03T00:42:44.087Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-09-03T00:42:44.169Z"
+    }
+  ],
+  "telemetryInstanceId": "ca7d833e-bebd-4dd1-9864-f0c72ebaa7e3",
+  "last_action": "Implemented and validated the EntryContent block command dialog increment; production build and 207 browser journeys pass.",
+  "coverage": {
+    "FR-001": {
+      "title": "The authoring experience MUST allow an entry's displayed content to be organized as an ordered collection of independently identifiable blocks.",
+      "tasks": [
+        "T003",
+        "T006",
+        "T017"
+      ]
+    },
+    "FR-002": {
+      "title": "Each entry block MUST retain its identity, authored initial content, and position across saving and reopening a session.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T006",
+        "T008",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-003": {
+      "title": "A state-changing command MUST be able to target no more than one entry block in the same terminal and define the completed content for that block.",
+      "tasks": [
+        "T004",
+        "T005",
+        "T006",
+        "T008",
+        "T012",
+        "T017"
+      ]
+    },
+    "FR-004": {
+      "title": "The authoring experience MUST reject a command target that does not resolve to exactly one existing entry block in the command's terminal.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-005": {
+      "title": "The authoring experience MUST prevent more than one command from targeting the same entry block.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-006": {
+      "title": "Multiple commands MUST be able to target different blocks within the same entry and complete in any order without overwriting one another's state.",
+      "tasks": [
+        "T001",
+        "T009",
+        "T010",
+        "T011",
+        "T012",
+        "T013",
+        "T014",
+        "T015"
+      ]
+    },
+    "FR-007": {
+      "title": "Successful execution of a command with an entry target MUST save the command's own completed state and the target block's completed state as one indivisible change.",
+      "tasks": [
+        "T009",
+        "T012",
+        "T014"
+      ]
+    },
+    "FR-008": {
+      "title": "Rejected, canceled, invalid, or unsuccessfully saved execution MUST leave both the command state and target block state unchanged.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T012",
+        "T014",
+        "T015"
+      ]
+    },
+    "FR-009": {
+      "title": "Re-executing an already completed command MUST NOT apply a second entry block transition or create an additional saved state change.",
+      "tasks": [
+        "T009",
+        "T011",
+        "T012"
+      ]
+    },
+    "FR-010": {
+      "title": "Player views MUST compose each entry from its ordered blocks using the latest successfully saved state of each block.",
+      "tasks": [
+        "T010",
+        "T013"
+      ]
+    },
+    "FR-011": {
+      "title": "A successfully changed block MUST become visible to every connected player, including players already viewing its entry, without altering unrelated blocks or navigation state.",
+      "tasks": [
+        "T010",
+        "T011",
+        "T013",
+        "T014",
+        "T015"
+      ]
+    },
+    "FR-012": {
+      "title": "An individual Overseer command-state reset MUST reset that command and its owned entry block state as one indivisible saved change.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T020",
+        "T021"
+      ]
+    },
+    "FR-013": {
+      "title": "A terminal-wide Overseer command-state reset MUST reset all command states and all command-owned entry block states for that terminal as one indivisible saved change.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T020",
+        "T021"
+      ]
+    },
+    "FR-014": {
+      "title": "Canceling or failing any reset MUST preserve the last successfully saved command and entry block states.",
+      "tasks": [
+        "T018",
+        "T019",
+        "T020",
+        "T021"
+      ]
+    },
+    "FR-015": {
+      "title": "The authoring experience MUST prevent deletion of a targeted block or its containing entry until every targeting command is removed or reassigned.",
+      "tasks": [
+        "T003",
+        "T007",
+        "T016",
+        "T017",
+        "T024"
+      ]
+    },
+    "FR-016": {
+      "title": "Renaming or moving an existing command, entry, or block MUST preserve its target relationship and completed state.",
+      "tasks": [
+        "T003",
+        "T016",
+        "T017",
+        "T022",
+        "T024"
+      ]
+    },
+    "FR-017": {
+      "title": "Deleting a command MUST remove both its saved command state and any entry block state owned by that command.",
+      "tasks": [
+        "T018",
+        "T020",
+        "T022",
+        "T024"
+      ]
+    },
+    "FR-018": {
+      "title": "Completed command and entry block states MUST survive broadcast termination, terminal switching, application restart, and session reopening.",
+      "tasks": [
+        "T001",
+        "T022",
+        "T023",
+        "T024"
+      ]
+    },
+    "FR-019": {
+      "title": "Existing sessions whose entries contain only a single description MUST retain the same player-visible text and MUST begin without command-driven entry state.",
+      "tasks": [
+        "T001",
+        "T003",
+        "T004",
+        "T006",
+        "T008",
+        "T010",
+        "T022",
+        "T024"
+      ]
+    },
+    "FR-020": {
+      "title": "A session with missing, duplicate, cross-terminal, or otherwise ambiguous entry block targets MUST be rejected with actionable feedback instead of being loaded or saved with unpredictable behavior.",
+      "tasks": [
+        "T003",
+        "T004",
+        "T007",
+        "T008"
+      ]
+    },
+    "FR-021": {
+      "title": "The command authoring experience MUST identify a selected entry block target by its containing entry name, block position, and a preview of its authored text.",
+      "tasks": [
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-022": {
+      "title": "The entry authoring experience MUST identify each targeted block's targeting command by the command's name.",
+      "tasks": [
+        "T016",
+        "T017"
+      ]
+    },
+    "FR-023": {
+      "title": "Each EntryContent block provides a dialog to assign an eligible existing command or create and fully configure a new command while storing the canonical relationship on the command.",
+      "tasks": [
+        "T026",
+        "T027",
+        "T028",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-024": {
+      "title": "New commands created from the block dialog require a selected same-terminal destination folder.",
+      "tasks": [
+        "T026",
+        "T027",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-025": {
+      "title": "Reassigning an uncompleted owner is atomic while completed owners remain locked until reset.",
+      "tasks": [
+        "T026",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-026": {
+      "title": "Removing an uncompleted assignment clears only its entry-content change while completed assignments remain locked until reset.",
+      "tasks": [
+        "T026",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "SC-009": {
+      "title": "Block-dialog assignment, creation, reassignment, and removal each save exactly once; cancellation and completed-owner attempts do not save.",
+      "tasks": [
+        "T026",
+        "T029",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 14,
+    "projectedTasks": 18,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "context": [
+    "area: terminal content authoring, durable command state, live entry presentation, and Overseer reset controls",
+    "constraint: multiple commands may share an EntryContent only through different independently identified blocks",
+    "constraint: command and targeted block transitions and resets remain atomic",
+    "constraint: preserve existing single-description session behavior"
+  ],
+  "intent": "Let approved commands durably change independent blocks of player-visible entry content while keeping command state, reset behavior, and persistence consistent.",
+  "expectations": [
+    "Rich media, conditional layout, and nested entry block structures",
+    "Multiple competing commands or multi-step transitions for the same block",
+    "A separate entry-only reset that can diverge from the owning command"
+  ],
+  "approach": "Add one native EntryContent block command-assignment dialog that keeps edits in a detached draft and commits one valid whole-session candidate through the existing SaveSession path. Preserve command configuration as the sole canonical relationship owner; assignment, creation in a selected folder, reassignment, and removal require no schema or backend API change.",
+  "decisions": [
+    {
+      "decision": "Store the frozen entry block outcome inside CommandExecutionState",
+      "why": "one existing map insertion or removal makes command and block state atomic",
+      "rejected": "a second terminal entry-state map"
+    },
+    {
+      "decision": "Represent the optional target as an explicitly present EntryContentChange",
+      "why": "empty completed text is valid and cannot signal absence",
+      "rejected": "parallel scalar fields with inferred presence"
+    },
+    {
+      "decision": "Use terminal-scoped stable block IDs without a parent entry ID",
+      "why": "moves within a terminal preserve references without redundant identity pairs",
+      "rejected": "list positions or entry-plus-block compound references"
+    },
+    {
+      "decision": "Preserve legacy description until an explicit block edit",
+      "why": "existing session text remains unchanged without silent data transformation",
+      "rejected": "automatic migration on load"
+    },
+    {
+      "decision": "Compose effective blocks server-side with two-newline separators",
+      "why": "players need only effective text and the current client already rerenders changed descriptions",
+      "rejected": "public block fields or browser-side composition"
+    },
+    {
+      "decision": "Route individual and terminal command-state resets through control",
+      "why": "durable reset and runtime publication become one ordered coordinator transaction",
+      "rejected": "application-level save followed by a separate refresh"
+    },
+    {
+      "decision": "Lock a completed command target until reset",
+      "why": "retargeting must not silently reset or move durable world state",
+      "rejected": "silent reset or simultaneous old/new ownership"
+    },
+    {
+      "decision": "Derive bidirectional Overseer labels from the canonical command target",
+      "why": "commands and entry blocks remain mutually identifiable without a duplicated persisted back-reference",
+      "rejected": "persisting a targeting command ID on each entry block"
+    },
+    {
+      "decision": "Use one native EntryContent-side dialog with an isolated draft",
+      "why": "Cancel and validation failures can remain mutation-free while reusing established accessible dialog patterns",
+      "rejected": "Inline per-block forms or live session mutation with rollback"
+    },
+    {
+      "decision": "Keep reverse assignment canonical on command configuration",
+      "why": "Both editor directions converge on the existing one-owner relationship and reassignment can be one candidate save",
+      "rejected": "Persisting an owner command ID on EntryContent blocks"
+    },
+    {
+      "decision": "Create complete commands in an explicitly selected same-terminal folder",
+      "why": "The new command has a predictable authored location and is valid before the single save",
+      "rejected": "Implicit root placement, adjacent insertion, or placeholder creation"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Replanned feature 033 with an EntryContent-side assignment and creation dialog using one existing session save.",
+      "key_finding": "The increment is frontend-only because the established command-owned EntryContentChange already represents every clarified operation."
+    },
+    "tasks": {
+      "summary": "Added five dependency-ordered tasks in two phases for the EntryContent block command dialog and validation."
+    },
+    "implement": {
+      "summary": "Implemented the EntryContent-side native dialog for existing assignment, selected-folder command creation, atomic reassignment/removal, completed-owner locking, focus-safe cancellation, and stale-reference rejection.",
+      "key_finding": "The existing command-owned EntryContentChange and SaveSession boundary supported the increment without persistence or public-player contract changes.",
+      "risks": "No remaining product risk found; lifecycle task markers could not be materialized because the context was already terminal."
+    }
+  },
+  "currentTask": "T025",
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Extended the version-1 fixture with legacy and explicit entries, five distinct block targets, duplicate/empty text, and frozen outcomes.",
+      "files": [
+        "internal/testutil/testdata/session-v1-state-changing.json"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added a demo entry with two independently targeted blocks and preserved its initial rendered text.",
+      "files": [
+        "sessions/demo.json"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added RED descriptor and persistence-adapter tests for exact additive EntryContent blocks and explicitly present empty EntryContentChange round trips with JSON extras.",
+      "files": [
+        "app_contract_test.go",
+        "internal/session/contract_test.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Added failing domain coverage for ordered and empty entry blocks, JSON and clone isolation, terminal-scoped IDs, legacy exclusivity, target ownership, and frozen-target validity.",
+      "files": [
+        "internal/domain/model_test.go",
+        "internal/domain/validate_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Added additive entry block/change protobuf messages and regenerated the governed Go contract and schema revision.",
+      "files": [
+        "proto/fallout/terminal/persistence/v1/session.proto",
+        "internal/gen/fallout/terminal/persistence/v1/session.pb.go",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Added entry block and optional entry-change domain values, recognized the blocks JSON field, and deep-cloned authored and frozen changes across content, session, control, and live-runtime ownership boundaries.",
+      "files": [
+        "internal/domain/model.go",
+        "internal/domain/json.go",
+        "internal/domain/model_test.go",
+        "internal/session/service.go",
+        "internal/live/service.go",
+        "internal/control/service.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Mapped entry blocks and optional entry-content changes bidirectionally across the session protobuf adapter while preserving absent versus explicitly present empty-text changes.",
+      "files": [
+        "internal/session/contract.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Validated explicit entry blocks, terminal-local identities, legacy exclusivity, composed body limits, authored target ownership, and frozen snapshot target consistency with actionable errors.",
+      "files": [
+        "internal/domain/validate.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added expected-red live effective-tree tests for independent frozen block replacement, exact ordered two-newline composition, detached projections, and unchanged legacy descriptions.",
+      "files": [
+        "internal/live/service_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Added execution tests covering frozen entry-block capture including explicit empty text, rollback and repeat behavior, rejection, malformed durable snapshots, and durability-before-publication.",
+      "files": [
+        "internal/session/service_test.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Added expected-red approval and synchronization journeys for five independent block commands, atomic rejection/failure, open-entry updates, observers, and reconnect",
+      "files": [
+        "tests/browser/state-changing-command-approval.spec.mjs",
+        "tests/browser/state-changing-command-sync.spec.mjs"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Captured an authored entry-content change as an immutable command execution snapshot within the existing durable session mutation transaction, preserving rollback and repeat no-op behavior.",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Applied frozen entry block outcomes independently to detached live trees and composed explicit entry descriptions in authored order with exact two-newline separators while preserving legacy descriptions.",
+      "files": [
+        "internal/live/service.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Validated the complete durable session and the authored-versus-frozen entry-change shape before atomically installing command states, advancing navigation, and publishing the persisted command result.",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Extended state-changing browser fixtures with five canonical entry-block commands, frozen atomic outcomes, durable session snapshots, and an already-open-entry execution endpoint.",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added browser authoring journeys for stable ordered blocks, legacy conversion, human-readable targets and owners, target/deletion conflicts, empty and truncated previews, and completed-target locking.",
+      "files": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Implemented stable ordered entry-block authoring, terminal-local command targets, derived previews and reverse owner labels, conflict and deletion guards, completed-target locks, legacy conversion, and compact accessible styling.",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added block-aware individual and terminal-wide reset journeys covering confirmation cancellation, backend failure preservation, exact snapshot effects, initial block restoration, and reverse owner-label restoration.",
+      "files": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added entry-block-aware reset tests for individual and terminal atomicity, unrelated-state preservation, cancellation and write rollback, canonical revisions, owning-command deletion pruning, coordinator durability ordering, and application routing/publication.",
+      "files": [
+        "internal/session/service_test.go",
+        "internal/control/service_test.go",
+        "app_test.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Verified the existing session mutation model already removes complete command snapshots for individual and terminal resets and owning-command deletion, thereby restoring authored block text by absence while preserving unrelated states in one rollback-capable durable revision; the full session suite passes.",
+      "files": [
+        "internal/session/service.go",
+        "internal/session/service_test.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Added coordinator-owned individual and terminal command-state reset transactions that validate and install canonical durable snapshots, preserve unrelated runtime state, clear affected presentation, and publish only after storage succeeds; routed app resets through this seam with compatibility for storeless focused coordinators.",
+      "files": [
+        "internal/control/service.go",
+        "app.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Added synchronization journeys proving targeted frozen block outcomes survive terminal switches, broadcast stop-start, application reload, authored publication, session reopen, and observer reconnect with monotonic coordination revisions.",
+      "files": [
+        "tests/browser/state-changing-command-sync.spec.mjs"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added persistence tests proving legacy descriptions remain unconverted, explicit blocks and empty nested-change presence round-trip with unknown extras, and stale saves preserve frozen block targets across moves/renames, deletion pruning, and reopen recovery.",
+      "files": [
+        "internal/session/contract_test.go",
+        "internal/session/service_test.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Hardened canonical session merging to discard authored command-state maps before restoring only canonical surviving snapshots, preventing stale-save injection while retaining rejection/pruning rules; detached protobuf extras templates to preserve unknown JSON fields without aliasing.",
+      "files": [
+        "internal/session/service.go",
+        "internal/session/contract.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Reviewed and simplified changed Go and frontend code, ran go fix, updated intentional schema baselines, and completed contract, build, lint, race, and 40-journey browser validation with sandbox-only socket limitations recorded.",
+      "files": [
+        "app.go",
+        "frontend/overseer/src/overseer.js",
+        "internal/platform/assets_test.go",
+        "Taskfile.yml"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Schema and generated-contract governance",
+      "result": "passed",
+      "command": "task proto:check; task proto:breaking; task bindings:check"
+    },
+    {
+      "what": "Go formatting, modernization, vet, and lint",
+      "result": "passed",
+      "command": "go fix ./...; task fmt:check; task vet; task lint"
+    },
+    {
+      "what": "Affected Go feature packages under race detector",
+      "result": "passed",
+      "command": "task test:race (domain/session/control/live/platform passed); targeted root entry-content tests passed with -race"
+    },
+    {
+      "what": "Overseer and player production builds",
+      "result": "passed",
+      "command": "task frontend:build"
+    },
+    {
+      "what": "Affected browser approval, authoring, reset, synchronization, and lifecycle journeys",
+      "result": "40 passed",
+      "command": "npm test --prefix tests/browser -- state-changing-command-approval.spec.mjs state-changing-command-authoring.spec.mjs state-changing-command-sync.spec.mjs"
+    },
+    {
+      "what": "Public player protobuf contract",
+      "result": "unchanged",
+      "command": "git diff --name-only -- proto/fallout/terminal/player frontend/client/gen/fallout/terminal/player"
+    },
+    {
+      "what": "EntryContent block command dialog production build",
+      "result": "passed",
+      "command": "task frontend:build"
+    },
+    {
+      "what": "Repository browser journeys after dialog increment",
+      "result": "207 passed, 2 opt-in ngrok journeys skipped",
+      "command": "task browser:test"
+    },
+    {
+      "what": "Focused state-changing command authoring journeys",
+      "result": "25 passed",
+      "command": "npm test -- state-changing-command-authoring.spec.mjs"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "The Modern Go Guidelines helper stalled while initializing its external cache and was terminated; go fix, vet, lint, repository Go style review, and race tests were used directly.",
+      "step": "implement",
+      "kind": "tooling"
+    },
+    {
+      "note": "Repository-wide task test and task test:race could not complete only because the managed sandbox denies local TCP listeners used by existing updater, player, and tunnel tests; all affected feature packages and targeted root tests passed, including under -race.",
+      "step": "implement",
+      "kind": "environment"
+    },
+    {
+      "note": "The Companion context was already status=completed before clarified dialog tasks T026-T030 were generated, so the guarded lifecycle writer refused their task journals and checkbox materialization even though implementation and validation completed.",
+      "step": "implement",
+      "kind": "lifecycle"
+    }
+  ]
+}

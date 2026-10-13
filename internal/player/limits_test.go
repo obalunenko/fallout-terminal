@@ -26,11 +26,17 @@ func TestPresentationUplinkBodyEnforcesIdleAndMaximumLifetime(t *testing.T) {
 	}{
 		{name: "idle", idle: 10 * time.Millisecond, maximum: time.Second, want: errPresentationUplinkIdleTimeout},
 		{name: "maximum", idle: time.Second, maximum: 10 * time.Millisecond, want: errPresentationUplinkMaxLifetime},
+		{name: "immediate idle", idle: 0, maximum: time.Second, want: errPresentationUplinkIdleTimeout},
+		{name: "immediate maximum", idle: time.Second, maximum: 0, want: errPresentationUplinkMaxLifetime},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancelCause(t.Context())
+			t.Cleanup(func() { cancel(nil) })
 			reader, writer := io.Pipe()
-			t.Cleanup(func() { require.NoError(t, writer.Close()) })
+			t.Cleanup(func() {
+				require.NoError(t, reader.Close())
+				require.NoError(t, writer.Close())
+			})
 			body := newPresentationUplinkBody(reader, cancel, test.idle, test.maximum)
 			t.Cleanup(body.Stop)
 			readDone := make(chan error, 1)

@@ -140,7 +140,21 @@ func TestWailsSaveSessionBindingRetainsBothRealDemoTerminals(t *testing.T) {
 	reopened := core.OpenSession()
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
 	require.Len(t, reopened.Session.Terminals, 2)
-	require.Equal(t, "t_demo2", reopened.Session.Terminals[0].Root.Children[4].TerminalTransition.TargetTerminalID)
+	transition := findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
+	require.NotNil(t, transition)
+	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
+}
+
+func findNodeByID(root *domain.ContentNode, id string) *domain.ContentNode {
+	if root.ID == id {
+		return root
+	}
+	for i := range root.Children {
+		if node := findNodeByID(&root.Children[i], id); node != nil {
+			return node
+		}
+	}
+	return nil
 }
 
 func TestOverseerWindowOptionsPreserveAcceptedSingleWindowContract(t *testing.T) {

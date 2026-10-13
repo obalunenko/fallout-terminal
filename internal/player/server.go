@@ -144,7 +144,10 @@ func (server *Server) recordServeExit(err error) {
 		cancel(err)
 	}
 	if server.log != nil {
-		server.log.WithError(err).WithField("operation", "player.serve").Error("player server stopped unexpectedly")
+		server.log.WithFields(logger.Fields{
+			"error_category": "serve_failed",
+			"operation":      "player.serve",
+		}).Error("player server stopped unexpectedly")
 	}
 }
 

@@ -137,17 +137,17 @@ func (service *approvalNotificationService) ServiceStartup(
 	service.availability = approvalNotificationsStarting
 	service.mu.Unlock()
 	if service.launchIDErr != nil {
-		service.disable("notification.launch-id", service.launchIDErr)
+		service.disable("notification.launch-id")
 		return nil
 	}
 
 	if err := service.native.ServiceStartup(ctx, options); err != nil {
-		service.disable("notification.start", err)
+		service.disable("notification.start")
 		return nil
 	}
 	service.native.OnNotificationResponse(service.handleResponse)
 	if err := service.native.RegisterNotificationCategory(approvalNotificationCategory()); err != nil {
-		service.disable("notification.category.register", err)
+		service.disable("notification.category.register")
 		return nil
 	}
 
@@ -181,7 +181,7 @@ func (service *approvalNotificationService) ServiceShutdown() error {
 		err := service.native.ServiceShutdown()
 		service.nativeMu.Unlock()
 		if err != nil {
-			service.logFailure("notification.shutdown", err)
+			service.logFailure("notification.shutdown")
 		}
 	}()
 	return nil
@@ -227,7 +227,7 @@ func (service *approvalNotificationService) authorize(generation uint64) {
 	}
 	service.nativeMu.Unlock()
 	if err != nil {
-		service.logFailure("notification.authorization", err)
+		service.logFailure("notification.authorization")
 	}
 
 	service.mu.Lock()
@@ -301,16 +301,16 @@ func (service *approvalNotificationService) applyTransition(
 	}
 	service.mu.Unlock()
 	if err != nil {
-		service.logFailure("notification.send", err)
+		service.logFailure("notification.send")
 	}
 	if authorizationErr != nil {
-		service.logFailure("notification.authorization.recheck", authorizationErr)
+		service.logFailure("notification.authorization.recheck")
 	}
 }
 
 func (service *approvalNotificationService) handleResponse(result wailsnotifications.NotificationResult) {
 	if result.Error != nil {
-		service.logFailure("notification.response", result.Error)
+		service.logFailure("notification.response")
 		return
 	}
 	action, ok := approvalDecisionForAction(result.Response.ActionIdentifier)
@@ -415,24 +415,27 @@ func (service *approvalNotificationService) cleanup(
 	deliveredErr := service.native.RemoveDeliveredNotification(notificationID)
 	service.nativeMu.Unlock()
 	if pendingErr != nil {
-		service.logFailure("notification.remove.pending", pendingErr)
+		service.logFailure("notification.remove.pending")
 	}
 	if deliveredErr != nil {
-		service.logFailure("notification.remove.delivered", deliveredErr)
+		service.logFailure("notification.remove.delivered")
 	}
 }
 
-func (service *approvalNotificationService) disable(operation string, err error) {
+func (service *approvalNotificationService) disable(operation string) {
 	service.mu.Lock()
 	if service.availability != approvalNotificationsStopped {
 		service.availability = approvalNotificationsUnavailable
 	}
 	service.mu.Unlock()
-	service.logFailure(operation, err)
+	service.logFailure(operation)
 }
 
-func (service *approvalNotificationService) logFailure(operation string, err error) {
-	service.log.WithError(err).WithField("operation", operation).Warn("native approval notification unavailable")
+func (service *approvalNotificationService) logFailure(operation string) {
+	service.log.WithFields(logger.Fields{
+		"error_category": "native_notification_failed",
+		"operation":      operation,
+	}).Warn("native approval notification unavailable")
 }
 
 func approvalNotificationCategory() wailsnotifications.NotificationCategory {

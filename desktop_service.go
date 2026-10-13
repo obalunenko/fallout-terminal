@@ -149,6 +149,10 @@ func (service *desktopService) OpenURL(rawURL string) CommandResult {
 	return service.core.OpenURL(rawURL)
 }
 
+func (service *desktopService) OpenLogLocation() LogAccessResult {
+	return service.core.OpenLogLocation()
+}
+
 func (service *desktopService) GetPublicAccess() PublicAccessSnapshot {
 	return service.core.GetPublicAccess()
 }

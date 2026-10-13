@@ -35,26 +35,55 @@ from spec_context import (
 # `**` is optional: matches the turbo/companion bold form `- [x] **T001**` AND the
 # standard tasks-template plain form `- [x] T001 …`. A `T\d+` is still required right
 # after the checkbox, so non-task checkboxes never false-match.
-COMPLETED_TASK_RE = re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(?:\*\*)?(T\d+)")
-PENDING_TASK_RE = re.compile(r"^\s*[-*]\s*\[\s\]\s*(?:\*\*)?(T\d+)")
+#
+# This grammar matches `taskCheckboxes.ts` on the VS Code side, because the two
+# decide the same question — whether every task is done — from opposite sides of
+# the product. `tests/fixtures/task-grammar/` holds the cases they must agree
+# on, and both test suites read it.
+COMPLETED_TASK_RE = re.compile(r"^\s*[-*+]\s*\[[xX]\]\s*(?:\*\*)?(T\d+)")
+PENDING_TASK_RE = re.compile(r"^\s*[-*+]\s*\[\s\]\s*(?:\*\*)?(T\d+)")
+_FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
+_INLINE_CODE_RE = re.compile(r"(`+)[^`]*?\1")
+
+
+def prose_lines(content: str):
+    """The document's lines with fenced blocks dropped and code spans blanked.
+
+    A checkbox inside a code fence is documentation showing the syntax, not
+    work — counting it once let this side report a task list complete while
+    the viewer, which has always skipped fences, still showed tasks left.
+    """
+    open_fence: str | None = None
+    for raw in content.splitlines():
+        fence = _FENCE_RE.match(raw)
+        marker = fence.group(1) if fence else None
+        if open_fence:
+            if marker and marker[0] == open_fence[0] and len(marker) >= len(open_fence):
+                open_fence = None
+            continue
+        if marker:
+            open_fence = marker
+            continue
+        yield _INLINE_CODE_RE.sub("", raw)
 
 
 def parse_task_markers(tasks_md: Path) -> tuple[list[str], list[str]]:
     """Return (all_task_ids, completed_task_ids) in document order from tasks.md."""
+    try:
+        content = tasks_md.read_text(encoding="utf-8")
+    except OSError:
+        return [], []
     all_ids: list[str] = []
     done_ids: list[str] = []
-    try:
-        for line in tasks_md.read_text(encoding="utf-8").splitlines():
-            m = COMPLETED_TASK_RE.match(line)
-            if m:
-                all_ids.append(m.group(1))
-                done_ids.append(m.group(1))
-                continue
-            m = PENDING_TASK_RE.match(line)
-            if m:
-                all_ids.append(m.group(1))
-    except OSError:
-        pass
+    for line in prose_lines(content):
+        m = COMPLETED_TASK_RE.match(line)
+        if m:
+            all_ids.append(m.group(1))
+            done_ids.append(m.group(1))
+            continue
+        m = PENDING_TASK_RE.match(line)
+        if m:
+            all_ids.append(m.group(1))
     return all_ids, done_ids
 
 
@@ -81,6 +110,15 @@ def _mark_tasks_done(tasks_md: Path, ids: set) -> None:
             changed = True
     if not changed:
         return
+    try:
+        import companion_config as cc
+
+        cc.atomic_write_text(str(tasks_md), "".join(lines))
+        return
+    except ImportError:
+        pass
+    except OSError:
+        return
     tmp = tasks_md.with_suffix(tasks_md.suffix + ".tmp")
     try:
         tmp.write_text("".join(lines), encoding="utf-8")
@@ -101,10 +139,9 @@ def _feature_tasks_at_100(feature_dir: Path) -> bool:
 
 
 def _gc_events_log(feature_dir: Path) -> None:
-    """Remove `.spec-context.events.jsonl` when every task is complete.
-
-    Completed specs may briefly recreate the log for validated late convergence
-    tasks; materialization removes it again once those markers reach 100%."""
+    """Remove `.spec-context.events.jsonl` at the terminal `completed` transition —
+    the one state after which CROSS_STEP_TERMINAL blocks every further append, so the
+    file can't be recreated and a re-run of the spec dir can't re-fold stale lines."""
     try:
         (feature_dir / ".spec-context.events.jsonl").unlink(missing_ok=True)
     except OSError:
@@ -149,31 +186,6 @@ def _tasks_at_100(markers: tuple[list[str], list[str]]) -> bool:
     equality, not set subset (a duplicate id with one marker unchecked isn't 100%)."""
     all_ids, done_ids = markers
     return bool(all_ids) and len(done_ids) == len(all_ids)
-
-
-def _task_is_pending(feature_dir: Path, task_id: str) -> bool:
-    """True when task_id is a current unchecked marker in this feature."""
-    all_ids, done_ids = parse_task_markers(feature_dir / "tasks.md")
-    return task_id in all_ids and task_id not in done_ids
-
-
-def _pending_logged_tasks(feature_dir: Path, log_path: Path) -> set[str]:
-    """Return current unchecked task IDs that also have an appended finish."""
-    if not log_path.is_file():
-        return set()
-    all_ids, done_ids = parse_task_markers(feature_dir / "tasks.md")
-    pending = set(all_ids) - set(done_ids)
-    if not pending:
-        return set()
-    logged: set[str] = set()
-    for raw in log_path.read_text(encoding="utf-8").splitlines():
-        try:
-            entry = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        if entry.get("task") in pending:
-            logged.add(entry["task"])
-    return logged
 
 
 def _fold_task_finish(
@@ -272,13 +284,10 @@ def append_task_log(
     The line carries its own `at` timestamp (real finish time) plus `did`/`files`,
     so `--materialize` can fold it later with the task's true duration preserved.
     This path never closes the step or updates status — that happens at fold time.
-    Archived specs remain immutable. A completed spec accepts only task IDs that
-    currently exist as unchecked markers, allowing convergence work appended after
-    completion to be journaled without reopening or regressing lifecycle status.
+    A genuinely shipped spec (completed/archived) is left untouched, so a stray
+    late append can't orphan a post-completion line into the events log.
     """
-    status = read_ctx(feature_dir / ".spec-context.json").get("status")
-    allow_late_finish = status == "completed" and _task_is_pending(feature_dir, task_id)
-    if status in CROSS_STEP_TERMINAL and not allow_late_finish:
+    if read_ctx(feature_dir / ".spec-context.json").get("status") in CROSS_STEP_TERMINAL:
         print(
             f"[companion] {feature_dir} already shipped; not appending task {task_id}.",
             file=sys.stderr,
@@ -310,22 +319,16 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     materialized `history`/`task_summaries` are byte-identical to what the live path
     would have produced — only batched into a single read-modify-write instead of one
     per task. Idempotent: dedup on (implement, task_id) means re-folding the whole log
-    (per batch and again at step close) never double-counts. A completed spec is writable
-    only when the log contains a finish for a current unchecked task; archived specs stay
-    immutable. No log file → nothing to fold."""
+    (per batch and again at step close) never double-counts. Leaves a genuinely shipped
+    spec untouched. No log file → nothing to fold."""
     log_path = feature_dir / ".spec-context.events.jsonl"
     if not log_path.is_file():
         return None
     target = feature_dir / ".spec-context.json"
-    late_tasks = _pending_logged_tasks(feature_dir, log_path)
-    opened = _open_ctx_or_none(
-        feature_dir,
-        allow_completed=bool(late_tasks),
-    )
+    opened = _open_ctx_or_none(feature_dir)
     if opened is None:
         return None
     ctx, log, _branch = opened
-    late_convergence = ctx.get("status") == "completed"
     tasks_md = feature_dir / "tasks.md"
     markers = parse_task_markers(tasks_md)
     folded = 0
@@ -340,8 +343,6 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
         tid = e.get("task")
         if not tid:
             continue
-        if ctx.get("status") == "completed" and tid not in late_tasks:
-            continue
         _fold_task_finish(
             ctx, log, feature_dir, tid, e.get("by", by),
             e.get("did"), e.get("files"), e.get("at") or _now_iso(),
@@ -351,25 +352,40 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     # The script owns the checkboxes: flip tasks.md `[ ]` → `[x]` for every
     # journaled task (single writer, so parallel subagents that only append are
     # race-free). Must run BEFORE the step-close check, which reads tasks.md.
-    # A completed spec can reopen task markers for a later convergence pass while
-    # retaining its append-only history. In that mode, historical task finishes
-    # are not evidence that the newly reopened markers are done: only finishes in
-    # the current events log may close them. Active implementation runs can still
-    # derive every checkbox from the full journal as before.
-    completed_ids = late_tasks if late_convergence else _journaled_tasks(log)
-    _mark_tasks_done(tasks_md, completed_ids)
-    final_markers = parse_task_markers(tasks_md)
-    _maybe_close_implement(ctx, log, feature_dir, by, markers=final_markers)
+    _mark_tasks_done(tasks_md, _journaled_tasks(log))
+    _maybe_close_implement(ctx, log, feature_dir, by, markers=parse_task_markers(tasks_md))
     commit_log(ctx, log)
     atomic_write(target, ctx)
-    if ctx.get("status") == "completed" and _tasks_at_100(final_markers):
-        _gc_events_log(feature_dir)
     if not quiet:
         print(
             f"[companion] Materialized {folded} task line(s) from {log_path.name} into {target}.",
             file=sys.stderr,
         )
     return target
+
+
+def _last_finished(log: list, done: list) -> str | None:
+    """The most recently journaled completion among `done`, by recorded time.
+
+    Not `done[-1]`: that is the last task in tasks.md order, so after a wave of
+    tasks completing together it names whichever happens to sit lowest in the
+    file rather than the one that actually finished last. Falls back to file
+    order only when the journal cannot answer — a task synced from tasks.md
+    without ever being journaled has no time of its own.
+    """
+    best, best_at = None, None
+    for entry in log:
+        if not isinstance(entry, dict):
+            continue
+        tid = entry.get("task")
+        if tid not in done or entry.get("kind") != "complete":
+            continue
+        at = entry.get("at")
+        if not isinstance(at, str):
+            continue
+        if best_at is None or at >= best_at:
+            best, best_at = tid, at
+    return best or done[-1]
 
 
 def sync_tasks(feature_dir: Path, tasks_md: Path, final_status: str, by: str) -> Path | None:
@@ -423,7 +439,13 @@ def sync_tasks(feature_dir: Path, tasks_md: Path, final_status: str, by: str) ->
     ctx["status"] = final_status if all_done else "implementing"
 
     pending = [tid for tid in distinct_all if tid not in distinct_done]
-    ctx["currentTask"] = (pending[0] if pending else (distinct_done[-1] if distinct_done else None))
+    # With work left, the current task is the next one to do. With none left, it is
+    # the one most recently FINISHED — which is not `distinct_done[-1]`: that is the
+    # last task in tasks.md order, so after a wave of tasks completing together it
+    # names whichever happens to sit lowest in the file. Read the journal instead,
+    # which knows when each one actually closed.
+    ctx["currentTask"] = (pending[0] if pending
+                          else (_last_finished(log, distinct_done) if distinct_done else None))
 
     # Finish-only backstop: append ONE finish per fresh task (no start/complete
     # pair → no 0s tick). The live path (`--task <id> --kind complete`) already

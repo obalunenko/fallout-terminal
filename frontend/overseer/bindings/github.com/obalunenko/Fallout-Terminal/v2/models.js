@@ -703,6 +703,59 @@ export class LiveUpdatePayload {
 }
 
 /**
+ * LogAccessResult identifies the fixed retained-log location even when the
+ * native shell cannot open it, so the Overseer can navigate there manually.
+ */
+export class LogAccessResult {
+    /**
+     * Creates a new LogAccessResult instance.
+     * @param {Partial<LogAccessResult>} [$$source = {}] - The source object to create the LogAccessResult.
+     */
+    constructor($$source = {}) {
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["error"] = undefined;
+        }
+        if (!("directoryPath" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["directoryPath"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["activeLogPath"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LogAccessResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {LogAccessResult}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new LogAccessResult(/** @type {Partial<LogAccessResult>} */($$parsedSource));
+    }
+}
+
+/**
  * LogicalSessionRenamePayload changes only a process-local fallback label.
  */
 export class LogicalSessionRenamePayload {

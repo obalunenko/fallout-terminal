@@ -30,12 +30,12 @@ sed -n 's/^export function \([A-Za-z0-9_]*\)(.*/\1/p' "$service" | LC_ALL=C sort
 printf '%s\n' \
     AddCharacter AssignCharacter CopyDemo CopyPublicAccessCredentials DeleteCharacter EndBroadcast ForceHackSuccess \
     GeneratePlayerPassword GetApplicationUpdateStatus GetPublicAccess GetRuntimeStatus LoadReferencedPlayerConfig MoveCharacter NewPlayerConfig NewSession \
-    OpenPlayerConfig OpenSession OpenURL ReleaseCharacter RenameLogicalSession ReplaceTerminalGroups \
+	OpenLogLocation OpenPlayerConfig OpenSession OpenURL ReleaseCharacter RenameLogicalSession ReplaceTerminalGroups \
     RequestTerminalActivation RequestTerminalClear ResetCommandState ResetFailedHack ResetTerminalCommandStates ResolveApplicationUpdateOffer ResolveApplicationUpdateRestart ResolveCommandExecution ResolveTerminalNavigation ResolveTerminalSwitch \
     SavePublicAccessSettings SaveSession SetActiveController StartBroadcast StartPublicAccess \
     StopPublicAccess UpdateCharacter UpdateLiveTerminal | LC_ALL=C sort >"$expected"
 diff -u "$expected" "$actual"
-test "$(wc -l <"$actual" | tr -d ' ')" = 39
+test "$(wc -l <"$actual" | tr -d ' ')" = 40
 
 for forbidden in Start Shutdown ServiceStartup ServiceShutdown Dispatch Call Capabilities \
     ReadFile WriteFile Exec Environment OpenDialog Browser PlayerService Subscribe; do
@@ -53,4 +53,4 @@ for event in server-info client-count hack-state coordination-state session-stat
 done
 test "$(grep -E '^[[:space:]]+"(server-info|client-count|hack-state|coordination-state|session-state|public-access-status|application-update-status)"' "$event_types" | wc -l | tr -d ' ')" = 7
 
-echo "Wails bindings are deterministic and expose exactly 39 accepted desktop methods and seven named events."
+echo "Wails bindings are deterministic and expose exactly 40 accepted desktop methods and seven named events."

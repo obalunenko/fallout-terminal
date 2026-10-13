@@ -5,6 +5,7 @@
 **Bugfix**: 2026-08-28 — BUG-006 Уточнён ordinary-command `REJECTED` lifecycle до controller acknowledgement.
 **Bugfix**: 2026-08-28 — BUG-007 Уточнён forward terminal-transition `REJECTED` lifecycle до controller acknowledgement.
 **Bugfix**: 2026-08-28 — BUG-008 Уточнён completed state-changing `REJECTED` lifecycle до controller acknowledgement.
+**Bugfix**: 2026-09-03 — BUG-009 Уточнены приоритет rejection acknowledgement и очистка transient presentation при reactivation.
 
 ## Границы жизненного цикла
 
@@ -74,6 +75,8 @@
 
 По BUG-008 exact reject или close-as-reject повторно выбранной completed state-changing команды очищает `PendingCommandExecution`, но сохраняет на active runtime `CommandExecutionPresentation{Phase: REJECTED, CommandID: exact completed command}`. Та же detached projection показывает controller, observers и reconnect полноэкранный record-description «Ошибка доступа» без frozen result или source menu до controller `Back`/`Enter` acknowledgement. Acknowledgement очищает presentation и возвращает неизменённую source navigation; completed command state не меняется, повторный execution/durable write не выполняется, новые protocol fields не добавляются.
 
+По BUG-009 наличие `CommandExecutionPresentation{Phase: REJECTED}` имеет приоритет над root-return predicate: `Back`/`Enter` controller сначала очищает exact presentation и не создаёт `PendingTerminalNavigation`, даже если `Nav` уже является root list и route содержит return point. Только следующая отдельная команда `Back` из опубликованного root menu может начать terminal return. Renderer rejection не наследует return label/class/aria state. После acknowledgement либо lifecycle cancellation последующие suspend/reactivate сохраняют private hack checkpoint, но `CommandExecutionPresentation` остаётся `nil`; stale rejection не является частью checkpoint, допустимого к восстановлению.
+
 ### `TerminalNavigationNotice`
 
 Приватное, не содержащее diagnostic details уведомление с reason `target_missing`, `self_target`, `command_stale` или `target_changed`, а также source/command/target IDs. Оно даёт master UI понятное объяснение, но не публикует file paths, errors или полную session players.
@@ -94,13 +97,13 @@
 | Событие | Preconditions | Результат |
 |---|---|---|
 | Controller выбирает linked command | Current broadcast/terminal/controller; нет pending; config и target актуальны | Создать forward pending, route/active/checkpoint не менять. |
-| Controller нажимает root return | Root list; route не пуст; нет pending | Создать return pending из верхней точки, но не pop. |
+| Controller нажимает root return | Root list; route не пуст; нет pending и нет `CommandExecutionPresentation` | Создать return pending из верхней точки, но не pop. |
 | Master approve forward | Exact pending, source всё ещё active, latest command всё ещё указывает на existing target | Suspend source, push point, create/reactivate target, set target root, clear pending/notice, publish one revision. |
 | Master approve return | Exact pending и unchanged top point, latest source terminal exists | Suspend current, reactivate return target, restore folder/fallback, pop one point, clear pending/notice, publish one revision. |
 | ~~Master reject/close~~ Master reject/close return (уточнено BUG-007) | Exact return pending | Clear pending; active terminal, nav, route и checkpoints не менятся; current root screen восстанавливается немедленно. |
 | Master reject/close forward transition | Exact forward pending | Clear pending; set source command presentation to `REJECTED`; active terminal, nav, route, checkpoints and persistence не менять. |
 | Master reject/close ordinary command | Exact `PendingCommandExecution` mode ordinary | Clear pending; set exact command presentation to `REJECTED`; authored result, active terminal, nav, route, checkpoints and persistence не менять. |
-| Controller acknowledges ordinary rejection | Exact ordinary `REJECTED`; `Back` или `Enter` от current controller | Clear command presentation and publish unchanged source menu to all players; no command effect or durable write. |
+| Controller acknowledges ordinary rejection | Exact ordinary `REJECTED`; `Back` или `Enter` от current controller; route может быть непустым | Clear command presentation and publish unchanged source menu to all players; no command effect, durable write, terminal-return pending, active-terminal change or route mutation. |
 | Master reject/close completed state-changing command | Exact `PendingCommandExecution` mode completed state-change | Clear pending; set exact completed command presentation to `REJECTED`; frozen result, command state, active terminal, nav, route, checkpoints and persistence не менять; repeat execution/write не выполнять. |
 | Controller acknowledges completed state-changing rejection | Exact completed-command `REJECTED`; `Back` или `Enter` от current controller | Clear command presentation and publish unchanged source menu to all players; no repeat execution, durable write, command-state, terminal or route effect. |
 | Stale approve | Target/command/source/route больше не совпадают | Clear pending, set private notice/error, active/nav/route не менятся. |

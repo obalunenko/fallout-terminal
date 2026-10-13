@@ -20,7 +20,7 @@ require (
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
-	github.com/atterpac/refresh v1.0.0 // indirect
+	github.com/atterpac/refresh v1.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/blakesmith/ar v0.0.0-20190502131153-809d4375e1fb // indirect
@@ -74,7 +74,6 @@ require (
 	github.com/jaypipes/ghw v0.21.3 // indirect
 	github.com/jaypipes/pcidb v1.1.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
-	github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
 	github.com/klauspost/compress v1.18.3 // indirect
@@ -120,7 +119,7 @@ require (
 	github.com/tc-hib/winres v0.3.1 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/wailsapp/task/v3 v3.40.1-patched3 // indirect
-	github.com/wailsapp/wails/v3 v3.0.0-beta.15 // indirect
+	github.com/wailsapp/wails/v3 v3.0.0-beta.28 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect

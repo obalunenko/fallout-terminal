@@ -3,7 +3,7 @@ name: speckit-brownfield-scan
 description: Auto-discover project structure, tech stack, frameworks, and architecture patterns
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: Quratulain-bilal
   source: brownfield:commands/speckit.brownfield.scan.md
 ---
 

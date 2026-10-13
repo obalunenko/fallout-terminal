@@ -66,6 +66,16 @@ check_public_contracts() {
   grep -Fq 'string replacement_player_password = 7;' \
     "$repository_root/proto/fallout/terminal/private/v1/public_access.proto" ||
     fail 'narrow player-password mutation input is missing'
+
+  grep -Fq 'message LogAccessResult {' \
+    "$repository_root/proto/fallout/terminal/private/v1/desktop.proto" ||
+    fail 'private retained-log access result is missing'
+  if grep -ERIl 'LogAccessResult|OpenLogLocation' \
+    "$repository_root/proto/fallout/terminal/player" \
+    "$repository_root/proto/fallout/terminal/persistence" \
+    "$repository_root/frontend/client" >/dev/null 2>&1; then
+    fail 'retained-log access escaped into a public or persistent surface'
+  fi
 }
 
 check_active_sources() {

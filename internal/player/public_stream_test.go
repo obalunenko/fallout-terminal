@@ -12,7 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
@@ -286,49 +287,48 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 	assert.Equal(t, http.StatusOK, staticResponse.StatusCode)
 	assert.Empty(t, staticResponse.Header.Get("WWW-Authenticate"))
 
-	client := playerv1connect.NewPlayerServiceClient(authenticatedClient, "http://public.example")
-	manifest, err := client.SoundManifest(t.Context(), connect.NewRequest(&playerv1.SoundManifestRequest{
+	client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(authenticatedClient, "http://public.example", connecthttp.WithReadMaxBytes(0))))
+	manifest, err := client.SoundManifest(t.Context(), &playerv1.SoundManifestRequest{
 		Category: playerv1.SoundCategory_SOUND_CATEGORY_AMBIENT,
-	}))
+	})
 	require.NoError(t, err)
-	require.NotNil(t, manifest.Msg)
+	require.NotNil(t, manifest)
 
 	streamContext, cancelStream := context.WithCancelCause(t.Context())
 	t.Cleanup(func() { cancelStream(errors.New("test public stream completed")) })
 	clientInstanceID := "public-tab-1"
-	stream, err := client.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientInstanceID}))
+	stream, err := client.Subscribe(streamContext, &playerv1.SubscribeRequest{ClientInstanceId: &clientInstanceID})
 	require.NoError(t, err)
-	require.True(t, stream.Receive(), "stream error: %v", stream.Err())
-	snapshot := stream.Msg().GetSnapshot()
+	t.Cleanup(func() { _ = stream.Close() })
+	snapshot := receiveSubscriptionMessage(t, stream).GetSnapshot()
 	require.NotNil(t, snapshot)
 	clonedSnapshot := proto.Clone(snapshot).(*playerv1.PersonalizedSnapshot)
 	require.Empty(t, cmp.Diff(snapshot, clonedSnapshot, protocmp.Transform()))
 
-	uplink := client.PresentationUplink(t.Context())
+	uplink, err := client.PresentationUplink(t.Context())
+	require.NoError(t, err)
 	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{Payload: &playerv1.PresentationUplinkRequest_Open{
 		Open: &playerv1.PresentationUplinkOpen{
 			ClientInstanceId: clientInstanceID, UplinkGeneration: 1,
 			RecognitionHandle: snapshot.GetRecognitionHandle(),
 		},
 	}}))
-	require.True(t, stream.Receive(), "uplink ready stream error: %v", stream.Err())
-	ready := stream.Msg().GetPresentationUplinkResult()
+	ready := receiveSubscriptionMessage(t, stream).GetPresentationUplinkResult()
 	require.NotNil(t, ready)
 	require.Equal(t, clientInstanceID, ready.GetClientInstanceId())
 	require.NotNil(t, ready.GetReady())
 	_, err = uplink.CloseAndReceive()
 	require.NoError(t, err)
 
-	selected, err := client.SelectCharacter(t.Context(), connect.NewRequest(&playerv1.SelectCharacterRequest{
+	selected, err := client.SelectCharacter(t.Context(), &playerv1.SelectCharacterRequest{
 		RecognitionHandle: snapshot.GetRecognitionHandle(), RequestId: "edge-request-1",
 		BroadcastId: "broadcast-1", CharacterId: "character-1",
-	}))
+	})
 	require.NoError(t, err)
-	require.True(t, selected.Msg.GetAccepted())
-	require.True(t, stream.Receive(), "stream error: %v", stream.Err())
-	update := stream.Msg().GetUpdate()
+	require.True(t, selected.GetAccepted())
+	update := receiveSubscriptionMessage(t, stream).GetUpdate()
 	require.NotNil(t, update)
-	assert.Equal(t, selected.Msg.GetRevision(), update.GetRevision())
+	assert.Equal(t, selected.GetRevision(), update.GetRevision())
 
 	onAirRevision := update.GetRevision() + 1
 	service.PublishEffect(control.Effect{
@@ -338,8 +338,7 @@ func TestPublicIngressProtectsStaticUnaryAndStreamingBeforeUnchangedPlayerBounda
 			Terminal: &domain.TerminalPresentation{Live: commandLifecycleLiveState("", false)},
 		},
 	})
-	require.True(t, stream.Receive(), "post-selection on-air stream error: %v", stream.Err())
-	onAir := stream.Msg().GetUpdate()
+	onAir := receiveSubscriptionMessage(t, stream).GetUpdate()
 	require.NotNil(t, onAir)
 	assert.Equal(t, onAirRevision, onAir.GetRevision())
 	assert.Equal(t, "terminal-1", onAir.GetTerminalPresentation().GetLiveTerminal().GetTerminalId())

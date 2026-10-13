@@ -101,7 +101,10 @@
 
 ## Разработка
 
-Проект использует Go, Wails `v3.0.0-beta.15` и Task `v3.53.1`. Требуются:
+Исторические материалы миграции Wails: [quickstart](specs/006-wails-v3-migration/quickstart.md)
+и [процедура отката](docs/wails-v3-migration-rollback.md).
+
+Проект использует Go, Wails `v3.0.0-beta.28` и Task `v3.54.0`. Требуются:
 
 - Go 1.27.x;
 - Node.js 26.8.1+ и npm;
@@ -165,3 +168,9 @@ task speckit:update:check
 ## Происхождение
 
 Проект основан на [Hobbit041/Fallout-Terminal](https://github.com/Hobbit041/Fallout-Terminal) и после миграции с Electron на Go/Wails развивается самостоятельно. Атрибуция приведена в [NOTICE.md](NOTICE.md).
+
+## Лицензия
+
+Проект распространяется по [лицензии MIT](LICENSE). Сведения о происхождении и атрибуции приведены в [NOTICE.md](NOTICE.md).
+
+Это неофициальный фанатский проект, не связанный с Bethesda Softworks и ZeniMax Media и не одобренный ими. Права на Fallout принадлежат их правообладателям.

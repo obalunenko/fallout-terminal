@@ -9,9 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
+	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
@@ -19,8 +21,98 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/testing/prototest"
 )
+
+func TestEntryContentPersistenceDescriptorsAreAdditiveAndExplicit(t *testing.T) {
+	t.Parallel()
+
+	file := persistencev1.File_fallout_terminal_persistence_v1_session_proto
+	entry := file.Messages().ByName("EntryContent")
+	require.NotNil(t, entry)
+	require.Equal(t, protoreflect.Name("EntryContent"), entry.Name())
+	require.Equal(t, protoreflect.FullName("fallout.terminal.persistence.v1.EntryContent"), entry.FullName())
+	require.Nil(t, file.Messages().ByName("EntryContents"))
+
+	description := entry.Fields().ByName("description")
+	require.NotNil(t, description)
+	require.Equal(t, protoreflect.FieldNumber(1), description.Number())
+	require.Equal(t, protoreflect.StringKind, description.Kind())
+
+	blocks := entry.Fields().ByName("blocks")
+	require.NotNil(t, blocks)
+	require.Equal(t, protoreflect.FieldNumber(2), blocks.Number())
+	require.True(t, blocks.IsList())
+	require.Equal(t, protoreflect.FullName("fallout.terminal.persistence.v1.EntryContentBlock"), blocks.Message().FullName())
+
+	block := file.Messages().ByName("EntryContentBlock")
+	require.NotNil(t, block)
+	require.Equal(t, protoreflect.FieldNumber(1), block.Fields().ByName("id").Number())
+	require.Equal(t, protoreflect.FieldNumber(2), block.Fields().ByName("initial_text").Number())
+
+	change := file.Messages().ByName("EntryContentChange")
+	require.NotNil(t, change)
+	require.Equal(t, protoreflect.FieldNumber(1), change.Fields().ByName("block_id").Number())
+	require.Equal(t, protoreflect.FieldNumber(2), change.Fields().ByName("completed_text").Number())
+
+	owners := []struct {
+		message     proto.Message
+		secondField protoreflect.Name
+	}{
+		{message: &persistencev1.StateChangeConfig{}, secondField: "confirmation_text"},
+		{message: &persistencev1.CommandExecutionState{}, secondField: "result_text"},
+	}
+	for _, owner := range owners {
+		descriptor := owner.message.ProtoReflect().Descriptor()
+		require.Equal(t, protoreflect.FieldNumber(1), descriptor.Fields().ByName("completed_name").Number())
+		require.Equal(t, protoreflect.FieldNumber(2), descriptor.Fields().ByName(owner.secondField).Number())
+		entryChange := descriptor.Fields().ByName("entry_content_change")
+		require.NotNil(t, entryChange)
+		require.Equal(t, protoreflect.FieldNumber(3), entryChange.Number())
+		require.True(t, entryChange.HasPresence())
+		require.Nil(t, entryChange.ContainingOneof())
+		require.Equal(t, change.FullName(), entryChange.Message().FullName())
+		require.False(t, owner.message.ProtoReflect().Has(entryChange))
+	}
+
+	configured := &persistencev1.StateChangeConfig{
+		CompletedName:    "POWER RESTORED",
+		ConfirmationText: "Restore power?",
+		EntryContentChange: &persistencev1.EntryContentChange{
+			BlockId: "reactor-power",
+		},
+	}
+	configuredField := configured.ProtoReflect().Descriptor().Fields().ByName("entry_content_change")
+	require.True(t, configured.ProtoReflect().Has(configuredField))
+	require.Empty(t, configured.GetEntryContentChange().GetCompletedText())
+	require.Empty(t, cmp.Diff(configured, proto.Clone(configured), protocmp.Transform()))
+
+	frozen := &persistencev1.CommandExecutionState{
+		CompletedName: "POWER RESTORED",
+		ResultText:    "Primary power restored.",
+		EntryContentChange: &persistencev1.EntryContentChange{
+			BlockId: "reactor-power",
+		},
+	}
+	frozenField := frozen.ProtoReflect().Descriptor().Fields().ByName("entry_content_change")
+	require.True(t, frozen.ProtoReflect().Has(frozenField))
+	require.Empty(t, frozen.GetEntryContentChange().GetCompletedText())
+	require.Empty(t, cmp.Diff(frozen, proto.Clone(frozen), protocmp.Transform()))
+}
+
+func TestLogAccessResultIsPrivateAndAdditive(t *testing.T) {
+	t.Parallel()
+	descriptor := (&privatev1.LogAccessResult{}).ProtoReflect().Descriptor()
+	require.Equal(t, "fallout.terminal.private.v1.LogAccessResult", string(descriptor.FullName()))
+	fields := descriptor.Fields()
+	require.Equal(t, 4, fields.Len())
+	require.Equal(t, "ok", string(fields.Get(0).Name()))
+	require.Equal(t, "error", string(fields.Get(1).Name()))
+	require.Equal(t, "directory_path", string(fields.Get(2).Name()))
+	require.Equal(t, "active_log_path", string(fields.Get(3).Name()))
+	require.Nil(t, (&playerv1.PlayerState{}).ProtoReflect().Descriptor().ParentFile().Messages().ByName("LogAccessResult"))
+}
 
 func TestApplicationUpdateSnapshotProtoNativeRoundTripEveryState(t *testing.T) {
 	t.Parallel()
@@ -748,6 +840,7 @@ func TestPrivateStatusResultAndEventAdaptersRoundTripEveryNativeSemantic(t *test
 	require.Equal(t, domain.ServerInfo{URL: "https://fallout.example", LocalURL: "http://127.0.0.1:3690", Tunnel: true}, routeServerInfoEvent(*status.ServerInfo))
 	require.Equal(t, 2, routeClientCountEvent(2))
 	require.Equal(t, CommandResult{OK: true}, routeCommandResult(CommandResult{OK: true}))
+	require.Equal(t, LogAccessResult{OK: true, DirectoryPath: "/logs", ActiveLogPath: "/logs/current.log"}, routeLogAccessResult(LogAccessResult{OK: true, DirectoryPath: "/logs", ActiveLogPath: "/logs/current.log"}))
 	require.Equal(t, CoordinationCommandResult{OK: true, State: state}, routeCoordinationResult(CoordinationCommandResult{OK: true, State: state}))
 	require.Equal(t, ResolveCommandExecutionResult{OK: true, State: state}, routeResolveCommandExecutionResult(ResolveCommandExecutionResult{OK: true, State: state}))
 }
@@ -757,14 +850,14 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
 		"RequestTerminalActivation", "UpdateLiveTerminal", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState", "ResetTerminalCommandStates",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
-		"StartBroadcast", "EndBroadcast", "OpenURL", "GetPublicAccess", "CopyPublicAccessCredentials", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
+		"StartBroadcast", "EndBroadcast", "OpenURL", "OpenLogLocation", "GetPublicAccess", "CopyPublicAccessCredentials", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
 	}
 	serviceType := reflect.TypeFor[*desktopService]()
 	actualMethods := make([]string, 0, serviceType.NumMethod())
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 39)
+	require.Len(t, actualMethods, 40)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -808,7 +901,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 39)
+	require.Len(t, forwarded, 40)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

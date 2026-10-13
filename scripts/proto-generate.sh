@@ -42,10 +42,10 @@ require_version() {
 }
 
 root_module_before="$(root_module_revision)"
-require_version "Buf" "$(go tool -modfile=tools/buf/go.mod buf --version)" "1.72.0"
-require_version "protoc-gen-go" "$(go tool -modfile=tools/protoc-gen-go/go.mod protoc-gen-go --version)" "protoc-gen-go v1.36.11"
-require_version "protoc-gen-connect-go" "$(go tool -modfile=tools/protoc-gen-connect-go/go.mod protoc-gen-connect-go --version)" "1.20.0"
-require_version "protoc-gen-es" "$(node -p "require('./frontend/node_modules/@bufbuild/protoc-gen-es/package.json').version")" "2.13.0"
+require_version "Buf" "$(go tool -modfile=tools/buf/go.mod buf --version)" "1.73.0"
+require_version "protoc-gen-go" "$(go tool -modfile=tools/protoc-gen-go/go.mod protoc-gen-go --version)" "protoc-gen-go v1.36.12"
+require_version "protoc-gen-connect-go" "$(go tool -modfile=tools/protoc-gen-connect-go/go.mod protoc-gen-connect-go --version)" "2.0.0"
+require_version "protoc-gen-es" "$(node -p "require('./frontend/node_modules/@bufbuild/protoc-gen-es/package.json').version")" "2.16.0"
 
 # Node 22+ exposes experimental Web Storage globals even when no persistence
 # file is configured. TypeScript VFS probes localStorage while protoc-gen-es is

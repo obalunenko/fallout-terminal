@@ -277,6 +277,134 @@ func TestValidateSessionRejectsInvalidCommandExecutionStates(t *testing.T) {
 	}
 }
 
+func TestValidateSessionAcceptsTerminalScopedEntryBlocksAndEmptyText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(*Session)
+	}{
+		{
+			name: "same block ID in different terminals",
+			mutate: func(*Session) {
+				// The baseline deliberately repeats block-a in the second terminal.
+			},
+		},
+		{
+			name: "empty initial and completed text",
+			mutate: func(session *Session) {
+				entry := &session.Terminals[0].Root.Children[0]
+				entry.Blocks[0].InitialText = " \t "
+				command := &session.Terminals[0].Root.Children[2]
+				command.StateChange.EntryContentChange.CompletedText = ""
+				state := session.Terminals[0].CommandStates[command.ID]
+				state.EntryContentChange.CompletedText = ""
+				session.Terminals[0].CommandStates[command.ID] = state
+			},
+		},
+		{
+			name: "legacy description without blocks",
+			mutate: func(session *Session) {
+				session.Terminals[0].Root.Children = []ContentNode{{
+					ID: "legacy", Type: NodeEntry, Name: "LEGACY", Description: "Legacy text",
+				}}
+				session.Terminals[0].CommandStates = nil
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			candidate := validEntryContentSessionForTest()
+			test.mutate(&candidate)
+			require.NoError(t, ValidateSession(candidate))
+		})
+	}
+}
+
+func TestValidateSessionRejectsInvalidEntryContentRelationships(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		mutate            func(*Session)
+		wantErrorContains []string
+	}{
+		{
+			name: "duplicate block ID within terminal",
+			mutate: func(session *Session) {
+				session.Terminals[0].Root.Children[1].Blocks[0].ID = "block-a"
+			},
+			wantErrorContains: []string{"block-a", "duplicates"},
+		},
+		{
+			name: "legacy description with explicit blocks",
+			mutate: func(session *Session) {
+				session.Terminals[0].Root.Children[0].Description = "Ambiguous legacy text"
+			},
+			wantErrorContains: []string{"description", "blocks"},
+		},
+		{
+			name: "missing authored target",
+			mutate: func(session *Session) {
+				command := &session.Terminals[0].Root.Children[3]
+				command.StateChange.EntryContentChange.BlockID = "missing-block"
+			},
+			wantErrorContains: []string{"missing-block"},
+		},
+		{
+			name: "cross-terminal authored target",
+			mutate: func(session *Session) {
+				command := &session.Terminals[0].Root.Children[3]
+				command.StateChange.EntryContentChange.BlockID = "remote-only"
+			},
+			wantErrorContains: []string{"remote-only", "terminal"},
+		},
+		{
+			name: "two commands own one block",
+			mutate: func(session *Session) {
+				second := &session.Terminals[0].Root.Children[3]
+				second.StateChange.EntryContentChange.BlockID = "block-a"
+			},
+			wantErrorContains: []string{"command-one", "command-two", "block-a"},
+		},
+		{
+			name: "frozen target is missing",
+			mutate: func(session *Session) {
+				state := session.Terminals[0].CommandStates["command-one"]
+				state.EntryContentChange.BlockID = "missing-block"
+				session.Terminals[0].CommandStates["command-one"] = state
+			},
+			wantErrorContains: []string{"missing-block"},
+		},
+		{
+			name: "frozen target differs from authored target",
+			mutate: func(session *Session) {
+				state := session.Terminals[0].CommandStates["command-one"]
+				state.EntryContentChange.BlockID = "block-b"
+				session.Terminals[0].CommandStates["command-one"] = state
+			},
+			wantErrorContains: []string{"command-one", "block-a", "block-b"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			candidate := validEntryContentSessionForTest()
+			test.mutate(&candidate)
+			err := ValidateSession(candidate)
+			require.Error(t, err)
+			for _, want := range test.wantErrorContains {
+				assert.ErrorContains(t, err, want)
+			}
+		})
+	}
+}
+
 func TestValidateSessionRejectsStateChangeKnownFieldsInExtras(t *testing.T) {
 	t.Parallel()
 
@@ -785,6 +913,67 @@ func validStateChangingSessionForTest() Session {
 				"doors": {CompletedName: "Doors were opened", ResultText: "Access granted."},
 			},
 		}},
+	}
+}
+
+func validEntryContentSessionForTest() Session {
+	return Session{
+		Version: 1,
+		Name:    "Entry content validation",
+		Terminals: []Terminal{
+			{
+				ID: "t1", Name: "First terminal",
+				Root: ContentNode{
+					ID: "root", Type: NodeFolder, Name: "ROOT",
+					Children: []ContentNode{
+						{
+							ID: "entry-one", Type: NodeEntry, Name: "ENTRY ONE",
+							Blocks: []EntryContentBlock{
+								{ID: "block-a", InitialText: "A"},
+								{ID: "block-b", InitialText: "B"},
+							},
+						},
+						{
+							ID: "entry-two", Type: NodeEntry, Name: "ENTRY TWO",
+							Blocks: []EntryContentBlock{{ID: "block-c", InitialText: "C"}},
+						},
+						{
+							ID: "command-one", Type: NodeCommand, Name: "COMMAND ONE", Text: "First result",
+							StateChange: &StateChangeConfig{
+								CompletedName: "COMMAND ONE COMPLETE", ConfirmationText: "Run command one?",
+								EntryContentChange: &EntryContentChange{BlockID: "block-a", CompletedText: "A complete"},
+							},
+						},
+						{
+							ID: "command-two", Type: NodeCommand, Name: "COMMAND TWO", Text: "Second result",
+							StateChange: &StateChangeConfig{
+								CompletedName: "COMMAND TWO COMPLETE", ConfirmationText: "Run command two?",
+								EntryContentChange: &EntryContentChange{BlockID: "block-c", CompletedText: "C complete"},
+							},
+						},
+					},
+				},
+				CommandStates: map[string]CommandExecutionState{
+					"command-one": {
+						CompletedName: "COMMAND ONE COMPLETE", ResultText: "First result",
+						EntryContentChange: &EntryContentChange{BlockID: "block-a", CompletedText: "A complete"},
+					},
+				},
+			},
+			{
+				ID: "t2", Name: "Second terminal",
+				Root: ContentNode{
+					ID: "root", Type: NodeFolder, Name: "ROOT",
+					Children: []ContentNode{{
+						ID: "remote-entry", Type: NodeEntry, Name: "REMOTE",
+						Blocks: []EntryContentBlock{
+							{ID: "block-a", InitialText: "Terminal-local duplicate"},
+							{ID: "remote-only", InitialText: "Remote"},
+						},
+					}},
+				},
+			},
+		},
 	}
 }
 

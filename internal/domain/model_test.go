@@ -43,11 +43,16 @@ func TestDecodeStateChangingSessionV1Fixture(t *testing.T) {
 	assert.Equal(t, 1, session.Version)
 	require.Len(t, session.Terminals, 2)
 	security := session.Terminals[0]
-	require.Len(t, security.CommandStates, 2)
+	require.Len(t, security.CommandStates, 4)
 	snapshot, ok := security.CommandStates["n_doors"]
 	require.True(t, ok)
 	assert.Equal(t, "Гермодвери открыты", snapshot.CompletedName)
 	assert.NotEmpty(t, snapshot.ResultText)
+	reactorSnapshot, ok := security.CommandStates["n_reactor_power"]
+	require.True(t, ok)
+	require.NotNil(t, reactorSnapshot.EntryContentChange)
+	assert.Equal(t, "b_reactor_power", reactorSnapshot.EntryContentChange.BlockID)
+	assert.Equal(t, "ПИТАНИЕ: ВКЛЮЧЕНО", reactorSnapshot.EntryContentChange.CompletedText)
 	stateChange := security.Root.Children[0].Children[1].StateChange
 	require.NotNil(t, stateChange)
 	assert.Equal(t, "Тревога отключена", stateChange.CompletedName)
@@ -297,6 +302,107 @@ func TestStateChangingCommandRoundTripPreservesFrozenSnapshotAndUnknownFields(t 
 	require.NoError(t, err)
 	gotSnapshot := decoded.Terminals[0].CommandStates["n_doors"]
 	assert.Equal(t, snapshot, gotSnapshot)
+}
+
+func TestEntryContentBlocksJSONRoundTripPreservesOrderAndExplicitEmptyText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		blocks        []EntryContentBlock
+		completedText string
+	}{
+		{
+			name: "ordered blocks",
+			blocks: []EntryContentBlock{
+				{ID: "power", InitialText: "POWER: OFFLINE"},
+				{ID: "cooling", InitialText: "COOLING: OFFLINE"},
+			},
+			completedText: "POWER: ONLINE",
+		},
+		{
+			name: "empty initial and completed text",
+			blocks: []EntryContentBlock{
+				{ID: "note", InitialText: ""},
+				{ID: "spacing", InitialText: " \t "},
+			},
+			completedText: "",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			session := entryContentJSONSessionForTest(test.blocks, test.completedText)
+			encoded, err := EncodeSession(session)
+			require.NoError(t, err)
+			assert.Contains(t, string(encoded), `"blocks"`)
+			assert.Contains(t, string(encoded), `"entryContentChange"`)
+			if test.completedText == "" {
+				assert.Contains(t, string(encoded), `"completedText": ""`)
+			}
+
+			roundTrip, err := DecodeSession(encoded)
+			require.NoError(t, err)
+			assert.Equal(t, session, roundTrip)
+			assert.Equal(t, test.blocks, roundTrip.Terminals[0].Root.Children[0].Blocks)
+		})
+	}
+}
+
+func TestCloneSessionDeeplyDetachesEntryContentBlocksAndChanges(t *testing.T) {
+	t.Parallel()
+
+	session := entryContentJSONSessionForTest([]EntryContentBlock{
+		{ID: "power", InitialText: "POWER: OFFLINE"},
+		{ID: "cooling", InitialText: "COOLING: OFFLINE"},
+	}, "POWER: ONLINE")
+
+	clone := CloneSession(session)
+	clone.Terminals[0].Root.Children[0].Blocks[0].InitialText = "MUTATED INITIAL"
+	clone.Terminals[0].Root.Children[1].StateChange.EntryContentChange.CompletedText = "MUTATED AUTHORED"
+	clone.Terminals[0].CommandStates["restore-power"].EntryContentChange.CompletedText = "MUTATED FROZEN"
+
+	entry := session.Terminals[0].Root.Children[0]
+	command := session.Terminals[0].Root.Children[1]
+	state := session.Terminals[0].CommandStates["restore-power"]
+	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
+	require.NotNil(t, command.StateChange.EntryContentChange)
+	assert.Equal(t, "POWER: ONLINE", command.StateChange.EntryContentChange.CompletedText)
+	require.NotNil(t, state.EntryContentChange)
+	assert.Equal(t, "POWER: ONLINE", state.EntryContentChange.CompletedText)
+}
+
+func entryContentJSONSessionForTest(blocks []EntryContentBlock, completedText string) Session {
+	change := &EntryContentChange{BlockID: blocks[0].ID, CompletedText: completedText}
+	session := Session{
+		Version: 1,
+		Name:    "Entry content",
+		Terminals: []Terminal{{
+			ID: "t1", Name: "Terminal",
+			Root: ContentNode{
+				ID: "root", Type: NodeFolder, Name: "ROOT",
+				Children: []ContentNode{
+					{ID: "status", Type: NodeEntry, Name: "STATUS", Blocks: blocks},
+					{
+						ID: "restore-power", Type: NodeCommand, Name: "RESTORE POWER", Text: "Power restored.",
+						StateChange: &StateChangeConfig{
+							CompletedName: "POWER RESTORED", ConfirmationText: "Restore power?",
+							EntryContentChange: change,
+						},
+					},
+				},
+			},
+			CommandStates: map[string]CommandExecutionState{
+				"restore-power": {
+					CompletedName: "POWER RESTORED", ResultText: "Power restored.",
+					EntryContentChange: &EntryContentChange{BlockID: change.BlockID, CompletedText: change.CompletedText},
+				},
+			},
+		}},
+	}
+	return NormalizeTerminalGroups(session)
 }
 
 func TestLegacyVersionOneSessionDefaultsToOrdinaryCommandsWithoutSnapshots(t *testing.T) {

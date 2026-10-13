@@ -52,6 +52,19 @@ func TestPublicAccessSettingsPathUsesApplicationSupportWithoutSideEffects(t *tes
 	require.Error(t, err)
 }
 
+func TestApplicationLogDirectoryUsesApplicationSupportWithoutSideEffects(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	applicationSupport := filepath.Join(root, "Application Support")
+	path, err := ApplicationLogDirectory(applicationSupport)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(applicationSupport, "logs"), path)
+	_, err = os.Stat(path)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+	_, err = ApplicationLogDirectory("relative")
+	require.Error(t, err)
+}
+
 func TestApplicationUpdateRecoveryPathUsesApplicationSupportWithoutSideEffects(t *testing.T) {
 	t.Parallel()
 
@@ -162,6 +175,11 @@ func TestSessionLocationsForNativeProfiles(t *testing.T) {
 			got, err := sessionLocationsFor(test.goos, test.provider, test.resourceRoot)
 			require.NoError(t, err)
 			assert.Equal(t, test.want, got)
+			logDirectory, err := ApplicationLogDirectory(got.ApplicationSupport)
+			require.NoError(t, err)
+			assert.Equal(t, filepath.Join(got.ApplicationSupport, applicationLogsDirectoryName), logDirectory)
+			assert.False(t, pathsOverlap(test.goos, test.resourceRoot, logDirectory),
+				"packaged resources and retained logs overlap: resource=%q logs=%q", test.resourceRoot, logDirectory)
 		})
 	}
 }

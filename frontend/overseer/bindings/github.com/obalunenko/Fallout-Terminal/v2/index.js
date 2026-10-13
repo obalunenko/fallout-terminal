@@ -20,6 +20,7 @@ export {
     GeneratedPlayerPasswordResult,
     LiveTerminalPayload,
     LiveUpdatePayload,
+    LogAccessResult,
     LogicalSessionRenamePayload,
     MoveCharacterPayload,
     PlayerConfigCommandResult,
