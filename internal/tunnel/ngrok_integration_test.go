@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1/playerv1connect"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
@@ -28,8 +29,8 @@ type publicStreamProbeService struct {
 
 func (service *publicStreamProbeService) Subscribe(
 	ctx context.Context,
-	_ *connect.Request[playerv1.SubscribeRequest],
-	stream *connect.ServerStream[playerv1.SubscriptionMessage],
+	_ *playerv1.SubscribeRequest,
+	stream playerv1connect.PlayerServiceSubscribeServerStream,
 ) error {
 	select {
 	case service.upstreamArrival <- time.Now():
@@ -66,14 +67,15 @@ func (service *publicStreamProbeService) Subscribe(
 
 func (service *publicStreamProbeService) PresentationUplink(
 	ctx context.Context,
-	stream *connect.ClientStream[playerv1.PresentationUplinkRequest],
-) (*connect.Response[playerv1.PresentationUplinkResponse], error) {
-	if !stream.Receive() {
-		return nil, stream.Err()
+	stream playerv1connect.PlayerServicePresentationUplinkServerStream,
+) (*playerv1.PresentationUplinkResponse, error) {
+	first, err := stream.Receive()
+	if err != nil {
+		return nil, err
 	}
-	open := stream.Msg().GetOpen()
+	open := first.GetOpen()
 	if open == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("open frame required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "open frame required")
 	}
 	service.targeted <- &playerv1.SubscriptionMessage{Payload: &playerv1.SubscriptionMessage_PresentationUplinkResult{
 		PresentationUplinkResult: &playerv1.PresentationUplinkResult{
@@ -81,8 +83,15 @@ func (service *publicStreamProbeService) PresentationUplink(
 			Payload: &playerv1.PresentationUplinkResult_Ready{Ready: &playerv1.PresentationUplinkReady{}},
 		},
 	}}
-	for stream.Receive() {
-		intent := stream.Msg().GetIntent()
+	for {
+		msg, err := stream.Receive()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		intent := msg.GetIntent()
 		if intent == nil {
 			continue
 		}
@@ -99,17 +108,14 @@ func (service *publicStreamProbeService) PresentationUplink(
 			return nil, ctx.Err()
 		}
 	}
-	if err := stream.Err(); err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(&playerv1.PresentationUplinkResponse{}), nil
+
+	return &playerv1.PresentationUplinkResponse{}, nil
 }
 
 func (service *publicStreamProbeService) SoundManifest(
-	context.Context,
-	*connect.Request[playerv1.SoundManifestRequest],
-) (*connect.Response[playerv1.SoundManifestResponse], error) {
-	return connect.NewResponse(&playerv1.SoundManifestResponse{}), nil
+	context.Context, *playerv1.SoundManifestRequest,
+) (*playerv1.SoundManifestResponse, error) {
+	return &playerv1.SoundManifestResponse{}, nil
 }
 
 type subscribeHeaderEvidence struct {
@@ -159,12 +165,17 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 
 	listener, err := net.Listen("tcp4", tunnel.PlayerUpstreamAddress)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
 	probe := &publicStreamProbeService{
 		upstreamArrival: make(chan time.Time, 1),
 		targeted:        make(chan *playerv1.SubscriptionMessage, 4),
 		playerProtocols: make(chan string, 4),
 	}
-	rpcPath, rpcHandler := playerv1connect.NewPlayerServiceHandler(probe)
+	rpcServer := connect.NewServer()
+	playerv1connect.RegisterPlayerServiceHandler(rpcServer, probe)
+	rpcHandler := http.NewServeMux()
+	connecthttp.Mount(rpcHandler, rpcServer)
+	rpcPath := "/" + playerv1connect.PlayerServiceName + "/"
 	mux := http.NewServeMux()
 	mux.Handle(rpcPath, http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		select {
@@ -238,7 +249,7 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 	authenticatedClient := &http.Client{Transport: &publicAuthTransport{
 		base: http.DefaultTransport, username: username, password: password, headers: headers,
 	}}
-	generated := playerv1connect.NewPlayerServiceClient(authenticatedClient, publicURL.String())
+	generated := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(authenticatedClient, publicURL.String(), connecthttp.WithReadMaxBytes(0))))
 	streamDeadline, stopStreamDeadline := context.WithTimeoutCause(t.Context(), 5*time.Second, errors.New("test ngrok stream timed out"))
 	streamContext, cancelStream := context.WithCancelCause(streamDeadline)
 	t.Cleanup(func() {
@@ -247,18 +258,20 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 	})
 	startedAt := time.Now()
 	clientID := "real-ngrok-integration-tab"
-	stream, err := generated.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientID}))
+	stream, err := generated.Subscribe(streamContext, &playerv1.SubscribeRequest{ClientInstanceId: &clientID})
 	require.NoError(t, err)
-	require.True(t, stream.Receive(), "initial public Subscribe frame: %v", stream.Err())
+	t.Cleanup(func() { _ = stream.Close() })
+	first, err := stream.Receive()
+	require.NoError(t, err, "initial public Subscribe frame")
 	firstAt := time.Now()
-	snapshot := stream.Msg().GetSnapshot()
+	snapshot := first.GetSnapshot()
 	require.NotNil(t, snapshot)
 	var updateAt time.Time
 	receiveUntil := func(accept func(*playerv1.SubscriptionMessage) bool, description string) {
 		t.Helper()
 		for {
-			require.True(t, stream.Receive(), "%s: %v", description, stream.Err())
-			message := stream.Msg()
+			message, err := stream.Receive()
+			require.NoError(t, err, description)
 			if message.GetUpdate() != nil && updateAt.IsZero() {
 				updateAt = time.Now()
 			}
@@ -267,7 +280,8 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 			}
 		}
 	}
-	uplink := generated.PresentationUplink(streamContext)
+	uplink, err := generated.PresentationUplink(streamContext)
+	require.NoError(t, err)
 	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{Payload: &playerv1.PresentationUplinkRequest_Open{
 		Open: &playerv1.PresentationUplinkOpen{
 			ClientInstanceId: clientID, UplinkGeneration: 1, RecognitionHandle: snapshot.GetRecognitionHandle(),

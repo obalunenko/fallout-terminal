@@ -9,12 +9,12 @@
     "test": "npm test --prefix ../../tests/browser -- state-changing-command-authoring.spec.mjs state-changing-command-approval.spec.mjs desktop-api.spec.mjs"
   },
   "devDependencies": {
-    "vite": "8.1.5"
+    "vite": "8.3.4"
   },
   "engines": {
     "node": ">=26.8.1"
   },
   "dependencies": {
-    "@wailsio/runtime": "3.0.0-beta.15"
+    "@wailsio/runtime": "3.0.0-beta.28"
   }
 }

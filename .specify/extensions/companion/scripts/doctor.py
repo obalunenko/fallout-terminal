@@ -32,7 +32,8 @@ from spec_context import (  # noqa: E402
     resolve_feature_dir,
 )
 
-CHECKS = ("record", "triage", "bleed", "drift", "completion", "template", "trace", "chat")
+CHECKS = ("record", "triage", "bleed", "drift", "completion", "verification", "artifact",
+          "template", "briefed", "dispatch", "trace", "chat")
 
 SEVERITIES = ("problem", "warning", "note")
 _SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
@@ -325,7 +326,11 @@ def examine(feature_dir: Path, root: Path, chat: bool) -> Report:
     run_check(report, "bleed", lambda: _via("doctor_bleed", "check_bleed", root, feature_dir, ctx, report))
     run_check(report, "drift", lambda: _via("doctor_drift", "check_drift", root, feature_dir, ctx, report))
     run_check(report, "completion", lambda: _via("doctor_checks", "check_completion", feature_dir, ctx, report))
+    run_check(report, "verification", lambda: _via("doctor_checks", "check_verification", feature_dir, ctx))
+    run_check(report, "artifact", lambda: _via("doctor_checks", "check_artifact", feature_dir, ctx))
     run_check(report, "template", lambda: _via("doctor_checks", "check_template", feature_dir))
+    run_check(report, "briefed", lambda: _via("doctor_checks", "check_briefed", feature_dir, ctx))
+    run_check(report, "dispatch", lambda: _via("doctor_checks", "check_dispatch", feature_dir, ctx))
     run_check(report, "trace", lambda: _via("doctor_checks", "check_trace", feature_dir, ctx))
     if chat:
         run_check(report, "chat", lambda: _via("doctor_chat", "check_chat", root, feature_dir, ctx, report))
@@ -362,6 +367,10 @@ def main(argv=None) -> int:
     parser.add_argument("--json", dest="as_json", action="store_true")
     parser.add_argument("--all", action="store_true",
                         help="Examine every spec directory under specs/.")
+    parser.add_argument("--strict", action="store_true",
+                        help="exit non-zero when any problem-severity finding is present, "
+                             "so this can gate a pipeline. Without it the check always "
+                             "succeeds, which is the default and stays the default.")
     parser.add_argument("--traceback", action="store_true",
                         help="Print a traceback for a check that raised (debugging the doctor).")
     args = parser.parse_args(argv)
@@ -399,6 +408,15 @@ def main(argv=None) -> int:
             safe_print(render_json(reports[0], at))
     else:
         safe_print("\n\n".join(render_human(r) for r in reports))
+
+    # A constraint nobody can fail is a constraint nobody can demonstrate. Default
+    # stays 0 — this check is informational and must never break an ordinary run —
+    # but `--strict` gives a caller something to gate on.
+    problems = sum(1 for r in reports for f in r.findings if f.severity == "problem")
+    if args.strict and problems:
+        safe_print(f"\n[companion] {plural(problems, 'problem')} found — failing because "
+                   f"--strict was requested.")
+        return 1
     return 0
 
 

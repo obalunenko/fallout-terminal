@@ -3,7 +3,7 @@ name: speckit-feature-numbering-before-specify
 description: Bind specify to the next exact NNN-feature-name directory
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: fallout-terminal
   source: feature-numbering:commands/speckit.feature-numbering.before-specify.md
 ---
 

@@ -10,7 +10,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1/playerv1connect"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
@@ -55,25 +56,25 @@ func TestServerAdmitsHTTP1AndUnencryptedHTTP2RequestStreaming(t *testing.T) {
 	require.Equal(t, 2, http2Response.ProtoMajor)
 
 	clientID := "server-http2-tab"
-	client := playerv1connect.NewPlayerServiceClient(http2Client, server.Info().LocalURL)
+	client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(http2Client, server.Info().LocalURL, connecthttp.WithReadMaxBytes(0))))
 	subscriptionContext, cancelSubscription := context.WithCancel(t.Context())
 	t.Cleanup(cancelSubscription)
-	subscription, err := client.Subscribe(subscriptionContext, connect.NewRequest(&playerv1.SubscribeRequest{
+	subscription, err := client.Subscribe(subscriptionContext, &playerv1.SubscribeRequest{
 		ClientInstanceId: &clientID,
-	}))
+	})
 	require.NoError(t, err)
-	require.True(t, subscription.Receive(), "initial subscription: %v", subscription.Err())
-	snapshot := subscription.Msg().GetSnapshot()
+	t.Cleanup(func() { _ = subscription.Close() })
+	snapshot := receiveSubscriptionMessage(t, subscription).GetSnapshot()
 	require.NotNil(t, snapshot)
 
-	uplink := client.PresentationUplink(t.Context())
+	uplink, err := client.PresentationUplink(t.Context())
+	require.NoError(t, err)
 	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{
 		Payload: &playerv1.PresentationUplinkRequest_Open{Open: &playerv1.PresentationUplinkOpen{
 			RecognitionHandle: snapshot.GetRecognitionHandle(), ClientInstanceId: clientID, UplinkGeneration: 1,
 		}},
 	}))
-	require.True(t, subscription.Receive(), "ready before request EOF: %v", subscription.Err())
-	require.Equal(t, uint64(1), subscription.Msg().GetPresentationUplinkResult().GetUplinkGeneration())
+	require.Equal(t, uint64(1), receiveSubscriptionMessage(t, subscription).GetPresentationUplinkResult().GetUplinkGeneration())
 	_, err = uplink.CloseAndReceive()
 	require.NoError(t, err)
 }

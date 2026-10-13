@@ -26,7 +26,9 @@ Stdlib only. Safe to run anywhere `python3` is available.
 from __future__ import annotations
 
 import argparse
+import os
 import re
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 
@@ -36,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from spec_context import (  # noqa: E402,F401
     CANONICAL_STEPS,
+    known_steps,
     CROSS_STEP_TERMINAL,
     PREFIX_RE,
     STEP_COMPLETED_STATUS,
@@ -84,6 +87,8 @@ from capture import (  # noqa: E402,F401
     append_capture_entries,
     apply_batch,
     append_string_list,
+    append_verification_runs,
+    record_plan_check,
     set_classification,
     set_fields,
     set_living_specs_loaded,
@@ -107,7 +112,6 @@ from task_sync import (  # noqa: E402,F401
     journal_task_finish,
     materialize_log,
     parse_task_markers,
-    reopen_convergence,
     sync_tasks,
 )
 from living_spec_fold import (  # noqa: E402,F401
@@ -124,12 +128,47 @@ from living_spec_fold import (  # noqa: E402,F401
 )
 
 
+def _pointer_resolved(args) -> bool:
+    """True when the spec dir came from `.specify/feature.json` or the git branch:
+    no `--feature-dir`, no `--tasks-file`, and neither SPECIFY_* env pointer set."""
+    return (
+        not args.feature_dir and not args.tasks_file
+        and not os.environ.get("SPECIFY_FEATURE_DIRECTORY")
+        and not os.environ.get("SPECIFY_FEATURE")
+    )
+
+
+def _plain_step_write(args, capture_mode: bool) -> bool:
+    """True for the bare `--step <s> [--status] [--kind]` write, the branch nothing
+    else in the invocation claims."""
+    return not (
+        capture_mode or args.set_pairs or args.living_specs or args.living_spec_skips
+        or args.fold_living_spec or args.tasks_file or args.task or args.close_task
+        or args.mark_complete or args.finish or args.advance or args.materialize
+    )
+
+
+def _unscoped_specify_on_finished_spec(args, feature_dir: Path, capture_mode: bool) -> bool:
+    """A pointer-resolved specify start / status write / `--advance` against a spec
+    whose history already holds the step-level specify complete."""
+    if args.step != "specify" or not _pointer_resolved(args):
+        return False
+    if not (args.advance or _plain_step_write(args, capture_mode)):
+        return False
+    log = canonical_log(read_ctx(feature_dir / ".spec-context.json"))
+    return _has_complete(log, "specify")
+
+
 def update_context(
-    feature_dir: Path, step: str, status: str, by: str, kind: str = "start",
-    substep: str | None = None,
+    feature_dir: Path, step: str, status: str | None, by: str, kind: str = "start",
+    substep: str | None = None, at: str | None = None,
 ) -> Path | None:
     target = feature_dir / ".spec-context.json"
-    now = _now_iso()
+    # `at` carries the dispatcher's own clock for a start it already decided —
+    # the GUI sends a dispatch time and asks for it verbatim, and until this
+    # existed the only way to honour that was to hand-write the file, which is
+    # exactly what every other rule forbids. Everything else stamps live.
+    now = at or _now_iso()
     branch = _git_branch(_repo_root_for(feature_dir)) or "main"
 
     ctx = read_ctx(target)
@@ -146,9 +185,26 @@ def update_context(
 
     log = canonical_log(ctx)
     fill_required(ctx, feature_dir, branch)
+    # `branch` is frozen at the first write, which lands before the feature branch exists; a step start records where the work moved to.
+    # Asked of the spec's own folder, never the fallback repo: a spec outside git has no working branch to record.
+    checked_out = _git_branch(feature_dir) if kind == "start" else None
+    if checked_out and checked_out != "HEAD":
+        if checked_out == ctx.get("branch"):
+            ctx.pop("workingBranch", None)
+        else:
+            ctx["workingBranch"] = checked_out
 
-    ctx["currentStep"] = step
-    ctx["status"] = status
+    # A start that lands after its step already finished is late, not a re-open.
+    late_start = kind == "start" and substep is None and _has_complete(log, step)
+    if not late_start:
+        ctx["currentStep"] = step
+    # A start carries the step forward and leaves status alone. `--status` used to
+    # default to "specified" and was written on every branch, so opening a step
+    # without naming a status was indistinguishable from asking to go back to the
+    # first one: a run would read currentStep=implement alongside status=specified
+    # for the whole step, and only the later complete repaired it.
+    if status is not None and not late_start:
+        ctx["status"] = status
 
     if kind == "complete":
         # Deterministic self-close. Idempotent: skip if the step is already closed,
@@ -193,10 +249,11 @@ def journal_finish(feature_dir: Path, step: str, by: str, substep: str | None = 
     best-effort; a genuinely shipped spec (completed/archived) is left untouched."""
     # A finish is only meaningful for a canonical step; reject a typo'd or omitted
     # step (which would otherwise default to "specify" and journal a junk complete).
-    if step not in CANONICAL_STEPS:
+    allowed = known_steps(feature_dir)
+    if step not in allowed:
         print(
-            f"[companion] Skipping --finish: '{step}' is not a canonical step "
-            f"({', '.join(sorted(CANONICAL_STEPS))}).",
+            f"[companion] Skipping --finish: '{step}' is not a step this project "
+            f"has ({', '.join(sorted(allowed))}).",
             file=sys.stderr,
         )
         return None
@@ -222,10 +279,11 @@ def journal_advance(feature_dir: Path, step: str, by: str) -> Path | None:
     but never drags status/currentStep backward. A step with no canonical completed-status
     (clarify/analyze) records only the finish, leaving status untouched — mirroring
     `--finish`. Idempotent; a shipped spec is left untouched."""
-    if step not in CANONICAL_STEPS:
+    allowed = known_steps(feature_dir)
+    if step not in allowed:
         print(
-            f"[companion] Skipping --advance: '{step}' is not a canonical step "
-            f"({', '.join(sorted(CANONICAL_STEPS))}).",
+            f"[companion] Skipping --advance: '{step}' is not a step this project "
+            f"has ({', '.join(sorted(allowed))}).",
             file=sys.stderr,
         )
         return None
@@ -249,6 +307,13 @@ def journal_advance(feature_dir: Path, step: str, by: str) -> Path | None:
     commit_log(ctx, log)
     atomic_write(target, ctx)
     return target
+
+
+UNVERIFIED_NOTE = "finished, unverified"
+
+
+def _has_entries(value) -> bool:
+    return isinstance(value, list) and bool(value)
 
 
 def mark_spec_complete(feature_dir: Path, by: str) -> Path | None:
@@ -309,6 +374,16 @@ def mark_spec_complete(feature_dir: Path, by: str) -> Path | None:
     if from_implementing_at_100:
         append_complete(log, "implement", by=by, at=_now_iso())
     ctx["status"] = "completed"
+    # Nothing is in flight in a finished spec; the task steps leave the last finished id here.
+    ctx["currentTask"] = None
+    if not _has_entries(ctx.get("verified")) and not ctx.get("concerns"):
+        # Added to the record this function is about to publish, so the status and its caveat land in one write.
+        ctx["concerns"] = [{"note": UNVERIFIED_NOTE, "step": "implement"}]
+        print(
+            f"[companion] Warning: {target} completed with nothing verified and no "
+            f'concern explaining why; recorded "{UNVERIFIED_NOTE}".',
+            file=sys.stderr,
+        )
     commit_log(ctx, log)
     atomic_write(target, ctx)
     _gc_events_log(feature_dir)
@@ -318,9 +393,16 @@ def mark_spec_complete(feature_dir: Path, by: str) -> Path | None:
 def _main() -> int:
     parser = argparse.ArgumentParser(description="Write/update a feature's .spec-context.json")
     parser.add_argument("--step", default="specify")
-    parser.add_argument("--status", default="specified")
+    # No default: a caller that does not name a status does not want one changed.
+    parser.add_argument("--status", default=None)
     parser.add_argument("--by", default="extension")
     parser.add_argument("--kind", default="start", choices=["start", "complete"])
+    parser.add_argument(
+        "--at", default=None, metavar="ISO8601",
+        help="Timestamp for a step START read from a real clock before the feature "
+             "directory existed (the GUI's dispatch time, or the clock stock specify "
+             "notes as its first action). Refused for anything else: a hand-chosen clock on a "
+             "finish is the batched-timestamp defect the doctor exists to catch.")
     parser.add_argument(
         "--substep", default=None,
         help="Tag the step-level start/complete with a substep (e.g. 'fast-path' "
@@ -349,12 +431,6 @@ def _main() -> int:
         "--mark-complete", action="store_true",
         help="Promote a finished spec to the terminal status 'completed' "
              "(the only sanctioned writer of completed; keeps currentStep=implement).",
-    )
-    parser.add_argument(
-        "--reopen-convergence", action="store_true",
-        help="Reopen a completed spec only when convergence appended unchecked tasks. "
-             "Records a numbered implement/convergence timing substep and leaves "
-             "archived or fully checked specs untouched.",
     )
     parser.add_argument(
         "--finish", action="store_true",
@@ -418,6 +494,12 @@ def _main() -> int:
              "JSON object with a 'what' key (plus result/command/warnings), or bare text. Repeatable.",
     )
     parser.add_argument(
+        "--verify-run", dest="verify_runs", action="append", default=None, metavar="WHAT::COMMAND",
+        help="Run COMMAND and record what actually happened as a verification — exit code and "
+             "duration, not a sentence. Prefer this over --verified wherever the check is "
+             "something that can be run. Repeatable.",
+    )
+    parser.add_argument(
         "--concern", dest="concerns", action="append", default=None, metavar="JSON|TEXT",
         help="Append a concern to concerns[] (de-duped on 'note'). "
              "JSON object with a 'note' key (plus step/kind), or bare text. Repeatable.",
@@ -478,13 +560,16 @@ def _main() -> int:
     # Terminal state belongs in `status`, not `currentStep`. Skipped in task-sync
     # mode, which always operates on the implement step.
     capture_mode = bool(
-        args.decisions or args.verified or args.concerns or args.expectations
+        args.decisions or args.verified or args.verify_runs or args.concerns or args.expectations
         or args.coverage_req or args.step_summary or args.classification or args.context_entries
         or args.batch
     )
-    if not args.tasks_file and not args.task and not args.close_task and not args.mark_complete and not args.reopen_convergence and not args.set_pairs and not args.living_specs and not args.living_spec_skips and not args.fold_living_spec and not args.materialize and not args.finish and not args.advance and not capture_mode and (args.step == "done" or args.step not in CANONICAL_STEPS):
-        msg = (f"Skipping: '{args.step}' is not a canonical currentStep "
-               f"({', '.join(sorted(CANONICAL_STEPS))}).")
+    # `--feature-dir` if it was given; the resolved one is not bound until later,
+    # and a project's own steps are discoverable from either.
+    steps_here = known_steps(args.feature_dir)
+    if not args.tasks_file and not args.task and not args.close_task and not args.mark_complete and not args.set_pairs and not args.living_specs and not args.living_spec_skips and not args.fold_living_spec and not args.materialize and not args.finish and not args.advance and not capture_mode and (args.step == "done" or args.step not in steps_here):
+        msg = (f"Skipping: '{args.step}' is not a step this project has "
+               f"({', '.join(sorted(steps_here))}).")
         print(f"[companion] {msg}", file=sys.stderr)
         _record_outcome(False, msg)
         return 0
@@ -520,6 +605,19 @@ def _main() -> int:
         _record_outcome(False, msg)
         return 0  # best-effort: never fail the host command
 
+    # A bare specify start or advance that the pointer (feature.json / branch)
+    # resolved to a spec whose specify is already closed is aimed at the PREVIOUS
+    # spec: the create command has not rewritten the pointer yet, or never will.
+    # Silently absorbing it is what left a new spec stuck on `specifying` with its
+    # close recorded nowhere. Name the flag that fixes it and fail loudly; an
+    # explicit --feature-dir keeps every idempotent path exactly as it was.
+    if _unscoped_specify_on_finished_spec(args, feature_dir, capture_mode):
+        msg = (f"refusing: {feature_dir} already finished specify; this is the previous "
+               f"spec. Pass --feature-dir <the new spec folder>.")
+        print(f"[companion] {msg}", file=sys.stderr)
+        _record_outcome(False, msg)
+        return 2
+
     # Caller-error validation for --classification (exit 2, per the capture contract):
     # a malformed classification is a bug in the emitting body, not a runtime miss.
     # Validated before anything is written so a bad value records nothing at all.
@@ -530,6 +628,32 @@ def _main() -> int:
             print(f"[companion] {exc}", file=sys.stderr)
             _record_outcome(False, str(exc))
             return 2
+
+    # `--kind` defaults to "start", so gating on it alone let every lifecycle
+    # flag past: --advance --at wrote nothing but exited 0.
+    _lifecycle_other = bool(args.advance or args.finish or args.materialize
+                            or args.mark_complete or args.tasks_file or args.task
+                            or args.close_task)
+    if args.at and (args.kind != "start" or _lifecycle_other):
+        msg = "--at applies only to a step start; every other boundary is stamped live."
+        print(f"[companion] {msg}", file=sys.stderr)
+        _record_outcome(False, msg)
+        return 2
+    if args.at:
+        # An unparseable or tz-naive stamp is worse than no stamp: the doctor
+        # reads None for it and the step's duration disappears.
+        try:
+            _parsed_at = datetime.fromisoformat(args.at.replace("Z", "+00:00"))
+        except ValueError:
+            _parsed_at = None
+        if _parsed_at is None or _parsed_at.tzinfo is None:
+            msg = (f"--at must be an ISO-8601 UTC stamp (e.g. 2026-09-06T10:00:00Z); "
+                   f"got {args.at!r}.")
+            print(f"[companion] {msg}", file=sys.stderr)
+            _record_outcome(False, msg)
+            return 2
+        utc = _parsed_at.astimezone(timezone.utc)
+        args.at = utc.strftime("%Y-%m-%dT%H:%M:%S.") + f"{utc.microsecond // 1000:03d}Z"
 
     if args.batch:
         try:
@@ -543,6 +667,9 @@ def _main() -> int:
     # A ladder here recorded the first and dropped the rest, exit 0, with the
     # caller told only about the one that landed.
     captured: list[str] = []
+    #: Writers that declined, with the reason each gave. Kept apart from
+    #: `captured` so a decline can never be counted as a write.
+    declined: list[str] = []
     try:
         if args.classification:
             target = set_classification(feature_dir, args.classification)
@@ -560,6 +687,14 @@ def _main() -> int:
         if args.verified:
             target = append_capture_entries(feature_dir, "verified", "what", args.verified)
             captured.append(f"[companion] Recorded {len(args.verified)} verification(s) in {target}")
+        if args.verify_runs:
+            target, skipped = append_verification_runs(feature_dir, args.verify_runs)
+            for spec in skipped:
+                captured.append(f"[companion] Skipped --verify-run {spec!r}: expected WHAT::COMMAND")
+            if target:
+                captured.append(
+                    f"[companion] Ran and recorded {len(args.verify_runs) - len(skipped)} "
+                    f"verification(s) in {target}")
         if args.concerns:
             target = append_capture_entries(feature_dir, "concerns", "note", args.concerns)
             captured.append(f"[companion] Recorded {len(args.concerns)} concern(s) in {target}")
@@ -579,7 +714,13 @@ def _main() -> int:
                 if args.coverage_tests else None
             )
             target = upsert_coverage(feature_dir, args.coverage_req, cov_tasks, cov_tests, args.coverage_title)
-            captured.append(f"[companion] Upserted coverage for {args.coverage_req} in {target}")
+            if target is None:
+                # NOT appended to `captured` — that list is what marks the call a
+                # write, so a decline recorded there would report itself as success.
+                declined.append(f"coverage for {args.coverage_req} was not written "
+                                f"(no coverage entry could be resolved in {feature_dir})")
+            else:
+                captured.append(f"[companion] Upserted coverage for {args.coverage_req} in {target}")
         if args.step_summary:
             target = upsert_step_summary(feature_dir, args.step, args.step_summary)
             captured.append(f"[companion] Recorded {args.step} step summary in {target}")
@@ -619,7 +760,20 @@ def _main() -> int:
     # A no-op fold already named its own exact reason on stderr (from
     # fold_living_spec) — don't paper over it with a generic OR-string.
 
-    if captured or capture_mode or args.set_pairs or args.living_specs or args.living_spec_skips or args.fold_living_spec:
+    # `--set` writes a plain field: no history entry, no status change, so it
+    # cannot conflict with a lifecycle flag. Letting the two ride together is what
+    # stops every handoff, and the call that completes the spec, paying a second
+    # round-trip just to pin `workflow=companion`. Every OTHER capture flag still
+    # wins, because those do write history and then the ordering would matter.
+    lifecycle = args.advance or args.finish or args.mark_complete
+    set_only = bool(args.set_pairs) and not (
+        capture_mode or args.living_specs
+        or args.living_spec_skips or args.fold_living_spec
+    )
+    if lifecycle and set_only:
+        for line in captured:
+            print(line)
+    elif captured or capture_mode or args.set_pairs or args.living_specs or args.living_spec_skips or args.fold_living_spec:
         for line in captured:
             print(line)
         skipped = [
@@ -627,7 +781,6 @@ def _main() -> int:
                 ("--tasks-file", args.tasks_file), ("--task", args.task),
                 ("--close-task", args.close_task),
                 ("--materialize", args.materialize), ("--mark-complete", args.mark_complete),
-                ("--reopen-convergence", args.reopen_convergence),
                 ("--finish", args.finish), ("--advance", args.advance),
             ) if given
         ]
@@ -649,7 +802,17 @@ def _main() -> int:
             _record_outcome(False, f"Refusing --set {', '.join(repr(k) for k in refused)} — "
                                    f"lifecycle keys are managed by the capture/mark-complete writers.")
         else:
-            _record_outcome(bool(captured), "no capture flag produced a write")
+            for line in declined:
+                print(f"[companion] {line}", file=sys.stderr)
+            if declined:
+                # A call that wrote some of what was asked and silently dropped the
+                # rest is the failure this reporting exists to surface. `ok` means
+                # "everything asked for landed", so a partial call is not ok — and
+                # the reason names both halves so the trace is actionable.
+                landed = f"{len(captured)} write(s) landed; " if captured else ""
+                _record_outcome(False, landed + "; ".join(declined))
+            else:
+                _record_outcome(bool(captured), "no capture flag produced a write")
         return 0
 
     # Lifecycle modes stay exclusive — these are alternative readings of one
@@ -659,14 +822,12 @@ def _main() -> int:
             tasks_md = Path(args.tasks_file)
             if not tasks_md.is_absolute():
                 tasks_md = root / tasks_md
-            # Task-sync operates on the implement step; the global --status default
-            # ("specified") would be an incoherent terminal status here.
+            # Task-sync operates on the implement step, so a caller that named no
+            # status means "implemented" here rather than "leave it alone".
             final_status = args.status if args.status != parser.get_default("status") else "implemented"
             target = sync_tasks(feature_dir, tasks_md, final_status, args.by)
         elif args.mark_complete:
             target = mark_spec_complete(feature_dir, args.by)
-        elif args.reopen_convergence:
-            target = reopen_convergence(feature_dir, args.by)
         elif args.finish:
             target = journal_finish(feature_dir, args.step, args.by, args.substep)
         elif args.advance:
@@ -691,7 +852,7 @@ def _main() -> int:
             else:
                 target = journal_task_finish(feature_dir, args.task, args.by, did, files)
         else:
-            target = update_context(feature_dir, args.step, args.status, args.by, args.kind, args.substep)
+            target = update_context(feature_dir, args.step, args.status, args.by, args.kind, args.substep, args.at)
     except Exception as exc:  # noqa: BLE001 - best-effort, swallow + report
         print(f"[companion] Warning: skipped .spec-context.json write: {exc}", file=sys.stderr)
         _record_outcome(False, f"skipped .spec-context.json write: {exc}")
@@ -699,15 +860,25 @@ def _main() -> int:
 
     # `target is not None` is the writers' shared success signal, including for
     # --tasks-file, which reports itself on stderr and is deliberately excluded
-    # from the stdout block below.
-    _record_outcome(target is not None,
-                    "the write did not land (see the reason above)")
+    # from the stdout block below. A writer that declines returns None without
+    # raising, so the reason it printed must be carried into the trace — a
+    # recorded failure whose cause is only on the terminal cannot be diagnosed
+    # from the trace file afterwards, which is the trace file's whole job.
+    _record_outcome(target is not None, _DECLINED)
+
+    closes_plan = args.step == "plan" and not args.substep and (
+        args.finish or args.advance
+        or not (args.mark_complete or args.materialize or args.close_task or args.task or args.tasks_file)
+        and args.kind == "complete")
+    if target is not None and closes_plan:
+        try:
+            record_plan_check(feature_dir)
+        except Exception as exc:  # noqa: BLE001 - the close already landed
+            print(f"[companion] Warning: skipped the plan blocks check: {exc}", file=sys.stderr)
 
     if target is not None and not args.tasks_file:
         if args.mark_complete:
             print(f"[companion] Marked {target} complete (status=completed, by={args.by})")
-        elif args.reopen_convergence:
-            print(f"[companion] Reopened convergence work in {target} (by={args.by})")
         elif args.finish:
             _label = f"{args.step}{('/' + args.substep) if args.substep else ''}"
             print(f"[companion] Journaled {_label} finish in {target} (by={args.by})")
@@ -722,7 +893,8 @@ def _main() -> int:
         elif args.task:
             print(f"[companion] Journaled finish for task {args.task} in {target} (by={args.by})")
         else:
-            print(f"[companion] Updated {target} (currentStep={args.step}, status={args.status}, kind={args.kind}, by={args.by})")
+            _shown = args.status if args.status is not None else "unchanged"
+            print(f"[companion] Updated {target} (currentStep={args.step}, status={_shown}, kind={args.kind}, by={args.by})")
     return 0
 
 
@@ -739,7 +911,6 @@ def _main() -> int:
 
 _OP_FLAGS = (
     ("--mark-complete", "mark-complete"),
-    ("--reopen-convergence", "reopen-convergence"),
     ("--materialize", "materialize"),
     ("--tasks-file", "tasks-sync"),
     ("--fold-living-spec", "fold-living-spec"),
@@ -822,6 +993,11 @@ class _Tee:
 # call is not a decline, and a refused append that prints neither reads as
 # whichever branch the heuristic happened to take.
 _OUTCOME: dict = {}
+#: Stand-in recorded when a writer declines by returning None. The real cause is
+#: whatever it printed, which is only readable after main() stops teeing output —
+#: _trace_call swaps this for that line so the trace carries the cause, not a
+#: pointer to a terminal nobody kept.
+_DECLINED = "\x00declined"
 
 
 def _record_outcome(ok: bool, reason: str | None = None) -> None:
@@ -840,10 +1016,25 @@ def _first_companion_line(text: str) -> str | None:
     return lines[0] if lines else None
 
 
+def _last_companion_line(text: str) -> str | None:
+    """The most recent `[companion]` line — for a decline, the complaint itself."""
+    lines = _companion_lines(text)
+    return lines[-1] if lines else None
+
+
 def main() -> int:
     """Record this invocation, then behave exactly as the unwrapped command did."""
     import io
     import time
+
+    # This process mutates the record, so its read and its publish must be one
+    # turn against other writers. Readers never enable this and are never blocked.
+    try:
+        from spec_context import enable_write_lock
+
+        enable_write_lock()
+    except ImportError:
+        pass
 
     argv = list(sys.argv[1:])
     started = time.monotonic()
@@ -866,6 +1057,9 @@ def _trace_call(argv: list, out: str, err: str, ms: int) -> None:
         op = _classify_op(argv)
         if _OUTCOME:
             ok, reason = _OUTCOME["ok"], _OUTCOME["reason"]
+            if reason == _DECLINED:
+                reason = (_last_companion_line(err) or _last_companion_line(out)
+                          or f"the {op} writer declined to write and printed no reason")
         else:
             # _main died before recording anything — the crash itself is the outcome.
             ok, reason = False, _first_companion_line(err) or "the writer exited without recording an outcome"
@@ -873,7 +1067,19 @@ def _trace_call(argv: list, out: str, err: str, ms: int) -> None:
         root = _repo_root()
         feature_dir = None
         try:
-            resolved = resolve_feature_dir(root, _flag_value(argv, "--feature-dir"))
+            # main() already printed any pointer complaint on the tee'd stream;
+            # this second resolve is bookkeeping, so it must stay quiet.
+            try:
+                from spec_context import quiet_pointer_complaints
+            except ImportError:
+                quiet_pointer_complaints = None
+            if quiet_pointer_complaints:
+                quiet_pointer_complaints(True)
+            try:
+                resolved = resolve_feature_dir(root, _flag_value(argv, "--feature-dir"))
+            finally:
+                if quiet_pointer_complaints:
+                    quiet_pointer_complaints(False)
             # resolve_feature_dir can name a directory that does not exist; a trace
             # line has nowhere to land there, so it falls through to unattributed.
             if resolved is not None and resolved.is_dir():

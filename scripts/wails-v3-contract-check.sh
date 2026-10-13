@@ -178,7 +178,7 @@ scan_root_module() {
     return 1
   fi
 
-  if grep -En '^[[:space:]]*(github\.com/bufbuild/buf|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect/cmd/protoc-gen-connect-go)([[:space:]]|$)' "$root_module"; then
+  if grep -En '^[[:space:]]*(github\.com/bufbuild/buf|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect(/v2)?/cmd/protoc-gen-connect-go)([[:space:]]|$)' "$root_module"; then
     fail 'root application go.mod contains a tool-only dependency'
     return 1
   fi

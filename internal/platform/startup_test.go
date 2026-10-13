@@ -22,48 +22,56 @@ func TestWailsV3GoToolsAreIsolatedFromApplicationModule(t *testing.T) {
 		directory     string
 		tool          string
 		parentRequire string
+		goVersion     string
 	}{
 		{
 			name:          "Wails CLI",
 			directory:     "wails",
 			tool:          "github.com/wailsapp/wails/v3/cmd/wails3",
-			parentRequire: "github.com/wailsapp/wails/v3 v3.0.0-beta.15",
+			parentRequire: "github.com/wailsapp/wails/v3 v3.0.0-beta.28",
+			goVersion:     "1.27.0",
 		},
 		{
 			name:          "Go Task",
 			directory:     "task",
 			tool:          "github.com/go-task/task/v3/cmd/task",
-			parentRequire: "github.com/go-task/task/v3 v3.53.1",
+			parentRequire: "github.com/go-task/task/v3 v3.54.0",
+			goVersion:     "1.27.0",
 		},
 		{
 			name:          "Buf CLI",
 			directory:     "buf",
 			tool:          "github.com/bufbuild/buf/cmd/buf",
-			parentRequire: "github.com/bufbuild/buf v1.72.0",
+			parentRequire: "github.com/bufbuild/buf v1.73.0",
+			goVersion:     "1.27.0",
 		},
 		{
 			name:          "golangci-lint",
 			directory:     "golangci-lint",
 			tool:          "github.com/golangci/golangci-lint/v2/cmd/golangci-lint",
-			parentRequire: "github.com/golangci/golangci-lint/v2 v2.13.1",
+			parentRequire: "github.com/golangci/golangci-lint/v2 v2.14.0",
+			goVersion:     "1.27.0",
 		},
 		{
 			name:          "protoc-gen-go",
 			directory:     "protoc-gen-go",
 			tool:          "google.golang.org/protobuf/cmd/protoc-gen-go",
-			parentRequire: "google.golang.org/protobuf v1.36.11",
+			parentRequire: "google.golang.org/protobuf v1.36.12",
+			goVersion:     "1.27.0",
 		},
 		{
 			name:          "protoc-gen-connect-go",
 			directory:     "protoc-gen-connect-go",
-			tool:          "connectrpc.com/connect/cmd/protoc-gen-connect-go",
-			parentRequire: "connectrpc.com/connect v1.20.0",
+			tool:          "connectrpc.com/connect/v2/cmd/protoc-gen-connect-go",
+			parentRequire: "connectrpc.com/connect/v2 v2.0.0",
+			goVersion:     "1.27.0",
 		},
 		{
 			name:          "GoReleaser",
 			directory:     "goreleaser",
 			tool:          "github.com/goreleaser/goreleaser/v2",
-			parentRequire: "github.com/goreleaser/goreleaser/v2 v2.18.0",
+			parentRequire: "github.com/goreleaser/goreleaser/v2 v2.18.3",
+			goVersion:     "1.27.1",
 		},
 	}
 
@@ -77,7 +85,7 @@ func TestWailsV3GoToolsAreIsolatedFromApplicationModule(t *testing.T) {
 			parentPattern := "(?m)^[[:space:]]*(require[[:space:]]+)?" +
 				regexp.QuoteMeta(test.parentRequire) + "([[:space:]]+// indirect)?$"
 			assert.Regexp(t, parentPattern, module)
-			assert.Contains(t, module, "\ngo 1.27.0\n")
+			assert.Contains(t, module, "\ngo "+test.goVersion+"\n")
 
 			sum, err := os.ReadFile(filepath.Join(root, "tools", test.directory, "go.sum"))
 			require.NoError(t, err)
@@ -102,7 +110,7 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 
 	root := repositoryRoot(t)
 	applicationModule := readAcceptanceDocument(t, filepath.Join(root, "go.mod"))
-	assert.Equal(t, 1, strings.Count(applicationModule, "github.com/wailsapp/wails/v3 v3.0.0-beta.15"))
+	assert.Equal(t, 1, strings.Count(applicationModule, "github.com/wailsapp/wails/v3 v3.0.0-beta.28"))
 
 	packageRaw, err := os.ReadFile(filepath.Join(root, "frontend", "overseer", "package.json"))
 	require.NoError(t, err)
@@ -110,11 +118,11 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 		Dependencies map[string]string `json:"dependencies"`
 	}
 	require.NoError(t, json.Unmarshal(packageRaw, &packageConfig))
-	assert.Equal(t, "3.0.0-beta.15", packageConfig.Dependencies["@wailsio/runtime"])
+	assert.Equal(t, "3.0.0-beta.28", packageConfig.Dependencies["@wailsio/runtime"])
 
 	lock := readAcceptanceDocument(t, filepath.Join(root, "frontend", "package-lock.json"))
-	assert.Contains(t, lock, `"@wailsio/runtime": "3.0.0-beta.15"`)
-	assert.Contains(t, lock, `runtime-3.0.0-beta.15.tgz`)
+	assert.Contains(t, lock, `"@wailsio/runtime": "3.0.0-beta.28"`)
+	assert.Contains(t, lock, `runtime-3.0.0-beta.28.tgz`)
 
 	files := []struct {
 		path   string

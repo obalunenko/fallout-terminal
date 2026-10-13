@@ -5,306 +5,423 @@
 package playerv1connect
 
 import (
-	connect "connectrpc.com/connect"
+	connect "connectrpc.com/connect/v2"
 	context "context"
-	errors "errors"
 	v1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
-	http "net/http"
-	strings "strings"
+	sync "sync"
 )
-
-// This is a compile-time assertion to ensure that this generated file and the connect package are
-// compatible. If you get a compiler error that this constant is not defined, this code was
-// generated with a version of connect newer than the one compiled into your binary. You can fix the
-// problem by either regenerating this code with an older version of connect or updating the connect
-// version compiled into your binary.
-const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// PlayerServiceName is the fully-qualified name of the PlayerService service.
 	PlayerServiceName = "fallout.terminal.player.v1.PlayerService"
 )
 
-// These constants are the fully-qualified names of the RPCs defined in this package. They're
-// exposed at runtime as Spec.Procedure and as the final two segments of the HTTP route.
+// These constants are the procedure names of the RPCs defined in this package. They're exposed at
+// runtime as Spec.Procedure and as the final two segments of the HTTP route.
 //
 // Note that these are different from the fully-qualified method names used by
 // google.golang.org/protobuf/reflect/protoreflect. To convert from these constants to
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// PlayerServiceSubscribeProcedure is the fully-qualified name of the PlayerService's Subscribe RPC.
+	// PlayerServiceSubscribeProcedure is the procedure name of the PlayerService's Subscribe RPC.
 	PlayerServiceSubscribeProcedure = "/fallout.terminal.player.v1.PlayerService/Subscribe"
-	// PlayerServiceSelectCharacterProcedure is the fully-qualified name of the PlayerService's
+	// PlayerServiceSelectCharacterProcedure is the procedure name of the PlayerService's
 	// SelectCharacter RPC.
 	PlayerServiceSelectCharacterProcedure = "/fallout.terminal.player.v1.PlayerService/SelectCharacter"
-	// PlayerServiceNavigateProcedure is the fully-qualified name of the PlayerService's Navigate RPC.
+	// PlayerServiceNavigateProcedure is the procedure name of the PlayerService's Navigate RPC.
 	PlayerServiceNavigateProcedure = "/fallout.terminal.player.v1.PlayerService/Navigate"
-	// PlayerServiceGuessProcedure is the fully-qualified name of the PlayerService's Guess RPC.
+	// PlayerServiceGuessProcedure is the procedure name of the PlayerService's Guess RPC.
 	PlayerServiceGuessProcedure = "/fallout.terminal.player.v1.PlayerService/Guess"
-	// PlayerServiceActivatePatternProcedure is the fully-qualified name of the PlayerService's
+	// PlayerServiceActivatePatternProcedure is the procedure name of the PlayerService's
 	// ActivatePattern RPC.
 	PlayerServiceActivatePatternProcedure = "/fallout.terminal.player.v1.PlayerService/ActivatePattern"
-	// PlayerServiceSetPresentationProcedure is the fully-qualified name of the PlayerService's
+	// PlayerServiceSetPresentationProcedure is the procedure name of the PlayerService's
 	// SetPresentation RPC.
 	PlayerServiceSetPresentationProcedure = "/fallout.terminal.player.v1.PlayerService/SetPresentation"
-	// PlayerServicePresentationUplinkProcedure is the fully-qualified name of the PlayerService's
+	// PlayerServicePresentationUplinkProcedure is the procedure name of the PlayerService's
 	// PresentationUplink RPC.
 	PlayerServicePresentationUplinkProcedure = "/fallout.terminal.player.v1.PlayerService/PresentationUplink"
-	// PlayerServiceSoundManifestProcedure is the fully-qualified name of the PlayerService's
-	// SoundManifest RPC.
+	// PlayerServiceSoundManifestProcedure is the procedure name of the PlayerService's SoundManifest
+	// RPC.
 	PlayerServiceSoundManifestProcedure = "/fallout.terminal.player.v1.PlayerService/SoundManifest"
+)
+
+var (
+	playerServiceSubscribeSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeServer,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("Subscribe"),
+			Procedure:  PlayerServiceSubscribeProcedure,
+		}
+	})
+	playerServiceSelectCharacterSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("SelectCharacter"),
+			Procedure:  PlayerServiceSelectCharacterProcedure,
+		}
+	})
+	playerServiceNavigateSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("Navigate"),
+			Procedure:  PlayerServiceNavigateProcedure,
+		}
+	})
+	playerServiceGuessSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("Guess"),
+			Procedure:  PlayerServiceGuessProcedure,
+		}
+	})
+	playerServiceActivatePatternSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("ActivatePattern"),
+			Procedure:  PlayerServiceActivatePatternProcedure,
+		}
+	})
+	playerServiceSetPresentationSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("SetPresentation"),
+			Procedure:  PlayerServiceSetPresentationProcedure,
+		}
+	})
+	playerServicePresentationUplinkSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeClient,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("PresentationUplink"),
+			Procedure:  PlayerServicePresentationUplinkProcedure,
+		}
+	})
+	playerServiceSoundManifestSpec = sync.OnceValue(func() connect.Spec {
+		return connect.Spec{
+			StreamType: connect.StreamTypeUnary,
+			Schema:     v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods().ByName("SoundManifest"),
+			Procedure:  PlayerServiceSoundManifestProcedure,
+		}
+	})
 )
 
 // PlayerServiceClient is a client for the fallout.terminal.player.v1.PlayerService service.
 type PlayerServiceClient interface {
-	Subscribe(context.Context, *connect.Request[v1.SubscribeRequest]) (*connect.ServerStreamForClient[v1.SubscriptionMessage], error)
-	SelectCharacter(context.Context, *connect.Request[v1.SelectCharacterRequest]) (*connect.Response[v1.ActionResult], error)
-	Navigate(context.Context, *connect.Request[v1.NavigateRequest]) (*connect.Response[v1.ActionResult], error)
-	Guess(context.Context, *connect.Request[v1.GuessRequest]) (*connect.Response[v1.ActionResult], error)
-	ActivatePattern(context.Context, *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error)
-	SetPresentation(context.Context, *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error)
-	PresentationUplink(context.Context) *connect.ClientStreamForClient[v1.PresentationUplinkRequest, v1.PresentationUplinkResponse]
-	SoundManifest(context.Context, *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error)
+	Subscribe(context.Context, *v1.SubscribeRequest) (PlayerServiceSubscribeClientStream, error)
+	SelectCharacter(context.Context, *v1.SelectCharacterRequest) (*v1.ActionResult, error)
+	Navigate(context.Context, *v1.NavigateRequest) (*v1.ActionResult, error)
+	Guess(context.Context, *v1.GuessRequest) (*v1.ActionResult, error)
+	ActivatePattern(context.Context, *v1.ActivatePatternRequest) (*v1.ActionResult, error)
+	SetPresentation(context.Context, *v1.SetPresentationRequest) (*v1.ActionResult, error)
+	PresentationUplink(context.Context) (PlayerServicePresentationUplinkClientStream, error)
+	SoundManifest(context.Context, *v1.SoundManifestRequest) (*v1.SoundManifestResponse, error)
 }
 
 // NewPlayerServiceClient constructs a client for the fallout.terminal.player.v1.PlayerService
-// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
-// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
-// the connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewPlayerServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) PlayerServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	playerServiceMethods := v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods()
-	return &playerServiceClient{
-		subscribe: connect.NewClient[v1.SubscribeRequest, v1.SubscriptionMessage](
-			httpClient,
-			baseURL+PlayerServiceSubscribeProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("Subscribe")),
-			connect.WithClientOptions(opts...),
-		),
-		selectCharacter: connect.NewClient[v1.SelectCharacterRequest, v1.ActionResult](
-			httpClient,
-			baseURL+PlayerServiceSelectCharacterProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("SelectCharacter")),
-			connect.WithClientOptions(opts...),
-		),
-		navigate: connect.NewClient[v1.NavigateRequest, v1.ActionResult](
-			httpClient,
-			baseURL+PlayerServiceNavigateProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("Navigate")),
-			connect.WithClientOptions(opts...),
-		),
-		guess: connect.NewClient[v1.GuessRequest, v1.ActionResult](
-			httpClient,
-			baseURL+PlayerServiceGuessProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("Guess")),
-			connect.WithClientOptions(opts...),
-		),
-		activatePattern: connect.NewClient[v1.ActivatePatternRequest, v1.ActionResult](
-			httpClient,
-			baseURL+PlayerServiceActivatePatternProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("ActivatePattern")),
-			connect.WithClientOptions(opts...),
-		),
-		setPresentation: connect.NewClient[v1.SetPresentationRequest, v1.ActionResult](
-			httpClient,
-			baseURL+PlayerServiceSetPresentationProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("SetPresentation")),
-			connect.WithClientOptions(opts...),
-		),
-		presentationUplink: connect.NewClient[v1.PresentationUplinkRequest, v1.PresentationUplinkResponse](
-			httpClient,
-			baseURL+PlayerServicePresentationUplinkProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("PresentationUplink")),
-			connect.WithClientOptions(opts...),
-		),
-		soundManifest: connect.NewClient[v1.SoundManifestRequest, v1.SoundManifestResponse](
-			httpClient,
-			baseURL+PlayerServiceSoundManifestProcedure,
-			connect.WithSchema(playerServiceMethods.ByName("SoundManifest")),
-			connect.WithClientOptions(opts...),
-		),
+// service. Multiple service clients may share a single connect.Client.
+func NewPlayerServiceClient(client *connect.Client) PlayerServiceClient {
+	return &playerServiceClient{client: client}
+}
+
+// PlayerServiceSubscribeClientStream is the client stream for the PlayerService's Subscribe RPC.
+type PlayerServiceSubscribeClientStream struct {
+	stream connect.ClientStream
+}
+
+// Receive returns the next response message from the server.
+func (s PlayerServiceSubscribeClientStream) Receive() (*v1.SubscriptionMessage, error) {
+	var res v1.SubscriptionMessage
+	if err := s.stream.Receive(&res); err != nil {
+		return nil, err
 	}
+	return &res, nil
 }
 
-// playerServiceClient implements PlayerServiceClient.
-type playerServiceClient struct {
-	subscribe          *connect.Client[v1.SubscribeRequest, v1.SubscriptionMessage]
-	selectCharacter    *connect.Client[v1.SelectCharacterRequest, v1.ActionResult]
-	navigate           *connect.Client[v1.NavigateRequest, v1.ActionResult]
-	guess              *connect.Client[v1.GuessRequest, v1.ActionResult]
-	activatePattern    *connect.Client[v1.ActivatePatternRequest, v1.ActionResult]
-	setPresentation    *connect.Client[v1.SetPresentationRequest, v1.ActionResult]
-	presentationUplink *connect.Client[v1.PresentationUplinkRequest, v1.PresentationUplinkResponse]
-	soundManifest      *connect.Client[v1.SoundManifestRequest, v1.SoundManifestResponse]
+// Close releases the stream's resources. It is idempotent and is typically deferred to clean up a
+// stream abandoned before io.EOF.
+func (s PlayerServiceSubscribeClientStream) Close() error {
+	return s.stream.Close()
 }
 
-// Subscribe calls fallout.terminal.player.v1.PlayerService.Subscribe.
-func (c *playerServiceClient) Subscribe(ctx context.Context, req *connect.Request[v1.SubscribeRequest]) (*connect.ServerStreamForClient[v1.SubscriptionMessage], error) {
-	return c.subscribe.CallServerStream(ctx, req)
+// PlayerServicePresentationUplinkClientStream is the client stream for the PlayerService's
+// PresentationUplink RPC.
+type PlayerServicePresentationUplinkClientStream struct {
+	stream connect.ClientStream
 }
 
-// SelectCharacter calls fallout.terminal.player.v1.PlayerService.SelectCharacter.
-func (c *playerServiceClient) SelectCharacter(ctx context.Context, req *connect.Request[v1.SelectCharacterRequest]) (*connect.Response[v1.ActionResult], error) {
-	return c.selectCharacter.CallUnary(ctx, req)
+// SendHeaders opens the stream and flushes the request headers without a message. The first Send or
+// Receive does this implicitly.
+func (s PlayerServicePresentationUplinkClientStream) SendHeaders() error {
+	return s.stream.SendHeaders()
 }
 
-// Navigate calls fallout.terminal.player.v1.PlayerService.Navigate.
-func (c *playerServiceClient) Navigate(ctx context.Context, req *connect.Request[v1.NavigateRequest]) (*connect.Response[v1.ActionResult], error) {
-	return c.navigate.CallUnary(ctx, req)
+// Send sends a request message to the server.
+func (s PlayerServicePresentationUplinkClientStream) Send(req *v1.PresentationUplinkRequest) error {
+	return s.stream.Send(req)
 }
 
-// Guess calls fallout.terminal.player.v1.PlayerService.Guess.
-func (c *playerServiceClient) Guess(ctx context.Context, req *connect.Request[v1.GuessRequest]) (*connect.Response[v1.ActionResult], error) {
-	return c.guess.CallUnary(ctx, req)
-}
-
-// ActivatePattern calls fallout.terminal.player.v1.PlayerService.ActivatePattern.
-func (c *playerServiceClient) ActivatePattern(ctx context.Context, req *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error) {
-	return c.activatePattern.CallUnary(ctx, req)
-}
-
-// SetPresentation calls fallout.terminal.player.v1.PlayerService.SetPresentation.
-func (c *playerServiceClient) SetPresentation(ctx context.Context, req *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error) {
-	return c.setPresentation.CallUnary(ctx, req)
-}
-
-// PresentationUplink calls fallout.terminal.player.v1.PlayerService.PresentationUplink.
-func (c *playerServiceClient) PresentationUplink(ctx context.Context) *connect.ClientStreamForClient[v1.PresentationUplinkRequest, v1.PresentationUplinkResponse] {
-	return c.presentationUplink.CallClientStream(ctx)
-}
-
-// SoundManifest calls fallout.terminal.player.v1.PlayerService.SoundManifest.
-func (c *playerServiceClient) SoundManifest(ctx context.Context, req *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error) {
-	return c.soundManifest.CallUnary(ctx, req)
+// CloseAndReceive closes the request side of the stream and returns the single response message. It
+// reads the stream to completion to release its resources.
+func (s PlayerServicePresentationUplinkClientStream) CloseAndReceive() (*v1.PresentationUplinkResponse, error) {
+	if err := s.stream.CloseSend(); err != nil {
+		return nil, err
+	}
+	var res v1.PresentationUplinkResponse
+	if err := s.stream.Receive(&res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 // PlayerServiceHandler is an implementation of the fallout.terminal.player.v1.PlayerService
 // service.
 type PlayerServiceHandler interface {
-	Subscribe(context.Context, *connect.Request[v1.SubscribeRequest], *connect.ServerStream[v1.SubscriptionMessage]) error
-	SelectCharacter(context.Context, *connect.Request[v1.SelectCharacterRequest]) (*connect.Response[v1.ActionResult], error)
-	Navigate(context.Context, *connect.Request[v1.NavigateRequest]) (*connect.Response[v1.ActionResult], error)
-	Guess(context.Context, *connect.Request[v1.GuessRequest]) (*connect.Response[v1.ActionResult], error)
-	ActivatePattern(context.Context, *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error)
-	SetPresentation(context.Context, *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error)
-	PresentationUplink(context.Context, *connect.ClientStream[v1.PresentationUplinkRequest]) (*connect.Response[v1.PresentationUplinkResponse], error)
-	SoundManifest(context.Context, *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error)
+	Subscribe(context.Context, *v1.SubscribeRequest, PlayerServiceSubscribeServerStream) error
+	SelectCharacter(context.Context, *v1.SelectCharacterRequest) (*v1.ActionResult, error)
+	Navigate(context.Context, *v1.NavigateRequest) (*v1.ActionResult, error)
+	Guess(context.Context, *v1.GuessRequest) (*v1.ActionResult, error)
+	ActivatePattern(context.Context, *v1.ActivatePatternRequest) (*v1.ActionResult, error)
+	SetPresentation(context.Context, *v1.SetPresentationRequest) (*v1.ActionResult, error)
+	PresentationUplink(context.Context, PlayerServicePresentationUplinkServerStream) (*v1.PresentationUplinkResponse, error)
+	SoundManifest(context.Context, *v1.SoundManifestRequest) (*v1.SoundManifestResponse, error)
 }
 
-// NewPlayerServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewPlayerServiceHandler(svc PlayerServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	playerServiceMethods := v1.File_fallout_terminal_player_v1_player_proto.Services().ByName("PlayerService").Methods()
-	playerServiceSubscribeHandler := connect.NewServerStreamHandler(
-		PlayerServiceSubscribeProcedure,
-		svc.Subscribe,
-		connect.WithSchema(playerServiceMethods.ByName("Subscribe")),
-		connect.WithHandlerOptions(opts...),
+// RegisterPlayerServiceHandler registers svc as the fallout.terminal.player.v1.PlayerService
+// implementation on server.
+func RegisterPlayerServiceHandler(server *connect.Server, svc PlayerServiceHandler) {
+	adapter := playerServiceHandler{svc: svc}
+	server.Register(
+		connect.Method{Spec: playerServiceSubscribeSpec(), Handler: adapter.subscribe},
+		connect.Method{Spec: playerServiceSelectCharacterSpec(), Handler: adapter.selectCharacter},
+		connect.Method{Spec: playerServiceNavigateSpec(), Handler: adapter.navigate},
+		connect.Method{Spec: playerServiceGuessSpec(), Handler: adapter.guess},
+		connect.Method{Spec: playerServiceActivatePatternSpec(), Handler: adapter.activatePattern},
+		connect.Method{Spec: playerServiceSetPresentationSpec(), Handler: adapter.setPresentation},
+		connect.Method{Spec: playerServicePresentationUplinkSpec(), Handler: adapter.presentationUplink},
+		connect.Method{Spec: playerServiceSoundManifestSpec(), Handler: adapter.soundManifest},
 	)
-	playerServiceSelectCharacterHandler := connect.NewUnaryHandler(
-		PlayerServiceSelectCharacterProcedure,
-		svc.SelectCharacter,
-		connect.WithSchema(playerServiceMethods.ByName("SelectCharacter")),
-		connect.WithHandlerOptions(opts...),
-	)
-	playerServiceNavigateHandler := connect.NewUnaryHandler(
-		PlayerServiceNavigateProcedure,
-		svc.Navigate,
-		connect.WithSchema(playerServiceMethods.ByName("Navigate")),
-		connect.WithHandlerOptions(opts...),
-	)
-	playerServiceGuessHandler := connect.NewUnaryHandler(
-		PlayerServiceGuessProcedure,
-		svc.Guess,
-		connect.WithSchema(playerServiceMethods.ByName("Guess")),
-		connect.WithHandlerOptions(opts...),
-	)
-	playerServiceActivatePatternHandler := connect.NewUnaryHandler(
-		PlayerServiceActivatePatternProcedure,
-		svc.ActivatePattern,
-		connect.WithSchema(playerServiceMethods.ByName("ActivatePattern")),
-		connect.WithHandlerOptions(opts...),
-	)
-	playerServiceSetPresentationHandler := connect.NewUnaryHandler(
-		PlayerServiceSetPresentationProcedure,
-		svc.SetPresentation,
-		connect.WithSchema(playerServiceMethods.ByName("SetPresentation")),
-		connect.WithHandlerOptions(opts...),
-	)
-	playerServicePresentationUplinkHandler := connect.NewClientStreamHandler(
-		PlayerServicePresentationUplinkProcedure,
-		svc.PresentationUplink,
-		connect.WithSchema(playerServiceMethods.ByName("PresentationUplink")),
-		connect.WithHandlerOptions(opts...),
-	)
-	playerServiceSoundManifestHandler := connect.NewUnaryHandler(
-		PlayerServiceSoundManifestProcedure,
-		svc.SoundManifest,
-		connect.WithSchema(playerServiceMethods.ByName("SoundManifest")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/fallout.terminal.player.v1.PlayerService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case PlayerServiceSubscribeProcedure:
-			playerServiceSubscribeHandler.ServeHTTP(w, r)
-		case PlayerServiceSelectCharacterProcedure:
-			playerServiceSelectCharacterHandler.ServeHTTP(w, r)
-		case PlayerServiceNavigateProcedure:
-			playerServiceNavigateHandler.ServeHTTP(w, r)
-		case PlayerServiceGuessProcedure:
-			playerServiceGuessHandler.ServeHTTP(w, r)
-		case PlayerServiceActivatePatternProcedure:
-			playerServiceActivatePatternHandler.ServeHTTP(w, r)
-		case PlayerServiceSetPresentationProcedure:
-			playerServiceSetPresentationHandler.ServeHTTP(w, r)
-		case PlayerServicePresentationUplinkProcedure:
-			playerServicePresentationUplinkHandler.ServeHTTP(w, r)
-		case PlayerServiceSoundManifestProcedure:
-			playerServiceSoundManifestHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
+}
+
+// PlayerServiceSubscribeServerStream is the server stream for the PlayerService's Subscribe RPC.
+type PlayerServiceSubscribeServerStream struct {
+	stream connect.ServerStream
+}
+
+// SendHeaders flushes the response headers without a message. The first Send does this implicitly.
+func (s PlayerServiceSubscribeServerStream) SendHeaders() error {
+	return s.stream.SendHeaders()
+}
+
+// Send sends a response message to the client.
+func (s PlayerServiceSubscribeServerStream) Send(res *v1.SubscriptionMessage) error {
+	return s.stream.Send(res)
+}
+
+// PlayerServicePresentationUplinkServerStream is the server stream for the PlayerService's
+// PresentationUplink RPC.
+type PlayerServicePresentationUplinkServerStream struct {
+	stream connect.ServerStream
+}
+
+// Receive returns the next request message from the client.
+func (s PlayerServicePresentationUplinkServerStream) Receive() (*v1.PresentationUplinkRequest, error) {
+	var req v1.PresentationUplinkRequest
+	if err := s.stream.Receive(&req); err != nil {
+		return nil, err
+	}
+	return &req, nil
 }
 
 // UnimplementedPlayerServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedPlayerServiceHandler struct{}
 
-func (UnimplementedPlayerServiceHandler) Subscribe(context.Context, *connect.Request[v1.SubscribeRequest], *connect.ServerStream[v1.SubscriptionMessage]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.Subscribe is not implemented"))
+func (UnimplementedPlayerServiceHandler) Subscribe(context.Context, *v1.SubscribeRequest, PlayerServiceSubscribeServerStream) error {
+	return connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.Subscribe is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) SelectCharacter(context.Context, *connect.Request[v1.SelectCharacterRequest]) (*connect.Response[v1.ActionResult], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.SelectCharacter is not implemented"))
+func (UnimplementedPlayerServiceHandler) SelectCharacter(context.Context, *v1.SelectCharacterRequest) (*v1.ActionResult, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.SelectCharacter is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) Navigate(context.Context, *connect.Request[v1.NavigateRequest]) (*connect.Response[v1.ActionResult], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.Navigate is not implemented"))
+func (UnimplementedPlayerServiceHandler) Navigate(context.Context, *v1.NavigateRequest) (*v1.ActionResult, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.Navigate is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) Guess(context.Context, *connect.Request[v1.GuessRequest]) (*connect.Response[v1.ActionResult], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.Guess is not implemented"))
+func (UnimplementedPlayerServiceHandler) Guess(context.Context, *v1.GuessRequest) (*v1.ActionResult, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.Guess is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) ActivatePattern(context.Context, *connect.Request[v1.ActivatePatternRequest]) (*connect.Response[v1.ActionResult], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.ActivatePattern is not implemented"))
+func (UnimplementedPlayerServiceHandler) ActivatePattern(context.Context, *v1.ActivatePatternRequest) (*v1.ActionResult, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.ActivatePattern is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) SetPresentation(context.Context, *connect.Request[v1.SetPresentationRequest]) (*connect.Response[v1.ActionResult], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.SetPresentation is not implemented"))
+func (UnimplementedPlayerServiceHandler) SetPresentation(context.Context, *v1.SetPresentationRequest) (*v1.ActionResult, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.SetPresentation is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) PresentationUplink(context.Context, *connect.ClientStream[v1.PresentationUplinkRequest]) (*connect.Response[v1.PresentationUplinkResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.PresentationUplink is not implemented"))
+func (UnimplementedPlayerServiceHandler) PresentationUplink(context.Context, PlayerServicePresentationUplinkServerStream) (*v1.PresentationUplinkResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.PresentationUplink is not implemented")
 }
 
-func (UnimplementedPlayerServiceHandler) SoundManifest(context.Context, *connect.Request[v1.SoundManifestRequest]) (*connect.Response[v1.SoundManifestResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("fallout.terminal.player.v1.PlayerService.SoundManifest is not implemented"))
+func (UnimplementedPlayerServiceHandler) SoundManifest(context.Context, *v1.SoundManifestRequest) (*v1.SoundManifestResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, "fallout.terminal.player.v1.PlayerService.SoundManifest is not implemented")
+}
+
+type playerServiceClient struct {
+	client *connect.Client
+}
+
+func (c *playerServiceClient) Subscribe(ctx context.Context, req *v1.SubscribeRequest) (PlayerServiceSubscribeClientStream, error) {
+	stream, err := c.client.CallServerStream(ctx, playerServiceSubscribeSpec(), req)
+	if err != nil {
+		return PlayerServiceSubscribeClientStream{}, err
+	}
+	return PlayerServiceSubscribeClientStream{stream: stream}, nil
+}
+
+func (c *playerServiceClient) SelectCharacter(ctx context.Context, req *v1.SelectCharacterRequest) (*v1.ActionResult, error) {
+	var res v1.ActionResult
+	if err := c.client.CallUnary(ctx, playerServiceSelectCharacterSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *playerServiceClient) Navigate(ctx context.Context, req *v1.NavigateRequest) (*v1.ActionResult, error) {
+	var res v1.ActionResult
+	if err := c.client.CallUnary(ctx, playerServiceNavigateSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *playerServiceClient) Guess(ctx context.Context, req *v1.GuessRequest) (*v1.ActionResult, error) {
+	var res v1.ActionResult
+	if err := c.client.CallUnary(ctx, playerServiceGuessSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *playerServiceClient) ActivatePattern(ctx context.Context, req *v1.ActivatePatternRequest) (*v1.ActionResult, error) {
+	var res v1.ActionResult
+	if err := c.client.CallUnary(ctx, playerServiceActivatePatternSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *playerServiceClient) SetPresentation(ctx context.Context, req *v1.SetPresentationRequest) (*v1.ActionResult, error) {
+	var res v1.ActionResult
+	if err := c.client.CallUnary(ctx, playerServiceSetPresentationSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *playerServiceClient) PresentationUplink(ctx context.Context) (PlayerServicePresentationUplinkClientStream, error) {
+	stream, err := c.client.CallClientStream(ctx, playerServicePresentationUplinkSpec())
+	if err != nil {
+		return PlayerServicePresentationUplinkClientStream{}, err
+	}
+	return PlayerServicePresentationUplinkClientStream{stream: stream}, nil
+}
+
+func (c *playerServiceClient) SoundManifest(ctx context.Context, req *v1.SoundManifestRequest) (*v1.SoundManifestResponse, error) {
+	var res v1.SoundManifestResponse
+	if err := c.client.CallUnary(ctx, playerServiceSoundManifestSpec(), req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+type playerServiceHandler struct{ svc PlayerServiceHandler }
+
+func (h playerServiceHandler) subscribe(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SubscribeRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	return h.svc.Subscribe(ctx, &req, PlayerServiceSubscribeServerStream{stream: stream})
+}
+
+func (h playerServiceHandler) selectCharacter(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SelectCharacterRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.SelectCharacter(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h playerServiceHandler) navigate(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.NavigateRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Navigate(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h playerServiceHandler) guess(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.GuessRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.Guess(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h playerServiceHandler) activatePattern(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.ActivatePatternRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.ActivatePattern(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h playerServiceHandler) setPresentation(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SetPresentationRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.SetPresentation(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h playerServiceHandler) presentationUplink(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	res, err := h.svc.PresentationUplink(ctx, PlayerServicePresentationUplinkServerStream{stream: stream})
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
+}
+
+func (h playerServiceHandler) soundManifest(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+	var req v1.SoundManifestRequest
+	if err := stream.Receive(&req); err != nil {
+		return err
+	}
+	res, err := h.svc.SoundManifest(ctx, &req)
+	if err != nil {
+		return err
+	}
+	return stream.Send(res)
 }
