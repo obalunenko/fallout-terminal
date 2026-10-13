@@ -106,7 +106,7 @@ func TestWailsApplicationOptionsEnableSingleInstanceLaunches(t *testing.T) {
 	require.Equal(t, launch, received)
 }
 
-func TestWailsSaveSessionBindingRetainsBothRealDemoTerminals(t *testing.T) {
+func TestWailsSaveSessionBindingRetainsAllRealDemoTerminals(t *testing.T) {
 	raw, err := os.ReadFile("sessions/demo.json")
 	require.NoError(t, err)
 	target := "/Campaigns/wails-demo-transition.json"
@@ -139,7 +139,7 @@ func TestWailsSaveSessionBindingRetainsBothRealDemoTerminals(t *testing.T) {
 
 	reopened := core.OpenSession()
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
-	require.Len(t, reopened.Session.Terminals, 2)
+	require.Len(t, reopened.Session.Terminals, 6)
 	transition := findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
