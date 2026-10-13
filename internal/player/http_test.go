@@ -15,7 +15,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
@@ -229,15 +229,15 @@ func TestTypedSoundManifestAllowsOnlyEightCategoriesAndSafeSortedAssets(t *testi
 		{playerv1.SoundCategory_SOUND_CATEGORY_CHARSCROLL, []string{"sounds/charscroll/scroll.wav"}},
 	}
 	for _, test := range tests {
-		response, err := service.SoundManifest(t.Context(), connect.NewRequest(&playerv1.SoundManifestRequest{Category: test.category}))
+		response, err := service.SoundManifest(t.Context(), &playerv1.SoundManifestRequest{Category: test.category})
 		require.Falsef(t, err != nil,
 			"SoundManifest(%s): %v", test.category, err)
-		assert.Falsef(t, !cmp.Equal(response.Msg.Assets, test.want),
-			"SoundManifest(%s) assets = %#v, want %#v", test.category, response.Msg.Assets, test.want)
+		assert.Falsef(t, !cmp.Equal(response.Assets, test.want),
+			"SoundManifest(%s) assets = %#v, want %#v", test.category, response.Assets, test.want)
 
 	}
 	for _, invalid := range []playerv1.SoundCategory{playerv1.SoundCategory_SOUND_CATEGORY_UNSPECIFIED, 999} {
-		_, err := service.SoundManifest(t.Context(), connect.NewRequest(&playerv1.SoundManifestRequest{Category: invalid}))
+		_, err := service.SoundManifest(t.Context(), &playerv1.SoundManifestRequest{Category: invalid})
 		assert.Falsef(t, connect.CodeOf(err) != connect.CodeInvalidArgument,
 			"SoundManifest(%d) code = %s, want invalid_argument", invalid, connect.CodeOf(err))
 
@@ -247,8 +247,8 @@ func TestTypedSoundManifestAllowsOnlyEightCategoriesAndSafeSortedAssets(t *testi
 	if err != nil {
 		require.NoError(t, err)
 	}
-	response, err := empty.SoundManifest(t.Context(), connect.NewRequest(&playerv1.SoundManifestRequest{Category: playerv1.SoundCategory_SOUND_CATEGORY_AMBIENT}))
-	require.Falsef(t, err != nil || len(response.Msg.Assets) != 0,
+	response, err := empty.SoundManifest(t.Context(), &playerv1.SoundManifestRequest{Category: playerv1.SoundCategory_SOUND_CATEGORY_AMBIENT})
+	require.Falsef(t, err != nil || len(response.Assets) != 0,
 		"missing sound category = %#v, %v; want empty success", response, err)
 
 }

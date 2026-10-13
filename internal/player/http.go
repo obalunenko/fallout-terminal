@@ -15,7 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1/playerv1connect"
 )
 
@@ -43,7 +44,7 @@ func NewHTTPHandler(assets fs.FS) http.Handler {
 // page, generated client, sound, and RPC traffic remains same-origin.
 func NewApplicationHandler(assets fs.FS, rpcPath string, rpcHandler http.Handler) http.Handler {
 	staticHandler := NewHTTPHandler(assets)
-	errorWriter := connect.NewErrorWriter()
+	errorWriter := connecthttp.NewErrorWriter()
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if supportedRPCRequestPath(request.URL.Path, rpcPath) {
 			response.Header().Set("X-Content-Type-Options", "nosniff")
@@ -213,8 +214,8 @@ func bufferBoundedRequestBody(request *http.Request) error {
 	return nil
 }
 
-func writeConnectBoundaryError(writer *connect.ErrorWriter, response http.ResponseWriter, request *http.Request, code connect.Code, message string) {
-	if err := writer.Write(response, request, connect.NewError(code, errors.New(message))); err != nil {
+func writeConnectBoundaryError(writer *connecthttp.ErrorWriter, response http.ResponseWriter, request *http.Request, code connect.Code, message string) {
+	if err := writer.Write(response, request, connect.NewError(code, message)); err != nil {
 		http.Error(response, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
 }

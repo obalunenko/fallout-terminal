@@ -1,18 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.3 -> 8.2.0
-- Modified principles: None
+- Version change: 8.2.0 -> 8.3.0
+- Modified principles: III. Use ConnectRPC and Keep State Server-Authoritative (title unchanged)
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Testing and Quality Gates: adopt the Google Go Style hierarchy and required Go quality skill
-  - Testing and Quality Gates: require immediate t.Cleanup registration and cancellation-safe cleanup
-  - Testing and Quality Gates: require reviewed go fix modernization before Go-source commits
-  - Testing and Quality Gates: use Task validation with macOS deployment-target and CGO settings
-  - Testing and Quality Gates: select Node.js through .nvmrc and require Task node:check before npm
-  - Development Workflow: apply the governed style, modernization, and resource-cleanup conventions
-- Updated templates: None
+  - Principle III: adopt Connect Go v2 generated messages, streams, and transport separation
+  - Dependency Rules: pin the accepted Connect Go runtime and isolated generator at v2.0.0
+  - Migration impact: preserve protobuf schemas, RPC cardinality, wire compatibility, and input limits
+- Updated templates: .specify/templates/plan-template.md (Connect Go v2 dependency baseline)
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -146,6 +143,17 @@ All network RPC communication MUST use ConnectRPC with code generated from the g
 Go and ECMAScript. Handwritten JSON wire envelopes, handwritten RPC routers, and duplicated network
 transport DTOs are prohibited.
 
+The accepted Go RPC API MUST use `connectrpc.com/connect/v2`. Service handlers and clients MUST
+consume the regenerated v2 API with plain protobuf messages and generated stream types. Service
+registration belongs on `connect.Server`; HTTP serving and client transports MUST use the
+`connecthttp` adapter at the player transport or composition boundary. These transport APIs MUST
+remain outside canonical domain and coordination logic.
+
+The Connect Go v2 migration changes the Go API, not the governed protobuf packages or wire
+protocol. Runtime and generator upgrades MUST preserve the established RPC cardinality, browser
+client interoperability, validation and public-error behavior, and configured encoded-body and
+decoded-message limits unless a separately specified contract change explicitly revises them.
+
 Browser-originated canonical mutations MUST retain unary RPCs as the portable default.
 Authoritative live updates MUST use server-streaming RPCs. An optional client-streaming browser
 transport MAY carry high-frequency, ephemeral presentation intents only when all of the following
@@ -276,6 +284,13 @@ that form or proxy a parallel workflow graph.
 - Protobuf schema modules are upstream contract dependencies. Generated Go and ECMAScript outputs
   MUST depend only on pinned generators and runtimes and MUST be consumed through explicit boundary
   adapters.
+- The root application module MUST pin `connectrpc.com/connect/v2` at `v2.0.0` as the accepted Go
+  RPC runtime. The Go Connect generator MUST be declared as
+  `connectrpc.com/connect/v2/cmd/protoc-gen-connect-go` in the independent
+  `tools/protoc-gen-connect-go/` module, with its parent module pinned at `v2.0.0`. Future upgrades
+  MUST update the owning modules, version checks, generated contracts, and compatibility evidence
+  together. Transitive dependencies of other isolated development tools remain owned by those
+  tool modules and do not select the application's RPC API version.
 - `internal/domain/`, `internal/nav/`, `internal/hack/`, `internal/live/`, `internal/control/`,
   `internal/session/`, `internal/playerconfig/`, and `internal/player/` MUST remain independent of
   Wails. Their existing permitted domain, protobuf-adapter, ConnectRPC, HTTP, and asset dependencies
@@ -660,4 +675,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.2.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13
+**Version**: 8.3.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13

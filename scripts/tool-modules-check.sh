@@ -93,7 +93,7 @@ check_root_module() {
     fail "root go.mod must declare $expected_module"
     return 1
   }
-  if grep -En '^tool[[:space:]]*(\(|[^[:space:]])|github\.com/bufbuild/buf|github\.com/caarlos0/svu|github\.com/go-task/task/v3/cmd/task|github\.com/golangci/golangci-lint|github\.com/goreleaser/goreleaser|github\.com/wailsapp/wails/v3/cmd/wails3|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect/cmd/protoc-gen-connect-go|oras\.land/oras' "$root_module"; then
+  if grep -En '^tool[[:space:]]*(\(|[^[:space:]])|github\.com/bufbuild/buf|github\.com/caarlos0/svu|github\.com/go-task/task/v3/cmd/task|github\.com/golangci/golangci-lint|github\.com/goreleaser/goreleaser|github\.com/wailsapp/wails/v3/cmd/wails3|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect(/v2)?/cmd/protoc-gen-connect-go|oras\.land/oras' "$root_module"; then
     fail 'root application go.mod contains a tool declaration or tool-only dependency'
     return 1
   fi
@@ -194,7 +194,7 @@ check_active_commands() {
   local relative_file
   local file_matches
   local matches=''
-  local forbidden_pattern='(go[[:space:]]+install[[:space:]]+(github\.com/wailsapp/wails|github\.com/caarlos0/svu/v3|github\.com/go-task/task/v3/cmd/task|github\.com/bufbuild/buf/cmd/buf|github\.com/golangci/golangci-lint/v2/cmd/golangci-lint|github\.com/goreleaser/goreleaser/v2|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect/cmd/protoc-gen-connect-go|oras\.land/oras/cmd/oras)|go[[:space:]]+run[[:space:]]+(github\.com/caarlos0/svu/v3|github\.com/golangci/golangci-lint/v2/cmd/golangci-lint|github\.com/goreleaser/goreleaser/v2|oras\.land/oras/cmd/oras)|go[[:space:]]+tool[[:space:]]+(wails3|svu|buf|golangci-lint|goreleaser|protoc-gen-go|protoc-gen-connect-go|oras)([[:space:]]|$)|(^|[[:space:]`;&|])(wails3|svu|buf|golangci-lint|goreleaser|oras)[[:space:]]+(current|next|major|minor|patch|prerelease|dev|build|package|generate|format|lint|breaking|run|release|check|login|push)([[:space:]]|$))'
+  local forbidden_pattern='(go[[:space:]]+install[[:space:]]+(github\.com/wailsapp/wails|github\.com/caarlos0/svu/v3|github\.com/go-task/task/v3/cmd/task|github\.com/bufbuild/buf/cmd/buf|github\.com/golangci/golangci-lint/v2/cmd/golangci-lint|github\.com/goreleaser/goreleaser/v2|google\.golang\.org/protobuf/cmd/protoc-gen-go|connectrpc\.com/connect(/v2)?/cmd/protoc-gen-connect-go|oras\.land/oras/cmd/oras)|go[[:space:]]+run[[:space:]]+(github\.com/caarlos0/svu/v3|github\.com/golangci/golangci-lint/v2/cmd/golangci-lint|github\.com/goreleaser/goreleaser/v2|oras\.land/oras/cmd/oras)|go[[:space:]]+tool[[:space:]]+(wails3|svu|buf|golangci-lint|goreleaser|protoc-gen-go|protoc-gen-connect-go|oras)([[:space:]]|$)|(^|[[:space:]`;&|])(wails3|svu|buf|golangci-lint|goreleaser|oras)[[:space:]]+(current|next|major|minor|patch|prerelease|dev|build|package|generate|format|lint|breaking|run|release|check|login|push)([[:space:]]|$))'
 	local allowed_pattern='go tool -modfile=tools/(wails|svu|buf|goreleaser|protoc-gen-go|protoc-gen-connect-go)/go\.mod (wails3|svu|buf|goreleaser|protoc-gen-go|protoc-gen-connect-go)([[:space:]]|$)'
 
   while IFS= read -r -d '' file; do
@@ -244,7 +244,7 @@ check_tree() {
   check_tool_pin "$scan_root" buf github.com/bufbuild/buf/cmd/buf github.com/bufbuild/buf v1.73.0 || return
   check_tool_pin "$scan_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.14.0 || return
   check_tool_pin "$scan_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.12 || return
-  check_tool_pin "$scan_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.21.0 || return
+  check_tool_pin "$scan_root" protoc-gen-connect-go connectrpc.com/connect/v2/cmd/protoc-gen-connect-go connectrpc.com/connect/v2 v2.0.0 || return
 	check_tool_pin "$scan_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.3 || return
   check_tool_pin "$scan_root" svu github.com/caarlos0/svu/v3 github.com/caarlos0/svu/v3 v3.4.1 || return
   check_root_module "$scan_root" "$expected_root_module" || return
@@ -327,7 +327,7 @@ self_test() {
   write_fixture_module "$fixture_root" buf github.com/bufbuild/buf/cmd/buf github.com/bufbuild/buf v1.73.0
   write_fixture_module "$fixture_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.14.0
   write_fixture_module "$fixture_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.12
-  write_fixture_module "$fixture_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.21.0
+  write_fixture_module "$fixture_root" protoc-gen-connect-go connectrpc.com/connect/v2/cmd/protoc-gen-connect-go connectrpc.com/connect/v2 v2.0.0
   write_fixture_module "$fixture_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.3
   write_fixture_module "$fixture_root" svu github.com/caarlos0/svu/v3 github.com/caarlos0/svu/v3 v3.4.1
   check_fixture_tree "$fixture_root"

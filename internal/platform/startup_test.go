@@ -62,8 +62,8 @@ func TestWailsV3GoToolsAreIsolatedFromApplicationModule(t *testing.T) {
 		{
 			name:          "protoc-gen-connect-go",
 			directory:     "protoc-gen-connect-go",
-			tool:          "connectrpc.com/connect/cmd/protoc-gen-connect-go",
-			parentRequire: "connectrpc.com/connect v1.21.0",
+			tool:          "connectrpc.com/connect/v2/cmd/protoc-gen-connect-go",
+			parentRequire: "connectrpc.com/connect/v2 v2.0.0",
 			goVersion:     "1.27.0",
 		},
 		{

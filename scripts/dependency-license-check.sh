@@ -9,13 +9,13 @@ wails_module_file="$repository_root/tools/wails/go.mod"
 notice_file="$repository_root/THIRD_PARTY_NOTICES.md"
 
 readonly ngrok_module='golang.ngrok.com/ngrok/v2'
-readonly ngrok_version='v2.1.4'
+readonly ngrok_version='v2.2.0'
 readonly keychain_module='github.com/keybase/go-keychain'
 readonly keychain_version='v0.0.1'
 readonly wincred_module='github.com/danieljoos/wincred'
 readonly wincred_version='v1.2.3'
 readonly dbus_module='github.com/godbus/dbus/v5'
-readonly dbus_version='v5.2.2'
+readonly dbus_version='v5.2.3'
 readonly wails_module='github.com/wailsapp/wails/v3'
 readonly wails_version='v3.0.0-beta.28'
 readonly task_module='github.com/go-task/task/v3'

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"path"
@@ -11,7 +12,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
@@ -72,7 +74,11 @@ func NewConnectService(config ConnectServiceConfig) (*ConnectService, error) {
 // decoded protobuf limit applied to every procedure, including unknown fields
 // and decompressed messages.
 func NewConnectHandler(service *ConnectService) (string, http.Handler) {
-	return playerv1connect.NewPlayerServiceHandler(service, connect.WithReadMaxBytes(MaxUncompressedMessageBytes))
+	server := connect.NewServer()
+	playerv1connect.RegisterPlayerServiceHandler(server, service)
+	mux := http.NewServeMux()
+	connecthttp.Mount(mux, server, connecthttp.WithReadMaxBytes(MaxUncompressedMessageBytes))
+	return "/" + playerv1connect.PlayerServiceName + "/", mux
 }
 
 // CloseSubscriptions terminates all active physical streams during ordered
@@ -86,15 +92,15 @@ func (service *ConnectService) CloseSubscriptions() {
 
 // Subscribe attaches before capturing and sending exactly one complete first
 // snapshot, then drains only strictly newer queued compound updates.
-func (service *ConnectService) Subscribe(ctx context.Context, request *connect.Request[playerv1.SubscribeRequest], stream *connect.ServerStream[playerv1.SubscriptionMessage]) error {
-	if ctx == nil || service == nil || request == nil || stream == nil {
-		return connect.NewError(connect.CodeInvalidArgument, errors.New("subscribe request is required"))
+func (service *ConnectService) Subscribe(ctx context.Context, request *playerv1.SubscribeRequest, stream playerv1connect.PlayerServiceSubscribeServerStream) error {
+	if ctx == nil || service == nil || request == nil {
+		return connect.NewError(connect.CodeInvalidArgument, "subscribe request is required")
 	}
-	handle, err := SubscribeRecognition(request.Msg)
+	handle, err := SubscribeRecognition(request)
 	if err != nil {
 		return publicConnectError(err)
 	}
-	clientInstanceID, err := SubscribeClientInstance(request.Msg)
+	clientInstanceID, err := SubscribeClientInstance(request)
 	if err != nil {
 		return publicConnectError(err)
 	}
@@ -112,11 +118,11 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 		service.hub.Register(physical)
 	})
 	if err != nil {
-		return connect.NewError(connect.CodeUnavailable, errors.New("player subscription is temporarily unavailable"))
+		return connect.NewError(connect.CodeUnavailable, "player subscription is temporarily unavailable")
 	}
 	if conversionErr != nil || snapshot == nil || physical == nil {
 		service.coordinator.DetachConnection(connectionID)
-		return connect.NewError(connect.CodeInternal, errors.New("could not build player snapshot"))
+		return connect.NewError(connect.CodeInternal, "could not build player snapshot")
 	}
 	service.emitClientCount()
 	defer func() {
@@ -146,7 +152,7 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 		}
 		select {
 		case <-ctx.Done():
-			return connect.NewError(connect.CodeCanceled, errors.New("player subscription canceled"))
+			return connect.NewError(connect.CodeCanceled, "player subscription canceled")
 		case <-physical.Done():
 			return nil
 		case update := <-physical.Updates():
@@ -165,16 +171,16 @@ func (service *ConnectService) Subscribe(ctx context.Context, request *connect.R
 // remains the only downlink. The first frame binds one tab generation to its
 // current physical subscription; every intent is revalidated before canonical
 // connection-aware dispatch.
-func (service *ConnectService) PresentationUplink(ctx context.Context, stream *connect.ClientStream[playerv1.PresentationUplinkRequest]) (*connect.Response[playerv1.PresentationUplinkResponse], error) {
-	if service == nil || ctx == nil || stream == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink is required"))
+func (service *ConnectService) PresentationUplink(ctx context.Context, stream playerv1connect.PlayerServicePresentationUplinkServerStream) (*playerv1.PresentationUplinkResponse, error) {
+	if service == nil || ctx == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, "presentation uplink is required")
 	}
-	if !stream.Receive() {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink open frame is required"))
+	first, err := stream.Receive()
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, "presentation uplink open frame is required")
 	}
-	first := stream.Msg()
 	if first == nil || first.GetOpen() == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink must begin with an open frame"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "presentation uplink must begin with an open frame")
 	}
 	binding, err := PresentationUplinkOpenFromProto(first.GetOpen())
 	if err != nil {
@@ -186,7 +192,7 @@ func (service *ConnectService) PresentationUplink(ctx context.Context, stream *c
 		if errors.Is(err, errPresentationUplinkLimit) {
 			code = connect.CodeResourceExhausted
 		}
-		return nil, connect.NewError(code, errors.New("presentation uplink cannot bind to the current subscription"))
+		return nil, connect.NewError(code, "presentation uplink cannot bind to the current subscription")
 	}
 	defer service.hub.ReleaseUplink(uplink, errors.New("presentation uplink completed"))
 
@@ -197,16 +203,23 @@ func (service *ConnectService) PresentationUplink(ctx context.Context, stream *c
 		},
 	}}
 	if !uplink.Subscription.PublishTargeted(ctx, ready) {
-		return nil, connect.NewError(connect.CodeUnavailable, errors.New("presentation uplink ready delivery failed"))
+		return nil, connect.NewError(connect.CodeUnavailable, "presentation uplink ready delivery failed")
 	}
 
 	processorDone := make(chan error, 1)
 	go func() { processorDone <- service.processPresentationUplink(uplink) }()
-	for stream.Receive() {
-		frame := stream.Msg()
+	for {
+		frame, err := stream.Receive()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			uplink.Close(err)
+			return nil, mapStreamError(err)
+		}
 		if frame == nil || frame.GetIntent() == nil || frame.GetOpen() != nil {
 			uplink.Close(errors.New("presentation uplink frame is invalid"))
-			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation uplink intent frame is invalid"))
+			return nil, connect.NewError(connect.CodeInvalidArgument, "presentation uplink intent frame is invalid")
 		}
 		intent := frame.GetIntent()
 		if _, err := PresentationIntentFromProto(intent); err != nil {
@@ -215,25 +228,22 @@ func (service *ConnectService) PresentationUplink(ctx context.Context, stream *c
 		}
 		if domain.RecognitionHandle(intent.GetRecognitionHandle()) != binding.RecognitionHandle || !service.hub.Current(uplink) {
 			uplink.Close(errPresentationUplinkGeneration)
-			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("presentation uplink generation is stale"))
+			return nil, connect.NewError(connect.CodeFailedPrecondition, "presentation uplink generation is stale")
 		}
 		if !uplink.Limiter.Allow() {
 			uplink.Close(errPresentationUplinkLimit)
-			return nil, connect.NewError(connect.CodeResourceExhausted, errors.New("presentation uplink rate limit exceeded"))
+			return nil, connect.NewError(connect.CodeResourceExhausted, "presentation uplink rate limit exceeded")
 		}
 		if !uplink.Mailbox.Offer(intent) {
-			return nil, connect.NewError(connect.CodeCanceled, errors.New("presentation uplink closed"))
+			return nil, connect.NewError(connect.CodeCanceled, "presentation uplink closed")
 		}
 	}
-	if err := stream.Err(); err != nil {
-		uplink.Close(err)
-		return nil, mapStreamError(err)
-	}
+
 	uplink.Mailbox.Finish()
 	if err := <-processorDone; err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&playerv1.PresentationUplinkResponse{}), nil
+	return &playerv1.PresentationUplinkResponse{}, nil
 }
 
 func (service *ConnectService) processPresentationUplink(uplink *PresentationUplink) error {
@@ -243,7 +253,7 @@ func (service *ConnectService) processPresentationUplink(uplink *PresentationUpl
 			return nil
 		}
 		if !service.hub.Current(uplink) {
-			return connect.NewError(connect.CodeFailedPrecondition, errors.New("presentation uplink generation is stale"))
+			return connect.NewError(connect.CodeFailedPrecondition, "presentation uplink generation is stale")
 		}
 		mutation, err := PresentationIntentFromProto(intent)
 		if err != nil {
@@ -257,7 +267,7 @@ func (service *ConnectService) processPresentationUplink(uplink *PresentationUpl
 			},
 		}}
 		if !uplink.Subscription.PublishTargeted(uplink.Context, message) {
-			return connect.NewError(connect.CodeCanceled, errors.New("presentation uplink result delivery canceled"))
+			return connect.NewError(connect.CodeCanceled, "presentation uplink result delivery canceled")
 		}
 	}
 }
@@ -290,11 +300,11 @@ func (service *ConnectService) emitClientCount() {
 // SelectCharacter resolves the opaque handle without creating state, executes
 // the coordinator transaction once, and offers its authoritative update before
 // completing the unary response.
-func (service *ConnectService) SelectCharacter(_ context.Context, request *connect.Request[playerv1.SelectCharacterRequest]) (*connect.Response[playerv1.ActionResult], error) {
+func (service *ConnectService) SelectCharacter(_ context.Context, request *playerv1.SelectCharacterRequest) (*playerv1.ActionResult, error) {
 	if service == nil || request == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("select character request is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "select character request is required")
 	}
-	mutation, err := SelectionFromProto(request.Msg, "")
+	mutation, err := SelectionFromProto(request, "")
 	if err != nil {
 		return nil, publicConnectError(err)
 	}
@@ -304,15 +314,15 @@ func (service *ConnectService) SelectCharacter(_ context.Context, request *conne
 		mutation.Selection.BroadcastID,
 		mutation.Selection.CharacterID,
 	)
-	return connect.NewResponse(ActionResultToProto(result)), nil
+	return ActionResultToProto(result), nil
 }
 
 // Navigate validates the exact action variant and invokes the canonical action once.
-func (service *ConnectService) Navigate(_ context.Context, request *connect.Request[playerv1.NavigateRequest]) (*connect.Response[playerv1.ActionResult], error) {
+func (service *ConnectService) Navigate(_ context.Context, request *playerv1.NavigateRequest) (*playerv1.ActionResult, error) {
 	if service == nil || request == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("navigate request is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "navigate request is required")
 	}
-	mutation, err := NavigateFromProto(request.Msg)
+	mutation, err := NavigateFromProto(request)
 	if err != nil {
 		return nil, publicConnectError(err)
 	}
@@ -320,11 +330,11 @@ func (service *ConnectService) Navigate(_ context.Context, request *connect.Requ
 }
 
 // Guess validates the exact word/filler variant and invokes the canonical action once.
-func (service *ConnectService) Guess(_ context.Context, request *connect.Request[playerv1.GuessRequest]) (*connect.Response[playerv1.ActionResult], error) {
+func (service *ConnectService) Guess(_ context.Context, request *playerv1.GuessRequest) (*playerv1.ActionResult, error) {
 	if service == nil || request == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("guess request is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "guess request is required")
 	}
-	mutation, err := GuessFromProto(request.Msg)
+	mutation, err := GuessFromProto(request)
 	if err != nil {
 		return nil, publicConnectError(err)
 	}
@@ -332,11 +342,11 @@ func (service *ConnectService) Guess(_ context.Context, request *connect.Request
 }
 
 // ActivatePattern validates the opaque pattern target and invokes the canonical action once.
-func (service *ConnectService) ActivatePattern(_ context.Context, request *connect.Request[playerv1.ActivatePatternRequest]) (*connect.Response[playerv1.ActionResult], error) {
+func (service *ConnectService) ActivatePattern(_ context.Context, request *playerv1.ActivatePatternRequest) (*playerv1.ActionResult, error) {
 	if service == nil || request == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("activate pattern request is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "activate pattern request is required")
 	}
-	mutation, err := ActivatePatternFromProto(request.Msg)
+	mutation, err := ActivatePatternFromProto(request)
 	if err != nil {
 		return nil, publicConnectError(err)
 	}
@@ -345,11 +355,11 @@ func (service *ConnectService) ActivatePattern(_ context.Context, request *conne
 
 // SetPresentation validates one semantic controller-owned view mutation and
 // invokes the same ordered coordinator boundary as navigation and hacking.
-func (service *ConnectService) SetPresentation(_ context.Context, request *connect.Request[playerv1.SetPresentationRequest]) (*connect.Response[playerv1.ActionResult], error) {
+func (service *ConnectService) SetPresentation(_ context.Context, request *playerv1.SetPresentationRequest) (*playerv1.ActionResult, error) {
 	if service == nil || request == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("presentation request is required"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, "presentation request is required")
 	}
-	mutation, err := PresentationFromProto(request.Msg)
+	mutation, err := PresentationFromProto(request)
 	if err != nil {
 		return nil, publicConnectError(err)
 	}
@@ -358,17 +368,17 @@ func (service *ConnectService) SetPresentation(_ context.Context, request *conne
 
 // SoundManifest returns only allowlisted files from the embedded player asset
 // filesystem. The typed category is validated before the filesystem is read.
-func (service *ConnectService) SoundManifest(ctx context.Context, request *connect.Request[playerv1.SoundManifestRequest]) (*connect.Response[playerv1.SoundManifestResponse], error) {
-	if service == nil || request == nil || request.Msg == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("sound manifest request is required"))
+func (service *ConnectService) SoundManifest(ctx context.Context, request *playerv1.SoundManifestRequest) (*playerv1.SoundManifestResponse, error) {
+	if service == nil || request == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, "sound manifest request is required")
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, connect.NewError(connect.CodeCanceled, errors.New("sound manifest request canceled"))
+		return nil, connect.NewError(connect.CodeCanceled, "sound manifest request canceled")
 	}
-	if err := ValidateMessageSize(request.Msg); err != nil {
+	if err := ValidateMessageSize(request); err != nil {
 		return nil, publicConnectError(err)
 	}
-	category, err := SoundCategoryFromProto(request.Msg.Category)
+	category, err := SoundCategoryFromProto(request.Category)
 	if err != nil {
 		return nil, publicConnectError(err)
 	}
@@ -391,24 +401,24 @@ func (service *ConnectService) SoundManifest(ctx context.Context, request *conne
 		}
 	}
 	sort.Strings(assets)
-	return connect.NewResponse(SoundManifestToProto(domain.SoundManifest{Category: category, Assets: assets})), nil
+	return SoundManifestToProto(domain.SoundManifest{Category: category, Assets: assets}), nil
 }
 
-func (service *ConnectService) dispatchRuntimeMutation(mutation RuntimeMutation) *connect.Response[playerv1.ActionResult] {
+func (service *ConnectService) dispatchRuntimeMutation(mutation RuntimeMutation) *playerv1.ActionResult {
 	result := service.coordinator.DispatchPlayerActionForRecognition(mutation.RecognitionHandle, mutation.Command)
-	return connect.NewResponse(ActionResultToProto(result))
+	return ActionResultToProto(result)
 }
 
 func publicConnectError(err error) error {
 	if errors.Is(err, ErrResourceExhausted) {
-		return connect.NewError(connect.CodeResourceExhausted, errors.New("public player request exceeds the configured limit"))
+		return connect.NewError(connect.CodeResourceExhausted, "public player request exceeds the configured limit")
 	}
-	return connect.NewError(connect.CodeInvalidArgument, errors.New("public player request is invalid"))
+	return connect.NewError(connect.CodeInvalidArgument, "public player request is invalid")
 }
 
 func mapStreamError(err error) error {
 	if errors.Is(err, context.Canceled) {
-		return connect.NewError(connect.CodeCanceled, errors.New("player subscription canceled"))
+		return connect.NewError(connect.CodeCanceled, "player subscription canceled")
 	}
-	return connect.NewError(connect.CodeUnavailable, errors.New("player subscription ended"))
+	return connect.NewError(connect.CodeUnavailable, "player subscription ended")
 }

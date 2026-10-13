@@ -8,7 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
@@ -31,23 +32,23 @@ func TestPresentationUplinkOpenPublishesReadyToMatchingSubscription(t *testing.T
 	}())
 	t.Cleanup(server.Close)
 
-	client := playerv1connect.NewPlayerServiceClient(server.Client(), server.URL)
+	client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(server.Client(), server.URL, connecthttp.WithReadMaxBytes(0))))
 	clientID := "tab-ready"
 	subscriptionContext, cancelSubscription := context.WithCancelCause(t.Context())
 	t.Cleanup(func() { cancelSubscription(errors.New("test subscription closed")) })
-	subscription, err := client.Subscribe(subscriptionContext, connect.NewRequest(&playerv1.SubscribeRequest{ClientInstanceId: &clientID}))
+	subscription, err := client.Subscribe(subscriptionContext, &playerv1.SubscribeRequest{ClientInstanceId: &clientID})
 	require.NoError(t, err)
-	require.True(t, subscription.Receive(), "snapshot: %v", subscription.Err())
-	handle := subscription.Msg().GetSnapshot().GetRecognitionHandle()
+	t.Cleanup(func() { _ = subscription.Close() })
+	handle := receiveSubscriptionMessage(t, subscription).GetSnapshot().GetRecognitionHandle()
 
 	uplinkContext, cancelUplink := context.WithCancelCause(t.Context())
 	t.Cleanup(func() { cancelUplink(errors.New("test uplink closed")) })
-	uplink := client.PresentationUplink(uplinkContext)
+	uplink, err := client.PresentationUplink(uplinkContext)
+	require.NoError(t, err)
 	require.NoError(t, uplink.Send(&playerv1.PresentationUplinkRequest{Payload: &playerv1.PresentationUplinkRequest_Open{
 		Open: &playerv1.PresentationUplinkOpen{ClientInstanceId: clientID, UplinkGeneration: 1, RecognitionHandle: handle},
 	}}))
-	require.True(t, subscription.Receive(), "ready: %v", subscription.Err())
-	ready := subscription.Msg().GetPresentationUplinkResult()
+	ready := receiveSubscriptionMessage(t, subscription).GetPresentationUplinkResult()
 	require.NotNil(t, ready)
 	require.Equal(t, clientID, ready.GetClientInstanceId())
 	require.Equal(t, uint64(1), ready.GetUplinkGeneration())
@@ -67,19 +68,19 @@ func TestConnectSubscribeBeginsWithCompleteSnapshotAndSelectsCharacter(t *testin
 	service, err = NewConnectService(ConnectServiceConfig{Coordinator: coordinator})
 	require.NoError(t, err)
 
-	path, handler := playerv1connect.NewPlayerServiceHandler(service)
+	path, handler := NewConnectHandler(service)
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	client := playerv1connect.NewPlayerServiceClient(server.Client(), server.URL)
+	client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(server.Client(), server.URL, connecthttp.WithReadMaxBytes(0))))
 	streamContext, cancelStream := context.WithCancelCause(t.Context())
 	t.Cleanup(func() { cancelStream(errors.New("test subscription closed")) })
-	stream, err := client.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{}))
+	stream, err := client.Subscribe(streamContext, &playerv1.SubscribeRequest{})
 	require.NoError(t, err)
-	require.True(t, stream.Receive())
-	first := stream.Msg()
+	t.Cleanup(func() { _ = stream.Close() })
+	first := receiveSubscriptionMessage(t, stream)
 	snapshot := first.GetSnapshot()
 	require.NotNil(t, snapshot)
 	require.NotEmpty(t, snapshot.GetRecognitionHandle())
@@ -101,20 +102,19 @@ func TestConnectSubscribeBeginsWithCompleteSnapshotAndSelectsCharacter(t *testin
 	}
 	require.Empty(t, cmp.Diff(wantPlayer, snapshot.GetPlayerState(), protocmp.Transform()))
 
-	response, err := client.SelectCharacter(t.Context(), connect.NewRequest(&playerv1.SelectCharacterRequest{
+	response, err := client.SelectCharacter(t.Context(), &playerv1.SelectCharacterRequest{
 		RecognitionHandle: snapshot.GetRecognitionHandle(),
 		RequestId:         "request-1",
 		BroadcastId:       "broadcast-1",
 		CharacterId:       "character-1",
-	}))
+	})
 	require.NoError(t, err)
-	require.True(t, response.Msg.GetAccepted())
-	require.Equal(t, playerv1.ActionReason_ACTION_REASON_ACCEPTED, response.Msg.GetReason())
-	require.Greater(t, response.Msg.GetRevision(), snapshot.GetRevision())
-	require.True(t, stream.Receive())
-	update := stream.Msg().GetUpdate()
+	require.True(t, response.GetAccepted())
+	require.Equal(t, playerv1.ActionReason_ACTION_REASON_ACCEPTED, response.GetReason())
+	require.Greater(t, response.GetRevision(), snapshot.GetRevision())
+	update := receiveSubscriptionMessage(t, stream).GetUpdate()
 	require.NotNil(t, update)
-	require.Equal(t, response.Msg.GetRevision(), update.GetRevision())
+	require.Equal(t, response.GetRevision(), update.GetRevision())
 	require.NotNil(t, update.GetPlayerState())
 }
 
@@ -133,17 +133,17 @@ func TestConnectSubscribeHandleMatrixRejectsInvalidWithoutCanonicalEffects(t *te
 			beforeRevision := coordinator.Revision()
 			service, err := NewConnectService(ConnectServiceConfig{Coordinator: coordinator})
 			require.NoError(t, err)
-			path, handler := playerv1connect.NewPlayerServiceHandler(service)
+			path, handler := NewConnectHandler(service)
 			mux := http.NewServeMux()
 			mux.Handle(path, handler)
 			server := httptest.NewServer(mux)
 			t.Cleanup(server.Close)
-			client := playerv1connect.NewPlayerServiceClient(server.Client(), server.URL)
+			client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(server.Client(), server.URL, connecthttp.WithReadMaxBytes(0))))
 
-			stream, err := client.Subscribe(t.Context(), connect.NewRequest(&playerv1.SubscribeRequest{RecognitionHandle: &test.handle}))
+			stream, err := client.Subscribe(t.Context(), &playerv1.SubscribeRequest{RecognitionHandle: &test.handle})
 			if err == nil {
-				require.False(t, stream.Receive())
-				err = stream.Err()
+				t.Cleanup(func() { _ = stream.Close() })
+				_, err = stream.Receive()
 			}
 			require.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 			require.Equal(t, beforeRevision, coordinator.Revision())
@@ -162,48 +162,48 @@ func TestTypedSharedActionHandlersRejectUnassignedSessionWithoutMutation(t *test
 
 	tests := []struct {
 		name string
-		call func() (*connect.Response[playerv1.ActionResult], error)
+		call func() (*playerv1.ActionResult, error)
 	}{
 		{
 			name: "navigate",
-			call: func() (*connect.Response[playerv1.ActionResult], error) {
-				return service.Navigate(t.Context(), connect.NewRequest(&playerv1.NavigateRequest{
+			call: func() (*playerv1.ActionResult, error) {
+				return service.Navigate(t.Context(), &playerv1.NavigateRequest{
 					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "navigate-1",
 					BroadcastId: "broadcast-1", TerminalId: "terminal-1",
 					Action: &playerv1.NavigateRequest_Back{Back: &playerv1.NavigateBack{}},
-				}))
+				})
 			},
 		},
 		{
 			name: "guess",
-			call: func() (*connect.Response[playerv1.ActionResult], error) {
-				return service.Guess(t.Context(), connect.NewRequest(&playerv1.GuessRequest{
+			call: func() (*playerv1.ActionResult, error) {
+				return service.Guess(t.Context(), &playerv1.GuessRequest{
 					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "guess-1",
 					BroadcastId: "broadcast-1", TerminalId: "terminal-1",
 					Target: &playerv1.GuessRequest_WordId{WordId: "word-1"},
-				}))
+				})
 			},
 		},
 		{
 			name: "activate pattern",
-			call: func() (*connect.Response[playerv1.ActionResult], error) {
-				return service.ActivatePattern(t.Context(), connect.NewRequest(&playerv1.ActivatePatternRequest{
+			call: func() (*playerv1.ActionResult, error) {
+				return service.ActivatePattern(t.Context(), &playerv1.ActivatePatternRequest{
 					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "pattern-1",
 					BroadcastId: "broadcast-1", TerminalId: "terminal-1", PatternId: "opaque-pattern-1",
-				}))
+				})
 			},
 		},
 		{
 			name: "set presentation",
-			call: func() (*connect.Response[playerv1.ActionResult], error) {
-				return service.SetPresentation(t.Context(), connect.NewRequest(&playerv1.SetPresentationRequest{
+			call: func() (*playerv1.ActionResult, error) {
+				return service.SetPresentation(t.Context(), &playerv1.SetPresentationRequest{
 					RecognitionHandle: string(snapshot.RecognitionHandle), RequestId: "presentation-1",
 					BroadcastId: "broadcast-1", TerminalId: "terminal-1", ContextKey: "menu:root",
 					Presentation: &playerv1.ControllerTerminalPresentation{
 						ContextKey:   "menu:root",
 						Presentation: &playerv1.ControllerTerminalPresentation_Menu{Menu: &playerv1.MenuSelection{TargetId: "docs"}},
 					},
-				}))
+				})
 			},
 		},
 	}
@@ -211,9 +211,9 @@ func TestTypedSharedActionHandlersRejectUnassignedSessionWithoutMutation(t *test
 		t.Run(test.name, func(t *testing.T) {
 			response, err := test.call()
 			require.NoError(t, err)
-			require.False(t, response.Msg.GetAccepted())
-			require.Equal(t, playerv1.ActionReason_ACTION_REASON_UNASSIGNED, response.Msg.GetReason())
-			require.Equal(t, beforeRevision, response.Msg.GetRevision())
+			require.False(t, response.GetAccepted())
+			require.Equal(t, playerv1.ActionReason_ACTION_REASON_UNASSIGNED, response.GetReason())
+			require.Equal(t, beforeRevision, response.GetRevision())
 		})
 	}
 	require.Equal(t, beforeRevision, coordinator.Revision())
@@ -233,39 +233,39 @@ func TestTypedHandlersClassifyStructuralDomainAndBoundaryErrorsSafely(t *testing
 		{
 			name: "blank recognition",
 			call: func() error {
-				_, err := service.Navigate(t.Context(), connect.NewRequest(&playerv1.NavigateRequest{
+				_, err := service.Navigate(t.Context(), &playerv1.NavigateRequest{
 					RequestId: "request-1", BroadcastId: "broadcast-1", TerminalId: "terminal-1",
 					Action: &playerv1.NavigateRequest_Back{Back: &playerv1.NavigateBack{}},
-				}))
+				})
 				return err
 			},
 		},
 		{
 			name: "oversized request identity",
 			call: func() error {
-				_, err := service.SelectCharacter(t.Context(), connect.NewRequest(&playerv1.SelectCharacterRequest{
+				_, err := service.SelectCharacter(t.Context(), &playerv1.SelectCharacterRequest{
 					RecognitionHandle: secret, RequestId: strings.Repeat("r", domain.MaxRequestIDBytes+1),
 					BroadcastId: "broadcast-1", CharacterId: "character-1",
-				}))
+				})
 				return err
 			},
 		},
 		{
 			name: "missing navigation variant",
 			call: func() error {
-				_, err := service.Navigate(t.Context(), connect.NewRequest(&playerv1.NavigateRequest{
+				_, err := service.Navigate(t.Context(), &playerv1.NavigateRequest{
 					RecognitionHandle: secret, RequestId: "request-2", BroadcastId: "broadcast-1", TerminalId: "terminal-1",
-				}))
+				})
 				return err
 			},
 		},
 		{
 			name: "illegal filler coordinates",
 			call: func() error {
-				_, err := service.Guess(t.Context(), connect.NewRequest(&playerv1.GuessRequest{
+				_, err := service.Guess(t.Context(), &playerv1.GuessRequest{
 					RecognitionHandle: secret, RequestId: "request-3", BroadcastId: "broadcast-1", TerminalId: "terminal-1",
 					Target: &playerv1.GuessRequest_Filler{Filler: &playerv1.FillerTarget{Column: 2}},
-				}))
+				})
 				return err
 			},
 		},
@@ -279,13 +279,13 @@ func TestTypedHandlersClassifyStructuralDomainAndBoundaryErrorsSafely(t *testing
 		})
 	}
 
-	unknown, err := service.ActivatePattern(t.Context(), connect.NewRequest(&playerv1.ActivatePatternRequest{
+	unknown, err := service.ActivatePattern(t.Context(), &playerv1.ActivatePatternRequest{
 		RecognitionHandle: "unknown-but-well-formed", RequestId: "request-4", BroadcastId: "broadcast-1",
 		TerminalId: "terminal-1", PatternId: "pattern-1",
-	}))
+	})
 	require.NoError(t, err)
-	require.False(t, unknown.Msg.GetAccepted())
-	require.Equal(t, playerv1.ActionReason_ACTION_REASON_INVALID_SESSION, unknown.Msg.GetReason())
+	require.False(t, unknown.GetAccepted())
+	require.Equal(t, playerv1.ActionReason_ACTION_REASON_INVALID_SESSION, unknown.GetReason())
 	require.Equal(t, beforeRevision, coordinator.Revision())
 
 	require.Equal(t, playerv1.ActionReason_ACTION_REASON_UNSPECIFIED, ActionResultToProto(domain.ActionResult{Reason: "private-reason"}).GetReason())
@@ -360,10 +360,10 @@ func TestNavigateHandlerKeepsOrdinaryCommandOnExistingTypedPath(t *testing.T) {
 		BroadcastId: "broadcast-ordinary", TerminalId: "terminal-ordinary",
 		Action: &playerv1.NavigateRequest_Command{Command: &playerv1.NavigateCommand{NodeId: "diagnostic"}},
 	}
-	response, err := service.Navigate(t.Context(), connect.NewRequest(request))
+	response, err := service.Navigate(t.Context(), request)
 	require.NoError(t, err)
-	require.True(t, response.Msg.GetAccepted())
-	require.Equal(t, playerv1.ActionReason_ACTION_REASON_ACCEPTED, response.Msg.GetReason())
+	require.True(t, response.GetAccepted())
+	require.Equal(t, playerv1.ActionReason_ACTION_REASON_ACCEPTED, response.GetReason())
 	require.Equal(t, domain.RecognitionHandle("recognition-ordinary"), coordinator.handle)
 	require.Equal(t, domain.RuntimeCommandNavigate, coordinator.command.Kind)
 	require.Equal(t, "command", coordinator.command.Action)
@@ -371,9 +371,9 @@ func TestNavigateHandlerKeepsOrdinaryCommandOnExistingTypedPath(t *testing.T) {
 	require.NotEmpty(t, coordinator.command.PayloadFingerprint)
 
 	firstFingerprint := coordinator.command.PayloadFingerprint
-	replayed, err := service.Navigate(t.Context(), connect.NewRequest(request))
+	replayed, err := service.Navigate(t.Context(), request)
 	require.NoError(t, err)
-	require.Equal(t, response.Msg, replayed.Msg)
+	require.Equal(t, response, replayed)
 	require.Equal(t, 2, coordinator.calls)
 	require.Equal(t, firstFingerprint, coordinator.command.PayloadFingerprint,
 		"the generated ordinary request must retain exact replay identity")
@@ -459,4 +459,11 @@ func newConnectTestCoordinator(t *testing.T, publish ...func(control.Effect)) *c
 	_, err = coordinator.StartBroadcast()
 	require.NoError(t, err)
 	return coordinator
+}
+
+func receiveSubscriptionMessage(t *testing.T, stream playerv1connect.PlayerServiceSubscribeClientStream) *playerv1.SubscriptionMessage {
+	t.Helper()
+	message, err := stream.Receive()
+	require.NoError(t, err)
+	return message
 }

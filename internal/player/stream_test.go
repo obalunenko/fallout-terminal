@@ -10,7 +10,8 @@ import (
 	"testing/fstest"
 	"time"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1/playerv1connect"
@@ -326,25 +327,26 @@ func TestConnectServerShutdownIsBoundedWithBlockedAndCanceledPhysicalStreams(t *
 	_, err = server.Start(t.Context())
 	require.NoError(t, err)
 
-	client := playerv1connect.NewPlayerServiceClient(http.DefaultClient, server.Info().LocalURL)
+	client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(http.DefaultClient, server.Info().LocalURL, connecthttp.WithReadMaxBytes(0))))
 	blockedContext, cancelBlocked := context.WithCancelCause(t.Context())
 	t.Cleanup(func() { cancelBlocked(errors.New("test blocked stream closed")) })
-	blocked, err := client.Subscribe(blockedContext, connect.NewRequest(&playerv1.SubscribeRequest{}))
+	blocked, err := client.Subscribe(blockedContext, &playerv1.SubscribeRequest{})
 	require.NoError(t, err)
-	require.True(t, blocked.Receive(), "stream error: %v", blocked.Err())
-	snapshot := blocked.Msg().GetSnapshot()
+	t.Cleanup(func() { _ = blocked.Close() })
+	snapshot := receiveSubscriptionMessage(t, blocked).GetSnapshot()
 	require.NotNil(t, snapshot)
 
 	healthyContext, cancelHealthy := context.WithCancelCause(t.Context())
-	healthy, err := client.Subscribe(healthyContext, connect.NewRequest(&playerv1.SubscribeRequest{RecognitionHandle: &snapshot.RecognitionHandle}))
+	t.Cleanup(func() { cancelHealthy(errors.New("test healthy stream closed")) })
+	healthy, err := client.Subscribe(healthyContext, &playerv1.SubscribeRequest{RecognitionHandle: &snapshot.RecognitionHandle})
 	require.NoError(t, err)
-	require.True(t, healthy.Receive())
-	healthySnapshot := healthy.Msg().GetSnapshot()
+	t.Cleanup(func() { _ = healthy.Close() })
+	healthySnapshot := receiveSubscriptionMessage(t, healthy).GetSnapshot()
 	sessionID := healthySnapshot.GetPlayerState().GetLogicalSessionId()
 	require.NotEmpty(t, sessionID)
 
 	hub.Offer(domain.LogicalSessionID(sessionID), subscriptionUpdate(healthySnapshot.GetRevision()+1))
-	require.True(t, healthy.Receive())
+	receiveSubscriptionMessage(t, healthy)
 
 	cancelHealthy(errors.New("test healthy stream closed"))
 	require.Eventually(t, func() bool {
@@ -398,20 +400,19 @@ func TestConnectServerLifetimeSurvivesCompletedStartupContext(t *testing.T) {
 	require.Never(t, func() bool { return server.context.Err() != nil }, 50*time.Millisecond, time.Millisecond,
 		"completed startup context canceled the committed player server")
 
-	client := playerv1connect.NewPlayerServiceClient(http.DefaultClient, server.Info().LocalURL)
+	client := playerv1connect.NewPlayerServiceClient(connect.NewClient(connecthttp.NewTransport(http.DefaultClient, server.Info().LocalURL, connecthttp.WithReadMaxBytes(0))))
 	streamContext, cancelStream := context.WithCancelCause(t.Context())
 	t.Cleanup(func() { cancelStream(errors.New("test post-start stream closed")) })
-	stream, err := client.Subscribe(streamContext, connect.NewRequest(&playerv1.SubscribeRequest{}))
+	stream, err := client.Subscribe(streamContext, &playerv1.SubscribeRequest{})
 	require.NoError(t, err)
-	require.True(t, stream.Receive(), "initial snapshot error: %v", stream.Err())
-	snapshot := stream.Msg().GetSnapshot()
+	t.Cleanup(func() { _ = stream.Close() })
+	snapshot := receiveSubscriptionMessage(t, stream).GetSnapshot()
 	require.NotNil(t, snapshot)
 	sessionID := snapshot.GetPlayerState().GetLogicalSessionId()
 	require.NotEmpty(t, sessionID)
 
 	hub.Offer(domain.LogicalSessionID(sessionID), subscriptionUpdate(snapshot.GetRevision()+1))
-	require.True(t, stream.Receive(), "post-start update error: %v", stream.Err())
-	require.Equal(t, snapshot.GetRevision()+1, stream.Msg().GetUpdate().GetRevision())
+	require.Equal(t, snapshot.GetRevision()+1, receiveSubscriptionMessage(t, stream).GetUpdate().GetRevision())
 	require.NoError(t, server.context.Err())
 }
 
