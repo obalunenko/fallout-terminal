@@ -31,7 +31,7 @@ from doctor import (  # noqa: E402
     read_text,
     run_git,
 )
-from spec_context import _entry_kind, _is_step_level  # noqa: E402
+from spec_context import _entry_kind, _is_step_level, feature_spec_path  # noqa: E402
 from task_sync import parse_task_markers  # noqa: E402
 
 #: A fenced block longer than this in a task list is implementation, not a task
@@ -127,26 +127,28 @@ def _artifact_signals(feature_dir: Path, ctx: dict) -> list:
     fast_path = size == "simple"
     signals = []
 
-    spec = read_text(feature_dir / "spec.md")
+    spec_path = feature_spec_path(feature_dir)
+    spec_name = spec_path.name
+    spec = read_text(spec_path)
     plan = read_text(feature_dir / "plan.md")
     tasks = read_text(feature_dir / "tasks.md")
 
     if spec:
-        ids = _task_ids(feature_dir / "spec.md")
+        ids = _task_ids(spec_path)
         if ids:
             # A fast-tracked change keeps its approach inline, but never its task list.
             signals.append({
                 "step": "specify", "did": "tasks",
-                "what": f"{len(ids)} task checkbox(es) in spec.md",
-                "where": "spec.md", "evidence": sorted(set(ids))[:10],
+                "what": f"{len(ids)} task checkbox(es) in {spec_name}",
+                "where": spec_name, "evidence": sorted(set(ids))[:10],
             })
         if not fast_path:
-            signals += _code_signals("specify", "spec.md", spec)
+            signals += _code_signals("specify", spec_name, spec)
             if re.search(r"^##+\s*(Approach|Project Structure|Architecture|Design)\b", spec, re.MULTILINE):
                 signals.append({
                     "step": "specify", "did": "plan",
-                    "what": "a plan-shaped section in spec.md (approach, structure, or design)",
-                    "where": "spec.md", "evidence": [],
+                    "what": f"a plan-shaped section in {spec_name} (approach, structure, or design)",
+                    "where": spec_name, "evidence": [],
                 })
 
     if plan:
@@ -165,12 +167,16 @@ def _artifact_signals(feature_dir: Path, ctx: dict) -> list:
     return signals
 
 
+def _core_docs(feature_dir: Path) -> list:
+    return [feature_spec_path(feature_dir), feature_dir / "plan.md", feature_dir / "tasks.md"]
+
+
 def _duplication_signals(feature_dir: Path) -> list:
     """Task identifiers living in more than one document — two copies that will diverge."""
     where: dict = {}
-    for name in ("spec.md", "plan.md", "tasks.md"):
-        for tid in set(_task_ids(feature_dir / name)):
-            where.setdefault(tid, []).append(name)
+    for doc in _core_docs(feature_dir):
+        for tid in set(_task_ids(doc)):
+            where.setdefault(tid, []).append(doc.name)
     dupes = {tid: docs for tid, docs in where.items() if len(docs) > 1}
     if not dupes:
         return []
@@ -213,15 +219,49 @@ def _early_source_signals(root, ctx: dict) -> list:
     return out
 
 
+#: Below this, the gap between elapsed time and the sum of step spans is ordinary
+#: dispatch latency. Above it, the per-step numbers are describing a minority of
+#: the run and should say so.
+UNATTRIBUTED_THRESHOLD = 0.25
+
+
+def _elapsed_gap(ctx: dict) -> dict | None:
+    """Elapsed time versus the time the steps actually account for."""
+    windows = _step_windows(ctx)
+    if not windows:
+        return None
+    durations = [(e - b).total_seconds() for b, e in windows.values()]
+    span_total = sum(durations)
+    begins = [b for b, _ in windows.values()]
+    ends = [e for _, e in windows.values()]
+    elapsed = (max(ends) - min(begins)).total_seconds()
+    if elapsed <= 0:
+        return None
+    return {"elapsed_seconds": elapsed, "step_span_seconds": span_total,
+            "unattributed_share": max(0.0, (elapsed - span_total) / elapsed)}
+
+
 def _time_share(ctx: dict) -> dict | None:
-    """A pre-implement step that consumed more of the run than implement itself."""
+    """A pre-implement step that consumed more of the run than implement itself.
+
+    Shares are computed against ELAPSED time, not the sum of step spans. Those
+    are not the same number: a step's boundary is stamped when the command body
+    reaches its start line, so work done before that — reading the plan, editing
+    files — lands between steps and belongs to none of them. Measured on a real
+    run, that gap was 49% of the clock. Dividing by the sum of spans quietly
+    removed it and roughly doubled every share it reported as "of the run".
+    """
     windows = _step_windows(ctx)
     if "implement" not in windows:
         return None
     durations = {s: (e - b).total_seconds() for s, (b, e) in windows.items()}
-    total = sum(durations.values())
-    if total <= 0:
+    span_total = sum(durations.values())
+    if span_total <= 0:
         return None
+    begins = [b for b, _ in windows.values()]
+    ends = [e for _, e in windows.values()]
+    elapsed = (max(ends) - min(begins)).total_seconds()
+    total = elapsed if elapsed > 0 else span_total
     impl = durations["implement"]
     worse = {s: d for s, d in durations.items()
              if s in STEP_ORDER_PRE_IMPLEMENT and d > impl}
@@ -231,13 +271,15 @@ def _time_share(ctx: dict) -> dict | None:
     return {
         "step": step, "share": dur / total, "seconds": dur,
         "implement_seconds": impl, "implement_share": impl / total,
+        "elapsed_seconds": elapsed, "step_span_seconds": span_total,
+        "unattributed_share": max(0.0, (elapsed - span_total) / total) if elapsed > 0 else 0.0,
     }
 
 
 def check_bleed(root, feature_dir: Path, ctx: dict, report=None) -> tuple:
     """Report where one step did another step's work."""
     feature_dir = Path(feature_dir)
-    if not any((feature_dir / n).is_file() for n in ("spec.md", "plan.md", "tasks.md")):
+    if not any(d.is_file() for d in _core_docs(feature_dir)):
         return CheckStatus("bleed", "not-applicable"), []
 
     signals = _artifact_signals(feature_dir, ctx)
@@ -249,7 +291,7 @@ def check_bleed(root, feature_dir: Path, ctx: dict, report=None) -> tuple:
         detail = s["what"]
         if s["evidence"]:
             detail += " — " + ", ".join(str(x) for x in s["evidence"])
-        if s["where"] and s["where"] not in ("spec.md", "plan.md", "tasks.md"):
+        if s["where"] and s["where"] not in {d.name for d in _core_docs(feature_dir)}:
             detail += f" ({s['where']})"
         title = (f"`{s['step']}` did `{s['did']}` work" if s["step"] != s["did"]
                  else "The same task list lives in two documents")
@@ -260,11 +302,23 @@ def check_bleed(root, feature_dir: Path, ctx: dict, report=None) -> tuple:
         findings.append(Finding(
             "bleed", "note",
             f"`{share['step']}` took longer than `implement`",
-            f"{share['step']} {share['seconds']:.0f}s ({share['share']:.0%} of the run) versus "
-            f"implement {share['implement_seconds']:.0f}s ({share['implement_share']:.0%}) — a "
-            f"hard planning phase can be a legitimate reason, so read this alongside the "
-            f"evidence above rather than on its own",
+            f"{share['step']} {share['seconds']:.0f}s ({share['share']:.0%} of elapsed time) "
+            f"versus implement {share['implement_seconds']:.0f}s "
+            f"({share['implement_share']:.0%}) — a hard planning phase can be a legitimate "
+            f"reason, so read this alongside the evidence above rather than on its own",
             share,
+        ))
+
+    gap = _time_share(ctx) or _elapsed_gap(ctx)
+    if gap and gap.get("unattributed_share", 0) >= UNATTRIBUTED_THRESHOLD:
+        findings.append(Finding(
+            "bleed", "warning",
+            f"{gap['unattributed_share']:.0%} of elapsed time belongs to no step",
+            f"{gap['elapsed_seconds']:.0f}s elapsed but the steps only account for "
+            f"{gap['step_span_seconds']:.0f}s — work done before a step stamps its own start "
+            f"is invisible to every per-step number, so those durations measure journaling "
+            f"latency more than they measure work",
+            {k: gap[k] for k in ("elapsed_seconds", "step_span_seconds", "unattributed_share")},
         ))
 
     if report is not None:

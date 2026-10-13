@@ -24,6 +24,60 @@ hooks:
     prompt: Run bugfix consistency check after implementation?
     description: Verify spec artifact consistency after implementation completes
     condition: null
+  after_init:
+  - extension: brownfield
+    command: speckit.brownfield.scan
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: Scan this existing project to customize spec-kit configuration?
+    description: Auto-scan project after spec-kit init to detect tech stack and conventions
+    condition: null
+  before_specify:
+  - extension: feature-numbering
+    command: speckit.feature-numbering.before-specify
+    enabled: true
+    optional: false
+    priority: 5
+    prompt: Execute speckit.feature-numbering.before-specify?
+    description: Bind specify to the next NNN-feature-name directory
+    condition: null
+  - extension: companion
+    command: speckit.companion.before-step
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.companion.before-step?
+    description: Read the clock so after_specify can record when specify started
+    condition: null
+  before_plan:
+  - extension: companion
+    command: speckit.companion.before-step
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.companion.before-step?
+    description: Record plan start (currentStep=plan, status=planning) into .spec-context.json
+    condition: null
+  before_tasks:
+  - extension: companion
+    command: speckit.companion.before-step
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.companion.before-step?
+    description: Record tasks start (currentStep=tasks, status=tasking) into .spec-context.json
+    condition: null
+  before_implement:
+  - extension: companion
+    command: speckit.companion.before-step
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.companion.before-step?
+    description: Record implement start (currentStep=implement, status=implementing)
+      into .spec-context.json
+    condition: null
   after_specify:
   - extension: companion
     command: speckit.companion.after-specify
@@ -53,21 +107,23 @@ hooks:
     description: Record tasks completion (currentStep=tasks, status=ready-to-implement)
       into .spec-context.json
     condition: null
-  after_init:
-  - extension: brownfield
-    command: speckit.brownfield.scan
-    enabled: true
-    optional: true
-    priority: 10
-    prompt: Scan this existing project to customize spec-kit configuration?
-    description: Auto-scan project after spec-kit init to detect tech stack and conventions
-    condition: null
-  before_specify:
-  - extension: feature-numbering
-    command: speckit.feature-numbering.before-specify
+  before_converge:
+  - extension: companion
+    command: speckit.companion.before-converge
     enabled: true
     optional: false
-    priority: 5
-    prompt: Execute speckit.feature-numbering.before-specify?
-    description: Bind specify to the next NNN-feature-name directory
+    priority: 10
+    prompt: Execute speckit.companion.before-converge?
+    description: Record converge start (currentStep=converge, status unchanged) into
+      .spec-context.json
+    condition: null
+  after_converge:
+  - extension: companion
+    command: speckit.companion.after-converge
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.companion.after-converge?
+    description: Record converge finish (currentStep=converge, status unchanged) into
+      .spec-context.json
     condition: null

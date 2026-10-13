@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 wc = importlib.import_module("write-context")
 dff = importlib.import_module("derive-from-files")
+from spec_context import CROSS_STEP_TERMINAL, STEP_COMPLETED_STATUS, TERMINAL_STATUSES, feature_spec_path  # noqa: E402
 
 # Canonical forward pipeline (clarify/analyze are optional and not part of the
 # default next-action path). Mirrors src/core/types/specContext.ts STEP_NAMES.
@@ -39,20 +40,20 @@ NEXT_STEP = {
 }
 
 STEP_COMMAND = {
-    "specify": "/speckit.specify",
-    "plan": "/speckit.plan",
-    "tasks": "/speckit.tasks",
-    "implement": "/speckit.implement",
+    "specify": "speckit.specify",
+    "plan": "speckit.plan",
+    "tasks": "speckit.tasks",
+    "implement": "speckit.implement",
 }
 
 # Companion family — mirrors STEP_COMMAND's keys. Status reports and resume
 # dispatches these when the spec records the companion workflow, so the command
 # family matches the flow the spec has been running.
 COMPANION_STEP_COMMAND = {
-    "specify": "/speckit.companion.specify",
-    "plan": "/speckit.companion.plan",
-    "tasks": "/speckit.companion.tasks",
-    "implement": "/speckit.companion.implement",
+    "specify": "speckit.companion.specify",
+    "plan": "speckit.companion.plan",
+    "tasks": "speckit.companion.tasks",
+    "implement": "speckit.companion.implement",
 }
 
 def _is_companion(ctx: dict) -> bool:
@@ -67,28 +68,19 @@ def _step_command(step: str | None, companion: bool) -> str | None:
     table = COMPANION_STEP_COMMAND if companion else STEP_COMMAND
     return table.get(step)
 
-# Status that marks each step's own completion (the point at which we advance).
-STEP_DONE_STATUS = {
-    "specify": "specified",
-    "plan": "planned",
-    "tasks": "ready-to-implement",
-    "implement": "implemented",
-}
-
 NEXT_LABEL = {
     "plan": "Plan the feature",
     "tasks": "Generate tasks",
     "implement": "Implement",
 }
 
-TERMINAL_STATUSES = {"implemented", "completed", "archived"}
-
 # Pipeline ordering + the artifact each step requires on disk. Used to reconcile
 # recorded state against on-disk evidence (FR-011).
-PIPELINE_ORDER = {"specify": 0, "clarify": 0, "plan": 1, "tasks": 2, "analyze": 2, "implement": 3}
+PIPELINE_ORDER = {"specify": 0, "clarify": 0, "plan": 1, "tasks": 2, "analyze": 2, "implement": 3, "converge": 3}
 REQUIRED_FILE = {
     "specify": "spec.md", "clarify": "spec.md", "plan": "plan.md",
     "tasks": "tasks.md", "analyze": "tasks.md", "implement": "tasks.md",
+    "converge": "tasks.md",
 }
 
 
@@ -101,17 +93,43 @@ def _should_prefer_disk(feature_dir: Path, rec_step: str, disk_step: str) -> boo
     if rec_step not in PIPELINE_ORDER:
         return True
     req = REQUIRED_FILE.get(rec_step)
-    if req and not (feature_dir / req).is_file():
+    req_path = feature_spec_path(feature_dir) if req == "spec.md" else feature_dir / req
+    if req and not req_path.is_file():
         return True
     return PIPELINE_ORDER.get(disk_step, -1) > PIPELINE_ORDER[rec_step]
 
 
-def _decisions(ctx: dict) -> list[str]:
-    """The top-level `decisions[]` passthrough (surfaced as ViewerState.decisions)."""
+def decision_entries(ctx: dict) -> list[dict]:
+    """The top-level `decisions[]` as entries, in recorded order.
+
+    Capture writes `{"decision", "why"?, "rejected"?}`; hand-authored contexts
+    carry bare strings. Reading both, and keeping the entry's detail for a
+    verbose report, follows `pickEntryList` in
+    src/features/spec-viewer/stateDerivation.ts. The one deliberate difference:
+    a bare number renders here because it always did, while the viewer drops it."""
     raw = ctx.get("decisions")
-    if isinstance(raw, list):
-        return [str(d) for d in raw if isinstance(d, (str, int, float)) and str(d).strip()]
-    return []
+    if not isinstance(raw, list):
+        return []
+    out: list[dict] = []
+    for d in raw:
+        if isinstance(d, dict):
+            text = d.get("decision")
+            if isinstance(text, str) and text.strip():
+                out.append(d)
+        elif isinstance(d, str) and d.strip():
+            out.append({"decision": d})
+        elif isinstance(d, (int, float)) and not isinstance(d, bool):
+            # A bare number rendered before this change, so it still does —
+            # dropping it would be a second silent disappearance. A bool is
+            # excluded deliberately: "True" is not a decision anyone wrote, and
+            # the viewer's reader drops it too.
+            out.append({"decision": str(d)})
+    return out
+
+
+def _decisions(ctx: dict) -> list[str]:
+    """Just the decision text of each entry (surfaced as ViewerState.decisions)."""
+    return [e["decision"] for e in decision_entries(ctx)]
 
 
 def _next_unchecked_task(feature_dir: Path) -> str | None:
@@ -178,13 +196,18 @@ def resolve(feature_dir: Path) -> dict:
         "complete": False,
     }
 
+    # Converge appends tasks after implement settled, so once it has run its open tasks outrank `implemented`.
+    converge_ran = any(isinstance(e, dict) and e.get("step") == "converge" for e in ctx.get("history") or [])
+    in_implement = current_step == "converge" or (current_step == "implement" and converge_ran)
+    converge_open = in_implement and status not in CROSS_STEP_TERMINAL
+
     # Terminal: implemented / completed / archived.
-    if status in TERMINAL_STATUSES:
+    if status in TERMINAL_STATUSES and not converge_open:
         resolution["complete"] = True
         resolution["nextActionLabel"] = "Pipeline complete"
         return resolution
 
-    if current_step == "implement":
+    if current_step in ("implement", "converge"):
         next_task = _next_unchecked_task(feature_dir)
         if next_task is None:
             resolution["complete"] = True
@@ -196,7 +219,7 @@ def resolve(feature_dir: Path) -> dict:
         resolution["nextActionLabel"] = f"Continue implementation at {next_task}"
         return resolution
 
-    done_status = STEP_DONE_STATUS.get(current_step)
+    done_status = STEP_COMPLETED_STATUS.get(current_step)
     if done_status is not None and status == done_status:
         # Current step finished — advance to the next pipeline step.
         next_step = NEXT_STEP.get(current_step)

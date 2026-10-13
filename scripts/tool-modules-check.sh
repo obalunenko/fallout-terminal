@@ -239,13 +239,13 @@ check_tree() {
   for module_file in "${tool_module_files[@]}"; do
     check_tool_module_contract "$scan_root" "$module_file" "$expected_tool_module_prefix" || return
   done
-  check_tool_pin "$scan_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.15 || return
-  check_tool_pin "$scan_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.53.1 || return
-  check_tool_pin "$scan_root" buf github.com/bufbuild/buf/cmd/buf github.com/bufbuild/buf v1.72.0 || return
-  check_tool_pin "$scan_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.13.1 || return
-  check_tool_pin "$scan_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.11 || return
-  check_tool_pin "$scan_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.20.0 || return
-	check_tool_pin "$scan_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0 || return
+  check_tool_pin "$scan_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.28 || return
+  check_tool_pin "$scan_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.54.0 || return
+  check_tool_pin "$scan_root" buf github.com/bufbuild/buf/cmd/buf github.com/bufbuild/buf v1.73.0 || return
+  check_tool_pin "$scan_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.14.0 || return
+  check_tool_pin "$scan_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.12 || return
+  check_tool_pin "$scan_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.21.0 || return
+	check_tool_pin "$scan_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.3 || return
   check_tool_pin "$scan_root" svu github.com/caarlos0/svu/v3 github.com/caarlos0/svu/v3 v3.4.1 || return
   check_root_module "$scan_root" "$expected_root_module" || return
   check_make_bootstrap "$scan_root" || return
@@ -322,13 +322,13 @@ self_test() {
   tool_check_go="$fixture_root/bin/go"
   printf 'go tool -modfile=tools/wails/go.mod wails3 generate bindings -clean ./...\n' >"$fixture_root/docs/commands.md"
   printf 'go run -modfile=tools/golangci-lint/go.mod github.com/golangci/golangci-lint/v2/cmd/golangci-lint run\n' >>"$fixture_root/docs/commands.md"
-  write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.15
-  write_fixture_module "$fixture_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.53.1
-  write_fixture_module "$fixture_root" buf github.com/bufbuild/buf/cmd/buf github.com/bufbuild/buf v1.72.0
-  write_fixture_module "$fixture_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.13.1
-  write_fixture_module "$fixture_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.11
-  write_fixture_module "$fixture_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.20.0
-  write_fixture_module "$fixture_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.0
+  write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.28
+  write_fixture_module "$fixture_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.54.0
+  write_fixture_module "$fixture_root" buf github.com/bufbuild/buf/cmd/buf github.com/bufbuild/buf v1.73.0
+  write_fixture_module "$fixture_root" golangci-lint github.com/golangci/golangci-lint/v2/cmd/golangci-lint github.com/golangci/golangci-lint/v2 v2.14.0
+  write_fixture_module "$fixture_root" protoc-gen-go google.golang.org/protobuf/cmd/protoc-gen-go google.golang.org/protobuf v1.36.12
+  write_fixture_module "$fixture_root" protoc-gen-connect-go connectrpc.com/connect/cmd/protoc-gen-connect-go connectrpc.com/connect v1.21.0
+  write_fixture_module "$fixture_root" goreleaser github.com/goreleaser/goreleaser/v2 github.com/goreleaser/goreleaser/v2 v2.18.3
   write_fixture_module "$fixture_root" svu github.com/caarlos0/svu/v3 github.com/caarlos0/svu/v3 v3.4.1
   check_fixture_tree "$fixture_root"
 
@@ -339,11 +339,11 @@ self_test() {
   printf 'module example.test/app\n\ngo 1.27.0\n' >"$fixture_root/go.mod"
 
   write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 \
-    github.com/wailsapp/wails/v3 v3.0.0-beta.15 example.test/v2/tools/wails
+    github.com/wailsapp/wails/v3 v3.0.0-beta.28 example.test/v2/tools/wails
   if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted a tool module migrated with the root v2 identity'
   fi
-  write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.15
+  write_fixture_module "$fixture_root" wails github.com/wailsapp/wails/v3/cmd/wails3 github.com/wailsapp/wails/v3 v3.0.0-beta.28
 
   printf '\ntool github.com/bufbuild/buf/cmd/buf\n' >>"$fixture_root/go.mod"
   if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
@@ -368,7 +368,7 @@ self_test() {
   if check_fixture_tree "$fixture_root" >/dev/null 2>&1; then
     fail 'self-test accepted the wrong Task version'
   fi
-  write_fixture_module "$fixture_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.53.1
+  write_fixture_module "$fixture_root" task github.com/go-task/task/v3/cmd/task github.com/go-task/task/v3 v3.54.0
 
   write_fixture_module "$fixture_root" future example.test/future/cmd/future example.test/future v1.0.0
   check_fixture_tree "$fixture_root"

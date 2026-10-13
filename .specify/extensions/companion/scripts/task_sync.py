@@ -18,7 +18,6 @@ from pathlib import Path
 
 from spec_context import (
     CROSS_STEP_TERMINAL,
-    _entry_kind,
     _git_branch,
     _has_complete,
     _journaled_tasks,
@@ -36,27 +35,55 @@ from spec_context import (
 # `**` is optional: matches the turbo/companion bold form `- [x] **T001**` AND the
 # standard tasks-template plain form `- [x] T001 …`. A `T\d+` is still required right
 # after the checkbox, so non-task checkboxes never false-match.
-COMPLETED_TASK_RE = re.compile(r"^\s*[-*]\s*\[[xX]\]\s*(?:\*\*)?(T\d+)")
-PENDING_TASK_RE = re.compile(r"^\s*[-*]\s*\[\s\]\s*(?:\*\*)?(T\d+)")
-CONVERGENCE_SUBSTEP_RE = re.compile(r"^convergence-(\d+)$")
+#
+# This grammar matches `taskCheckboxes.ts` on the VS Code side, because the two
+# decide the same question — whether every task is done — from opposite sides of
+# the product. `tests/fixtures/task-grammar/` holds the cases they must agree
+# on, and both test suites read it.
+COMPLETED_TASK_RE = re.compile(r"^\s*[-*+]\s*\[[xX]\]\s*(?:\*\*)?(T\d+)")
+PENDING_TASK_RE = re.compile(r"^\s*[-*+]\s*\[\s\]\s*(?:\*\*)?(T\d+)")
+_FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
+_INLINE_CODE_RE = re.compile(r"(`+)[^`]*?\1")
+
+
+def prose_lines(content: str):
+    """The document's lines with fenced blocks dropped and code spans blanked.
+
+    A checkbox inside a code fence is documentation showing the syntax, not
+    work — counting it once let this side report a task list complete while
+    the viewer, which has always skipped fences, still showed tasks left.
+    """
+    open_fence: str | None = None
+    for raw in content.splitlines():
+        fence = _FENCE_RE.match(raw)
+        marker = fence.group(1) if fence else None
+        if open_fence:
+            if marker and marker[0] == open_fence[0] and len(marker) >= len(open_fence):
+                open_fence = None
+            continue
+        if marker:
+            open_fence = marker
+            continue
+        yield _INLINE_CODE_RE.sub("", raw)
 
 
 def parse_task_markers(tasks_md: Path) -> tuple[list[str], list[str]]:
     """Return (all_task_ids, completed_task_ids) in document order from tasks.md."""
+    try:
+        content = tasks_md.read_text(encoding="utf-8")
+    except OSError:
+        return [], []
     all_ids: list[str] = []
     done_ids: list[str] = []
-    try:
-        for line in tasks_md.read_text(encoding="utf-8").splitlines():
-            m = COMPLETED_TASK_RE.match(line)
-            if m:
-                all_ids.append(m.group(1))
-                done_ids.append(m.group(1))
-                continue
-            m = PENDING_TASK_RE.match(line)
-            if m:
-                all_ids.append(m.group(1))
-    except OSError:
-        pass
+    for line in prose_lines(content):
+        m = COMPLETED_TASK_RE.match(line)
+        if m:
+            all_ids.append(m.group(1))
+            done_ids.append(m.group(1))
+            continue
+        m = PENDING_TASK_RE.match(line)
+        if m:
+            all_ids.append(m.group(1))
     return all_ids, done_ids
 
 
@@ -82,6 +109,15 @@ def _mark_tasks_done(tasks_md: Path, ids: set) -> None:
             lines[i] = line.replace("[ ]", "[x]", 1)
             changed = True
     if not changed:
+        return
+    try:
+        import companion_config as cc
+
+        cc.atomic_write_text(str(tasks_md), "".join(lines))
+        return
+    except ImportError:
+        pass
+    except OSError:
         return
     tmp = tasks_md.with_suffix(tasks_md.suffix + ".tmp")
     try:
@@ -152,89 +188,6 @@ def _tasks_at_100(markers: tuple[list[str], list[str]]) -> bool:
     return bool(all_ids) and len(done_ids) == len(all_ids)
 
 
-def _open_convergence_substep(log: list) -> str | None:
-    """Return the latest numbered convergence substep that has not finished."""
-    open_substeps: dict[str, None] = {}
-    for entry in log:
-        if not isinstance(entry, dict) or entry.get("step") != "implement":
-            continue
-        substep = entry.get("substep")
-        if not isinstance(substep, str) or not CONVERGENCE_SUBSTEP_RE.fullmatch(substep):
-            continue
-        if _entry_kind(entry) == "start":
-            open_substeps[substep] = None
-        else:
-            open_substeps.pop(substep, None)
-    return next(reversed(open_substeps), None)
-
-
-def _next_convergence_substep(log: list) -> str:
-    """Return a stable new convergence substep name without reusing prior rounds."""
-    rounds = []
-    for entry in log:
-        if not isinstance(entry, dict):
-            continue
-        substep = entry.get("substep")
-        if not isinstance(substep, str):
-            continue
-        match = CONVERGENCE_SUBSTEP_RE.fullmatch(substep)
-        if match:
-            rounds.append(int(match.group(1)))
-    return f"convergence-{max(rounds, default=0) + 1}"
-
-
-def reopen_convergence(feature_dir: Path, by: str) -> Path | None:
-    """Reopen a completed spec only when convergence appended pending tasks.
-
-    The completed lifecycle remains append-only. A numbered implement substep
-    records the new convergence pass without duplicating the original implement
-    step boundary, and a repeated invocation is idempotent while that pass is
-    still open. Archived specs and fully checked task lists remain immutable.
-    """
-    target = feature_dir / ".spec-context.json"
-    ctx = read_ctx(target)
-    markers = parse_task_markers(feature_dir / "tasks.md")
-    all_ids, done_ids = markers
-    done = set(done_ids)
-    pending = list(dict.fromkeys(task_id for task_id in all_ids if task_id not in done))
-    if not pending:
-        print(
-            f"[companion] {target} has no pending task markers; refusing convergence reopen.",
-            file=sys.stderr,
-        )
-        return None
-
-    log = canonical_log(ctx)
-    active_substep = _open_convergence_substep(log)
-    status = ctx.get("status")
-    if status == "implementing" and active_substep is not None:
-        return target
-    if status != "completed":
-        print(
-            f"[companion] {target} is at status={status!r}; convergence reopen requires "
-            "a completed spec with pending tasks.",
-            file=sys.stderr,
-        )
-        return None
-
-    branch = _git_branch(_repo_root_for(feature_dir)) or "main"
-    fill_required(ctx, feature_dir, branch)
-    substep = _next_convergence_substep(log)
-    log.append({
-        "step": "implement",
-        "substep": substep,
-        "kind": "start",
-        "by": by,
-        "at": _now_iso(),
-    })
-    ctx["currentStep"] = "implement"
-    ctx["currentTask"] = pending[0]
-    ctx["status"] = "implementing"
-    commit_log(ctx, log)
-    atomic_write(target, ctx)
-    return target
-
-
 def _fold_task_finish(
     ctx: dict, log: list, feature_dir: Path, task_id: str, by: str,
     did: str | None, files: list[str] | None, at: str,
@@ -271,12 +224,8 @@ def _maybe_close_implement(
         and _tasks_at_100(markers)
         and set(distinct) <= _journaled_tasks(log)
     )
-    if all_done:
-        active_convergence = _open_convergence_substep(log)
-        if active_convergence is not None:
-            append_complete(log, "implement", substep=active_convergence, by=by, at=_now_iso())
-        if not _has_complete(log, "implement", None):
-            append_complete(log, "implement", by=by, at=_now_iso())
+    if all_done and not _has_complete(log, "implement", None):
+        append_complete(log, "implement", by=by, at=_now_iso())
         # Keep status consistent with the closed step. The fold that ran before
         # the script checked the boxes may have left status at `implementing`
         # (tasks.md wasn't 100% yet); now that the step is closing, it's implemented.
@@ -415,6 +364,30 @@ def materialize_log(feature_dir: Path, by: str, quiet: bool = False) -> Path | N
     return target
 
 
+def _last_finished(log: list, done: list) -> str | None:
+    """The most recently journaled completion among `done`, by recorded time.
+
+    Not `done[-1]`: that is the last task in tasks.md order, so after a wave of
+    tasks completing together it names whichever happens to sit lowest in the
+    file rather than the one that actually finished last. Falls back to file
+    order only when the journal cannot answer — a task synced from tasks.md
+    without ever being journaled has no time of its own.
+    """
+    best, best_at = None, None
+    for entry in log:
+        if not isinstance(entry, dict):
+            continue
+        tid = entry.get("task")
+        if tid not in done or entry.get("kind") != "complete":
+            continue
+        at = entry.get("at")
+        if not isinstance(at, str):
+            continue
+        if best_at is None or at >= best_at:
+            best, best_at = tid, at
+    return best or done[-1]
+
+
 def sync_tasks(feature_dir: Path, tasks_md: Path, final_status: str, by: str) -> Path | None:
     """Per-task journaling for the implement step.
 
@@ -466,7 +439,13 @@ def sync_tasks(feature_dir: Path, tasks_md: Path, final_status: str, by: str) ->
     ctx["status"] = final_status if all_done else "implementing"
 
     pending = [tid for tid in distinct_all if tid not in distinct_done]
-    ctx["currentTask"] = (pending[0] if pending else (distinct_done[-1] if distinct_done else None))
+    # With work left, the current task is the next one to do. With none left, it is
+    # the one most recently FINISHED — which is not `distinct_done[-1]`: that is the
+    # last task in tasks.md order, so after a wave of tasks completing together it
+    # names whichever happens to sit lowest in the file. Read the journal instead,
+    # which knows when each one actually closed.
+    ctx["currentTask"] = (pending[0] if pending
+                          else (_last_finished(log, distinct_done) if distinct_done else None))
 
     # Finish-only backstop: append ONE finish per fresh task (no start/complete
     # pair → no 0s tick). The live path (`--task <id> --kind complete`) already

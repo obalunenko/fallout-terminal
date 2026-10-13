@@ -1,13 +1,13 @@
 <!--
 Sync Impact Report
-- Version change: 8.1.1 -> 8.1.2
+- Version change: 8.1.2 -> 8.1.3
 - Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
   - Advance the sole accepted Wails v3 runtime, isolated CLI, frontend runtime, and generated-binding
-    baseline from v3.0.0-beta.13 to mutually compatible v3.0.0-beta.15 pins
+    baseline from v3.0.0-beta.15 to mutually compatible v3.0.0-beta.28 pins
 - Updated templates: None
 - Follow-up TODOs: None
 -->
@@ -22,7 +22,7 @@ state uses the portable version-1 JSON session document; live terminal, navigati
 connection, startup, and tunnel state is owned by the running application.
 
 The production architecture is a Go 1.27 modular monolith whose sole accepted production desktop
-runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.15 implementation. Runtime, CLI,
+runtime MUST be the repository's exactly pinned Wails v3.0.0-beta.28 implementation. Runtime, CLI,
 frontend, and generated-binding versions MUST remain mutually compatible and reproducibly pinned
 in their owning dependency graphs.
 
@@ -267,7 +267,7 @@ that form or proxy a parallel workflow graph.
 ## Dependency Rules
 
 - Root composition and `internal/platform/` adapters MAY depend on the repository's exactly pinned
-  `github.com/wailsapp/wails/v3` v3.0.0-beta.15 runtime because they are the Wails v3 composition and
+  `github.com/wailsapp/wails/v3` v3.0.0-beta.28 runtime because they are the Wails v3 composition and
   platform boundaries. No other `internal/` package MAY import Wails.
 - Protobuf schema modules are upstream contract dependencies. Generated Go and ECMAScript outputs
   MUST depend only on pinned generators and runtimes and MUST be consumed through explicit boundary
@@ -619,4 +619,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.1.2 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-08-28
+**Version**: 8.1.3 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13

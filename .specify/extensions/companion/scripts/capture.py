@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sys
+import re
 from pathlib import Path
 
 from spec_context import (
@@ -33,7 +34,12 @@ def _coerce_value(raw: str):
     try:
         return int(raw)
     except ValueError:
-        return raw
+        pass
+    # A decimal point is required, so "1e5", "nan" and "inf" stay strings and
+    # json.dumps never has to emit a value JSON cannot express.
+    if re.fullmatch(r"-?\d+\.\d+", raw):
+        return float(raw)
+    return raw
 
 
 PROTECTED_SET_KEYS = frozenset({"history", "transitions", "status", "currentStep"})
@@ -89,6 +95,83 @@ def set_living_specs_loaded(feature_dir: Path, names: list[str]) -> Path | None:
         if n not in merged:
             merged.append(n)
     block["loaded"] = merged
+    ctx["livingSpecs"] = block
+    atomic_write(target, ctx)
+    return target
+
+
+def set_living_specs_loaded_requirements(feature_dir: Path, per_cap: dict) -> Path | None:
+    """Record which REQUIREMENTS a run read, per capability.
+
+    A sibling of `livingSpecs.loaded`, never a change to it: that list is a plain
+    list of names several readers already consume — including the completion
+    accounting that requires every loaded capability to end with a delta or a
+    recorded skip — so widening its element type would break each of them for a
+    feature none of them care about.
+
+    Written only for a capability read by requirement. A capability read whole
+    gets no entry, because naming all of its requirements would say nothing.
+    Merges per capability, de-duping while preserving order, so a re-run is a
+    no-op."""
+    # An empty list is meaningful: the capability was consulted and its markers
+    # all missed, which is a different fact from being read whole (no entry).
+    cleaned = {
+        str(cap).strip(): [str(h) for h in heads if str(h).strip()]
+        for cap, heads in (per_cap or {}).items()
+        if str(cap).strip() and heads is not None
+    }
+    if not cleaned:
+        return None
+    target = feature_dir / ".spec-context.json"
+    branch = _git_branch(_repo_root_for(feature_dir)) or "main"
+    ctx = read_ctx(target)
+    fill_required(ctx, feature_dir, branch)
+    block = ctx.get("livingSpecs")
+    if not isinstance(block, dict):
+        block = {}
+    prior = block.get("loadedRequirements")
+    merged = dict(prior) if isinstance(prior, dict) else {}
+    for cap, heads in cleaned.items():
+        seen: list = []
+        for h in list(merged.get(cap) or []) + heads:
+            if h not in seen:
+                seen.append(h)
+        merged[cap] = seen
+    block["loadedRequirements"] = merged
+    ctx["livingSpecs"] = block
+    atomic_write(target, ctx)
+    return target
+
+
+def set_living_specs_rules(feature_dir: Path, rules: dict) -> Path | None:
+    """Record the authored guidance a run was given, per step.
+
+    A sibling of `livingSpecs.loaded` for the same reason as
+    `loadedRequirements`: a reader asking "what was this run told?" should get
+    the guidance beside the capabilities, and neither list changes shape for the
+    other. A project with no rules writes nothing, so absence stays absence."""
+    cleaned = {
+        str(step).strip(): [str(line) for line in lines if str(line).strip()]
+        for step, lines in (rules or {}).items()
+        if str(step).strip() and lines
+    }
+    if not cleaned:
+        return None
+    target = feature_dir / ".spec-context.json"
+    branch = _git_branch(_repo_root_for(feature_dir)) or "main"
+    ctx = read_ctx(target)
+    fill_required(ctx, feature_dir, branch)
+    block = ctx.get("livingSpecs")
+    if not isinstance(block, dict):
+        block = {}
+    prior = block.get("rules")
+    merged = dict(prior) if isinstance(prior, dict) else {}
+    for step, lines in cleaned.items():
+        # The prior side was read off disk: coerce it, or a hand-corrupted
+        # non-string entry raises inside a writer that must never fail a run.
+        kept = [str(line) for line in (merged.get(step) or [])]
+        merged[step] = list(dict.fromkeys(kept + lines))
+    block["rules"] = merged
     ctx["livingSpecs"] = block
     atomic_write(target, ctx)
     return target
@@ -193,6 +276,125 @@ def _coerce_entry(raw: str, identity_key: str) -> dict | None:
     return {identity_key: text}
 
 
+def run_verification(what: str, command: str, timeout: int = 900) -> dict:
+    """Run a command and record what actually happened, rather than what anyone says did.
+
+    This is the whole difference between a receipt and a claim. Everything in `verified[]`
+    until now was a sentence an agent typed, including the command, which was a string it
+    wrote rather than evidence anything ran. The Overview then drew a checkmark beside it.
+
+    The outcome is the exit code, because that is the part nobody can talk their way past.
+    Output is kept only as a tail: enough to recognise what happened, never enough to make
+    the context file a log.
+    """
+    import subprocess
+    import time
+
+    started = time.monotonic()
+    try:
+        proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
+        code, out = proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+    except subprocess.TimeoutExpired:
+        code, out = 124, f"timed out after {timeout}s"
+    except Exception as err:  # noqa: BLE001
+        code, out = 127, f"could not run: {err}"
+    took = round(time.monotonic() - started, 1)
+
+    tail = [ln for ln in out.strip().splitlines() if ln.strip()][-3:]
+    entry = {
+        "what": what,
+        "command": command,
+        "source": "derived",
+        "exitCode": code,
+        "durationSeconds": took,
+        "result": " · ".join(tail) if tail else ("no output" if code == 0 else f"exit {code}"),
+    }
+    # A non-zero exit is the finding, not a failure to record. Recording it is the point:
+    # a run that could not prove its work should say so where the reader looks.
+    if code != 0:
+        entry["warnings"] = [f"exited {code}"]
+    return entry
+
+
+def append_verification_runs(feature_dir: Path, specs: list[str]) -> tuple[Path | None, list[str]]:
+    """Run each `WHAT::COMMAND` and append what actually happened. Returns the target and any skips."""
+    entries, skipped = [], []
+    for spec in specs:
+        what, sep, command = spec.partition("::")
+        if not sep or not command.strip():
+            skipped.append(spec)
+            continue
+        entries.append(json.dumps(run_verification(what.strip(), command.strip())))
+    target = append_capture_entries(feature_dir, "verified", "what", entries, replace=True) if entries else None
+    return target, skipped
+
+
+PLAN_CHECK_WHAT = "plan blocks check out"
+
+
+PLAN_KINDS = (("calls", "blocks"), ("code", "code_blocks"), ("states", "state_blocks"), ("screens", "screens"))
+
+
+def record_plan_report(feature_dir: Path, report: dict, started: float | None = None) -> Path | None:
+    """Record a check_plan report as the derived verification and set planBlocks to the blocks the plan holds."""
+    import time
+
+    import check_plan
+
+    held = [kind for kind, key in PLAN_KINDS if report[key]]
+    ctx = read_ctx(feature_dir / ".spec-context.json")
+    picked = ctx.get("planBlocksPicked")
+    notes = []
+    if isinstance(picked, list) and picked:
+        notes = [f"picked {kind} but the plan has no {kind} block" for kind in picked if kind not in held]
+        notes += [f"the plan has a {kind} block that was not picked" for kind in held if kind not in picked]
+    for note in notes:
+        print(f"[companion] Plan blocks: {note}.", file=sys.stderr)
+    if not check_plan.has_blocks(report):
+        return _set_plan_blocks(feature_dir, held) if picked else None
+    root = _repo_root_for(feature_dir)
+    try:
+        shown = feature_dir.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        shown = str(feature_dir)
+    errors = report["errors"]
+    tail = [ln for ln in check_plan.render_human(report).strip().splitlines() if ln.strip()][-3:]
+    entry = {
+        "what": PLAN_CHECK_WHAT,
+        "command": f"python3 .specify/extensions/companion/scripts/check_plan.py --feature-dir {shown} --strict",
+        "source": "derived",
+        "exitCode": 1 if errors else 0,
+        "durationSeconds": round(time.monotonic() - started, 1) if started is not None else 0,
+        "result": " · ".join([*tail, *notes]),
+    }
+    if errors:
+        entry["warnings"] = ["exited 1"]
+        print(f"[companion] Plan blocks: {errors} error(s). Run check_plan.py --feature-dir {shown} to see them.",
+              file=sys.stderr)
+    path = append_capture_entries(feature_dir, "verified", "what", [json.dumps(entry)], replace=True)
+    _set_plan_blocks(feature_dir, held)
+    return path
+
+
+def _set_plan_blocks(feature_dir: Path, held: list) -> Path | None:
+    target = feature_dir / ".spec-context.json"
+    ctx = read_ctx(target)
+    fill_required(ctx, feature_dir, _git_branch(_repo_root_for(feature_dir)) or "main")
+    ctx["planBlocks"] = held
+    atomic_write(target, ctx)
+    return target
+
+
+def record_plan_check(feature_dir: Path) -> Path | None:
+    """Run check_plan in-process and record it as a derived verification; None when the plan has no checked block."""
+    import time
+
+    import check_plan
+
+    started = time.monotonic()
+    return record_plan_report(feature_dir, check_plan.check_feature(feature_dir), started)
+
+
 def _entry_identity(item, identity_key: str) -> str | None:
     """The de-dup key for a stored entry: dicts key on identity_key, bare strings on themselves."""
     if isinstance(item, dict):
@@ -204,9 +406,12 @@ def _entry_identity(item, identity_key: str) -> str | None:
 
 
 def append_capture_entries(
-    feature_dir: Path, field: str, identity_key: str, raws: list[str],
+    feature_dir: Path, field: str, identity_key: str, raws: list[str], replace: bool = False,
 ) -> Path | None:
     """De-duped additive append onto ctx[field] (decisions/verified/concerns).
+
+    With `replace`, a new entry takes the place of an earlier one with the same
+    identity: a check that was run again reports its latest result.
 
     Mirrors set_living_specs_loaded: preserves first-seen order, normalizes
     pre-existing duplicates, never touches lifecycle keys. Bare strings already
@@ -220,13 +425,16 @@ def append_capture_entries(
     fill_required(ctx, feature_dir, branch)
     prior = ctx.get(field)
     merged: list = []
-    seen: set[str] = set()
-    for item in (list(prior) if isinstance(prior, list) else []) + entries:
+    seen: dict[str, int] = {}
+    stored = list(prior) if isinstance(prior, list) else []
+    for index, item in enumerate(stored + entries):
         ident = _entry_identity(item, identity_key)
         if ident is not None:
             if ident in seen:
+                if replace and index >= len(stored):
+                    merged[seen[ident]] = item
                 continue
-            seen.add(ident)
+            seen[ident] = len(merged)
         merged.append(item)
     ctx[field] = merged
     atomic_write(target, ctx)
@@ -252,6 +460,16 @@ def append_string_list(feature_dir: Path, field: str, values: list[str]) -> Path
     return target
 
 
+def _as_name_list(value) -> list | None:
+    """A list as given, a comma-separated string split, anything else dropped."""
+    if isinstance(value, str):
+        value = value.split(",")
+    if not isinstance(value, list):
+        return None
+    names = [str(v).strip() for v in value if str(v).strip()]
+    return names or None
+
+
 def upsert_coverage(
     feature_dir: Path, req: str, tasks: list[str] | None, tests: list[str] | None,
     title: str | None = None,
@@ -262,6 +480,11 @@ def upsert_coverage(
     req = req.strip()
     if not req:
         return None
+    # `--batch` hands these through verbatim, so a comma string arrives where the
+    # flag path already split one. Stored as text, every reader of the field sees
+    # no tests at all.
+    tasks = _as_name_list(tasks)
+    tests = _as_name_list(tests)
     title = title.strip() if title else None
     if not tasks and not tests and not title:
         # Nothing to record — writing {} would fake a coverage entry.
@@ -354,7 +577,7 @@ def set_classification(feature_dir: Path, raw: str) -> Path:
 # --------------------------------------------------------------------------- #
 
 BATCH_KEYS = ("verified", "decisions", "concerns", "expectations", "context",
-              "coverage", "step_summary", "last_action")
+              "coverage", "step_summary", "last_action", "set")
 
 
 def _parsed_batch(raw: str) -> dict:
@@ -374,6 +597,19 @@ def _parsed_batch(raw: str) -> dict:
     for key in ("verified", "decisions", "concerns", "expectations", "context", "coverage"):
         if key in doc and not isinstance(doc[key], list):
             raise ValueError(f"--batch '{key}' must be a list")
+    if "set" in doc and doc["set"] is not None:
+        if not isinstance(doc["set"], dict):
+            raise ValueError("--batch 'set' must be a map of field to value")
+        bad = sorted(set(doc["set"]) & PROTECTED_SET_KEYS)
+        if bad:
+            raise ValueError(
+                f"--batch 'set' cannot write lifecycle key(s): {', '.join(bad)} — "
+                f"they are managed by the capture/mark-complete writers.")
+        for key, val in doc["set"].items():
+            if isinstance(val, (dict, list)):
+                raise ValueError(
+                    f"--batch 'set.{key}' must be a string, number or boolean "
+                    f"(a nested value has nowhere to go in a flat field)")
     for item in doc.get("coverage") or []:
         if not isinstance(item, dict) or not item.get("req"):
             raise ValueError("--batch 'coverage' entries need a 'req' key")
@@ -427,4 +663,12 @@ def apply_batch(feature_dir: Path, raw: str, step: str) -> tuple:
              "step summary")
     if doc.get("last_action"):
         note(set_fields(feature_dir, [f"last_action={doc['last_action']}"]), "last_action")
+    # `set` carries the plain fields a wrap-up would otherwise spend one call
+    # each on — intent, approach, workflow, size, unattended. They are ordinary
+    # `--set` pairs; batching them changes nothing about what lands, only how
+    # many times the file is opened to land it.
+    pairs = doc.get("set")
+    if isinstance(pairs, dict) and pairs:
+        note(set_fields(feature_dir, [f"{k}={v}" for k, v in pairs.items()]),
+             f"{len(pairs)} field(s)")
     return target, landed

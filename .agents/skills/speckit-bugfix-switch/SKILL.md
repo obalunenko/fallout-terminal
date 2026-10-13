@@ -3,7 +3,7 @@ name: speckit-bugfix-switch
 description: Switch to a different bugfix context
 compatibility: Requires spec-kit project structure with .specify/ directory
 metadata:
-  author: github-spec-kit
+  author: Quratulain-bilal
   source: bugfix:commands/speckit.bugfix.switch.md
 ---
 

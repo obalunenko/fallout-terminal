@@ -8,7 +8,7 @@ this reviewed file unchanged in its resources directory.
 
 ## Reviewed shipped runtime module inventory
 
-- connectrpc.com/connect@v1.20.0 — Apache-2.0; Copyright 2021-2026 The Connect Authors
+- connectrpc.com/connect@v1.21.0 — Apache-2.0; Copyright 2021-2026 The Connect Authors
 - git.sr.ht/~jackmordaunt/go-toast/v2@v2.0.3 — MIT; Copyright (c) 2023 Jack Mordaunt
 - github.com/adrg/xdg@v0.5.3 — MIT; Copyright (c) 2014 Adrian-George Bostan
 - github.com/danieljoos/wincred@v1.2.3 — MIT; Copyright (c) 2014 Daniel Joos
@@ -19,17 +19,17 @@ this reviewed file unchanged in its resources directory.
 - github.com/mattn/go-colorable@v0.1.15 — MIT; Copyright (c) 2016 Yasuhiro Matsumoto
 - github.com/mattn/go-isatty@v0.0.23 — MIT; Copyright (c) Yasuhiro Matsumoto
 - github.com/obalunenko/logger@v1.2.0 — MIT; Copyright (c) 2021 Oleg Balunenko
-- github.com/wailsapp/wails/v3@v3.0.0-beta.15 — MIT; Copyright (c) 2018-Present Lea Anthony
+- github.com/wailsapp/wails/v3@v3.0.0-beta.28 — MIT; Copyright (c) 2018-Present Lea Anthony
 - go.uber.org/multierr@v1.11.0 — MIT; Copyright (c) 2017-2021 Uber Technologies, Inc.
 - golang.ngrok.com/muxado/v2@v2.0.1 — MIT; Copyright 2023 ngrok, Inc.
 - golang.ngrok.com/ngrok/v2@v2.1.4 — MIT; Copyright 2022 ngrok, Inc.
 - golang.org/x/net@v0.56.0 — BSD-3-Clause; Copyright 2009 The Go Authors
 - golang.org/x/sys@v0.47.0 — BSD-3-Clause; Copyright 2009 The Go Authors
-- google.golang.org/protobuf@v1.36.11 — BSD-3-Clause; Copyright (c) 2018 The Go Authors
+- google.golang.org/protobuf@v1.36.12 — BSD-3-Clause; Copyright (c) 2018 The Go Authors
 
 ## Reviewed build-tool module inventory
 
-- github.com/go-task/task/v3@v3.53.1 — MIT; Copyright (c) 2016 Andrey Nering
+- github.com/go-task/task/v3@v3.54.0 — MIT; Copyright (c) 2016 Andrey Nering
 
 ## ngrok-go
 
