@@ -120,8 +120,11 @@ func newPresentationUplinkBody(
 		body = http.NoBody
 	}
 	stream := &presentationUplinkBody{body: body, cancel: cancel, idle: idle}
+	// A timeout may fire before AfterFunc returns, so publish both timers under the lock.
+	stream.mu.Lock()
 	stream.idleTimer = time.AfterFunc(idle, func() { stream.terminate(errPresentationUplinkIdleTimeout) })
 	stream.maxTimer = time.AfterFunc(maximum, func() { stream.terminate(errPresentationUplinkMaxLifetime) })
+	stream.mu.Unlock()
 	return stream
 }
 
