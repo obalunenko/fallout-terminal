@@ -31,3 +31,37 @@ test('log access remains available during degraded startup and shows the exact m
   await expect(status).toContainText('Could not open the application log directory.');
   await expect(status).toContainText('/Users/fixture/Application Support/Fallout Terminal/logs');
 });
+
+test('log access failure names the directory even when an active log file exists', async ({ page }) => {
+  await page.goto('/__fixture/public-access-settings');
+  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+  await page.evaluate(() => __desktopFixture.setNextTerminalActionResult('OpenLogLocation', {
+    ok: false,
+    error: 'Could not open the application log directory.',
+    directoryPath: '/Users/fixture/Application Support/Fallout Terminal/logs',
+    activeLogPath: '/Users/fixture/Application Support/Fallout Terminal/logs/application-current.log',
+  }));
+  await page.locator('[data-action="open-log-location"]').nth(1).click();
+  const status = page.locator('[data-log-access-status]').nth(1);
+  await expect(status).toHaveText('Could not open the application log directory. · /Users/fixture/Application Support/Fallout Terminal/logs');
+});
+
+test('log access reports degraded retained output when no active log file exists', async ({ page }) => {
+  await page.goto('/__fixture/public-access-settings');
+  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+  await page.evaluate(() => __desktopFixture.setNextTerminalActionResult('OpenLogLocation', {
+    ok: true,
+    error: '',
+    directoryPath: '/Users/fixture/Application Support/Fallout Terminal/logs',
+    activeLogPath: '',
+  }));
+  await page.locator('[data-action="open-log-location"]').nth(1).click();
+  const status = page.locator('[data-log-access-status]').nth(1);
+  await expect(status).toContainText('ЛОГИ ОТКРЫТЫ');
+  await expect(status).toContainText('/Users/fixture/Application Support/Fallout Terminal/logs');
+  await expect(status).toContainText('ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА');
+
+  await page.locator('[data-action="open-log-location"]').nth(1).click();
+  await expect(status).toContainText('application-current.log');
+  await expect(status).not.toContainText('ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА');
+});

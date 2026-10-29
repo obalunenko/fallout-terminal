@@ -3662,10 +3662,16 @@ func deriveHackLifecycleEvents(before, after *domain.ProcessRuntime) []AuditEven
 			event.Reason = hackInterruptionReason(before, after, oldTerminalID)
 			events = append(events, event)
 		}
-		return append(events, hackLifecycleAudit(after, newTerminal, newHack, "hack.started", "started"))
+		if event, ok := hackStartedAudit(before, after, newTerminal, newHack); ok {
+			events = append(events, event)
+		}
+		return events
 	}
 	if oldHack == nil && newHack != nil {
-		return []AuditEvent{hackLifecycleAudit(after, newTerminal, newHack, "hack.started", "started")}
+		if event, ok := hackStartedAudit(before, after, newTerminal, newHack); ok {
+			return []AuditEvent{event}
+		}
+		return nil
 	}
 	if oldHack != nil && newHack == nil {
 		if !activeHack(oldHack) {
@@ -3681,7 +3687,11 @@ func deriveHackLifecycleEvents(before, after *domain.ProcessRuntime) []AuditEven
 	if oldHack.GenerationID != newHack.GenerationID {
 		event := hackLifecycleAudit(after, newTerminal, newHack, "hack.reset", "reset")
 		event.PreviousPuzzleID = oldHack.GenerationID
-		return []AuditEvent{event}
+		events := []AuditEvent{event}
+		if started, ok := hackStartedAudit(before, after, newTerminal, newHack); ok {
+			events = append(events, started)
+		}
+		return events
 	}
 	if activeHack(oldHack) && activeHack(newHack) && controllingSessionChanged(before, after) {
 		event := hackLifecycleAudit(before, oldTerminal, oldHack, "hack.interrupted", "interrupted")
@@ -3737,6 +3747,30 @@ func hackActionAudit(runtime *domain.ProcessRuntime, sessionID domain.LogicalSes
 
 func activeHack(state *domain.HackState) bool {
 	return state != nil && !state.Solved && !state.Failed
+}
+
+// hackStartedAudit reports a puzzle that became the current interaction. A
+// generation already present before the transition belongs to a reactivated
+// terminal, so it is marked as resumed, and a resumed solved or failed puzzle
+// is not reported as started again.
+func hackStartedAudit(before, after *domain.ProcessRuntime, terminal *domain.TerminalRuntime, state *domain.HackState) (AuditEvent, bool) {
+	event := hackLifecycleAudit(after, terminal, state, "hack.started", "started")
+	if !hackGenerationExisted(before, event.TerminalID, event.PuzzleID) {
+		return event, true
+	}
+	if !activeHack(state) {
+		return AuditEvent{}, false
+	}
+	event.Reason = "resumed"
+	return event, true
+}
+
+func hackGenerationExisted(runtime *domain.ProcessRuntime, terminalID, generationID string) bool {
+	if runtime == nil || runtime.Broadcast == nil || generationID == "" {
+		return false
+	}
+	terminal := runtime.Broadcast.TerminalRuntimes[terminalID]
+	return terminal != nil && terminal.Hack != nil && terminal.Hack.GenerationID == generationID
 }
 
 func controllingSessionChanged(before, after *domain.ProcessRuntime) bool {
