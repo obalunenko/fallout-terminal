@@ -199,6 +199,7 @@ task browser:test
 task proto:check
 task proto:breaking
 task bindings:check
+task secret-leak:check
 ```
 
 Frontend behavior changes should run the relevant Playwright specifications. Platform, lifecycle,

@@ -24,24 +24,7 @@ hooks:
     prompt: Run bugfix consistency check after implementation?
     description: Verify spec artifact consistency after implementation completes
     condition: null
-  after_init:
-  - extension: brownfield
-    command: speckit.brownfield.scan
-    enabled: true
-    optional: true
-    priority: 10
-    prompt: Scan this existing project to customize spec-kit configuration?
-    description: Auto-scan project after spec-kit init to detect tech stack and conventions
-    condition: null
   before_specify:
-  - extension: feature-numbering
-    command: speckit.feature-numbering.before-specify
-    enabled: true
-    optional: false
-    priority: 5
-    prompt: Execute speckit.feature-numbering.before-specify?
-    description: Bind specify to the next NNN-feature-name directory
-    condition: null
   - extension: companion
     command: speckit.companion.before-step
     enabled: true
@@ -49,6 +32,14 @@ hooks:
     priority: 10
     prompt: Execute speckit.companion.before-step?
     description: Read the clock so after_specify can record when specify started
+    condition: null
+  - extension: feature-numbering
+    command: speckit.feature-numbering.before-specify
+    enabled: true
+    optional: false
+    priority: 5
+    prompt: Execute speckit.feature-numbering.before-specify?
+    description: Bind specify to the next NNN-feature-name directory
     condition: null
   before_plan:
   - extension: companion
@@ -126,4 +117,13 @@ hooks:
     prompt: Execute speckit.companion.after-converge?
     description: Record converge finish (currentStep=converge, status unchanged) into
       .spec-context.json
+    condition: null
+  after_init:
+  - extension: brownfield
+    command: speckit.brownfield.scan
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: Scan this existing project to customize spec-kit configuration?
+    description: Auto-scan project after spec-kit init to detect tech stack and conventions
     condition: null

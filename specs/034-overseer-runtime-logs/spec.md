@@ -2,7 +2,7 @@
 
 **Feature Directory**: `034-overseer-runtime-logs`
 **Created**: 2026-09-03
-**Status**: Draft
+**Status**: Completed
 **Input**: Give the Overseer useful runtime logs for player connections and roles, command requests and decisions, hacking activity, and access to logs from released packages.
 
 ## User Scenarios & Testing
@@ -56,6 +56,7 @@ As an Overseer investigating a hacking problem, I can follow the safe lifecycle 
 2. **Given** a player submits a guess, **When** the system evaluates it, **Then** a record identifies the puzzle instance, whether the interaction was accepted, its outcome category, and attempts remaining without recording the guessed or correct word.
 3. **Given** a dud is removed or attempts are replenished, **When** the effect is applied, **Then** a record identifies the puzzle instance and effect category without recording board content.
 4. **Given** a puzzle succeeds, fails, resets, or ends because the active terminal or controller changes, **When** that transition takes effect, **Then** one terminal record identifies the final state and a safe reason category.
+5. **Given** a terminal with an unfinished puzzle was suspended, **When** that terminal becomes active again with the same puzzle, **Then** one start record marks the puzzle as resumed with the same puzzle instance, and a resumed solved or failed puzzle produces no start record.
 
 ---
 
@@ -69,9 +70,9 @@ As an Overseer, I can use retained logs for support without exposing secrets or 
 
 **Acceptance Scenarios**:
 
-1. **Given** runtime operations contain credentials, passwords, puzzle words, terminal content, command output, character names, or private provider errors, **When** records are retained, **Then** none of those raw values appear.
-2. **Given** log volume reaches its configured retention boundary, **When** new records are written, **Then** older retained data is removed predictably while the current log remains writable and identifiable.
-3. **Given** the preferred log location is unavailable or becomes unwritable, **When** the application emits a record, **Then** gameplay and Overseer commands continue with a safe diagnostic warning through an available fallback channel.
+1. **Given** runtime operations contain credentials, passwords, puzzle words, terminal content, command output, character names, or private provider errors, **When** records are retained, **Then** none of those raw values appear (FR-017).
+2. **Given** log volume reaches its configured retention boundary, **When** new records are written, **Then** the oldest owned segments are removed first, while the current log and the newest previous-run segment remain intact and the current log stays writable and identifiable.
+3. **Given** the preferred log location is unavailable or becomes unwritable, **When** the application emits a record, **Then** gameplay and Overseer commands continue with a safe diagnostic warning through an available fallback channel, and the log access action tells the Overseer that retained output is unavailable.
 4. **Given** multiple players act nearly simultaneously, **When** their records are inspected, **Then** timestamps, event categories, run identity, and correlation identifiers allow each flow to be reconstructed without ambiguity.
 
 ## Edge Cases
@@ -97,18 +98,19 @@ As an Overseer, I can use retained logs for support without exposing secrets or 
 - **FR-004**: The application MUST record each command request accepted for Overseer review with a unique correlation identifier, requesting logical session, current role, terminal identifier, and safe command identifier.
 - **FR-005**: The application MUST record each approval or decline with the originating request correlation identifier, decision, and resulting execution outcome when applicable.
 - **FR-006**: Duplicate, superseded, invalid, or execution-failed command requests MUST be distinguishable through safe outcome categories without recording raw command content or output.
-- **FR-007**: The application MUST record hacking puzzle start, accepted or rejected interaction, dud-removal, attempt-replenishment, success, failure, reset, and interruption events when those events occur.
+- **FR-007**: The application MUST record hacking puzzle start, resumption, accepted or rejected interaction, dud-removal, attempt-replenishment, success, failure, reset, and interruption events when those events occur.
 - **FR-008**: Each hacking record MUST include the application-run identifier, puzzle correlation identifier, terminal identifier, acting logical session and role when available, event category, and safe outcome metadata applicable to that event.
-- **FR-009**: Hacking records MUST NOT contain candidate words, the correct password, memory-board content, or other data that can reveal the puzzle solution.
+- **FR-009**: Hacking records MUST NOT contain candidate words, the correct password, memory-board content, or other data that can reveal the puzzle solution; this specializes FR-017 for puzzle data.
 - **FR-010**: Required runtime records MUST use consistent event categories, timestamps, severity, and correlation fields so connection, command, and puzzle flows can be reconstructed in order.
 - **FR-011**: Development runs and supported release packages MUST retain the same required runtime-event coverage in a stable per-user location outside application installation files.
 - **FR-012**: The Overseer interface MUST provide a log access action that opens or reveals the current retained-log location without requiring a development terminal.
 - **FR-013**: When the operating system cannot open or reveal the retained-log location, the application MUST show a safe actionable error that includes the exact intended location.
 - **FR-014**: Retained logs MUST distinguish application runs and preserve at least the current and immediately previous run after both clean and unexpected shutdown, subject to bounded retention.
-- **FR-015**: Retention MUST impose a documented finite storage boundary and remove older log data without deleting or blocking the active log.
+- **FR-015**: Retention MUST impose a finite storage boundary of eight 5 MiB segments (40 MiB), documented in `docs/runtime-logs.md`, and remove the oldest owned log data without deleting or blocking the active log; records larger than one segment MUST NOT be retained.
 - **FR-016**: Logging or retained-storage failures MUST NOT change player authority, command decisions, puzzle behavior, application lifecycle ordering, or existing user-visible results.
 - **FR-017**: Retained records MUST exclude provider tokens, player and generated passwords, character names, session and terminal content, command output, puzzle solution data, and unredacted private dependency errors.
-- **FR-018**: Automated checks MUST cover connection and role transitions, command request decisions and exceptional outcomes, hacking lifecycle events, packaged-log access, retention, fallback behavior, and forbidden-value redaction.
+- **FR-018**: Automated checks MUST cover connection and role transitions, command request decisions and exceptional outcomes, hacking lifecycle events including resumption, packaged-log access, retention, fallback behavior, the degraded-retention notice, and forbidden-value redaction.
+- **FR-019**: When retained output is unavailable for the current run, the log access action MUST tell the Overseer that records currently reach only the fallback channel.
 
 ## Key Entities
 
@@ -124,7 +126,7 @@ As an Overseer, I can use retained logs for support without exposing secrets or 
 ### Measurable Outcomes
 
 - **SC-001**: A test journey covering connect, unassigned-to-active role selection, command request, approval, execution outcome, active-to-observer transition, declined request, and disconnect produces every expected event exactly once with matching session and request correlations.
-- **SC-002**: A hacking test journey covering start, rejected interaction, accepted guess, dud removal, attempt replenishment, failure, reset, success, and interruption produces every applicable event exactly once with matching puzzle correlation.
+- **SC-002**: A hacking test journey covering start, rejected interaction, accepted guess, dud removal, attempt replenishment, failure, reset, success, interruption, and resumption produces every applicable event exactly once with matching puzzle correlation.
 - **SC-003**: Target-aware package and path checks for every supported desktop operating system confirm that retained logs resolve to per-user application data outside installed package files.
 - **SC-004**: After a clean restart and a simulated unexpected stop, both the current and immediately previous application runs remain identifiable and readable.
 - **SC-005**: A high-volume retention test remains within the documented storage boundary while preserving a writable, identifiable active log.

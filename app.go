@@ -696,7 +696,8 @@ func (app *App) recordAuditEvents(events []controlservice.AuditEvent, revision u
 		}
 		entry := app.log.WithFields(fields)
 		switch event.Outcome {
-		case "failed", "declined", "rejected", "stale", "superseded", "duplicate", "invalid", "conflict", "interrupted":
+		case "failed", "declined", "rejected", "stale", "superseded", "duplicate", "invalid", "conflict", "interrupted",
+			"unassigned", "not-controller", "controller-disconnected", "stale-broadcast", "stale-terminal":
 			entry.Warn("runtime audit event")
 		default:
 			entry.Info("runtime audit event")

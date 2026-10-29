@@ -65,6 +65,40 @@ func TestRunLogIsConcurrentAndCloseIsIdempotent(t *testing.T) {
 	require.NoError(t, log.Close())
 }
 
+func TestRunLogReportsAnExistingOwnedActiveSegmentWhileRotating(t *testing.T) {
+	t.Parallel()
+	log, err := Open(Options{
+		Directory: filepath.Join(t.TempDir(), "logs"), Fallback: io.Discard, RunID: "rotating",
+		MaxSegmentBytes: 16, MaxSegments: 1000,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, log.Close()) })
+
+	var group sync.WaitGroup
+	group.Go(func() {
+		for range 200 {
+			_, writeErr := log.Write([]byte("rotating-record\n"))
+			assert.NoError(t, writeErr)
+		}
+	})
+	for range 4 {
+		group.Go(func() {
+			for range 200 {
+				path := log.CurrentPath()
+				if !assert.NotEmpty(t, path) {
+					return
+				}
+				runID, owned := parseOwnedName(filepath.Base(path))
+				assert.True(t, owned, path)
+				assert.Equal(t, "rotating", runID)
+				_, statErr := os.Stat(path)
+				assert.NoError(t, statErr)
+			}
+		})
+	}
+	group.Wait()
+}
+
 func TestRunLogRejectsSymlinkAndDegradesOnce(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

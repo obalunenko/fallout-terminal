@@ -19,8 +19,8 @@ Owns the bounded collection of run-specific log segments and the writer used by 
 | Field | Meaning | Validation |
 |---|---|---|
 | Directory | Parent of all retained log segments | Created with user-only permissions where supported; symbolic or non-directory targets are rejected |
-| Segment size limit | Rotation threshold for one segment | 5 MiB; a single complete record is never split |
-| Segment count limit | Maximum retained segments | Eight; at least the newest current-run and previous-run segment are protected |
+| Segment size limit | Rotation threshold for one segment | 5 MiB; a single complete record is never split, and a record larger than one segment reaches only standard error |
+| Segment count limit | Maximum retained segments | Eight, a strict 40 MiB total; at least the newest current-run and previous-run segment are protected |
 | Active segment | Current run's writable segment | Exactly one while retained output is healthy |
 | Historical segments | Closed segments ordered by run, segment, and creation time | Only files matching the owned naming grammar are eligible for cleanup |
 | Fallback state | Whether retained writes failed and standard error remains available | Failure is reported once per degraded period without recursively logging through the failed writer |
@@ -35,7 +35,7 @@ create current → append complete records → reach threshold → close/rotate
 closed segment → protected current/previous selection → keep or prune oldest
 ```
 
-The writer serializes writes and path queries. Cleanup never follows links, removes unknown files, deletes the active segment, or removes the newest segment belonging to the immediately previous run.
+The writer serializes writes and path queries, so a reported active path always names an existing owned segment. Capacity is reserved by pruning the oldest owned segments before a new segment is created; if pruning fails, retained output degrades rather than exceeding the boundary. Cleanup never follows links, removes unknown files, deletes the active segment, or removes the newest segment belonging to the immediately previous run.
 
 ## Runtime Audit Event
 
@@ -44,7 +44,9 @@ A detached safe fact produced by an authoritative coordinator transition and con
 | Field | Meaning | Presence rule |
 |---|---|---|
 | Category | Closed event category from the runtime-log contract | Always present |
+| Outcome | Closed outcome category for the event | Always present |
 | Revision | Accepted coordination revision ordering the event | Present for committed coordinator facts |
+| Broadcast ID | Opaque active-broadcast identity | Present when a broadcast is resolved |
 | Session ID | Logical player session involved | Present for player events and player-originated command or hack events when resolved |
 | Role | Effective role at the event | Present when a session is resolved |
 | Previous role | Role before an effective role transition | Role-change events only |
@@ -54,13 +56,13 @@ A detached safe fact produced by an authoritative coordinator transition and con
 | Puzzle ID | Private generation identity used only as a safe correlation token | Hacking events only |
 | Previous puzzle ID | Puzzle replaced by a reset | Reset events only |
 | Decision | `approve` or `decline` | Decision events only |
-| Outcome or reason | Closed safe category defined by the event contract | Interaction, decision, rejection, and interruption events |
+| Reason | Closed safe category defined by the event contract | Interruption events and resumed start events |
 | Hack level | Configured puzzle difficulty | Start events only |
 | Attempts maximum / remaining | Non-secret bounded counts | Start and relevant hacking interaction events |
 
 ### Validation and safety rules
 
-- Event construction uses an allowlist per category; fields not allowed for that category are discarded before the event reaches the logger.
+- Each category is constructed by one coordinator helper that sets only that category's fields, and the root formatter emits only the fixed field set of the runtime-audit contract.
 - Event values are enums, opaque identifiers, revisions, or bounded counts. No arbitrary display text or raw error is accepted.
 - Browser tokens, recognition handles, physical connection IDs, character IDs or names, command names, confirmation text, payload fingerprints, targets, board coordinates, words, activity-log text, and dependency errors are forbidden.
 - A rejected request may omit session, terminal, command, or puzzle identity when validation failed before that identity was safely resolved.
@@ -88,10 +90,11 @@ player action
   ├─ invalid/duplicate/conflicting ─→ request_outcome(reason)
   └─ canonical command selected ─→ request_received(pending request ID)
                                       ├─ decline ─→ decision(decline, declined)
-                                      └─ approve ─→ decision(approve, succeeded|failed|stale)
+                                      ├─ approve ─→ decision(approve, succeeded|failed|stale)
+                                      └─ terminal clear or replacement ─→ request_outcome(superseded)
 ```
 
-The player action request ID may appear on an early outcome. Once a request becomes pending, the coordinator-issued request ID is the authoritative correlation for Overseer decisions.
+The player action request ID may appear on an early outcome. Once a request becomes pending, the coordinator-issued request ID is the authoritative correlation for Overseer decisions. A role change while the request is pending emits only `player.role_changed`; the later decision keeps the requesting session.
 
 ## Hacking Puzzle Trace
 
@@ -101,7 +104,8 @@ Represents the safe lifecycle of one puzzle generation.
 absent ─→ started(active)
 active ── guess ─→ active | succeeded | failed
 active ── pattern ─→ active(dud removed | attempts replenished)
-active ── terminal/broadcast transition ─→ interrupted or suspended
+active ── terminal/broadcast/controller transition ─→ interrupted(reason)
+interrupted(terminal-suspended) ── terminal reactivated ─→ started(resumed, same ID)
 failed ── reset ─→ reset(previous ID, new ID) ─→ started(new active puzzle)
 active ── Overseer force success ─→ succeeded
 ```

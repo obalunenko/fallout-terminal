@@ -1319,10 +1319,13 @@ for (const button of logLocationButtons) {
     logLocationButtons.forEach(control => { control.disabled = true; });
     logAccessStatuses.forEach(status => { status.textContent = 'ОТКРЫТИЕ ПАПКИ ЛОГОВ…'; });
     const result = await desktopAPI.openLogLocation();
-    const path = result.activeLogPath || result.directoryPath || '';
+    // A failed open names the directory so the Overseer can navigate there manually.
+    const path = (result.ok ? result.activeLogPath || result.directoryPath : result.directoryPath) || '';
+    // An absent active file means retained output is degraded and records reach only standard error.
+    const retention = result.activeLogPath ? '' : ' · ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА';
     const message = result.ok
-      ? `ЛОГИ ОТКРЫТЫ${path ? ` · ${path}` : ''}`
-      : `${result.error || 'НЕ УДАЛОСЬ ОТКРЫТЬ ЛОГИ'}${path ? ` · ${path}` : ''}`;
+      ? `ЛОГИ ОТКРЫТЫ${path ? ` · ${path}` : ''}${retention}`
+      : `${result.error || 'НЕ УДАЛОСЬ ОТКРЫТЬ ЛОГИ'}${path ? ` · ${path}` : ''}${retention}`;
     logAccessStatuses.forEach(status => { status.textContent = message; });
     logLocationButtons.forEach(control => { control.disabled = false; });
     logAccessPending = false;

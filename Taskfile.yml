@@ -190,6 +190,11 @@ tasks:
     cmds:
       - '{{.SPECKIT_INSTALL}}'
 
+  speckit:skills:normalize:
+    desc: Rewrite Spec Kit skill invocations to the /speckit-name form.
+    cmds:
+      - scripts/normalize-speckit-skills.sh
+
   speckit:update:check:
     desc: Check for Spec Kit and Companion updates without installing them.
     env:
@@ -315,6 +320,12 @@ tasks:
     desc: Verify deterministic Wails bindings and their public surface.
     cmds:
       - scripts/wails-bindings-check.sh
+
+  secret-leak:check:
+    desc: Self-test the secret-leak detector, then scan active sources and contracts.
+    cmds:
+      - scripts/secret-leak-check.sh --self-test
+      - scripts/secret-leak-check.sh
 
   runtime-logs:smoke:macos:
     desc: Optionally verify that a packaged macOS application creates retained runtime logs.
