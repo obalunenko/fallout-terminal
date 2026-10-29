@@ -1,15 +1,15 @@
 <!--
 Sync Impact Report
-- Version change: 8.2.0 -> 8.3.0
-- Modified principles: III. Use ConnectRPC and Keep State Server-Authoritative (title unchanged)
+- Version change: 8.3.0 -> 8.3.1
+- Modified principles: None
 - Added principles: None
 - Added sections: None
 - Removed sections: None
 - Modified guidance:
-  - Principle III: adopt Connect Go v2 generated messages, streams, and transport separation
-  - Dependency Rules: pin the accepted Connect Go runtime and isolated generator at v2.0.0
-  - Migration impact: preserve protobuf schemas, RPC cardinality, wire compatibility, and input limits
-- Updated templates: .specify/templates/plan-template.md (Connect Go v2 dependency baseline)
+  - Testing and Quality Gates: reference the relocated Go quality skill at
+    `.claude/skills/go-code-quality-review/SKILL.md` instead of the removed `.agents/skills/` path
+  - Migration impact: none; the governed skill content and its obligations are unchanged
+- Updated templates: None
 - Follow-up TODOs: None
 -->
 # Fallout Terminal Constitution
@@ -459,7 +459,7 @@ Quality decisions MUST prioritize clarity, simplicity, concision, maintainabilit
 in that order. Standard language constructs and the standard library MUST be preferred when
 sufficient. More specific repository instructions, configured formatters and linters, and package
 conventions MUST guide choices the Google documents leave open. Style guidance MUST NOT justify
-unrelated churn in stable code. Go work MUST use `.agents/skills/go-code-quality-review/SKILL.md`
+unrelated churn in stable code. Go work MUST use `.claude/skills/go-code-quality-review/SKILL.md`
 so implementation and review apply the same quality baseline.
 
 Go code MUST use colocated tests and deterministic fakes at filesystem, dialog, process, provider,
@@ -675,4 +675,4 @@ manually edited generated files, schema-breaking field reuse, public capability 
 stored-secret readback, generic bridge dispatchers, Task-owned duplicate build policy, Make
 workflow aliases, and permanent dual protocols without an explicit compatibility requirement.
 
-**Version**: 8.3.0 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-13
+**Version**: 8.3.1 | **Ratified**: 2026-08-09 | **Last Amended**: 2026-10-29
