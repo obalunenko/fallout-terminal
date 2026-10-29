@@ -79,8 +79,9 @@ install_extension companion "${companion_url}" 10
 install_extension brownfield "${brownfield_url}" 10
 install_extension bugfix "${bugfix_url}" 10
 "${specify_bin}" extension add --dev --force --priority 5 .speckit/feature-numbering
+"${script_dir}/normalize-speckit-skills.sh"
 
 printf '\nInstalled Spec Kit and project extensions:\n'
 "${specify_bin}" version
 "${specify_bin}" extension list
-printf '\nRestart Codex so it reloads generated skills.\n'
+printf '\nRestart Claude Code so it reloads generated skills.\n'

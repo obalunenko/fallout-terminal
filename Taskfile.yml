@@ -190,6 +190,11 @@ tasks:
     cmds:
       - '{{.SPECKIT_INSTALL}}'
 
+  speckit:skills:normalize:
+    desc: Rewrite Spec Kit skill invocations to the /speckit-name form.
+    cmds:
+      - scripts/normalize-speckit-skills.sh
+
   speckit:update:check:
     desc: Check for Spec Kit and Companion updates without installing them.
     env:
