@@ -321,6 +321,12 @@ tasks:
     cmds:
       - scripts/wails-bindings-check.sh
 
+  secret-leak:check:
+    desc: Self-test the secret-leak detector, then scan active sources and contracts.
+    cmds:
+      - scripts/secret-leak-check.sh --self-test
+      - scripts/secret-leak-check.sh
+
   runtime-logs:smoke:macos:
     desc: Optionally verify that a packaged macOS application creates retained runtime logs.
     cmds:

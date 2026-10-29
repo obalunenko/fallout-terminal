@@ -54,6 +54,45 @@ func TestRuntimeAuditLoggingUsesStableAllowlistedFieldsAndSeverity(t *testing.T)
 	assert.NotContains(t, fmt.Sprintf("%#v", records[0]), "content")
 }
 
+func TestRuntimeAuditSeverityWarnsForEveryRejectedOrFailedOutcome(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		outcome string
+		want    string
+	}{
+		{outcome: "failed", want: "warn"},
+		{outcome: "declined", want: "warn"},
+		{outcome: "rejected", want: "warn"},
+		{outcome: "stale", want: "warn"},
+		{outcome: "superseded", want: "warn"},
+		{outcome: "duplicate", want: "warn"},
+		{outcome: "invalid", want: "warn"},
+		{outcome: "conflict", want: "warn"},
+		{outcome: "interrupted", want: "warn"},
+		{outcome: "unassigned", want: "warn"},
+		{outcome: "not-controller", want: "warn"},
+		{outcome: "controller-disconnected", want: "warn"},
+		{outcome: "stale-broadcast", want: "warn"},
+		{outcome: "stale-terminal", want: "warn"},
+		{outcome: "accepted", want: "info"},
+		{outcome: "replayed", want: "info"},
+		{outcome: "succeeded", want: "info"},
+		{outcome: "mismatch", want: "info"},
+		{outcome: "connected", want: "info"},
+	}
+	for _, test := range tests {
+		t.Run(test.outcome, func(t *testing.T) {
+			t.Parallel()
+			recorder := testutil.NewRecordingLogger()
+			app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: recorder})
+			app.recordAuditEvents([]controlservice.AuditEvent{{Name: "command.request_outcome", Outcome: test.outcome, RequestID: "request-1"}}, 1)
+			records := recorder.Records()
+			require.Len(t, records, 1)
+			assert.Equal(t, test.want, records[0].Level)
+		})
+	}
+}
+
 func TestRuntimeAuditLoggingMapsSafeHackContextAndInterruptionReason(t *testing.T) {
 	t.Parallel()
 	recorder := testutil.NewRecordingLogger()
@@ -544,6 +583,7 @@ func TestRetainedRuntimeAuditJourneyIsExactAndCorrelated(t *testing.T) {
 		{Name: "hack.pattern", Outcome: "attempts-replenished", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 4},
 		{Name: "hack.failed", Outcome: "failed", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-1", AttemptsLeft: 0},
 		{Name: "hack.reset", Outcome: "reset", TerminalID: "terminal-1", PreviousPuzzleID: "puzzle-1", PuzzleID: "puzzle-2", AttemptsLeft: 4},
+		{Name: "hack.started", Outcome: "started", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-2", HackLevel: 3, AttemptsMax: 4, AttemptsLeft: 4},
 		{Name: "hack.succeeded", Outcome: "succeeded", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-2", AttemptsLeft: 2},
 		{Name: "hack.started", Outcome: "started", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-3", HackLevel: 2, AttemptsMax: 3, AttemptsLeft: 3},
 		{Name: "hack.interrupted", Outcome: "interrupted", Reason: "broadcast-ended", SessionID: "session-1", Role: domain.PlayerRoleActive, TerminalID: "terminal-1", PuzzleID: "puzzle-3", AttemptsLeft: 3},
@@ -570,7 +610,7 @@ func TestRetainedRuntimeAuditJourneyIsExactAndCorrelated(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(records, "request_id=request-1"))
 	assert.Equal(t, 2, strings.Count(records, "request_id=request-2"))
 	assert.Equal(t, 6, strings.Count(records, " puzzle_id=puzzle-1"))
-	assert.Equal(t, 2, strings.Count(records, " puzzle_id=puzzle-2"))
+	assert.Equal(t, 3, strings.Count(records, " puzzle_id=puzzle-2"))
 	assert.Equal(t, 2, strings.Count(records, " puzzle_id=puzzle-3"))
 	assert.Contains(t, records, "run_id=journey-run")
 	assert.Contains(t, records, "revision=99")
@@ -644,6 +684,60 @@ func TestApplicationLifecycleContinuesWhenRetainedStorageIsUnavailable(t *testin
 	assert.Equal(t, []string{
 		"player:start", "event:server-info", "desktop:ready", "player:stop", "desktop:close",
 	}, recorder.Calls())
+}
+
+func TestCoordinatedPlayerJourneyIsUnchangedWhenRetainedStorageIsUnavailable(t *testing.T) {
+	type journeyOutcome struct {
+		SelectionAccepted bool
+		RosterSize        int
+		BroadcastActive   bool
+		Sessions          int
+		Revision          uint64
+	}
+	runJourney := func(t *testing.T, directory string) (journeyOutcome, string) {
+		t.Helper()
+		var fallback bytes.Buffer
+		retained, _ := diagnostics.Open(diagnostics.Options{Directory: directory, Fallback: &fallback, RunID: "journey-run"})
+		t.Cleanup(func() { require.NoError(t, retained.Close()) })
+		applicationLogger := logger.Init(t.Context(), logger.Params{
+			Level: "info", Format: "text", Writer: retained,
+		}).WithField("run_id", retained.RunID())
+		router := &coordinationEffectRouter{}
+		coordination := controlservice.New(controlservice.Config{Enqueue: router.Enqueue})
+		router.Bind(nil, NewAppWithDependencies(t.Context(), AppDependencies{Logger: applicationLogger, Coordination: coordination}))
+
+		_, err := coordination.AddCharacter(domain.CharacterCreatePayload{
+			Name: "PRIVATE-CHARACTER-CANARY", Intelligence: 1, ExpectedRevision: coordination.Revision(),
+		})
+		require.NoError(t, err)
+		state, err := coordination.StartBroadcast()
+		require.NoError(t, err)
+		connectionID := domain.ConnectionID("journey-connection")
+		session := coordination.CreateSession(connectionID)
+		selection := coordination.SelectCharacter(controlservice.CharacterSelection{
+			ConnectionID: connectionID, SessionID: session.SessionID, RequestID: "journey-select",
+			BroadcastID: state.Broadcast.ID, CharacterID: state.Roster[0].ID,
+		})
+		coordination.DetachConnection(connectionID)
+
+		final := coordination.Snapshot()
+		return journeyOutcome{
+			SelectionAccepted: selection.Accepted, RosterSize: len(final.Roster),
+			BroadcastActive: final.Broadcast != nil, Sessions: len(final.Sessions), Revision: final.Revision,
+		}, fallback.String()
+	}
+
+	available, availableRecords := runJourney(t, t.TempDir())
+	unavailable, fallbackRecords := runJourney(t, "relative/unavailable")
+
+	assert.Equal(t, available, unavailable)
+	assert.True(t, unavailable.SelectionAccepted)
+	assert.NotContains(t, availableRecords, "diagnostics.retention")
+	assert.Equal(t, 1, strings.Count(fallbackRecords, "operation=diagnostics.retention outcome=degraded"))
+	for _, event := range []string{"player.connected", "player.role_changed", "player.disconnected"} {
+		assert.Equal(t, 1, strings.Count(fallbackRecords, "event="+event), "fallback records = %s", fallbackRecords)
+	}
+	assert.NotContains(t, fallbackRecords, "PRIVATE-CHARACTER-CANARY")
 }
 
 func requireOperationRecord(t *testing.T, records []testutil.LogRecord, operation, outcome string) testutil.LogRecord {

@@ -39,7 +39,7 @@ These tasks establish retained output, platform access, and the private contract
 
 ### Implementation
 
-**⟶ Wait for Wave 1 to finish, then Wave 2 — independent owners:**
+**⟶ Wait for Wave 1 to finish, then Wave 2 — independent owners (T011 consumes the `AuditEvent` type that T010 defines, so T010 lands that type first):**
 
 - [x] **T010** [P] Define the closed safe audit vocabulary and emit detached logical-session and command lifecycle events from accepted coordinator transitions without importing the logger or exposing display content · `internal/control/service.go`
 - [x] **T011** [P] Route audit effects through root composition and format allowlisted `player.*` and `command.*` records with stable fields and severity · `main.go`, `app.go`
@@ -132,12 +132,12 @@ These tasks establish retained output, platform access, and the private contract
 
 - Phase 1 confirms no additional setup is needed.
 - Phase 2 Wave 1 writes independent failing contracts; Wave 2 implements their separate owners; T007 joins them into the single application logger and blocks all user stories.
-- Phase 3 Wave 1 writes independent coordinator and root tests; Wave 2 implements coordinator facts and root formatting in separate owners.
+- Phase 3 Wave 1 writes independent coordinator and root tests; Wave 2 implements coordinator facts and root formatting in separate owners, with T010's `AuditEvent` type available before T011 formats it.
 - Phase 4 Wave 1 writes root/facade and browser tests; T014 adds the private method, T015 regenerates bindings, then T016 and T017 complete independent UI and package evidence.
 - Phase 5 is sequential because both the failing tests and implementation touch the coordinator owner.
 - Phase 6 Wave 1 writes independent writer and integration tests; Wave 2 hardens the writer and repository-wide leak contract independently.
 - Phase 7 serializes generation/formatting before the single-owner validation task.
-- Story delivery order is US1 and US2 (P1) → US3 (P2) → US4 (P3) → Polish. Phase 4 depends on the foundational path, contract, writer, and composition but not on completed US1 behavior; Phase 5 depends on the shared audit vocabulary from US1.
+- Story delivery order is US1 and US2 (P1) → US3 (P2) → US4 (P3) → Polish. Phase 4 depends on the foundational path, contract, writer, and composition but not on completed US1 behavior; Phase 5 depends on the shared audit vocabulary from US1. Cross-story work still shares `app.go` (T011, T014) and `app_test.go` (T009, T012, T021), so parallel stories must serialize edits to those files.
 
 ## Phase 8: Convergence
 
@@ -201,3 +201,48 @@ These tasks establish retained output, platform access, and the private contract
 **Wave 1 — complete forward terminal-transition command audit coverage:**
 
 - [x] T038 add fail-first coordinator and retained-log coverage for forward terminal-transition commands, then emit exactly-once safe `command.request_received`, `command.decision`, and exceptional outcome records across approve, decline, stale, target-change, supersession, and activation-failure paths using the pending request correlation without display content, while preserving non-command terminal-return semantics per FR-004, FR-005, FR-006, FR-010, FR-018, US1/AC3-4, and SC-001 (partial) · `internal/control/service.go`, `internal/control/service_test.go`, `app_test.go`
+
+## Phase 13: Analysis Remediation
+
+**Depends on:** all prior phases. Closes the `/speckit-analyze` findings recorded on 2026-10-29.
+
+**Wave 1 — independent behavior, coverage, and documentation corrections:**
+
+- [x] T039 [P] mark `hack.started` with reason `resumed` when a suspended terminal's unfinished puzzle becomes current again with the same `puzzle_id`, emit no start record for a resumed solved or failed puzzle, and add table-driven coverage per FR-007, US3/AC5, and SC-002 · `internal/control/service.go`, `internal/control/service_test.go`
+- [x] T040 [P] add coordinator coverage proving a role handoff while a command is pending emits only `player.role_changed` records and the later decision keeps the requester correlation per spec Edge Cases and FR-005 · `internal/control/service_test.go`
+- [x] T041 [P] add race-safe coverage proving the reported active path always names an existing owned segment while rotation runs per spec Edge Cases and FR-015 · `internal/diagnostics/retained_log_test.go`
+- [x] T042 [P] add a composed coordinator journey proving outcomes are identical with available and unavailable retained storage, with exactly-once fallback records and one degradation warning per SC-007 and FR-016 · `app_test.go`
+- [x] T043 [P] add the degraded-retention notice to both log-access status regions when no active log file exists, with browser coverage per FR-019 and US4/AC3 · `frontend/overseer/src/overseer.js`, `tests/browser/overseer-runtime-logs.spec.mjs`
+- [x] T044 [P] document the log location per operating system, the 40 MiB retention boundary, the degradation warning, and the recorded vocabulary, and link it from README per FR-015 and constitution Development Workflow step 9 · `docs/runtime-logs.md`, `README.md`
+
+**⟶ Wait for Wave 1 to finish, then:**
+
+- [x] T045 align the feature artifacts with shipped behavior: `superseded` and mode values, per-event outcomes, `broadcast_id`, resumed starts, the strict retention boundary, plan rollback and gates, and file inventory · `spec.md`, `plan.md`, `research.md`, `data-model.md`, `contracts/runtime-audit.md`, `contracts/overseer-log-access.md`
+- [x] T046 correct the governed Go quality skill path to `.claude/skills/go-code-quality-review/SKILL.md` through a PATCH constitution amendment · `.specify/memory/constitution.md`
+
+**⟶ Wait for T046 to finish, then:**
+
+- [x] T047 run reviewed `go fix ./...`, then `task fmt:check`, `task vet`, `task lint`, `task test`, `task test:race`, `task proto:check`, `task proto:breaking`, `task bindings:check`, `task frontend:build`, and the focused runtime-logs browser journey · repository-wide
+
+## Phase 14: Analysis Remediation
+
+**Depends on:** all prior phases. Closes the second `/speckit-analyze` findings recorded on 2026-10-29.
+
+**Wave 1 — coordinator and root audit corrections (shared test files, run in order):**
+
+- [x] T048 emit `hack.started` for the new `puzzle_id` after every `hack.reset`, so a reset puzzle reports its difficulty and allowed attempts, and align the coordinator and retained-journey coverage per FR-007, FR-008, US3/AC1, and SC-002 · `internal/control/service.go`, `internal/control/service_test.go`, `app_test.go`
+- [x] T049 log the command rejections `unassigned`, `not-controller`, `controller-disconnected`, `stale-broadcast`, and `stale-terminal` with warning severity like the other rejected outcomes, with table-driven severity coverage per FR-010 · `app.go`, `app_test.go`
+- [x] T050 add coordinator coverage proving a decline after the requester disconnects emits one `player.disconnected` record and a `command.decision` that keeps the requester correlation per spec Edge Cases and FR-005 · `internal/control/service_test.go`
+
+**Wave 1 — independent corrections:**
+
+- [x] T051 [P] show the exact `directoryPath`, never the active file, when opening the log directory fails, with browser coverage per FR-013 and the log-access contract · `frontend/overseer/src/overseer.js`, `tests/browser/overseer-runtime-logs.spec.mjs`
+- [x] T052 [P] expose the secret-leak self-test and scan as `task secret-leak:check` and list it with the other checks per constitution Development Workflow step 9 · `Taskfile.yml`, `README.md`, `CONTRIBUTING.md`
+
+**⟶ Wait for Wave 1 to finish, then:**
+
+- [x] T053 align the feature artifacts: reset-then-start ordering, the full warning-severity list, the directory-only failure path, and the `task secret-leak:check` gate · `plan.md`, `contracts/runtime-audit.md`, `contracts/overseer-log-access.md`, `docs/runtime-logs.md`
+
+**⟶ Wait for T053 to finish, then:**
+
+- [x] T054 run reviewed `go fix ./...`, then `task fmt:check`, `task vet`, `task lint`, `task test`, `task test:race`, `task proto:check`, `task proto:breaking`, `task bindings:check`, `task deps:frontend`, `task frontend:build`, `task browser:test`, `task secret-leak:check`, `task build`, and `task package` · repository-wide

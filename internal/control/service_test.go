@@ -3705,6 +3705,63 @@ func TestCommandAuditDistinguishesRequestsDecisionsAndExceptionalOutcomes(t *tes
 	})
 }
 
+func TestCommandAuditKeepsRequesterCorrelationWhenRoleChangesWhilePending(t *testing.T) {
+	fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("role-change-request")).Accepted)
+	pending := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pending)
+	requester, observer := fixture.controllerSession, fixture.observerSession
+
+	baseline := len(fixture.effects.Values())
+	_, err := fixture.service.SetActiveController(observer)
+	require.NoError(t, err)
+	handoff := auditEvents(fixture.effects.Values()[baseline:])
+	var roleChanges []AuditEvent
+	for _, event := range handoff {
+		assert.False(t, strings.HasPrefix(event.Name, "command."), "role change must not decide the pending request: %#v", event)
+		if event.Name == "player.role_changed" {
+			roleChanges = append(roleChanges, event)
+		}
+	}
+	require.Len(t, roleChanges, 2, "audit events = %#v", handoff)
+	roles := map[domain.LogicalSessionID][2]domain.PlayerRole{}
+	for _, event := range roleChanges {
+		roles[event.SessionID] = [2]domain.PlayerRole{event.PreviousRole, event.Role}
+	}
+	assert.Equal(t, [2]domain.PlayerRole{domain.PlayerRoleActive, domain.PlayerRoleObserver}, roles[requester])
+	assert.Equal(t, [2]domain.PlayerRole{domain.PlayerRoleObserver, domain.PlayerRoleActive}, roles[observer])
+	require.NotNil(t, fixture.service.Snapshot().PendingCommandExecution)
+
+	baseline = len(fixture.effects.Values())
+	_, _, err = fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionReject)
+	require.NoError(t, err)
+	decision := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, "declined")
+	assert.Equal(t, requester, decision.SessionID)
+}
+
+func TestCommandAuditKeepsRequesterCorrelationWhenRequesterDisconnectsWhilePending(t *testing.T) {
+	fixture := newCommandExecutionFixture(t, &recordingCommandStateStore{})
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command("disconnect-request")).Accepted)
+	pending := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pending)
+	requester := fixture.controllerSession
+
+	baseline := len(fixture.effects.Values())
+	fixture.service.DetachConnection(fixture.controllerConnection)
+	disconnect := auditEvents(fixture.effects.Values()[baseline:])
+	require.Len(t, disconnect, 1, "audit events = %#v", disconnect)
+	assert.Equal(t, "player.disconnected", disconnect[0].Name)
+	assert.Equal(t, requester, disconnect[0].SessionID)
+	assert.Equal(t, domain.PlayerRoleActive, disconnect[0].Role)
+	require.NotNil(t, fixture.service.Snapshot().PendingCommandExecution)
+
+	baseline = len(fixture.effects.Values())
+	_, _, err := fixture.service.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionReject)
+	require.NoError(t, err)
+	decision := assertAuditEvent(t, fixture.effects.Values()[baseline:], "command.decision", pending.RequestID, "declined")
+	assert.Equal(t, requester, decision.SessionID)
+}
+
 func TestForwardTerminalTransitionAuditCorrelatesRequestsAndDecisions(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -3977,10 +4034,71 @@ func TestHackLifecycleAuditCarriesSafeContextReasonsAndOnlyInterruptsActivePuzzl
 		GenerationID: "puzzle-a-reset", Level: 4, AttemptsMax: 5, AttemptsLeft: 5,
 	}
 	events = deriveHackLifecycleEvents(before, reset)
-	require.Len(t, events, 1)
+	require.Len(t, events, 2)
 	assert.Equal(t, "hack.reset", events[0].Name)
 	assert.Equal(t, "puzzle-a", events[0].PreviousPuzzleID)
 	assert.Equal(t, "puzzle-a-reset", events[0].PuzzleID)
+	assert.Equal(t, "hack.started", events[1].Name)
+	assert.Equal(t, "puzzle-a-reset", events[1].PuzzleID)
+	assert.Empty(t, events[1].Reason)
+	assert.Equal(t, 4, events[1].HackLevel)
+	assert.Equal(t, 5, events[1].AttemptsMax)
+}
+
+func TestHackStartedAuditMarksResumedPuzzlesAndSkipsResumedFinishedPuzzles(t *testing.T) {
+	controller := domain.LogicalSessionID("session-1")
+	tests := []struct {
+		name          string
+		resumedBefore *domain.HackState
+		wantStarted   bool
+		wantReason    string
+	}{
+		{name: "fresh puzzle", wantStarted: true},
+		{name: "resumed active puzzle", resumedBefore: &domain.HackState{GenerationID: "puzzle-b", AttemptsLeft: 3}, wantStarted: true, wantReason: "resumed"},
+		{name: "resumed solved puzzle", resumedBefore: &domain.HackState{GenerationID: "puzzle-b", AttemptsLeft: 3, Solved: true}},
+		{name: "resumed failed puzzle", resumedBefore: &domain.HackState{GenerationID: "puzzle-b", Failed: true}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			before := &domain.ProcessRuntime{Broadcast: &domain.LiveBroadcast{
+				ID: "broadcast-1", ActiveTerminalID: new("terminal-a"), ControllerSessionID: &controller,
+				AssignmentsBySession: map[domain.LogicalSessionID]domain.CharacterID{controller: "character-1"},
+				TerminalRuntimes: map[string]*domain.TerminalRuntime{"terminal-a": {
+					TerminalID: "terminal-a", Lifecycle: domain.TerminalLifecycleActive,
+					Hack: &domain.HackState{GenerationID: "puzzle-a", AttemptsLeft: 2},
+				}},
+			}}
+			if test.resumedBefore != nil {
+				before.Broadcast.TerminalRuntimes["terminal-b"] = &domain.TerminalRuntime{
+					TerminalID: "terminal-b", Lifecycle: domain.TerminalLifecycleSuspended, Hack: test.resumedBefore,
+				}
+			}
+			after := cloneProcessRuntime(before)
+			after.Broadcast.TerminalRuntimes["terminal-a"].Lifecycle = domain.TerminalLifecycleSuspended
+			resumed := &domain.HackState{GenerationID: "puzzle-b", AttemptsLeft: 3}
+			if test.resumedBefore != nil {
+				value := *test.resumedBefore
+				resumed = &value
+			}
+			after.Broadcast.TerminalRuntimes["terminal-b"] = &domain.TerminalRuntime{
+				TerminalID: "terminal-b", Lifecycle: domain.TerminalLifecycleActive, Hack: resumed,
+			}
+			after.Broadcast.ActiveTerminalID = new("terminal-b")
+
+			events := deriveHackLifecycleEvents(before, after)
+			require.NotEmpty(t, events)
+			assert.Equal(t, "hack.interrupted", events[0].Name)
+			assert.Equal(t, "terminal-suspended", events[0].Reason)
+			if !test.wantStarted {
+				assert.Len(t, events, 1)
+				return
+			}
+			require.Len(t, events, 2)
+			assert.Equal(t, "hack.started", events[1].Name)
+			assert.Equal(t, "puzzle-b", events[1].PuzzleID)
+			assert.Equal(t, test.wantReason, events[1].Reason)
+		})
+	}
 }
 
 func TestActiveHackAuditInterruptsWhenControllerBecomesUnavailable(t *testing.T) {
@@ -4295,6 +4413,8 @@ type commandExecutionFixture struct {
 	terminalID           string
 	commandID            string
 	controllerConnection domain.ConnectionID
+	controllerSession    domain.LogicalSessionID
+	observerSession      domain.LogicalSessionID
 }
 
 func newCommandExecutionFixture(t *testing.T, store *recordingCommandStateStore) commandExecutionFixture {
@@ -4317,6 +4437,7 @@ func newCommandExecutionFixture(t *testing.T, store *recordingCommandStateStore)
 		service: base.service, effects: base.effects, runtime: runtime, store: store,
 		broadcastID: base.broadcastID, terminalID: base.terminalID, commandID: commandID,
 		controllerConnection: base.controllerConnection,
+		controllerSession:    base.controllerSession, observerSession: base.observerSession,
 	}
 }
 
