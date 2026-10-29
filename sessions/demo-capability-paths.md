@@ -102,10 +102,10 @@ terminal, and see a status record change to **Путь свободен**.
 
 | Step | Story decision | Configuration route |
 |---|---|---|
-| **1. Объект** | What can change? A door starts **Заперта** and can become **Открыта**. | Create a door device, its two named states and initial state. Add the **Открыть дверь** transition from closed to open. Applying selects the device in the guide. |
-| **2. Действие** | What do players do? They request **Открыть дверь** on a terminal. | Use **СВЯЗАТЬ С КОМАНДОЙ** or edit an existing command action; choose the door and opening transition. If there is no suitable command, the guide routes to **ТЕРМИНАЛЫ** to create one. A transition alone does not create a player command. |
+| **1. Объект** | What can change? A door starts **Заперта** and can become **Открыта**. | Create a door device, its two named states and initial state. Add the **Открыть дверь** transition from closed to open. Russian names produce readable identifiers on their own (**Заперта** → `zaperta`, **Открыть дверь** → `otkryt-dver`); a missing or repeated state name is marked on its own row. Applying selects the device in the guide. |
+| **2. Действие** | What do players do? They request **Открыть дверь** on a terminal. | Use **СВЯЗАТЬ С КОМАНДОЙ** or edit an existing command action; choose the door and opening transition. An ordinary command becomes state-changing, so the editor asks for **НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ** and **ЗАПРОС ПОДТВЕРЖДЕНИЯ**; nothing is filled in for you. If there is no suitable command, the guide routes to **ТЕРМИНАЛЫ** to create one. A transition alone does not create a player command. |
 | **3. Результат** | How do players notice the change? A status record says **Путь свободен**. | Open the display-rule editor; choose the terminal, entry, block, and open state. Keep **Дверь заперта** as the block's original text and use **Путь свободен** for the open-state variant. Name, visibility, and availability rules are alternative display choices. |
-| **4. Осложнения** | Optional: what obstructs the scene and how is it repaired? | Add a fault and choose its blocking effect; activate/remove it in transition effects. Operator recovery is a manual escape path. A recovery program combines transitions; return to **2. Действие**, open the command action, and choose that program under **ЧТО ЗАПУСТИТЬ**. |
+| **4. Осложнения** | Optional: what obstructs the scene and how is it repaired? | Add a fault and choose its blocking effect and whether it is active **В НАЧАЛЕ ИГРЫ И ПОСЛЕ СБРОСА**; activate/remove it in transition effects. Operator recovery is a manual escape path. A recovery program combines transitions; return to **2. Действие**, open the command action, and choose that program under **ЧТО ЗАПУСТИТЬ**. |
 | **5. Проверка** | Does the saved scene show the expected result? | Save the shared draft once, then preview the open state on the relevant terminal. Finally request the actual command as a player and approve it as Overseer. Preview checks presentation without performing the action. |
 
 If a command or display destination is missing while your facility draft has changes, use
@@ -133,6 +133,16 @@ its readable current/initial value and related rules beside the searchable devic
 IDs remain under **Технические идентификаторы**. Device graphs summarize each transition as
 source → destination; expand **ПРЕДУСЛОВИЯ И ЭФФЕКТЫ** only when editing advanced rules, including
 the explicit **АКТИВИРОВАТЬ НЕИСПРАВНОСТЬ** / **СНЯТЬ НЕИСПРАВНОСТЬ** choice.
+
+Fault rows read **СЕЙЧАС: … · В НАЧАЛЕ: …**. Editing a fault's starting activity changes only what a
+reset restores; a new fault starts in the chosen activity. For example, open
+**ОБЪЕКТЫ → Контур вентиляции теплицы → ЗАВИСИМОСТИ → Область неисправности → ОТКРЫТЬ** to edit `air-spore-bloom`.
+
+Under **ТЕРМИНАЛЫ**, the **ДЕЙСТВИЕ УСТРОЙСТВ** block appears only in **ИЗМЕНЯЕТ СОСТОЯНИЕ** mode.
+Switching `n_cmd_open_evacuation` to another mode shows the transitions it would lose and asks to keep
+the mode or remove the action; **ПРИМЕНИТЬ** stays disabled until you choose. While the facility draft
+has unsaved changes, commands with a device action are locked and offer **СОХРАНИТЬ ЧЕРНОВИК
+ОБЪЕКТОВ** or **ОТМЕНИТЬ ЧЕРНОВИК**, so the draft never goes stale behind the terminal autosave.
 
 Device, binding, and recovery-program dialogs only update the shared draft. Review all staged
 changes, then use the single **СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ** action. A failed save keeps the draft;

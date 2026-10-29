@@ -4,6 +4,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -2117,6 +2118,38 @@ button {
 }
 .command-facility-action-summary { white-space: pre-wrap; line-height: 1.5; color: #d8ffb8; }
 .command-facility-action .btn { justify-self: start; }
+#commandModeDecision,
+#commandDraftGuard {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #d0a63a;
+  background: #201a0a;
+  color: #ffe08a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.command-mode-decision-summary { white-space: pre-wrap; line-height: 1.5; color: #d8ffb8; }
+#commandModeDecision .btn,
+#commandDraftGuard .btn { justify-self: start; }
+.facility-row-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 5px 7px;
+  border: 1px solid #8a3a2a;
+  background: #1d0e0a;
+  color: #ff9a7a;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.facility-dialog [aria-invalid="true"] {
+  border-color: #c65a3a;
+  background: #1a100b;
+  box-shadow: 0 0 0 1px rgba(198, 90, 58, .25);
+}
+.facility-condition-initial { display: grid; gap: 6px; }
+.facility-condition-initial label { display: flex; align-items: center; gap: 8px; }
 [data-facility-kind][data-facility-id]:hover,
 [data-facility-kind][data-facility-id]:focus-within,
 [data-facility-selected="true"] {

@@ -254,6 +254,8 @@ const facilityConditionCategory = document.getElementById('facilityConditionCate
 const facilityConditionDevice = document.getElementById('facilityConditionDevice');
 const facilityConditionCapability = document.getElementById('facilityConditionCapability');
 const facilityConditionPrivateRecovery = document.getElementById('facilityConditionPrivateRecovery');
+const facilityConditionInitialWorking = document.getElementById('facilityConditionInitialWorking');
+const facilityConditionInitialActive = document.getElementById('facilityConditionInitialActive');
 const facilityConditionError = document.getElementById('facilityConditionError');
 const btnCancelFacilityCondition = document.getElementById('btnCancelFacilityCondition');
 const facilityRecoveryProgramDialog = document.getElementById('facilityRecoveryProgramDialog');
@@ -370,6 +372,8 @@ let facilityBindingKind = null;
 let facilityBindingActionRequests = null;
 let facilityBindingProgram = null;
 let btnAddFacilityBindingAction = null;
+let facilityBindingCompletedName = null;
+let facilityBindingConfirmationText = null;
 let facilityBindingBlock = null;
 let facilityConditionScope = null;
 let facilityConditionTerminal = null;
@@ -2108,16 +2112,30 @@ function populateSelect(select, values, selected = '', placeholder = '') {
   if ([...select.options].some(option => option.value === selected)) select.value = selected;
 }
 
-function stableFacilityID(prefix, name, existingIDs) {
-  const stem = String(name || '')
+const CYRILLIC_TO_LATIN = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'yo', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k',
+  л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts',
+  ч: 'ch', ш: 'sh', щ: 'shch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+  і: 'i', ї: 'yi', є: 'ye', ґ: 'g', ў: 'u',
+};
+const FACILITY_ID_LIMIT = 256;
+
+// Suggests an identifier for a new facility entity. Transliteration runs before NFKD, which would
+// otherwise split й and ё; uniqueness is checked against the final values in existingIDs.
+function suggestFacilityID(prefix, name, existingIDs, keepPrefix = true) {
+  const stem = [...String(name || '').toLowerCase()]
+    .map(character => CYRILLIC_TO_LATIN[character] ?? character)
+    .join('')
     .normalize('NFKD')
-    .toLocaleLowerCase()
+    .replace(/\p{M}/gu, '')
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || prefix;
-  const base = stem.startsWith(`${prefix}-`) ? stem : `${prefix}-${stem}`;
-  let candidate = base;
-  for (let suffix = 2; existingIDs.has(candidate); suffix++) candidate = `${base}-${suffix}`;
-  return candidate;
+    .replace(/^-+|-+$/g, '');
+  const base = !stem ? prefix : keepPrefix && !stem.startsWith(`${prefix}-`) ? `${prefix}-${stem}` : stem;
+  for (let attempt = 1; ; attempt++) {
+    const suffix = stem && attempt === 1 ? '' : `-${attempt}`;
+    const candidate = base.slice(0, FACILITY_ID_LIMIT - suffix.length).replace(/-+$/, '') + suffix;
+    if (!existingIDs.has(candidate)) return candidate;
+  }
 }
 
 function facilityDeviceByID(deviceID, session = facilityDraft) {
@@ -2183,6 +2201,10 @@ function facilityListRow(kind, id, heading, detail = '') {
     row.appendChild(description);
   }
   return row;
+}
+
+function facilityConditionActivity(condition) {
+  return `СЕЙЧАС: ${condition.currentActive ? 'АКТИВНА' : 'НЕАКТИВНА'} · В НАЧАЛЕ: ${condition.initialActive ? 'АКТИВНА' : 'ИСПРАВНО'}`;
 }
 
 function facilityStateName(device, stateID) {
@@ -2490,7 +2512,7 @@ function renderFacilityWorkspace() {
     const scope = facilityDeviceByID(condition.device?.deviceId)?.name
       || facilityDraft.terminals.find(value => value.id === condition.terminal?.terminalId)?.name || 'Вся сессия';
     const row = facilityListRow(
-      'condition', condition.id, condition.name, `${condition.currentActive ? 'АКТИВНА' : 'НЕАКТИВНА'} · ${scope}`,
+      'condition', condition.id, condition.name, `${facilityConditionActivity(condition)} · ${scope}`,
     );
     row.dataset.facilitySelected = String(condition.id === selectedFacilityConditionID);
     row.addEventListener('click', () => {
@@ -2575,7 +2597,7 @@ function renderFacilityWorkspace() {
   const selectedCondition = facility.conditions?.find(condition => condition.id === selectedFacilityConditionID) || null;
   facilityConditionSelectionEditor.hidden = !selectedCondition;
   facilitySelectedConditionSummary.textContent = selectedCondition
-    ? `${selectedCondition.name} · ${selectedCondition.currentActive ? 'АКТИВНА' : 'НЕАКТИВНА'} · При сбросе: ${selectedCondition.initialActive ? 'активна' : 'неактивна'}` : '';
+    ? `${selectedCondition.name} · ${facilityConditionActivity(selectedCondition)}` : '';
   btnRecoverFacilityCondition.disabled = !selectedCondition?.currentActive
     || facilityDraftDirty || !(selectedCondition.recovery || []).some(reference => reference.privateOverseerAction === true);
   btnSaveFacility.disabled = facilitySubmitting || !facilityDraftDirty;
@@ -2961,7 +2983,7 @@ function appendFacilityStateRow(value = {}) {
     if (idInput.dataset.manual === 'true') return;
     const existing = new Set([...facilityDeviceStates.querySelectorAll('.facility-state-id')]
       .filter(input => input !== idInput).map(input => input.value.trim()).filter(Boolean));
-    idInput.value = stableFacilityID('state', nameInput.value, existing).replace(/^state-/, '');
+    idInput.value = suggestFacilityID('state', nameInput.value, existing, false);
     refreshFacilityStateChoices();
   });
   row.querySelector('[data-action="remove-facility-state"]').addEventListener('click', () => {
@@ -3007,7 +3029,7 @@ function appendFacilityTransitionRow(value = {}) {
     if (idInput.dataset.manual !== 'true') {
       const existing = new Set([...facilityDeviceTransitions.querySelectorAll('.facility-transition-id')]
         .filter(input => input !== idInput).map(input => input.value.trim()).filter(Boolean));
-      idInput.value = stableFacilityID('transition', nameInput.value, existing).replace(/^transition-/, '');
+      idInput.value = suggestFacilityID('transition', nameInput.value, existing, false);
     }
     updatePresentation();
   });
@@ -3113,6 +3135,70 @@ function readFacilityDeviceDraft() {
   return device;
 }
 
+// Returns at most one problem per state or transition row, in reading order.
+function facilityDeviceRowProblems() {
+  const problems = [];
+  const check = (row, rules) => {
+    const failed = rules.find(([invalid]) => invalid);
+    if (failed) problems.push({ row, control: failed[1], message: failed[2] });
+  };
+  const stateIDs = new Set();
+  const stateNames = new Set();
+  for (const row of facilityDeviceStates.querySelectorAll('.facility-state-row')) {
+    const id = row.querySelector('.facility-state-id');
+    const name = row.querySelector('.facility-state-name');
+    const value = id.value.trim();
+    // The server compares state names case-insensitively after trimming.
+    const normalizedName = name.value.trim().toLowerCase();
+    check(row, [
+      [!normalizedName, name, 'УКАЖИТЕ НАЗВАНИЕ СОСТОЯНИЯ'],
+      [stateNames.has(normalizedName), name, `НАЗВАНИЕ УЖЕ ИСПОЛЬЗУЕТСЯ: ${name.value.trim()}`],
+      [!value, id, 'УКАЖИТЕ ИДЕНТИФИКАТОР СОСТОЯНИЯ'],
+      [stateIDs.has(value), id, `ИДЕНТИФИКАТОР УЖЕ ИСПОЛЬЗУЕТСЯ: ${value}`],
+    ]);
+    if (value) stateIDs.add(value);
+    if (normalizedName) stateNames.add(normalizedName);
+  }
+  const transitionIDs = new Set();
+  for (const row of facilityDeviceTransitions.querySelectorAll('.facility-transition-row')) {
+    const id = row.querySelector('.facility-transition-id');
+    const name = row.querySelector('.facility-transition-name');
+    const source = row.querySelector('.facility-transition-source');
+    const destination = row.querySelector('.facility-transition-destination');
+    const value = id.value.trim();
+    check(row, [
+      [!name.value.trim(), name, 'УКАЖИТЕ НАЗВАНИЕ ПЕРЕХОДА'],
+      [!value, id, 'УКАЖИТЕ ИДЕНТИФИКАТОР ПЕРЕХОДА'],
+      [transitionIDs.has(value), id, `ИДЕНТИФИКАТОР УЖЕ ИСПОЛЬЗУЕТСЯ: ${value}`],
+      [!stateIDs.has(source.value), source, 'ВЫБЕРИТЕ СОСТОЯНИЕ «ИЗ»'],
+      [!stateIDs.has(destination.value), destination, 'ВЫБЕРИТЕ СОСТОЯНИЕ «В»'],
+    ]);
+    if (value) transitionIDs.add(value);
+  }
+  return problems;
+}
+
+function clearFacilityRowProblem(row) {
+  row.querySelectorAll('.facility-row-error').forEach(note => note.remove());
+  for (const control of row.querySelectorAll('[aria-invalid="true"]')) {
+    control.removeAttribute('aria-invalid');
+    control.removeAttribute('aria-describedby');
+  }
+}
+
+function showFacilityRowProblems(problems) {
+  problems.forEach(({ row, control, message }, index) => {
+    const note = document.createElement('p');
+    note.className = 'facility-row-error';
+    note.id = `facilityRowProblem${index}`;
+    note.textContent = message;
+    row.appendChild(note);
+    control.setAttribute('aria-invalid', 'true');
+    control.setAttribute('aria-describedby', note.id);
+    row.addEventListener('input', () => clearFacilityRowProblem(row), { once: true });
+  });
+}
+
 function validateFacilityDeviceDraft(device) {
   if (!device.id) return ['УКАЖИТЕ СТАБИЛЬНЫЙ ИДЕНТИФИКАТОР УСТРОЙСТВА', facilityDeviceID];
   if (authoredFacility().devices.some(candidate => candidate.id === device.id && candidate.id !== editingFacilityDeviceID)) {
@@ -3121,25 +3207,11 @@ function validateFacilityDeviceDraft(device) {
   if (!device.name) return ['УКАЖИТЕ НАЗВАНИЕ УСТРОЙСТВА', facilityDeviceName];
   if (!device.kind) return ['ВЫБЕРИТЕ ТИП УСТРОЙСТВА', facilityDeviceKind];
   if (!device.states.length) return ['ДОБАВЬТЕ ХОТЯ БЫ ОДНО СОСТОЯНИЕ', btnAddFacilityState];
-  const stateIDs = new Set();
-  for (const stateValue of device.states) {
-    if (!stateValue.id || !stateValue.name || stateIDs.has(stateValue.id)) {
-      return ['СОСТОЯНИЯ ДОЛЖНЫ ИМЕТЬ УНИКАЛЬНЫЕ ИДЕНТИФИКАТОРЫ И НАЗВАНИЯ',
-        facilityDeviceStates.querySelector('.facility-state-id')];
-    }
-    stateIDs.add(stateValue.id);
-  }
+  const problems = facilityDeviceRowProblems();
+  if (problems.length) return [`ИСПРАВЬТЕ ОТМЕЧЕННЫЕ СТРОКИ: ${problems.length}`, problems[0].control, problems];
+  const stateIDs = new Set(device.states.map(stateValue => stateValue.id));
   if (!stateIDs.has(device.initialStateId)) return ['ВЫБЕРИТЕ НАЧАЛЬНОЕ СОСТОЯНИЕ', facilityDeviceInitialState];
   if (!stateIDs.has(device.currentStateId)) return ['НЕЛЬЗЯ УДАЛИТЬ ТЕКУЩЕЕ СОСТОЯНИЕ УСТРОЙСТВА', btnAddFacilityState];
-  const transitionIDs = new Set();
-  for (const transition of device.transitions) {
-    if (!transition.id || !transition.name || transitionIDs.has(transition.id)
-        || !stateIDs.has(transition.sourceStateId) || !stateIDs.has(transition.destinationStateId)) {
-      return ['ПЕРЕХОДЫ ДОЛЖНЫ ИМЕТЬ УНИКАЛЬНЫЕ ИДЕНТИФИКАТОРЫ И ИЗВЕСТНЫЕ СОСТОЯНИЯ',
-        facilityDeviceTransitions.querySelector('.facility-transition-id')];
-    }
-    transitionIDs.add(transition.id);
-  }
   for (const row of facilityDeviceTransitions.querySelectorAll('.facility-precondition-row')) {
     const deviceSelect = row.querySelector('.facility-precondition-device');
     const stateSelect = row.querySelector('.facility-precondition-state');
@@ -3192,6 +3264,7 @@ function openFacilityConditionDialog(conditionID = '') {
   facilityConditionPrivateRecovery.checked = Boolean(
     condition?.recovery?.some(reference => reference.privateOverseerAction === true),
   );
+  (condition?.initialActive ? facilityConditionInitialActive : facilityConditionInitialWorking).checked = true;
   updateFacilityConditionScopePresentation();
   setFacilityFeedback(facilityConditionError);
   showFacilityDialog(facilityConditionDialog, condition ? facilityConditionName : facilityConditionID);
@@ -3587,10 +3660,42 @@ function installFacilityBindingControls() {
   btnAddFacilityBindingAction.type = 'button';
   btnAddFacilityBindingAction.textContent = 'ДОБАВИТЬ ПЕРЕХОД К ДЕЙСТВИЮ';
   btnAddFacilityBindingAction.addEventListener('click', () => appendFacilityActionRequest());
-  action.append(legend, programLabel, facilityBindingProgram, facilityBindingActionRequests, btnAddFacilityBindingAction);
+  // An ordinary command becomes state-changing, so the author writes the texts players will see.
+  const completedNameLabel = document.createElement('label');
+  completedNameLabel.htmlFor = 'facilityBindingCompletedName';
+  completedNameLabel.textContent = 'НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ';
+  facilityBindingCompletedName = document.createElement('input');
+  facilityBindingCompletedName.id = 'facilityBindingCompletedName';
+  facilityBindingCompletedName.className = 'field-input';
+  facilityBindingCompletedName.maxLength = 256;
+  facilityBindingCompletedName.autocomplete = 'off';
+  facilityBindingCompletedName.placeholder = 'Например: Выход открыт';
+  const confirmationLabel = document.createElement('label');
+  confirmationLabel.htmlFor = 'facilityBindingConfirmationText';
+  confirmationLabel.textContent = 'ЗАПРОС ПОДТВЕРЖДЕНИЯ';
+  facilityBindingConfirmationText = document.createElement('textarea');
+  facilityBindingConfirmationText.id = 'facilityBindingConfirmationText';
+  facilityBindingConfirmationText.className = 'field-input';
+  facilityBindingConfirmationText.rows = 2;
+  facilityBindingConfirmationText.placeholder = 'Например: Открыть гермодверь и включить сигнал?';
+  action.append(legend, programLabel, facilityBindingProgram, facilityBindingActionRequests, btnAddFacilityBindingAction,
+    completedNameLabel, facilityBindingCompletedName, confirmationLabel, facilityBindingConfirmationText);
   facilityBindingForm.insertBefore(action, facilityBindingForm.querySelector('#facilityBindingStatus'));
   facilityBindingKind.addEventListener('change', updateFacilityBindingMode);
   facilityBindingNode.addEventListener('change', updateFacilityBindingBlocks);
+  facilityBindingNode.addEventListener('change', updateFacilityBindingCommandTexts);
+}
+
+function updateFacilityBindingCommandTexts() {
+  const terminal = facilityDraft?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
+  const node = terminal ? locateNode(terminal.root, facilityBindingNode.value)?.node : null;
+  const needed = facilityBindingKind.value === 'command-action' && node?.type === 'command'
+    && !node.stateChange && !node.terminalTransition;
+  for (const control of [facilityBindingCompletedName, facilityBindingConfirmationText]) {
+    control.hidden = !needed;
+    control.required = needed;
+    facilityBindingForm.querySelector(`label[for="${control.id}"]`).hidden = !needed;
+  }
 }
 
 function updateFacilityBindingBlocks() {
@@ -3682,6 +3787,7 @@ function updateFacilityBindingMode() {
   facilityBindingActionRequests.hidden = usesProgram;
   btnAddFacilityBindingAction.hidden = usesProgram;
   if (kind === 'command-action' && !usesProgram && !facilityBindingActionRequests.children.length) appendFacilityActionRequest();
+  updateFacilityBindingCommandTexts();
 }
 
 function installFacilityConditionScopeControls() {
@@ -3828,8 +3934,14 @@ facilityDeviceDialog.addEventListener('cancel', event => {
 facilityDeviceForm.addEventListener('submit', event => {
   event.preventDefault();
   const device = readFacilityDeviceDraft();
+  facilityDeviceForm.querySelectorAll('.facility-state-row, .facility-transition-row').forEach(clearFacilityRowProblem);
   const invalid = validateFacilityDeviceDraft(device);
-  if (invalid) return setFacilityFeedback(facilityDeviceError, ...invalid);
+  if (invalid) {
+    const [message, field, problems = []] = invalid;
+    setFacilityFeedback(facilityDeviceError, message, field);
+    showFacilityRowProblems(problems);
+    return;
+  }
   if (editingFacilityDeviceID) {
     const index = authoredFacility().devices.findIndex(candidate => candidate.id === editingFacilityDeviceID);
     authoredFacility().devices.splice(index, 1, device);
@@ -3845,7 +3957,7 @@ facilityDeviceForm.addEventListener('submit', event => {
 });
 facilityDeviceName.addEventListener('input', () => {
   if (facilityDeviceID.dataset.manual === 'true') return;
-  facilityDeviceID.value = stableFacilityID('device', facilityDeviceName.value,
+  facilityDeviceID.value = suggestFacilityID('device', facilityDeviceName.value,
     new Set((authoredFacility()?.devices || []).map(device => device.id)));
 });
 facilityDeviceID.addEventListener('input', () => { facilityDeviceID.dataset.manual = 'true'; });
@@ -3909,7 +4021,10 @@ facilityConditionForm.addEventListener('submit', event => {
   const condition = {
     ...structuredClone(original || {}),
     id, name, category: facilityConditionCategory.value, effects, recovery,
+    initialActive: facilityConditionInitialActive.checked,
   };
+  // Only a new fault starts in its starting activity; an existing one keeps its live value.
+  if (!original) condition.currentActive = condition.initialActive;
   if (condition.category === 'custom') condition.customCategory ||= condition.id;
   else delete condition.customCategory;
   if (terminalScope) condition.terminal = { ...original?.terminal, terminalId: facilityConditionTerminal.value };
@@ -3925,7 +4040,7 @@ facilityConditionForm.addEventListener('submit', event => {
 });
 facilityConditionName.addEventListener('input', () => {
   if (facilityConditionID.dataset.manual === 'true') return;
-  facilityConditionID.value = stableFacilityID('condition', facilityConditionName.value,
+  facilityConditionID.value = suggestFacilityID('condition', facilityConditionName.value,
     new Set((authoredFacility()?.conditions || []).map(condition => condition.id)));
 });
 facilityConditionID.addEventListener('input', () => { facilityConditionID.dataset.manual = 'true'; });
@@ -3969,13 +4084,14 @@ facilityRecoveryProgramForm.addEventListener('submit', event => {
 });
 facilityRecoveryProgramName.addEventListener('input', () => {
   if (facilityRecoveryProgramID.dataset.manual === 'true') return;
-  facilityRecoveryProgramID.value = stableFacilityID('program', facilityRecoveryProgramName.value,
+  facilityRecoveryProgramID.value = suggestFacilityID('program', facilityRecoveryProgramName.value,
     new Set((authoredFacility()?.recoveryPrograms || []).map(program => program.id)));
 });
 facilityRecoveryProgramID.addEventListener('input', () => { facilityRecoveryProgramID.dataset.manual = 'true'; });
 
 btnAddFacilityBinding.addEventListener('click', openFacilityBindingDialog);
 facilityBindingTerminal.addEventListener('change', updateFacilityBindingNodes);
+facilityBindingTerminal.addEventListener('change', updateFacilityBindingCommandTexts);
 facilityBindingDevice.addEventListener('change', updateFacilityBindingStates);
 btnCancelFacilityBinding.addEventListener('click', () => hideFacilityDialog(facilityBindingDialog, btnAddFacilityBinding));
 facilityBindingDialog.addEventListener('cancel', event => {
@@ -4013,11 +4129,14 @@ facilityBindingForm.addEventListener('submit', event => {
       return setFacilityFeedback(facilityBindingError,
         'ДЕЙСТВИЕ ТРЕБУЕТ КОМАНДУ И ХОТЯ БЫ ОДИН ПЕРЕХОД', facilityBindingNode);
     }
+    const completedName = facilityBindingCompletedName.value.trim();
+    const confirmationText = facilityBindingConfirmationText.value.trim();
+    if (!located.node.stateChange && (!completedName || !confirmationText)) {
+      return setFacilityFeedback(facilityBindingError, 'ЗАПОЛНИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ И ЗАПРОС ПОДТВЕРЖДЕНИЯ',
+        completedName ? facilityBindingConfirmationText : facilityBindingCompletedName);
+    }
     if (editingFacilityBinding) removeFacilityBinding(editingFacilityBinding);
-    located.node.stateChange ||= {
-      completedName: located.node.name,
-      confirmationText: located.node.text || located.node.name,
-    };
+    located.node.stateChange ||= { completedName, confirmationText };
     located.node.stateChange.facilityAction = programID
       ? { recoveryProgramId: programID } : { transitions: { transitions: requests } };
   } else if (!facilityBindingDevice.value || !facilityBindingState.value
@@ -4059,13 +4178,14 @@ btnSaveFacilityDeviceChanges.addEventListener('click', () => {
   setFacilityFeedback(facilitySelectionError);
   renderFacilityWorkspace();
 });
-document.getElementById('btnDiscardFacility')?.addEventListener('click', () => {
+function discardFacilityDraft() {
   resetFacilityDraft(state.session, true);
   facilityStatus.textContent = 'ИЗМЕНЕНИЯ ОТМЕНЕНЫ';
   delete facilityStatus.dataset.error;
   setFacilityFeedback(facilityValidation);
   renderAll();
-});
+}
+document.getElementById('btnDiscardFacility')?.addEventListener('click', discardFacilityDraft);
 btnInspectFacilityDependencies.addEventListener('click', () => { void inspectSelectedFacilityDevice(); });
 btnCloseFacilityDependencies.addEventListener('click', () => hideFacilityDialog(facilityDependencyDialog, btnInspectFacilityDependencies));
 facilityDependencyDialog.addEventListener('cancel', event => {
@@ -6028,16 +6148,30 @@ function renderNodeForm() {
     const selectedBlockID = configuredEntryChange?.blockId || '';
     const completedBlockText = configuredEntryChange?.completedText ?? '';
     const entryTargetLocked = Boolean(snapshot);
-    const facilityAction = facilityNode?.stateChange?.facilityAction || node.stateChange?.facilityAction;
+    // A dirty draft holds the newest action; a clean one may lag behind the autosaved session.
+    const effectiveCommand = facilityDraftDirty && facilityNode ? facilityNode : node;
+    const facilityAction = effectiveCommand.stateChange?.facilityAction;
     const facilityActionSummary = facilityCommandActionSummary(facilityAction);
+    const draftGuard = Boolean(facilityAction) && facilityDraftDirty;
     html += `
       <label class="field-label" for="fldCommandMode">РЕЖИМ КОМАНДЫ</label>
-      <select class="field-input command-mode-select" id="fldCommandMode"${snapshot ? ' disabled' : ''}>
+      <select class="field-input command-mode-select" id="fldCommandMode"${snapshot || draftGuard ? ' disabled' : ''}>
         <option value="ordinary"${commandMode === 'ordinary' ? ' selected' : ''}>ОБЫЧНАЯ КОМАНДА</option>
         <option value="state-change"${commandMode === 'state-change' ? ' selected' : ''}>ИЗМЕНЯЕТ СОСТОЯНИЕ</option>
         <option value="terminal-transition"${commandMode === 'terminal-transition' ? ' selected' : ''}>ПЕРЕХОД В ДРУГОЙ ТЕРМИНАЛ</option>
       </select>
       ${snapshot ? '<div class="command-mode-hint">Сначала сбросьте выполненное состояние команды, чтобы изменить режим.</div>' : ''}
+      <div id="commandDraftGuard" role="status"${draftGuard ? '' : ' hidden'}>
+        <div data-guard-message>ЕСТЬ НЕСОХРАНЁННЫЙ ЧЕРНОВИК ОБЪЕКТОВ. СОХРАНИТЕ ИЛИ ОТМЕНИТЕ ЕГО, ЧТОБЫ ИЗМЕНИТЬ ЭТУ КОМАНДУ: ИНАЧЕ ЧЕРНОВИК УСТАРЕЕТ.</div>
+        <button class="btn btn-primary" id="btnSaveFacilityDraftFromCommand" type="button">СОХРАНИТЬ ЧЕРНОВИК ОБЪЕКТОВ</button>
+        <button class="btn btn-secondary" id="btnDiscardFacilityDraftFromCommand" type="button">ОТМЕНИТЬ ЧЕРНОВИК</button>
+      </div>
+      <div id="commandModeDecision" role="status" data-has-action="${facilityAction ? 'true' : 'false'}" hidden>
+        <div data-decision-message></div>
+        <div class="command-mode-decision-summary">${escHtml(facilityActionSummary)}</div>
+        <button class="btn btn-secondary" id="btnKeepStateChangeMode" type="button">ОСТАВИТЬ «ИЗМЕНЯЕТ СОСТОЯНИЕ»</button>
+        <button class="btn btn-danger" id="btnRemoveDeviceAction" type="button">УДАЛИТЬ ДЕЙСТВИЕ И ПЕРЕКЛЮЧИТЬ</button>
+      </div>
       <div class="state-change-fields" id="stateChangeFields"${commandMode === 'state-change' ? '' : ' hidden'}>
         <label class="field-label" for="fldCompletedName">НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ</label>
         <input class="field-input" id="fldCompletedName" value="${escAttr(node.stateChange?.completedName || '')}">
@@ -6060,10 +6194,11 @@ function renderNodeForm() {
       </div>
       <label class="field-label" for="fldText">ТЕКСТ УСПЕШНОГО ВЫПОЛНЕНИЯ</label>
       <textarea class="field-textarea" id="fldText">${escHtml(node.text || '')}</textarea>
-      <section class="command-facility-action" aria-labelledby="commandFacilityActionHeading">
+      <section class="command-facility-action" aria-labelledby="commandFacilityActionHeading"${commandMode === 'state-change' ? '' : ' hidden'}>
         <div class="field-label" id="commandFacilityActionHeading">ДЕЙСТВИЕ УСТРОЙСТВ</div>
         <div class="command-facility-action-summary">${escHtml(facilityActionSummary)}</div>
-        <button class="btn btn-secondary" id="btnEditCommandFacilityAction" type="button">
+        <div class="command-mode-hint"${node.stateChange ? ' hidden' : ''}>ПРИМЕНИТЕ РЕЖИМ, ЧТОБЫ ДОБАВИТЬ ДЕЙСТВИЕ УСТРОЙСТВ</div>
+        <button class="btn btn-secondary" id="btnEditCommandFacilityAction" type="button"${node.stateChange ? '' : ' disabled'}>
           ${facilityAction ? 'ИЗМЕНИТЬ ДЕЙСТВИЕ УСТРОЙСТВ' : 'ДОБАВИТЬ ДЕЙСТВИЕ УСТРОЙСТВ'}
         </button>
         <div class="command-mode-hint">Изменение останется в черновике объекта до сохранения изменений сессии.</div>
@@ -6191,12 +6326,51 @@ function renderNodeForm() {
     const mode = document.getElementById('fldCommandMode');
     const fields = document.getElementById('stateChangeFields');
     const transitionFields = document.getElementById('terminalTransitionFields');
-    mode.addEventListener('change', () => {
+    const actionSection = nodeForm.querySelector('.command-facility-action');
+    const decision = document.getElementById('commandModeDecision');
+    const draftGuard = document.getElementById('commandDraftGuard');
+    const applyButton = document.getElementById('btnApplyNode');
+    let removeDeviceAction = false;
+    const updateModePresentation = () => {
       fields.hidden = mode.value !== 'state-change';
       transitionFields.hidden = mode.value !== 'terminal-transition';
+      actionSection.hidden = mode.value !== 'state-change';
+      const deciding = decision.dataset.hasAction === 'true' && mode.value !== 'state-change';
+      if (!deciding) removeDeviceAction = false;
+      decision.hidden = !deciding;
+      decision.querySelector('[data-decision-message]').textContent = removeDeviceAction
+        ? 'ДЕЙСТВИЕ УСТРОЙСТВ БУДЕТ УДАЛЕНО, КОГДА ВЫ ПРИМЕНИТЕ ФОРМУ.'
+        : 'ВЫБЕРИТЕ, ЧТО СДЕЛАТЬ С ДЕЙСТВИЕМ УСТРОЙСТВ. ОНО РАБОТАЕТ ТОЛЬКО В РЕЖИМЕ «ИЗМЕНЯЕТ СОСТОЯНИЕ».';
+      document.getElementById('btnRemoveDeviceAction').hidden = removeDeviceAction;
+      applyButton.disabled = !draftGuard.hidden || (deciding && !removeDeviceAction);
+    };
+    mode.addEventListener('change', () => {
+      updateModePresentation();
       validationError.hidden = true;
       validationError.textContent = '';
     });
+    document.getElementById('btnKeepStateChangeMode').addEventListener('click', () => {
+      mode.value = 'state-change';
+      updateModePresentation();
+      mode.focus();
+    });
+    document.getElementById('btnRemoveDeviceAction').addEventListener('click', () => {
+      removeDeviceAction = true;
+      updateModePresentation();
+      mode.focus();
+    });
+    document.getElementById('btnSaveFacilityDraftFromCommand').addEventListener('click', async () => {
+      if (await saveFacilityCandidate(facilityDraft)) {
+        document.getElementById('fldCommandMode')?.focus();
+        return;
+      }
+      draftGuard.querySelector('[data-guard-message]').textContent = facilityValidation.textContent || facilityStatus.textContent;
+    });
+    document.getElementById('btnDiscardFacilityDraftFromCommand').addEventListener('click', () => {
+      discardFacilityDraft();
+      document.getElementById('fldCommandMode')?.focus();
+    });
+    updateModePresentation();
     const entryTarget = document.getElementById('fldEntryBlockTarget');
     const completedBlockContent = document.getElementById('fldCompletedEntryBlockContent');
     entryTarget.addEventListener('change', () => {

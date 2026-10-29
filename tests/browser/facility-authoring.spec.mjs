@@ -180,6 +180,8 @@ test('edits graph relationships and assigns one atomic multi-device command acti
   const second = binding.locator('.facility-action-request-row').last();
   await second.getByLabel('УСТРОЙСТВО ПЕРЕХОДА').selectOption(FACILITY_IDS.devices.cooling);
   await second.getByLabel('ПЕРЕХОД КОМАНДЫ').selectOption('restore');
+  await binding.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', { exact: true }).fill('MAIN REACTOR ONLINE');
+  await binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true }).fill('Start the main reactor?');
   await binding.getByRole('button', { name: 'ПРИМЕНИТЬ К ЧЕРНОВИКУ' }).click();
 
   await expect(page.locator('#facilityBindingList')).toContainText('ДЕЙСТВИЕ КОМАНДЫ');
