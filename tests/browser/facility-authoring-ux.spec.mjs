@@ -577,6 +577,8 @@ test('guides an empty facility through a door story, command, visible result, an
   await expect(binding.getByLabel('ТИП ПРИВЯЗКИ', { exact: true })).toHaveValue('command-action');
   await expect(binding.locator('.facility-action-device option:checked')).toHaveText('Дверь в убежище');
   await binding.locator('.facility-action-transition').selectOption('open');
+  await binding.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', { exact: true }).fill('Дверь открыта');
+  await binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true }).fill('Открыть дверь в убежище?');
   await binding.getByRole('button', { name: APPLY, exact: true }).click();
   await expect(guide).toContainText('команд: 1');
   await guide.getByRole('button', { name: '3. Результат', exact: true }).click();
@@ -784,6 +786,8 @@ for (const kind of ['command', 'entry']) {
     const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
     if (kind === 'command') {
       await binding.locator('.facility-action-transition').selectOption('open');
+      await binding.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', { exact: true }).fill('Дверь открыта');
+      await binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true }).fill('Открыть дверь?');
     } else {
       await binding.getByLabel('БЛОК ЗАПИСИ', { exact: true }).selectOption({ index: 1 });
       await binding.getByLabel('СОСТОЯНИЕ', { exact: true }).selectOption('open');

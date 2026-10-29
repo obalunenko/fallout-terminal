@@ -467,6 +467,12 @@
       <option value="terminal-transition">ПЕРЕХОД МЕЖДУ ТЕРМИНАЛАМИ</option>
       <option value="run-recovery-program">ЗАПУСК ВОССТАНОВЛЕНИЯ</option>
     </select>
+    <fieldset class="facility-condition-initial">
+      <legend>В НАЧАЛЕ ИГРЫ И ПОСЛЕ СБРОСА</legend>
+      <label><input id="facilityConditionInitialWorking" name="conditionInitialActive" type="radio" value="false" checked> ИСПРАВНО</label>
+      <label><input id="facilityConditionInitialActive" name="conditionInitialActive" type="radio" value="true"> НЕИСПРАВНОСТЬ АКТИВНА</label>
+      <p class="facility-section-help">Так неисправность начнёт игру, и к этому же вернёт сброс. Текущее состояние меняется только у новой неисправности.</p>
+    </fieldset>
     <label>
       <input id="facilityConditionPrivateRecovery" name="privateOverseerAction" type="checkbox">
       ВОССТАНОВЛЕНИЕ ОПЕРАТОРОМ

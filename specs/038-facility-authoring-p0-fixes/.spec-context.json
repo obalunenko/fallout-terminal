@@ -1,0 +1,733 @@
+{
+  "workflow": "companion",
+  "specName": "Facility Authoring P0 Fixes",
+  "branch": "038-facility-authoring-p0-fixes",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T17:58:20.000Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-29T18:00:49.509Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T18:02:08.666Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-29T18:24:43.069Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T18:26:40.510Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:29:01.277Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:29:06.382Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T18:31:27.629Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:32:09.660Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:32:45.820Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:33:25.662Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:35:58.038Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:35:58.108Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:36:06.705Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:39:38.274Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:39:38.347Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:39:38.427Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:39:38.512Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:41:48.177Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:44:23.867Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:44:23.965Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:45:54.146Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:45:54.231Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:47:03.994Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:49:36.151Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:49:54.908Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:55:38.816Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:58:28.584Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T18:58:28.599Z"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "US1, US2 and US3 all edit frontend/overseer/src/overseer.js, the single Overseer module the plan keeps whole; these story phases must run sequentially on one worker. Splitting the module is out of scope for a P0 fix.",
+      "step": "tasks"
+    },
+    {
+      "note": "Existing faults open for editing only via ЗАВИСИМОСТИ → Область неисправности; terminal-scoped faults cannot be opened at all. Recorded for feature 041 (F-12).",
+      "step": "implement"
+    }
+  ],
+  "coverage": {
+    "FR-001": {
+      "title": "Mode change never removes a device action without an explicit decision",
+      "tasks": [
+        "T004",
+        "T008"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::leaving state-changing mode with a device action requires keep or remove before applying"
+      ]
+    },
+    "FR-002": {
+      "title": "Inline notice below the mode selector lists the action and offers keep or remove",
+      "tasks": [
+        "T004",
+        "T008"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::leaving state-changing mode with a device action requires keep or remove before applying"
+      ]
+    },
+    "FR-003": {
+      "title": "Applying is blocked while the decision is pending",
+      "tasks": [
+        "T004",
+        "T008"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::leaving state-changing mode with a device action requires keep or remove before applying"
+      ]
+    },
+    "FR-004": {
+      "title": "Device-action block shown only for modes that support it",
+      "tasks": [
+        "T004",
+        "T007"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::the device-action block appears only in state-changing mode and waits for that mode to be applied"
+      ]
+    },
+    "FR-005": {
+      "title": "Attaching an action to an ordinary command asks for both texts and never prefills them",
+      "tasks": [
+        "T004",
+        "T005",
+        "T010"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::attaching an action to an ordinary command asks for both player texts and never invents them"
+      ]
+    },
+    "FR-006": {
+      "title": "Keep or remove saves nothing by itself",
+      "tasks": [
+        "T004",
+        "T008"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::leaving state-changing mode with a device action requires keep or remove before applying"
+      ]
+    },
+    "FR-007": {
+      "title": "Dirty facility draft blocks mode change and apply for commands with an action",
+      "tasks": [
+        "T004",
+        "T006",
+        "T009"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs::a dirty facility draft locks commands with device actions until it is discarded or saved"
+      ]
+    },
+    "FR-008": {
+      "title": "Fixed Cyrillic transliteration table and diacritic removal for suggested IDs",
+      "tasks": [
+        "T011",
+        "T012"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-identifiers.spec.mjs::Russian names produce readable",
+        "unique identifiers that survive save and rename"
+      ]
+    },
+    "FR-009": {
+      "title": "IDs use lowercase Latin, digits, single hyphens, prefix rules, 256 limit",
+      "tasks": [
+        "T011",
+        "T012"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-identifiers.spec.mjs::Russian names produce readable",
+        "unique identifiers that survive save and rename"
+      ]
+    },
+    "FR-010": {
+      "title": "Numbered fallback when nothing representable remains",
+      "tasks": [
+        "T011",
+        "T012"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-identifiers.spec.mjs::Russian names produce readable",
+        "unique identifiers that survive save and rename"
+      ]
+    },
+    "FR-011": {
+      "title": "Uniqueness checked on final values within scope with numeric suffix",
+      "tasks": [
+        "T011",
+        "T012"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-identifiers.spec.mjs::Russian names produce readable",
+        "unique identifiers that survive save and rename"
+      ]
+    },
+    "FR-012": {
+      "title": "Existing identifiers never change",
+      "tasks": [
+        "T011",
+        "T012"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-identifiers.spec.mjs::Russian names produce readable",
+        "unique identifiers that survive save and rename"
+      ]
+    },
+    "FR-013": {
+      "title": "Row-level validation messages with focus on the first offending field",
+      "tasks": [
+        "T011",
+        "T013"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-identifiers.spec.mjs::invalid state rows get their own messages and the first one receives focus"
+      ]
+    },
+    "FR-014": {
+      "title": "Fault dialog offers starting activity: working or fault active",
+      "tasks": [
+        "T014",
+        "T015",
+        "T016"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs::a new fault can start the game active and stays active after resets"
+      ]
+    },
+    "FR-015": {
+      "title": "New fault current activity equals starting activity",
+      "tasks": [
+        "T014",
+        "T016"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs::a new fault can start the game active and stays active after resets"
+      ]
+    },
+    "FR-016": {
+      "title": "Editing starting activity leaves current activity unchanged",
+      "tasks": [
+        "T014",
+        "T016"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs::changing an existing fault starting activity keeps its current activity"
+      ]
+    },
+    "FR-017": {
+      "title": "Fault list and selected view show current and starting activity",
+      "tasks": [
+        "T014",
+        "T016"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs::changing an existing fault starting activity keeps its current activity"
+      ]
+    },
+    "FR-018": {
+      "title": "Device and facility reset restore starting activity",
+      "tasks": [
+        "T014"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs::a new fault can start the game active and stays active after resets"
+      ]
+    },
+    "FR-019": {
+      "title": "Hidden controls never leave visible labels in any Overseer form",
+      "tasks": [
+        "T002",
+        "T003",
+        "T017"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs::facility dialogs show no orphan labels in any kind",
+        "scope",
+        "or mode",
+        "tests/browser/facility-p0-visible-fields.spec.mjs::every other Overseer dialog shows no orphan labels in its default state"
+      ]
+    },
+    "FR-020": {
+      "title": "Binding and fault dialogs show only the fields of the selected kind or scope",
+      "tasks": [
+        "T002",
+        "T017"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs::facility dialogs show no orphan labels in any kind",
+        "scope",
+        "or mode"
+      ]
+    },
+    "FR-021": {
+      "title": "Session JSON v1 round-trips without changing IDs, modes, actions, activity",
+      "tasks": [
+        "T019",
+        "T020"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs::a saved fault without a starting activity opens as working at game start"
+      ]
+    },
+    "FR-022": {
+      "title": "Demo capability inventory documents the new authoring routes",
+      "tasks": [
+        "T018"
+      ],
+      "tests": [
+        "sessions/demo-capability-paths.md (documentation; demo-session.spec.mjs passes)"
+      ]
+    }
+  },
+  "step_summaries": {
+    "tasks": {
+      "summary": "20 tasks: Setup 1, Foundational 2, US1 7, US2 3, US3 3, US4 1, Polish 3; story phases sequential due to shared overseer.js"
+    },
+    "implement": {
+      "summary": "Four P0 facility authoring fixes shipped in the Overseer frontend with 13 new browser tests; full suite 290/290 and Go gates green"
+    }
+  },
+  "currentTask": null,
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Baseline green: frontend build OK; 49/49 facility-authoring, -ux, -diagnostics, -lifecycle, demo-session browser tests pass; no pre-existing failures"
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Global [hidden] rule plus shared styles for row errors, command mode decision, draft guard, and fault starting-activity group",
+      "files": [
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Shared Playwright helpers: fixture seed/reset/session, openOverseer, expectNoOrphanLabels for labels, legends, and help text",
+      "files": [
+        "tests/browser/helpers/overseer-forms.mjs"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "US1 journeys written first: 4 fail as expected (decision, block visibility, draft guard, binding texts); executed-command lock passes as regression guard",
+      "files": [
+        "tests/browser/facility-p0-command-actions.spec.mjs"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Existing journeys binding actions to ordinary commands now fill the required after-execution name and confirmation text (also facility-authoring.spec.mjs start-reactor case)",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs",
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Extracted discardFacilityDraft() and wired btnDiscardFacility to it",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Effective action = dirty draft node else saved node; device-action block only in state-changing mode with apply-first hint and disabled editor for unsaved mode (built in one pass with T008-T010)",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Inline #commandModeDecision with keep/remove; apply disabled while pending; reselecting state-change dismisses; remove records decision only",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "#commandDraftGuard locks mode and apply while the facility draft is dirty and the command has an action; save/discard from the form re-render unlocked",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Binding dialog asks required after-execution name and confirmation for ordinary commands; invented-text fallback removed; 34/34 US1 + existing authoring journeys pass",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "US2 journeys written first and failing: device-device instead of transliterated IDs; row-level validation missing",
+      "files": [
+        "tests/browser/facility-p0-identifiers.spec.mjs"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "suggestFacilityID: FR-008 table before NFKD, diacritic strip, prefix rules, final-value uniqueness with -N, 256 cap, numbered fallback; five callers updated",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Row-level device validation with aria-invalid/aria-describedby, summary count, first-row focus, cleared on edit; also catches duplicate state names the server already rejects (spec assumption corrected)",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "specs/038-facility-authoring-p0-fixes/spec.md",
+        "specs/038-facility-authoring-p0-fixes/data-model.md",
+        "specs/038-facility-authoring-p0-fixes/quickstart.md",
+        "specs/038-facility-authoring-p0-fixes/contracts/overseer-ui.md"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "US3 journeys: new active fault through save and both resets, existing fault edit keeps current activity, legacy fault without initialActive; first two fail before JS",
+      "files": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Fault dialog radio group for starting activity with help text (contract help text aligned to sentence case)",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "specs/038-facility-authoring-p0-fixes/contracts/overseer-ui.md"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Fault dialog binds starting activity; new fault current=starting; list rows and selected summary show СЕЙЧАС/В НАЧАЛЕ; 44/44 related browser tests pass",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Sweep: facility dialogs in all kinds/scopes/modes, terminal workspace dialogs, and every other dialog forced open; fails without the global rule (БЛОК ЗАПИСИ, ГРУППА НАЗНАЧЕНИЯ) and passes with it",
+      "files": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs",
+        "tests/browser/helpers/overseer-forms.mjs"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Inventory documents readable IDs and row errors, required texts for ordinary commands, fault starting activity with a demo route, mode decision and draft lock",
+      "files": [
+        "sessions/demo-capability-paths.md"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Validation recorded: build, full browser suite 290/290, fmt:check, vet, test, lint 0 issues (all via --verify-run); findings documented",
+      "files": [
+        "specs/038-facility-authoring-p0-fixes/validation.md"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Packaged app: quickstart steps 1-6 confirmed via Accessibility; demo round trip identical for IDs, fault activities, programs, command modes and actions",
+      "files": [
+        "specs/038-facility-authoring-p0-fixes/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "Overseer and client frontend build",
+      "command": "task frontend:build",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.0,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "Full Playwright browser suite (all specs incl. four facility-p0)",
+      "command": "task browser:test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 270.7,
+      "result": "[WebServer] 2026/10/29 22:52:07 http: TLS handshake error from 127.0.0.1:62183: remote error: tls: unknown certificate · [WebServer] 2026/10/29 22:52:07 http: TLS handshake error from 127.0.0.1:62186: remote error: tls: unknown certificate · [WebServer] 2026/10/29 22:52:07 http: TLS handshake error from 127.0.0.1:62189: remote error: tls: unknown certificate"
+    },
+    {
+      "what": "Go formatting check",
+      "command": "task fmt:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.1,
+      "result": "  printf 'Go files need formatting:\\n%s\\n' \"$unformatted\" >&2 ·   exit 1 · fi"
+    },
+    {
+      "what": "Go vet (macOS 13 target flags)",
+      "command": "task vet",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.5,
+      "result": "task: [vet] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go vet ./..."
+    },
+    {
+      "what": "Go tests",
+      "command": "task test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.1,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ?   \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t[no test files] · task: [test] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test ./..."
+    },
+    {
+      "what": "Repository Go lint",
+      "command": "task lint",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.9,
+      "result": "0 issues. · task: [lint] go tool -modfile=tools/golangci-lint/go.mod golangci-lint run"
+    },
+    {
+      "what": "Frontend build after final cleanup",
+      "command": "task frontend:build",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.1,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "Full Playwright suite after final cleanup (290 tests)",
+      "command": "task browser:test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 269.9,
+      "result": "[WebServer] 2026/10/29 23:01:05 http: TLS handshake error from 127.0.0.1:65289: remote error: tls: unknown certificate · [WebServer] 2026/10/29 23:01:05 http: TLS handshake error from 127.0.0.1:65292: remote error: tls: unknown certificate · [WebServer] 2026/10/29 23:01:05 http: TLS handshake error from 127.0.0.1:65295: remote error: tls: unknown certificate"
+    },
+    {
+      "what": "Packaged macOS app quickstart steps 1-6 driven through Accessibility on a demo copy",
+      "result": "All six behaviors observed as specified; screenshots kept outside the repository"
+    },
+    {
+      "what": "Demo round trip after an autosave in the packaged app",
+      "result": "IDs (10 devices), fault activities (7), programs (2), command modes and actions (13) identical to sessions/demo.json"
+    },
+    {
+      "what": "Label sweep detects the original defect",
+      "result": "With the global [hidden] rule removed the sweep fails on БЛОК ЗАПИСИ and ГРУППА НАЗНАЧЕНИЯ; with it, passes"
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Fix orphan labels with one global [hidden] { display: none !important } rule",
+      "why": "Author display rules outrank the UA hidden rule everywhere; one rule fixes current and future forms",
+      "rejected": "Per-selector :not([hidden]) patches"
+    },
+    {
+      "decision": "Effective device action comes from the draft only when the draft is dirty",
+      "why": "A clean draft can lag behind the terminal autosave and would show a removed action",
+      "rejected": "Draft-first fallback to the saved node"
+    },
+    {
+      "decision": "Row validation also rejects repeated state names",
+      "why": "Server validation already rejects them case-insensitively; catching it on the row avoids a generic save failure",
+      "rejected": "Leaving it to the server error"
+    },
+    {
+      "decision": "Forced default-state sweep for dialogs the fixture cannot reach naturally",
+      "why": "Covers every dialog in index.html instead of marking them NOT RUN",
+      "rejected": "NOT RUN entries"
+    }
+  ],
+  "last_action": "all 20 tasks done; full browser suite, build, fmt, vet, test, lint pass; packaged app checked"
+}
