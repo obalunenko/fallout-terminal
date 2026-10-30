@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+import { expectSaved } from './helpers/authoring-bar.mjs';
 import { facilityState, openOverseer, resetFixture } from './helpers/overseer-forms.mjs';
 
-const APPLY = 'ПРИМЕНИТЬ К ЧЕРНОВИКУ';
-const SAVE = 'СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ';
+const DONE = 'ГОТОВО';
 
 async function openNewDevice(page) {
   await page.locator('#btnAddFacilityDevice').click();
@@ -43,10 +43,10 @@ test('Russian names produce readable, unique identifiers that survive save and r
   await transition.locator('.facility-transition-source').selectOption('zaperta');
   await transition.locator('.facility-transition-destination').selectOption('otkryta');
   await dialog.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('zaperta');
-  await dialog.getByRole('button', { name: APPLY, exact: true }).click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
   await expect(dialog).toBeHidden();
-  await page.getByRole('button', { name: SAVE, exact: true }).click();
-  await expect(page.locator('#facilityStatus')).toHaveText('ИЗМЕНЕНИЯ СЕССИИ СОХРАНЕНЫ');
+  await expect.poll(async () => (await facilityState(request)).facility.devices.length).toBe(1);
+  await expectSaved(page);
 
   const saved = (await facilityState(request)).facility.devices[0];
   expect(saved.id).toBe('device-dver-v-ubezhishche');
@@ -61,6 +61,8 @@ test('Russian names produce readable, unique identifiers that survive save and r
   await expect(dialog.locator('.facility-state-id').first()).toHaveValue('zaperta');
   await expect(dialog.locator('.facility-transition-id').first()).toHaveValue('otkryt-dver');
   await dialog.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
+  // Cancel discards the dialog input; the saved identifiers and names stay.
+  expect((await facilityState(request)).facility.devices[0]).toEqual(saved);
 
   await page.locator('#btnAddFacilityCondition').click();
   const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
@@ -86,7 +88,7 @@ test('invalid state rows get their own messages and the first one receives focus
   await rows.nth(1).locator('.facility-state-name').fill('');
   await rows.nth(2).locator('.facility-state-id').fill('otkryt');
 
-  await dialog.getByRole('button', { name: APPLY, exact: true }).click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('#facilityDeviceError')).toHaveText('ИСПРАВЬТЕ ОТМЕЧЕННЫЕ СТРОКИ: 3');
   await expect(rows.nth(0).locator('.facility-row-error')).toHaveCount(0);
@@ -101,6 +103,9 @@ test('invalid state rows get their own messages and the first one receives focus
   await expect(rows.nth(1).locator('.facility-row-error')).toHaveCount(0);
   await rows.nth(2).locator('.facility-state-id').fill('avariynyy');
   await rows.nth(3).locator('.facility-state-name').fill('Заблокирован');
-  await dialog.getByRole('button', { name: APPLY, exact: true }).click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
   await expect(dialog).toBeHidden();
+  await expect.poll(async () => (await facilityState(request)).facility.devices.map(device => device.name))
+    .toEqual(['Шлюз']);
+  await expectSaved(page);
 });

@@ -30,135 +30,9 @@ type FacilityDeviceResetRequest struct {
 	CorrelationID            string
 }
 
-// FacilityResetRequest restores every facility current value against an exact
-// facility revision.
-type FacilityResetRequest struct {
-	ExpectedFacilityRevision uint64
-	CorrelationID            string
-}
-
-// FacilityAuthoringRequest is one complete trusted facility definition and
-// reference replacement against exact document and facility revisions.
-type FacilityAuthoringRequest struct {
-	Candidate                domain.Session
-	ExpectedSessionRevision  uint64
-	ExpectedFacilityRevision uint64
-	CorrelationID            string
-}
-
 type resolvedWorldTransition struct {
 	deviceIndex int
 	transition  domain.FacilityDeviceTransition
-}
-
-// SaveFacilityAuthoring validates and persists one complete authored graph
-// and reference repair while retaining session-owned current values.
-func (service *Service) SaveFacilityAuthoring(ctx context.Context, request FacilityAuthoringRequest) domain.FacilityOperationResult {
-	if service == nil || contextError(ctx) != nil {
-		return facilityAuthoringFailure(request, domain.FacilityFailureRuntimeContextEnded, 0, 0, nil, nil)
-	}
-	service.commandMu.Lock()
-	defer service.commandMu.Unlock()
-	service.documentMu.Lock()
-	defer service.documentMu.Unlock()
-
-	service.mu.Lock()
-	if service.closed {
-		service.mu.Unlock()
-		return facilityAuthoringFailure(request, domain.FacilityFailureRuntimeContextEnded, 0, 0, nil, nil)
-	}
-	if service.active.Path == "" || service.active.Session == nil {
-		sessionRevision := service.active.SavedRevision
-		service.mu.Unlock()
-		return facilityAuthoringFailure(request, domain.FacilityFailureRuntimeContextEnded, sessionRevision, 0, nil, nil)
-	}
-
-	canonical := domain.CloneSession(*service.active.Session)
-	sessionRevision := service.active.SavedRevision
-	previousFacilityRevision := facilityRevision(&canonical)
-	path := service.active.Path
-	if samePath(path, service.locations.BundledDemo) {
-		service.mu.Unlock()
-		return facilityAuthoringFailure(
-			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
-			previousFacilityRevision, &canonical, nil,
-		)
-	}
-	if request.ExpectedSessionRevision != sessionRevision || service.active.RequestedRevision != sessionRevision ||
-		request.ExpectedFacilityRevision != previousFacilityRevision {
-		resultSession := &canonical
-		if service.active.RequestedRevision != sessionRevision {
-			resultSession = nil
-		}
-		service.mu.Unlock()
-		return facilityAuthoringFailure(
-			request, domain.FacilityFailureStaleRevision, sessionRevision,
-			previousFacilityRevision, resultSession, nil,
-		)
-	}
-	if strings.TrimSpace(request.CorrelationID) == "" {
-		service.mu.Unlock()
-		return facilityAuthoringFailure(
-			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
-			previousFacilityRevision, &canonical, nil,
-		)
-	}
-
-	candidate := domain.CloneSession(request.Candidate)
-	protectFacilityAuthoringCommandStates(&candidate, canonical)
-	if canonical.Facility != nil && candidate.Facility == nil {
-		service.mu.Unlock()
-		return facilityAuthoringFailure(
-			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
-			previousFacilityRevision, &canonical, []domain.FacilityIssue{{
-				Code: domain.FacilityFailureInvalidConfiguration, EntityKind: "facility",
-			}},
-		)
-	}
-	protectFacilityAuthoringCurrentValues(canonical.Facility, candidate.Facility)
-	if candidate.Facility != nil {
-		candidate.Facility.Revision = previousFacilityRevision
-	}
-	issues := domain.ValidateFacilityAuthoringCandidate(canonical, candidate)
-	if len(issues) != 0 {
-		service.mu.Unlock()
-		return facilityAuthoringFailure(
-			request, facilityAuthoringFailureCode(issues), sessionRevision,
-			previousFacilityRevision, &canonical, issues,
-		)
-	}
-	if sessionsEqual(candidate, canonical) {
-		service.mu.Unlock()
-		return facilityAuthoringSuccess(
-			request.CorrelationID, false, sessionRevision, previousFacilityRevision, nil, nil, canonical,
-		)
-	}
-	affectedDeviceIDs, affectedConditionIDs := facilityAuthoringAffectedIDs(canonical.Facility, candidate.Facility)
-
-	resultingFacilityRevision := previousFacilityRevision
-	if candidate.Facility != nil {
-		resultingFacilityRevision++
-		candidate.Facility.Revision = resultingFacilityRevision
-	}
-	saved, err := service.commitFacilityCandidateLocked(path, canonical, candidate)
-	if err != nil {
-		return facilityAuthoringFailure(
-			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
-			previousFacilityRevision, &canonical, []domain.FacilityIssue{{
-				Code: domain.FacilityFailureInvalidConfiguration, EntityKind: "facility",
-			}},
-		)
-	}
-	if !saved.OK {
-		return facilityAuthoringFailure(
-			request, domain.FacilityFailurePersistenceFailed, saved.SavedRevision,
-			previousFacilityRevision, &canonical, nil,
-		)
-	}
-	return facilityAuthoringSuccess(
-		request.CorrelationID, true, saved.SavedRevision, previousFacilityRevision,
-		affectedDeviceIDs, affectedConditionIDs, candidate,
-	)
 }
 
 // ResetFacilityDevice restores one authored device and only conditions scoped
@@ -173,15 +47,6 @@ func (service *Service) ResetFacilityDevice(
 		request.ExpectedFacilityRevision,
 		new(request.DeviceID),
 	)
-}
-
-// ResetFacility restores every device and condition to its authored initial
-// value as one atomic session replacement.
-func (service *Service) ResetFacility(
-	ctx context.Context,
-	request FacilityResetRequest,
-) domain.FacilityOperationResult {
-	return service.resetFacility(ctx, request.CorrelationID, request.ExpectedFacilityRevision, nil)
 }
 
 func (service *Service) resetFacility(
@@ -665,6 +530,19 @@ func (service *Service) commitFacilityCandidateLocked(
 	canonical domain.Session,
 	candidate domain.Session,
 ) (SaveResult, error) {
+	return service.commitCandidateLocked(path, canonical, candidate, false)
+}
+
+// commitCandidateLocked writes one candidate through the serialized writer.
+// An authored candidate advances the authoring revision in the same critical
+// section that installs the written session, so no snapshot shows one
+// without the other.
+func (service *Service) commitCandidateLocked(
+	path string,
+	canonical domain.Session,
+	candidate domain.Session,
+	authored bool,
+) (SaveResult, error) {
 	data, err := encodeAcceptedSession(candidate)
 	if err != nil {
 		service.mu.Unlock()
@@ -684,6 +562,7 @@ func (service *Service) commitFacilityCandidateLocked(
 		epoch: epoch, path: path, revision: nextSessionRevision,
 		session: candidate, data: append([]byte(nil), data...),
 		rollbackOnFailure: true, priorSession: worldActionSessionPointer(canonical), priorRevision: priorRevision,
+		authored: authored,
 	})
 	service.waiters = append(service.waiters, saveWaiter{
 		epoch: epoch, revision: nextSessionRevision, requestedRevision: nextSessionRevision, reply: reply,
@@ -977,22 +856,6 @@ func worldActionSessionPointer(session domain.Session) *domain.Session {
 	return &clone
 }
 
-func protectFacilityAuthoringCommandStates(candidate *domain.Session, canonical domain.Session) {
-	canonicalTerminals := make(map[string]domain.Terminal, len(canonical.Terminals))
-	for _, terminal := range canonical.Terminals {
-		canonicalTerminals[terminal.ID] = terminal
-	}
-	for index := range candidate.Terminals {
-		terminal := &candidate.Terminals[index]
-		canonicalTerminal, exists := canonicalTerminals[terminal.ID]
-		if !exists {
-			terminal.CommandStates = nil
-			continue
-		}
-		terminal.CommandStates = domain.CloneCommandExecutionStates(canonicalTerminal.CommandStates)
-	}
-}
-
 func protectFacilityAuthoringCurrentValues(current, candidate *domain.Facility) {
 	if candidate == nil {
 		return
@@ -1035,28 +898,6 @@ func facilityAuthoringFailureCode(issues []domain.FacilityIssue) domain.Facility
 		}
 	}
 	return domain.FacilityFailureInvalidConfiguration
-}
-
-func facilityAuthoringFailure(
-	request FacilityAuthoringRequest,
-	failure domain.FacilityFailureCode,
-	sessionRevision uint64,
-	facilityRevision uint64,
-	session *domain.Session,
-	issues []domain.FacilityIssue,
-) domain.FacilityOperationResult {
-	result := domain.FacilityOperationResult{
-		CorrelationID:             request.CorrelationID,
-		Failure:                   failure,
-		Issues:                    cloneFacilityIssues(issues),
-		SessionRevision:           sessionRevision,
-		PreviousFacilityRevision:  facilityRevision,
-		ResultingFacilityRevision: facilityRevision,
-	}
-	if session != nil {
-		result.Session = worldActionSessionPointer(*session)
-	}
-	return result
 }
 
 func facilityAuthoringSuccess(

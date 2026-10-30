@@ -1,0 +1,1534 @@
+{
+  "workflow": "companion",
+  "specName": "Unified Facility Authoring",
+  "branch": "039-unified-facility-authoring",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T19:17:34.000Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-29T19:24:38.594Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T19:36:09.093Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-29T19:54:50.617Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T20:15:09.067Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T20:23:08.792Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T20:23:54.468Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-29T20:57:06.389Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T20:57:39.001Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T20:58:44.935Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:00:14.878Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:01:03.000Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:25:36.008Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:25:36.065Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:44:26.293Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:44:26.372Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:44:26.451Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:44:26.522Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:48:38.252Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:49:04.607Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:51:52.648Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T21:54:04.527Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:01:00.109Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:01:00.190Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:03:40.288Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:04:12.091Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:10:49.333Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:14:45.158Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:28:32.932Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:28:33.001Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:28:33.083Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:28:33.163Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:28:33.234Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:28:33.302Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:31:23.674Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:34:14.638Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:40:40.259Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T22:49:39.184Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:02:30.011Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:06:33.453Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:25:31.202Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:25:31.481Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:27:15.573Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:28:16.409Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:32:11.480Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:33:53.666Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:35:13.643Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:37:41.199Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:40:13.625Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:41:58.674Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T055",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-29T23:57:59.713Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:08:15.185Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:09:03.772Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:09:03.826Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:09:41.579Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:10:24.156Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T052",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:11:48.452Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T050",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:17:10.829Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T051",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:17:47.788Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:20:45.536Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:36:06.646Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T053",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:41:13.310Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T054",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:41:13.383Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T056",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:41:13.453Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T057",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:50:05.024Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T00:50:05.043Z"
+    }
+  ],
+  "coverage": {
+    "FR-001": {
+      "title": "Terminal and facility authoring use one save model: every applied edit is saved immediately; no facility draft",
+      "tasks": [
+        "T007",
+        "T009",
+        "T013",
+        "T015",
+        "T020",
+        "T033",
+        "T034",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs",
+        "internal/session/authoring_test.go",
+        "internal/control/authoring_test.go"
+      ]
+    },
+    "FR-001a": {
+      "title": "One undo history over both tabs, at least 20 edits, never reverses live state, explains when an edit cannot be reversed",
+      "tasks": [
+        "T036",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::undo"
+      ]
+    },
+    "FR-001b": {
+      "title": "Повторить reapplies reversed edits newest-reversed first; a new edit or another session clears redo",
+      "tasks": [
+        "T036",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::redo"
+      ]
+    },
+    "FR-001c": {
+      "title": "Every saved edit, undo, and redo reaches players at once, keeping hacking and navigation; publish button removed",
+      "tasks": [
+        "T009",
+        "T015",
+        "T021",
+        "T024",
+        "T026",
+        "T038",
+        "T043",
+        "T050",
+        "T051"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::players see an applied edit at once",
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "tests/browser/state-changing-command-sync.spec.mjs"
+      ]
+    },
+    "FR-002": {
+      "title": "An edit on one tab never invalidates, discards, or hides unapplied input on the other; tab switches keep it",
+      "tasks": [
+        "T034",
+        "T037",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::unapplied input",
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "FR-003": {
+      "title": "Both tabs show the same save status: last saved time, saves in progress, unapplied input by name, last error",
+      "tasks": [
+        "T035",
+        "T037",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::same status on both tabs"
+      ]
+    },
+    "FR-004": {
+      "title": "Facility dialogs that edit data confirm with ГОТОВО and cancel with ОТМЕНА; draft-era labels disappear",
+      "tasks": [
+        "T038",
+        "T043",
+        "T044",
+        "T047",
+        "T048",
+        "T049"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::ГОТОВО",
+        "tests/browser/facility-p0-visible-fields.spec.mjs"
+      ]
+    },
+    "FR-005": {
+      "title": "Reset, preview, and private-recovery controls run or state on the control why not",
+      "tasks": [
+        "T038",
+        "T041",
+        "T042",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-unified-save.spec.mjs::the single-command reset says on the control why it waits for another reset (FR-005)"
+      ]
+    },
+    "FR-006": {
+      "title": "The command-form draft guard from feature 038 is removed",
+      "tasks": [
+        "T033",
+        "T038",
+        "T046"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-command-actions.spec.mjs"
+      ]
+    },
+    "FR-007": {
+      "title": "Saves keep revision checks against authored configuration; live changes never reject; stale rejection offers Применить снова",
+      "tasks": [
+        "T004",
+        "T007",
+        "T009",
+        "T013",
+        "T015",
+        "T033",
+        "T043"
+      ],
+      "tests": [
+        "internal/session/authoring_test.go",
+        "internal/control/authoring_test.go",
+        "tests/browser/facility-unified-save.spec.mjs::live change"
+      ]
+    },
+    "FR-008": {
+      "title": "A state-changing command form lists every change it makes on approval",
+      "tasks": [
+        "T040",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::every state-changing demo command"
+      ]
+    },
+    "FR-009": {
+      "title": "The form lists every rule deciding the command name, visibility, availability, and rewritten block texts",
+      "tasks": [
+        "T003",
+        "T005",
+        "T011",
+        "T040",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::a fault that forces a command visible outranks its state visibility (FR-009",
+        "FR-010)"
+      ]
+    },
+    "FR-010": {
+      "title": "Competing rules are marked by the existing precedence for names, blocks, visibility, and availability",
+      "tasks": [
+        "T005",
+        "T011",
+        "T040",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::winner and overrides",
+        "internal/live/presentation_test.go"
+      ]
+    },
+    "FR-011": {
+      "title": "The Overseer terminal tree shows each node name as players currently see it",
+      "tasks": [
+        "T005",
+        "T039",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::player view parity"
+      ]
+    },
+    "FR-012": {
+      "title": "Legacy command state change keeps its data model and behavior; no migration",
+      "tasks": [
+        "T007",
+        "T011",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::legacy-only executed command"
+      ]
+    },
+    "FR-013": {
+      "title": "A rule edited from the command form and from ОБЪЕКТЫ is the same rule",
+      "tasks": [
+        "T040",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::same rule on ОБЪЕКТЫ"
+      ]
+    },
+    "FR-014": {
+      "title": "Сбросить сцену returns every device, fault, and executed command to its start in one step, or nothing",
+      "tasks": [
+        "T008",
+        "T010",
+        "T014",
+        "T016",
+        "T020",
+        "T041",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-command-lists.spec.mjs::scene reset",
+        "internal/session/scene_test.go",
+        "internal/control/scene_test.go"
+      ]
+    },
+    "FR-015": {
+      "title": "Single-device and single-command resets remain; whole-facility and per-terminal resets are replaced",
+      "tasks": [
+        "T010",
+        "T024",
+        "T029",
+        "T041",
+        "T053"
+      ],
+      "tests": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs",
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-016": {
+      "title": "Preview preselects the first different state or the opposite fault activity; one-state devices show nothing to compare",
+      "tasks": [
+        "T042",
+        "T054"
+      ],
+      "tests": [
+        "tests/browser/facility-preview-diff.spec.mjs::preselect",
+        "one-state device"
+      ]
+    },
+    "FR-017": {
+      "title": "Preview shows current and hypothetical views side by side",
+      "tasks": [
+        "T017",
+        "T042",
+        "T054"
+      ],
+      "tests": [
+        "tests/browser/facility-preview-diff.spec.mjs::side by side",
+        "stack"
+      ]
+    },
+    "FR-018": {
+      "title": "Preview summarizes and names each difference by kind and marks it in the tree",
+      "tasks": [
+        "T006",
+        "T012",
+        "T017",
+        "T042",
+        "T054"
+      ],
+      "tests": [
+        "tests/browser/facility-preview-diff.spec.mjs::an element with two differences carries both marks in both panes (FR-018)",
+        "tests/browser/facility-preview-diff.spec.mjs::the door preview preselects «Открыта» and names every difference side by side (FR-016–FR-018)"
+      ]
+    },
+    "FR-019": {
+      "title": "Preview reflects every edit the author has applied",
+      "tasks": [
+        "T020",
+        "T042",
+        "T054"
+      ],
+      "tests": [
+        "tests/browser/facility-preview-diff.spec.mjs::applied text rule during save"
+      ]
+    },
+    "FR-020": {
+      "title": "Preview never changes players, live state, or revisions",
+      "tasks": [
+        "T006",
+        "T054"
+      ],
+      "tests": [
+        "tests/browser/facility-preview-diff.spec.mjs::closing leaves state unchanged"
+      ]
+    },
+    "FR-021": {
+      "title": "Session JSON version 1 files open and save without player-visible change",
+      "tasks": [
+        "T007",
+        "T057"
+      ],
+      "tests": [
+        "internal/session/authoring_test.go::TestSaveAuthoringRoundTripsEverySessionFileWithIdenticalProjections"
+      ]
+    },
+    "FR-022": {
+      "title": "Demo inventory and assets describe and exercise the save model, command lists, scene reset, and preview",
+      "tasks": [
+        "T055",
+        "T056"
+      ],
+      "tests": [
+        "tests/browser/demo-session.spec.mjs::unified authoring inventory"
+      ]
+    }
+  },
+  "step_summaries": {
+    "tasks": {
+      "summary": "57 tasks: Setup 1, Foundational 41 in 20 waves (server, contract cutover, fixtures, single-file Overseer by story), US1 10, US2 1, US3 1, Polish 3"
+    },
+    "implement": {
+      "summary": "Phase 7 convergence: T058, T059, T061, T062 built; T060 no change; T063 packaged-app quickstart found and fixed a preview block-number defect"
+    }
+  },
+  "currentTask": null,
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added shared authoring-bar journey helpers (status, saved wait, undo, redo, tabs, blocked reason)",
+      "files": [
+        "tests/browser/helpers/authoring-bar.mjs"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Added SaveAuthoring, ResetScene, DescribePresentation, PresentationRule (oneof value), PreviewDifference messages and additive authoring_revision/current/differences/reset_commands fields; regenerated",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto",
+        "internal/gen/fallout/terminal/private/v1/desktop.pb.go",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Extracted resolveNodeVisible/Name/Available and resolveBlockText from applyFacilityProjection; live tests unchanged",
+      "files": [
+        "internal/live/facility.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Added runtime-only AuthoringRevision to ActiveSession (1 on activate, +1 on changed group replacement and player-config association) and returned it in session and group results",
+      "files": [
+        "internal/session/service.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Added failing PreviewDifferences tests (demo door, availability, fault path, tree/block order, empty diff, no mutation, invalid overrides, 50 ms benchmark); red until T012",
+      "files": [
+        "internal/live/preview_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Added failing coordinator ResetScene tests (install after success, presentation and pending handling, one correlated record per request, audit revisions and counts, failure rollback, failing log sink); red until T016",
+      "files": [
+        "internal/control/scene_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Explanation parity, precedence, and benchmark tests over sessions/ and fixture sessions (red until T011)",
+      "files": [
+        "internal/live/presentation_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "SaveAuthoring store tests: live acceptance, stale, live-value protection, combined edits, no-op, invalid, refusals, rollback, revision rule, round trip (red until T013)",
+      "files": [
+        "internal/session/authoring_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "ResetScene store tests: one-write reset, revision stepping, stale, write-failure rollback, authoring revision kept, initial no-op (red until T014)",
+      "files": [
+        "internal/session/scene_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Coordinator SaveAuthoring tests: publication, pending rebase/reject with outcome records, interleaved world actions, race (red until T015)",
+      "files": [
+        "internal/control/authoring_test.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Implement session ResetScene: one rollback-safe write restores devices and faults to starting values and clears every terminal's command states; facility revision steps only when the facility changed; authoring revision unchanged",
+      "files": [
+        "internal/session/scene.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Added live.PreviewDifferences: validates the override like PreviewFacility, resolves both sides per node and per block with the shared resolvers, and emits name/text/appears/disappears/availability differences in tree then block order; T006 passes",
+      "files": [
+        "internal/live/preview.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Implemented session.Service.SaveAuthoring: authoring-revision check, canonical live-value merge, three-way validation, single durable write, facility revision step only on facility change; T007 passes",
+      "files": [
+        "internal/session/authoring.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Added ExplainSession in internal/live: per-terminal name, visibility, availability and block-text rules ranked by FR-010 precedence, built from the T003 resolvers, with legacy state-change rewrites beside device and fault rules",
+      "files": [
+        "internal/live/presentation.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Coordinator SaveAuthoring: serialized save, durable facility install, refresh of every broadcast terminal, pending device action rebase/supersede with one correlated outcome record; AuthoringStore wired through Config",
+      "files": [
+        "internal/control/authoring.go",
+        "internal/control/service.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Coordinator ResetScene: pre-store revision check, durable starting-scene validation, terminal-wide command presentation clear, pending invalidation/clear with outcome record, one scene-scoped audit with session revisions and reset commands",
+      "files": [
+        "internal/control/scene.go",
+        "internal/control/facility.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Coordinator preview returns Current (same code path with the installed value) and Differences from live.PreviewDifferences; capability mapping moved to domain.CommandFacilityCapability",
+      "files": [
+        "internal/control/facility.go",
+        "internal/control/facility_test.go",
+        "internal/domain/facility.go",
+        "internal/live/presentation.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Added SaveAuthoring and ResetScene adapters on sessionCommandStateStore with compile-time interface checks; AuthoringStore wired into control.Config",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Contract adapters and round-trip tests for SaveAuthoring, ResetScene, DescribePresentation (oneof rule value), PreviewDifference, preview current/expectedAuthoringRevision, authoring revision and reset commands on results; JSON tags on live types",
+      "files": [
+        "app_contract.go",
+        "app_contract_test.go",
+        "app.go",
+        "internal/live/presentation.go",
+        "internal/live/preview.go",
+        "internal/domain/facility.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Wails SaveAuthoring, ResetScene, DescribePresentation with proto routing, publication (sessions without facility accepted), save-state tracking and operation record; preview authoring-revision check and current/differences; bridge tests",
+      "files": [
+        "app.go",
+        "desktop_service.go",
+        "app_test.go",
+        "app_contract_test.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Removed Wails SaveSession, SaveFacilityAuthoring, ResetFacility, ResetTerminalCommandStates, UpdateLiveTerminal with payloads, legacy refresh fallback and their tests; ported facade and Wails binding tests to SaveAuthoring",
+      "files": [
+        "app.go",
+        "desktop_service.go",
+        "app_test.go",
+        "wails_host_test.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Removed adapters for SaveSessionResult, SaveFacilityAuthoringRequest, ResetFacilityRequest, ResetTerminalCommandStatesRequest, LiveTerminalUpdateRequest; allowlist now 44 methods",
+      "files": [
+        "app_contract.go",
+        "app_contract_test.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Removed SaveFacilityAuthoring, ResetFacility, ResetTerminalCommandStates store adapters and FacilityAuthoringStore wiring",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Removed coordinator SaveFacilityAuthoring, whole-facility ResetFacility, ResetTerminalCommandStates, UpdateLiveTerminal and dead helpers; simplified device and command resets; migrated tests",
+      "files": [
+        "internal/control/facility.go",
+        "internal/control/service.go",
+        "internal/control/facility_test.go",
+        "internal/control/service_test.go"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Removed Service.Save, preserveCanonicalFacility, binding guards, SaveFacilityAuthoring, whole ResetFacility, terminal-wide reset; ported save tests to SaveAuthoring; authoring revision now advances with the written session",
+      "files": [
+        "internal/session/service.go",
+        "internal/session/facility.go",
+        "internal/session/authoring.go",
+        "internal/session/service_test.go",
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Moved the five fixture UpdateLiveTerminal calls to RefreshActiveTerminal",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Deleted the five superseded private messages, regenerated, refreshed the compatibility baseline (only the documented removals break), pinned new schema and baseline digests; proto:check and proto:breaking pass",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto",
+        "internal/gen/fallout/terminal/private/v1/desktop.pb.go",
+        "proto/compatibility-baseline.binpb",
+        "proto/schema-revision.txt",
+        "scripts/wails-v3-contract-check.sh",
+        "internal/platform/assets_test.go",
+        "app_contract_test.go",
+        "app_test.go"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Regenerated Wails bindings (44 methods: +SaveAuthoring, ResetScene, DescribePresentation; -SaveSession, SaveFacilityAuthoring, ResetFacility, ResetTerminalCommandStates, UpdateLiveTerminal) and updated the bindings-check allowlist, count, and signatures; task bindings:check passes",
+      "files": [
+        "frontend/overseer/bindings/",
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Native reset smoke now drives СБРОСИТЬ СЦЕНУ through ResetScene (dialog-scoped confirm, scene-wide file check, ResetScene Wails evidence) and self-tests the ResetCommandState and ResetScene chains plus removal of ResetTerminalCommandStates (self-test red until T032 and T041)",
+      "files": [
+        "scripts/state-changing-reset-native-smoke.sh"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Replaced the five removed fake bindings with SaveAuthoring, ResetScene, and DescribePresentation fakes (authoring-revision checks, live-value merge, one-write scene reset, session-state events) plus call log, in-flight counts, and holdCalls for journeys",
+      "files": [
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Fixture server: shims export SaveAuthoring/ResetScene/DescribePresentation via shared module and drop removed exports; facility-authoring fake gains authoring revision, live-value merge, save-authoring/reset-scene/describe, internal/live preview; facility-player-state store implements AuthoringStore/SceneResetStore on the real coordinator with a force-failure scene-reset scenario",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Overseer desktop facade: saveAuthoring, resetScene, describePresentation with validation; preview expectedAuthoringRevision and current/differences; removed five methods; spec and platform allowlist updated (17/17 pass)",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/desktop-api.spec.mjs",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Overseer save pipeline: commitAuthoringEdit queue (one request in flight, per-edit saveAuthoring), reject reverts and replays, stale holds with reapply, mergeLiveValues; autosave, facility draft and saveFacilityCandidate deleted",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Terminal create/rename/delete/settings, node apply/delete/add, entry-block dialog, facility dialogs, device detail form and story guide now commit ID-based mutates through commitAuthoringEdit; no other save path",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Shared #authoringBar beside the workspace tabs holds #saveStatus (data-state, data-unapplied-count), #btnUndo, #btnRedo, #btnReapplyEdit, #btnResetScene with aria-describedby reasons; explainControl helper; status re-renders on every renderAll",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Undo/redo over shared lastSaved snapshots (depth 20, trimmed reason), equality precondition via authoredKey, saves through commitAuthoringEdit with kind undo/redo, redo cleared on new edit, stacks cleared on load, server rejection reason shown on the control",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Unapplied-input registry for node form (incl. entry blocks), terminal settings and device detail form: staged on input, restored on re-render, data-unapplied marks, ОТМЕНА clears, apply hands input back on rejection, status lists labels with the missing-entity notice",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "ГОТОВО on facility edit dialogs and device form; draft copy, #commandDraftGuard CSS, #btnPublish and its handler removed; new create-terminal description; controlBlockReason + explainControl with aria-disabled and .control-reason on device reset, previews and recovery; dead facilitySubmitting removed",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "playerView cache from describePresentation (newest request wins, dropped across sessions), refreshed on open, accepted saves, authored results and every live result; tree labels show playerName with data-authored-name, «В РЕДАКТОРЕ» title, hidden/unavailable badges",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "#commandEffects «ПРИ ОДОБРЕНИИ» from the authored command (transitions, recovery, completed name, entry block, terminal transition); #commandRules «ЧТО ВИДЯТ ИГРОКИ» from the server explanation grouped by target with ВИДЯТ ИГРОКИ, ПЕРЕКРЫВАЕТ, aria-busy and ИЗМЕНИТЬ opening the owning field, binding dialog or condition dialog",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css",
+        "specs/039-unified-facility-authoring/contracts/overseer-ui.md"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "«СБРОСИТЬ СЦЕНУ»: #sceneResetDialog with counts, players-stay sentence and pending outcome; #btnConfirmSceneReset sends resetScene with counted revisions, stale recounts in place, failure shows reason, success merges live values; #btnResetFacility, #facilityResetDialog and per-terminal reset removed",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Preview dialog: preselects a different state or the opposite fault activity, one-state device shows НЕЧЕГО СРАВНИВАТЬ with no request, one previewFacility call with expectedAuthoringRevision and one stale retry, side-by-side СЕЙЧАС/ЕСЛИ panes with matching data-kind marks, #facilityPreviewSummary counts named differences; self-comparison code removed",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T055": {
+      "status": "DONE",
+      "did": "Inventory: one save model on both tabs, autosave+undo/redo path, both command lists on «Открыть выход и подать сигнал», scene reset from the shared bar, preview from «Гермодверь Убежища 76»; draft and whole-facility wording removed",
+      "files": [
+        "sessions/demo-capability-paths.md"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "facility-authoring journey now autosaves every «ГОТОВО» edit through SaveAuthoring, checks the shared save status and new preview context copy, and replaces whole-facility reset with «СБРОСИТЬ СЦЕНУ»; scene reset now counts against currentSessionRevision()",
+      "files": [
+        "tests/browser/facility-authoring.spec.mjs",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "identifier journeys confirm device dialogs with «ГОТОВО» and assert the autosaved identifiers and shared saved status instead of an explicit session save",
+      "files": [
+        "tests/browser/facility-p0-identifiers.spec.mjs"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "fault-activity journeys confirm with «ГОТОВО», assert autosave, and replace «СБРОСИТЬ ВЕСЬ ОБЪЕКТ» with «СБРОСИТЬ СЦЕНУ», checking every starting value is restored and the active-at-start fault stays active",
+      "files": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "label sweep now covers the shared authoring bar on both tabs (with unapplied input) and the scene-reset dialog, asserts the removed draft/publish/reset controls are gone, and drops #btnResetFacility/#facilityResetDialog",
+      "files": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "replaced the draft-guard journey with FR-006: after a device rename on ОБЪЕКТЫ the device-action command shows no guard, its edit autosaves, both edits survive and no stale/draft message appears; binding dialogs confirm with «ГОТОВО» and autosave",
+      "files": [
+        "tests/browser/facility-p0-command-actions.spec.mjs"
+      ]
+    },
+    "T052": {
+      "status": "DONE",
+      "did": "transition authoring journey asserts one SaveAuthoring call (payload.session) per state-change, transition, and ordinary command save, the shared «СОХРАНЕНО» status, and no SaveSession calls",
+      "files": [
+        "tests/browser/terminal-navigation.spec.mjs"
+      ]
+    },
+    "T050": {
+      "status": "DONE",
+      "did": "replaced #btnPublish with an applied edit on the live terminal saved once through SaveAuthoring with no publish step; SaveSession assertions now read SaveAuthoring payload.session; terminal-wide resets now use «СБРОСИТЬ СЦЕНУ»/ResetScene with cancel, persistence-failure and non-advancing-success rejection; stale block reference now arises from a rejected save; runSessionStateCommand now re-renders the shared bar so the scene reset reason clears",
+      "files": [
+        "tests/browser/state-changing-command-authoring.spec.mjs",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T051": {
+      "status": "DONE",
+      "did": "replaced the reopen-then-publish step with an autosaved terminal-settings edit on the live terminal: one SaveAuthoring call, no publish control, no UpdateLiveTerminal/SaveSession/ResetTerminalCommandStates calls, and players and durable state keep the frozen block outcomes (the spec had no terminal-wide reset step to convert)",
+      "files": [
+        "tests/browser/state-changing-command-sync.spec.mjs"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "UX journeys now confirm every dialog with «ГОТОВО» and assert autosave per edit; the guide's draft checkpoint is replaced by «ОТКРЫТЬ ТЕРМИНАЛЫ» with nothing left to save; discard is replaced by ОТМЕНИТЬ; a rejected autosave reopens the device input; unapplied input survives a live session change; preview shows preselection, side-by-side headings, and named differences without guarding unapplied input",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "wrote the US1 journey: independent test with cross-tab edits, undo x2 and redo x1 with live state kept; status identical on both tabs while saving, with unapplied input and after a rejection; ten alternating edits and a five-edit burst with peak one SaveAuthoring in flight; two quick edits with the second rejected and reopened; stale rejection reapplied via «ПРИМЕНИТЬ СНОВА» with undo reasons; 20-edit history limit and open clearing history; «ГОТОВО» on every editing dialog plus removed-copy sweep; FR-005 reasons; players see edits at once with navigation and hacking progress kept. Save time now formats as HH:MM:SS (ru-RU)",
+      "files": [
+        "tests/browser/facility-unified-save.spec.mjs",
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T053": {
+      "status": "DONE",
+      "did": "US2 journey: both command lists on «Открыть выход и подать сигнал» with winners and overrides for name, blocks and availability, SC-004 effects for every demo command, legacy/terminal-transition/state-text/diagnostic-substitution cases, FR-013 shared rule edit, scene reset counts and forced failure, pending-request note, player parity on facility-player-state; fixed override list to name strictly lower rules; player-state fixture now emits session-state after approval",
+      "files": [
+        "tests/browser/facility-command-lists.spec.mjs",
+        "frontend/overseer/src/overseer.js",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T054": {
+      "status": "DONE",
+      "did": "US3 journey: door preview preselects Открыта, side-by-side panes that stack when narrow, named and marked differences, opposite fault activity, one-state notice with no request, applied text rule shown including a preview opened during an in-flight save, SC-006 over every demo device and terminal, FR-020 unchanged state",
+      "files": [
+        "tests/browser/facility-preview-diff.spec.mjs"
+      ]
+    },
+    "T056": {
+      "status": "DONE",
+      "did": "demo-session spec asserts the new inventory paths (autosave/undo/redo, command lists, scene reset, preview) against demo assets and the absence of removed and draft wording",
+      "files": [
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "T057": {
+      "status": "DONE",
+      "did": "Validation: go fix clean; proto, bindings, fmt, vet, lint, test, test:race (rerun after an unrelated timing flake), frontend build, full browser suite (318; one stale grouping assertion fixed), package all pass; rg sweep clean; README updated; dead fixture route removed; interactive packaged-app pass NOT RUN",
+      "files": [
+        "specs/039-unified-facility-authoring/validation.md",
+        "README.md",
+        "tests/browser/terminal-grouping.spec.mjs",
+        "tests/browser/fixture-server/main.go",
+        "app.go"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "go fix proposes no edits",
+      "command": "go fix -diff ./...",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.5,
+      "result": "no output"
+    },
+    {
+      "what": "protobuf contracts",
+      "command": "task proto:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 8.6,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "protobuf breaking-change gate",
+      "command": "task proto:breaking",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.9,
+      "result": "Breaking fixture rejected: package-name · Breaking fixture rejected: service-method · task: [proto:breaking] scripts/proto-breaking.sh --all-fixtures"
+    },
+    {
+      "what": "Wails bindings",
+      "command": "task bindings:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.9,
+      "result": "Wails bindings are deterministic and expose exactly 44 accepted desktop methods and seven named events. · task: [bindings:check] scripts/wails-bindings-check.sh"
+    },
+    {
+      "what": "formatting",
+      "command": "task fmt:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.1,
+      "result": "  printf 'Go files need formatting:\\n%s\\n' \"$unformatted\" >&2 ·   exit 1 · fi"
+    },
+    {
+      "what": "go vet",
+      "command": "task vet",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.4,
+      "result": "task: [vet] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go vet ./..."
+    },
+    {
+      "what": "golangci-lint",
+      "command": "task lint",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.7,
+      "result": "0 issues. · task: [lint] go tool -modfile=tools/golangci-lint/go.mod golangci-lint run"
+    },
+    {
+      "what": "Go test suite",
+      "command": "task test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.9,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ?   \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t[no test files] · task: [test] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test ./..."
+    },
+    {
+      "what": "Go race suite",
+      "command": "task test:race",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 4.2,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ?   \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t[no test files] · task: [test:race] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test -race ./..."
+    },
+    {
+      "what": "frontend build",
+      "command": "bash -lc 'source ~/.nvm/nvm.sh >/dev/null && nvm use >/dev/null && task frontend:build'",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.7,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "full Playwright browser suite",
+      "command": "bash -lc 'source ~/.nvm/nvm.sh >/dev/null && nvm use >/dev/null && task browser:test -- --reporter=dot'",
+      "source": "derived",
+      "exitCode": 201,
+      "durationSeconds": 308.4,
+      "result": "[WebServer] 2026/10/30 04:53:23 http: TLS handshake error from 127.0.0.1:49505: remote error: tls: unknown certificate · [WebServer] 2026/10/30 04:53:24 http: TLS handshake error from 127.0.0.1:49508: remote error: tls: unknown certificate · task: Failed to run task \"browser:test\": exit status 1",
+      "warnings": [
+        "exited 201"
+      ]
+    },
+    {
+      "what": "full Playwright browser suite (rerun)",
+      "command": "bash -lc 'source ~/.nvm/nvm.sh >/dev/null && nvm use >/dev/null && task browser:test -- --reporter=line > /private/tmp/claude-501/-Users-olegbalunenko-Desktop-Fallout-Terminal/0a78e0df-2dcd-4e12-aa04-f22104f48910/scratchpad/gate-browser3.log 2>&1'",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 298.8,
+      "result": "no output"
+    },
+    {
+      "what": "packaged macOS app",
+      "command": "bash -lc 'source ~/.nvm/nvm.sh >/dev/null && nvm use >/dev/null && task package'",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 88.2,
+      "result": "npm notice run fallout-terminal-overseer@2.0.0 build · npm notice run vite build · build/bin/Fallout Terminal.app: replacing existing signature"
+    },
+    {
+      "what": "Interactive packaged-app pass of quickstart steps 1-5",
+      "command": "manual",
+      "result": "NOT RUN: the app was packaged (task package exit 0) but not driven by hand; browser journeys cover the same steps on the fixture server"
+    },
+    {
+      "what": "Overseer frontend build",
+      "command": "task frontend:build",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.6,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "Fixture server vet",
+      "command": "env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS='-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries' go vet ./tests/browser/fixture-server/",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.2,
+      "result": "no output"
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Foundational Wave 7 deletions built inline instead of by workers",
+      "why": "the removals were mutually dependent and only compiled together",
+      "rejected": "splitting them across workers that could not build independently"
+    },
+    {
+      "decision": "Preview no longer blocks during a save; its request waits for the save queue to drain (authoringIdle)",
+      "why": "R13 and FR-019 say the preview opens and sends only after the queue is idle, and T054 tests a preview opened mid-save",
+      "rejected": "blocking preview controls with ДОЖДИТЕСЬ СОХРАНЕНИЯ"
+    },
+    {
+      "decision": "The read-only-demo control reason is not implemented",
+      "why": "the bundled demo cannot be opened in place (session service refuses it), so no input reaches that branch",
+      "rejected": "a dead branch that no state can trigger"
+    },
+    {
+      "decision": "Bar control reasons are visually hidden but exposed through aria-describedby and title; facility workspace reasons are visible",
+      "why": "idle undo/redo reasons would clutter the shared bar",
+      "rejected": "always-visible reason text in the bar"
+    },
+    {
+      "decision": "#commandEffects uses data-kind terminal-transition for a terminal-transition command, and the contract was updated",
+      "why": "a device transition and a terminal transition are different effects",
+      "rejected": "reusing data-kind transition for both"
+    },
+    {
+      "decision": "The scene reset dialog updates its pending-request line on coordination events while it is open",
+      "why": "a player request always opens its own modal, so the note can only appear for a request that arrives while the dialog is open",
+      "rejected": "a pending note computed only when the dialog opens"
+    },
+    {
+      "decision": "The scene reset counts against currentSessionRevision() (worker fix)",
+      "why": "matches dependency inspection and terminal-group saves; fixtures open at a non-zero revision",
+      "rejected": "newestDurableRevision, which is 0 right after open"
+    },
+    {
+      "decision": "The facility-player-state fixture now emits session-state after an approved command",
+      "why": "the real app publishes session-state after command execution (app.go), and the Overseer refreshes the player view from it",
+      "rejected": "refreshing the player view on every coordination event"
+    },
+    {
+      "decision": "Preview summary takes block numbers from the authored terminal",
+      "why": "The player ContentEntry carries only the joined description, so projected trees have no block IDs in the app",
+      "rejected": "Adding blocks to the public player projection"
+    },
+    {
+      "decision": "Fixture preview strips entry blocks from projected trees",
+      "why": "Mirror the player contract so journeys catch app-only gaps",
+      "rejected": "Leaving the fixture richer than the app"
+    },
+    {
+      "decision": "T060 closed without code",
+      "why": "Session validation forbids two holding rules of one kind per target, so cancellation never reaches the form",
+      "rejected": "Client-side cancellation inference"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "One full browser run (dot reporter, recorded as exit 201) failed in a test that could not be identified; the line-reporter reruns before and after passed 316/316. There may be an intermittent browser test.",
+      "step": "implement"
+    },
+    {
+      "note": "task test:race failed once in internal/player TestPresentationUplinkBodyActivityResetsOnlyIdleDeadline (idle-deadline timing under load, code untouched by this feature); it passed -count=5 alone and on the full rerun.",
+      "step": "implement"
+    },
+    {
+      "note": "currentSessionRevision() falls back to the startup status revision. After a webview reload with an active session, then opening another file, the first scene reset would come back stale once and then recount. The proper fix is for the open result to carry the session revision.",
+      "step": "implement"
+    },
+    {
+      "note": "The interactive packaged-app pass (quickstart steps 1-5 and the compatibility check by hand) was not run.",
+      "step": "implement"
+    },
+    {
+      "note": "On the state-changing-command routes, SaveAuthoring and ResetScene are page fakes that do not reach the player coordinator; publication to real players is covered only on facility-player-state.",
+      "step": "implement"
+    },
+    {
+      "note": "Quickstart step 2.2 cannot be performed: the command approval dialog is modal and Escape rejects, so the Overseer cannot edit while a request is pending; the pending rebase (R4) is reachable only through API-level tests",
+      "step": "implement"
+    },
+    {
+      "note": "Packaged-app run had click-only control (app name contains Terminal); typed quickstart edits were replaced by click-only edits",
+      "step": "implement"
+    },
+    {
+      "note": "Full browser suite (320 passed, 2 skipped) and the packaged-app quickstart were run in-session, not through --verify-run, to avoid a second 5-minute run",
+      "step": "implement"
+    }
+  ],
+  "last_action": "all 63 tasks done; full browser suite 320 passed, 2 skipped"
+}

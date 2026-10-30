@@ -88,7 +88,6 @@ type CommandStateMutation struct {
 type CommandStateStore interface {
 	ExecuteCommandState(context.Context, string, string) (CommandStateMutation, error)
 	ResetCommandState(context.Context, string, string) (CommandStateMutation, error)
-	ResetTerminalCommandStates(context.Context, string) (CommandStateMutation, error)
 }
 
 // TerminalGroupMutation is the detached durable document returned after one
@@ -129,18 +128,18 @@ type terminalGroupCatalog interface {
 // Enqueue must only place the detached effect onto another owner; it must not
 // call back into Service while the coordinator transaction is still locked.
 type Config struct {
-	IDs                    IDSource
-	Enqueue                func(Effect)
-	Runtime                RuntimeActions
-	Terminals              TerminalRuntimeLifecycle
-	TrustedHack            TrustedHackRuntime
-	RosterStore            RosterStore
-	CommandStateStore      CommandStateStore
-	FacilityStore          FacilityStore
-	FacilityAuthoringStore FacilityAuthoringStore
-	TerminalGroupStore     TerminalGroupStore
-	TerminalCatalog        TerminalCatalog
-	RequestResultLimit     int
+	IDs                IDSource
+	Enqueue            func(Effect)
+	Runtime            RuntimeActions
+	Terminals          TerminalRuntimeLifecycle
+	TrustedHack        TrustedHackRuntime
+	RosterStore        RosterStore
+	CommandStateStore  CommandStateStore
+	FacilityStore      FacilityStore
+	AuthoringStore     AuthoringStore
+	TerminalGroupStore TerminalGroupStore
+	TerminalCatalog    TerminalCatalog
+	RequestResultLimit int
 }
 
 // SessionIdentity is the fresh process-local identity returned after an
@@ -211,21 +210,21 @@ type playerActionAuditContext struct {
 type Service struct {
 	mu sync.RWMutex
 
-	runtime                domain.ProcessRuntime
-	ids                    IDSource
-	enqueue                func(Effect)
-	actions                RuntimeActions
-	terminals              TerminalRuntimeLifecycle
-	trustedHack            TrustedHackRuntime
-	rosterStore            RosterStore
-	commandStateStore      CommandStateStore
-	facilityStore          FacilityStore
-	facilityAuthoringStore FacilityAuthoringStore
-	lastFacilityResult     *domain.FacilityOperationResult
-	terminalGroupStore     TerminalGroupStore
-	terminalCatalog        TerminalCatalog
-	requirePlayerConfig    bool
-	requestResultLimit     int
+	runtime             domain.ProcessRuntime
+	ids                 IDSource
+	enqueue             func(Effect)
+	actions             RuntimeActions
+	terminals           TerminalRuntimeLifecycle
+	trustedHack         TrustedHackRuntime
+	rosterStore         RosterStore
+	commandStateStore   CommandStateStore
+	facilityStore       FacilityStore
+	authoringStore      AuthoringStore
+	lastFacilityResult  *domain.FacilityOperationResult
+	terminalGroupStore  TerminalGroupStore
+	terminalCatalog     TerminalCatalog
+	requirePlayerConfig bool
+	requestResultLimit  int
 }
 
 type transition struct {
@@ -267,20 +266,20 @@ func New(config Config) *Service {
 		requestResultLimit = defaultRequestResultLimit
 	}
 	return &Service{
-		runtime:                newProcessRuntime(),
-		ids:                    ids,
-		enqueue:                enqueue,
-		actions:                config.Runtime,
-		terminals:              config.Terminals,
-		trustedHack:            config.TrustedHack,
-		rosterStore:            config.RosterStore,
-		commandStateStore:      config.CommandStateStore,
-		facilityStore:          config.FacilityStore,
-		facilityAuthoringStore: config.FacilityAuthoringStore,
-		terminalGroupStore:     config.TerminalGroupStore,
-		terminalCatalog:        config.TerminalCatalog,
-		requirePlayerConfig:    config.RosterStore != nil,
-		requestResultLimit:     requestResultLimit,
+		runtime:             newProcessRuntime(),
+		ids:                 ids,
+		enqueue:             enqueue,
+		actions:             config.Runtime,
+		terminals:           config.Terminals,
+		trustedHack:         config.TrustedHack,
+		rosterStore:         config.RosterStore,
+		commandStateStore:   config.CommandStateStore,
+		facilityStore:       config.FacilityStore,
+		authoringStore:      config.AuthoringStore,
+		terminalGroupStore:  config.TerminalGroupStore,
+		terminalCatalog:     config.TerminalCatalog,
+		requirePlayerConfig: config.RosterStore != nil,
+		requestResultLimit:  requestResultLimit,
 	}
 }
 
@@ -1539,23 +1538,12 @@ func (service *Service) ResetCommandState(ctx context.Context, terminalID, comma
 	if commandID == "" {
 		return service.Snapshot(), nil, fmt.Errorf("command ID must not be blank")
 	}
-	return service.resetCommandStates(ctx, terminalID, commandID, false)
-}
-
-// ResetTerminalCommandStates removes every complete durable command snapshot
-// owned by one terminal and publishes the canonical result as one revision.
-func (service *Service) ResetTerminalCommandStates(ctx context.Context, terminalID string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
-	terminalID = strings.TrimSpace(terminalID)
-	if terminalID == "" {
-		return service.Snapshot(), nil, fmt.Errorf("terminal ID must not be blank")
-	}
-	return service.resetCommandStates(ctx, terminalID, "", true)
+	return service.resetCommandStates(ctx, terminalID, commandID)
 }
 
 func (service *Service) resetCommandStates(
 	ctx context.Context,
 	terminalID, commandID string,
-	terminalWide bool,
 ) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
 	if ctx == nil {
 		return service.Snapshot(), nil, fmt.Errorf("command state reset context is required")
@@ -1575,18 +1563,12 @@ func (service *Service) resetCommandStates(
 			return transition{}
 		}
 
-		var durable CommandStateMutation
-		var err error
-		if terminalWide {
-			durable, err = service.commandStateStore.ResetTerminalCommandStates(ctx, terminalID)
-		} else {
-			durable, err = service.commandStateStore.ResetCommandState(ctx, terminalID, commandID)
-		}
+		durable, err := service.commandStateStore.ResetCommandState(ctx, terminalID, commandID)
 		if err != nil {
 			resetErr = fmt.Errorf("command state could not be reset")
 			return transition{}
 		}
-		durableTerminal, err := validatedCommandStateReset(durable.Session, terminalID, commandID, terminalWide)
+		durableTerminal, err := validatedCommandStateReset(durable.Session, terminalID, commandID)
 		if err != nil {
 			resetErr = err
 			return transition{}
@@ -1603,7 +1585,7 @@ func (service *Service) resetCommandStates(
 		if broadcast := runtime.Broadcast; broadcast != nil {
 			terminal := broadcast.TerminalRuntimes[terminalID]
 			if terminal != nil {
-				clearResetCommandPresentation(runtime, terminal, commandID, terminalWide)
+				clearResetCommandPresentation(runtime, terminal, commandID, false)
 				terminal.CommandStates = cloneCommandStates(durableTerminal.CommandStates)
 				if broadcast.ActiveTerminalID != nil && *broadcast.ActiveTerminalID == terminalID && service.terminals != nil {
 					projection = service.terminals.ProjectFacility(terminal, runtime.Facility)
@@ -1627,7 +1609,6 @@ func (service *Service) resetCommandStates(
 func validatedCommandStateReset(
 	session domain.Session,
 	terminalID, commandID string,
-	terminalWide bool,
 ) (*domain.Terminal, error) {
 	if err := domain.ValidateSession(session); err != nil {
 		return nil, fmt.Errorf("command state reset returned an invalid durable state")
@@ -1636,11 +1617,7 @@ func validatedCommandStateReset(
 	if terminal == nil {
 		return nil, fmt.Errorf("command state reset returned an invalid durable state")
 	}
-	if terminalWide {
-		if len(terminal.CommandStates) != 0 {
-			return nil, fmt.Errorf("command state reset returned an invalid durable state")
-		}
-	} else if _, exists := terminal.CommandStates[commandID]; exists {
+	if _, exists := terminal.CommandStates[commandID]; exists {
 		return nil, fmt.Errorf("command state reset returned an invalid durable state")
 	}
 	return terminal, nil
@@ -1881,53 +1858,6 @@ func (service *Service) CanDeleteTerminal(terminalID string) error {
 		return fmt.Errorf("terminal %q has active or preserved runtime state", terminalID)
 	}
 	return nil
-}
-
-// UpdateLiveTerminal refreshes the active checkpoint's authored tree and
-// optional introduction while preserving navigation validity and puzzle state.
-func (service *Service) UpdateLiveTerminal(tree domain.ContentNode, introText *string) (*domain.MasterCoordinationState, error) {
-	var state *domain.MasterCoordinationState
-	var updateErr error
-	result := service.commit(func(runtime *domain.ProcessRuntime) transition {
-		broadcast := runtime.Broadcast
-		active := activeTerminalRuntime(broadcast)
-		if broadcast == nil || active == nil || broadcast.ActiveTerminalID == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("no terminal is active")
-			return transition{}
-		}
-		if service.terminals == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("terminal runtime lifecycle is unavailable")
-			return transition{}
-		}
-		intro := active.IntroText
-		if introText != nil {
-			intro = *introText
-		}
-		projection := service.terminals.UpdateRuntime(active, domain.TerminalTarget{
-			TerminalID: active.TerminalID, TerminalName: active.TerminalName,
-			Tree: tree, CommandStates: cloneCommandStates(active.CommandStates),
-			HackLevel: active.HackLevel, IntroText: intro,
-		})
-		if projection == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("active terminal could not be updated")
-			return transition{}
-		}
-		projection = service.terminals.ProjectFacility(active, runtime.Facility)
-		if projection == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("active terminal could not be projected")
-			return transition{}
-		}
-		state = masterSnapshot(runtime)
-		effects := stateEffects(runtime)
-		effects = append(effects, Effect{Live: projection})
-		return transition{accepted: true, effects: effects}
-	})
-	state.Revision = result.revision
-	return domain.CloneMasterCoordinationState(state), updateErr
 }
 
 // RefreshActiveTerminal installs one complete trusted backend target. Unlike
@@ -4268,7 +4198,9 @@ func supersededCommandAudit(before, after *domain.ProcessRuntime, effects []Effe
 	}
 	for _, effect := range effects {
 		for _, event := range effect.Audit {
-			if event.Name == "command.decision" && event.RequestID == pending.RequestID {
+			// An operation that resolved the request recorded its own outcome.
+			if (event.Name == "command.decision" || event.Name == "command.request_outcome") &&
+				event.RequestID == pending.RequestID {
 				return AuditEvent{}, false
 			}
 		}

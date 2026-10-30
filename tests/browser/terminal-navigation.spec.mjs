@@ -89,6 +89,21 @@ async function coordinationSnapshot(request) {
   return response.json();
 }
 
+async function authoringSaveCount(page) {
+  return page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').length);
+}
+
+// applyCommandForm applies the open command form and waits for its one
+// SaveAuthoring call; no legacy SaveSession call is ever made.
+async function applyCommandForm(page) {
+  const before = await authoringSaveCount(page);
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await expect.poll(() => authoringSaveCount(page)).toBe(before + 1);
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'saved');
+  await expect(page.locator('#saveStatus')).toContainText('СОХРАНЕНО');
+  expect(await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').length)).toBe(0);
+}
+
 async function persistedCommandBehavior(page, commandID) {
   return page.evaluate(async ({ endpoint, id }) => {
     const response = await fetch(endpoint);
@@ -261,9 +276,8 @@ test('transition authoring is mutually exclusive, validates locally, and survive
   await form.getByLabel('ТЕКСТ УСПЕШНОГО ВЫПОЛНЕНИЯ').fill('Переход подготовлен.');
   await form.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ').fill('ПЕРЕХОД ПОДГОТОВЛЕН');
   await form.getByLabel('ТЕКСТ ЗАПРОСА ПОДТВЕРЖДЕНИЯ').fill('Подготовить переход?');
-  await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
-	await expect(page.locator('#saveStatus')).toContainText('Сохранено');
-  const stateChangeSave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
+  await applyCommandForm(page);
+  const stateChangeSave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').at(-1)?.args?.[0]?.session
     ?.terminals?.[0]?.root?.children?.find(node => node.id === 'go-security'));
 	expect(stateChangeSave).toHaveProperty('stateChange');
 	expect(stateChangeSave).not.toHaveProperty('terminalTransition');
@@ -276,8 +290,8 @@ test('transition authoring is mutually exclusive, validates locally, and survive
 
   await page.getByLabel('РЕЖИМ КОМАНДЫ').selectOption('terminal-transition');
   await form.getByLabel('ЦЕЛЕВОЙ ТЕРМИНАЛ').selectOption('security');
-  await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
-  const transitionSave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
+  await applyCommandForm(page);
+  const transitionSave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').at(-1)?.args?.[0]?.session
     ?.terminals?.[0]?.root?.children?.find(node => node.id === 'go-security'));
 	expect(transitionSave).toHaveProperty('terminalTransition.targetTerminalId', 'security');
 	expect(transitionSave).not.toHaveProperty('stateChange');
@@ -291,8 +305,8 @@ test('transition authoring is mutually exclusive, validates locally, and survive
   await expect(page.getByLabel('ЦЕЛЕВОЙ ТЕРМИНАЛ')).toHaveValue('security');
 
   await page.getByLabel('РЕЖИМ КОМАНДЫ').selectOption('ordinary');
-  await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
-  const ordinarySave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1)?.args?.[0]
+  await applyCommandForm(page);
+  const ordinarySave = await page.evaluate(() => __desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').at(-1)?.args?.[0]?.session
     ?.terminals?.[0]?.root?.children?.find(node => node.id === 'go-security'));
 	expect(ordinarySave).not.toHaveProperty('stateChange');
 	expect(ordinarySave).not.toHaveProperty('terminalTransition');

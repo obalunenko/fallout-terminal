@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -246,7 +245,7 @@ func TestSaveAndReopenPreservesThreeGroupsAndTenTerminalMemberships(t *testing.T
 	require.NotNil(t, opened.Session)
 	edited := domain.CloneSession(*opened.Session)
 	edited.Name = "Ordered groups after save"
-	saved := service.Save(t.Context(), edited, 1)
+	saved := saveForTest(t, service, edited)
 	require.True(t, saved.OK, "Save() = %#v", saved)
 	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
 
@@ -444,7 +443,7 @@ func TestGenericSaveNormalizesTerminalLifecycleAndPreservesCanonicalMembership(t
 		{ID: "stale-membership-b", Name: "Stale B", TerminalIDs: []string{"a", "imported"}},
 	}
 
-	saved := service.Save(t.Context(), candidate, 1)
+	saved := saveForTest(t, service, candidate)
 	require.True(t, saved.OK, "Save() = %#v", saved)
 	active := service.Snapshot()
 	require.NotNil(t, active.Session)
@@ -498,9 +497,9 @@ func TestStaleGenericSavePreservesLatestGroupsAcrossContractAndReopen(t *testing
 
 	stale.Name = "Authored after regrouping"
 	stale.Terminals[0].IntroText = "Unrelated authored edit"
-	saved := service.Save(t.Context(), stale, 2)
+	saved := saveForTest(t, service, stale)
 	require.True(t, saved.OK, "Save(stale groups) = %#v", saved)
-	assert.Equal(t, uint64(2), saved.SavedRevision)
+	assert.Equal(t, uint64(2), saved.SessionRevision)
 	require.NoError(t, service.Shutdown(context.WithoutCancel(t.Context())))
 
 	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
@@ -546,7 +545,7 @@ func TestLegacyDormantLinkSurvivesTerminalCreateAndDelete(t *testing.T) {
 	created.TerminalGroups = []domain.TerminalGroup{
 		{ID: "stale-route", Name: "Stale route", TerminalIDs: []string{"a", "b", "created"}},
 	}
-	require.True(t, service.Save(t.Context(), created, 1).OK)
+	require.True(t, saveForTest(t, service, created).OK)
 	afterCreate := service.Snapshot()
 	require.NotNil(t, afterCreate.Session)
 	assert.Equal(t, []string{"created"}, terminalGroupByMember(t, afterCreate.Session.TerminalGroups, "created").TerminalIDs)
@@ -554,7 +553,7 @@ func TestLegacyDormantLinkSurvivesTerminalCreateAndDelete(t *testing.T) {
 
 	deleted := domain.CloneSession(*afterCreate.Session)
 	deleted.Terminals = append([]domain.Terminal(nil), deleted.Terminals[:2]...)
-	require.True(t, service.Save(t.Context(), deleted, 2).OK)
+	require.True(t, saveForTest(t, service, deleted).OK)
 	afterDelete := service.Snapshot()
 	require.NotNil(t, afterDelete.Session)
 	assertCanonicalTerminalGroups(t, *afterDelete.Session)
@@ -621,10 +620,10 @@ func TestGenericSaveRejectsNewOrRetargetedCrossGroupTransitions(t *testing.T) {
 			test.mutate(&candidate)
 			writesBefore := len(fileSystem.WriteCalls())
 
-			result := service.Save(t.Context(), candidate, 1)
+			result := saveForTest(t, service, candidate)
 
 			assert.False(t, result.OK)
-			assert.Contains(t, result.Error, "session is invalid")
+			assert.Equal(t, domain.FacilityFailureInvalidConfiguration, result.Failure)
 			assert.Equal(t, writesBefore, len(fileSystem.WriteCalls()))
 			active := service.Snapshot()
 			require.NotNil(t, active.Session)
@@ -666,72 +665,6 @@ func TestFailedCommandStateMutationRollsBackGroupedSessionAndRevision(t *testing
 	assert.Zero(t, active.SavedRevision)
 	assert.Equal(t, SaveStateFailed, active.SaveState)
 	assert.Equal(t, initialData, store.data)
-}
-
-func TestCoalescedGenericSavesKeepNewestContentAndCanonicalGroups(t *testing.T) {
-	target := filepath.Join(testCampaignsRoot, "coalesced-grouped-saves.json")
-	canonicalGroups := []domain.TerminalGroup{
-		{ID: "route", Name: "Route", TerminalIDs: []string{"a", "b"}},
-		{ID: "gamma", Name: "Gamma", TerminalIDs: []string{"c"}},
-	}
-	initial := terminalGroupMutationTestSession(canonicalGroups)
-	store := newBlockingStore()
-	store.seed(target, mustEncodeSession(t, initial))
-	service := NewService(store, &testutil.FakeDialog{OpenResult: target}, testLocations)
-	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
-	opened := service.Open(t.Context())
-	require.True(t, opened.OK, "Open() = %#v", opened)
-	require.NotNil(t, opened.Session)
-
-	type completion struct {
-		revision uint64
-		result   SaveResult
-	}
-	completions := make(chan completion, 3)
-	startSave := func(revision uint64) {
-		candidate := domain.CloneSession(*opened.Session)
-		candidate.Name = fmt.Sprintf("revision-%d", revision)
-		candidate.TerminalGroups = []domain.TerminalGroup{
-			{ID: fmt.Sprintf("stale-%d", revision), Name: "Stale", TerminalIDs: []string{"c", "b", "a"}},
-		}
-		go func() {
-			completions <- completion{revision: revision, result: service.Save(t.Context(), candidate, revision)}
-		}()
-	}
-
-	startSave(1)
-	select {
-	case <-store.firstWriteStarted:
-	case <-time.After(2 * time.Second):
-		require.FailNow(t, "first grouped revision did not begin writing")
-	}
-	t.Cleanup(store.release)
-	for revision := uint64(2); revision <= 3; revision++ {
-		startSave(revision)
-		waitForRequestedRevision(t, service, revision)
-	}
-	store.release()
-
-	for range 3 {
-		select {
-		case completed := <-completions:
-			assert.True(t, completed.result.OK, "revision %d result = %#v", completed.revision, completed.result)
-			assert.Equal(t, completed.revision, completed.result.RequestedRevision)
-			assert.GreaterOrEqual(t, completed.result.SavedRevision, completed.revision)
-		case <-time.After(2 * time.Second):
-			require.FailNow(t, "grouped saves did not finish")
-		}
-	}
-
-	persisted, err := domain.DecodeSession(store.file(target))
-	require.NoError(t, err)
-	assert.Equal(t, "revision-3", persisted.Name)
-	assert.Equal(t, canonicalGroups, persisted.TerminalGroups)
-	assertCanonicalTerminalGroups(t, persisted)
-	active := service.Snapshot()
-	assert.Equal(t, uint64(3), active.RequestedRevision)
-	assert.Equal(t, uint64(3), active.SavedRevision)
-	assert.Equal(t, SaveStateSaved, active.SaveState)
 }
 
 func TestReplaceTerminalGroupsAppliesDissolutionAndMoveCandidatesAtomically(t *testing.T) {
@@ -1016,11 +949,9 @@ func TestOpenAndSavePreserveUnknownFieldsAtExplicitPath(t *testing.T) {
 	assert.JSONEq(t, `{"nested":["keep"]}`, string(opened.Session.Terminals[0].Root.Children[0].Extra["commandNote"]))
 	edited := *opened.Session
 	edited.Name = "after"
-	saved := service.Save(t.Context(), edited, 1)
+	saved := saveForTest(t, service, edited)
 	require.True(t, saved.OK, "Save() = %#v", saved)
-	assert.Empty(t, saved.Error)
-	assert.Equal(t, uint64(1), saved.RequestedRevision)
-	assert.Equal(t, uint64(1), saved.SavedRevision)
+	assert.Equal(t, uint64(1), saved.SessionRevision)
 	written := fileSystemFileData(t, fileSystem, target)
 	for _, field := range []string{"campaignNote", "terminalNote", "nodeNote", "commandNote"} {
 		assert.Contains(t, string(written), `"`+field+`"`)
@@ -1063,7 +994,7 @@ func TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTarget
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 
-	saved := service.Save(t.Context(), *opened.Session, 1)
+	saved := saveForTest(t, service, *opened.Session)
 	require.True(t, saved.OK, "Save() = %#v", saved)
 	reopened := service.Open(t.Context())
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
@@ -1074,11 +1005,11 @@ func TestRealDemoCrossTerminalLinkSurvivesServiceSaveAndRejectsOnlyInvalidTarget
 
 	missing := cloneSession(*reopened.Session)
 	missing.Terminals = missing.Terminals[:1]
-	require.False(t, service.Save(t.Context(), missing, 2).OK)
+	require.False(t, saveForTest(t, service, missing).OK)
 
 	self := cloneSession(*reopened.Session)
 	findNodeByID(&self.Terminals[0].Root, "n_cmd_state_change_1").TerminalTransition.TargetTerminalID = "t_demo1"
-	require.False(t, service.Save(t.Context(), self, 2).OK)
+	require.False(t, saveForTest(t, service, self).OK)
 }
 
 func findNodeByID(root *domain.ContentNode, id string) *domain.ContentNode {
@@ -1133,10 +1064,11 @@ func TestOpenAndSaveLegacyVersionOnePreservesOrdinaryContentWithoutAddingStateFi
 	assert.Nil(t, ordinary.StateChange)
 	assert.Empty(t, opened.Session.Terminals[0].CommandStates)
 
-	saved := service.Save(t.Context(), *opened.Session, 1)
+	edited := domain.CloneSession(*opened.Session)
+	edited.Name += " (saved)"
+	saved := saveForTest(t, service, edited)
 	require.True(t, saved.OK, "Save() = %#v", saved)
-	assert.Equal(t, uint64(1), saved.RequestedRevision)
-	assert.Equal(t, uint64(1), saved.SavedRevision)
+	assert.Equal(t, uint64(1), saved.SessionRevision)
 	written := fileSystemFileData(t, fileSystem, target)
 	for _, absent := range []string{`"stateChange"`, `"commandStates"`} {
 		assert.NotContains(t, string(written), absent)
@@ -1185,11 +1117,10 @@ func TestSaveWithoutActivePathFailsWithoutWriting(t *testing.T) {
 	service := NewService(NewStorage(fileSystem), &testutil.FakeDialog{}, testLocations)
 	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
 
-	result := service.Save(t.Context(), validSession("orphan"), 1)
+	result := saveForTest(t, service, validSession("orphan"))
 	assert.False(t, result.OK)
-	assert.NotEmpty(t, result.Error)
-	assert.Equal(t, uint64(1), result.RequestedRevision)
-	assert.Zero(t, result.SavedRevision)
+	assert.NotEmpty(t, result.Failure)
+	assert.Zero(t, result.SessionRevision)
 	assert.Empty(t, fileSystem.WriteCalls())
 	assert.Empty(t, fileSystem.RenameCalls())
 	assertInactive(t, service.Snapshot())
@@ -1254,69 +1185,6 @@ func TestCopyDemoRequiresExplicitDestinationAndActivatesWritableCopy(t *testing.
 	assert.NotContains(t, writtenCopy.Terminals[0].CommandStates, "doors")
 }
 
-func TestTwentyQueuedRevisionsFinishAtNewestAcceptedSession(t *testing.T) {
-	store := newBlockingStore()
-	target := filepath.Join(testCampaignsRoot, "ordered.json")
-	store.seed(target, mustEncodeSession(t, validSession("initial")))
-	dialog := &testutil.FakeDialog{OpenResult: target}
-	service := NewService(store, dialog, testLocations)
-	t.Cleanup(func() { _ = service.Shutdown(context.WithoutCancel(t.Context())) })
-	result := service.Open(t.Context())
-	require.True(t, result.OK, "Open() = %#v", result)
-
-	type completion struct {
-		revision uint64
-		result   SaveResult
-	}
-	completions := make(chan completion, 20)
-	startSave := func(revision uint64) {
-		session := validSession(fmt.Sprintf("revision-%02d", revision))
-		go func() {
-			completions <- completion{revision: revision, result: service.Save(t.Context(), session, revision)}
-		}()
-	}
-
-	startSave(1)
-	select {
-	case <-store.firstWriteStarted:
-	case <-time.After(2 * time.Second):
-		require.FailNow(t, "first revision did not begin writing")
-	}
-	t.Cleanup(store.release)
-	for revision := uint64(2); revision <= 20; revision++ {
-		startSave(revision)
-		waitForRequestedRevision(t, service, revision)
-	}
-	store.release()
-
-	results := make(map[uint64]SaveResult, 20)
-	for range 20 {
-		select {
-		case completion := <-completions:
-			results[completion.revision] = completion.result
-		case <-time.After(2 * time.Second):
-			require.FailNowf(t, "saves did not complete", "only %d of 20 saves completed", len(results))
-		}
-	}
-	for revision := uint64(1); revision <= 20; revision++ {
-		result := results[revision]
-		assert.True(t, result.OK, "revision %d result = %#v", revision, result)
-		assert.Empty(t, result.Error, "revision %d", revision)
-		assert.Equal(t, revision, result.RequestedRevision)
-		assert.GreaterOrEqual(t, result.SavedRevision, revision)
-		assert.LessOrEqual(t, result.SavedRevision, uint64(20))
-	}
-	assert.Equal(t, uint64(20), results[20].SavedRevision)
-	final, err := domain.DecodeSession(store.file(target))
-	require.NoError(t, err)
-	assert.Equal(t, "revision-20", final.Name)
-	snapshot := service.Snapshot()
-	assert.Equal(t, target, snapshot.Path)
-	assert.Equal(t, uint64(20), snapshot.RequestedRevision)
-	assert.Equal(t, uint64(20), snapshot.SavedRevision)
-	assert.Equal(t, SaveStateSaved, snapshot.SaveState)
-}
-
 func TestCommandStateMutationsAllocateMonotonicDocumentRevisions(t *testing.T) {
 	t.Parallel()
 
@@ -1348,22 +1216,15 @@ func TestCommandStateMutationsAllocateMonotonicDocumentRevisions(t *testing.T) {
 	assert.NotContains(t, one.Session.Terminals[0].CommandStates, "doors")
 	assert.Contains(t, one.Session.Terminals[0].CommandStates, "alarm")
 
-	all := service.ResetTerminalCommandStates(t.Context(), "t1")
-	require.True(t, all.OK, "ResetTerminalCommandStates() = %#v", all)
-	assert.True(t, all.Changed)
-	assert.Equal(t, uint64(4), all.Revision)
-	require.NotNil(t, all.Session)
-	assert.Empty(t, all.Session.Terminals[0].CommandStates)
 	writesBeforeNoOp := len(fileSystem.WriteCalls())
-	noOp := service.ResetTerminalCommandStates(t.Context(), "t1")
-	require.True(t, noOp.OK, "idempotent ResetTerminalCommandStates() = %#v", noOp)
+	noOp := service.ResetCommandState(t.Context(), "t1", "doors")
+	require.True(t, noOp.OK, "idempotent ResetCommandState() = %#v", noOp)
 	assert.False(t, noOp.Changed)
-	assert.Equal(t, uint64(4), noOp.Revision)
+	assert.Equal(t, uint64(3), noOp.Revision)
 	require.NotNil(t, noOp.Session)
 	assert.Equal(t, writesBeforeNoOp, len(fileSystem.WriteCalls()))
 	snapshot := service.Snapshot()
-	assert.Equal(t, uint64(4), snapshot.RequestedRevision)
-	assert.Equal(t, uint64(4), snapshot.SavedRevision)
+	assert.Equal(t, uint64(3), snapshot.SavedRevision)
 	assert.Equal(t, SaveStateSaved, snapshot.SaveState)
 }
 
@@ -1441,7 +1302,6 @@ func TestFailedEntryContentCommandStateMutationRollsBackCommandAndBlockSnapshot(
 	require.NotNil(t, entry)
 	require.Len(t, entry.Blocks, 2)
 	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
-	assert.Equal(t, uint64(0), active.RequestedRevision)
 	assert.Equal(t, uint64(0), active.SavedRevision)
 }
 
@@ -1491,22 +1351,15 @@ func TestEntryContentCommandStateResetsRemoveWholeSnapshotsAndPreserveUnrelatedS
 	require.True(t, exists)
 	assert.Equal(t, &domain.EntryContentChange{BlockID: "cooling-status", CompletedText: "COOLING: ONLINE"}, other.EntryContentChange)
 	assert.Contains(t, resetOne.Session.Terminals[1].CommandStates, "reserve")
-
-	resetAll := service.ResetTerminalCommandStates(t.Context(), "t1")
-	require.True(t, resetAll.OK, "ResetTerminalCommandStates() = %#v", resetAll)
-	assert.True(t, resetAll.Changed)
-	assert.Equal(t, uint64(4), resetAll.Revision)
-	require.NotNil(t, resetAll.Session)
-	assert.Empty(t, resetAll.Session.Terminals[0].CommandStates)
-	assert.Contains(t, resetAll.Session.Terminals[1].CommandStates, "reserve")
-	entry := contentNodeByID(&resetAll.Session.Terminals[0].Root, "reactor-status")
+	entry := contentNodeByID(&resetOne.Session.Terminals[0].Root, "reactor-status")
 	require.NotNil(t, entry)
 	assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
 	assert.Equal(t, "COOLING: OFFLINE", entry.Blocks[1].InitialText)
 
 	persisted, err := domain.DecodeSession(fileSystemFileData(t, fileSystem, target))
 	require.NoError(t, err)
-	assert.Empty(t, persisted.Terminals[0].CommandStates)
+	assert.NotContains(t, persisted.Terminals[0].CommandStates, "restore-power")
+	assert.Contains(t, persisted.Terminals[0].CommandStates, "restore-other")
 	assert.Contains(t, persisted.Terminals[1].CommandStates, "reserve")
 }
 
@@ -1530,7 +1383,7 @@ func TestDeletingEntryContentCommandPrunesItsWholeFrozenSnapshot(t *testing.T) {
 		}
 	}
 	candidate.Terminals[0].Root.Children = filtered
-	result := service.Save(t.Context(), candidate, 2)
+	result := saveForTest(t, service, candidate)
 	require.True(t, result.OK, "Save(delete owning command) = %#v", result)
 
 	active := service.Snapshot()
@@ -1614,10 +1467,9 @@ func TestStaleFullSavePreservesCanonicalFrozenStateAndAppliesAuthoredEdits(t *te
 		"doors": {CompletedName: "ПОДДЕЛКА", ResultText: "ПОДДЕЛКА"},
 	}
 
-	saved := service.Save(t.Context(), stale, 2)
+	saved := saveForTest(t, service, stale)
 	require.True(t, saved.OK, "Save(stale) = %#v", saved)
-	assert.Equal(t, uint64(2), saved.RequestedRevision)
-	assert.Equal(t, uint64(2), saved.SavedRevision)
+	assert.Equal(t, uint64(2), saved.SessionRevision)
 	active := service.Snapshot()
 	require.NotNil(t, active.Session)
 	assert.Equal(t, "after", active.Session.Name)
@@ -1652,10 +1504,9 @@ func TestOrdinarySavePreservesProtectedFacilityCurrentValuesAndRevision(t *testi
 	forged.Facility.Devices[0].CurrentStateID = "offline"
 	forged.Facility.Conditions[0].CurrentActive = true
 
-	saved := service.Save(t.Context(), forged, 1)
+	saved := saveForTest(t, service, forged)
 	require.True(t, saved.OK, "Save() = %#v", saved)
-	assert.Equal(t, uint64(1), saved.RequestedRevision)
-	assert.Equal(t, uint64(1), saved.SavedRevision)
+	assert.Equal(t, uint64(1), saved.SessionRevision)
 
 	active := service.Snapshot()
 	require.NotNil(t, active.Session)
@@ -1693,9 +1544,9 @@ func TestDocumentRevisionAdvancesIndependentlyOfFacilityRevision(t *testing.T) {
 	first := facilitySessionForSaveTest()
 	first.Name = "Document revision one"
 	first.Facility.Revision = 41
-	firstSave := service.Save(t.Context(), first, 1)
+	firstSave := saveForTest(t, service, first)
 	require.True(t, firstSave.OK, "first Save() = %#v", firstSave)
-	assert.Equal(t, uint64(1), firstSave.SavedRevision)
+	assert.Equal(t, uint64(1), firstSave.SessionRevision)
 	firstActive := service.Snapshot()
 	require.NotNil(t, firstActive.Session)
 	require.NotNil(t, firstActive.Session.Facility)
@@ -1705,12 +1556,11 @@ func TestDocumentRevisionAdvancesIndependentlyOfFacilityRevision(t *testing.T) {
 	second.Name = "Document revision two"
 	second.Terminals[0].IntroText = "Updated authored introduction"
 	second.Facility.Revision = 41
-	secondSave := service.Save(t.Context(), second, 2)
+	secondSave := saveForTest(t, service, second)
 	require.True(t, secondSave.OK, "second Save() = %#v", secondSave)
-	assert.Equal(t, uint64(2), secondSave.SavedRevision)
+	assert.Equal(t, uint64(2), secondSave.SessionRevision)
 
 	active := service.Snapshot()
-	assert.Equal(t, uint64(2), active.RequestedRevision)
 	assert.Equal(t, uint64(2), active.SavedRevision)
 	require.NotNil(t, active.Session)
 	require.NotNil(t, active.Session.Facility)
@@ -1770,9 +1620,9 @@ func TestEntryContentPersistencePreservesFrozenTargetsAcrossStaleMoveRenameAndRe
 		{ID: "maintenance", Type: domain.NodeFolder, Name: "MAINTENANCE", Children: []domain.ContentNode{movedCommand}},
 	}
 
-	saved := service.Save(t.Context(), stale, 2)
+	saved := saveForTest(t, service, stale)
 	require.True(t, saved.OK, "Save(stale moved session) = %#v", saved)
-	assert.Equal(t, uint64(2), saved.SavedRevision)
+	assert.Equal(t, uint64(2), saved.SessionRevision)
 	wantFrozen := domain.CommandExecutionState{
 		CompletedName: "POWER RESTORED", ResultText: "Power restored.",
 		EntryContentChange: &domain.EntryContentChange{
@@ -1796,8 +1646,7 @@ func TestEntryContentPersistencePreservesFrozenTargetsAcrossStaleMoveRenameAndRe
 
 	deleted := domain.CloneSession(*reopened.Session)
 	deleted.Terminals[0].Root.Children = deleted.Terminals[0].Root.Children[:1]
-	deleteRevision := service.Snapshot().RequestedRevision + 1
-	deleteResult := service.Save(t.Context(), deleted, deleteRevision)
+	deleteResult := saveForTest(t, service, deleted)
 	require.True(t, deleteResult.OK, "Save(delete moved command) = %#v", deleteResult)
 	assert.Empty(t, service.Snapshot().Session.Terminals[0].CommandStates)
 
@@ -1825,9 +1674,9 @@ func TestFullSavePrunesFrozenStateWhenCommandIsDeleted(t *testing.T) {
 
 	candidate := *service.Snapshot().Session
 	candidate.Terminals[0].Root.Children = append([]domain.ContentNode(nil), candidate.Terminals[0].Root.Children[1:]...)
-	saveResult := service.Save(t.Context(), candidate, 2)
+	saveResult := saveForTest(t, service, candidate)
 	require.True(t, saveResult.OK, "Save(with deletion) = %#v", saveResult)
-	assert.Equal(t, uint64(2), saveResult.SavedRevision)
+	assert.Equal(t, uint64(2), saveResult.SessionRevision)
 	active := service.Snapshot()
 	require.NotNil(t, active.Session)
 	assert.Empty(t, active.Session.Terminals[0].CommandStates)
@@ -1863,7 +1712,7 @@ func TestTerminalCatalogReturnsDetachedCurrentSessionSnapshotsAndInvalidSaveIsAt
 	writesBefore := len(fileSystem.WriteCalls())
 	invalid := domain.CloneSession(*before.Session)
 	invalid.Terminals = invalid.Terminals[:1]
-	result := service.Save(t.Context(), invalid, before.RequestedRevision+1)
+	result := saveForTest(t, service, invalid)
 	assert.False(t, result.OK)
 	assert.Equal(t, writesBefore, len(fileSystem.WriteCalls()))
 	after := service.Snapshot()
@@ -1989,7 +1838,7 @@ func TestLookupTerminalTransitionRejectsStaleRemovedLink(t *testing.T) {
 
 	candidate := domain.CloneSession(*service.Snapshot().Session)
 	candidate.Terminals[0].Root.Children = []domain.ContentNode{}
-	saved := service.Save(t.Context(), candidate, 1)
+	saved := saveForTest(t, service, candidate)
 	require.True(t, saved.OK, "Save(remove transition) = %#v", saved)
 	transition, ok := service.LookupTerminalTransition("a", "go")
 	assert.False(t, ok)
@@ -2063,9 +1912,9 @@ func TestStableIDAndFrozenStateRulesAcross100CompletedCommands(t *testing.T) {
 	}
 	candidate.Terminals[0].Root.Children = []domain.ContentNode{moved}
 
-	saved := service.Save(t.Context(), candidate, 1)
+	saved := saveForTest(t, service, candidate)
 	require.True(t, saved.OK, "Save(rename/move/delete 100 commands) = %#v", saved)
-	assert.Equal(t, uint64(1), saved.SavedRevision)
+	assert.Equal(t, uint64(1), saved.SessionRevision)
 	active := service.Snapshot()
 	require.NotNil(t, active.Session)
 	require.Len(t, active.Session.Terminals[0].CommandStates, 100)
@@ -2113,9 +1962,9 @@ func TestStableIDAndFrozenStateRulesAcross100CompletedCommands(t *testing.T) {
 	deletedCandidate := *active.Session
 	deletedCandidate.Terminals[0].Root.Children = []domain.ContentNode{replacements}
 	deleteRevision := active.RequestedRevision + 1
-	deleted := service.Save(t.Context(), deletedCandidate, deleteRevision)
+	deleted := saveForTest(t, service, deletedCandidate)
 	require.True(t, deleted.OK, "Save(delete all 100 commands and add replacements) = %#v", deleted)
-	assert.Equal(t, deleteRevision, deleted.SavedRevision)
+	assert.Equal(t, deleteRevision, deleted.SessionRevision)
 	active = service.Snapshot()
 	require.NotNil(t, active.Session)
 	assert.Empty(t, active.Session.Terminals[0].CommandStates)
@@ -2276,7 +2125,7 @@ func TestLegacySessionReopenAndSaveKeepsFacilityAbsent(t *testing.T) {
 	assert.Nil(t, opened.Session.Facility)
 	require.Nil(t, service.Snapshot().Session.Facility)
 
-	saved := service.Save(t.Context(), domain.CloneSession(*opened.Session), 1)
+	saved := saveForTest(t, service, domain.CloneSession(*opened.Session))
 	require.True(t, saved.OK, "Save(legacy) = %#v", saved)
 	require.NoError(t, service.Shutdown(t.Context()))
 
@@ -2766,86 +2615,6 @@ func mustEncodeSession(t *testing.T, session domain.Session) []byte {
 	return data
 }
 
-func waitForRequestedRevision(t *testing.T, service *Service, want uint64) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if service.Snapshot().RequestedRevision >= want {
-			return
-		}
-		runtime.Gosched()
-	}
-	require.GreaterOrEqual(t, service.Snapshot().RequestedRevision, want, "requested revision never reached; state = %#v", service.Snapshot())
-}
-
-type blockingStore struct {
-	mu sync.Mutex
-
-	files map[string][]byte
-
-	firstWriteStarted chan struct{}
-	releaseFirstWrite chan struct{}
-	firstOnce         sync.Once
-	releaseOnce       sync.Once
-}
-
-func newBlockingStore() *blockingStore {
-	return &blockingStore{
-		files:             make(map[string][]byte),
-		firstWriteStarted: make(chan struct{}),
-		releaseFirstWrite: make(chan struct{}),
-	}
-}
-
-func (store *blockingStore) seed(path string, data []byte) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	store.files[path] = append([]byte(nil), data...)
-}
-
-func (store *blockingStore) Read(path string) ([]byte, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	data, ok := store.files[path]
-	if !ok {
-		return nil, fmt.Errorf("read %q: not found", path)
-	}
-	return append([]byte(nil), data...), nil
-}
-
-func (store *blockingStore) WriteAtomic(path string, data []byte) error {
-	blocked := false
-	store.firstOnce.Do(func() {
-		blocked = true
-		close(store.firstWriteStarted)
-	})
-	if blocked {
-		<-store.releaseFirstWrite
-	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	store.files[path] = append([]byte(nil), data...)
-	return nil
-}
-
-func (store *blockingStore) CopyAtomic(source, destination string) error {
-	data, err := store.Read(source)
-	if err != nil {
-		return err
-	}
-	return store.WriteAtomic(destination, data)
-}
-
-func (store *blockingStore) file(path string) []byte {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	return append([]byte(nil), store.files[path]...)
-}
-
-func (store *blockingStore) release() {
-	store.releaseOnce.Do(func() { close(store.releaseFirstWrite) })
-}
-
 type failingMutationStore struct {
 	path   string
 	data   []byte
@@ -2874,4 +2643,13 @@ func (store *failingMutationStore) WriteAtomic(path string, data []byte) error {
 
 func (store *failingMutationStore) CopyAtomic(source, destination string) error {
 	return fmt.Errorf("unexpected copy from %q to %q", source, destination)
+}
+
+// saveForTest saves a complete session the way every Overseer edit is saved:
+// through SaveAuthoring at the active authoring revision.
+func saveForTest(t *testing.T, service *Service, session domain.Session) domain.FacilityOperationResult {
+	t.Helper()
+	return service.SaveAuthoring(t.Context(), AuthoringSaveRequest{
+		Candidate: session, ExpectedAuthoringRevision: service.Snapshot().AuthoringRevision, CorrelationID: "test-save",
+	})
 }

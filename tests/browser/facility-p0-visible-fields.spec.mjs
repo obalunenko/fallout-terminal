@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { switchTab } from './helpers/authoring-bar.mjs';
 import { expectNoOrphanLabels, openOverseer, seedDemo } from './helpers/overseer-forms.mjs';
 
 const BINDING_KINDS = ['menu-name', 'entry-content', 'visibility', 'availability', 'command-action'];
@@ -8,7 +9,7 @@ const BINDING_NODES = ['n_entry_vault_shutdown', 'n_cmd_ordinary_1', 'n_cmd_open
 const NATURALLY_COVERED = new Set([
   'facilityBindingDialog', 'facilityConditionDialog', 'facilityDeviceDialog', 'facilityRecoveryProgramDialog',
   'facilityPreviewDialog', 'facilityDependencyDialog', 'facilityRepairDialog', 'facilityDeviceResetDialog',
-  'facilityResetDialog', 'facilityRecoveryConfirmationDialog', 'createTerminalDialog', 'logicalSessionDialog',
+  'sceneResetDialog', 'facilityRecoveryConfirmationDialog', 'createTerminalDialog', 'logicalSessionDialog',
   'terminalGroupDraftDialog', 'entryBlockCommandDialog', 'resetConfirmationDialog',
 ]);
 
@@ -74,8 +75,10 @@ test('facility dialogs show no orphan labels in any kind, scope, or mode', async
     dialog => expectNoOrphanLabels(dialog, 'repair'), 'btnCancelFacilityRepair');
   await within(page, () => page.locator('#btnResetFacilityDevice').click(), 'facilityDeviceResetDialog',
     dialog => expectNoOrphanLabels(dialog, 'device reset'), 'btnCancelFacilityDeviceReset');
-  await within(page, () => page.locator('#btnResetFacility').click(), 'facilityResetDialog',
-    dialog => expectNoOrphanLabels(dialog, 'facility reset'), 'btnCancelFacilityReset');
+  await within(page, () => page.locator('#btnResetScene').click(), 'sceneResetDialog', async dialog => {
+    await expect(dialog.locator('#sceneResetCounts li')).toHaveCount(3);
+    await expectNoOrphanLabels(dialog, 'scene reset');
+  }, 'btnCancelSceneReset');
 
   await page.locator('[data-facility-kind="device"][data-facility-id="ventilation-main"]').click();
   await page.locator('#facilityConditionList').getByRole('button', { name: /Споровое загрязнение/ }).click();
@@ -85,6 +88,32 @@ test('facility dialogs show no orphan labels in any kind, scope, or mode', async
   }, 'btnCloseFacilityPreview');
   await within(page, () => page.locator('#btnRecoverFacilityCondition').click(), 'facilityRecoveryConfirmationDialog',
     dialog => expectNoOrphanLabels(dialog, 'recovery confirmation'), 'btnCancelFacilityRecovery');
+});
+
+test('the shared authoring bar shows no orphan labels on either tab and keeps no removed control', async ({ page, request }) => {
+  await seedDemo(request);
+  await openOverseer(page, 'ТЕРМИНАЛЫ');
+  const bar = page.locator('#authoringBar');
+  for (const id of ['btnSaveFacility', 'btnDiscardFacility', 'btnResetFacility', 'facilityResetDialog',
+    'commandDraftGuard', 'btnPublish']) {
+    await expect(page.locator(`#${id}`), id).toHaveCount(0);
+  }
+  await expect(bar.getByRole('button')).toHaveText(['ОТМЕНИТЬ', 'ПОВТОРИТЬ', 'СБРОСИТЬ СЦЕНУ']);
+  await expectNoOrphanLabels(bar, 'shared bar on ТЕРМИНАЛЫ');
+
+  // Unapplied input adds its name to the status and an ОТМЕНА next to its form.
+  await page.locator('#introTextArea').fill('Неприменённый текст терминала');
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-unapplied-count', '1');
+  await expectNoOrphanLabels(bar, 'shared bar with unapplied input');
+  await expectNoOrphanLabels(page.locator('#termSettings'), 'terminal settings with unapplied input');
+
+  await switchTab(page, 'ОБЪЕКТЫ');
+  await expect(bar).toBeVisible();
+  await expectNoOrphanLabels(bar, 'shared bar on ОБЪЕКТЫ');
+  await page.locator('[data-facility-kind="device"][data-facility-id="vault-door-main"]').click();
+  await page.locator('#facilitySelectedDeviceName').fill('Гермодверь без применения');
+  await expect(page.locator('#btnCancelFacilityDeviceChanges')).toBeVisible();
+  await expectNoOrphanLabels(page.locator('#facilitySelectionEditor'), 'device form with unapplied input');
 });
 
 test('terminal workspace dialogs show no orphan labels', async ({ page, request }) => {

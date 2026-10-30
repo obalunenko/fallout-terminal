@@ -226,10 +226,48 @@ test('inventory covers every facility mode, prerequisite, effect, and recovery s
     'availableWhen',
     'ПРЕДПРОСМОТР',
     'СБРОСИТЬ УСТРОЙСТВО',
-    'СБРОСИТЬ ВЕСЬ ОБЪЕКТ',
+    'СБРОСИТЬ СЦЕНУ',
   ]) {
     expect(inventory).toContain(marker);
   }
+});
+
+test('inventory demonstrates unified authoring on the demo command and door', async () => {
+  const { demo, inventory } = await loadDemoAssets();
+  // The paths name demo assets that exist.
+  const nodeNames = new Set();
+  const visit = node => {
+    nodeNames.add(node.name);
+    for (const child of node.children ?? []) visit(child);
+  };
+  for (const terminal of demo.terminals) visit(terminal.root);
+  const deviceNames = new Set(demo.facility.devices.map(device => device.name));
+  for (const name of ['Открыть выход и подать сигнал', 'СВОДКА ЭВАКУАЦИИ', 'НАРУЖНЫЙ МАРШРУТ ПОДТВЕРЖДЁН']) {
+    expect(nodeNames, name).toContain(name);
+    expect(inventory).toContain(name);
+  }
+  expect(deviceNames).toContain('Гермодверь Убежища 76');
+  expect(inventory).toContain('Гермодверь Убежища 76');
+
+  for (const marker of [
+    // Cross-tab autosave with undo and redo.
+    'ГОТОВО', 'ОТМЕНИТЬ', 'ПОВТОРИТЬ', 'ПРИМЕНИТЬ СНОВА', 'СОХРАНЕНО', 'НЕ ПРИМЕНЕНО',
+    // Both command lists and the marked winner.
+    'ПРИ ОДОБРЕНИИ', 'ЧТО ВИДЯТ ИГРОКИ', 'ВИДЯТ ИГРОКИ', 'ПЕРЕКРЫВАЕТ', 'СКРЫТО ОТ ИГРОКОВ', 'НЕДОСТУПНО',
+    // Scene reset from the shared bar.
+    'СБРОСИТЬ СЦЕНУ', 'СЦЕНА УЖЕ В НАЧАЛЬНОМ СОСТОЯНИИ',
+    // Preview of differences.
+    'СЕЙЧАС', 'ЕСЛИ', 'ИЗМЕНЕНИЙ: 3', 'ПЕРЕИМЕНУЕТСЯ', 'ТЕКСТ ИЗМЕНИТСЯ', 'ПОЯВИТСЯ',
+  ]) {
+    expect(inventory, marker).toContain(marker);
+  }
+  for (const removed of [
+    'ПРИМЕНИТЬ К ЧЕРНОВИКУ', 'СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ', 'СОХРАНИТЬ ЧЕРНОВИК', 'ОТМЕНИТЬ ИЗМЕНЕНИЯ',
+    'ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ', 'СБРОСИТЬ ВЕСЬ ОБЪЕКТ', 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ',
+  ]) {
+    expect(inventory, removed).not.toContain(removed);
+  }
+  expect(inventory).not.toMatch(/черновик|draft/i);
 });
 
 test('player-visible demo remains one in-world narrative without project warnings', async () => {
