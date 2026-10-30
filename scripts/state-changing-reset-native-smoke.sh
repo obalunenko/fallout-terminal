@@ -44,7 +44,7 @@ on run argv
       set snapshot to ""
       repeat with candidate in entire contents of window 1
         try
-          set snapshot to snapshot & (role of candidate as text) & " | " & (name of candidate as text) & " | " & (description of candidate as text) & linefeed
+          set snapshot to snapshot & (role of candidate as text) & " | " & (subrole of candidate as text) & " | " & (name of candidate as text) & " | " & (description of candidate as text) & linefeed
         end try
       end repeat
       return snapshot
@@ -118,14 +118,26 @@ wait_for_local() {
   return 1
 }
 
-wait_for_file_reset() {
+# scene_changes prints how far the session file is from its starting scene:
+# executed commands across all terminals, then devices and faults away from
+# their starting values.
+scene_changes() {
+  python3 -c '
+import json, sys
+document = json.load(open(sys.argv[1], encoding="utf-8"))
+facility = document.get("facility") or {}
+commands = sum(len(terminal.get("commandStates") or {}) for terminal in document.get("terminals", []))
+devices = sum(device.get("currentStateId") != device.get("initialStateId") for device in facility.get("devices") or [])
+faults = sum(bool(fault.get("currentActive")) != bool(fault.get("initialActive")) for fault in facility.get("conditions") or [])
+print(commands, devices, faults)
+' "$1"
+}
+
+wait_for_scene_reset() {
   local session_path="$1"
-  local terminal_id="$2"
   local deadline=$((SECONDS + smoke_deadline_seconds))
   while (( SECONDS <= deadline )); do
-    if python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); t=next(x for x in d["terminals"] if x["id"]==sys.argv[2]); raise SystemExit(0 if not t.get("commandStates") else 1)' "${session_path}" "${terminal_id}"; then
-      return 0
-    fi
+    [[ "$(scene_changes "${session_path}")" == '0 0 0' ]] && return 0
     sleep 0.05
   done
   return 1
@@ -189,22 +201,51 @@ for terminal in document.get("terminals", []):
 }
 
 run_self_test() {
+  local overseer_script="${repository_root}/frontend/overseer/src/overseer.js"
+  local overseer_markup="${repository_root}/frontend/overseer/src/index.html"
+  local desktop_facade="${repository_root}/frontend/overseer/src/desktop-api.js"
+  local desktop_binding="${repository_root}/frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js"
   validate_command_only_fixture "${default_fixture}"
   node --check "${player_probe}"
-  grep -Fq "resetConfirmationDialog.id = 'resetConfirmationDialog';" "${repository_root}/frontend/overseer/src/overseer.js" ||
-    fail 'overseer reset confirmation dialog is missing'
-  grep -Fq 'desktopAPI.resetTerminalCommandStates({ terminalId: term.id })' "${repository_root}/frontend/overseer/src/overseer.js" ||
-    fail 'overseer reset-all control is not wired to the generated desktop facade'
-  grep -Fq 'resetTerminalCommandStates: desktopService.ResetTerminalCommandStates' "${repository_root}/frontend/overseer/src/desktop-api.js" ||
-    fail 'desktop facade is not wired to the generated Wails binding'
-  grep -Fq 'saveStatus.dataset.sessionStateRevision' "${repository_root}/frontend/overseer/src/overseer.js" ||
+
+  # Single-command reset («СБРОСИТЬ СОСТОЯНИЕ») keeps its ResetCommandState chain.
+  grep -Fq "resetConfirmationDialog.id = 'resetConfirmationDialog';" "${overseer_script}" ||
+    fail 'overseer command-state reset confirmation dialog is missing'
+  grep -Fq 'desktopAPI.resetCommandState({ terminalId: term.id, commandId: node.id })' "${overseer_script}" ||
+    fail 'overseer single-command reset is not wired to the generated desktop facade'
+  grep -Fq 'resetCommandState: desktopService.ResetCommandState' "${desktop_facade}" ||
+    fail 'desktop facade is not wired to the generated ResetCommandState binding'
+  grep -Fq 'export function ResetCommandState(' "${desktop_binding}" ||
+    fail 'generated Wails ResetCommandState binding is missing'
+
+  # Scene reset («СБРОСИТЬ СЦЕНУ») is the native click this smoke drives through ResetScene.
+  grep -Fq 'btnResetScene' "${overseer_markup}" "${overseer_script}" ||
+    fail 'overseer scene reset control #btnResetScene is missing'
+  grep -Fq 'sceneResetDialog' "${overseer_markup}" "${overseer_script}" ||
+    fail 'overseer scene reset confirmation #sceneResetDialog is missing'
+  grep -Fq 'btnConfirmSceneReset' "${overseer_markup}" "${overseer_script}" ||
+    fail 'overseer scene reset confirmation button #btnConfirmSceneReset is missing'
+  grep -Fq 'desktopAPI.resetScene(' "${overseer_script}" ||
+    fail 'overseer scene reset is not wired to the generated desktop facade'
+  grep -Fq "saveStatus.dataset.wailsCommand = 'ResetScene'" "${overseer_script}" ||
+    fail 'overseer does not expose ResetScene Wails evidence'
+  grep -Fq 'resetScene: desktopService.ResetScene' "${desktop_facade}" ||
+    fail 'desktop facade is not wired to the generated ResetScene binding'
+  grep -Fq 'export function ResetScene(' "${desktop_binding}" ||
+    fail 'generated Wails ResetScene binding is missing'
+  if grep -Fq -e 'ResetTerminalCommandStates' -e 'resetTerminalCommandStates' \
+    "${overseer_script}" "${overseer_markup}" "${desktop_facade}" "${desktop_binding}"; then
+    fail 'removed ResetTerminalCommandStates chain is still referenced'
+  fi
+
+  grep -Fq 'saveStatus.dataset.sessionStateRevision' "${overseer_script}" ||
     fail 'overseer session-state evidence is missing'
   grep -Fq 'screen.dataset.runtimeRevision' "${repository_root}/frontend/client/client.js" ||
     fail 'player runtime revision evidence is missing'
-  if grep -F 'window.confirm(`Сбросить' "${repository_root}/frontend/overseer/src/overseer.js" >/dev/null; then
+  if grep -F 'window.confirm(`Сбросить' "${overseer_script}" >/dev/null; then
     fail 'command-state reset still depends on unsupported native window.confirm'
   fi
-  pass 'command-only fixture, native overseer evidence, generated Wails chain, and two-player probe are present'
+  pass 'command-only fixture, native overseer evidence, generated ResetCommandState and ResetScene Wails chains, and two-player probe are present'
 }
 
 launch_app() {
@@ -315,29 +356,58 @@ on clickButton(processID, buttonName, attempts)
   return false
 end clickButton
 
-on clickResetConfirmation(processID)
-  tell application "System Events" to tell first process whose unix id is processID
-    set frontmost to true
-    set windowPosition to position of window 1
-    set windowSize to size of window 1
-    set confirmX to (item 1 of windowPosition) + ((item 1 of windowSize) div 2) - 130
-    set confirmY to (item 2 of windowPosition) + ((item 2 of windowSize) div 2) + 52
-    click at {confirmX, confirmY}
+-- The confirmation button shares its name with the authoring-bar button, so it
+-- is looked up only inside the open dialog.
+on findDialogButton(containerElement, buttonName, insideDialog)
+  tell application "System Events"
+    try
+      if insideDialog and role of containerElement is "AXButton" and name of containerElement is buttonName then return containerElement
+    end try
+    if not insideDialog then
+      try
+        set insideDialog to ((subrole of containerElement as text) contains "Dialog")
+      end try
+    end if
+    try
+      set childElements to UI elements of containerElement
+    on error
+      set childElements to {}
+    end try
   end tell
-end clickResetConfirmation
+  repeat with childElement in childElements
+    set candidate to my findDialogButton(childElement, buttonName, insideDialog)
+    if candidate is not missing value then return candidate
+  end repeat
+  return missing value
+end findDialogButton
+
+on clickDialogButton(processID, buttonName, attempts)
+  repeat attempts times
+    tell application "System Events" to tell first process whose unix id is processID
+      set frontmost to true
+      try
+        set candidate to my findDialogButton(window 1, buttonName, false)
+        if candidate is not missing value and enabled of candidate then
+          click candidate
+          return true
+        end if
+      end try
+    end tell
+    delay 0.1
+  end repeat
+  return false
+end clickDialogButton
 
 on run argv
   set processID to (item 1 of argv) as integer
-  if not my clickButton(processID, "СБРОСИТЬ ВСЕ СОСТОЯНИЯ", 150) then error "reset-all button not found"
-  delay 0.4
-  my clickResetConfirmation(processID)
+  if not my clickButton(processID, "СБРОСИТЬ СЦЕНУ", 150) then error "scene reset button not found"
+  if not my clickDialogButton(processID, "СБРОСИТЬ СЦЕНУ", 150) then error "scene reset confirmation button not found"
 end run
 APPLESCRIPT
 }
 
 verify_native_overseer_reset() {
-  local terminal_id="$1"
-  osascript - "${app_pid}" "${terminal_id}" >>"${smoke_root}/native-automation.log" 2>&1 <<'APPLESCRIPT'
+  osascript - "${app_pid}" >>"${smoke_root}/native-automation.log" 2>&1 <<'APPLESCRIPT'
 on findNamedButton(containerElement, buttonName)
   tell application "System Events"
     try
@@ -354,13 +424,35 @@ on findNamedButton(containerElement, buttonName)
   return missing value
 end findNamedButton
 
-on findEvidence(containerElement, terminalID)
+on findDialogButton(containerElement, buttonName, insideDialog)
+  tell application "System Events"
+    try
+      if insideDialog and role of containerElement is "AXButton" and name of containerElement is buttonName then return containerElement
+    end try
+    if not insideDialog then
+      try
+        set insideDialog to ((subrole of containerElement as text) contains "Dialog")
+      end try
+    end if
+    try
+      set childElements to UI elements of containerElement
+    on error
+      set childElements to {}
+    end try
+  end tell
+  repeat with childElement in childElements
+    set candidate to my findDialogButton(childElement, buttonName, insideDialog)
+    if candidate is not missing value then return candidate
+  end repeat
+  return missing value
+end findDialogButton
+
+on findEvidence(containerElement)
   tell application "System Events"
     try
       set elementName to name of containerElement as text
       set elementDescription to description of containerElement as text
-      if (elementName contains "Wails command ResetTerminalCommandStates ok" or elementDescription contains "Wails command ResetTerminalCommandStates ok") and ¬
-        (elementName contains ("terminal " & terminalID) or elementDescription contains ("terminal " & terminalID)) and ¬
+      if (elementName contains "Wails command ResetScene ok" or elementDescription contains "Wails command ResetScene ok") and ¬
         (elementName contains "document revision" or elementDescription contains "document revision") and ¬
         (elementName contains "session-state revision" or elementDescription contains "session-state revision") then return containerElement
       set childElements to UI elements of containerElement
@@ -369,7 +461,7 @@ on findEvidence(containerElement, terminalID)
     end try
   end tell
   repeat with childElement in childElements
-    set candidate to my findEvidence(childElement, terminalID)
+    set candidate to my findEvidence(childElement)
     if candidate is not missing value then return candidate
   end repeat
   return missing value
@@ -377,18 +469,18 @@ end findEvidence
 
 on run argv
   set processID to (item 1 of argv) as integer
-  set terminalID to item 2 of argv
   repeat 300 times
     tell application "System Events" to tell first process whose unix id is processID
       try
-        set resetButton to my findNamedButton(window 1, "СБРОСИТЬ ВСЕ СОСТОЯНИЯ")
-        set evidence to my findEvidence(window 1, terminalID)
-        if resetButton is not missing value and not (enabled of resetButton) and evidence is not missing value then return true
+        set confirmButton to my findDialogButton(window 1, "СБРОСИТЬ СЦЕНУ", false)
+        set resetButton to my findNamedButton(window 1, "СБРОСИТЬ СЦЕНУ")
+        set evidence to my findEvidence(window 1)
+        if confirmButton is missing value and resetButton is not missing value and not (enabled of resetButton) and evidence is not missing value then return true
       end try
     end tell
     delay 0.1
   end repeat
-  error "overseer DOM did not expose canonical Wails/session-state reset evidence"
+  error "overseer DOM did not close the scene reset confirmation with canonical Wails/session-state reset evidence"
 end run
 APPLESCRIPT
 }
@@ -416,7 +508,7 @@ on run argv
   repeat 300 times
     tell application "System Events" to tell first process whose unix id is processID
       try
-        set resetButton to my findNamedButton(window 1, "СБРОСИТЬ ВСЕ СОСТОЯНИЯ")
+        set resetButton to my findNamedButton(window 1, "СБРОСИТЬ СЦЕНУ")
         if resetButton is not missing value and not (enabled of resetButton) then return true
       end try
     end tell
@@ -483,10 +575,9 @@ player_config_path="${smoke_root}/players.json"
 cp "${fixture_path}" "${session_path}"
 cp "${player_config_fixture}" "${player_config_path}"
 chmod u+w "${session_path}" "${player_config_path}"
-terminal_id="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print(next(t["id"] for t in d["terminals"] if t.get("commandStates")))' "${session_path}")"
-before_selected_states="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); t=next(x for x in d["terminals"] if x["id"]==sys.argv[2]); print(len(t.get("commandStates", {})))' "${session_path}" "${terminal_id}")"
-before_other_states="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print(sum(len(t.get("commandStates", {})) for t in d["terminals"] if t["id"] != sys.argv[2]))' "${session_path}" "${terminal_id}")"
-[[ "${before_selected_states}" =~ ^[1-9][0-9]*$ ]] || fail 'selected fixture terminal has no completed command snapshots'
+read -r before_commands before_devices before_faults <<<"$(scene_changes "${session_path}")"
+before_terminals="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print(sum(1 for t in d["terminals"] if t.get("commandStates")))' "${session_path}")"
+[[ "${before_commands}" =~ ^[1-9][0-9]*$ ]] || fail 'fixture scene has no executed command snapshots to reset'
 
 trap cleanup EXIT HUP INT TERM
 launch_app
@@ -526,17 +617,15 @@ reset_log="${smoke_root}/reset-player.log"
 start_player_probe reset "${reset_ready}" "${reset_trigger}" "${reset_result}" "${reset_log}"
 wait_for_marker "${reset_ready}" "${reset_log}" || fail 'controller and observer did not reach the completed pre-reset screen'
 
-drive_native_reset || fail 'native overseer reset click or confirmation failed'
+drive_native_reset || fail 'native overseer scene reset click or confirmation failed'
 touch "${reset_trigger}"
-wait_for_file_reset "${session_path}" "${terminal_id}" ||
-  fail 'native overseer click did not remove canonical commandStates within the deadline'
-verify_native_overseer_reset "${terminal_id}" || fail 'overseer did not expose Wails result and session-state evidence'
+wait_for_scene_reset "${session_path}" ||
+  fail 'native overseer scene reset did not return the canonical scene to its starting values within the deadline'
+verify_native_overseer_reset || fail 'overseer did not expose ResetScene Wails result and session-state evidence'
 finish_player_probe "${reset_result}" "${reset_log}"
 
-after_selected_states="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); t=next(x for x in d["terminals"] if x["id"]==sys.argv[2]); print(len(t.get("commandStates", {})))' "${session_path}" "${terminal_id}")"
-after_other_states="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print(sum(len(t.get("commandStates", {})) for t in d["terminals"] if t["id"] != sys.argv[2]))' "${session_path}" "${terminal_id}")"
-[[ "${after_selected_states}" == 0 ]] || fail 'native reset left a completed command snapshot in the selected terminal'
-[[ "${after_other_states}" == "${before_other_states}" ]] || fail 'native reset changed command snapshots in another terminal'
+[[ "$(scene_changes "${session_path}")" == '0 0 0' ]] ||
+  fail 'native scene reset left an executed command, device, or fault away from its starting value'
 validate_command_only_fixture "${session_path}"
 
 close_app
@@ -567,4 +656,4 @@ print("runtime {}->{} in {}ms; reopen runtime {}".format(
 ' "${reset_result}" "${reopen_result}"
 
 smoke_succeeded=1
-pass "native click traversed generated Wails reset for terminal ${terminal_id}; selected commandStates ${before_selected_states}->${after_selected_states}, other terminal preserved ${before_other_states}; overseer/controller/observer reached INITIAL within 1s, navigation stayed initial, and full reopen preserved it"
+pass "native click traversed generated Wails ResetScene; commandStates ${before_commands}->0 across ${before_terminals} terminals, devices off start ${before_devices}->0, faults off start ${before_faults}->0; overseer/controller/observer reached INITIAL within 1s, navigation stayed initial, and full reopen preserved it"

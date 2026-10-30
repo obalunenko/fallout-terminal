@@ -9,6 +9,7 @@ import (
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	playerservice "github.com/obalunenko/Fallout-Terminal/v2/internal/player"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
@@ -673,11 +674,6 @@ func routeResetCommandStateRequest(payload ResetCommandStatePayload) ResetComman
 	return ResetCommandStatePayload{TerminalID: semantic.GetTerminalId(), CommandID: semantic.GetCommandId()}
 }
 
-func routeResetTerminalCommandStatesRequest(payload ResetTerminalCommandStatesPayload) ResetTerminalCommandStatesPayload {
-	semantic := &privatev1.ResetTerminalCommandStatesRequest{TerminalId: payload.TerminalID}
-	return ResetTerminalCommandStatesPayload{TerminalID: semantic.GetTerminalId()}
-}
-
 func routeTerminalActivationRequest(payload LiveTerminalPayload, reset bool) (LiveTerminalPayload, error) {
 	tree, err := contentNodeToPrivate(payload.Tree)
 	if err != nil {
@@ -695,24 +691,6 @@ func routeTerminalActivationRequest(payload LiveTerminalPayload, reset bool) (Li
 		HackLevel: int32(payload.HackLevel), IntroText: payload.IntroText,
 	}
 	return liveTerminalFromPrivate(semantic.GetTerminalId(), semantic.GetTerminalName(), semantic.GetTree(), semantic.GetHackLevel(), semantic.GetIntroText(), payload.Tree)
-}
-
-func routeLiveTerminalUpdateRequest(payload LiveUpdatePayload) (LiveUpdatePayload, error) {
-	tree, err := contentNodeToPrivate(payload.Tree)
-	if err != nil {
-		return payload, err
-	}
-	semantic := &privatev1.LiveTerminalUpdateRequest{Tree: tree, IntroText: payload.IntroText}
-	routedTree, err := contentNodeFromPrivate(semantic.GetTree(), payload.Tree)
-	if err != nil {
-		return payload, err
-	}
-	result := LiveUpdatePayload{Tree: routedTree}
-	if semantic.IntroText != nil {
-		value := semantic.GetIntroText()
-		result.IntroText = &value
-	}
-	return result, nil
 }
 
 func liveTerminalFromPrivate(id, name string, tree *persistencev1.ContentNode, level int32, intro string, template domain.ContentNode) (LiveTerminalPayload, error) {
@@ -1055,7 +1033,7 @@ func routeLogAccessResult(result LogAccessResult) LogAccessResult {
 }
 
 func routeSessionOperationResult(result sessionservice.SessionResult) sessionservice.SessionResult {
-	semantic := &privatev1.SessionOperationResult{Ok: result.OK, Canceled: result.Canceled}
+	semantic := &privatev1.SessionOperationResult{Ok: result.OK, Canceled: result.Canceled, AuthoringRevision: result.AuthoringRevision}
 	if result.Error != "" {
 		semantic.Error = &result.Error
 	}
@@ -1065,7 +1043,10 @@ func routeSessionOperationResult(result sessionservice.SessionResult) sessionser
 	if result.Session != nil {
 		semantic.Session, _ = sessionservice.SessionToProto(*result.Session)
 	}
-	routed := sessionservice.SessionResult{OK: semantic.GetOk(), Canceled: semantic.GetCanceled(), Error: semantic.GetError(), FilePath: semantic.GetFilePath()}
+	routed := sessionservice.SessionResult{
+		OK: semantic.GetOk(), Canceled: semantic.GetCanceled(), Error: semantic.GetError(), FilePath: semantic.GetFilePath(),
+		AuthoringRevision: semantic.GetAuthoringRevision(),
+	}
 	if semantic.Session != nil {
 		template := domain.Session{}
 		if result.Session != nil {
@@ -1076,19 +1057,6 @@ func routeSessionOperationResult(result sessionservice.SessionResult) sessionser
 		}
 	}
 	return routed
-}
-
-func routeSaveSessionResult(result sessionservice.SaveResult) sessionservice.SaveResult {
-	semantic := &privatev1.SaveSessionResult{Ok: result.OK, RequestedRevision: result.RequestedRevision}
-	if result.Error != "" {
-		semantic.Error = &result.Error
-	}
-	if result.SavedRevision != 0 {
-		semantic.SavedRevision = &result.SavedRevision
-	}
-	return sessionservice.SaveResult{
-		OK: semantic.GetOk(), Error: semantic.GetError(), RequestedRevision: semantic.GetRequestedRevision(), SavedRevision: semantic.GetSavedRevision(),
-	}
 }
 
 func routeSessionStateResult(result SessionStateResult) SessionStateResult {
@@ -1142,6 +1110,7 @@ func routeTerminalGroupReplacementResult(result TerminalGroupReplacementResult) 
 		Ok:                result.OK,
 		SessionRevision:   result.SessionRevision,
 		CoordinationState: coordinationStateToPrivate(result.CoordinationState),
+		AuthoringRevision: result.AuthoringRevision,
 	}
 	if result.Error != "" {
 		semantic.Error = &result.Error
@@ -1154,6 +1123,7 @@ func routeTerminalGroupReplacementResult(result TerminalGroupReplacementResult) 
 		Error:             semantic.GetError(),
 		SessionRevision:   semantic.GetSessionRevision(),
 		CoordinationState: coordinationStateFromPrivate(semantic.GetCoordinationState()),
+		AuthoringRevision: semantic.GetAuthoringRevision(),
 	}
 	if semantic.Session != nil {
 		template := domain.Session{}
@@ -1169,7 +1139,10 @@ func routeTerminalGroupReplacementResult(result TerminalGroupReplacementResult) 
 }
 
 func routePlayerConfigResult(result PlayerConfigCommandResult) PlayerConfigCommandResult {
-	semantic := &privatev1.PlayerConfigOperationResult{Ok: result.OK, Canceled: result.Canceled, State: coordinationStateToPrivate(result.State)}
+	semantic := &privatev1.PlayerConfigOperationResult{
+		Ok: result.OK, Canceled: result.Canceled, State: coordinationStateToPrivate(result.State),
+		AuthoringRevision: result.AuthoringRevision,
+	}
 	if result.Error != "" {
 		semantic.Error = &result.Error
 	}
@@ -1181,8 +1154,9 @@ func routePlayerConfigResult(result PlayerConfigCommandResult) PlayerConfigComma
 	}
 	routed := PlayerConfigCommandResult{
 		OK: semantic.GetOk(), Canceled: semantic.GetCanceled(), Error: semantic.GetError(),
-		Config: playerConfigMetadataFromPrivate(semantic.GetPlayerConfigMetadata()),
-		State:  coordinationStateFromPrivate(semantic.GetState()),
+		Config:            playerConfigMetadataFromPrivate(semantic.GetPlayerConfigMetadata()),
+		State:             coordinationStateFromPrivate(semantic.GetState()),
+		AuthoringRevision: semantic.GetAuthoringRevision(),
 	}
 	if semantic.Session != nil {
 		template := domain.Session{}
@@ -1253,6 +1227,12 @@ func facilityOperationResultToPrivate(result domain.FacilityOperationResult) (*p
 		ResultingFacilityRevision: result.ResultingFacilityRevision,
 		AffectedDeviceIds:         slices.Clone(result.AffectedDeviceIDs),
 		AffectedConditionIds:      slices.Clone(result.AffectedConditionIDs),
+		AuthoringRevision:         result.AuthoringRevision,
+	}
+	for _, reference := range result.ResetCommands {
+		semantic.ResetCommands = append(semantic.ResetCommands, &privatev1.CommandReference{
+			TerminalId: reference.TerminalID, CommandId: reference.CommandID,
+		})
 	}
 	if result.Issues != nil {
 		semantic.Issues = make([]*privatev1.FacilityIssue, len(result.Issues))
@@ -1291,6 +1271,12 @@ func facilityOperationResultFromPrivate(
 		ResultingFacilityRevision: result.GetResultingFacilityRevision(),
 		AffectedDeviceIDs:         slices.Clone(result.GetAffectedDeviceIds()),
 		AffectedConditionIDs:      slices.Clone(result.GetAffectedConditionIds()),
+		AuthoringRevision:         result.GetAuthoringRevision(),
+	}
+	for _, reference := range result.GetResetCommands() {
+		native.ResetCommands = append(native.ResetCommands, domain.CommandReference{
+			TerminalID: reference.GetTerminalId(), CommandID: reference.GetCommandId(),
+		})
 	}
 	if result.Issues != nil {
 		native.Issues = make([]domain.FacilityIssue, len(result.Issues))
@@ -1350,39 +1336,6 @@ func facilityIssueFromPrivate(issue *privatev1.FacilityIssue) domain.FacilityIss
 	return native
 }
 
-func facilityAuthoringRequestToPrivate(request controlservice.FacilityAuthoringRequest) (*privatev1.SaveFacilityAuthoringRequest, error) {
-	session, err := sessionservice.SessionToProto(request.Candidate)
-	if err != nil {
-		return nil, fmt.Errorf("mapping facility authoring candidate: %w", err)
-	}
-	return &privatev1.SaveFacilityAuthoringRequest{
-		Session:                  session,
-		ExpectedSessionRevision:  request.ExpectedSessionRevision,
-		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
-		CorrelationId:            request.CorrelationID,
-	}, nil
-}
-
-func facilityAuthoringRequestFromPrivate(
-	request *privatev1.SaveFacilityAuthoringRequest,
-	template domain.Session,
-) (controlservice.FacilityAuthoringRequest, error) {
-	if request == nil || request.Session == nil {
-		return controlservice.FacilityAuthoringRequest{}, fmt.Errorf("facility authoring session is required")
-	}
-	candidate, err := sessionservice.SessionFromProto(request.Session, template)
-	if err != nil {
-		return controlservice.FacilityAuthoringRequest{}, fmt.Errorf("mapping facility authoring candidate: %w", err)
-	}
-	restoreSessionNativeShape(&candidate, template)
-	return controlservice.FacilityAuthoringRequest{
-		Candidate:                candidate,
-		ExpectedSessionRevision:  request.GetExpectedSessionRevision(),
-		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
-		CorrelationID:            request.GetCorrelationId(),
-	}, nil
-}
-
 func facilityRecoveryRequestToPrivate(
 	request controlservice.FacilityRecoveryRequest,
 ) (*privatev1.RecoverFacilityConditionRequest, error) {
@@ -1421,8 +1374,9 @@ func facilityRecoveryRequestFromPrivate(
 
 func facilityPreviewRequestToPrivate(preview domain.FacilityPreview) (*privatev1.PreviewFacilityRequest, error) {
 	semantic := &privatev1.PreviewFacilityRequest{
-		ExpectedFacilityRevision: preview.ExpectedFacilityRevision,
-		TerminalId:               preview.TerminalID,
+		ExpectedFacilityRevision:  preview.ExpectedFacilityRevision,
+		ExpectedAuthoringRevision: preview.ExpectedAuthoringRevision,
+		TerminalId:                preview.TerminalID,
 	}
 	switch {
 	case preview.DeviceState != nil && preview.Condition == nil:
@@ -1450,8 +1404,9 @@ func facilityPreviewRequestFromPrivate(request *privatev1.PreviewFacilityRequest
 		return domain.FacilityPreview{}, fmt.Errorf("facility preview request is required")
 	}
 	preview := domain.FacilityPreview{
-		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
-		TerminalID:               request.GetTerminalId(),
+		ExpectedFacilityRevision:  request.GetExpectedFacilityRevision(),
+		ExpectedAuthoringRevision: request.GetExpectedAuthoringRevision(),
+		TerminalID:                request.GetTerminalId(),
 	}
 	switch variant := request.GetPreview().(type) {
 	case *privatev1.PreviewFacilityRequest_DeviceState:
@@ -1482,6 +1437,10 @@ func facilityPreviewResultToPrivate(result controlservice.FacilityPreviewResult)
 		Failure:          facilityFailureCodeToPrivate(result.Failure),
 		FacilityRevision: result.FacilityRevision,
 		Terminal:         playerservice.LiveToProto(result.Terminal),
+		Current:          playerservice.LiveToProto(result.Current),
+	}
+	for _, difference := range result.Differences {
+		semantic.Differences = append(semantic.Differences, previewDifferenceToPrivate(difference))
 	}
 	if result.Issues != nil {
 		semantic.Issues = make([]*privatev1.FacilityIssue, len(result.Issues))
@@ -1518,7 +1477,279 @@ func facilityPreviewResultFromPrivate(result *privatev1.PreviewFacilityResult) (
 		}
 		native.Terminal = terminal
 	}
+	if result.Current != nil {
+		current, err := publicLiveStateFromPrivate(result.Current)
+		if err != nil {
+			return controlservice.FacilityPreviewResult{}, fmt.Errorf("mapping facility preview current terminal: %w", err)
+		}
+		native.Current = current
+	}
+	for _, difference := range result.GetDifferences() {
+		native.Differences = append(native.Differences, previewDifferenceFromPrivate(difference))
+	}
 	return native, nil
+}
+
+// clonePointer returns a detached copy of an optional value.
+func clonePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	return new(*value)
+}
+
+func previewDifferenceToPrivate(difference live.PreviewDifference) *privatev1.PreviewDifference {
+	return &privatev1.PreviewDifference{
+		Kind: previewDifferenceKindToPrivate(difference.Kind), NodeId: difference.NodeID,
+		BlockId: clonePointer(difference.BlockID), Before: clonePointer(difference.Before), After: clonePointer(difference.After),
+	}
+}
+
+func previewDifferenceFromPrivate(difference *privatev1.PreviewDifference) live.PreviewDifference {
+	native := live.PreviewDifference{
+		Kind: previewDifferenceKindFromPrivate(difference.GetKind()), NodeID: difference.GetNodeId(),
+	}
+	if difference.BlockId != nil {
+		native.BlockID = new(difference.GetBlockId())
+	}
+	if difference.Before != nil {
+		native.Before = new(difference.GetBefore())
+	}
+	if difference.After != nil {
+		native.After = new(difference.GetAfter())
+	}
+	return native
+}
+
+var previewDifferenceKinds = map[live.PreviewDifferenceKind]privatev1.PreviewDifferenceKind{
+	live.PreviewDifferenceNameChanged:        privatev1.PreviewDifferenceKind_PREVIEW_DIFFERENCE_KIND_NAME_CHANGED,
+	live.PreviewDifferenceTextChanged:        privatev1.PreviewDifferenceKind_PREVIEW_DIFFERENCE_KIND_TEXT_CHANGED,
+	live.PreviewDifferenceAppears:            privatev1.PreviewDifferenceKind_PREVIEW_DIFFERENCE_KIND_APPEARS,
+	live.PreviewDifferenceDisappears:         privatev1.PreviewDifferenceKind_PREVIEW_DIFFERENCE_KIND_DISAPPEARS,
+	live.PreviewDifferenceBecomesAvailable:   privatev1.PreviewDifferenceKind_PREVIEW_DIFFERENCE_KIND_BECOMES_AVAILABLE,
+	live.PreviewDifferenceBecomesUnavailable: privatev1.PreviewDifferenceKind_PREVIEW_DIFFERENCE_KIND_BECOMES_UNAVAILABLE,
+}
+
+func previewDifferenceKindToPrivate(kind live.PreviewDifferenceKind) privatev1.PreviewDifferenceKind {
+	return previewDifferenceKinds[kind]
+}
+
+func previewDifferenceKindFromPrivate(kind privatev1.PreviewDifferenceKind) live.PreviewDifferenceKind {
+	for native, semantic := range previewDifferenceKinds {
+		if semantic == kind {
+			return native
+		}
+	}
+	return ""
+}
+
+func authoringSaveRequestToPrivate(request controlservice.AuthoringSaveRequest) (*privatev1.SaveAuthoringRequest, error) {
+	session, err := sessionservice.SessionToProto(request.Candidate)
+	if err != nil {
+		return nil, fmt.Errorf("mapping authoring candidate: %w", err)
+	}
+	return &privatev1.SaveAuthoringRequest{
+		Session: session, ExpectedAuthoringRevision: request.ExpectedAuthoringRevision, CorrelationId: request.CorrelationID,
+	}, nil
+}
+
+func authoringSaveRequestFromPrivate(
+	request *privatev1.SaveAuthoringRequest,
+	template domain.Session,
+) (controlservice.AuthoringSaveRequest, error) {
+	if request == nil || request.Session == nil {
+		return controlservice.AuthoringSaveRequest{}, fmt.Errorf("authoring session is required")
+	}
+	candidate, err := sessionservice.SessionFromProto(request.Session, template)
+	if err != nil {
+		return controlservice.AuthoringSaveRequest{}, fmt.Errorf("mapping authoring candidate: %w", err)
+	}
+	restoreSessionNativeShape(&candidate, template)
+	return controlservice.AuthoringSaveRequest{
+		Candidate: candidate, ExpectedAuthoringRevision: request.GetExpectedAuthoringRevision(),
+		CorrelationID: request.GetCorrelationId(),
+	}, nil
+}
+
+func routeSceneResetRequest(payload SceneResetPayload) controlservice.SceneResetRequest {
+	semantic := &privatev1.ResetSceneRequest{
+		ExpectedSessionRevision:  payload.ExpectedSessionRevision,
+		ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
+		CorrelationId:            payload.CorrelationID,
+	}
+	return controlservice.SceneResetRequest{
+		ExpectedSessionRevision:  semantic.GetExpectedSessionRevision(),
+		ExpectedFacilityRevision: semantic.GetExpectedFacilityRevision(),
+		CorrelationID:            semantic.GetCorrelationId(),
+	}
+}
+
+func routePresentationRequest(payload PresentationPayload) PresentationPayload {
+	semantic := &privatev1.DescribePresentationRequest{ExpectedAuthoringRevision: payload.ExpectedAuthoringRevision}
+	return PresentationPayload{ExpectedAuthoringRevision: semantic.GetExpectedAuthoringRevision()}
+}
+
+func presentationResultToPrivate(result PresentationResult) *privatev1.DescribePresentationResult {
+	semantic := &privatev1.DescribePresentationResult{
+		Ok: result.OK, Failure: facilityFailureCodeToPrivate(result.Failure),
+		SessionRevision: result.SessionRevision, FacilityRevision: result.FacilityRevision,
+		AuthoringRevision: result.AuthoringRevision,
+	}
+	for _, terminal := range result.Terminals {
+		nodes := make([]*privatev1.NodePresentation, len(terminal.Nodes))
+		for index, node := range terminal.Nodes {
+			nodes[index] = nodePresentationToPrivate(node)
+		}
+		semantic.Terminals = append(semantic.Terminals, &privatev1.TerminalPresentation{
+			TerminalId: terminal.TerminalID, Nodes: nodes,
+		})
+	}
+	return semantic
+}
+
+func presentationResultFromPrivate(result *privatev1.DescribePresentationResult) PresentationResult {
+	failure := facilityFailureCodeFromPrivate(result.GetFailure())
+	if result.GetFailure() == privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_UNSPECIFIED {
+		failure = ""
+	}
+	native := PresentationResult{
+		OK: result.GetOk(), Failure: failure, SessionRevision: result.GetSessionRevision(),
+		FacilityRevision: result.GetFacilityRevision(), AuthoringRevision: result.GetAuthoringRevision(),
+		Terminals: make([]live.TerminalExplanation, len(result.GetTerminals())),
+	}
+	for index, terminal := range result.GetTerminals() {
+		nodes := make([]live.NodeExplanation, len(terminal.GetNodes()))
+		for nodeIndex, node := range terminal.GetNodes() {
+			nodes[nodeIndex] = nodePresentationFromPrivate(node)
+		}
+		native.Terminals[index] = live.TerminalExplanation{TerminalID: terminal.GetTerminalId(), Nodes: nodes}
+	}
+	return native
+}
+
+func nodePresentationToPrivate(node live.NodeExplanation) *privatev1.NodePresentation {
+	semantic := &privatev1.NodePresentation{
+		NodeId: node.NodeID, PlayerName: node.PlayerName, Visible: node.Visible, Available: clonePointer(node.Available),
+		NameRules:         presentationRulesToPrivate(node.NameRules),
+		VisibilityRules:   presentationRulesToPrivate(node.VisibilityRules),
+		AvailabilityRules: presentationRulesToPrivate(node.AvailabilityRules),
+	}
+	for _, block := range node.Blocks {
+		semantic.Blocks = append(semantic.Blocks, &privatev1.BlockPresentation{
+			BlockId: block.BlockID, PlayerText: block.PlayerText, TextRules: presentationRulesToPrivate(block.TextRules),
+		})
+	}
+	return semantic
+}
+
+func nodePresentationFromPrivate(node *privatev1.NodePresentation) live.NodeExplanation {
+	native := live.NodeExplanation{
+		NodeID: node.GetNodeId(), PlayerName: node.GetPlayerName(), Visible: node.GetVisible(),
+		NameRules:         presentationRulesFromPrivate(node.GetNameRules()),
+		VisibilityRules:   presentationRulesFromPrivate(node.GetVisibilityRules()),
+		AvailabilityRules: presentationRulesFromPrivate(node.GetAvailabilityRules()),
+	}
+	if node.Available != nil {
+		native.Available = new(node.GetAvailable())
+	}
+	for _, block := range node.GetBlocks() {
+		native.Blocks = append(native.Blocks, live.BlockExplanation{
+			BlockID: block.GetBlockId(), PlayerText: block.GetPlayerText(),
+			TextRules: presentationRulesFromPrivate(block.GetTextRules()),
+		})
+	}
+	return native
+}
+
+func presentationRulesToPrivate(rules []live.PresentationRule) []*privatev1.PresentationRule {
+	semantic := make([]*privatev1.PresentationRule, len(rules))
+	for index, rule := range rules {
+		value := &privatev1.PresentationRule{
+			Kind: presentationRuleKinds[rule.Kind], Precedence: rule.Precedence,
+			ConditionHolds: rule.ConditionHolds, PlayersSee: rule.PlayersSee,
+		}
+		switch condition := rule.Condition; {
+		case condition.DeviceState != nil:
+			value.Condition = &privatev1.PresentationRule_DeviceState{DeviceState: &persistencev1.FacilityStateEquality{
+				DeviceId: condition.DeviceState.DeviceID, StateId: condition.DeviceState.StateID,
+			}}
+		case condition.CommandExecuted != nil:
+			value.Condition = &privatev1.PresentationRule_CommandExecuted{CommandExecuted: &privatev1.CommandExecutedCondition{
+				TerminalId: condition.CommandExecuted.TerminalID, CommandId: condition.CommandExecuted.CommandID,
+			}}
+		case condition.DiagnosticActive != nil:
+			value.Condition = &privatev1.PresentationRule_DiagnosticActive{DiagnosticActive: &privatev1.DiagnosticActiveCondition{
+				ConditionId: condition.DiagnosticActive.ConditionID,
+			}}
+		}
+		if effect, ok := presentationRuleEffects[rule.Effect]; ok {
+			value.Value = &privatev1.PresentationRule_Effect{Effect: effect}
+		} else {
+			value.Value = &privatev1.PresentationRule_Text{Text: rule.Text}
+		}
+		semantic[index] = value
+	}
+	return semantic
+}
+
+func presentationRulesFromPrivate(rules []*privatev1.PresentationRule) []live.PresentationRule {
+	native := make([]live.PresentationRule, len(rules))
+	for index, rule := range rules {
+		value := live.PresentationRule{
+			Precedence: rule.GetPrecedence(), ConditionHolds: rule.GetConditionHolds(), PlayersSee: rule.GetPlayersSee(),
+		}
+		for kind, semantic := range presentationRuleKinds {
+			if semantic == rule.GetKind() {
+				value.Kind = kind
+			}
+		}
+		switch condition := rule.GetCondition().(type) {
+		case *privatev1.PresentationRule_DeviceState:
+			value.Condition.DeviceState = &domain.FacilityStateEquality{
+				DeviceID: condition.DeviceState.GetDeviceId(), StateID: condition.DeviceState.GetStateId(),
+			}
+		case *privatev1.PresentationRule_CommandExecuted:
+			value.Condition.CommandExecuted = &live.CommandExecutedCondition{
+				TerminalID: condition.CommandExecuted.GetTerminalId(), CommandID: condition.CommandExecuted.GetCommandId(),
+			}
+		case *privatev1.PresentationRule_DiagnosticActive:
+			value.Condition.DiagnosticActive = &live.DiagnosticActiveCondition{
+				ConditionID: condition.DiagnosticActive.GetConditionId(),
+			}
+		}
+		switch ruleValue := rule.GetValue().(type) {
+		case *privatev1.PresentationRule_Text:
+			value.Text = ruleValue.Text
+		case *privatev1.PresentationRule_Effect:
+			for effect, semantic := range presentationRuleEffects {
+				if semantic == ruleValue.Effect {
+					value.Effect = effect
+				}
+			}
+		}
+		native[index] = value
+	}
+	return native
+}
+
+var presentationRuleKinds = map[live.PresentationRuleKind]privatev1.PresentationRuleKind{
+	live.PresentationRuleKindAuthoredName:               privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_AUTHORED_NAME,
+	live.PresentationRuleKindNameAfterExecution:         privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_NAME_AFTER_EXECUTION,
+	live.PresentationRuleKindStateName:                  privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_STATE_NAME,
+	live.PresentationRuleKindStateVisibility:            privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_STATE_VISIBILITY,
+	live.PresentationRuleKindDiagnosticForcedVisibility: privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_DIAGNOSTIC_FORCED_VISIBILITY,
+	live.PresentationRuleKindStateAvailability:          privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_STATE_AVAILABILITY,
+	live.PresentationRuleKindDiagnosticCapabilityBlock:  privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_DIAGNOSTIC_CAPABILITY_BLOCK,
+	live.PresentationRuleKindInitialText:                privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_INITIAL_TEXT,
+	live.PresentationRuleKindTextAfterExecution:         privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_TEXT_AFTER_EXECUTION,
+	live.PresentationRuleKindStateText:                  privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_STATE_TEXT,
+	live.PresentationRuleKindDiagnosticSubstitution:     privatev1.PresentationRuleKind_PRESENTATION_RULE_KIND_DIAGNOSTIC_SUBSTITUTION,
+}
+
+var presentationRuleEffects = map[live.PresentationRuleEffect]privatev1.PresentationRuleEffect{
+	live.PresentationRuleEffectVisible:     privatev1.PresentationRuleEffect_PRESENTATION_RULE_EFFECT_VISIBLE,
+	live.PresentationRuleEffectAvailable:   privatev1.PresentationRuleEffect_PRESENTATION_RULE_EFFECT_AVAILABLE,
+	live.PresentationRuleEffectUnavailable: privatev1.PresentationRuleEffect_PRESENTATION_RULE_EFFECT_UNAVAILABLE,
 }
 
 func facilityDeviceResetRequestToPrivate(request controlservice.FacilityDeviceResetRequest) *privatev1.ResetFacilityDeviceRequest {
@@ -1535,23 +1766,6 @@ func facilityDeviceResetRequestFromPrivate(request *privatev1.ResetFacilityDevic
 	}
 	return controlservice.FacilityDeviceResetRequest{
 		DeviceID:                 request.GetDeviceId(),
-		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
-		CorrelationID:            request.GetCorrelationId(),
-	}
-}
-
-func facilityResetRequestToPrivate(request controlservice.FacilityResetRequest) *privatev1.ResetFacilityRequest {
-	return &privatev1.ResetFacilityRequest{
-		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
-		CorrelationId:            request.CorrelationID,
-	}
-}
-
-func facilityResetRequestFromPrivate(request *privatev1.ResetFacilityRequest) controlservice.FacilityResetRequest {
-	if request == nil {
-		return controlservice.FacilityResetRequest{}
-	}
-	return controlservice.FacilityResetRequest{
 		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
 		CorrelationID:            request.GetCorrelationId(),
 	}

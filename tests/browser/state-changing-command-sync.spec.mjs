@@ -652,11 +652,27 @@ test('application and session reopen, authored publication, and reconnect retain
     await journey.overseer.page.reload();
     await journey.overseer.page.getByRole('button', { name: 'ОТКРЫТЬ СЕССИЮ' }).click();
     await expect(journey.overseer.page.locator('#mainLayout')).toBeVisible();
-    const publish = journey.overseer.page.getByRole('button', { name: 'ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ' });
-    await expect(publish).toBeVisible();
-    await publish.click();
-    await expect.poll(() => journey.overseer.page.evaluate(() =>
-      __desktopFixture.calls.filter(call => call.method === 'UpdateLiveTerminal').length)).toBe(1);
+    // An applied edit autosaves and goes live at once; there is no publish step.
+    const overseer = journey.overseer.page;
+    const calls = method => overseer.evaluate(name =>
+      __desktopFixture.calls.filter(call => call.method === name).length, method);
+    await expect(overseer.locator('#liveFlag')).toBeVisible();
+    await expect(overseer.locator('#btnPublish')).toHaveCount(0);
+    await overseer.locator('#introTextArea').fill('РЕАКТОРНЫЙ КОНТУР // ПРОВЕРКА ПОСЛЕ ПЕРЕОТКРЫТИЯ');
+    await expect(overseer.locator('#saveStatus')).toHaveAttribute('data-unapplied-count', '1');
+    await overseer.locator('#btnApplySettings').click();
+    await expect.poll(() => calls('SaveAuthoring')).toBe(1);
+    await expect(overseer.locator('#saveStatus')).toHaveAttribute('data-state', 'saved');
+    await expect(overseer.locator('#saveStatus')).toHaveAttribute('data-unapplied-count', '0');
+    const saved = await overseer.evaluate(() =>
+      __desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').at(-1).args[0].session);
+    const savedTerminal = saved.terminals.find(terminal => terminal.id === 'terminal-stateful');
+    expect(savedTerminal.introText).toBe('РЕАКТОРНЫЙ КОНТУР // ПРОВЕРКА ПОСЛЕ ПЕРЕОТКРЫТИЯ');
+    // The save carries the frozen outcomes it was based on; the server keeps its own.
+    expect(savedTerminal.commandStates).toEqual(frozenBeforePublication);
+    for (const legacy of ['UpdateLiveTerminal', 'SaveSession', 'ResetTerminalCommandStates']) {
+      expect(await calls(legacy), legacy).toBe(0);
+    }
     revisions.push((await coordinationState(request)).revision);
     await expectOpenReactorEntry(journey.players, expectedLines);
     expect(await durableCommandStates(request)).toEqual(frozenBeforePublication);

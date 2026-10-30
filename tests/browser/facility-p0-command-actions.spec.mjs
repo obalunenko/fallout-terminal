@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+import { expectSaved, saveStatus, switchTab } from './helpers/authoring-bar.mjs';
 import { facilityState, fixtureSession, openOverseer, seedDemo } from './helpers/overseer-forms.mjs';
 
 const EVACUATION = 'Открыть выход и подать сигнал';
 const ORDINARY = 'Проверить наружные датчики';
-const APPLY = 'ПРИМЕНИТЬ К ЧЕРНОВИКУ';
+const DONE = 'ГОТОВО';
+const RENAMED_DOOR = 'Гермодверь 76';
 
 function findNode(node, id) {
   if (node.id === id) return node;
@@ -30,13 +32,19 @@ async function openExitProtocolCommand(page, name) {
   await expect(page.locator('#fldName')).toBeVisible();
 }
 
-async function stageDeviceRename(page) {
-  await page.getByRole('tab', { name: 'ОБЪЕКТЫ', exact: true }).click();
+async function saveCount(page) {
+  return page.evaluate(() => window.__desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').length);
+}
+
+async function renameDoor(page, request) {
+  await switchTab(page, 'ОБЪЕКТЫ');
   await page.locator('[data-facility-kind="device"][data-facility-id="vault-door-main"]').click();
-  await page.locator('#facilitySelectedDeviceName').fill('Гермодверь Убежища 76 (черновик)');
-  await page.locator('#btnSaveFacilityDeviceChanges').click();
-  await expect(page.locator('#facilityStatus')).toHaveText('ЕСТЬ НЕСОХРАНЁННЫЕ ИЗМЕНЕНИЯ');
-  await page.getByRole('tab', { name: 'ТЕРМИНАЛЫ', exact: true }).click();
+  await page.locator('#facilitySelectedDeviceName').fill(RENAMED_DOOR);
+  await page.getByRole('button', { name: DONE, exact: true }).click();
+  await expect.poll(async () => (await facilityState(request)).facility.devices
+    .find(device => device.id === 'vault-door-main').name).toBe(RENAMED_DOOR);
+  await expectSaved(page);
+  await switchTab(page, 'ТЕРМИНАЛЫ');
 }
 
 test('leaving state-changing mode with a device action requires keep or remove before applying', async ({ page, request }) => {
@@ -104,32 +112,34 @@ test('an executed command with a device action keeps its mode locked and shows n
   await expect(page.locator('#commandModeDecision')).toBeHidden();
 });
 
-test('a dirty facility draft locks commands with device actions until it is discarded or saved', async ({ page, request }) => {
+test('a command with a device action has no draft guard and its edit saves after a facility edit (FR-006)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page, 'ТЕРМИНАЛЫ');
-  await stageDeviceRename(page);
-  await openExitProtocolCommand(page, EVACUATION);
-  const guard = page.locator('#commandDraftGuard');
-  await expect(guard).toBeVisible();
-  await expect(guard).toContainText('ЕСТЬ НЕСОХРАНЁННЫЙ ЧЕРНОВИК ОБЪЕКТОВ');
-  await expect(page.locator('#fldCommandMode')).toBeDisabled();
-  await expect(page.locator('#btnApplyNode')).toBeDisabled();
+  await renameDoor(page, request);
+  const afterRename = await saveCount(page);
 
-  await page.locator('#btnDiscardFacilityDraftFromCommand').click();
-  await expect(guard).toBeHidden();
+  await openExitProtocolCommand(page, EVACUATION);
+  await expect(page.locator('#commandDraftGuard')).toHaveCount(0);
+  await expect(page.locator('#nodeForm')).not.toContainText('ЧЕРНОВИК');
   await expect(page.locator('#fldCommandMode')).toBeEnabled();
   await expect(page.locator('#btnApplyNode')).toBeEnabled();
+  // The command form already names the renamed device.
+  await expect(page.locator('.command-facility-action')).toContainText(RENAMED_DOOR);
 
-  await stageDeviceRename(page);
-  await openExitProtocolCommand(page, EVACUATION);
-  const before = await facilityState(request);
-  await page.locator('#btnSaveFacilityDraftFromCommand').click();
-  await expect(guard).toBeHidden();
-  await expect(page.locator('#fldCommandMode')).toBeEnabled();
-  const after = await facilityState(request);
-  expect(after.saveCalls).toBe(before.saveCalls + 1);
-  expect(after.facility.devices.find(device => device.id === 'vault-door-main').name)
-    .toBe('Гермодверь Убежища 76 (черновик)');
+  await page.locator('#fldText').fill('Выход открыт, сигнал подан.');
+  await page.locator('#btnApplyNode').click();
+  await expect.poll(() => saveCount(page)).toBe(afterRename + 1);
+  await expectSaved(page);
+  await expect.poll(async () => (await savedCommand(request, 'n_cmd_open_evacuation'))?.text)
+    .toBe('Выход открыт, сигнал подан.');
+  const saved = await fixtureSession(request);
+  expect(saved.facility.devices.find(device => device.id === 'vault-door-main').name).toBe(RENAMED_DOOR);
+  expect((await savedCommand(request, 'n_cmd_open_evacuation')).stateChange.facilityAction).toBeTruthy();
+  expect((await saveStatus(page)).text).not.toMatch(/СЕССИЯ ИЗМЕНИЛАСЬ|ЧЕРНОВИК/i);
+
+  await switchTab(page, 'ОБЪЕКТЫ');
+  await expect(page.locator('[data-facility-kind="device"][data-facility-id="vault-door-main"]')).toContainText(RENAMED_DOOR);
+  expect((await saveStatus(page)).text).not.toMatch(/СЕССИЯ ИЗМЕНИЛАСЬ|ЧЕРНОВИК/i);
 });
 
 test('attaching an action to an ordinary command asks for both player texts and never invents them', async ({ page, request }) => {
@@ -153,17 +163,17 @@ test('attaching an action to an ordinary command asks for both player texts and 
   const row = binding.locator('.facility-action-request-row').first();
   await row.getByLabel('УСТРОЙСТВО ПЕРЕХОДА').selectOption('evacuation-alarm');
   await row.getByLabel('ПЕРЕХОД КОМАНДЫ').selectOption('sound-evacuation');
-  await binding.getByRole('button', { name: APPLY, exact: true }).click();
+  await binding.getByRole('button', { name: DONE, exact: true }).click();
   await expect(binding).toBeVisible();
   await expect(completed).toBeFocused();
   await expect(binding.locator('#facilityBindingError')).toContainText('ЗАПОЛНИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ И ЗАПРОС ПОДТВЕРЖДЕНИЯ');
 
   await completed.fill('Датчики опрошены');
   await confirmation.fill('Опросить наружные датчики и подать сигнал?');
-  await binding.getByRole('button', { name: APPLY, exact: true }).click();
+  await binding.getByRole('button', { name: DONE, exact: true }).click();
   await expect(binding).toBeHidden();
-  await page.getByRole('button', { name: 'СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ', exact: true }).click();
-  await expect(page.locator('#facilityStatus')).toHaveText('ИЗМЕНЕНИЯ СЕССИИ СОХРАНЕНЫ');
+  await expect.poll(async () => (await savedCommand(request, 'n_cmd_ordinary_1')).stateChange).toBeTruthy();
+  await expectSaved(page);
   expect((await savedCommand(request, 'n_cmd_ordinary_1')).stateChange).toEqual({
     completedName: 'Датчики опрошены',
     confirmationText: 'Опросить наружные датчики и подать сигнал?',

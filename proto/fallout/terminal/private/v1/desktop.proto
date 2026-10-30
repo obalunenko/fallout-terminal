@@ -27,13 +27,7 @@ message SessionOperationResult {
   optional string error = 3;
   optional string file_path = 4;
   fallout.terminal.persistence.v1.Session session = 5;
-}
-
-message SaveSessionResult {
-  bool ok = 1;
-  optional string error = 2;
-  uint64 requested_revision = 3;
-  optional uint64 saved_revision = 4;
+  uint64 authoring_revision = 6;
 }
 
 message PlayerConfigOperationResult {
@@ -44,6 +38,7 @@ message PlayerConfigOperationResult {
   fallout.terminal.persistence.v1.Session session = 5;
   CoordinationState state = 6;
   PlayerConfigMetadata player_config_metadata = 7;
+  uint64 authoring_revision = 8;
 }
 
 message CoordinationResult {
@@ -66,11 +61,6 @@ message TerminalActivationRequest {
   fallout.terminal.persistence.v1.ContentNode tree = 3;
   int32 hack_level = 4;
   string intro_text = 5;
-}
-
-message LiveTerminalUpdateRequest {
-  fallout.terminal.persistence.v1.ContentNode tree = 1;
-  optional string intro_text = 2;
 }
 
 message TerminalSwitchDecisionRequest {
@@ -148,6 +138,13 @@ message FacilityOperationResult {
   repeated string affected_device_ids = 9;
   repeated string affected_condition_ids = 10;
   fallout.terminal.persistence.v1.Session session = 11;
+  uint64 authoring_revision = 12;
+  repeated CommandReference reset_commands = 13;
+}
+
+message CommandReference {
+  string terminal_id = 1;
+  string command_id = 2;
 }
 
 message FacilityEntityReference {
@@ -201,6 +198,7 @@ message PreviewFacilityRequest {
     PreviewFacilityDeviceState device_state = 3;
     PreviewFacilityCondition condition = 4;
   }
+  uint64 expected_authoring_revision = 5;
 }
 
 message PreviewFacilityResult {
@@ -209,24 +207,126 @@ message PreviewFacilityResult {
   repeated FacilityIssue issues = 3;
   uint64 facility_revision = 4;
   fallout.terminal.player.v1.LiveTerminal terminal = 5;
+  fallout.terminal.player.v1.LiveTerminal current = 6;
+  repeated PreviewDifference differences = 7;
 }
 
-message SaveFacilityAuthoringRequest {
+enum PreviewDifferenceKind {
+  PREVIEW_DIFFERENCE_KIND_UNSPECIFIED = 0;
+  PREVIEW_DIFFERENCE_KIND_NAME_CHANGED = 1;
+  PREVIEW_DIFFERENCE_KIND_TEXT_CHANGED = 2;
+  PREVIEW_DIFFERENCE_KIND_APPEARS = 3;
+  PREVIEW_DIFFERENCE_KIND_DISAPPEARS = 4;
+  PREVIEW_DIFFERENCE_KIND_BECOMES_AVAILABLE = 5;
+  PREVIEW_DIFFERENCE_KIND_BECOMES_UNAVAILABLE = 6;
+}
+
+message PreviewDifference {
+  PreviewDifferenceKind kind = 1;
+  string node_id = 2;
+  optional string block_id = 3;
+  optional string before = 4;
+  optional string after = 5;
+}
+
+message SaveAuthoringRequest {
   fallout.terminal.persistence.v1.Session session = 1;
-  uint64 expected_session_revision = 2;
-  uint64 expected_facility_revision = 3;
-  string correlation_id = 4;
+  uint64 expected_authoring_revision = 2;
+  string correlation_id = 3;
+}
+
+message ResetSceneRequest {
+  uint64 expected_session_revision = 1;
+  uint64 expected_facility_revision = 2;
+  string correlation_id = 3;
+}
+
+message DescribePresentationRequest {
+  uint64 expected_authoring_revision = 1;
+}
+
+message DescribePresentationResult {
+  bool ok = 1;
+  FacilityFailureCode failure = 2;
+  uint64 session_revision = 3;
+  uint64 facility_revision = 4;
+  uint64 authoring_revision = 5;
+  repeated TerminalPresentation terminals = 6;
+}
+
+message TerminalPresentation {
+  string terminal_id = 1;
+  repeated NodePresentation nodes = 2;
+}
+
+message NodePresentation {
+  string node_id = 1;
+  string player_name = 2;
+  bool visible = 3;
+  optional bool available = 4;
+  repeated PresentationRule name_rules = 5;
+  repeated PresentationRule visibility_rules = 6;
+  repeated PresentationRule availability_rules = 7;
+  repeated BlockPresentation blocks = 8;
+}
+
+message BlockPresentation {
+  string block_id = 1;
+  string player_text = 2;
+  repeated PresentationRule text_rules = 3;
+}
+
+enum PresentationRuleKind {
+  PRESENTATION_RULE_KIND_UNSPECIFIED = 0;
+  PRESENTATION_RULE_KIND_AUTHORED_NAME = 1;
+  PRESENTATION_RULE_KIND_NAME_AFTER_EXECUTION = 2;
+  PRESENTATION_RULE_KIND_STATE_NAME = 3;
+  PRESENTATION_RULE_KIND_STATE_VISIBILITY = 4;
+  PRESENTATION_RULE_KIND_DIAGNOSTIC_FORCED_VISIBILITY = 5;
+  PRESENTATION_RULE_KIND_STATE_AVAILABILITY = 6;
+  PRESENTATION_RULE_KIND_DIAGNOSTIC_CAPABILITY_BLOCK = 7;
+  PRESENTATION_RULE_KIND_INITIAL_TEXT = 8;
+  PRESENTATION_RULE_KIND_TEXT_AFTER_EXECUTION = 9;
+  PRESENTATION_RULE_KIND_STATE_TEXT = 10;
+  PRESENTATION_RULE_KIND_DIAGNOSTIC_SUBSTITUTION = 11;
+}
+
+enum PresentationRuleEffect {
+  PRESENTATION_RULE_EFFECT_UNSPECIFIED = 0;
+  PRESENTATION_RULE_EFFECT_VISIBLE = 1;
+  PRESENTATION_RULE_EFFECT_AVAILABLE = 2;
+  PRESENTATION_RULE_EFFECT_UNAVAILABLE = 3;
+}
+
+message CommandExecutedCondition {
+  string terminal_id = 1;
+  string command_id = 2;
+}
+
+message DiagnosticActiveCondition {
+  string condition_id = 1;
+}
+
+message PresentationRule {
+  PresentationRuleKind kind = 1;
+  uint32 precedence = 2;
+  oneof condition {
+    fallout.terminal.persistence.v1.FacilityStateEquality device_state = 3;
+    CommandExecutedCondition command_executed = 4;
+    DiagnosticActiveCondition diagnostic_active = 5;
+  }
+  oneof value {
+    string text = 6;
+    PresentationRuleEffect effect = 7;
+  }
+  bool condition_holds = 8;
+  bool players_see = 9;
 }
 
 message ResetFacilityDeviceRequest {
   string device_id = 1;
   uint64 expected_facility_revision = 2;
   string correlation_id = 3;
-}
-
-message ResetFacilityRequest {
-  uint64 expected_facility_revision = 1;
-  string correlation_id = 2;
 }
 
 message RecoverFacilityConditionRequest {
@@ -252,10 +352,6 @@ message ResetCommandStateRequest {
   string command_id = 2;
 }
 
-message ResetTerminalCommandStatesRequest {
-  string terminal_id = 1;
-}
-
 message SessionStateResult {
   bool ok = 1;
   optional string error = 2;
@@ -275,6 +371,7 @@ message ReplaceTerminalGroupsResult {
   uint64 session_revision = 3;
   fallout.terminal.persistence.v1.Session session = 4;
   CoordinationState coordination_state = 5;
+  uint64 authoring_revision = 6;
 }
 
 message ResetFailedHackRequest {

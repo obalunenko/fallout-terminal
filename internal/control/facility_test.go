@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -157,49 +158,6 @@ func TestFacilityAuditRecoveryAndResetRecordSafeStateAndRevisionTransitions(t *t
 		require.Equal(t, []string{"door-alarm"}, event.Facility.ConditionIDs)
 		require.Equal(t, facility.Revision, event.Facility.PreviousFacilityRevision)
 		require.Equal(t, canonical.Facility.Revision, event.Facility.ResultingFacilityRevision)
-		require.Equal(t, []FacilityConditionAuditTransition{{
-			ConditionID: "door-alarm", PreviousActive: true, ResultingActive: false,
-		}}, event.Facility.ConditionTransitions)
-	})
-
-	t.Run("whole facility reset", func(t *testing.T) {
-		t.Parallel()
-		store := &recordingFacilityStore{}
-		fixture := newFacilityCommandFixture(t, store)
-		current := facilityApprovalState(true)
-		fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
-			runtime.Facility = domain.CloneFacility(current)
-			return transition{accepted: true}
-		})
-		canonical := facilityAuthoringSession(current)
-		canonical.Facility.Revision++
-		canonical.Facility.Devices[1].CurrentStateID = "sealed"
-		canonical.Facility.Conditions[0].CurrentActive = false
-		store.result = domain.FacilityOperationResult{
-			OK: true, Changed: true, SessionRevision: 53,
-			PreviousFacilityRevision:  current.Revision,
-			ResultingFacilityRevision: canonical.Facility.Revision,
-			AffectedDeviceIDs:         []string{"door"},
-			AffectedConditionIDs:      []string{"door-alarm"}, Session: &canonical,
-		}
-		baseline := fixture.effects.Calls()
-		correlationID := "facility-audit-reset"
-
-		_, result, err := fixture.service.ResetFacility(t.Context(), FacilityResetRequest{
-			ExpectedFacilityRevision: current.Revision, CorrelationID: correlationID,
-		})
-		require.NoError(t, err)
-		require.True(t, result.OK)
-
-		event := requireFacilityAuditEvent(t, fixture.effects.Values()[baseline:], "facility.reset", correlationID)
-		require.Equal(t, "succeeded", event.Outcome)
-		require.Equal(t, FacilityAuditActionReset, event.Facility.Action)
-		require.Equal(t, "facility", event.Facility.ResetScope)
-		require.Equal(t, current.Revision, event.Facility.PreviousFacilityRevision)
-		require.Equal(t, canonical.Facility.Revision, event.Facility.ResultingFacilityRevision)
-		require.Equal(t, []FacilityDeviceAuditTransition{{
-			DeviceID: "door", PreviousStateID: "open", ResultingStateID: "sealed",
-		}}, event.Facility.DeviceTransitions)
 		require.Equal(t, []FacilityConditionAuditTransition{{
 			ConditionID: "door-alarm", PreviousActive: true, ResultingActive: false,
 		}}, event.Facility.ConditionTransitions)
@@ -538,186 +496,6 @@ func TestFacilityActionStress1000AttemptsCommitAtMostOnceWithoutSplitState(t *te
 	})
 }
 
-func TestSaveFacilityAuthoringInstallsCanonicalStateAndInvalidatesPendingAction(t *testing.T) {
-	t.Parallel()
-
-	fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
-	fixture.service.terminals = &recordingTerminalLifecycle{}
-	require.True(t, fixture.service.DispatchPlayerAction(
-		fixture.controllerConnection,
-		fixture.command("facility-authoring-pending"),
-	).Accepted)
-	pending := fixture.service.Snapshot().PendingCommandExecution
-	require.NotNil(t, pending)
-
-	candidate := facilityAuthoringSession(fixture.initialFacility)
-	candidate.Facility.Devices[1].Name = "Vault door MK II"
-	canonical := domain.CloneSession(candidate)
-	canonical.Facility.Revision++
-	store := &recordingFacilityAuthoringStore{result: domain.FacilityOperationResult{
-		OK: true, Changed: true, SessionRevision: 42,
-		PreviousFacilityRevision:  fixture.initialFacility.Revision,
-		ResultingFacilityRevision: canonical.Facility.Revision,
-		AffectedDeviceIDs:         []string{"door"},
-		Session:                   &canonical,
-	}}
-	fixture.service.facilityAuthoringStore = store
-	revisionBefore := fixture.service.Revision()
-	effectsBefore := fixture.effects.Calls()
-
-	state, result, err := fixture.service.SaveFacilityAuthoring(t.Context(), FacilityAuthoringRequest{
-		Candidate: candidate, ExpectedSessionRevision: 41,
-		ExpectedFacilityRevision: fixture.initialFacility.Revision, CorrelationID: "authoring-1",
-	})
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.True(t, result.OK)
-	require.True(t, result.Changed)
-	require.Equal(t, revisionBefore+1, state.Revision)
-	require.Equal(t, canonical.Facility.Revision, *state.FacilityRevision)
-	require.Nil(t, state.PendingCommandExecution)
-	require.Equal(t, 1, store.CallCount())
-	require.Greater(t, fixture.effects.Calls(), effectsBefore)
-
-	installed := coordinatorFacilitySnapshot(t, fixture.service)
-	require.Equal(t, "Vault door MK II", installed.Devices[1].Name)
-	result.Session.Facility.Devices[1].Name = "tampered"
-	require.Equal(t, "Vault door MK II", coordinatorFacilitySnapshot(t, fixture.service).Devices[1].Name)
-	terminal := canonicalTerminal(t, fixture.service, fixture.terminalID)
-	require.Equal(t, domain.CommandExecutionPhaseRejected, terminal.CommandExecution.Phase)
-
-	_, mutation, stale, resolveErr := fixture.service.ResolveCommandExecution(
-		t.Context(), pending.RequestID, domain.CommandExecutionApprove,
-	)
-	require.ErrorIs(t, resolveErr, ErrFacilityStaleRevision)
-	require.Nil(t, mutation)
-	require.NotNil(t, stale)
-	require.Equal(t, domain.FacilityFailureStaleRevision, stale.Failure)
-}
-
-func TestSaveFacilityAuthoringRejectsStaleFacilityBeforeDurability(t *testing.T) {
-	t.Parallel()
-
-	fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
-	store := &recordingFacilityAuthoringStore{}
-	fixture.service.facilityAuthoringStore = store
-	revisionBefore := fixture.service.Revision()
-	effectsBefore := fixture.effects.Calls()
-
-	state, result, err := fixture.service.SaveFacilityAuthoring(t.Context(), FacilityAuthoringRequest{
-		Candidate: facilityAuthoringSession(fixture.initialFacility), ExpectedSessionRevision: 41,
-		ExpectedFacilityRevision: fixture.initialFacility.Revision - 1, CorrelationID: "authoring-stale",
-	})
-	require.ErrorIs(t, err, ErrFacilityStaleRevision)
-	require.NotNil(t, result)
-	require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
-	require.Zero(t, result.SessionRevision)
-	require.Equal(t, revisionBefore, state.Revision)
-	require.Zero(t, store.CallCount())
-	require.Equal(t, effectsBefore, fixture.effects.Calls())
-}
-
-func TestSaveFacilityAuthoringRejectsCanonicalSessionDifferentFromNormalizedCandidate(t *testing.T) {
-	t.Parallel()
-
-	fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
-	fixture.service.terminals = &recordingTerminalLifecycle{}
-	candidate := facilityAuthoringSession(fixture.initialFacility)
-	candidate.Facility.Devices[1].Name = "Vault door MK II"
-	unexpected := domain.CloneSession(candidate)
-	unexpected.Name = "different valid session"
-	unexpected.Facility.Revision++
-	fixture.service.facilityAuthoringStore = &recordingFacilityAuthoringStore{result: domain.FacilityOperationResult{
-		OK: true, Changed: true, SessionRevision: 42,
-		PreviousFacilityRevision:  fixture.initialFacility.Revision,
-		ResultingFacilityRevision: unexpected.Facility.Revision,
-		AffectedDeviceIDs:         []string{"door"}, Session: &unexpected,
-	}}
-
-	state, result, err := fixture.service.SaveFacilityAuthoring(t.Context(), FacilityAuthoringRequest{
-		Candidate: candidate, ExpectedSessionRevision: 41,
-		ExpectedFacilityRevision: fixture.initialFacility.Revision, CorrelationID: "authoring-wrong-session",
-	})
-	require.ErrorIs(t, err, ErrFacilityPersistence)
-	require.Equal(t, domain.FacilityFailurePersistenceFailed, result.Failure)
-	require.Equal(t, fixture.initialFacility.Revision, *state.FacilityRevision)
-	require.Equal(t, "Vault door", coordinatorFacilitySnapshot(t, fixture.service).Devices[1].Name)
-}
-
-func TestSaveFacilityAuthoringSanitizesMalformedStoreFailures(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name   string
-		mutate func(*domain.FacilityOperationResult)
-	}{
-		{name: "correlation", mutate: func(result *domain.FacilityOperationResult) { result.CorrelationID = "wrong" }},
-		{name: "changed", mutate: func(result *domain.FacilityOperationResult) { result.Changed = true }},
-		{name: "revision", mutate: func(result *domain.FacilityOperationResult) { result.ResultingFacilityRevision++ }},
-		{name: "affected ids", mutate: func(result *domain.FacilityOperationResult) { result.AffectedDeviceIDs = []string{"door"} }},
-		{name: "invalid session", mutate: func(result *domain.FacilityOperationResult) { result.Session = &domain.Session{} }},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
-			fixture.service.terminals = &recordingTerminalLifecycle{}
-			returned := domain.FacilityOperationResult{
-				CorrelationID: "authoring-malformed", Failure: domain.FacilityFailureInvalidConfiguration,
-				SessionRevision: 41, PreviousFacilityRevision: fixture.initialFacility.Revision,
-				ResultingFacilityRevision: fixture.initialFacility.Revision,
-			}
-			test.mutate(&returned)
-			fixture.service.facilityAuthoringStore = &recordingFacilityAuthoringStore{
-				result: returned, preserveResult: true,
-			}
-
-			_, result, err := fixture.service.SaveFacilityAuthoring(t.Context(), FacilityAuthoringRequest{
-				Candidate: facilityAuthoringSession(fixture.initialFacility), ExpectedSessionRevision: 41,
-				ExpectedFacilityRevision: fixture.initialFacility.Revision, CorrelationID: "authoring-malformed",
-			})
-			require.ErrorIs(t, err, ErrFacilityPersistence)
-			require.Equal(t, domain.FacilityFailurePersistenceFailed, result.Failure)
-			require.Equal(t, "authoring-malformed", result.CorrelationID)
-			require.Zero(t, result.SessionRevision)
-			require.Nil(t, result.Session)
-			require.Empty(t, result.AffectedDeviceIDs)
-			require.Equal(t, fixture.initialFacility.Revision, result.PreviousFacilityRevision)
-			require.Equal(t, result.PreviousFacilityRevision, result.ResultingFacilityRevision)
-		})
-	}
-}
-
-func TestSaveFacilityAuthoringStripsStateFromValidStoreFailure(t *testing.T) {
-	t.Parallel()
-
-	fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
-	fixture.service.terminals = &recordingTerminalLifecycle{}
-	returnedSession := facilityAuthoringSession(fixture.initialFacility)
-	fixture.service.facilityAuthoringStore = &recordingFacilityAuthoringStore{
-		preserveResult: true,
-		result: domain.FacilityOperationResult{
-			CorrelationID:             "authoring-failure",
-			Failure:                   domain.FacilityFailureInvalidConfiguration,
-			SessionRevision:           41,
-			PreviousFacilityRevision:  fixture.initialFacility.Revision,
-			ResultingFacilityRevision: fixture.initialFacility.Revision,
-			Session:                   &returnedSession,
-		},
-	}
-
-	_, result, err := fixture.service.SaveFacilityAuthoring(t.Context(), FacilityAuthoringRequest{
-		Candidate: facilityAuthoringSession(fixture.initialFacility), ExpectedSessionRevision: 41,
-		ExpectedFacilityRevision: fixture.initialFacility.Revision, CorrelationID: "authoring-failure",
-	})
-	require.ErrorIs(t, err, ErrFacilityInvalidConfiguration)
-	require.Equal(t, domain.FacilityFailureInvalidConfiguration, result.Failure)
-	require.False(t, result.Changed)
-	require.Nil(t, result.Session)
-	require.Empty(t, result.AffectedDeviceIDs)
-	require.Empty(t, result.AffectedConditionIDs)
-}
-
 func TestInspectFacilityDependenciesReturnsDetachedReportWithoutRuntimeEffects(t *testing.T) {
 	t.Parallel()
 
@@ -793,6 +571,32 @@ func TestPreviewFacilityIsDetachedAndLeavesPendingRuntimeUnchanged(t *testing.T)
 	require.Equal(t, "PREVIEW:OPEN", repeated.Terminal.Tree.Children[0].Name)
 	require.Equal(t, revisionBefore, fixture.service.Revision())
 	require.Equal(t, effectsBefore, fixture.effects.Calls())
+}
+
+func TestPreviewFacilityReturnsCurrentViewAndDifferencesFromOneSnapshot(t *testing.T) {
+	t.Parallel()
+
+	fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
+	fixture.service.terminals = &recordingFacilityPreviewLifecycle{}
+	terminal := canonicalTerminal(t, fixture.service, fixture.terminalID)
+	current := facilityDeviceState(t, fixture.initialFacility, "door")
+	preview := domain.FacilityPreview{
+		ExpectedFacilityRevision: fixture.initialFacility.Revision,
+		TerminalID:               fixture.terminalID,
+		DeviceState:              &domain.FacilityDeviceStatePreview{DeviceID: "door", StateID: "open"},
+	}
+	wantDifferences, issues := live.PreviewDifferences(terminal, fixture.initialFacility, preview)
+	require.Empty(t, issues)
+
+	result := fixture.service.PreviewFacility(t.Context(), preview)
+
+	require.True(t, result.OK, "PreviewFacility() = %#v", result)
+	require.NotNil(t, result.Current)
+	require.Equal(t, "PREVIEW:"+strings.ToUpper(current), result.Current.Tree.Children[0].Name,
+		"the current view must use the installed device state")
+	require.Equal(t, "PREVIEW:OPEN", result.Terminal.Tree.Children[0].Name)
+	require.Empty(t, cmp.Diff(wantDifferences, result.Differences))
+	require.Equal(t, "open", preview.DeviceState.StateID, "the caller's preview must stay unchanged")
 }
 
 func TestPreviewFacilityRejectsStaleRevisionWithoutEffects(t *testing.T) {
@@ -871,50 +675,6 @@ func TestResetFacilityDeviceInvalidatesPendingAndPublishesOneSnapshot(t *testing
 	require.Nil(t, mutation)
 	require.NotNil(t, stale)
 	require.Equal(t, domain.FacilityFailureStaleRevision, stale.Failure)
-}
-
-func TestResetFacilityPublishesOneSnapshotAndDetachedCanonicalResult(t *testing.T) {
-	t.Parallel()
-
-	store := &recordingFacilityStore{}
-	fixture := newFacilityCommandFixture(t, store)
-	current := facilityApprovalState(true)
-	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
-		runtime.Facility = domain.CloneFacility(current)
-		return transition{accepted: true}
-	})
-	canonical := facilityAuthoringSession(current)
-	canonical.Facility.Revision++
-	for index := range canonical.Facility.Devices {
-		canonical.Facility.Devices[index].CurrentStateID = canonical.Facility.Devices[index].InitialStateID
-	}
-	for index := range canonical.Facility.Conditions {
-		canonical.Facility.Conditions[index].CurrentActive = canonical.Facility.Conditions[index].InitialActive
-	}
-	store.result = domain.FacilityOperationResult{
-		OK: true, Changed: true, SessionRevision: 43,
-		PreviousFacilityRevision: current.Revision, ResultingFacilityRevision: canonical.Facility.Revision,
-		AffectedDeviceIDs: []string{"door"}, AffectedConditionIDs: []string{"door-alarm"}, Session: &canonical,
-	}
-	revisionBefore := fixture.service.Revision()
-	effectsBefore := fixture.effects.Calls()
-
-	state, result, err := fixture.service.ResetFacility(t.Context(), FacilityResetRequest{
-		ExpectedFacilityRevision: current.Revision, CorrelationID: "reset-facility",
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, state)
-	require.NotNil(t, result)
-	require.True(t, result.OK)
-	require.True(t, result.Changed)
-	require.Equal(t, revisionBefore+1, state.Revision)
-	require.Equal(t, canonical.Facility.Revision, *state.FacilityRevision)
-	require.Equal(t, 1, store.FacilityResetCallCount())
-	require.Equal(t, 1, masterEffectCount(fixture.effects.Values()[effectsBefore:]))
-
-	result.Session.Facility.Devices[1].CurrentStateID = "tampered"
-	require.Equal(t, "sealed", facilityDeviceState(t, coordinatorFacilitySnapshot(t, fixture.service), "door"))
 }
 
 func TestApprovedRecoveryTransitionClearsConditionThroughFacilityTransaction(t *testing.T) {
@@ -1324,33 +1084,6 @@ func (lifecycle *recordingFacilityPreviewLifecycle) PreviewFacility(
 	return publicTerminalRuntime(clone), nil
 }
 
-type recordingFacilityAuthoringStore struct {
-	mu             sync.Mutex
-	result         domain.FacilityOperationResult
-	preserveResult bool
-	calls          []FacilityAuthoringRequest
-}
-
-func (store *recordingFacilityAuthoringStore) SaveFacilityAuthoring(
-	_ context.Context,
-	request FacilityAuthoringRequest,
-) domain.FacilityOperationResult {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	store.calls = append(store.calls, cloneFacilityAuthoringRequest(request))
-	result := cloneFacilityOperationResult(store.result)
-	if !store.preserveResult {
-		result.CorrelationID = request.CorrelationID
-	}
-	return result
-}
-
-func (store *recordingFacilityAuthoringStore) CallCount() int {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	return len(store.calls)
-}
-
 type facilityCommandFixture struct {
 	commandExecutionFixture
 	store           *recordingFacilityStore
@@ -1647,7 +1380,6 @@ type recordingFacilityStore struct {
 	result           domain.FacilityOperationResult
 	calls            []FacilityMutationRequest
 	deviceResetCalls []FacilityDeviceResetRequest
-	facilityResets   []FacilityResetRequest
 	started          chan struct{}
 	release          chan struct{}
 	once             sync.Once
@@ -1700,28 +1432,10 @@ func (store *recordingFacilityStore) ResetFacilityDevice(
 	return result
 }
 
-func (store *recordingFacilityStore) ResetFacility(
-	_ context.Context,
-	request FacilityResetRequest,
-) domain.FacilityOperationResult {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	store.facilityResets = append(store.facilityResets, request)
-	result := cloneFacilityOperationResult(store.result)
-	result.CorrelationID = request.CorrelationID
-	return result
-}
-
 func (store *recordingFacilityStore) DeviceResetCallCount() int {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	return len(store.deviceResetCalls)
-}
-
-func (store *recordingFacilityStore) FacilityResetCallCount() int {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	return len(store.facilityResets)
 }
 
 func (store *recordingFacilityStore) Requests() []FacilityMutationRequest {

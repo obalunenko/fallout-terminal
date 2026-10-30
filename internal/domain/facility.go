@@ -465,6 +465,32 @@ type FacilityOperationResult struct {
 	AffectedDeviceIDs         []string            `json:"affectedDeviceIds,omitempty"`
 	AffectedConditionIDs      []string            `json:"affectedConditionIds,omitempty"`
 	Session                   *Session            `json:"session,omitempty"`
+	// AuthoringRevision is the active session's authoring revision after an
+	// authoring save or scene reset; other operations leave it zero.
+	AuthoringRevision uint64 `json:"authoringRevision,omitempty"`
+	// ResetCommands lists the executed commands a scene reset cleared,
+	// ordered by terminal ID, then command ID.
+	ResetCommands []CommandReference `json:"resetCommands,omitempty"`
+}
+
+// CommandFacilityCapability is the capability a player request to run the
+// command exercises, which an active diagnostic capability block denies.
+func CommandFacilityCapability(command ContentNode) FacilityCapability {
+	switch {
+	case command.Behavior() == CommandBehaviorTerminalTransition:
+		return FacilityCapabilityTerminalTransition
+	case command.StateChange != nil && command.StateChange.FacilityAction != nil &&
+		command.StateChange.FacilityAction.RecoveryProgramID != nil:
+		return FacilityCapabilityRunRecoveryProgram
+	default:
+		return FacilityCapabilityExecuteCommand
+	}
+}
+
+// CommandReference names one command of one terminal.
+type CommandReference struct {
+	TerminalID string `json:"terminalId"`
+	CommandID  string `json:"commandId"`
 }
 
 // FacilityEntityKind identifies a durable entity addressed by dependency
@@ -957,9 +983,12 @@ type FacilityConditionPreview struct {
 // requires exactly one override.
 type FacilityPreview struct {
 	ExpectedFacilityRevision uint64
-	TerminalID               string
-	DeviceState              *FacilityDeviceStatePreview
-	Condition                *FacilityConditionPreview
+	// ExpectedAuthoringRevision, when non-zero, rejects a preview of a
+	// session whose authored configuration has moved on.
+	ExpectedAuthoringRevision uint64
+	TerminalID                string
+	DeviceState               *FacilityDeviceStatePreview
+	Condition                 *FacilityConditionPreview
 }
 
 // CloneFacility returns a deeply detached copy of a facility aggregate.

@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
 
+import { expectSaved } from './helpers/authoring-bar.mjs';
 import {
   demoSession, facilityState, openOverseer, resetFixture, seedDemo, seedSession,
 } from './helpers/overseer-forms.mjs';
 
-const APPLY = 'ПРИМЕНИТЬ К ЧЕРНОВИКУ';
-const SAVE = 'СОХРАНИТЬ ИЗМЕНЕНИЯ СЕССИИ';
+const DONE = 'ГОТОВО';
 const SPORES = 'Споровое загрязнение воздушного контура';
 
 const conditionByName = async (request, name) =>
@@ -38,24 +38,34 @@ test('a new fault can start the game active and stays active after resets', asyn
   await dialog.getByLabel('БЛОКИРУЕМАЯ ВОЗМОЖНОСТЬ', { exact: true }).selectOption('execute-command');
   await dialog.locator('#facilityConditionPrivateRecovery').check();
   await dialog.locator('#facilityConditionInitialActive').check();
-  await dialog.getByRole('button', { name: APPLY, exact: true }).click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
   await expect(dialog).toBeHidden();
   const row = page.locator('#facilityConditionList').getByRole('button', { name: /Привод заклинило/ });
   await expect(row).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: АКТИВНА');
 
-  await page.getByRole('button', { name: SAVE, exact: true }).click();
-  await expect(page.locator('#facilityStatus')).toHaveText('ИЗМЕНЕНИЯ СЕССИИ СОХРАНЕНЫ');
-  expect(await conditionByName(request, 'Привод заклинило')).toMatchObject({ initialActive: true, currentActive: true });
+  await expect.poll(() => conditionByName(request, 'Привод заклинило'))
+    .toMatchObject({ initialActive: true, currentActive: true });
+  await expectSaved(page);
 
   await page.locator('#btnResetFacilityDevice').click();
   await page.locator('#btnConfirmFacilityDeviceReset').click();
   await expect(page.locator('#facilityStatus')).toHaveText('УСТРОЙСТВО СБРОШЕНО');
   expect(await conditionByName(request, 'Привод заклинило')).toMatchObject({ initialActive: true, currentActive: true });
 
-  await page.locator('#btnResetFacility').click();
-  await page.locator('#btnConfirmFacilityReset').click();
-  await expect(page.locator('#facilityStatus')).toHaveText('ОБЪЕКТ СБРОШЕН');
+  // «СБРОСИТЬ СЦЕНУ» restores every starting value, so the fault stays active.
+  await page.getByRole('button', { name: 'СБРОСИТЬ СЦЕНУ', exact: true }).click();
+  const sceneReset = page.locator('#sceneResetDialog');
+  await expect(sceneReset).toBeVisible();
+  await sceneReset.locator('#btnConfirmSceneReset').click();
+  await expect(sceneReset).toBeHidden();
+  await expect(page.locator('#coordinationStatus')).toHaveText('СЦЕНА СБРОШЕНА');
+  const reset = await facilityState(request);
+  for (const device of reset.facility.devices) expect(device.currentStateId, device.id).toBe(device.initialStateId);
+  for (const condition of reset.facility.conditions) {
+    expect(Boolean(condition.currentActive), condition.id).toBe(Boolean(condition.initialActive));
+  }
   expect(await conditionByName(request, 'Привод заклинило')).toMatchObject({ initialActive: true, currentActive: true });
+  await expect(row).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: АКТИВНА');
 });
 
 test('changing an existing fault starting activity keeps its current activity', async ({ page, request }) => {
@@ -64,12 +74,11 @@ test('changing an existing fault starting activity keeps its current activity', 
   const dialog = await openSporeCondition(page);
   await expect(dialog.locator('#facilityConditionInitialActive')).toBeChecked();
   await dialog.locator('#facilityConditionInitialWorking').check();
-  await dialog.getByRole('button', { name: APPLY, exact: true }).click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
   const row = page.locator('#facilityConditionList').getByRole('button', { name: new RegExp(SPORES) });
   await expect(row).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: ИСПРАВНО');
-  await page.getByRole('button', { name: SAVE, exact: true }).click();
-  await expect(page.locator('#facilityStatus')).toHaveText('ИЗМЕНЕНИЯ СЕССИИ СОХРАНЕНЫ');
-  expect(await conditionByName(request, SPORES)).toMatchObject({ initialActive: false, currentActive: true });
+  await expect.poll(() => conditionByName(request, SPORES)).toMatchObject({ initialActive: false, currentActive: true });
+  await expectSaved(page);
   await row.click();
   await expect(page.locator('#facilitySelectedConditionSummary')).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: ИСПРАВНО');
 });

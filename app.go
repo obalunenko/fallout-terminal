@@ -14,6 +14,7 @@ import (
 
 	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
@@ -50,7 +51,6 @@ type sessionCommands interface {
 	Create(context.Context) sessionservice.SessionResult
 	Open(context.Context) sessionservice.SessionResult
 	CopyDemo(context.Context) sessionservice.SessionResult
-	Save(context.Context, domain.Session, uint64) sessionservice.SaveResult
 	Snapshot() sessionservice.ActiveSession
 }
 
@@ -65,7 +65,6 @@ type sessionSnapshotService interface {
 
 type sessionCommandStateCommands interface {
 	ResetCommandState(context.Context, string, string) sessionservice.CommandStateResult
-	ResetTerminalCommandStates(context.Context, string) sessionservice.CommandStateResult
 }
 
 // PlayerConfigService owns trusted native selection and strict durable files.
@@ -111,8 +110,12 @@ type coordinationTerminalGroupService interface {
 	ReplaceTerminalGroups(context.Context, domain.TerminalGroupCandidate) (*domain.MasterCoordinationState, *controlservice.TerminalGroupMutation, error)
 }
 
-type coordinationFacilityAuthoringService interface {
-	SaveFacilityAuthoring(context.Context, controlservice.FacilityAuthoringRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
+type coordinationAuthoringService interface {
+	SaveAuthoring(context.Context, controlservice.AuthoringSaveRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
+}
+
+type coordinationSceneResetService interface {
+	ResetScene(context.Context, controlservice.SceneResetRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
 }
 
 type coordinationFacilityRecoveryService interface {
@@ -129,7 +132,6 @@ type coordinationFacilityInspectionService interface {
 
 type coordinationFacilityResetService interface {
 	ResetFacilityDevice(context.Context, controlservice.FacilityDeviceResetRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
-	ResetFacility(context.Context, controlservice.FacilityResetRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
 }
 
 type coordinationFacilityLifecycleService interface {
@@ -157,7 +159,6 @@ func (noopCoordinationMasterEventDeferral) Discard(*domain.MasterCoordinationSta
 type coordinationTerminalService interface {
 	RequestTerminalActivation(domain.TerminalTarget) (*domain.MasterCoordinationState, error)
 	RequestTerminalClear() (*domain.MasterCoordinationState, error)
-	UpdateLiveTerminal(domain.ContentNode, *string) (*domain.MasterCoordinationState, error)
 	ResetFailedHack(domain.TerminalTarget) (*domain.MasterCoordinationState, error)
 }
 
@@ -175,7 +176,6 @@ type coordinationCommandExecutionService interface {
 
 type coordinationCommandStateResetService interface {
 	ResetCommandState(context.Context, string, string) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
-	ResetTerminalCommandStates(context.Context, string) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error)
 }
 
 type coordinationTerminalNavigationService interface {
@@ -397,15 +397,41 @@ type TerminalGroupReplacementResult struct {
 	SessionRevision   uint64                          `json:"sessionRevision"`
 	Session           *domain.Session                 `json:"session,omitempty"`
 	CoordinationState *domain.MasterCoordinationState `json:"coordinationState"`
+	AuthoringRevision uint64                          `json:"authoringRevision,omitempty"`
 }
 
-// FacilityAuthoringPayload is the complete private facility draft and the
-// canonical revisions against which the Overseer reviewed it.
-type FacilityAuthoringPayload struct {
-	Session                  *domain.Session `json:"session"`
-	ExpectedSessionRevision  uint64          `json:"expectedSessionRevision"`
-	ExpectedFacilityRevision uint64          `json:"expectedFacilityRevision"`
-	CorrelationID            string          `json:"correlationId"`
+// AuthoringSavePayload is one complete authored session saved against the
+// authoring revision the Overseer last saw. Live values in Session are
+// ignored; the session service keeps its own.
+type AuthoringSavePayload struct {
+	Session                   *domain.Session `json:"session"`
+	ExpectedAuthoringRevision uint64          `json:"expectedAuthoringRevision"`
+	CorrelationID             string          `json:"correlationId"`
+}
+
+// SceneResetPayload restores the starting scene against the revisions the
+// Overseer counted its confirmation against.
+type SceneResetPayload struct {
+	ExpectedSessionRevision  uint64 `json:"expectedSessionRevision"`
+	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+	CorrelationID            string `json:"correlationId"`
+}
+
+// PresentationPayload asks what players see of every terminal. A non-zero
+// expected authoring revision rejects an explanation of older edits.
+type PresentationPayload struct {
+	ExpectedAuthoringRevision uint64 `json:"expectedAuthoringRevision"`
+}
+
+// PresentationResult explains, per terminal and node, what players see now
+// and which display rule decides it.
+type PresentationResult struct {
+	OK                bool                       `json:"ok"`
+	Failure           domain.FacilityFailureCode `json:"failure,omitempty"`
+	SessionRevision   uint64                     `json:"sessionRevision"`
+	FacilityRevision  uint64                     `json:"facilityRevision"`
+	AuthoringRevision uint64                     `json:"authoringRevision"`
+	Terminals         []live.TerminalExplanation `json:"terminals"`
 }
 
 // FacilityRecoveryPayload selects one authored private recovery against the
@@ -420,32 +446,29 @@ type FacilityRecoveryPayload struct {
 // FacilityPreviewPayload selects one detached state or condition override for
 // a single terminal at the exact facility revision inspected by the Overseer.
 type FacilityPreviewPayload struct {
-	ExpectedFacilityRevision uint64                             `json:"expectedFacilityRevision"`
-	TerminalID               string                             `json:"terminalId"`
-	DeviceState              *domain.FacilityDeviceStatePreview `json:"deviceState,omitempty"`
-	Condition                *domain.FacilityConditionPreview   `json:"condition,omitempty"`
+	ExpectedFacilityRevision  uint64                             `json:"expectedFacilityRevision"`
+	ExpectedAuthoringRevision uint64                             `json:"expectedAuthoringRevision"`
+	TerminalID                string                             `json:"terminalId"`
+	DeviceState               *domain.FacilityDeviceStatePreview `json:"deviceState,omitempty"`
+	Condition                 *domain.FacilityConditionPreview   `json:"condition,omitempty"`
 }
 
-// FacilityPreviewResult is a detached, private effective terminal projection.
+// FacilityPreviewResult is a detached, private pair of terminal projections:
+// what players see now (Current) and under the override (Terminal).
 type FacilityPreviewResult struct {
 	OK               bool                       `json:"ok"`
 	Failure          domain.FacilityFailureCode `json:"failure,omitempty"`
 	Issues           []domain.FacilityIssue     `json:"issues,omitempty"`
 	FacilityRevision uint64                     `json:"facilityRevision"`
 	Terminal         *domain.PublicLiveState    `json:"terminal,omitempty"`
+	Current          *domain.PublicLiveState    `json:"current,omitempty"`
+	Differences      []live.PreviewDifference   `json:"differences,omitempty"`
 }
 
 // FacilityDeviceResetPayload restores one device and its directly scoped
 // conditions after the Overseer confirms the operation.
 type FacilityDeviceResetPayload struct {
 	DeviceID                 string `json:"deviceId"`
-	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
-	CorrelationID            string `json:"correlationId"`
-}
-
-// FacilityResetPayload restores every authored current value after the
-// Overseer confirms the operation.
-type FacilityResetPayload struct {
 	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
 	CorrelationID            string `json:"correlationId"`
 }
@@ -563,6 +586,8 @@ type PlayerConfigCommandResult struct {
 	Config   *domain.PlayerConfigMetadata    `json:"playerConfig,omitempty"`
 	Session  *domain.Session                 `json:"session,omitempty"`
 	State    *domain.MasterCoordinationState `json:"state"`
+	// AuthoringRevision is set after a player-config association.
+	AuthoringRevision uint64 `json:"authoringRevision,omitempty"`
 }
 
 // TerminalSwitchCommandResult describes either a completed terminal selection
@@ -630,12 +655,6 @@ type LiveTerminalPayload struct {
 	IntroText    string             `json:"introText"`
 }
 
-// LiveUpdatePayload replaces published content without resetting a puzzle.
-type LiveUpdatePayload struct {
-	Tree      domain.ContentNode `json:"tree"`
-	IntroText *string            `json:"introText,omitempty"`
-}
-
 // TerminalSwitchDecisionPayload resolves one opaque unfinished-puzzle switch
 // request with an exact allowlisted decision.
 type TerminalSwitchDecisionPayload struct {
@@ -660,12 +679,6 @@ type TerminalNavigationDecisionPayload struct {
 type ResetCommandStatePayload struct {
 	TerminalID string `json:"terminalId"`
 	CommandID  string `json:"commandId"`
-}
-
-// ResetTerminalCommandStatesPayload addresses one authored terminal whose
-// durable command snapshots should be cleared atomically.
-type ResetTerminalCommandStatesPayload struct {
-	TerminalID string `json:"terminalId"`
 }
 
 // App is the Wails composition root. Domain behavior remains in internal
@@ -1788,38 +1801,6 @@ func (app *App) replaceSessionFacility(session *domain.Session) error {
 	return nil
 }
 
-// SaveSession assigns a monotonic revision and waits until it or a newer
-// accepted revision is durably replaced.
-func (app *App) SaveSession(session domain.Session) (result sessionservice.SaveResult) {
-	defer func() {
-		app.recordOperation("session.save", operationOutcome(result.OK, false), logger.Fields{"revision": result.RequestedRevision})
-	}()
-	commands, ok := app.deps.Sessions.(sessionCommands)
-	if !ok {
-		return sessionservice.SaveResult{Error: "session service is unavailable"}
-	}
-	app.mu.Lock()
-	app.requestedRevision++
-	revision := app.requestedRevision
-	app.saveState = string(sessionservice.SaveStateSaving)
-	app.mu.Unlock()
-
-	commandResult := commands.Save(app.contextSnapshot(), session, revision)
-	app.mu.Lock()
-	if commandResult.SavedRevision > app.savedRevision {
-		app.savedRevision = commandResult.SavedRevision
-	}
-	if revision == app.requestedRevision {
-		if commandResult.OK {
-			app.saveState = string(sessionservice.SaveStateSaved)
-		} else {
-			app.saveState = string(sessionservice.SaveStateFailed)
-		}
-	}
-	app.mu.Unlock()
-	return routeSaveSessionResult(commandResult)
-}
-
 // ReplaceTerminalGroups routes the one private complete-set mutation through
 // the coordinator, then publishes the durable session before the matching
 // coordination revision.
@@ -1886,88 +1867,123 @@ func (app *App) terminalGroupReplacementFailure(message string, state *domain.Ma
 	return result
 }
 
-// SaveFacilityAuthoring validates one complete private draft through the
-// protobuf contract and publishes only a changed canonical durable result.
-func (app *App) SaveFacilityAuthoring(payload FacilityAuthoringPayload) domain.FacilityOperationResult {
+// SaveAuthoring saves one terminal or facility edit, or an undo or redo,
+// against the authoring revision the Overseer last saw. Live changes never
+// make it stale. Accepted edits reach players at once.
+func (app *App) SaveAuthoring(payload AuthoringSavePayload) (result domain.FacilityOperationResult) {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+	defer func() {
+		app.recordOperation("authoring.save", operationOutcome(result.OK, false), logger.Fields{
+			"authoring_revision": result.AuthoringRevision, "session_revision": result.SessionRevision,
+			"facility_revision": result.ResultingFacilityRevision, "changed": result.Changed,
+			"failure": string(result.Failure),
+		})
+	}()
+
+	if payload.Session == nil {
+		return facilityOperationFailureForApp(payload.CorrelationID, domain.FacilityFailureInvalidConfiguration, "session", 0, 0)
+	}
+	semantic, err := authoringSaveRequestToPrivate(controlservice.AuthoringSaveRequest{
+		Candidate: domain.CloneSession(*payload.Session), ExpectedAuthoringRevision: payload.ExpectedAuthoringRevision,
+		CorrelationID: payload.CorrelationID,
+	})
+	if err != nil {
+		return facilityOperationFailureForApp(payload.CorrelationID, domain.FacilityFailureInvalidConfiguration, "session", 0, 0)
+	}
+	routed, err := authoringSaveRequestFromPrivate(semantic, *payload.Session)
+	if err != nil {
+		return facilityOperationFailureForApp(payload.CorrelationID, domain.FacilityFailureInvalidConfiguration, "session", 0, 0)
+	}
+	coordination, ok := app.deps.Coordination.(coordinationAuthoringService)
+	if !ok {
+		return facilityOperationFailureForApp(routed.CorrelationID, domain.FacilityFailureRuntimeContextEnded, "request", 0, 0)
+	}
+	masterEvents := app.deferMasterEvents()
+	defer masterEvents.Commit()
+
+	app.mu.Lock()
+	app.saveState = string(sessionservice.SaveStateSaving)
+	app.mu.Unlock()
+	state, operation, _ := coordination.SaveAuthoring(app.contextSnapshot(), routed)
+	detached := domain.FacilityOperationResult{}
+	valid := operation != nil
+	if valid {
+		var conversionErr error
+		detached, conversionErr = detachedFacilityOperationResultForApp(*operation)
+		valid = conversionErr == nil && detached.CorrelationID == routed.CorrelationID &&
+			(!detached.OK || detached.Session != nil) &&
+			(!detached.OK || !detached.Changed || app.canPublishFacilityMutationState(
+				state, detached.SessionRevision, detached.ResultingFacilityRevision,
+			))
+	}
+	if !valid {
+		masterEvents.Discard(state)
+		app.markSaveState(sessionservice.SaveStateFailed)
+		return facilityOperationFailureForApp(routed.CorrelationID, domain.FacilityFailurePersistenceFailed, "session", 0, 0)
+	}
+	if !detached.OK {
+		masterEvents.Discard(state)
+		app.markSaveState(sessionservice.SaveStateFailed)
+		return detached
+	}
+	if detached.Changed {
+		canonical := domain.CloneSession(*detached.Session)
+		app.acceptSessionStateRevision(detached.SessionRevision)
+		app.publishSessionState(SessionStateEvent{Revision: detached.SessionRevision, Session: &canonical})
+		masterEvents.Commit()
+		app.publishCoordinationStateIfNewer(state)
+	} else {
+		masterEvents.Discard(state)
+		app.markSaveState(sessionservice.SaveStateSaved)
+	}
+	return detached
+}
+
+// ResetScene returns every device, fault, and executed command of every
+// terminal to its starting value in one step. Players keep their terminal,
+// route, and hacking progress.
+func (app *App) ResetScene(payload SceneResetPayload) domain.FacilityOperationResult {
 	app.coordinationCommandMu.Lock()
 	defer app.coordinationCommandMu.Unlock()
 
-	if payload.Session == nil {
+	routed := routeSceneResetRequest(payload)
+	if routed.CorrelationID == "" || strings.TrimSpace(routed.CorrelationID) != routed.CorrelationID {
 		return facilityOperationFailureForApp(
-			payload.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"session",
-			payload.ExpectedSessionRevision,
-			payload.ExpectedFacilityRevision,
+			routed.CorrelationID, domain.FacilityFailureInvalidConfiguration, "request",
+			routed.ExpectedSessionRevision, routed.ExpectedFacilityRevision,
 		)
 	}
-	request := controlservice.FacilityAuthoringRequest{
-		Candidate:                domain.CloneSession(*payload.Session),
-		ExpectedSessionRevision:  payload.ExpectedSessionRevision,
-		ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
-		CorrelationID:            payload.CorrelationID,
-	}
-	semantic, err := facilityAuthoringRequestToPrivate(request)
-	if err != nil {
-		return facilityOperationFailureForApp(
-			payload.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"session",
-			payload.ExpectedSessionRevision,
-			payload.ExpectedFacilityRevision,
-		)
-	}
-	routed, err := facilityAuthoringRequestFromPrivate(semantic, *payload.Session)
-	if err != nil {
-		return facilityOperationFailureForApp(
-			payload.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"session",
-			payload.ExpectedSessionRevision,
-			payload.ExpectedFacilityRevision,
-		)
-	}
-	coordination, ok := app.deps.Coordination.(coordinationFacilityAuthoringService)
+	coordination, ok := app.deps.Coordination.(coordinationSceneResetService)
 	if !ok {
 		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailureRuntimeContextEnded,
-			"request",
-			routed.ExpectedSessionRevision,
-			routed.ExpectedFacilityRevision,
+			routed.CorrelationID, domain.FacilityFailureRuntimeContextEnded, "request",
+			routed.ExpectedSessionRevision, routed.ExpectedFacilityRevision,
 		)
 	}
 	masterEvents := app.deferMasterEvents()
 	defer masterEvents.Commit()
 
-	state, result, _ := coordination.SaveFacilityAuthoring(app.contextSnapshot(), routed)
-	if result == nil {
+	state, operation, _ := coordination.ResetScene(app.contextSnapshot(), routed)
+	detached := domain.FacilityOperationResult{}
+	valid := operation != nil
+	if valid {
+		var conversionErr error
+		detached, conversionErr = detachedFacilityOperationResultForApp(*operation)
+		valid = conversionErr == nil && detached.CorrelationID == routed.CorrelationID &&
+			(!detached.OK || detached.Session != nil) &&
+			(!detached.OK || !detached.Changed || app.canPublishFacilityMutationState(
+				state, detached.SessionRevision, detached.ResultingFacilityRevision,
+			))
+	}
+	if !valid {
 		masterEvents.Discard(state)
 		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailurePersistenceFailed,
-			"facility",
-			routed.ExpectedSessionRevision,
-			routed.ExpectedFacilityRevision,
+			routed.CorrelationID, domain.FacilityFailurePersistenceFailed, "facility",
+			routed.ExpectedSessionRevision, routed.ExpectedFacilityRevision,
 		)
 	}
-	detached, conversionErr := detachedFacilityOperationResultForApp(*result)
-	if conversionErr != nil || !validFacilityAuthoringResultForApp(detached, routed) ||
-		(detached.OK && detached.Changed && !app.canPublishFacilityMutationState(
-			state,
-			detached.SessionRevision,
-			detached.ResultingFacilityRevision,
-		)) {
-		masterEvents.Discard(state)
-		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailurePersistenceFailed,
-			"facility",
-			routed.ExpectedSessionRevision,
-			routed.ExpectedFacilityRevision,
-		)
-	}
-	if detached.OK && detached.Changed && detached.Session != nil {
+	if detached.OK && detached.Changed {
 		canonical := domain.CloneSession(*detached.Session)
 		app.acceptSessionStateRevision(detached.SessionRevision)
 		app.publishSessionState(SessionStateEvent{Revision: detached.SessionRevision, Session: &canonical})
@@ -1979,40 +1995,42 @@ func (app *App) SaveFacilityAuthoring(payload FacilityAuthoringPayload) domain.F
 	return detached
 }
 
-func validFacilityAuthoringResultForApp(
-	result domain.FacilityOperationResult,
-	request controlservice.FacilityAuthoringRequest,
-) bool {
-	if result.CorrelationID != request.CorrelationID {
-		return false
+// DescribePresentation explains what players see of every terminal of the
+// active session and which display rule decides it. It never changes state.
+func (app *App) DescribePresentation(payload PresentationPayload) PresentationResult {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+
+	routed := routePresentationRequest(payload)
+	sessions, ok := app.deps.Sessions.(sessionSnapshotService)
+	if !ok {
+		return presentationResultFromPrivate(presentationResultToPrivate(PresentationResult{
+			Failure: domain.FacilityFailureRuntimeContextEnded, Terminals: []live.TerminalExplanation{},
+		}))
 	}
-	if !result.OK {
-		return !result.Changed && knownFacilityRecoveryFailureForApp(result.Failure) &&
-			result.PreviousFacilityRevision == result.ResultingFacilityRevision &&
-			len(result.AffectedDeviceIDs) == 0 && len(result.AffectedConditionIDs) == 0 &&
-			(result.Session == nil || facilityRevisionForApp(result.Session.Facility) == result.ResultingFacilityRevision)
+	active := sessions.Snapshot()
+	result := PresentationResult{
+		SessionRevision: active.SavedRevision, AuthoringRevision: active.AuthoringRevision,
+		Terminals: []live.TerminalExplanation{},
 	}
-	if result.Failure != "" && result.Failure != domain.FacilityFailureUnspecified || result.Session == nil ||
-		result.PreviousFacilityRevision != request.ExpectedFacilityRevision ||
-		hasDuplicateStrings(result.AffectedDeviceIDs) || hasDuplicateStrings(result.AffectedConditionIDs) {
-		return false
+	switch {
+	case active.Session == nil:
+		result.Failure = domain.FacilityFailureRuntimeContextEnded
+	case routed.ExpectedAuthoringRevision != 0 && routed.ExpectedAuthoringRevision != active.AuthoringRevision:
+		result.Failure = domain.FacilityFailureStaleRevision
+		result.FacilityRevision = facilityRevisionForApp(active.Session.Facility)
+	default:
+		result.OK = true
+		result.FacilityRevision = facilityRevisionForApp(active.Session.Facility)
+		result.Terminals = live.ExplainSession(*active.Session)
 	}
-	wantSessionRevision := request.ExpectedSessionRevision
-	wantFacilityRevision := request.ExpectedFacilityRevision
-	if result.Changed {
-		wantSessionRevision++
-		if result.Session.Facility != nil {
-			wantFacilityRevision++
-		} else {
-			wantFacilityRevision = 0
-		}
-	}
-	if !result.Changed && (len(result.AffectedDeviceIDs) != 0 || len(result.AffectedConditionIDs) != 0) {
-		return false
-	}
-	return result.SessionRevision == wantSessionRevision &&
-		result.ResultingFacilityRevision == wantFacilityRevision &&
-		facilityRevisionForApp(result.Session.Facility) == result.ResultingFacilityRevision
+	return presentationResultFromPrivate(presentationResultToPrivate(result))
+}
+
+func (app *App) markSaveState(state sessionservice.SaveState) {
+	app.mu.Lock()
+	app.saveState = string(state)
+	app.mu.Unlock()
 }
 
 func facilityRevisionForApp(facility *domain.Facility) uint64 {
@@ -2183,6 +2201,8 @@ func (app *App) PreviewFacility(payload FacilityPreviewPayload) FacilityPreviewR
 		TerminalID:               payload.TerminalID,
 		DeviceState:              cloneFacilityDeviceStatePreview(payload.DeviceState),
 		Condition:                cloneFacilityConditionPreview(payload.Condition),
+
+		ExpectedAuthoringRevision: payload.ExpectedAuthoringRevision,
 	}
 	semantic, err := facilityPreviewRequestToPrivate(request)
 	if err != nil || !validFacilityPreviewRequestForApp(request) {
@@ -2209,6 +2229,9 @@ func (app *App) PreviewFacility(payload FacilityPreviewPayload) FacilityPreviewR
 		)
 	}
 
+	if !app.authoringRevisionMatches(routed.ExpectedAuthoringRevision) {
+		return facilityPreviewFailureForApp(domain.FacilityFailureStaleRevision, payload.ExpectedFacilityRevision, "session")
+	}
 	result := coordination.PreviewFacility(app.contextSnapshot(), routed)
 	detached, conversionErr := facilityPreviewResultFromPrivate(facilityPreviewResultToPrivate(result))
 	if conversionErr != nil || !validFacilityPreviewResultForApp(detached, routed) {
@@ -2224,7 +2247,19 @@ func (app *App) PreviewFacility(payload FacilityPreviewPayload) FacilityPreviewR
 		Issues:           detached.Issues,
 		FacilityRevision: detached.FacilityRevision,
 		Terminal:         detached.Terminal,
+		Current:          detached.Current,
+		Differences:      detached.Differences,
 	}
+}
+
+// authoringRevisionMatches reports whether a non-zero expected authoring
+// revision names the active session's current one. Zero skips the check.
+func (app *App) authoringRevisionMatches(expected uint64) bool {
+	if expected == 0 {
+		return true
+	}
+	sessions, ok := app.deps.Sessions.(sessionSnapshotService)
+	return ok && sessions.Snapshot().AuthoringRevision == expected
 }
 
 func validFacilityPreviewRequestForApp(preview domain.FacilityPreview) bool {
@@ -2314,37 +2349,11 @@ func (app *App) ResetFacilityDevice(payload FacilityDeviceResetPayload) domain.F
 			routed.ExpectedFacilityRevision,
 		)
 	}
-	return app.resetFacility(routed, false)
-}
-
-// ResetFacility restores every authored current value through one serialized
-// coordinator operation.
-func (app *App) ResetFacility(payload FacilityResetPayload) domain.FacilityOperationResult {
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	routed := facilityResetRequestFromPrivate(facilityResetRequestToPrivate(controlservice.FacilityResetRequest{
-		ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
-		CorrelationID:            payload.CorrelationID,
-	}))
-	if routed.CorrelationID == "" || strings.TrimSpace(routed.CorrelationID) != routed.CorrelationID {
-		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"request",
-			0,
-			routed.ExpectedFacilityRevision,
-		)
-	}
-	return app.resetFacility(controlservice.FacilityDeviceResetRequest{
-		ExpectedFacilityRevision: routed.ExpectedFacilityRevision,
-		CorrelationID:            routed.CorrelationID,
-	}, true)
+	return app.resetFacility(routed)
 }
 
 func (app *App) resetFacility(
 	request controlservice.FacilityDeviceResetRequest,
-	wholeFacility bool,
 ) domain.FacilityOperationResult {
 	coordination, ok := app.deps.Coordination.(coordinationFacilityResetService)
 	if !ok {
@@ -2360,16 +2369,7 @@ func (app *App) resetFacility(
 	masterEvents := app.deferMasterEvents()
 	defer masterEvents.Commit()
 
-	var state *domain.MasterCoordinationState
-	var result *domain.FacilityOperationResult
-	if wholeFacility {
-		state, result, _ = coordination.ResetFacility(app.contextSnapshot(), controlservice.FacilityResetRequest{
-			ExpectedFacilityRevision: request.ExpectedFacilityRevision,
-			CorrelationID:            request.CorrelationID,
-		})
-	} else {
-		state, result, _ = coordination.ResetFacilityDevice(app.contextSnapshot(), request)
-	}
+	state, result, _ := coordination.ResetFacilityDevice(app.contextSnapshot(), request)
 	if result == nil {
 		masterEvents.Discard(state)
 		return facilityOperationFailureForApp(
@@ -2381,7 +2381,7 @@ func (app *App) resetFacility(
 		)
 	}
 	detached, conversionErr := detachedFacilityOperationResultForApp(*result)
-	if conversionErr != nil || !validFacilityResetResultForApp(detached, request, wholeFacility) ||
+	if conversionErr != nil || !validFacilityResetResultForApp(detached, request) ||
 		(detached.OK && detached.Changed && !app.canPublishFacilityMutationState(
 			state,
 			detached.SessionRevision,
@@ -2411,7 +2411,6 @@ func (app *App) resetFacility(
 func validFacilityResetResultForApp(
 	result domain.FacilityOperationResult,
 	request controlservice.FacilityDeviceResetRequest,
-	wholeFacility bool,
 ) bool {
 	if result.CorrelationID != request.CorrelationID {
 		return false
@@ -2438,7 +2437,7 @@ func validFacilityResetResultForApp(
 		hasDuplicateStrings(result.AffectedDeviceIDs) || hasDuplicateStrings(result.AffectedConditionIDs) {
 		return false
 	}
-	return wholeFacility || slices.Equal(result.AffectedDeviceIDs, []string{request.DeviceID})
+	return slices.Equal(result.AffectedDeviceIDs, []string{request.DeviceID})
 }
 
 func hasDuplicateStrings(values []string) bool {
@@ -2460,7 +2459,14 @@ func (app *App) canPublishFacilityMutationState(
 	sessionRevision uint64,
 	facilityRevision uint64,
 ) bool {
-	if state == nil || state.FacilityRevision == nil || *state.FacilityRevision != facilityRevision {
+	if state == nil {
+		return false
+	}
+	stateFacilityRevision := uint64(0)
+	if state.FacilityRevision != nil {
+		stateFacilityRevision = *state.FacilityRevision
+	}
+	if stateFacilityRevision != facilityRevision {
 		return false
 	}
 	app.mu.RLock()
@@ -3166,38 +3172,6 @@ func commandExecutionMasterError(err error) string {
 	}
 }
 
-// UpdateLiveTerminal validates replacement content and preserves the current
-// puzzle through the ordered coordinator boundary. The legacy fallback keeps
-// older focused hosts compatible while production always provides coordination.
-func (app *App) UpdateLiveTerminal(payload LiveUpdatePayload) CoordinationCommandResult {
-	if err := app.validateLiveTerminalUpdate(payload.Tree, payload.IntroText); err != nil {
-		return app.coordinationFailure(err.Error())
-	}
-	payload, err := routeLiveTerminalUpdateRequest(payload)
-	if err != nil {
-		return app.coordinationFailure("live terminal update could not be represented by the private contract")
-	}
-	if coordination, ok := app.deps.Coordination.(coordinationTerminalService); ok {
-		state, err := coordination.UpdateLiveTerminal(payload.Tree, payload.IntroText)
-		return app.completeCoordinationCommand(state, err, "no terminal is active")
-	}
-	if app.deps.Live == nil {
-		return app.coordinationFailure("live service is unavailable")
-	}
-	state, ok := app.deps.Live.Update(payload.Tree, payload.IntroText)
-	if !ok || state == nil {
-		return app.coordinationFailure("no terminal is live")
-	}
-	if publisher, ok := app.deps.Player.(playerPublisher); ok {
-		publisher.PublishUpdate()
-	}
-	app.updateHackState(state.Hack)
-	app.mu.RLock()
-	coordinationState := domain.CloneMasterCoordinationState(app.coordinationState)
-	app.mu.RUnlock()
-	return routeCoordinationResult(CoordinationCommandResult{OK: true, State: coordinationState})
-}
-
 // ResetFailedHack validates the latest authored terminal payload at the
 // trusted desktop edge, then asks the coordinator to replace only the failed
 // active puzzle. Player transports never receive this command surface.
@@ -3255,31 +3229,6 @@ func (app *App) ResetCommandState(payload ResetCommandStatePayload) SessionState
 	return app.completeCommandStateReset(payload.TerminalID, result)
 }
 
-// ResetTerminalCommandStates removes all durable execution snapshots for one
-// stable terminal ID in one session-service mutation.
-func (app *App) ResetTerminalCommandStates(payload ResetTerminalCommandStatesPayload) SessionStateResult {
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	payload.TerminalID = strings.TrimSpace(payload.TerminalID)
-	if payload.TerminalID == "" {
-		return routeSessionStateResult(SessionStateResult{Error: "terminal ID must not be blank"})
-	}
-	payload = routeResetTerminalCommandStatesRequest(payload)
-	if coordination, ok := app.deps.Coordination.(coordinationCommandStateResetService); ok {
-		state, mutation, err := coordination.ResetTerminalCommandStates(app.contextSnapshot(), payload.TerminalID)
-		if !errors.Is(err, controlservice.ErrCommandStateStorageUnavailable) {
-			return app.completeCoordinatedCommandStateReset(state, mutation, err)
-		}
-	}
-	commands, ok := app.deps.Sessions.(sessionCommandStateCommands)
-	if !ok {
-		return routeSessionStateResult(SessionStateResult{Error: "coordination service is unavailable"})
-	}
-	result := commands.ResetTerminalCommandStates(app.contextSnapshot(), payload.TerminalID)
-	return app.completeCommandStateReset(payload.TerminalID, result)
-}
-
 func (app *App) completeCoordinatedCommandStateReset(
 	state *domain.MasterCoordinationState,
 	mutation *controlservice.CommandStateMutation,
@@ -3334,16 +3283,6 @@ func (app *App) completeCommandStateReset(terminalID string, result sessionservi
 				CommandStates: cloneCommandExecutionStates(terminal.CommandStates),
 				HackLevel:     terminal.HackLevel, IntroText: terminal.IntroText,
 			})
-			if err != nil || state == nil {
-				refreshError = "active terminal could not be refreshed"
-			} else {
-				app.publishCoordinationState(state)
-			}
-		} else if coordination, ok := app.deps.Coordination.(coordinationTerminalService); ok {
-			// Focused legacy fakes implement only the authored refresh seam. The
-			// production coordinator always takes the canonical target path above.
-			intro := terminal.IntroText
-			state, err := coordination.UpdateLiveTerminal(terminal.Root, &intro)
 			if err != nil || state == nil {
 				refreshError = "active terminal could not be refreshed"
 			} else {
@@ -3808,37 +3747,6 @@ func (app *App) validateLiveTerminal(id, name string, tree domain.ContentNode, h
 		}
 	}
 	return validateIsolatedLiveTerminal(id, name, validationTree, hackLevel, intro)
-}
-
-func (app *App) validateLiveTerminalUpdate(tree domain.ContentNode, intro *string) error {
-	validationTree := cloneTreeForBridgeValidation(tree)
-	if sessions, ok := app.deps.Sessions.(sessionCommands); ok {
-		active := sessions.Snapshot()
-		var state *domain.MasterCoordinationState
-		if app.deps.Coordination != nil {
-			state = app.deps.Coordination.Snapshot()
-		}
-		if active.Session != nil && state != nil && state.Broadcast != nil && state.Broadcast.ActiveTerminalID != nil {
-			for index := range active.Session.Terminals {
-				if active.Session.Terminals[index].ID != *state.Broadcast.ActiveTerminalID {
-					continue
-				}
-				terminal := active.Session.Terminals[index]
-				terminal.Root = validationTree
-				if intro != nil {
-					terminal.IntroText = *intro
-				}
-				active.Session.Terminals[index] = terminal
-				return domain.ValidateSession(*active.Session)
-			}
-			return fmt.Errorf("terminal %q is not part of the active session", *state.Broadcast.ActiveTerminalID)
-		}
-	}
-	value := ""
-	if intro != nil {
-		value = *intro
-	}
-	return validateIsolatedLiveTerminal("live-terminal", "Live Terminal", validationTree, 0, value)
 }
 
 func validateIsolatedLiveTerminal(id, name string, tree domain.ContentNode, hackLevel int, intro string) error {

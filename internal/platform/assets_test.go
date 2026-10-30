@@ -266,7 +266,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
 	}
 
-	const stableDescriptorShape = "7a73a3143e8d13808ed68a61fc6a3a69423347d891ffcf3fbe6e93c6893f0ab2"
+	const stableDescriptorShape = "dc0ab73da11a23139820101044aa5ff7e852c9f2377bb9e29091fffc37b68101"
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
@@ -576,8 +576,8 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
-		"proto/schema-revision.txt":                       "a0dc1c535b2c6858d050d46ea4dcffa0e9b442fa78e3ee7011c286ec5584857d",
-		"proto/compatibility-baseline.binpb":              "01266b7dc0062633458b8047df4c16d1a648160cb79a45b3ff45c0b9af8bdcb5",
+		"proto/schema-revision.txt":                       "370e3e0db91e33c34dd21ee4543a315f3820b04d4150751a51a8557e70b913ba",
+		"proto/compatibility-baseline.binpb":              "541ee9038f277dbd2f1a18832e2f940c616dd3f72d4faed9a9546f8348a0808a",
 	}
 	for relative, want := range wantDigests {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
@@ -1163,14 +1163,17 @@ func TestOverseerTerminalCommandsCannotBypassCoordinator(t *testing.T) {
 	for _, required := range []string{
 		"requestTerminalActivation: desktopService.RequestTerminalActivation",
 		"requestTerminalClear: desktopService.RequestTerminalClear",
-		"updateLiveTerminal: desktopService.UpdateLiveTerminal",
+		"saveAuthoring: desktopService.SaveAuthoring",
 		"forceHackSuccess: desktopService.ForceHackSuccess",
 	} {
 		assert.Falsef(t, !strings.Contains(facade, required),
 			"overseer desktop facade is missing coordinator-owned command %q", required)
 
 	}
-	for _, forbidden := range []string{"SetLiveTerminal", "ClearLiveTerminal", "setLiveTerminal", "clearLiveTerminal"} {
+	for _, forbidden := range []string{
+		"SetLiveTerminal", "ClearLiveTerminal", "setLiveTerminal", "clearLiveTerminal",
+		"UpdateLiveTerminal", "updateLiveTerminal",
+	} {
 		assert.Falsef(t, strings.Contains(facade, forbidden),
 			"overseer desktop facade exposes legacy terminal command %q", forbidden)
 
@@ -1178,7 +1181,7 @@ func TestOverseerTerminalCommandsCannotBypassCoordinator(t *testing.T) {
 	for _, required := range []string{
 		"func (app *App) RequestTerminalActivation(",
 		"func (app *App) RequestTerminalClear(",
-		"func (app *App) UpdateLiveTerminal(",
+		"func (app *App) SaveAuthoring(",
 		"func (app *App) ForceHackSuccess(",
 	} {
 		assert.Falsef(t, !strings.Contains(app, required),
@@ -1188,6 +1191,7 @@ func TestOverseerTerminalCommandsCannotBypassCoordinator(t *testing.T) {
 	for _, forbidden := range []string{
 		"func (app *App) SetLiveTerminal(",
 		"func (app *App) ClearLiveTerminal(",
+		"func (app *App) UpdateLiveTerminal(",
 	} {
 		assert.Falsef(t, strings.Contains(app, forbidden),
 			"Wails App still binds legacy terminal command %q", forbidden)
@@ -2007,7 +2011,6 @@ func TestOverseerTerminalActionsExposeCanonicalContextAndAccessibleDialogs(t *te
 	for _, required := range []string{
 		"+ СОЗДАТЬ ТЕРМИНАЛ",
 		"СДЕЛАТЬ АКТИВНЫМ",
-		"ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ",
 		"СНЯТЬ С ЭФИРА",
 		"ПЕРЕПРИМЕНИТЬ НАСТРОЙКИ",
 		"В ЭФИРЕ",
@@ -2026,6 +2029,7 @@ func TestOverseerTerminalActionsExposeCanonicalContextAndAccessibleDialogs(t *te
 		"ОБНОВИТЬ АКТИВНЫЙ",
 		"ОБНОВИТЬ У ИГРОКОВ",
 		"УБРАТЬ АКТИВНЫЙ ТЕРМИНАЛ",
+		"ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ",
 	} {
 		assert.NotContains(t, overseerSurface, superseded,
 			"Overseer terminal-action surface retains superseded label %q", superseded)
@@ -2071,7 +2075,8 @@ func TestOverseerTerminalActionsExposeCanonicalContextAndAccessibleDialogs(t *te
 		"takeOffAirDialog",
 		"RequestTerminalActivation",
 		"RequestTerminalClear",
-		"UpdateLiveTerminal",
+		"SaveAuthoring",
+		"ResetScene",
 	} {
 		assert.NotContains(t, playerSurface, privateControl,
 			"player surface exposes private Overseer action %q", privateControl)

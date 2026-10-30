@@ -11,59 +11,6 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as domain$0 from "../domain/models.js";
 
 /**
- * SaveResult reports both the caller's revision and the newest revision known
- * to be durable when that caller completes.
- */
-export class SaveResult {
-    /**
-     * Creates a new SaveResult instance.
-     * @param {Partial<SaveResult>} [$$source = {}] - The source object to create the SaveResult.
-     */
-    constructor($$source = {}) {
-        if (!("ok" in $$source)) {
-            /**
-             * @member
-             * @type {boolean}
-             */
-            this["ok"] = false;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {string | undefined}
-             */
-            this["error"] = undefined;
-        }
-        if (!("requestedRevision" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["requestedRevision"] = 0;
-        }
-        if (/** @type {any} */(false)) {
-            /**
-             * @member
-             * @type {number | undefined}
-             */
-            this["savedRevision"] = undefined;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new SaveResult instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {SaveResult}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SaveResult(/** @type {Partial<SaveResult>} */($$parsedSource));
-    }
-}
-
-/**
  * SessionResult is returned by create, open, and demo-copy commands.
  */
 export class SessionResult {
@@ -106,6 +53,15 @@ export class SessionResult {
              * @type {domain$0.Session | null | undefined}
              */
             this["session"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * AuthoringRevision is the active session's authoring revision after the
+             * command; zero when no session is active.
+             * @member
+             * @type {number | undefined}
+             */
+            this["authoringRevision"] = undefined;
         }
 
         Object.assign(this, $$source);

@@ -1754,7 +1754,6 @@ func TestEntryContentCommandRejectsMalformedDurableSnapshots(t *testing.T) {
 
 type commandStateResetCoordinator interface {
 	ResetCommandState(context.Context, string, string) (*domain.MasterCoordinationState, *CommandStateMutation, error)
-	ResetTerminalCommandStates(context.Context, string) (*domain.MasterCoordinationState, *CommandStateMutation, error)
 }
 
 func TestEntryContentCommandStateResetsPublishOnlyCanonicalDurableState(t *testing.T) {
@@ -1766,12 +1765,6 @@ func TestEntryContentCommandStateResetsPublishOnlyCanonicalDurableState(t *testi
 			name: "individual",
 			reset: func(resetter commandStateResetCoordinator, ctx context.Context, terminalID, commandID string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
 				return resetter.ResetCommandState(ctx, terminalID, commandID)
-			},
-		},
-		{
-			name: "terminal-wide",
-			reset: func(resetter commandStateResetCoordinator, ctx context.Context, terminalID, _ string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
-				return resetter.ResetTerminalCommandStates(ctx, terminalID)
 			},
 		},
 	} {
@@ -6055,10 +6048,6 @@ func (store *recordingCommandStateResetStore) ResetCommandState(ctx context.Cont
 	return store.reset(ctx)
 }
 
-func (store *recordingCommandStateResetStore) ResetTerminalCommandStates(ctx context.Context, _ string) (CommandStateMutation, error) {
-	return store.reset(ctx)
-}
-
 func (store *recordingCommandStateResetStore) reset(ctx context.Context) (CommandStateMutation, error) {
 	if store.started != nil {
 		store.startOnce.Do(func() { close(store.started) })
@@ -6095,10 +6084,6 @@ func (store *recordingCommandStateStore) ExecuteCommandState(ctx context.Context
 
 func (store *recordingCommandStateStore) ResetCommandState(context.Context, string, string) (CommandStateMutation, error) {
 	return CommandStateMutation{}, errors.New("unexpected reset-one call")
-}
-
-func (store *recordingCommandStateStore) ResetTerminalCommandStates(context.Context, string) (CommandStateMutation, error) {
-	return CommandStateMutation{}, errors.New("unexpected reset-terminal call")
 }
 
 func (store *recordingCommandStateStore) ExecuteCalls() int {

@@ -10,11 +10,13 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	configv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/config/v1"
 	persistencev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 	playerv1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
 	"github.com/stretchr/testify/require"
@@ -265,6 +267,8 @@ func TestPrivateFacilityOperationDescriptorsAreTypedAndAdditive(t *testing.T) {
 		"affected_device_ids":         9,
 		"affected_condition_ids":      10,
 		"session":                     11,
+		"authoring_revision":          12,
+		"reset_commands":              13,
 	})
 	assertDescriptorEnum(t, desktop, "FacilityFailureCode", []string{
 		"FACILITY_FAILURE_CODE_UNSPECIFIED", "FACILITY_FAILURE_CODE_REJECTED", "FACILITY_FAILURE_CODE_MISSING_REFERENCE",
@@ -319,11 +323,10 @@ func TestPrivateFacilityAuthoringAndDependencyDescriptorsAreTyped(t *testing.T) 
 		"facility_revision": 5,
 		"report":            6,
 	})
-	assertDescriptorFields(t, desktop, "SaveFacilityAuthoringRequest", map[protoreflect.Name]protoreflect.FieldNumber{
-		"session":                    1,
-		"expected_session_revision":  2,
-		"expected_facility_revision": 3,
-		"correlation_id":             4,
+	assertDescriptorFields(t, desktop, "SaveAuthoringRequest", map[protoreflect.Name]protoreflect.FieldNumber{
+		"session":                     1,
+		"expected_authoring_revision": 2,
+		"correlation_id":              3,
 	})
 	assertDescriptorFields(t, desktop, "RecoverFacilityConditionRequest", map[protoreflect.Name]protoreflect.FieldNumber{
 		"condition_id":               1,
@@ -337,27 +340,31 @@ func TestPrivateFacilityAuthoringAndDependencyDescriptorsAreTyped(t *testing.T) 
 	require.False(t, entityReference.Fields().ByName("entity_id").HasPresence())
 	dependency := desktop.Messages().ByName("FacilityDependency")
 	require.True(t, dependency.Fields().ByName("terminal_id").HasPresence())
-	request := desktop.Messages().ByName("SaveFacilityAuthoringRequest")
+	request := desktop.Messages().ByName("SaveAuthoringRequest")
 	require.True(t, request.Fields().ByName("session").HasPresence())
-	require.False(t, request.Fields().ByName("expected_session_revision").HasPresence())
-	require.False(t, request.Fields().ByName("expected_facility_revision").HasPresence())
+	require.False(t, request.Fields().ByName("expected_authoring_revision").HasPresence())
+	for _, removed := range []protoreflect.Name{
+		"SaveSessionResult", "SaveFacilityAuthoringRequest", "ResetFacilityRequest",
+		"ResetTerminalCommandStatesRequest", "LiveTerminalUpdateRequest",
+	} {
+		require.Nil(t, desktop.Messages().ByName(removed), "%s was superseded and must stay removed", removed)
+	}
 }
 
-func TestSaveFacilityAuthoringRequestAndResultRoundTripCanonicalSession(t *testing.T) {
+func TestSaveAuthoringRequestAndResultRoundTripCanonicalSession(t *testing.T) {
 	t.Parallel()
 
 	candidate := facilityApprovalSessionForAppTest(0, "locked")
 	semanticSession, err := sessionservice.SessionToProto(candidate)
 	require.NoError(t, err)
-	request := &privatev1.SaveFacilityAuthoringRequest{
-		Session: semanticSession, ExpectedSessionRevision: 17, ExpectedFacilityRevision: 0, CorrelationId: "authoring-17",
+	request := &privatev1.SaveAuthoringRequest{
+		Session: semanticSession, ExpectedAuthoringRevision: 17, CorrelationId: "authoring-17",
 	}
 
-	cloned := proto.Clone(request).(*privatev1.SaveFacilityAuthoringRequest)
+	cloned := proto.Clone(request).(*privatev1.SaveAuthoringRequest)
 	require.True(t, proto.Equal(request, cloned))
 	require.NotNil(t, cloned.GetSession().GetFacility(), "configured facility revision zero must remain distinguishable from no facility")
-	require.Zero(t, cloned.GetExpectedFacilityRevision())
-	require.Equal(t, uint64(17), cloned.GetExpectedSessionRevision())
+	require.Equal(t, uint64(17), cloned.GetExpectedAuthoringRevision())
 	require.Equal(t, "authoring-17", cloned.GetCorrelationId())
 
 	restored, err := sessionservice.SessionFromProto(request.GetSession(), candidate)
@@ -391,6 +398,136 @@ func TestSaveFacilityAuthoringRequestAndResultRoundTripCanonicalSession(t *testi
 	absentProto, err := sessionservice.SessionToProto(absent)
 	require.NoError(t, err)
 	require.Nil(t, absentProto.GetFacility())
+}
+
+func TestAuthoringSaveAdaptersRoundTripCandidateRevisionsAndResetCommands(t *testing.T) {
+	t.Parallel()
+
+	candidate := facilityApprovalSessionForAppTest(3, "locked")
+	request := controlservice.AuthoringSaveRequest{
+		Candidate: candidate, ExpectedAuthoringRevision: 4, CorrelationID: "authoring-4",
+	}
+	semantic, err := authoringSaveRequestToPrivate(request)
+	require.NoError(t, err)
+	routed, err := authoringSaveRequestFromPrivate(semantic, candidate)
+	require.NoError(t, err)
+	require.Empty(t, cmp.Diff(request, routed))
+	_, err = authoringSaveRequestFromPrivate(&privatev1.SaveAuthoringRequest{}, candidate)
+	require.Error(t, err, "a request without a session must be rejected")
+
+	result := domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: "scene-1", SessionRevision: 9,
+		PreviousFacilityRevision: 3, ResultingFacilityRevision: 4, AuthoringRevision: 5,
+		AffectedDeviceIDs: []string{"security-door"},
+		ResetCommands: []domain.CommandReference{
+			{TerminalID: "t-1", CommandID: "c-1"}, {TerminalID: "t-2", CommandID: "c-0"},
+		},
+		Session: &candidate,
+	}
+	semanticResult, err := facilityOperationResultToPrivate(result)
+	require.NoError(t, err)
+	routedResult, err := facilityOperationResultFromPrivate(semanticResult, result)
+	require.NoError(t, err)
+	require.Empty(t, cmp.Diff(result, *routedResult))
+
+	scene := routeSceneResetRequest(SceneResetPayload{
+		ExpectedSessionRevision: 9, ExpectedFacilityRevision: 4, CorrelationID: "scene-2",
+	})
+	require.Equal(t, controlservice.SceneResetRequest{
+		ExpectedSessionRevision: 9, ExpectedFacilityRevision: 4, CorrelationID: "scene-2",
+	}, scene)
+	require.Equal(t, PresentationPayload{ExpectedAuthoringRevision: 7},
+		routePresentationRequest(PresentationPayload{ExpectedAuthoringRevision: 7}))
+}
+
+func TestPresentationResultAdaptersRoundTripEveryRuleKindConditionAndValue(t *testing.T) {
+	t.Parallel()
+
+	rule := func(kind live.PresentationRuleKind, precedence uint32) live.PresentationRule {
+		return live.PresentationRule{Kind: kind, Precedence: precedence}
+	}
+	authored := rule(live.PresentationRuleKindAuthoredName, 1)
+	authored.Text, authored.ConditionHolds = "Open door", true
+	afterExecution := rule(live.PresentationRuleKindNameAfterExecution, 2)
+	afterExecution.Text = "Door open"
+	afterExecution.Condition.CommandExecuted = &live.CommandExecutedCondition{TerminalID: "t-1", CommandID: "c-1"}
+	stateName := rule(live.PresentationRuleKindStateName, 3)
+	stateName.Text, stateName.ConditionHolds, stateName.PlayersSee = "Door already open", true, true
+	stateName.Condition.DeviceState = &domain.FacilityStateEquality{DeviceID: "door", StateID: "open"}
+	visibility := rule(live.PresentationRuleKindStateVisibility, 1)
+	visibility.Effect = live.PresentationRuleEffectVisible
+	visibility.Condition.DeviceState = &domain.FacilityStateEquality{DeviceID: "door", StateID: "open"}
+	forced := rule(live.PresentationRuleKindDiagnosticForcedVisibility, 2)
+	forced.Effect, forced.PlayersSee = live.PresentationRuleEffectVisible, true
+	forced.Condition.DiagnosticActive = &live.DiagnosticActiveCondition{ConditionID: "fault"}
+	availability := rule(live.PresentationRuleKindStateAvailability, 1)
+	availability.Effect = live.PresentationRuleEffectAvailable
+	block := rule(live.PresentationRuleKindDiagnosticCapabilityBlock, 2)
+	block.Effect, block.ConditionHolds, block.PlayersSee = live.PresentationRuleEffectUnavailable, true, true
+	block.Condition.DiagnosticActive = &live.DiagnosticActiveCondition{ConditionID: "fault"}
+	texts := []live.PresentationRule{
+		rule(live.PresentationRuleKindInitialText, 1), rule(live.PresentationRuleKindTextAfterExecution, 2),
+		rule(live.PresentationRuleKindStateText, 3), rule(live.PresentationRuleKindDiagnosticSubstitution, 4),
+	}
+	texts[0].Text = ""
+	texts[3].Text, texts[3].PlayersSee = "SIGNAL LOST", true
+	result := PresentationResult{
+		OK: true, SessionRevision: 3, FacilityRevision: 2, AuthoringRevision: 5,
+		Terminals: []live.TerminalExplanation{{TerminalID: "t-1", Nodes: []live.NodeExplanation{
+			{
+				NodeID: "c-1", PlayerName: "Door already open", Visible: true, Available: new(false),
+				NameRules:         []live.PresentationRule{authored, afterExecution, stateName},
+				VisibilityRules:   []live.PresentationRule{visibility, forced},
+				AvailabilityRules: []live.PresentationRule{availability, block},
+			},
+			{NodeID: "e-1", PlayerName: "Log", Visible: true, NameRules: []live.PresentationRule{},
+				VisibilityRules: []live.PresentationRule{}, AvailabilityRules: []live.PresentationRule{},
+				Blocks: []live.BlockExplanation{{BlockID: "b-1", PlayerText: "SIGNAL LOST", TextRules: texts}}},
+		}}},
+	}
+
+	semantic := presentationResultToPrivate(result)
+	prototest.Message{}.Test(t, semantic.ProtoReflect().Type())
+	require.Empty(t, cmp.Diff(semantic, proto.Clone(semantic), protocmp.Transform()))
+	require.Empty(t, cmp.Diff(result, presentationResultFromPrivate(semantic)))
+	require.IsType(t, &privatev1.PresentationRule_Text{}, semantic.GetTerminals()[0].GetNodes()[1].GetBlocks()[0].GetTextRules()[0].GetValue(),
+		"an empty text is still a text value, never an effect")
+
+	failed := presentationResultFromPrivate(presentationResultToPrivate(PresentationResult{
+		Failure: domain.FacilityFailureStaleRevision, AuthoringRevision: 6, Terminals: []live.TerminalExplanation{},
+	}))
+	require.Equal(t, domain.FacilityFailureStaleRevision, failed.Failure)
+	require.Equal(t, uint64(6), failed.AuthoringRevision)
+}
+
+func TestFacilityPreviewAdaptersRoundTripCurrentViewAndDifferences(t *testing.T) {
+	t.Parallel()
+
+	preview := domain.FacilityPreview{
+		ExpectedFacilityRevision: 2, ExpectedAuthoringRevision: 5, TerminalID: "t-1",
+		DeviceState: &domain.FacilityDeviceStatePreview{DeviceID: "door", StateID: "open"},
+	}
+	semanticRequest, err := facilityPreviewRequestToPrivate(preview)
+	require.NoError(t, err)
+	routedRequest, err := facilityPreviewRequestFromPrivate(semanticRequest)
+	require.NoError(t, err)
+	require.Equal(t, preview, routedRequest)
+
+	differences := []live.PreviewDifference{
+		{Kind: live.PreviewDifferenceNameChanged, NodeID: "c-1", Before: new("Open"), After: new("Opened")},
+		{Kind: live.PreviewDifferenceTextChanged, NodeID: "e-1", BlockID: new("b-1"), Before: new(""), After: new("OPEN")},
+		{Kind: live.PreviewDifferenceAppears, NodeID: "e-2", After: new("ROUTE")},
+		{Kind: live.PreviewDifferenceDisappears, NodeID: "e-3", Before: new("SEALED")},
+		{Kind: live.PreviewDifferenceBecomesAvailable, NodeID: "c-2"},
+		{Kind: live.PreviewDifferenceBecomesUnavailable, NodeID: "c-3"},
+	}
+	semanticResult := facilityPreviewResultToPrivate(controlservice.FacilityPreviewResult{
+		OK: true, FacilityRevision: 2, Differences: differences,
+	})
+	routedResult, err := facilityPreviewResultFromPrivate(semanticResult)
+	require.NoError(t, err)
+	require.Empty(t, cmp.Diff(differences, routedResult.Differences))
+	require.NotNil(t, semanticResult.GetDifferences()[1].Before, "an empty before text must keep its presence")
 }
 
 func TestFacilityOperationResultFromPrivateRejectsMalformedCanonicalSession(t *testing.T) {
@@ -913,23 +1050,32 @@ func TestPrivateDescriptorFieldsAndEnumsHaveExplicitAdapterCoverage(t *testing.T
 		fields  []string
 	}{
 		{&privatev1.CommandResult{}, []string{"ok", "error"}},
-		{&privatev1.SessionOperationResult{}, []string{"ok", "canceled", "error", "file_path", "session"}},
-		{&privatev1.SaveSessionResult{}, []string{"ok", "error", "requested_revision", "saved_revision"}},
-		{&privatev1.PlayerConfigOperationResult{}, []string{"ok", "canceled", "error", "player_config", "session", "state", "player_config_metadata"}},
+		{&privatev1.SessionOperationResult{}, []string{"ok", "canceled", "error", "file_path", "session", "authoring_revision"}},
+		{&privatev1.PlayerConfigOperationResult{}, []string{"ok", "canceled", "error", "player_config", "session", "state", "player_config_metadata", "authoring_revision"}},
 		{&privatev1.CoordinationResult{}, []string{"ok", "error", "state"}},
 		{&privatev1.TerminalSwitchResult{}, []string{"ok", "error", "status", "switch_id", "state"}},
 		{&privatev1.TerminalActivationRequest{}, []string{"terminal_id", "terminal_name", "tree", "hack_level", "intro_text"}},
-		{&privatev1.LiveTerminalUpdateRequest{}, []string{"tree", "intro_text"}},
 		{&privatev1.TerminalSwitchDecisionRequest{}, []string{"switch_id", "choice"}},
 		{&privatev1.ResolveCommandExecutionRequest{}, []string{"request_id", "decision"}},
 		{&privatev1.ResolveCommandExecutionResult{}, []string{"ok", "error", "state", "facility_result"}},
 		{&privatev1.ResolveTerminalNavigationRequest{}, []string{"request_id", "decision"}},
 		{&privatev1.ResolveTerminalNavigationResult{}, []string{"ok", "error", "state"}},
 		{&privatev1.ResetCommandStateRequest{}, []string{"terminal_id", "command_id"}},
-		{&privatev1.ResetTerminalCommandStatesRequest{}, []string{"terminal_id"}},
 		{&privatev1.SessionStateResult{}, []string{"ok", "error", "revision", "session"}},
 		{&privatev1.ReplaceTerminalGroupsRequest{}, []string{"terminal_groups", "expected_session_revision", "expected_coordination_revision"}},
-		{&privatev1.ReplaceTerminalGroupsResult{}, []string{"ok", "error", "session_revision", "session", "coordination_state"}},
+		{&privatev1.ReplaceTerminalGroupsResult{}, []string{"ok", "error", "session_revision", "session", "coordination_state", "authoring_revision"}},
+		{&privatev1.SaveAuthoringRequest{}, []string{"session", "expected_authoring_revision", "correlation_id"}},
+		{&privatev1.ResetSceneRequest{}, []string{"expected_session_revision", "expected_facility_revision", "correlation_id"}},
+		{&privatev1.CommandReference{}, []string{"terminal_id", "command_id"}},
+		{&privatev1.DescribePresentationRequest{}, []string{"expected_authoring_revision"}},
+		{&privatev1.DescribePresentationResult{}, []string{"ok", "failure", "session_revision", "facility_revision", "authoring_revision", "terminals"}},
+		{&privatev1.TerminalPresentation{}, []string{"terminal_id", "nodes"}},
+		{&privatev1.NodePresentation{}, []string{"node_id", "player_name", "visible", "available", "name_rules", "visibility_rules", "availability_rules", "blocks"}},
+		{&privatev1.BlockPresentation{}, []string{"block_id", "player_text", "text_rules"}},
+		{&privatev1.PresentationRule{}, []string{"kind", "precedence", "device_state", "command_executed", "diagnostic_active", "text", "effect", "condition_holds", "players_see"}},
+		{&privatev1.CommandExecutedCondition{}, []string{"terminal_id", "command_id"}},
+		{&privatev1.DiagnosticActiveCondition{}, []string{"condition_id"}},
+		{&privatev1.PreviewDifference{}, []string{"kind", "node_id", "block_id", "before", "after"}},
 		{&privatev1.ResetFailedHackRequest{}, []string{"terminal_id", "terminal_name", "tree", "hack_level", "intro_text"}},
 		{&privatev1.AddCharacterRequest{}, []string{"display_name", "intelligence", "hacker_perk_available", "expected_revision"}},
 		{&privatev1.RenameCharacterRequest{}, []string{"character_id", "display_name", "intelligence", "hacker_perk_available", "expected_revision"}},
@@ -1240,9 +1386,6 @@ func TestCommandStateResetPrivateAdaptersPreserveStableIDsDocumentAndRevision(t 
 	one := ResetCommandStatePayload{TerminalID: "terminal-stable-1", CommandID: "command-stable-1"}
 	require.Equal(t, one, routeResetCommandStateRequest(one))
 
-	all := ResetTerminalCommandStatesPayload{TerminalID: "terminal-stable-1"}
-	require.Equal(t, all, routeResetTerminalCommandStatesRequest(all))
-
 	session := commandStateResetSessionFixture()
 	result := SessionStateResult{OK: true, Revision: 41, Session: &session}
 	require.Equal(t, result, routeSessionStateResult(result))
@@ -1308,9 +1451,10 @@ func TestPrivateStatusResultAndEventAdaptersRoundTripEveryNativeSemantic(t *test
 
 func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.T) {
 	requiredMethods := []string{
-		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "SaveSession", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
-		"InspectFacilityDependencies", "PreviewFacility", "SaveFacilityAuthoring", "ResetFacilityDevice", "ResetFacility", "RecoverFacilityCondition",
-		"RequestTerminalActivation", "UpdateLiveTerminal", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState", "ResetTerminalCommandStates",
+		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
+		"InspectFacilityDependencies", "PreviewFacility", "ResetFacilityDevice", "RecoverFacilityCondition",
+		"SaveAuthoring", "ResetScene", "DescribePresentation",
+		"RequestTerminalActivation", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
 		"StartBroadcast", "EndBroadcast", "OpenURL", "OpenLogLocation", "GetPublicAccess", "CopyPublicAccessCredentials", "SavePublicAccessSettings", "GeneratePlayerPassword", "StartPublicAccess", "StopPublicAccess",
 	}
@@ -1319,7 +1463,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 46)
+	require.Len(t, actualMethods, 44)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -1363,7 +1507,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 46)
+	require.Len(t, forwarded, 44)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

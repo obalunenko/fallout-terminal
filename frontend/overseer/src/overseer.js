@@ -34,10 +34,13 @@ const serverUrlEl       = document.getElementById('serverUrl');
 const clientCountEl     = document.getElementById('clientCount');
 const termList          = document.getElementById('termList');
 const saveStatus        = document.getElementById('saveStatus');
+const btnUndo           = document.getElementById('btnUndo');
+const btnRedo           = document.getElementById('btnRedo');
+const btnReapplyEdit    = document.getElementById('btnReapplyEdit');
+const btnResetScene     = document.getElementById('btnResetScene');
 const editingTermName   = document.getElementById('editingTermName');
 const liveFlag          = document.getElementById('liveFlag');
 const btnMakeLive       = document.getElementById('btnMakeLive');
-const btnPublish        = document.getElementById('btnPublish');
 const terminalSettingsMenu = document.getElementById('terminalSettingsMenu');
 const btnReapplySettings = document.getElementById('btnReapplySettings');
 const treeView          = document.getElementById('treeView');
@@ -77,6 +80,7 @@ const btnResetFailedHack = document.getElementById('btnResetFailedHack');
 const hackLevelSelect   = document.getElementById('hackLevelSelect');
 const introTextArea     = document.getElementById('introTextArea');
 const btnApplySettings  = document.getElementById('btnApplySettings');
+const btnCancelSettings = document.getElementById('btnCancelSettings');
 const termSettings      = document.getElementById('termSettings');
 const broadcastSummary = document.getElementById('broadcastSummary');
 const coordinationPanel = document.getElementById('coordinationPanel');
@@ -207,8 +211,6 @@ const terminalWorkspaceTab = document.getElementById('terminalWorkspaceTab');
 const facilityWorkspaceTab = document.getElementById('facilityWorkspaceTab');
 const terminalWorkspace = document.getElementById('terminalWorkspace');
 const facilityWorkspace = document.getElementById('facilityWorkspace');
-const btnSaveFacility = document.getElementById('btnSaveFacility');
-const btnResetFacility = document.getElementById('btnResetFacility');
 const facilityStatus = document.getElementById('facilityStatus');
 const facilityValidation = document.getElementById('facilityValidation');
 const facilityDeviceList = document.getElementById('facilityDeviceList');
@@ -231,6 +233,7 @@ const btnAddFacilityRecoveryProgram = document.getElementById('btnAddFacilityRec
 const btnAddFacilityBinding = document.getElementById('btnAddFacilityBinding');
 const btnInspectFacilityDependencies = document.getElementById('btnInspectFacilityDependencies');
 const btnSaveFacilityDeviceChanges = document.getElementById('btnSaveFacilityDeviceChanges');
+const btnCancelFacilityDeviceChanges = document.getElementById('btnCancelFacilityDeviceChanges');
 const btnDeleteFacilityDevice = document.getElementById('btnDeleteFacilityDevice');
 const facilityDeviceDialog = document.getElementById('facilityDeviceDialog');
 const facilityDeviceForm = document.getElementById('facilityDeviceForm');
@@ -294,9 +297,9 @@ const facilityPreviewStateLabel = document.getElementById('facilityPreviewStateL
 const facilityPreviewState = document.getElementById('facilityPreviewState');
 const facilityPreviewActiveLabel = document.getElementById('facilityPreviewActiveLabel');
 const facilityPreviewActive = document.getElementById('facilityPreviewActive');
-const facilityPreviewContext = document.getElementById('facilityPreviewContext');
-const facilityPreviewChanges = document.getElementById('facilityPreviewChanges');
-const facilityPreviewTree = document.getElementById('facilityPreviewTree');
+const facilityPreviewSummary = document.getElementById('facilityPreviewSummary');
+const facilityPreviewCurrent = document.getElementById('facilityPreviewCurrent');
+const facilityPreviewHypothetical = document.getElementById('facilityPreviewHypothetical');
 const facilityPreviewStatus = document.getElementById('facilityPreviewStatus');
 const facilityPreviewError = document.getElementById('facilityPreviewError');
 const btnRefreshFacilityPreview = document.getElementById('btnRefreshFacilityPreview');
@@ -304,18 +307,18 @@ const btnCloseFacilityPreview = document.getElementById('btnCloseFacilityPreview
 const facilityDeviceResetDialog = document.getElementById('facilityDeviceResetDialog');
 const btnCancelFacilityDeviceReset = document.getElementById('btnCancelFacilityDeviceReset');
 const btnConfirmFacilityDeviceReset = document.getElementById('btnConfirmFacilityDeviceReset');
-const facilityResetDialog = document.getElementById('facilityResetDialog');
-const btnCancelFacilityReset = document.getElementById('btnCancelFacilityReset');
-const btnConfirmFacilityReset = document.getElementById('btnConfirmFacilityReset');
+const sceneResetDialog = document.getElementById('sceneResetDialog');
+const sceneResetCountsList = document.getElementById('sceneResetCounts');
+const sceneResetPending = document.getElementById('sceneResetPending');
+const sceneResetStatus = document.getElementById('sceneResetStatus');
+const btnCancelSceneReset = document.getElementById('btnCancelSceneReset');
+const btnConfirmSceneReset = document.getElementById('btnConfirmSceneReset');
 const facilityRecoveryConfirmationDialog = document.getElementById('facilityRecoveryConfirmationDialog');
 const btnCancelFacilityRecovery = document.getElementById('btnCancelFacilityRecovery');
 const btnConfirmFacilityRecovery = document.getElementById('btnConfirmFacilityRecovery');
 
 let serverUrl = null;
 let serverUrlTitle = '';
-let saveGeneration = 0;
-let saveInvocation = 0;
-let latestRenderedSave = 0;
 let newestDurableRevision = 0;
 let coordinationCommandPending = false;
 let createTerminalSubmitting = false;
@@ -353,15 +356,11 @@ let applicationUpdateRestartDialogOpener = null;
 let applicationUpdateRestartCommandPending = false;
 let latestRenderedApplicationUpdateRevision = -1;
 let entryBlockCommandDraft = null;
-let facilityDraft = null;
-let facilityDraftDirty = false;
-let facilityDraftBaseRevision = 0;
 let selectedFacilityDeviceID = '';
 let selectedFacilityConditionID = '';
 let facilityPreviewSelection = null;
 let facilityPreviewGeneration = 0;
 let facilityOperationOpener = null;
-let facilitySubmitting = false;
 let pendingFacilityRepair = null;
 let editingFacilityDeviceID = '';
 let editingFacilityConditionID = '';
@@ -381,16 +380,6 @@ let btnEditFacilityDeviceGraph = null;
 const promptedApplicationUpdateRevisions = new Set();
 const promptedApplicationUpdateRestartRevisions = new Set();
 const suppressedApplicationUpdateAttempts = new Set();
-
-const commandStateActions = document.createElement('div');
-commandStateActions.className = 'settings-row command-state-terminal-actions';
-commandStateActions.hidden = true;
-commandStateActions.innerHTML = `
-  <button class="btn btn-mini btn-danger" id="btnResetTerminalCommandStates" type="button">
-    СБРОСИТЬ ВСЕ СОСТОЯНИЯ
-  </button>`;
-termSettings.appendChild(commandStateActions);
-const btnResetTerminalCommandStates = document.getElementById('btnResetTerminalCommandStates');
 
 const commandExecutionDialog = document.createElement('dialog');
 commandExecutionDialog.className = 'terminal-switch-dialog command-execution-dialog';
@@ -561,6 +550,7 @@ desktopAPI.onHackState((hack) => {
 desktopAPI.onCoordinationState((coordination) => {
   applyCoordinationState(coordination);
   renderCoordination();
+  if (sceneResetDialog.open) renderSceneResetPending();
   if (state.session) {
     renderTermList();
     renderTreeHeader();
@@ -574,13 +564,7 @@ if (typeof desktopAPI.onSessionState === 'function') {
     saveStatus.dataset.sessionStateRevision = String(revision);
     updateSessionStateEvidenceDescription();
     if (!state.session || revision <= newestDurableRevision) return;
-    state.session = event.session;
-    newestDurableRevision = revision;
-    saveStatus.textContent = `СОСТОЯНИЕ СЕССИИ ОБНОВЛЕНО · ревизия ${revision}`;
-    saveStatus.dataset.savedRevision = String(revision);
-    saveStatus.classList.remove('err');
-    if (!facilityDraftDirty) resetFacilityDraft(event.session, true);
-    else facilityStatus.textContent = 'СЕССИЯ ИЗМЕНИЛАСЬ. ЧЕРНОВИК СОХРАНЁН ДЛЯ ПРОСМОТРА; ОТМЕНИТЕ ЕГО И ПОВТОРИТЕ ПРАВКИ.';
+    applyLiveSession(event.session, revision);
     renderAll();
   });
 }
@@ -1494,7 +1478,7 @@ btnOpenSession.addEventListener('click', async () => {
     if (res.error) startStatus.textContent = 'Ошибка: ' + res.error;
     return;
   }
-  await loadSession(res.session, res.filePath);
+  await loadSession(res.session, res.filePath, res.authoringRevision);
 });
 
 btnNewSession.addEventListener('click', async () => {
@@ -1503,19 +1487,230 @@ btnNewSession.addEventListener('click', async () => {
     if (res.error) startStatus.textContent = 'Ошибка: ' + res.error;
     return;
   }
-  await loadSession(res.session, res.filePath);
+  await loadSession(res.session, res.filePath, res.authoringRevision);
 });
 
-async function loadSession(session, filePath) {
-  saveGeneration++;
-  saveInvocation = 0;
-  latestRenderedSave = 0;
+// ── What players see (R11) ──────────────────────────────────
+// playerView caches the server's explanation of what players see, keyed by
+// terminal and node. The newest request wins.
+const playerView = { requested: 0, applied: 0, inFlight: 0, nodes: new Map() };
+
+function playerViewNode(terminalID, nodeID) {
+  return playerView.nodes.get(`${terminalID}/${nodeID}`) || null;
+}
+
+async function refreshPlayerView() {
+  if (!state.session || !state.filePath) return;
+  const request = ++playerView.requested;
+  const generation = authoring.generation;
+  playerView.inFlight++;
+  renderCommandRules();
+  const result = await desktopAPI.describePresentation({ expectedAuthoringRevision: 0 });
+  playerView.inFlight--;
+  if (result.ok && generation === authoring.generation && request > playerView.applied) {
+    playerView.applied = request;
+    playerView.nodes = new Map();
+    for (const terminal of result.terminals) {
+      for (const node of terminal.nodes || []) playerView.nodes.set(`${terminal.terminalId}/${node.nodeId}`, node);
+    }
+    renderTree();
+  }
+  renderCommandRules();
+}
+
+// ── Command form lists (FR-008–FR-010) ──────────────────────
+const PRESENTATION_RULE_LABELS = {
+  'authored-name': 'ИСХОДНОЕ НАЗВАНИЕ',
+  'name-after-execution': 'НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ',
+  'state-name': 'НАЗВАНИЕ ПО СОСТОЯНИЮ',
+  'state-visibility': 'ВИДИМОСТЬ ПО СОСТОЯНИЮ',
+  'diagnostic-forced-visibility': 'ВИДИМОСТЬ ПРИ НЕИСПРАВНОСТИ',
+  'state-availability': 'ДОСТУПНОСТЬ ПО СОСТОЯНИЮ',
+  'diagnostic-capability-block': 'БЛОКИРОВКА НЕИСПРАВНОСТЬЮ',
+  'initial-text': 'ИСХОДНЫЙ ТЕКСТ',
+  'text-after-execution': 'ТЕКСТ ПОСЛЕ ВЫПОЛНЕНИЯ',
+  'state-text': 'ТЕКСТ ПО СОСТОЯНИЮ',
+  'diagnostic-substitution': 'ЗАМЕНА ПРИ НЕИСПРАВНОСТИ',
+};
+
+const PRESENTATION_RULE_BINDINGS = {
+  'state-name': 'menu-name', 'state-visibility': 'visibility',
+  'state-availability': 'availability', 'state-text': 'entry-content',
+};
+
+function facilityTransitionEffect(request) {
+  const device = facilityDeviceByID(request.deviceId);
+  const transition = device?.transitions?.find(value => value.id === request.transitionId);
+  if (!transition) return `${device?.name || request.deviceId}: переход не найден`;
+  return `${device.name}: ${facilityStateName(device, transition.sourceStateId)} → ${facilityStateName(device, transition.destinationStateId)}`;
+}
+
+// commandEffectItems lists what approving the authored command changes.
+function commandEffectItems(term, node) {
+  if (node.terminalTransition) {
+    const targetID = node.terminalTransition.targetTerminalId;
+    const target = state.session.terminals.find(candidate => candidate.id === targetID);
+    return [{ kind: 'terminal-transition', text: `ПЕРЕХОД: ${target?.name || targetID}` }];
+  }
+  const change = node.stateChange;
+  if (!change) return [];
+  const items = [];
+  const action = change.facilityAction;
+  for (const request of action?.transitions?.transitions || []) {
+    items.push({ kind: 'transition', text: facilityTransitionEffect(request) });
+  }
+  if (action?.recoveryProgramId) {
+    const program = authoredFacility().recoveryPrograms.find(value => value.id === action.recoveryProgramId);
+    items.push({ kind: 'recovery', text: `ПРОГРАММА ВОССТАНОВЛЕНИЯ: ${program?.name || action.recoveryProgramId}` });
+    for (const request of program?.transitions || []) items.push({ kind: 'transition', text: facilityTransitionEffect(request) });
+  }
+  if (change.completedName) items.push({ kind: 'completed-name', text: `НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ: ${change.completedName}` });
+  const blockChange = change.entryContentChange;
+  if (blockChange?.blockId) {
+    const location = entryBlockLocation(term, blockChange.blockId);
+    items.push({
+      kind: 'entry-block',
+      text: `${location?.entry.name || 'Запись'} · блок ${(location?.index ?? 0) + 1}: ${blockChange.completedText}`,
+    });
+  }
+  return items;
+}
+
+function presentationConditionText(term, condition) {
+  if (condition?.deviceState) {
+    const device = facilityDeviceByID(condition.deviceState.deviceId);
+    return `КОГДА ${device?.name || condition.deviceState.deviceId} = ${facilityStateName(device, condition.deviceState.stateId)}`;
+  }
+  if (condition?.commandExecuted) {
+    const command = locateNode(term.root, condition.commandExecuted.commandId)?.node;
+    return command?.id === state.selectedNodeId ? 'ПОСЛЕ ВЫПОЛНЕНИЯ' : `ПОСЛЕ ВЫПОЛНЕНИЯ «${command?.name || condition.commandExecuted.commandId}»`;
+  }
+  if (condition?.diagnosticActive) {
+    const id = condition.diagnosticActive.conditionId;
+    const fault = authoredFacility().conditions.find(value => value.id === id);
+    return `КОГДА АКТИВНА «${fault?.name || id}»`;
+  }
+  return 'ВСЕГДА';
+}
+
+function presentationRuleValue(rule) {
+  const effects = { visible: 'ПОКАЗАТЬ', available: 'РАЗРЕШИТЬ', unavailable: 'ЗАПРЕТИТЬ' };
+  return effects[rule.effect] || rule.text || '';
+}
+
+// openPresentationRuleEditor opens where rule is authored: a node form
+// field, the binding dialog that ОБЪЕКТЫ uses, or the condition dialog.
+function openPresentationRuleEditor(term, ownerID, blockID, rule) {
+  const condition = rule.condition || {};
+  if (condition.diagnosticActive) {
+    openFacilityConditionDialog(condition.diagnosticActive.conditionId);
+    return;
+  }
+  const property = PRESENTATION_RULE_BINDINGS[rule.kind];
+  if (property) {
+    const binding = facilityBindingCatalog().find(value => value.terminal.id === term.id
+      && value.node.id === ownerID && value.property === property && (value.block?.id || '') === blockID
+      && value.variant.when?.deviceId === condition.deviceState?.deviceId
+      && value.variant.when?.stateId === condition.deviceState?.stateId
+      && (!['menu-name', 'entry-content'].includes(property) || value.variant.text === rule.text));
+    if (binding) openFacilityBindingDialog(binding);
+    return;
+  }
+  const fieldNodeID = rule.kind === 'text-after-execution' ? condition.commandExecuted?.commandId : ownerID;
+  if (fieldNodeID && fieldNodeID !== state.selectedNodeId) {
+    state.selectedNodeId = fieldNodeID;
+    renderTree();
+    renderNodeForm();
+    renderToolbarHint();
+  }
+  const fields = {
+    'authored-name': 'fldName', 'name-after-execution': 'fldCompletedName',
+    'text-after-execution': 'fldCompletedEntryBlockContent',
+  };
+  document.getElementById(fields[rule.kind] || '')?.focus();
+}
+
+// renderCommandRules fills #commandRules from the cached explanation for
+// the selected command, grouped by target, lowest precedence first.
+function renderCommandRules() {
+  const section = document.getElementById('commandRules');
+  if (!section) return;
+  section.setAttribute('aria-busy', String(playerView.inFlight > 0));
+  const term = getEditTerminal();
+  const node = term && state.selectedNodeId ? locateNode(term.root, state.selectedNodeId)?.node : null;
+  const seen = node ? playerViewNode(term.id, node.id) : null;
+  const targets = seen ? [
+    ['name', node.id, '', 'НАЗВАНИЕ', seen.nameRules],
+    ['visibility', node.id, '', 'ВИДИМОСТЬ', seen.visibilityRules],
+    ['availability', node.id, '', 'ДОСТУПНОСТЬ', seen.availabilityRules],
+  ] : [];
+  const blockID = node?.stateChange?.entryContentChange?.blockId;
+  const location = blockID ? entryBlockLocation(term, blockID) : null;
+  if (location) {
+    const block = playerViewNode(term.id, location.entry.id)?.blocks?.find(value => value.blockId === blockID);
+    targets.push([`block:${blockID}`, location.entry.id, blockID, `${location.entry.name} · БЛОК ${location.index + 1}`, block?.textRules]);
+  }
+  const container = section.querySelector('.command-rule-targets');
+  const groups = [];
+  for (const [target, ownerID, ownerBlockID, heading, rules] of targets) {
+    if (!rules?.length) continue;
+    const ordered = [...rules].sort((left, right) => left.precedence - right.precedence);
+    const group = document.createElement('section');
+    group.className = 'command-rule-target';
+    group.dataset.target = target;
+    const title = document.createElement('div');
+    title.className = 'command-rule-target-heading';
+    title.textContent = heading;
+    const list = document.createElement('ul');
+    for (const rule of ordered) {
+      const item = document.createElement('li');
+      item.className = 'command-rule';
+      item.dataset.kind = rule.kind;
+      const text = document.createElement('span');
+      text.textContent = `${PRESENTATION_RULE_LABELS[rule.kind] || rule.kind} · ${presentationConditionText(term, rule.condition)} · ${presentationRuleValue(rule)}`;
+      item.appendChild(text);
+      if (rule.playersSee) {
+        const mark = document.createElement('span');
+        mark.className = 'rule-players-see';
+        mark.textContent = 'ВИДЯТ ИГРОКИ';
+        item.appendChild(mark);
+      }
+      const lower = [...new Set(ordered.filter(value => value.precedence < rule.precedence)
+        .map(value => PRESENTATION_RULE_LABELS[value.kind] || value.kind))];
+      if (rule.conditionHolds && lower.length) {
+        const overrides = document.createElement('span');
+        overrides.className = 'rule-overrides';
+        overrides.textContent = `ПЕРЕКРЫВАЕТ: ${lower.join(', ')}`;
+        item.appendChild(overrides);
+      }
+      const edit = document.createElement('button');
+      edit.className = 'btn btn-mini btn-secondary';
+      edit.type = 'button';
+      edit.textContent = 'ИЗМЕНИТЬ';
+      edit.addEventListener('click', () => openPresentationRuleEditor(term, ownerID, ownerBlockID, rule));
+      item.appendChild(edit);
+      list.appendChild(item);
+    }
+    group.append(title, list);
+    groups.push(group);
+  }
+  if (!groups.length && playerView.inFlight > 0) return;
+  if (!groups.length) {
+    const empty = document.createElement('div');
+    empty.className = 'command-mode-hint';
+    empty.textContent = seen ? 'ИГРОКИ ВИДЯТ ИСХОДНОЕ НАЗВАНИЕ' : 'ПРАВИЛА ПОЯВЯТСЯ ПОСЛЕ СОХРАНЕНИЯ';
+    groups.push(empty);
+  }
+  container.replaceChildren(...groups);
+}
+
+async function loadSession(session, filePath, authoringRevision) {
   newestDurableRevision = 0;
   delete saveStatus.dataset.savedRevision;
-  saveStatus.textContent = '';
-  saveStatus.classList.remove('err');
   state.session        = session;
-  resetFacilityDraft(session);
+  resetAuthoring(session, authoringRevision);
+  renderSaveStatus();
+  resetFacilitySelection();
   state.filePath        = filePath;
   state.liveTerminalId  = state.coordination?.broadcast?.activeTerminalId || null;
   state.editTerminalId  = (session.terminals[0] && session.terminals[0].id) || null;
@@ -1527,7 +1722,9 @@ async function loadSession(session, filePath) {
   sessionFileLabel.textContent = filePath;
   startScreen.style.display = 'none';
   mainLayout.style.display  = 'flex';
+  playerView.nodes = new Map();
   renderAll();
+  void refreshPlayerView();
 
   if (session.playerConfig) {
     await runPlayerConfigCommand(
@@ -1539,35 +1736,432 @@ async function loadSession(session, filePath) {
   }
 }
 
-// ── Autosave (writes to the currently open session file) ──
-async function autosave() {
-  if (!state.filePath) return;
-  const generation = saveGeneration;
-  const invocation = ++saveInvocation;
-  const res = await desktopAPI.saveSession(state.session);
+// ── Authoring: one save model ───────────────────────────────
+// Every applied edit is one SaveAuthoring request. Requests go one at a time
+// and in order; a rejected edit reverts only itself. The server keeps every
+// live value (executed commands, device states, fault activity), so authoring
+// never overwrites live play.
+const AUTHORING_HISTORY_LIMIT = 20;
+const authoring = {
+  generation: 0,
+  revision: 0,
+  lastSaved: null,
+  lastSavedAt: null,
+  queue: [],
+  inFlight: null,
+  held: [],
+  error: null,
+  historyError: null,
+  historyTrimmed: false,
+  undo: [],
+  redo: [],
+  nextID: 0,
+  idleWaiters: [],
+};
 
-  // A completion from a previously-open session or an older durable revision
-  // must never replace status for newer work.
-  if (generation !== saveGeneration) return;
-  const durableRevision = Number(res.savedRevision || 0);
-  if (durableRevision < newestDurableRevision || invocation < latestRenderedSave) return;
-  if (!res.ok && invocation < saveInvocation) return;
+function resetAuthoring(session, authoringRevision) {
+  authoring.generation++;
+  authoring.revision = Number(authoringRevision) || 1;
+  authoring.lastSaved = session ? structuredClone(session) : null;
+  authoring.lastSavedAt = null;
+  authoring.queue = [];
+  authoring.inFlight = null;
+  authoring.held = [];
+  authoring.error = null;
+  authoring.historyError = null;
+  authoring.historyTrimmed = false;
+  authoring.undo = [];
+  authoring.redo = [];
+  unappliedInputs.clear();
+  for (const resolve of authoring.idleWaiters.splice(0)) resolve();
+}
 
-  latestRenderedSave = invocation;
-  newestDurableRevision = Math.max(newestDurableRevision, durableRevision);
-  if (res.ok) {
-    const revisionLabel = newestDurableRevision > 0
-      ? ` · ревизия ${newestDurableRevision}`
-      : '';
-    saveStatus.textContent = 'Сохранено' + revisionLabel + ' · ' + new Date().toLocaleTimeString();
-    saveStatus.dataset.savedRevision = String(newestDurableRevision);
-    saveStatus.classList.remove('err');
-    if (!facilityDraftDirty) resetFacilityDraft(state.session, true);
-  } else {
-    saveStatus.textContent = 'Ошибка сохранения: ' + (res.error || '');
-    saveStatus.dataset.savedRevision = String(newestDurableRevision);
-    saveStatus.classList.add('err');
+function authoringBusy() {
+  return Boolean(authoring.inFlight || authoring.queue.length);
+}
+
+// authoringIdle resolves once no save is queued or in flight.
+function authoringIdle() {
+  if (!authoringBusy()) return Promise.resolve();
+  return new Promise(resolve => authoring.idleWaiters.push(resolve));
+}
+
+// mergeLiveValues copies the server-owned live values of source into target.
+function mergeLiveValues(target, source) {
+  if (!target || !source) return target;
+  const sourceTerminals = new Map((source.terminals || []).map(terminal => [terminal.id, terminal]));
+  for (const terminal of target.terminals || []) {
+    const states = sourceTerminals.get(terminal.id)?.commandStates;
+    if (states && Object.keys(states).length) terminal.commandStates = structuredClone(states);
+    else delete terminal.commandStates;
   }
+  if (target.facility && source.facility) {
+    target.facility.revision = source.facility.revision;
+    const devices = new Map((source.facility.devices || []).map(device => [device.id, device]));
+    for (const device of target.facility.devices || []) {
+      if (devices.has(device.id)) device.currentStateId = devices.get(device.id).currentStateId;
+    }
+    const conditions = new Map((source.facility.conditions || []).map(condition => [condition.id, condition]));
+    for (const condition of target.facility.conditions || []) {
+      if (conditions.has(condition.id)) condition.currentActive = conditions.get(condition.id).currentActive;
+    }
+  }
+  return target;
+}
+
+// authoredKey is a stable comparison key for the authored configuration: the
+// session without live values or terminal groups, with sorted keys and
+// without empty values, so local and server documents compare equal.
+function authoredKey(session) {
+  if (!session) return '';
+  const copy = structuredClone(session);
+  delete copy.terminalGroups;
+  for (const terminal of copy.terminals || []) delete terminal.commandStates;
+  if (copy.facility) {
+    delete copy.facility.revision;
+    for (const device of copy.facility.devices || []) delete device.currentStateId;
+    for (const condition of copy.facility.conditions || []) delete condition.currentActive;
+  }
+  const normalize = value => {
+    if (Array.isArray(value)) return value.map(normalize);
+    if (!value || typeof value !== 'object') return value;
+    const result = {};
+    for (const key of Object.keys(value).sort()) {
+      const item = normalize(value[key]);
+      const empty = item === undefined || item === null || item === ''
+        || (Array.isArray(item) && !item.length) || (typeof item === 'object' && !Object.keys(item).length);
+      if (!empty) result[key] = item;
+    }
+    return result;
+  };
+  return JSON.stringify(normalize(copy));
+}
+
+// replaceAuthoredContent swaps the authored configuration of session for that
+// of source while keeping session's live values and terminal groups.
+function replaceAuthoredContent(session, source) {
+  const replacement = mergeLiveValues(structuredClone(source), session);
+  replacement.terminalGroups = session.terminalGroups;
+  for (const key of Object.keys(session)) delete session[key];
+  Object.assign(session, replacement);
+}
+
+// applyLiveSession installs a server result that changed live values only.
+function applyLiveSession(session, revision = 0) {
+  if (!session || !state.session) return;
+  mergeLiveValues(state.session, session);
+  if (authoring.lastSaved) mergeLiveValues(authoring.lastSaved, session);
+  // A live change may make a rejected undo or redo possible again.
+  authoring.historyError = null;
+  newestDurableRevision = Math.max(newestDurableRevision, Number(revision) || 0);
+  saveStatus.dataset.savedRevision = String(newestDurableRevision);
+  void refreshPlayerView();
+}
+
+// applyAuthoredSession installs a server result that changed the authored
+// configuration outside the save pipeline (groups, player configuration).
+function applyAuthoredSession(session, authoringRevision, revision = 0) {
+  if (!session) return;
+  if (Number(authoringRevision) > 0) authoring.revision = Number(authoringRevision);
+  authoring.lastSaved = structuredClone(session);
+  if (authoringBusy()) mergeLiveValues(state.session, session);
+  else state.session = structuredClone(session);
+  newestDurableRevision = Math.max(newestDurableRevision, Number(revision) || 0);
+  saveStatus.dataset.savedRevision = String(newestDurableRevision);
+  void refreshPlayerView();
+}
+
+// commitAuthoringEdit applies one edit to the working copy and queues its
+// save. mutate(session) must find what it changes by ID so it can run again
+// on a newer session; reopen(reason) brings the editor back after a failure.
+function commitAuthoringEdit({ label, scope = 'terminal', mutate, reopen = null, kind = 'edit', entry = null }) {
+  if (!state.session || !state.filePath) return false;
+  const before = authoredKey(state.session);
+  mutate(state.session);
+  if (authoredKey(state.session) === before) {
+    renderSaveStatus();
+    return true;
+  }
+  if (kind === 'edit') authoring.redo = [];
+  authoring.error = null;
+  authoring.historyError = null;
+  authoring.queue.push({
+    id: ++authoring.nextID, label, scope, mutate, reopen, kind, entry,
+    candidate: structuredClone(state.session),
+  });
+  renderSaveStatus();
+  void pumpAuthoringQueue();
+  return true;
+}
+
+async function pumpAuthoringQueue() {
+  if (authoring.inFlight) return;
+  if (!authoring.queue.length) {
+    for (const resolve of authoring.idleWaiters.splice(0)) resolve();
+    return;
+  }
+  const generation = authoring.generation;
+  const edit = authoring.queue.shift();
+  authoring.inFlight = edit;
+  renderSaveStatus();
+  const result = await desktopAPI.saveAuthoring({
+    session: edit.candidate,
+    expectedAuthoringRevision: authoring.revision,
+    correlationId: `authoring-${generation}-${edit.id}`,
+  });
+  if (generation !== authoring.generation) return;
+  authoring.inFlight = null;
+  if (result.ok) acceptAuthoringSave(edit, result);
+  else if (result.failure === 'stale-revision') holdStaleAuthoringEdits(edit, result);
+  else rejectAuthoringEdit(edit, result);
+  renderAll();
+  void pumpAuthoringQueue();
+}
+
+function acceptAuthoringSave(edit, result) {
+  const previous = authoring.lastSaved;
+  authoring.revision = result.authoringRevision;
+  authoring.lastSaved = structuredClone(result.session);
+  authoring.lastSavedAt = new Date();
+  newestDurableRevision = Math.max(newestDurableRevision, result.sessionRevision);
+  saveStatus.dataset.savedRevision = String(newestDurableRevision);
+  if (result.changed) {
+    if (edit.kind === 'edit') {
+      authoring.undo.push({ label: edit.label, before: previous, after: authoring.lastSaved });
+      if (authoring.undo.length > AUTHORING_HISTORY_LIMIT) {
+        authoring.undo.shift();
+        authoring.historyTrimmed = true;
+      }
+    } else if (edit.kind === 'undo') {
+      authoring.undo = authoring.undo.filter(entry => entry !== edit.entry);
+      authoring.redo.push(edit.entry);
+    } else if (edit.kind === 'redo') {
+      authoring.redo = authoring.redo.filter(entry => entry !== edit.entry);
+      authoring.undo.push(edit.entry);
+    }
+  }
+  if (authoring.queue.length) mergeLiveValues(state.session, result.session);
+  else state.session = structuredClone(result.session);
+  if (result.changed) void refreshPlayerView();
+}
+
+// rebuildWorkingCopy replays the queued edits on the last saved session.
+function rebuildWorkingCopy(liveSource) {
+  state.session = structuredClone(authoring.lastSaved);
+  if (liveSource) mergeLiveValues(state.session, liveSource);
+  authoring.queue = authoring.queue.filter(edit => {
+    try {
+      edit.mutate(state.session);
+      edit.candidate = structuredClone(state.session);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
+function rejectAuthoringEdit(edit, result) {
+  const message = facilityIssueMessage(result);
+  authoring.error = { message, label: edit.label };
+  if (edit.kind !== 'edit') authoring.historyError = { kind: edit.kind, message };
+  rebuildWorkingCopy(result.session);
+  edit.reopen?.(message);
+}
+
+function holdStaleAuthoringEdits(edit, result) {
+  if (Number(result.authoringRevision) > 0) authoring.revision = result.authoringRevision;
+  if (result.session) authoring.lastSaved = structuredClone(result.session);
+  authoring.held = [edit, ...authoring.queue].filter(held => held.kind === 'edit');
+  authoring.queue = [];
+  state.session = structuredClone(authoring.lastSaved);
+  authoring.error = { message: 'СЕССИЯ ИЗМЕНИЛАСЬ ДРУГИМ ДЕЙСТВИЕМ — ПРАВКА НЕ ПРИМЕНЕНА', label: edit.label, stale: true };
+}
+
+// reapplyHeldEdits runs the edits rejected as stale again, in order, on the
+// newer session («ПРИМЕНИТЬ СНОВА»).
+function reapplyHeldEdits() {
+  const held = authoring.held;
+  authoring.held = [];
+  authoring.error = null;
+  for (const edit of held) {
+    commitAuthoringEdit({ label: edit.label, scope: edit.scope, mutate: edit.mutate, reopen: edit.reopen });
+  }
+  renderAll();
+}
+
+function renderSaveStatus() {
+  let saveState = 'idle';
+  let text = '';
+  if (authoring.error) {
+    saveState = 'error';
+    text = `ОШИБКА СОХРАНЕНИЯ: ${authoring.error.message}`;
+  } else if (authoringBusy()) {
+    saveState = 'saving';
+    text = 'СОХРАНЕНИЕ…';
+  } else if (authoring.lastSavedAt) {
+    saveState = 'saved';
+    text = `СОХРАНЕНО · ${authoring.lastSavedAt.toLocaleTimeString('ru-RU')}`;
+  }
+  const unapplied = unappliedInputLabels();
+  if (unapplied.length) text = [text, `НЕ ПРИМЕНЕНО: ${unapplied.join(', ')}`].filter(Boolean).join(' · ');
+  saveStatus.textContent = text;
+  saveStatus.dataset.state = saveState;
+  saveStatus.dataset.unappliedCount = String(unapplied.length);
+  saveStatus.classList.toggle('err', saveState === 'error');
+  renderAuthoringControls();
+}
+
+// ── Unapplied input (R7) ────────────────────────────────────
+// unappliedInputs keeps form input that is not applied yet, keyed by surface
+// and entity, so a tab switch or a live re-render shows it again.
+const unappliedInputs = new Map();
+// unappliedSurfaces maps each tracked form to the entity it shows now.
+const unappliedSurfaces = new Map();
+let unappliedRestoring = false;
+
+function fieldValue(field) {
+  return field.type === 'checkbox' ? field.checked : field.value;
+}
+
+function fieldValues(container) {
+  const values = {};
+  for (const field of container.querySelectorAll('input[id], select[id], textarea[id]')) {
+    values[field.id] = fieldValue(field);
+  }
+  return values;
+}
+
+function surfaceFields(container, surface) {
+  return [...container.querySelectorAll('input[id], select[id], textarea[id]')]
+    .filter(field => Object.hasOwn(surface.applied, field.id));
+}
+
+// showUnappliedInput fills container's fields for surface: staged input where
+// there is some, the applied values elsewhere. surface is { key, label,
+// exists, applied, blocks? }, or null when the form shows no entity.
+function showUnappliedInput(container, surface) {
+  if (!surface) unappliedSurfaces.delete(container);
+  else unappliedSurfaces.set(container, surface);
+  const staged = surface && unappliedInputs.get(surface.key);
+  const restored = [];
+  for (const field of surface ? surfaceFields(container, surface) : []) {
+    const value = staged && Object.hasOwn(staged.values, field.id) ? staged.values[field.id] : surface.applied[field.id];
+    if (fieldValue(field) === value) continue;
+    if (field.type === 'checkbox') field.checked = value;
+    else field.value = value;
+    if (staged) restored.push(field);
+  }
+  // Restored fields announce their value so dependent controls follow it.
+  unappliedRestoring = true;
+  try {
+    restored.forEach(field => field.dispatchEvent(new Event('change', { bubbles: true })));
+  } finally {
+    unappliedRestoring = false;
+  }
+  markUnappliedFields(container);
+  return staged || null;
+}
+
+function stageUnappliedInput(container) {
+  const surface = unappliedSurfaces.get(container);
+  if (!surface || unappliedRestoring) return;
+  const values = {};
+  let changed = false;
+  for (const field of surfaceFields(container, surface)) {
+    values[field.id] = fieldValue(field);
+    if (values[field.id] !== surface.applied[field.id]) changed = true;
+  }
+  const blocks = surface.blocks?.() || null;
+  if (changed || blocks) unappliedInputs.set(surface.key, { label: surface.label, exists: surface.exists, values, blocks });
+  else unappliedInputs.delete(surface.key);
+  markUnappliedFields(container);
+  renderSaveStatus();
+}
+
+function markUnappliedFields(container) {
+  const surface = unappliedSurfaces.get(container);
+  const staged = Boolean(surface && unappliedInputs.has(surface.key));
+  for (const field of container.querySelectorAll('input[id], select[id], textarea[id]')) {
+    if (staged && Object.hasOwn(surface.applied, field.id) && fieldValue(field) !== surface.applied[field.id]) {
+      field.dataset.unapplied = 'true';
+    } else {
+      delete field.dataset.unapplied;
+    }
+  }
+  container.querySelectorAll('[data-unapplied-cancel]').forEach(button => { button.hidden = !staged; });
+}
+
+// takeUnappliedInput removes and returns the staged input of container, so
+// an apply can hand it back if the server rejects the edit.
+function takeUnappliedInput(container) {
+  const surface = unappliedSurfaces.get(container);
+  if (!surface) return null;
+  const staged = unappliedInputs.get(surface.key) || null;
+  unappliedInputs.delete(surface.key);
+  markUnappliedFields(container);
+  const key = surface.key;
+  return staged && (() => { unappliedInputs.set(key, staged); renderAll(); });
+}
+
+function unappliedInputLabels() {
+  return [...unappliedInputs.values()].map(entry => (entry.exists()
+    ? entry.label : `${entry.label} — ОБЪЕКТ ПРАВКИ БОЛЬШЕ НЕ СУЩЕСТВУЕТ`));
+}
+
+// explainControl blocks control with reason, or leaves it runnable with an
+// optional description. A blocked control stays focusable; its
+// aria-describedby element and title carry the text (FR-005).
+function explainControl(control, reason, description = '') {
+  if (reason) control.setAttribute('aria-disabled', 'true');
+  else control.removeAttribute('aria-disabled');
+  const text = reason || description;
+  const reasonElement = document.getElementById(control.getAttribute('aria-describedby') || '');
+  if (reasonElement) reasonElement.textContent = text;
+  control.title = text;
+}
+
+function controlBlocked(control) {
+  return control.getAttribute('aria-disabled') === 'true';
+}
+
+// historyBlockReason says why the newest entry of stack cannot be undone
+// (kind 'undo') or redone (kind 'redo'), or returns ''.
+function historyBlockReason(kind) {
+  if (!state.session || !state.filePath) return 'НЕТ ОТКРЫТОЙ СЕССИИ';
+  if (authoringBusy()) return 'ДОЖДИТЕСЬ СОХРАНЕНИЯ';
+  const stack = kind === 'undo' ? authoring.undo : authoring.redo;
+  const entry = stack.at(-1);
+  if (!entry) {
+    if (kind === 'undo' && authoring.historyTrimmed) return 'ИСТОРИЯ ХРАНИТ 20 ПОСЛЕДНИХ ПРАВОК';
+    return kind === 'undo' ? 'НЕЧЕГО ОТМЕНЯТЬ' : 'НЕЧЕГО ПОВТОРЯТЬ';
+  }
+  if (authoring.historyError?.kind === kind) return authoring.historyError.message;
+  const expected = kind === 'undo' ? entry.after : entry.before;
+  if (authoredKey(state.session) !== authoredKey(expected)) return 'СЕССИЯ ИЗМЕНИЛАСЬ ПОСЛЕ ЭТОЙ ПРАВКИ';
+  return '';
+}
+
+// runHistoryEntry saves the snapshot on the other side of the newest undo or
+// redo entry through the save pipeline; the server keeps current live values.
+function runHistoryEntry(kind) {
+  const control = kind === 'undo' ? btnUndo : btnRedo;
+  if (controlBlocked(control)) return;
+  const entry = (kind === 'undo' ? authoring.undo : authoring.redo).at(-1);
+  const target = kind === 'undo' ? entry.before : entry.after;
+  commitAuthoringEdit({
+    label: entry.label, kind, entry,
+    mutate: session => replaceAuthoredContent(session, target),
+  });
+  renderAll();
+}
+
+function renderAuthoringControls() {
+  explainControl(btnUndo, historyBlockReason('undo'),
+    authoring.undo.length ? `ОТМЕНИТЬ: ${authoring.undo.at(-1).label}` : '');
+  explainControl(btnRedo, historyBlockReason('redo'),
+    authoring.redo.length ? `ПОВТОРИТЬ: ${authoring.redo.at(-1).label}` : '');
+  btnReapplyEdit.hidden = !authoring.held.length;
+  explainControl(btnResetScene, controlBlockReason(btnResetScene));
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -1605,6 +2199,10 @@ function commandExecutionState(term, commandID) {
   if (!commandStates || typeof commandStates !== 'object') return null;
   const snapshot = commandStates[commandID];
   return snapshot && typeof snapshot === 'object' ? snapshot : null;
+}
+
+function nodeKindLabel(node) {
+  return node.type === 'folder' ? 'Папка' : node.type === 'command' ? 'Команда' : 'Запись';
 }
 
 function effectiveNodeName(term, node) {
@@ -1748,25 +2346,48 @@ function openEntryBlockCommandDialog(term, blockID) {
   setEntryBlockCommandError('');
   updateEntryBlockCommandMode();
 
+  showEntryBlockCommandDialog();
+  (completedOwner ? btnCancelEntryBlockCommand : entryBlockExistingCommand).focus();
+}
+
+function showEntryBlockCommandDialog() {
   entryBlockCommandDialog.hidden = false;
   if (typeof entryBlockCommandDialog.showModal === 'function' && !entryBlockCommandDialog.open) {
     entryBlockCommandDialog.showModal();
   } else {
     entryBlockCommandDialog.setAttribute('open', '');
   }
-  (completedOwner ? btnCancelEntryBlockCommand : entryBlockExistingCommand).focus();
 }
 
-async function saveEntryBlockCommandCandidate(candidate) {
-  state.session = candidate;
-  await autosave();
+// commitTerminalEdit queues an edit of one terminal, found again by ID
+// whenever the edit is replayed on a newer session.
+function commitTerminalEdit(label, terminalID, mutate, reopen = null) {
+  return commitAuthoringEdit({
+    label,
+    reopen,
+    mutate: session => {
+      const term = session.terminals.find(terminal => terminal.id === terminalID);
+      if (!term) throw new Error('terminal removed');
+      mutate(term);
+    },
+  });
+}
+
+// commitEntryBlockCommandEdit saves the dialog's edit and closes it; a
+// rejected save reopens it with the author's input and the reason.
+function commitEntryBlockCommandEdit(label, draft, mutate) {
+  commitTerminalEdit(label, draft.terminalID, mutate, reason => {
+    entryBlockCommandDraft = draft;
+    showEntryBlockCommandDialog();
+    setEntryBlockCommandError(reason);
+  });
   renderTree();
   renderNodeForm();
   renderToolbarHint();
   closeEntryBlockCommandDialog();
 }
 
-async function applyEntryBlockCommandDialog() {
+function applyEntryBlockCommandDialog() {
   const draft = entryBlockCommandDraft;
   if (!draft || !state.session) return;
   const term = state.session.terminals.find(candidate => candidate.id === draft.terminalID);
@@ -1815,25 +2436,13 @@ async function applyEntryBlockCommandDialog() {
     }
   }
 
-  const candidate = structuredClone(state.session);
-  const candidateTerm = candidate.terminals.find(terminal => terminal.id === draft.terminalID);
-  const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID) || null;
-  if (candidateOwner && candidateOwner.id !== selectedCommandID) {
-    delete candidateOwner.stateChange.entryContentChange;
-  }
-
-  if (mode === 'existing') {
-    const selected = locateNode(candidateTerm.root, selectedCommandID).node;
-    selected.stateChange.entryContentChange = {
-      blockId: draft.blockID,
-      completedText: entryBlockCompletedText.value,
-    };
-  } else {
+  const entryContentChange = { blockId: draft.blockID, completedText: entryBlockCompletedText.value };
+  let newCommand = null;
+  if (mode !== 'existing') {
     let commandID;
-    do commandID = uid('n'); while (locateNode(candidateTerm.root, commandID));
-    const destination = locateNode(candidateTerm.root, destinationFolderID).node;
-    destination.children ??= [];
-    destination.children.push({
+    do commandID = uid('n'); while (locateNode(term.root, commandID));
+    selectedCommandID = commandID;
+    newCommand = {
       id: commandID,
       type: 'command',
       name: entryBlockNewCommandName.value.trim(),
@@ -1841,18 +2450,32 @@ async function applyEntryBlockCommandDialog() {
       stateChange: {
         completedName: entryBlockNewCompletedName.value,
         confirmationText: entryBlockNewConfirmationText.value,
-        entryContentChange: {
-          blockId: draft.blockID,
-          completedText: entryBlockCompletedText.value,
-        },
+        entryContentChange,
       },
-    });
+    };
   }
 
-  await saveEntryBlockCommandCandidate(candidate);
+  commitEntryBlockCommandEdit('СВЯЗЬ БЛОКА С КОМАНДОЙ', draft, candidateTerm => {
+    const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID) || null;
+    if (candidateOwner && candidateOwner.id !== selectedCommandID) {
+      delete candidateOwner.stateChange.entryContentChange;
+    }
+    if (newCommand) {
+      const destination = locateNode(candidateTerm.root, destinationFolderID)?.node;
+      if (!destination) throw new Error('folder removed');
+      destination.children ??= [];
+      if (!destination.children.some(child => child.id === newCommand.id)) {
+        destination.children.push(structuredClone(newCommand));
+      }
+      return;
+    }
+    const selected = locateNode(candidateTerm.root, selectedCommandID)?.node;
+    if (!selected?.stateChange) throw new Error('command removed');
+    selected.stateChange.entryContentChange = { ...entryContentChange };
+  });
 }
 
-async function removeEntryBlockCommand() {
+function removeEntryBlockCommand() {
   const draft = entryBlockCommandDraft;
   if (!draft || !state.session) return;
   const term = state.session.terminals.find(candidate => candidate.id === draft.terminalID);
@@ -1869,11 +2492,10 @@ async function removeEntryBlockCommand() {
     setEntryBlockCommandError('СНАЧАЛА СБРОСЬТЕ СОСТОЯНИЕ КОМАНДЫ');
     return;
   }
-  const candidate = structuredClone(state.session);
-  const candidateTerm = candidate.terminals.find(terminal => terminal.id === draft.terminalID);
-  const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID);
-  delete candidateOwner.stateChange.entryContentChange;
-  await saveEntryBlockCommandCandidate(candidate);
+  commitEntryBlockCommandEdit('СВЯЗЬ БЛОКА С КОМАНДОЙ', draft, candidateTerm => {
+    const candidateOwner = entryBlockOwners(candidateTerm).get(draft.blockID);
+    if (candidateOwner) delete candidateOwner.stateChange.entryContentChange;
+  });
 }
 
 entryBlockCommandForm.addEventListener('submit', (event) => event.preventDefault());
@@ -1961,22 +2583,16 @@ function entryContentBlockMarkup(term, block, index, { legacyDraft = false, owne
 
 function renderSessionStateResult(result, successMessage, acceptsCanonicalResult = null) {
   if (!result?.ok || !result.session) {
-    saveStatus.textContent = 'Ошибка изменения состояния: ' + (result?.error || 'сессия не обновлена');
-    saveStatus.classList.add('err');
+    setCoordinationStatus('ОШИБКА ИЗМЕНЕНИЯ СОСТОЯНИЯ: ' + (result?.error || 'сессия не обновлена'), true);
     return false;
   }
   if (typeof acceptsCanonicalResult === 'function' && !acceptsCanonicalResult(result)) {
-    saveStatus.textContent = 'Ошибка изменения состояния: backend не подтвердил канонический сброс';
-    saveStatus.classList.add('err');
+    setCoordinationStatus('ОШИБКА ИЗМЕНЕНИЯ СОСТОЯНИЯ: сервер не подтвердил сброс', true);
     return false;
   }
 
-  state.session = result.session;
-  const revision = Number(result.revision || result.savedRevision || 0);
-  newestDurableRevision = Math.max(newestDurableRevision, revision);
-  saveStatus.textContent = successMessage + (revision > 0 ? ` · ревизия ${revision}` : '');
-  saveStatus.dataset.savedRevision = String(newestDurableRevision);
-  saveStatus.classList.remove('err');
+  applyLiveSession(result.session, Number(result.revision || result.savedRevision || 0));
+  setCoordinationStatus(successMessage);
   renderAll();
   return true;
 }
@@ -2010,13 +2626,13 @@ async function runSessionStateCommand(command, successMessage, acceptsCanonicalR
     const result = await command();
     renderSessionStateResult(result, successMessage, acceptsCanonicalResult);
   } catch (error) {
-    saveStatus.textContent = 'Ошибка изменения состояния: '
-      + (error instanceof Error ? error.message : String(error));
-    saveStatus.classList.add('err');
+    setCoordinationStatus('ОШИБКА ИЗМЕНЕНИЯ СОСТОЯНИЯ: '
+      + (error instanceof Error ? error.message : String(error)), true);
   } finally {
     sessionStateCommandPending = false;
     renderSettingsPanel();
     renderNodeForm();
+    renderSaveStatus();
   }
 }
 
@@ -2034,32 +2650,34 @@ function emptyFacility() {
   return { revision: 0, devices: [], conditions: [], recoveryPrograms: [] };
 }
 
-function resetFacilityDraft(session = state.session, preserveSelection = false) {
-  facilityDraft = session ? structuredClone(session) : null;
-  if (facilityDraft && (!facilityDraft.facility || typeof facilityDraft.facility !== 'object')) {
-    facilityDraft.facility = emptyFacility();
-  }
-  if (!preserveSelection) {
-    selectedFacilityDeviceID = '';
-    selectedFacilityConditionID = '';
-  }
+function resetFacilitySelection() {
+  selectedFacilityDeviceID = '';
+  selectedFacilityConditionID = '';
   pendingFacilityRepair = null;
-  facilityDraftDirty = false;
-  facilityDraftBaseRevision = currentSessionRevision();
 }
 
-function markFacilityDraftDirty() {
-  facilityDraftDirty = true;
-  facilityStatus.textContent = 'ЕСТЬ НЕСОХРАНЁННЫЕ ИЗМЕНЕНИЯ';
-  delete facilityStatus.dataset.error;
-}
+const EMPTY_FACILITY = Object.freeze({
+  revision: 0, devices: Object.freeze([]), conditions: Object.freeze([]), recoveryPrograms: Object.freeze([]),
+});
 
+// authoredFacility is the working copy's facility. A session without one reads
+// as empty; only an edit creates it (ensureFacility), so saving a legacy
+// session never adds a facility to it.
 function authoredFacility() {
-  if (!facilityDraft && state.session) resetFacilityDraft();
-  if (!facilityDraftDirty && !facilitySubmitting && facilityDraftBaseRevision !== currentSessionRevision()) {
-    resetFacilityDraft(state.session, true);
-  }
-  return facilityDraft?.facility || null;
+  if (!state.session) return null;
+  return state.session.facility || EMPTY_FACILITY;
+}
+
+function ensureFacility(session) {
+  if (!session.facility || typeof session.facility !== 'object') session.facility = emptyFacility();
+  for (const key of ['devices', 'conditions', 'recoveryPrograms']) session.facility[key] ||= [];
+  return session.facility;
+}
+
+// commitFacilityEdit saves one facility edit and redraws the workspace.
+function commitFacilityEdit(label, mutate, reopen = null) {
+  commitAuthoringEdit({ label, scope: 'facility', mutate, reopen });
+  renderFacilityWorkspace();
 }
 
 function setFacilityFeedback(element, message = '', field = null) {
@@ -2138,11 +2756,11 @@ function suggestFacilityID(prefix, name, existingIDs, keepPrefix = true) {
   }
 }
 
-function facilityDeviceByID(deviceID, session = facilityDraft) {
+function facilityDeviceByID(deviceID, session = state.session) {
   return session?.facility?.devices?.find(device => device.id === deviceID) || null;
 }
 
-function facilityNodeCatalog(session = facilityDraft) {
+function facilityNodeCatalog(session = state.session) {
   const values = [];
   for (const terminal of session?.terminals || []) {
     visitContentNodes(terminal.root, node => values.push({ terminal, node }));
@@ -2150,7 +2768,7 @@ function facilityNodeCatalog(session = facilityDraft) {
   return values;
 }
 
-function facilityBindingCatalog(session = facilityDraft) {
+function facilityBindingCatalog(session = state.session) {
   const bindings = [];
   for (const { terminal, node } of facilityNodeCatalog(session)) {
     for (const [index, variant] of (node.facilityNameVariants || []).entries()) {
@@ -2289,13 +2907,24 @@ function facilityRowActions(row, name, edit, remove) {
   row.appendChild(actions);
 }
 
-function removeFacilityBinding(binding) {
-  const { node, block, property, index } = binding;
-  if (property === 'menu-name') node.facilityNameVariants.splice(index, 1);
-  else if (property === 'entry-content') block.facilityTextVariants.splice(index, 1);
-  else if (property === 'visibility') delete node.visibleWhen;
-  else if (property === 'availability') delete node.availableWhen;
-  else delete node.stateChange.facilityAction;
+function facilityBindingKey(binding) {
+  return {
+    terminalID: binding.terminal.id, nodeID: binding.node.id, blockID: binding.block?.id || '',
+    property: binding.property, index: binding.index,
+  };
+}
+
+// removeFacilityBinding removes the binding named by key from session.
+function removeFacilityBinding(session, key) {
+  const terminal = session.terminals.find(candidate => candidate.id === key.terminalID);
+  const node = terminal ? locateNode(terminal.root, key.nodeID)?.node : null;
+  if (!node) return;
+  const block = node.blocks?.find(candidate => candidate.id === key.blockID);
+  if (key.property === 'menu-name') node.facilityNameVariants?.splice(key.index, 1);
+  else if (key.property === 'entry-content') block?.facilityTextVariants?.splice(key.index, 1);
+  else if (key.property === 'visibility') delete node.visibleWhen;
+  else if (key.property === 'availability') delete node.availableWhen;
+  else if (node.stateChange) delete node.stateChange.facilityAction;
 }
 
 function removeFacilityProgram(program) {
@@ -2307,9 +2936,10 @@ function removeFacilityProgram(program) {
     setFacilityFeedback(facilityValidation, `Программа «${program.name}» используется: ${references.join('; ')}. Сначала измените связанные команды и пути восстановления.`);
     return;
   }
-  authoredFacility().recoveryPrograms = authoredFacility().recoveryPrograms.filter(value => value.id !== program.id);
-  markFacilityDraftDirty();
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Программа «${program.name}»`, session => {
+    const facility = ensureFacility(session);
+    facility.recoveryPrograms = facility.recoveryPrograms.filter(value => value.id !== program.id);
+  });
 }
 
 const facilityStorySteps = [
@@ -2334,9 +2964,9 @@ const facilityStorySteps = [
     example: 'Пример: «Привод двери повреждён» мешает выполнить команду. Переход ремонта снимает эту неисправность. Восстановление оператором — ручной выход; программа объединяет несколько переходов. После создания программы вернитесь к шагу «Действие» и выберите её в поле «Что запустить» у команды.',
   },
   {
-    title: '5. Сохраните и проверьте сцену',
-    explanation: '«Применить к черновику» собирает правки без записи в сессию. «Сохранить изменения сессии» записывает их вместе. Затем сравните состояния в предпросмотре — он не меняет мир для игроков.',
-    example: 'Проверка двери: сохраните, выберите в предпросмотре «Открыта» и нужный терминал. Видно ли «Путь свободен»? После этого проверьте реальный запрос команды игроком и подтверждение Смотрителем. Предпросмотр проверяет отображение, а не выполнение команды.',
+    title: '5. Проверьте сцену',
+    explanation: 'Каждая правка сохраняется сразу и сразу доходит до игроков. «ОТМЕНИТЬ» на общей панели возвращает последнюю правку. Сравните состояния в предпросмотре — он не меняет мир для игроков.',
+    example: 'Проверка двери: выберите в предпросмотре «Открыта» и нужный терминал. Видно ли «Путь свободен»? После этого проверьте реальный запрос команды игроком и подтверждение Смотрителем. Предпросмотр проверяет отображение, а не выполнение команды.',
   },
 ];
 
@@ -2405,14 +3035,7 @@ function renderFacilityStoryGuide() {
     controls.appendChild(button);
   };
   const addTerminalsAction = (primary = false) => {
-    if (facilityDraftDirty) {
-      context.textContent += ' Правки в терминалах сохраняются автоматически. Сначала сохраните черновик объектов, чтобы после создания команды или записи продолжить настройку без потери правок.';
-      addAction('СОХРАНИТЬ ЧЕРНОВИК И ОТКРЫТЬ ТЕРМИНАЛЫ', async () => {
-        if (await saveFacilityCandidate(facilityDraft)) openFacilityStoryTerminals();
-      }, primary);
-    } else {
-      addAction('ОТКРЫТЬ ТЕРМИНАЛЫ', openFacilityStoryTerminals, primary);
-    }
+    addAction('ОТКРЫТЬ ТЕРМИНАЛЫ', openFacilityStoryTerminals, primary);
   };
   const editDevice = () => openFacilityDeviceDialog(device?.id || '');
   if (!device) {
@@ -2467,11 +3090,8 @@ function renderFacilityStoryGuide() {
     addAction('НАСТРОИТЬ АКТИВАЦИЮ И СНЯТИЕ', editDevice);
   }
   if (facilityStoryStep === 4) {
-    if (facilityDraftDirty) {
-      context.textContent += ' Есть несохранённый черновик. Перед предпросмотром сохраните или отмените изменения.';
-      addAction('СОХРАНИТЬ ЧЕРНОВИК СЦЕНАРИЯ', () => { void saveFacilityCandidate(facilityDraft); }, true);
-    } else if (device) {
-      context.textContent += ' Черновик не содержит изменений. Сравните результат в нужном терминале.';
+    if (device) {
+      context.textContent += ' Все правки уже сохранены. Сравните результат в нужном терминале.';
       addAction('ПРОВЕРИТЬ В ПРЕДПРОСМОТРЕ', () => openFacilityPreview('device', controls.firstElementChild), true);
     }
     addTerminalsAction();
@@ -2496,7 +3116,6 @@ function renderFacilityWorkspace() {
     row.addEventListener('click', () => {
       selectedFacilityDeviceID = device.id;
       selectedFacilityConditionID = '';
-      facilitySelectedDeviceName.value = device.name;
       facilitySelectionStatus.textContent = '';
       setFacilityFeedback(facilitySelectionError);
       renderFacilityWorkspace();
@@ -2510,7 +3129,7 @@ function renderFacilityWorkspace() {
   for (const condition of facility.conditions || []) {
     if (selectedFacilityDeviceID && condition.device?.deviceId !== selectedFacilityDeviceID) continue;
     const scope = facilityDeviceByID(condition.device?.deviceId)?.name
-      || facilityDraft.terminals.find(value => value.id === condition.terminal?.terminalId)?.name || 'Вся сессия';
+      || state.session.terminals.find(value => value.id === condition.terminal?.terminalId)?.name || 'Вся сессия';
     const row = facilityListRow(
       'condition', condition.id, condition.name, `${facilityConditionActivity(condition)} · ${scope}`,
     );
@@ -2564,7 +3183,10 @@ function renderFacilityWorkspace() {
     );
     facilityRowActions(row, `${binding.node.name} · ${binding.property}`,
       () => binding.property === 'recovery-action' ? openFacilityRecoveryProgramDialog(binding.programID) : openFacilityBindingDialog(binding),
-      () => { removeFacilityBinding(binding); markFacilityDraftDirty(); renderFacilityWorkspace(); });
+      () => {
+        const key = facilityBindingKey(binding);
+        commitFacilityEdit(`Правило «${binding.node.name}»`, session => removeFacilityBinding(session, key));
+      });
     bindingGroups.get(Array.isArray(binding.requests) ? 'action' : 'information').appendChild(row);
   }
   facilityEmptyList(bindingGroups.get('action'), 'Команды ещё не связаны. Откройте шаг 2 «Действие» в инструкции.');
@@ -2591,24 +3213,38 @@ function renderFacilityWorkspace() {
       facilityTechnicalDetails(summary, `${selected.id} · ${selected.kind} · ${selected.currentStateId}`);
     }
   }
-  if (selected && document.activeElement !== facilitySelectedDeviceName) {
-    facilitySelectedDeviceName.value = selected.name;
-  }
+  const selectedDeviceID = selected?.id;
+  showUnappliedInput(facilitySelectionEditor, selected && {
+    key: `device:${selectedDeviceID}`,
+    label: `Устройство «${selected.name}»`,
+    exists: () => Boolean(facilityDeviceByID(selectedDeviceID, state.session)),
+    applied: { facilitySelectedDeviceName: selected.name },
+  });
   const selectedCondition = facility.conditions?.find(condition => condition.id === selectedFacilityConditionID) || null;
   facilityConditionSelectionEditor.hidden = !selectedCondition;
   facilitySelectedConditionSummary.textContent = selectedCondition
     ? `${selectedCondition.name} · ${facilityConditionActivity(selectedCondition)}` : '';
-  btnRecoverFacilityCondition.disabled = !selectedCondition?.currentActive
-    || facilityDraftDirty || !(selectedCondition.recovery || []).some(reference => reference.privateOverseerAction === true);
-  btnSaveFacility.disabled = facilitySubmitting || !facilityDraftDirty;
-  btnResetFacility.disabled = facilitySubmitting || facilityDraftDirty;
-  btnResetFacilityDevice.disabled = facilitySubmitting || facilityDraftDirty;
-  const discard = document.getElementById('btnDiscardFacility');
-  if (discard) discard.disabled = facilitySubmitting || !facilityDraftDirty;
-  facilityWorkspace.inert = facilitySubmitting;
-  if (facilityDraftDirty && facilityDraftBaseRevision !== currentSessionRevision()) {
-    facilityStatus.textContent = 'СЕССИЯ ИЗМЕНИЛАСЬ. ЧЕРНОВИК СОХРАНЁН ДЛЯ ПРОСМОТРА; ОТМЕНИТЕ ЕГО И ПОВТОРИТЕ ПРАВКИ.';
+  for (const control of [btnResetFacilityDevice, btnPreviewFacilityDevice, btnPreviewFacilityCondition, btnRecoverFacilityCondition]) {
+    explainControl(control, controlBlockReason(control));
   }
+}
+
+// controlBlockReason says why a reset, preview, or recovery control cannot
+// run now, or returns '' (FR-005).
+function controlBlockReason(control) {
+  if (!state.session || !state.filePath) return 'НЕТ ОТКРЫТОЙ СЕССИИ';
+  if (coordinationCommandPending || sessionStateCommandPending) return 'ВЫПОЛНЯЕТСЯ ДРУГАЯ КОМАНДА';
+  // A scene reset counts against the saved session; a preview waits instead.
+  if (control === btnResetScene && authoringBusy()) return 'ДОЖДИТЕСЬ СОХРАНЕНИЯ';
+  if (control === btnResetScene && sceneResetCounts(state.session).total === 0) return 'СЦЕНА УЖЕ В НАЧАЛЬНОМ СОСТОЯНИИ';
+  if (control === btnRecoverFacilityCondition) {
+    const condition = selectedFacilityCondition(state.session);
+    if (!condition?.currentActive) return 'НЕИСПРАВНОСТЬ НЕ АКТИВНА';
+    if (!(condition.recovery || []).some(reference => reference.privateOverseerAction === true)) {
+      return 'ВОССТАНОВЛЕНИЕ ОПЕРАТОРОМ НЕ НАСТРОЕНО';
+    }
+  }
+  return '';
 }
 
 function rowByFacilityIdentity(kind, id) {
@@ -2638,44 +3274,8 @@ function facilityIssueMessage(result) {
   return parts.join(' · ');
 }
 
-async function saveFacilityCandidate(candidate) {
-  if (facilitySubmitting || !candidate || !state.session) return false;
-  if (facilityDraftBaseRevision !== currentSessionRevision()) {
-    setFacilityFeedback(facilityValidation, 'СЕССИЯ ИЗМЕНИЛАСЬ. ОТМЕНИТЕ ЧЕРНОВИК И ПОВТОРИТЕ ПРАВКИ В АКТУАЛЬНОЙ СЕССИИ.');
-    return false;
-  }
-  facilitySubmitting = true;
-  renderFacilityWorkspace();
-  facilityStatus.textContent = 'СОХРАНЕНИЕ ОБЪЕКТОВ…';
-  setFacilityFeedback(facilityValidation);
-  const expectedFacilityRevision = Number(candidate.facility?.revision || 0);
-  const result = await desktopAPI.saveFacilityAuthoring({
-    session: structuredClone(candidate),
-    expectedSessionRevision: facilityDraftBaseRevision,
-    expectedFacilityRevision,
-    correlationId: `facility-authoring-${currentSessionRevision()}-${expectedFacilityRevision}`,
-  });
-  facilitySubmitting = false;
-  if (!result?.ok || !result.session) {
-    facilityStatus.dataset.error = 'true';
-    facilityStatus.textContent = 'ЧЕРНОВИК НЕ СОХРАНЁН. ИСПРАВЬТЕ ОШИБКУ И ПОВТОРИТЕ СОХРАНЕНИЕ.';
-    setFacilityFeedback(facilityValidation, facilityIssueMessage(result));
-    renderFacilityWorkspace();
-    return false;
-  }
-  state.session = result.session;
-  const sessionRevision = Number(result.sessionRevision || 0);
-  newestDurableRevision = Math.max(newestDurableRevision, sessionRevision);
-  saveStatus.dataset.savedRevision = String(newestDurableRevision);
-  resetFacilityDraft(state.session, true);
-  delete facilityStatus.dataset.error;
-  facilityStatus.textContent = 'ИЗМЕНЕНИЯ СЕССИИ СОХРАНЕНЫ';
-  setFacilityFeedback(facilityValidation);
-  renderAll();
-  return true;
-}
 
-function selectedFacilityCondition(session = facilityDraft) {
+function selectedFacilityCondition(session = state.session) {
   return session?.facility?.conditions?.find(condition => condition.id === selectedFacilityConditionID) || null;
 }
 
@@ -2690,86 +3290,59 @@ function facilityPreviewNodeMap(node, result = new Map()) {
   return result;
 }
 
-function facilityPreviewNodeSignature(node) {
-  return JSON.stringify({
-    name: node?.name || '',
-    text: node?.text || '',
-    description: node?.description || '',
-    blocks: (node?.blocks || []).map(block => [block.id, block.initialText]),
-  });
-}
+const PREVIEW_DIFFERENCE_LABELS = {
+  'name-changed': 'ПЕРЕИМЕНУЕТСЯ',
+  'text-changed': 'ТЕКСТ ИЗМЕНИТСЯ',
+  appears: 'ПОЯВИТСЯ',
+  disappears: 'ИСЧЕЗНЕТ',
+  'becomes-available': 'СТАНЕТ ДОСТУПНО',
+  'becomes-unavailable': 'СТАНЕТ НЕДОСТУПНО',
+};
 
-function facilityPreviewDeviceStates(selection, overrideStateID = '') {
-  const states = new Map((state.session?.facility?.devices || []).map(device => [device.id, device.currentStateId]));
-  if (selection.kind === 'device' && overrideStateID) {
-    states.set(selection.id, overrideStateID);
-  }
-  return states;
-}
-
-function facilityPreviewNodeAvailable(node, deviceStates) {
-  if (!node?.availableWhen) return true;
-  return deviceStates.get(node.availableWhen.deviceId) === node.availableWhen.stateId;
-}
-
-function renderFacilityPreviewNode(node, parent, comparison) {
+// renderFacilityPreviewNode draws one projected node; kinds maps node IDs to
+// the difference kinds that mark them in both panes, in summary order.
+function renderFacilityPreviewNode(node, parent, kinds) {
   if (!node || typeof node !== 'object') return;
   const item = document.createElement('section');
   item.className = 'facility-preview-node';
   item.dataset.previewNodeId = node.id || '';
-  const baseline = comparison.baseline.get(node.id);
-  const changed = !baseline || facilityPreviewNodeSignature(baseline) !== facilityPreviewNodeSignature(node);
-  const unavailable = !facilityPreviewNodeAvailable(node, comparison.targetDeviceStates);
-  const baselineUnavailable = baseline
-    ? !facilityPreviewNodeAvailable(baseline, comparison.baselineDeviceStates)
-    : false;
-  if (changed || unavailable !== baselineUnavailable) {
-    item.classList.add('facility-preview-changed');
-    comparison.changed++;
-  }
-  if (unavailable) {
-    item.classList.add('facility-preview-unavailable');
-    comparison.unavailable++;
-  }
+  const nodeKinds = kinds.get(node.id) || [];
   const heading = document.createElement('strong');
   heading.textContent = node.name || node.id || '—';
   item.appendChild(heading);
-  if (changed || unavailable) {
+  if (nodeKinds.length) item.dataset.kind = nodeKinds.join(' ');
+  for (const kind of nodeKinds) {
     const status = document.createElement('span');
     status.className = 'facility-preview-node-status';
-    status.textContent = [changed ? 'ИЗМЕНЕНО' : '', unavailable ? 'КОМАНДА НЕДОСТУПНА' : '']
-      .filter(Boolean).join(' · ');
+    status.textContent = PREVIEW_DIFFERENCE_LABELS[kind];
     item.appendChild(status);
   }
-  for (const block of node.description ? [] : (node.blocks || [])) {
+  const texts = node.description ? [node.description] : (node.blocks || []).map(block => block.initialText || '');
+  for (const value of texts) {
     const text = document.createElement('p');
-    text.textContent = block.initialText || '';
-    item.appendChild(text);
-  }
-  if (node.description) {
-    const text = document.createElement('p');
-    text.textContent = node.description;
+    text.textContent = value;
     item.appendChild(text);
   }
   parent.appendChild(item);
-  for (const child of node.children || []) renderFacilityPreviewNode(child, item, comparison);
+  for (const child of node.children || []) renderFacilityPreviewNode(child, item, kinds);
+}
+
+function clearFacilityPreview(summary = '') {
+  facilityPreviewSummary.textContent = summary;
+  facilityPreviewCurrent.replaceChildren();
+  facilityPreviewHypothetical.replaceChildren();
 }
 
 function closeFacilityPreview() {
   const opener = facilityOperationOpener;
   facilityPreviewGeneration++;
   facilityPreviewSelection = null;
-  facilityPreviewTree.removeAttribute('aria-busy');
+  facilityPreviewHypothetical.removeAttribute('aria-busy');
   facilityOperationOpener = null;
   hideFacilityDialog(facilityPreviewDialog, opener);
 }
 
 function openFacilityPreview(kind, opener) {
-  if (facilityDraftDirty) {
-    setFacilityFeedback(facilityValidation, 'СНАЧАЛА СОХРАНИТЕ ИЛИ ОТМЕНИТЕ ИЗМЕНЕНИЯ ЧЕРНОВИКА ДЛЯ ПРЕДПРОСМОТРА.');
-    btnSaveFacility.focus();
-    return;
-  }
   const device = facilityDeviceByID(selectedFacilityDeviceID, state.session);
   const condition = selectedFacilityCondition(state.session);
   if ((kind === 'device' && !device) || (kind === 'condition' && !condition)) return;
@@ -2782,102 +3355,108 @@ function openFacilityPreview(kind, opener) {
   facilityPreviewStateLabel.hidden = !deviceMode;
   facilityPreviewState.hidden = !deviceMode;
   facilityPreviewActiveLabel.hidden = deviceMode;
-  if (deviceMode) populateSelect(facilityPreviewState, device.states || [], device.currentStateId);
-  else facilityPreviewActive.checked = Boolean(condition.currentActive);
-  facilityPreviewTree.replaceChildren();
-  facilityPreviewChanges.textContent = '';
+  if (deviceMode) {
+    const different = (device.states || []).find(value => value.id !== device.currentStateId);
+    populateSelect(facilityPreviewState, device.states || [], different?.id || device.currentStateId);
+  } else {
+    facilityPreviewActive.checked = !condition.currentActive;
+  }
+  clearFacilityPreview();
   facilityPreviewStatus.textContent = '';
   setFacilityFeedback(facilityPreviewError);
   showFacilityDialog(facilityPreviewDialog, deviceMode ? facilityPreviewState : facilityPreviewActive);
   void refreshFacilityPreview();
 }
 
-async function refreshFacilityPreview() {
+// refreshFacilityPreview asks, once the save queue is idle, for the current
+// and the previewed projection of the applied configuration in one request;
+// a stale authoring revision is retried once (FR-016–FR-020).
+async function refreshFacilityPreview(retried = false) {
   if (!facilityPreviewSelection || !facilityPreviewTerminal.value) return;
   const generation = ++facilityPreviewGeneration;
   const selection = { ...facilityPreviewSelection };
-  facilityPreviewStatus.textContent = 'ПОДГОТОВКА ПРЕДПРОСМОТРА…';
-  facilityPreviewTree.setAttribute('aria-busy', 'true');
   setFacilityFeedback(facilityPreviewError);
-  const basePayload = {
-    expectedFacilityRevision: facilityRevision(),
-    terminalId: facilityPreviewTerminal.value,
-  };
-  let baselinePayload;
-  let targetPayload;
-  let baselineLabel;
-  let targetLabel;
-  let baselineStateID = '';
-  let targetStateID = '';
+  const payload = { terminalId: facilityPreviewTerminal.value };
+  let currentLabel;
+  let previewLabel;
   if (selection.kind === 'device') {
     const device = facilityDeviceByID(selection.id, state.session);
     if (!device) return;
-    baselineStateID = device.currentStateId;
-    targetStateID = facilityPreviewState.value;
-    baselineLabel = facilityStateName(device, baselineStateID);
-    targetLabel = facilityStateName(device, targetStateID);
-    baselinePayload = { ...basePayload, deviceState: { deviceId: selection.id, stateId: baselineStateID } };
-    targetPayload = { ...basePayload, deviceState: { deviceId: selection.id, stateId: targetStateID } };
-    facilityPreviewContext.textContent = `${device.name}: ${baselineLabel} → ${targetLabel}. `
-      + 'Предпросмотр использует сохранённую конфигурацию сессии и не влияет на игроков.';
+    if ((device.states || []).length < 2) {
+      facilityPreviewStatus.textContent = '';
+      clearFacilityPreview('НЕЧЕГО СРАВНИВАТЬ: У УСТРОЙСТВА ОДНО СОСТОЯНИЕ');
+      return;
+    }
+    currentLabel = `${device.name}: ${facilityStateName(device, device.currentStateId)}`;
+    previewLabel = `${device.name}: ${facilityStateName(device, facilityPreviewState.value)}`;
+    payload.deviceState = { deviceId: selection.id, stateId: facilityPreviewState.value };
   } else {
     const condition = state.session?.facility?.conditions?.find(value => value.id === selection.id);
     if (!condition) return;
-    const baselineActive = Boolean(condition.currentActive);
-    const targetActive = facilityPreviewActive.checked;
-    baselineLabel = baselineActive ? 'Активно' : 'Неактивно';
-    targetLabel = targetActive ? 'Активно' : 'Неактивно';
-    baselinePayload = { ...basePayload, condition: { conditionId: selection.id, active: baselineActive } };
-    targetPayload = { ...basePayload, condition: { conditionId: selection.id, active: targetActive } };
-    facilityPreviewContext.textContent = `${condition.name}: ${baselineLabel} → ${targetLabel}. `
-      + 'Предпросмотр использует сохранённую конфигурацию сессии и не влияет на игроков.';
+    const activity = active => (active ? 'Активно' : 'Неактивно');
+    currentLabel = `${condition.name}: ${activity(condition.currentActive)}`;
+    previewLabel = `${condition.name}: ${activity(facilityPreviewActive.checked)}`;
+    payload.condition = { conditionId: selection.id, active: facilityPreviewActive.checked };
   }
-  const sameOverride = JSON.stringify(baselinePayload) === JSON.stringify(targetPayload);
-  const baselineRequest = desktopAPI.previewFacility(baselinePayload);
-  const [baselineResult, targetResult] = await Promise.all([
-    baselineRequest,
-    sameOverride ? baselineRequest : desktopAPI.previewFacility(targetPayload),
-  ]);
-  if (generation !== facilityPreviewGeneration || !facilityPreviewSelection
-      || facilityPreviewSelection.kind !== selection.kind || facilityPreviewSelection.id !== selection.id) return;
-  facilityPreviewTree.removeAttribute('aria-busy');
-  if (!baselineResult?.ok || !baselineResult.terminal || !targetResult?.ok || !targetResult.terminal) {
-    facilityPreviewStatus.textContent = '';
-    setFacilityFeedback(facilityPreviewError, facilityIssueMessage(!baselineResult?.ok ? baselineResult : targetResult));
+  facilityPreviewStatus.textContent = 'ПОДГОТОВКА ПРЕДПРОСМОТРА…';
+  facilityPreviewHypothetical.setAttribute('aria-busy', 'true');
+  await authoringIdle();
+  if (generation !== facilityPreviewGeneration) return;
+  payload.expectedFacilityRevision = facilityRevision();
+  payload.expectedAuthoringRevision = authoring.revision;
+  const result = await desktopAPI.previewFacility(payload);
+  if (generation !== facilityPreviewGeneration || facilityPreviewSelection?.kind !== selection.kind
+      || facilityPreviewSelection.id !== selection.id) return;
+  facilityPreviewHypothetical.removeAttribute('aria-busy');
+  if (!result.ok && result.failure === 'stale-revision' && !retried) {
+    void refreshFacilityPreview(true);
     return;
   }
-  const baseline = facilityPreviewNodeMap(baselineResult.terminal.tree);
-  const target = facilityPreviewNodeMap(targetResult.terminal.tree);
-  const hidden = [...baseline.values()].filter(node => node.id !== baselineResult.terminal.tree.id && !target.has(node.id));
-  const comparison = {
-    baseline,
-    baselineDeviceStates: facilityPreviewDeviceStates(selection, baselineStateID),
-    targetDeviceStates: facilityPreviewDeviceStates(selection, targetStateID),
-    changed: hidden.length,
-    unavailable: 0,
-  };
-  facilityPreviewTree.replaceChildren();
-  renderFacilityPreviewNode(targetResult.terminal.tree, facilityPreviewTree, comparison);
-  const hiddenSummary = hidden.length
-    ? `\nСкрыто: ${hidden.map(node => node.name || node.id).join(', ')}`
-    : '\nСкрытых элементов нет.';
-  facilityPreviewChanges.textContent = `СРАВНЕНИЕ: ${baselineLabel} → ${targetLabel}\n`
-    + `Изменено: ${comparison.changed}. Недоступных команд: ${comparison.unavailable}.${hiddenSummary}`;
-  facilityPreviewStatus.textContent = 'ПРЕДПРОСМОТР ГОТОВ · СОХРАНЁННЫЕ ДАННЫЕ НЕ ИЗМЕНЕНЫ';
+  if (!result.ok || !result.terminal || !result.current) {
+    facilityPreviewStatus.textContent = '';
+    setFacilityFeedback(facilityPreviewError, facilityIssueMessage(result));
+    return;
+  }
+  const kinds = new Map();
+  for (const { nodeId, kind } of result.differences) {
+    const nodeKinds = kinds.get(nodeId) || [];
+    if (!nodeKinds.includes(kind)) kinds.set(nodeId, [...nodeKinds, kind]);
+  }
+  document.getElementById('facilityPreviewCurrentHeading').textContent = `СЕЙЧАС: ${currentLabel}`;
+  document.getElementById('facilityPreviewHypotheticalHeading').textContent = `ЕСЛИ: ${previewLabel}`;
+  clearFacilityPreview();
+  renderFacilityPreviewNode(result.current.tree, facilityPreviewCurrent, kinds);
+  renderFacilityPreviewNode(result.terminal.tree, facilityPreviewHypothetical, kinds);
+  const nodes = new Map([...facilityPreviewNodeMap(result.current.tree), ...facilityPreviewNodeMap(result.terminal.tree)]);
+  if (!result.differences.length) {
+    facilityPreviewSummary.textContent = 'ИГРОКИ НЕ УВИДЯТ ИЗМЕНЕНИЙ';
+  } else {
+    const heading = document.createElement('div');
+    heading.textContent = `ИЗМЕНЕНИЙ: ${result.differences.length}`;
+    const list = document.createElement('ul');
+    // The player projection joins an entry's blocks into one text, so block
+    // numbers come from the authored terminal.
+    const authored = state.session?.terminals?.find(terminal => terminal.id === payload.terminalId);
+    for (const difference of result.differences) {
+      const node = nodes.get(difference.nodeId);
+      const block = difference.blockId ? entryBlockLocation(authored, difference.blockId) : null;
+      const item = document.createElement('li');
+      item.dataset.kind = difference.kind;
+      item.textContent = `${PREVIEW_DIFFERENCE_LABELS[difference.kind] || difference.kind}: ${node?.name || difference.nodeId}`
+        + (block ? ` · блок ${block.index + 1}` : '');
+      list.appendChild(item);
+    }
+    facilityPreviewSummary.replaceChildren(heading, list);
+  }
+  facilityPreviewStatus.textContent = 'ПРЕДПРОСМОТР ГОТОВ · МИР ДЛЯ ИГРОКОВ НЕ ИЗМЕНЁН';
 }
 
 function openFacilityConfirmation(dialog, opener, focusTarget) {
-  if (facilityDraftDirty) {
-    setFacilityFeedback(facilityValidation, 'СНАЧАЛА СОХРАНИТЕ ИЛИ ОТМЕНИТЕ ИЗМЕНЕНИЯ ЧЕРНОВИКА.');
-    return;
-  }
   const description = dialog.querySelector('p');
   const device = facilityDeviceByID(selectedFacilityDeviceID, state.session);
   const condition = selectedFacilityCondition(state.session);
   if (dialog === facilityDeviceResetDialog && device) {
     description.textContent = `${device.name}: ${facilityStateName(device, device.currentStateId)} → ${facilityStateName(device, device.initialStateId)}. Неисправности этого устройства также вернутся к начальным значениям. Изменение сразу сохранится и станет видно игрокам.`;
-  } else if (dialog === facilityResetDialog) {
-    description.textContent = `Сбросить все устройства (${state.session.facility?.devices?.length || 0}) и неисправности (${state.session.facility?.conditions?.length || 0}) сессии «${state.session.name || 'Текущая сессия'}» к начальным значениям? Изменение сразу сохранится и станет видно игрокам.`;
   } else if (dialog === facilityRecoveryConfirmationDialog && condition) {
     description.textContent = `Снять неисправность «${condition.name}» через настроенное восстановление оператором? Изменение сразу сохранится и станет видно игрокам.`;
   }
@@ -2899,10 +3478,7 @@ function reconcileFacilityOperation(result, successMessage, focusKind = '', focu
     setFacilityFeedback(facilityValidation, message);
     return false;
   }
-  state.session = result.session;
-  newestDurableRevision = Math.max(newestDurableRevision, Number(result.sessionRevision || 0));
-  saveStatus.dataset.savedRevision = String(newestDurableRevision);
-  resetFacilityDraft(state.session);
+  applyLiveSession(result.session, result.sessionRevision);
   if (focusKind === 'device') selectedFacilityDeviceID = focusID;
   if (focusKind === 'condition') selectedFacilityConditionID = focusID;
   delete facilityStatus.dataset.error;
@@ -2924,13 +3500,102 @@ async function resetSelectedFacilityDevice() {
   reconcileFacilityOperation(result, 'УСТРОЙСТВО СБРОШЕНО', 'device', deviceID);
 }
 
-async function resetWholeFacility() {
-  closeFacilityConfirmation(facilityResetDialog);
-  const result = await desktopAPI.resetFacility({
-    expectedFacilityRevision: facilityRevision(),
-    correlationId: uid('facility-reset'),
+// ── Scene reset (FR-014) ────────────────────────────────────
+let sceneResetCounted = null;
+let sceneResetSubmitting = false;
+
+// sceneResetCounts counts what a scene reset changes in session.
+function sceneResetCounts(session) {
+  const facility = session?.facility;
+  const devices = (facility?.devices || []).filter(device => device.currentStateId !== device.initialStateId).length;
+  const faults = (facility?.conditions || [])
+    .filter(condition => Boolean(condition.currentActive) !== Boolean(condition.initialActive)).length;
+  const terminals = (session?.terminals || [])
+    .map(terminal => ({ name: terminal.name, count: Object.keys(terminal.commandStates || {}).length }))
+    .filter(terminal => terminal.count > 0);
+  const commands = terminals.reduce((sum, terminal) => sum + terminal.count, 0);
+  return { devices, faults, commands, terminals, total: devices + faults + commands };
+}
+
+// renderSceneResetDialog lists the counts and records the revisions they
+// were counted against.
+function renderSceneResetDialog(sessionRevision = currentSessionRevision(), facilityRevisionValue = facilityRevision()) {
+  const counts = sceneResetCounts(state.session);
+  const perTerminal = counts.terminals.map(terminal => `${terminal.name}: ${terminal.count}`).join(', ');
+  sceneResetCountsList.replaceChildren(...[
+    `УСТРОЙСТВА: ${counts.devices}`,
+    `НЕИСПРАВНОСТИ: ${counts.faults}`,
+    `ВЫПОЛНЕННЫЕ КОМАНДЫ: ${counts.commands}${perTerminal ? ` (${perTerminal})` : ''}`,
+  ].map(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  renderSceneResetPending();
+  sceneResetCounted = { sessionRevision, facilityRevision: facilityRevisionValue };
+}
+
+// renderSceneResetPending says what the reset does to a pending player
+// request; it follows coordination changes while the dialog is open.
+function renderSceneResetPending() {
+  const pending = state.coordination?.pendingCommandExecution;
+  if (pending?.requestId) {
+    const terminal = state.session?.terminals.find(candidate => candidate.id === pending.terminalId);
+    const rejected = Boolean(pending.facilityAction) || Object.hasOwn(terminal?.commandStates || {}, pending.commandId);
+    sceneResetPending.textContent = `ОЖИДАЮЩИЙ ЗАПРОС ИГРОКА: ${pending.commandName || pending.commandId} — ${rejected ? 'БУДЕТ ОТКЛОНЁН' : 'ОСТАНЕТСЯ В ОЖИДАНИИ'}`;
+  }
+  sceneResetPending.hidden = !pending?.requestId;
+}
+
+function setSceneResetStatus(message = '') {
+  sceneResetStatus.textContent = message;
+  sceneResetStatus.hidden = !message;
+}
+
+function openSceneResetDialog() {
+  if (controlBlocked(btnResetScene)) return;
+  setSceneResetStatus();
+  renderSceneResetDialog();
+  showFacilityDialog(sceneResetDialog, btnCancelSceneReset);
+}
+
+function closeSceneResetDialog() {
+  if (!sceneResetSubmitting) hideFacilityDialog(sceneResetDialog, btnResetScene);
+}
+
+async function confirmSceneReset() {
+  if (sceneResetSubmitting || !sceneResetCounted) return;
+  sceneResetSubmitting = true;
+  btnConfirmSceneReset.disabled = true;
+  btnCancelSceneReset.disabled = true;
+  const result = await desktopAPI.resetScene({
+    expectedSessionRevision: sceneResetCounted.sessionRevision,
+    expectedFacilityRevision: sceneResetCounted.facilityRevision,
+    correlationId: uid('scene-reset'),
   });
-  reconcileFacilityOperation(result, 'ОБЪЕКТ СБРОШЕН');
+  sceneResetSubmitting = false;
+  btnConfirmSceneReset.disabled = false;
+  btnCancelSceneReset.disabled = false;
+  saveStatus.dataset.wailsCommand = 'ResetScene';
+  saveStatus.dataset.wailsResult = result.ok ? 'ok' : 'error';
+  saveStatus.dataset.wailsRevision = String(Number(result.sessionRevision || 0));
+  delete saveStatus.dataset.wailsTerminalId;
+  updateSessionStateEvidenceDescription();
+  if (result.ok && result.session) {
+    applyLiveSession(result.session, result.sessionRevision);
+    closeSceneResetDialog();
+    setCoordinationStatus('СЦЕНА СБРОШЕНА');
+    renderAll();
+    return;
+  }
+  if (result.failure === 'stale-revision' && result.session) {
+    applyLiveSession(result.session, result.sessionRevision);
+    renderAll();
+    renderSceneResetDialog(result.sessionRevision, result.previousFacilityRevision);
+    setSceneResetStatus('СЦЕНА ИЗМЕНИЛАСЬ — ПРОВЕРЬТЕ СПИСОК');
+    return;
+  }
+  setSceneResetStatus(`СЦЕНА НЕ СБРОШЕНА: ${facilityIssueMessage(result)}`);
 }
 
 async function recoverSelectedFacilityCondition() {
@@ -3257,7 +3922,7 @@ function openFacilityConditionDialog(conditionID = '') {
   facilityConditionScope.value = condition?.terminal ? 'terminal' : 'device';
   populateFacilityDeviceSelect(facilityConditionDevice, condition?.device?.deviceId || selectedFacilityDeviceID);
   populateSelect(facilityConditionTerminal,
-    (facilityDraft?.terminals || []).map(terminal => ({ id: terminal.id, name: terminal.name })),
+    (state.session?.terminals || []).map(terminal => ({ id: terminal.id, name: terminal.name })),
     condition?.terminal?.terminalId || '', 'ВЫБЕРИТЕ ТЕРМИНАЛ');
   facilityConditionCapability.value = condition?.effects
     ?.find(effect => effect.capabilityBlock)?.capabilityBlock?.capability || '';
@@ -3307,7 +3972,7 @@ function openFacilityRecoveryProgramDialog(programID = '') {
 }
 
 function updateFacilityBindingNodes() {
-  const terminal = facilityDraft?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
+  const terminal = state.session?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
   const current = facilityBindingNode.value;
   const nodes = [];
   if (terminal) visitContentNodes(terminal.root, node => {
@@ -3331,7 +3996,7 @@ function openFacilityBindingDialog(binding = null) {
   populateSelect(facilityBindingProgram, authoredFacility().recoveryPrograms,
     editingFacilityBinding?.programID || '', 'ОТДЕЛЬНЫЕ ПЕРЕХОДЫ');
   populateSelect(facilityBindingTerminal,
-    (facilityDraft?.terminals || []).map(terminal => ({ id: terminal.id, name: terminal.name })),
+    (state.session?.terminals || []).map(terminal => ({ id: terminal.id, name: terminal.name })),
     editingFacilityBinding?.terminal.id || '', 'ВЫБЕРИТЕ ТЕРМИНАЛ');
   updateFacilityBindingNodes();
   if (editingFacilityBinding) facilityBindingNode.value = binding.node.id;
@@ -3449,7 +4114,7 @@ function navigateToFacilityDependency(dependency) {
     openFacilityRecoveryProgramDialog(program.id);
     return;
   }
-  const terminal = facilityDraft?.terminals?.find(value => value.id === terminalID);
+  const terminal = state.session?.terminals?.find(value => value.id === terminalID);
   const blockLocation = terminal ? entryBlockLocation(terminal, sourceID) : null;
   const nodeID = blockLocation?.entry.id || sourceID;
   if (!terminal || !locateNode(terminal.root, nodeID)) {
@@ -3468,7 +4133,7 @@ function navigateToFacilityDependency(dependency) {
 }
 
 function facilityDependencyDescription(dependency) {
-  const terminal = facilityDraft?.terminals?.find(value => value.id === dependency.terminalId);
+  const terminal = state.session?.terminals?.find(value => value.id === dependency.terminalId);
   const node = terminal ? locateNode(terminal.root, dependency.sourceId)?.node : null;
   const block = terminal ? entryBlockLocation(terminal, dependency.sourceId) : null;
   const condition = authoredFacility()?.conditions?.find(value => value.id === dependency.sourceId);
@@ -3589,24 +4254,28 @@ function validateFacilityRepair() {
     btnApplyFacilityRepair.hidden = true;
     return;
   }
-  const candidate = structuredClone(facilityDraft);
+  const candidate = structuredClone(state.session);
   const changed = rewriteFacilityDeviceReferences(candidate, pendingFacilityRepair.sourceID, replacementID);
-  candidate.facility.devices = candidate.facility.devices.filter(device => device.id !== pendingFacilityRepair.sourceID);
-  pendingFacilityRepair.candidate = candidate;
+  pendingFacilityRepair.replacementID = replacementID;
   facilityRepairImpact.textContent = `ПЕРЕНАЗНАЧЕНО ССЫЛОК: ${changed} · УДАЛЯЕТСЯ ${pendingFacilityRepair.sourceID} · НАЗНАЧАЕТСЯ ${replacementID}`;
   btnApplyFacilityRepair.disabled = false;
   btnApplyFacilityRepair.hidden = false;
 }
 
-function applyFacilityDeletion(candidate) {
+// applyFacilityDeletion deletes the repaired device, first moving its
+// references to replacementID when one is given.
+function applyFacilityDeletion(replacementID) {
   const sourceID = pendingFacilityRepair?.sourceID;
-  if (!candidate || !sourceID) return;
-  facilityDraft = candidate;
-  markFacilityDraftDirty();
+  if (!sourceID) return;
+  const name = facilityDeviceByID(sourceID)?.name || sourceID;
   selectedFacilityDeviceID = '';
   pendingFacilityRepair = null;
   hideFacilityDialog(facilityRepairDialog, btnAddFacilityDevice);
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Удаление «${name}»`, session => {
+    if (replacementID) rewriteFacilityDeviceReferences(session, sourceID, replacementID);
+    const facility = ensureFacility(session);
+    facility.devices = facility.devices.filter(device => device.id !== sourceID);
+  });
 }
 
 function installFacilityBindingControls() {
@@ -3687,7 +4356,7 @@ function installFacilityBindingControls() {
 }
 
 function updateFacilityBindingCommandTexts() {
-  const terminal = facilityDraft?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
+  const terminal = state.session?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
   const node = terminal ? locateNode(terminal.root, facilityBindingNode.value)?.node : null;
   const needed = facilityBindingKind.value === 'command-action' && node?.type === 'command'
     && !node.stateChange && !node.terminalTransition;
@@ -3699,7 +4368,7 @@ function updateFacilityBindingCommandTexts() {
 }
 
 function updateFacilityBindingBlocks() {
-  const terminal = facilityDraft?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
+  const terminal = state.session?.terminals?.find(candidate => candidate.id === facilityBindingTerminal.value);
   const node = terminal ? locateNode(terminal.root, facilityBindingNode.value)?.node : null;
   populateSelect(facilityBindingBlock, (node?.blocks || []).map(block => ({
     id: block.id,
@@ -3942,18 +4611,21 @@ facilityDeviceForm.addEventListener('submit', event => {
     showFacilityRowProblems(problems);
     return;
   }
-  if (editingFacilityDeviceID) {
-    const index = authoredFacility().devices.findIndex(candidate => candidate.id === editingFacilityDeviceID);
-    authoredFacility().devices.splice(index, 1, device);
-  } else {
-    authoredFacility().devices.push(device);
-  }
+  const editingID = editingFacilityDeviceID;
   selectedFacilityDeviceID = device.id;
   selectedFacilityConditionID = '';
   editingFacilityDeviceID = '';
   hideFacilityDialog(facilityDeviceDialog, btnAddFacilityDevice);
-  markFacilityDraftDirty();
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Устройство «${device.name}»`, session => {
+    const facility = ensureFacility(session);
+    const index = editingID ? facility.devices.findIndex(candidate => candidate.id === editingID) : -1;
+    if (index >= 0) facility.devices.splice(index, 1, structuredClone(device));
+    else facility.devices.push(structuredClone(device));
+  }, reason => {
+    editingFacilityDeviceID = editingID;
+    showFacilityDialog(facilityDeviceDialog);
+    setFacilityFeedback(facilityDeviceError, reason);
+  });
 });
 facilityDeviceName.addEventListener('input', () => {
   if (facilityDeviceID.dataset.manual === 'true') return;
@@ -4031,12 +4703,20 @@ facilityConditionForm.addEventListener('submit', event => {
   else condition.device = { ...original?.device, deviceId: facilityConditionDevice.value };
   if (terminalScope) delete condition.device;
   else delete condition.terminal;
-  if (original) authoredFacility().conditions.splice(authoredFacility().conditions.indexOf(original), 1, condition);
-  else authoredFacility().conditions.push(condition);
+  const originalID = original?.id || '';
+  const editingID = editingFacilityConditionID;
   editingFacilityConditionID = '';
   hideFacilityDialog(facilityConditionDialog, btnAddFacilityCondition);
-  markFacilityDraftDirty();
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Неисправность «${condition.name}»`, session => {
+    const facility = ensureFacility(session);
+    const index = originalID ? facility.conditions.findIndex(candidate => candidate.id === originalID) : -1;
+    if (index >= 0) facility.conditions.splice(index, 1, structuredClone(condition));
+    else facility.conditions.push(structuredClone(condition));
+  }, reason => {
+    editingFacilityConditionID = editingID;
+    showFacilityDialog(facilityConditionDialog);
+    setFacilityFeedback(facilityConditionError, reason);
+  });
 });
 facilityConditionName.addEventListener('input', () => {
   if (facilityConditionID.dataset.manual === 'true') return;
@@ -4076,11 +4756,19 @@ facilityRecoveryProgramForm.addEventListener('submit', event => {
       transitionId: facilityRecoveryProgramTransition.value,
     }, ...readFacilityActionRows(extra)],
   };
-  if (original) authoredFacility().recoveryPrograms.splice(authoredFacility().recoveryPrograms.indexOf(original), 1, program);
-  else authoredFacility().recoveryPrograms.push(program);
+  const originalID = original?.id || '';
+  const editingID = editingFacilityProgramID;
   hideFacilityDialog(facilityRecoveryProgramDialog, btnAddFacilityRecoveryProgram);
-  markFacilityDraftDirty();
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Программа «${program.name}»`, session => {
+    const facility = ensureFacility(session);
+    const index = originalID ? facility.recoveryPrograms.findIndex(candidate => candidate.id === originalID) : -1;
+    if (index >= 0) facility.recoveryPrograms.splice(index, 1, structuredClone(program));
+    else facility.recoveryPrograms.push(structuredClone(program));
+  }, reason => {
+    editingFacilityProgramID = editingID;
+    showFacilityDialog(facilityRecoveryProgramDialog);
+    setFacilityFeedback(facilityRecoveryProgramError, reason);
+  });
 });
 facilityRecoveryProgramName.addEventListener('input', () => {
   if (facilityRecoveryProgramID.dataset.manual === 'true') return;
@@ -4100,7 +4788,7 @@ facilityBindingDialog.addEventListener('cancel', event => {
 });
 facilityBindingForm.addEventListener('submit', event => {
   event.preventDefault();
-  const terminal = facilityDraft.terminals.find(candidate => candidate.id === facilityBindingTerminal.value);
+  const terminal = state.session.terminals.find(candidate => candidate.id === facilityBindingTerminal.value);
   const located = terminal ? locateNode(terminal.root, facilityBindingNode.value) : null;
   const kind = facilityBindingKind.value;
   const text = facilityBindingText.value.trim();
@@ -4117,6 +4805,7 @@ facilityBindingForm.addEventListener('submit', event => {
     when: { ...editingFacilityBinding?.variant.when, deviceId: facilityBindingDevice.value, stateId: facilityBindingState.value }, text,
   };
   const firstBlock = located.node.blocks?.find(block => block.id === facilityBindingBlock.value);
+  let apply;
   if (kind === 'command-action') {
     const programID = facilityBindingProgram.value;
     if (programID && !authoredFacility().recoveryPrograms.some(program => program.id === programID)) {
@@ -4135,10 +4824,11 @@ facilityBindingForm.addEventListener('submit', event => {
       return setFacilityFeedback(facilityBindingError, 'ЗАПОЛНИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ И ЗАПРОС ПОДТВЕРЖДЕНИЯ',
         completedName ? facilityBindingConfirmationText : facilityBindingCompletedName);
     }
-    if (editingFacilityBinding) removeFacilityBinding(editingFacilityBinding);
-    located.node.stateChange ||= { completedName, confirmationText };
-    located.node.stateChange.facilityAction = programID
-      ? { recoveryProgramId: programID } : { transitions: { transitions: requests } };
+    apply = node => {
+      node.stateChange ||= { completedName, confirmationText };
+      node.stateChange.facilityAction = programID
+        ? { recoveryProgramId: programID } : { transitions: { transitions: structuredClone(requests) } };
+    };
   } else if (!facilityBindingDevice.value || !facilityBindingState.value
       || (['menu-name', 'entry-content'].includes(kind) && !text)) {
     return setFacilityFeedback(facilityBindingError, 'ЗАПОЛНИТЕ УСТРОЙСТВО, СОСТОЯНИЕ И ТЕКСТ ДЛЯ ВЫБРАННОГО ТИПА',
@@ -4147,25 +4837,37 @@ facilityBindingForm.addEventListener('submit', event => {
     if (kind === 'entry-content' && (located.node.type !== 'entry' || !firstBlock)) {
       return setFacilityFeedback(facilityBindingError, 'ВЫБРАННАЯ ЗАПИСЬ НЕ СОДЕРЖИТ БЛОКОВ', facilityBindingNode);
     }
-    if (editingFacilityBinding) removeFacilityBinding(editingFacilityBinding);
-    const equality = variant.when;
-    if (kind === 'entry-content') {
-      (firstBlock.facilityTextVariants ||= []).push(variant);
-    } else if (kind === 'visibility') {
-      located.node.visibleWhen = equality;
-    } else if (kind === 'availability') {
-      located.node.availableWhen = equality;
-    } else {
-      (located.node.facilityNameVariants ||= []).push(variant);
-    }
+    const blockID = firstBlock?.id || '';
+    apply = node => {
+      const equality = structuredClone(variant.when);
+      if (kind === 'entry-content') {
+        const block = node.blocks?.find(candidate => candidate.id === blockID);
+        if (block) (block.facilityTextVariants ||= []).push(structuredClone(variant));
+      } else if (kind === 'visibility') {
+        node.visibleWhen = equality;
+      } else if (kind === 'availability') {
+        node.availableWhen = equality;
+      } else {
+        (node.facilityNameVariants ||= []).push(structuredClone(variant));
+      }
+    };
   }
+  const terminalID = terminal.id;
+  const nodeID = located.node.id;
+  const editingKey = editingFacilityBinding ? facilityBindingKey(editingFacilityBinding) : null;
   hideFacilityDialog(facilityBindingDialog, btnAddFacilityBinding);
-  markFacilityDraftDirty();
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Правило «${located.node.name}»`, session => {
+    if (editingKey) removeFacilityBinding(session, editingKey);
+    const owner = session.terminals.find(candidate => candidate.id === terminalID);
+    const node = owner ? locateNode(owner.root, nodeID)?.node : null;
+    if (node) apply(node);
+  }, reason => {
+    showFacilityDialog(facilityBindingDialog);
+    setFacilityFeedback(facilityBindingError, reason);
+  });
   renderNodeForm();
 });
 
-btnSaveFacility.addEventListener('click', () => { void saveFacilityCandidate(facilityDraft); });
 btnSaveFacilityDeviceChanges.addEventListener('click', () => {
   const selected = facilityDeviceByID(selectedFacilityDeviceID);
   const name = facilitySelectedDeviceName.value.trim();
@@ -4173,19 +4875,18 @@ btnSaveFacilityDeviceChanges.addEventListener('click', () => {
     setFacilityFeedback(facilitySelectionError, 'НАЗВАНИЕ УСТРОЙСТВА НЕ ДОЛЖНО БЫТЬ ПУСТЫМ', facilitySelectedDeviceName);
     return;
   }
-  selected.name = name;
-  markFacilityDraftDirty();
+  const deviceID = selected.id;
   setFacilityFeedback(facilitySelectionError);
-  renderFacilityWorkspace();
+  commitFacilityEdit(`Устройство «${name}»`, session => {
+    const device = ensureFacility(session).devices.find(candidate => candidate.id === deviceID);
+    if (device) device.name = name;
+  }, takeUnappliedInput(facilitySelectionEditor));
 });
-function discardFacilityDraft() {
-  resetFacilityDraft(state.session, true);
-  facilityStatus.textContent = 'ИЗМЕНЕНИЯ ОТМЕНЕНЫ';
-  delete facilityStatus.dataset.error;
-  setFacilityFeedback(facilityValidation);
-  renderAll();
-}
-document.getElementById('btnDiscardFacility')?.addEventListener('click', discardFacilityDraft);
+btnCancelFacilityDeviceChanges.addEventListener('click', () => {
+  takeUnappliedInput(facilitySelectionEditor);
+  renderFacilityWorkspace();
+  renderSaveStatus();
+});
 btnInspectFacilityDependencies.addEventListener('click', () => { void inspectSelectedFacilityDevice(); });
 btnCloseFacilityDependencies.addEventListener('click', () => hideFacilityDialog(facilityDependencyDialog, btnInspectFacilityDependencies));
 facilityDependencyDialog.addEventListener('cancel', event => {
@@ -4193,8 +4894,12 @@ facilityDependencyDialog.addEventListener('cancel', event => {
   hideFacilityDialog(facilityDependencyDialog, btnInspectFacilityDependencies);
 });
 btnDeleteFacilityDevice.addEventListener('click', () => { void openFacilityRepair(); });
-btnPreviewFacilityDevice.addEventListener('click', () => openFacilityPreview('device', btnPreviewFacilityDevice));
-btnPreviewFacilityCondition.addEventListener('click', () => openFacilityPreview('condition', btnPreviewFacilityCondition));
+btnPreviewFacilityDevice.addEventListener('click', () => {
+  if (!controlBlocked(btnPreviewFacilityDevice)) openFacilityPreview('device', btnPreviewFacilityDevice);
+});
+btnPreviewFacilityCondition.addEventListener('click', () => {
+  if (!controlBlocked(btnPreviewFacilityCondition)) openFacilityPreview('condition', btnPreviewFacilityCondition);
+});
 btnRefreshFacilityPreview.addEventListener('click', () => { void refreshFacilityPreview(); });
 facilityPreviewTerminal.addEventListener('change', () => { void refreshFacilityPreview(); });
 facilityPreviewState.addEventListener('change', () => { void refreshFacilityPreview(); });
@@ -4205,6 +4910,7 @@ facilityPreviewDialog.addEventListener('cancel', event => {
   closeFacilityPreview();
 });
 btnResetFacilityDevice.addEventListener('click', () => {
+  if (controlBlocked(btnResetFacilityDevice)) return;
   openFacilityConfirmation(facilityDeviceResetDialog, btnResetFacilityDevice, btnCancelFacilityDeviceReset);
 });
 btnCancelFacilityDeviceReset.addEventListener('click', () => closeFacilityConfirmation(facilityDeviceResetDialog));
@@ -4213,16 +4919,15 @@ facilityDeviceResetDialog.addEventListener('cancel', event => {
   event.preventDefault();
   closeFacilityConfirmation(facilityDeviceResetDialog);
 });
-btnResetFacility.addEventListener('click', () => {
-  openFacilityConfirmation(facilityResetDialog, btnResetFacility, btnCancelFacilityReset);
-});
-btnCancelFacilityReset.addEventListener('click', () => closeFacilityConfirmation(facilityResetDialog));
-btnConfirmFacilityReset.addEventListener('click', () => { void resetWholeFacility(); });
-facilityResetDialog.addEventListener('cancel', event => {
+btnResetScene.addEventListener('click', openSceneResetDialog);
+btnCancelSceneReset.addEventListener('click', closeSceneResetDialog);
+btnConfirmSceneReset.addEventListener('click', () => { void confirmSceneReset(); });
+sceneResetDialog.addEventListener('cancel', event => {
   event.preventDefault();
-  closeFacilityConfirmation(facilityResetDialog);
+  closeSceneResetDialog();
 });
 btnRecoverFacilityCondition.addEventListener('click', () => {
+  if (controlBlocked(btnRecoverFacilityCondition)) return;
   openFacilityConfirmation(facilityRecoveryConfirmationDialog, btnRecoverFacilityCondition, btnCancelFacilityRecovery);
 });
 btnCancelFacilityRecovery.addEventListener('click', () => closeFacilityConfirmation(facilityRecoveryConfirmationDialog));
@@ -4243,18 +4948,18 @@ facilityRepairDialog.addEventListener('cancel', event => {
   hideFacilityDialog(facilityRepairDialog, btnDeleteFacilityDevice);
 });
 facilityRepairTarget.addEventListener('change', () => {
-  pendingFacilityRepair && (pendingFacilityRepair.candidate = null);
+  pendingFacilityRepair && (pendingFacilityRepair.replacementID = '');
   btnApplyFacilityRepair.disabled = true;
   btnApplyFacilityRepair.hidden = true;
   facilityRepairImpact.textContent = '';
 });
 btnValidateFacilityRepair.addEventListener('click', validateFacilityRepair);
-btnApplyFacilityRepair.addEventListener('click', () => applyFacilityDeletion(pendingFacilityRepair?.candidate));
+btnApplyFacilityRepair.addEventListener('click', () => {
+  if (pendingFacilityRepair?.replacementID) applyFacilityDeletion(pendingFacilityRepair.replacementID);
+});
 btnDeleteFacilityWithoutRepair.addEventListener('click', () => {
   if (!pendingFacilityRepair || pendingFacilityRepair.dependencies.length) return;
-  const candidate = structuredClone(facilityDraft);
-  candidate.facility.devices = candidate.facility.devices.filter(device => device.id !== pendingFacilityRepair.sourceID);
-  applyFacilityDeletion(candidate);
+  applyFacilityDeletion('');
 });
 
 // ── Render: everything ──────────────────────────────────────
@@ -4269,6 +4974,7 @@ function renderAll() {
   renderHackStatus();
   renderCoordination();
   if (!facilityWorkspace.hidden) renderFacilityWorkspace();
+  renderSaveStatus();
 }
 
 // ── Render: authoritative roster and broadcast state ────────
@@ -4689,7 +5395,7 @@ async function runPlayerConfigCommand(command, successMessage) {
     renderCoordination();
     return result;
   }
-  if (result.session) state.session = result.session;
+  if (result.session) applyAuthoredSession(result.session, result.authoringRevision);
   applyCoordinationState(result.state || state.coordination);
   setCoordinationStatus(successMessage);
   setPlayerConfigError('');
@@ -5345,18 +6051,18 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && closeTerminalActionMenus({ restoreFocus: true })) event.preventDefault();
 });
 
-function ensureSessionTerminalGroups() {
-  if (!state.session) return;
-  const terminalIDs = new Set(state.session.terminals.map(term => term.id));
+function ensureSessionTerminalGroups(session = state.session) {
+  if (!session) return;
+  const terminalIDs = new Set(session.terminals.map(term => term.id));
   const represented = new Set();
   const groups = [];
-  for (const group of state.session.terminalGroups ?? []) {
+  for (const group of session.terminalGroups ?? []) {
     const members = (group.terminalIds ?? []).filter(id => terminalIDs.has(id) && !represented.has(id));
     members.forEach(id => represented.add(id));
     if (members.length) groups.push({ id: group.id, name: group.name, terminalIds: members });
   }
   const usedNames = new Set(groups.map(group => group.name.trim().toLocaleLowerCase()));
-  for (const term of state.session.terminals) {
+  for (const term of session.terminals) {
     if (represented.has(term.id)) continue;
     let name = term.name.trim() || 'Terminal';
     let suffix = 2;
@@ -5364,7 +6070,7 @@ function ensureSessionTerminalGroups() {
     usedNames.add(name.toLocaleLowerCase());
     groups.push({ id: uid('g'), name, terminalIds: [term.id] });
   }
-  state.session.terminalGroups = groups;
+  session.terminalGroups = groups;
 }
 
 function setTerminalGroupError(message = '') {
@@ -5754,10 +6460,8 @@ async function submitTerminalGroupCandidate(candidate, expectedSessionRevision, 
   });
   terminalGroupSubmitting = false;
   controls.forEach(control => { control.disabled = false; });
-  if (result?.session) state.session = result.session;
   const revision = Number(result?.sessionRevision || 0);
-  newestDurableRevision = Math.max(newestDurableRevision, revision);
-  saveStatus.dataset.savedRevision = String(newestDurableRevision);
+  if (result?.session) applyAuthoredSession(result.session, result.authoringRevision, revision);
   if (result?.coordinationState) applyCoordinationState(result.coordinationState);
   if (!result?.ok) {
     const error = result?.error || 'НЕ УДАЛОСЬ ИЗМЕНИТЬ ГРУППЫ ТЕРМИНАЛОВ';
@@ -5774,8 +6478,7 @@ async function submitTerminalGroupCandidate(candidate, expectedSessionRevision, 
     return false;
   }
   setTerminalGroupError();
-  saveStatus.textContent = `ГРУППЫ СОХРАНЕНЫ · ревизия ${revision}`;
-  saveStatus.classList.remove('err');
+  setCoordinationStatus('ГРУППЫ СОХРАНЕНЫ');
   renderAll();
   return true;
 }
@@ -5879,17 +6582,21 @@ function deleteTerminal(term) {
     return;
   }
   if (!window.confirm(`Удалить терминал "${term.name}" целиком?`)) return;
-  const idx = state.session.terminals.findIndex(candidate => candidate.id === term.id);
-  if (idx >= 0) state.session.terminals.splice(idx, 1);
-  state.session.terminalGroups = (state.session.terminalGroups ?? [])
-    .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => id !== term.id) }))
-    .filter(group => group.terminalIds.length > 0);
-  if (state.editTerminalId === term.id) {
+  const terminalID = term.id;
+  commitAuthoringEdit({
+    label: `УДАЛЕНИЕ ТЕРМИНАЛА «${term.name}»`,
+    mutate: session => {
+      session.terminals = session.terminals.filter(candidate => candidate.id !== terminalID);
+      session.terminalGroups = (session.terminalGroups ?? [])
+        .map(group => ({ ...group, terminalIds: group.terminalIds.filter(id => id !== terminalID) }))
+        .filter(group => group.terminalIds.length > 0);
+    },
+  });
+  if (state.editTerminalId === terminalID) {
     state.editTerminalId = state.session.terminals[0]?.id || null;
     state.selectedNodeId = null;
     state.expanded = new Set(['root']);
   }
-  void autosave();
   renderAll();
 }
 
@@ -5904,11 +6611,7 @@ function startRenameTerminal(term, nameRow) {
   const commit = () => {
     const val = input.value.trim();
     if (val) {
-      term.name = val;
-      // Renaming does not re-broadcast: doing so via terminal:set-live would
-      // regenerate an in-progress hack board. The new name reaches players
-      // next time the terminal is (re)made live.
-      autosave();
+      commitTerminalEdit('НАЗВАНИЕ ТЕРМИНАЛА', term.id, target => { target.name = val; });
     }
     renderAll();
   };
@@ -5932,9 +6635,6 @@ function renderTreeHeader() {
   terminalSettingsMenu.hidden = !isLive;
   if (!isLive) terminalSettingsMenu.open = false;
   btnReapplySettings.disabled = !isLive || coordinationCommandPending;
-  btnPublish.hidden = !isLive;
-  btnPublish.disabled = !isLive || coordinationCommandPending;
-  btnPublish.setAttribute('aria-busy', String(isLive && coordinationCommandPending));
   btnStopBroadcast.hidden = !broadcastActive || !state.liveTerminalId;
   btnStopBroadcast.disabled = !broadcastActive || !state.liveTerminalId || coordinationCommandPending;
 }
@@ -5945,39 +6645,20 @@ function renderSettingsPanel() {
   hackLevelSelect.disabled = !term;
   introTextArea.disabled   = !term;
   btnApplySettings.disabled = !term;
-  hackLevelSelect.value = term ? String(term.hackLevel || 0) : '0';
-  introTextArea.value   = term ? (term.introText || '') : '';
-  const completedCount = term?.commandStates && typeof term.commandStates === 'object'
-    ? Object.keys(term.commandStates).length
-    : 0;
-  commandStateActions.hidden = !term;
-  btnResetTerminalCommandStates.disabled = !term || completedCount === 0 || sessionStateCommandPending;
+  const applied = { hackLevelSelect: term ? String(term.hackLevel || 0) : '0', introTextArea: term ? (term.introText || '') : '' };
+  if (!term) {
+    hackLevelSelect.value = applied.hackLevelSelect;
+    introTextArea.value = applied.introTextArea;
+  }
+  const terminalID = term?.id;
+  showUnappliedInput(termSettings, term && {
+    key: `settings:${terminalID}`,
+    label: `Настройки «${term.name}»`,
+    exists: () => Boolean(state.session?.terminals.some(candidate => candidate.id === terminalID)),
+    applied,
+  });
 }
 
-btnResetTerminalCommandStates.addEventListener('click', async () => {
-  const term = getEditTerminal();
-  if (!term || sessionStateCommandPending) return;
-  if (!await confirmCommandStateReset(`Сбросить все выполненные состояния команд терминала "${term.name}"?`)) return;
-  const revisionBeforeReset = newestDurableRevision;
-  runSessionStateCommand(
-    async () => {
-      const result = await desktopAPI.resetTerminalCommandStates({ terminalId: term.id });
-      saveStatus.dataset.wailsCommand = 'ResetTerminalCommandStates';
-      saveStatus.dataset.wailsResult = result?.ok ? 'ok' : 'error';
-      saveStatus.dataset.wailsTerminalId = term.id;
-      saveStatus.dataset.wailsRevision = String(Number(result?.revision || 0));
-      updateSessionStateEvidenceDescription();
-      return result;
-    },
-    'СОСТОЯНИЯ КОМАНД ТЕРМИНАЛА СБРОШЕНЫ',
-    (result) => {
-      const revision = Number(result?.revision || 0);
-      const canonicalTerminal = result?.session?.terminals?.find(candidate => candidate.id === term.id);
-      return revision > revisionBeforeReset && canonicalTerminal &&
-        Object.keys(canonicalTerminal.commandStates ?? {}).length === 0;
-    }
-  );
-});
 
 // ── Render: live hack status (term panel footer) ──────────────
 function renderHackStatus() {
@@ -6064,8 +6745,21 @@ function renderNode(node, isRoot) {
 
   const label = document.createElement('span');
   label.className = 'tree-label';
-  label.textContent = isRoot ? 'ROOT' : effectiveNodeName(term, node);
+  const seen = isRoot ? null : playerViewNode(term.id, node.id);
+  label.textContent = isRoot ? 'ROOT' : (seen?.playerName || effectiveNodeName(term, node));
+  if (!isRoot) {
+    label.dataset.authoredName = node.name;
+    if (seen && seen.playerName !== node.name) label.title = `В РЕДАКТОРЕ: ${node.name}`;
+  }
   row.appendChild(label);
+  const addBadge = (className, text) => {
+    const badge = document.createElement('span');
+    badge.className = `tree-badge ${className}`;
+    badge.textContent = text;
+    row.appendChild(badge);
+  };
+  if (seen && !seen.visible) addBadge('tree-badge-hidden', 'СКРЫТО ОТ ИГРОКОВ');
+  if (seen?.available === false) addBadge('tree-badge-unavailable', 'НЕДОСТУПНО');
 
   row.addEventListener('click', () => {
     state.selectedNodeId = node.id;
@@ -6097,37 +6791,35 @@ function renderNode(node, isRoot) {
 // ── Render: node property form ────────────────────────────────
 function renderNodeForm() {
   const term = getEditTerminal();
-  if (!term || !state.selectedNodeId) {
-    nodeForm.innerHTML = '<div class="node-empty">Выберите узел дерева слева</div>';
-    return;
-  }
-  const loc = locateNode(term.root, state.selectedNodeId);
+  const loc = term && state.selectedNodeId ? locateNode(term.root, state.selectedNodeId) : null;
   if (!loc) {
+    showUnappliedInput(nodeForm, null);
     nodeForm.innerHTML = '<div class="node-empty">Выберите узел дерева слева</div>';
     return;
   }
   const node = loc.node;
-  const facilityTerminal = facilityDraft?.terminals?.find(candidate => candidate.id === term.id);
-  const facilityNode = facilityTerminal ? locateNode(facilityTerminal.root, node.id)?.node : null;
 
   if (node.id === 'root') {
+    showUnappliedInput(nodeForm, null);
     nodeForm.innerHTML = `
       <div class="node-type-label">КОРЕНЬ ТЕРМИНАЛА</div>
       <div class="node-empty">Это главный экран терминала. Добавляйте папки, команды и записи через панель инструментов сверху.</div>`;
     return;
   }
+  const unappliedKey = `node:${term.id}:${node.id}`;
+  const stagedBlocks = unappliedInputs.get(unappliedKey)?.blocks || null;
 
   const typeLabel = node.type === 'folder' ? 'ПАПКА' : node.type === 'command' ? 'КОМАНДА' : 'ЗАПИСЬ';
   const snapshot = commandExecutionState(term, node.id);
   const hasExplicitEntryBlocks = node.type === 'entry' && Array.isArray(node.blocks) && node.blocks.length > 0;
   const hasLegacyEntryDescription = node.type === 'entry' && !hasExplicitEntryBlocks && typeof node.description === 'string' && node.description.length > 0;
-  const entryBlocks = hasExplicitEntryBlocks
+  const entryBlocks = stagedBlocks || (hasExplicitEntryBlocks
     ? node.blocks
     : hasLegacyEntryDescription
       ? [{ id: '', initialText: node.description }]
-      : [];
+      : []);
   const blockOwners = node.type === 'entry' ? entryBlockOwners(term) : null;
-  let entryBlocksChanged = false;
+  let entryBlocksChanged = Boolean(stagedBlocks);
   let html = `<div class="node-type-label">${typeLabel}</div>
     <label class="field-label" for="fldName">${node.type === 'command' ? 'ИСХОДНОЕ НАЗВАНИЕ' : 'НАЗВАНИЕ'}</label>
     <input class="field-input" id="fldName" value="${escAttr(node.name)}">`;
@@ -6148,24 +6840,17 @@ function renderNodeForm() {
     const selectedBlockID = configuredEntryChange?.blockId || '';
     const completedBlockText = configuredEntryChange?.completedText ?? '';
     const entryTargetLocked = Boolean(snapshot);
-    // A dirty draft holds the newest action; a clean one may lag behind the autosaved session.
-    const effectiveCommand = facilityDraftDirty && facilityNode ? facilityNode : node;
-    const facilityAction = effectiveCommand.stateChange?.facilityAction;
+    const facilityAction = node.stateChange?.facilityAction;
     const facilityActionSummary = facilityCommandActionSummary(facilityAction);
-    const draftGuard = Boolean(facilityAction) && facilityDraftDirty;
+    const commandEffects = commandEffectItems(term, node);
     html += `
       <label class="field-label" for="fldCommandMode">РЕЖИМ КОМАНДЫ</label>
-      <select class="field-input command-mode-select" id="fldCommandMode"${snapshot || draftGuard ? ' disabled' : ''}>
+      <select class="field-input command-mode-select" id="fldCommandMode"${snapshot ? ' disabled' : ''}>
         <option value="ordinary"${commandMode === 'ordinary' ? ' selected' : ''}>ОБЫЧНАЯ КОМАНДА</option>
         <option value="state-change"${commandMode === 'state-change' ? ' selected' : ''}>ИЗМЕНЯЕТ СОСТОЯНИЕ</option>
         <option value="terminal-transition"${commandMode === 'terminal-transition' ? ' selected' : ''}>ПЕРЕХОД В ДРУГОЙ ТЕРМИНАЛ</option>
       </select>
       ${snapshot ? '<div class="command-mode-hint">Сначала сбросьте выполненное состояние команды, чтобы изменить режим.</div>' : ''}
-      <div id="commandDraftGuard" role="status"${draftGuard ? '' : ' hidden'}>
-        <div data-guard-message>ЕСТЬ НЕСОХРАНЁННЫЙ ЧЕРНОВИК ОБЪЕКТОВ. СОХРАНИТЕ ИЛИ ОТМЕНИТЕ ЕГО, ЧТОБЫ ИЗМЕНИТЬ ЭТУ КОМАНДУ: ИНАЧЕ ЧЕРНОВИК УСТАРЕЕТ.</div>
-        <button class="btn btn-primary" id="btnSaveFacilityDraftFromCommand" type="button">СОХРАНИТЬ ЧЕРНОВИК ОБЪЕКТОВ</button>
-        <button class="btn btn-secondary" id="btnDiscardFacilityDraftFromCommand" type="button">ОТМЕНИТЬ ЧЕРНОВИК</button>
-      </div>
       <div id="commandModeDecision" role="status" data-has-action="${facilityAction ? 'true' : 'false'}" hidden>
         <div data-decision-message></div>
         <div class="command-mode-decision-summary">${escHtml(facilityActionSummary)}</div>
@@ -6201,7 +6886,14 @@ function renderNodeForm() {
         <button class="btn btn-secondary" id="btnEditCommandFacilityAction" type="button"${node.stateChange ? '' : ' disabled'}>
           ${facilityAction ? 'ИЗМЕНИТЬ ДЕЙСТВИЕ УСТРОЙСТВ' : 'ДОБАВИТЬ ДЕЙСТВИЕ УСТРОЙСТВ'}
         </button>
-        <div class="command-mode-hint">Изменение останется в черновике объекта до сохранения изменений сессии.</div>
+      </section>
+      <section class="command-effects" id="commandEffects" aria-labelledby="commandEffectsHeading"${commandEffects.length ? '' : ' hidden'}>
+        <div class="field-label" id="commandEffectsHeading">ПРИ ОДОБРЕНИИ</div>
+        <ul>${commandEffects.map(effect => `<li class="command-effect" data-kind="${effect.kind}">${escHtml(effect.text)}</li>`).join('')}</ul>
+      </section>
+      <section class="command-rules" id="commandRules" aria-labelledby="commandRulesHeading">
+        <div class="field-label" id="commandRulesHeading">ЧТО ВИДЯТ ИГРОКИ</div>
+        <div class="command-rule-targets"></div>
       </section>`;
     if (snapshot) {
       html += `
@@ -6232,11 +6924,23 @@ function renderNodeForm() {
   html += '<div class="node-validation-error" id="nodeValidationError" role="alert" hidden></div>';
   html += `<div class="node-actions">
       <button class="btn btn-primary" id="btnApplyNode">ПРИМЕНИТЬ</button>
-      ${snapshot ? '<button class="btn btn-secondary" id="btnResetCommandState" type="button">СБРОСИТЬ СОСТОЯНИЕ</button>' : ''}
+      <button class="btn btn-secondary" id="btnCancelNodeInput" type="button" data-unapplied-cancel hidden>ОТМЕНА</button>
+      ${snapshot ? '<button class="btn btn-secondary" id="btnResetCommandState" type="button" aria-describedby="btnResetCommandStateReason">СБРОСИТЬ СОСТОЯНИЕ</button>' : ''}
       <button class="btn btn-danger" id="btnDeleteNode">УДАЛИТЬ</button>
-    </div>`;
+    </div>
+    ${snapshot ? '<span class="control-reason" id="btnResetCommandStateReason"></span>' : ''}`;
 
   nodeForm.innerHTML = html;
+  renderCommandRules();
+  const appliedNodeFields = fieldValues(nodeForm);
+  // currentEntryBlocks returns the edited block rows, or null when the blocks
+  // are unchanged.
+  const currentEntryBlocks = () => (node.type === 'entry' && entryBlocksChanged
+    ? Array.from(nodeForm.querySelectorAll('#entryContentBlocks .entry-content-block')).map((row) => ({
+      id: row.dataset.blockId || uniqueEntryBlockID(term),
+      initialText: row.querySelector('[data-entry-block-content]').value,
+    }))
+    : null);
 
   const validationError = document.getElementById('nodeValidationError');
   const showValidationError = (message, field) => {
@@ -6300,6 +7004,7 @@ function renderNodeForm() {
           entryBlocksChanged = true;
           validationError.hidden = true;
           refreshBlockPositions();
+          stageUnappliedInput(nodeForm);
         });
       });
     };
@@ -6317,6 +7022,7 @@ function renderNodeForm() {
       entryBlocksChanged = true;
       validationError.hidden = true;
       refreshBlockPositions();
+      stageUnappliedInput(nodeForm);
       row.querySelector('[data-entry-block-content]').focus();
     });
     refreshBlockPositions();
@@ -6328,7 +7034,6 @@ function renderNodeForm() {
     const transitionFields = document.getElementById('terminalTransitionFields');
     const actionSection = nodeForm.querySelector('.command-facility-action');
     const decision = document.getElementById('commandModeDecision');
-    const draftGuard = document.getElementById('commandDraftGuard');
     const applyButton = document.getElementById('btnApplyNode');
     let removeDeviceAction = false;
     const updateModePresentation = () => {
@@ -6342,7 +7047,7 @@ function renderNodeForm() {
         ? 'ДЕЙСТВИЕ УСТРОЙСТВ БУДЕТ УДАЛЕНО, КОГДА ВЫ ПРИМЕНИТЕ ФОРМУ.'
         : 'ВЫБЕРИТЕ, ЧТО СДЕЛАТЬ С ДЕЙСТВИЕМ УСТРОЙСТВ. ОНО РАБОТАЕТ ТОЛЬКО В РЕЖИМЕ «ИЗМЕНЯЕТ СОСТОЯНИЕ».';
       document.getElementById('btnRemoveDeviceAction').hidden = removeDeviceAction;
-      applyButton.disabled = !draftGuard.hidden || (deciding && !removeDeviceAction);
+      applyButton.disabled = deciding && !removeDeviceAction;
     };
     mode.addEventListener('change', () => {
       updateModePresentation();
@@ -6358,17 +7063,6 @@ function renderNodeForm() {
       removeDeviceAction = true;
       updateModePresentation();
       mode.focus();
-    });
-    document.getElementById('btnSaveFacilityDraftFromCommand').addEventListener('click', async () => {
-      if (await saveFacilityCandidate(facilityDraft)) {
-        document.getElementById('fldCommandMode')?.focus();
-        return;
-      }
-      draftGuard.querySelector('[data-guard-message]').textContent = facilityValidation.textContent || facilityStatus.textContent;
-    });
-    document.getElementById('btnDiscardFacilityDraftFromCommand').addEventListener('click', () => {
-      discardFacilityDraft();
-      document.getElementById('fldCommandMode')?.focus();
     });
     updateModePresentation();
     const entryTarget = document.getElementById('fldEntryBlockTarget');
@@ -6387,7 +7081,6 @@ function renderNodeForm() {
       }
     });
     document.getElementById('btnEditCommandFacilityAction').addEventListener('click', () => {
-      if (!facilityDraft) resetFacilityDraft(state.session, true);
       openFacilityCommandActionEditor(term.id, node.id);
     });
   }
@@ -6403,6 +7096,7 @@ function renderNodeForm() {
       return;
     }
 
+    let commandEdit = null;
     if (node.type === 'command') {
       const commandMode = document.getElementById('fldCommandMode').value;
       const textEl = document.getElementById('fldText');
@@ -6427,9 +7121,6 @@ function renderNodeForm() {
           completedName: completedNameEl.value,
           confirmationText: confirmationTextEl.value,
         };
-        if (node.stateChange?.facilityAction) {
-          nextStateChange.facilityAction = structuredClone(node.stateChange.facilityAction);
-        }
         const entryTargetEl = document.getElementById('fldEntryBlockTarget');
         const targetBlockID = entryTargetEl.value;
         if (targetBlockID) {
@@ -6461,34 +7152,49 @@ function renderNodeForm() {
         }
         nextTerminalTransition = { targetTerminalId: targetID };
       }
-      if (nextStateChange) node.stateChange = nextStateChange;
-      else delete node.stateChange;
-      if (nextTerminalTransition) node.terminalTransition = nextTerminalTransition;
-      else delete node.terminalTransition;
-      node.text = textEl.value;
+      commandEdit = { stateChange: nextStateChange, terminalTransition: nextTerminalTransition, text: textEl.value };
     }
 
-    node.name = name;
-    if (node.type === 'entry' && entryBlocksChanged) {
-      const blocks = Array.from(document.querySelectorAll('#entryContentBlocks .entry-content-block')).map((row) => ({
-        id: row.dataset.blockId || uniqueEntryBlockID(term),
-        initialText: row.querySelector('[data-entry-block-content]').value,
-      }));
-      if (blocks.length > 0) node.blocks = blocks;
-      else delete node.blocks;
-      delete node.description;
-    }
-    autosave();
+    const blocks = currentEntryBlocks();
+    const nodeID = node.id;
+    commitTerminalEdit(`${nodeKindLabel(node)} «${name}»`, term.id, candidateTerm => {
+      const target = locateNode(candidateTerm.root, nodeID)?.node;
+      if (!target) throw new Error('node removed');
+      if (commandEdit) {
+        const stateChange = commandEdit.stateChange && structuredClone(commandEdit.stateChange);
+        if (stateChange && target.stateChange?.facilityAction) {
+          stateChange.facilityAction = structuredClone(target.stateChange.facilityAction);
+        }
+        if (stateChange) target.stateChange = stateChange;
+        else delete target.stateChange;
+        if (commandEdit.terminalTransition) target.terminalTransition = { ...commandEdit.terminalTransition };
+        else delete target.terminalTransition;
+        target.text = commandEdit.text;
+      }
+      target.name = name;
+      if (blocks) {
+        if (blocks.length > 0) target.blocks = structuredClone(blocks);
+        else delete target.blocks;
+        delete target.description;
+      }
+    }, takeUnappliedInput(nodeForm));
     renderTree();
     renderNodeForm();
     renderToolbarHint();
   });
 
+  document.getElementById('btnCancelNodeInput').addEventListener('click', () => {
+    takeUnappliedInput(nodeForm);
+    renderNodeForm();
+    renderSaveStatus();
+  });
+
   const btnResetCommandState = document.getElementById('btnResetCommandState');
   if (btnResetCommandState) {
-    btnResetCommandState.disabled = sessionStateCommandPending;
+    // The form re-renders when a session-state command starts and ends.
+    explainControl(btnResetCommandState, sessionStateCommandPending ? 'ВЫПОЛНЯЕТСЯ ДРУГАЯ КОМАНДА' : '');
     btnResetCommandState.addEventListener('click', async () => {
-      if (sessionStateCommandPending) return;
+      if (controlBlocked(btnResetCommandState)) return;
       const displayedName = snapshot?.completedName || node.name;
       if (!await confirmCommandStateReset(`Сбросить выполненное состояние команды "${displayedName}"?`)) return;
       const revisionBeforeReset = newestDurableRevision;
@@ -6516,21 +7222,36 @@ function renderNodeForm() {
       ? `Удалить "${node.name}" вместе со всем содержимым (${childCount} элемент(ов))?`
       : `Удалить "${node.name}"?`;
     if (!window.confirm(msg)) return;
-    const siblings = loc.parent.children;
-    const idx = siblings.findIndex(c => c.id === node.id);
-    if (idx >= 0) siblings.splice(idx, 1);
+    const nodeID = node.id;
+    commitTerminalEdit(`УДАЛЕНИЕ «${node.name}»`, term.id, candidateTerm => {
+      const parent = locateNode(candidateTerm.root, nodeID)?.parent;
+      if (parent) parent.children = parent.children.filter(child => child.id !== nodeID);
+    });
     state.selectedNodeId = null;
-    autosave();
     renderTree();
     renderNodeForm();
     renderToolbarHint();
+  });
+
+  const terminalID = term.id;
+  const nodeID = node.id;
+  showUnappliedInput(nodeForm, {
+    key: unappliedKey,
+    label: `${nodeKindLabel(node)} «${node.name}»`,
+    exists: () => {
+      const terminal = state.session?.terminals.find(candidate => candidate.id === terminalID);
+      return Boolean(terminal && locateNode(terminal.root, nodeID));
+    },
+    applied: appliedNodeFields,
+    blocks: currentEntryBlocks,
   });
 }
 
 // ── Toolbar: add nodes ────────────────────────────────────────
 function addNode(type) {
+  const term = getEditTerminal();
   const target = currentAddTarget();
-  if (!target) return;
+  if (!term || !target) return;
 
   const node = {
     id:   uid('n'),
@@ -6541,12 +7262,16 @@ function addNode(type) {
   if (type === 'command') node.text = '';
   if (type === 'entry')   node.description = '';
 
-  if (!target.children) target.children = [];
-  target.children.push(node);
-  state.expanded.add(target.id);
+  const targetID = target.id;
+  commitTerminalEdit(`НОВЫЙ ЭЛЕМЕНТ «${node.name}»`, term.id, candidateTerm => {
+    const parent = locateNode(candidateTerm.root, targetID)?.node;
+    if (!parent) throw new Error('folder removed');
+    parent.children ??= [];
+    parent.children.push(structuredClone(node));
+  });
+  state.expanded.add(targetID);
   state.selectedNodeId = node.id;
 
-  autosave();
   renderTree();
   renderNodeForm();
   renderToolbarHint();
@@ -6708,6 +7433,13 @@ function hideCreateTerminalDialog({ restoreFocus = true } = {}) {
 }
 
 btnAddTerminal.addEventListener('click', showCreateTerminalDialog);
+btnReapplyEdit.addEventListener('click', reapplyHeldEdits);
+for (const container of [nodeForm, termSettings, facilitySelectionEditor]) {
+  container.addEventListener('input', () => stageUnappliedInput(container));
+  container.addEventListener('change', () => stageUnappliedInput(container));
+}
+btnUndo.addEventListener('click', () => runHistoryEntry('undo'));
+btnRedo.addEventListener('click', () => runHistoryEntry('redo'));
 
 btnCancelCreateTerminal.addEventListener('click', () => {
   if (!createTerminalSubmitting) hideCreateTerminalDialog();
@@ -6718,7 +7450,7 @@ createTerminalDialog.addEventListener('cancel', (event) => {
   if (!createTerminalSubmitting) hideCreateTerminalDialog();
 });
 
-createTerminalForm.addEventListener('submit', async (event) => {
+createTerminalForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (!state.session || createTerminalSubmitting) return;
   const name = createTerminalName.value.trim();
@@ -6739,32 +7471,45 @@ createTerminalForm.addEventListener('submit', async (event) => {
     introText: '',
     root:      { id: 'root', type: 'folder', name: 'ROOT', children: [] },
   };
-  state.session.terminals.push(term);
-  ensureSessionTerminalGroups();
+  commitAuthoringEdit({
+    label: `НОВЫЙ ТЕРМИНАЛ «${name}»`,
+    mutate: session => {
+      session.terminals.push(structuredClone(term));
+      ensureSessionTerminalGroups(session);
+    },
+    reopen: reason => {
+      if (state.editTerminalId === term.id) state.editTerminalId = state.session.terminals[0]?.id || null;
+      showCreateTerminalDialog();
+      createTerminalName.value = name;
+      createTerminalError.textContent = reason;
+      createTerminalError.hidden = false;
+    },
+  });
   state.editTerminalId = term.id;
   state.selectedNodeId = null;
   state.expanded = new Set(['root']);
-  await autosave();
   renderAll();
   hideCreateTerminalDialog({ restoreFocus: false });
   hackLevelSelect.focus();
 });
 
-btnApplySettings.addEventListener('click', async () => {
+btnApplySettings.addEventListener('click', () => {
   const term = getEditTerminal();
   if (!term) return;
-  term.hackLevel = Number(hackLevelSelect.value) || 0;
-  term.introText = introTextArea.value;
-  autosave();
-  if (term.id === state.liveTerminalId) {
-    // Intro text can refresh live immediately; hackLevel only takes effect
-    // on the next (re)broadcast so it never disrupts an in-progress hack.
-    await runCoordinationCommand(
-      () => desktopAPI.updateLiveTerminal({ tree: term.root, introText: term.introText }),
-      'АКТИВНЫЙ ТЕРМИНАЛ ОБНОВЛЁН',
-      'ОБНОВЛЕНИЕ АКТИВНОГО ТЕРМИНАЛА...'
-    );
-  }
+  const hackLevel = Number(hackLevelSelect.value) || 0;
+  const introText = introTextArea.value;
+  // The save reaches players at once; a new hack level applies on the next
+  // activation so it never disrupts an in-progress hack.
+  commitTerminalEdit('НАСТРОЙКИ ТЕРМИНАЛА', term.id, target => {
+    target.hackLevel = hackLevel;
+    target.introText = introText;
+  }, takeUnappliedInput(termSettings));
+});
+
+btnCancelSettings.addEventListener('click', () => {
+  takeUnappliedInput(termSettings);
+  renderSettingsPanel();
+  renderSaveStatus();
 });
 
 function terminalActivationRequest(term) {
@@ -6806,18 +7551,6 @@ btnReapplySettings.addEventListener('click', async () => {
   renderHackStatus();
 });
 
-btnPublish.addEventListener('click', async () => {
-  const term = getEditTerminal();
-  if (!term || term.id !== state.liveTerminalId || coordinationCommandPending) return;
-  const result = await runTerminalSwitchRequest(
-    () => desktopAPI.updateLiveTerminal({ tree: term.root, introText: term.introText || '' }),
-    'ИЗМЕНЕНИЯ ОПУБЛИКОВАНЫ У ИГРОКОВ',
-    'ПУБЛИКАЦИЯ ИЗМЕНЕНИЙ...'
-  );
-  if (!result?.ok) return;
-  btnPublish.textContent = 'ОБНОВЛЕНО ✓';
-  setTimeout(() => { btnPublish.textContent = 'ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ'; }, 1200);
-});
 
 btnStopBroadcast.addEventListener('click', showTakeOffAirConfirmation);
 

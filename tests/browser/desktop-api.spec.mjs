@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 46 methods and seven named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 44 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -45,6 +45,7 @@ test('desktop facade retains one v2 service with 46 methods and seven named even
     'CopyDemo',
     'CopyPublicAccessCredentials',
     'DeleteCharacter',
+    'DescribePresentation',
     'EndBroadcast',
     'ForceHackSuccess',
     'GeneratePlayerPassword',
@@ -68,24 +69,21 @@ test('desktop facade retains one v2 service with 46 methods and seven named even
     'RequestTerminalActivation',
     'RequestTerminalClear',
     'ResetCommandState',
-    'ResetFacility',
     'ResetFacilityDevice',
     'ResetFailedHack',
-    'ResetTerminalCommandStates',
+    'ResetScene',
     'ResolveApplicationUpdateOffer',
     'ResolveApplicationUpdateRestart',
     'ResolveCommandExecution',
     'ResolveTerminalNavigation',
     'ResolveTerminalSwitch',
-    'SaveFacilityAuthoring',
+    'SaveAuthoring',
     'SavePublicAccessSettings',
-    'SaveSession',
     'SetActiveController',
     'StartBroadcast',
     'StartPublicAccess',
     'StopPublicAccess',
     'UpdateCharacter',
-    'UpdateLiveTerminal',
   ]);
   expect(contract.events).toEqual([
     'application-update-status',
@@ -101,7 +99,9 @@ test('desktop facade retains one v2 service with 46 methods and seven named even
 test('generated desktop service calls remain explicit and normalized behind the facade', async ({ page }) => {
   const results = await page.evaluate(async () => ({
     open: await desktopAPI.openSession(),
-    save: await desktopAPI.saveSession({ version: 1 }),
+    save: await desktopAPI.saveAuthoring({
+      session: { version: 1, name: 'Facade save', terminals: [] }, expectedAuthoringRevision: 1, correlationId: 'facade-save',
+    }),
     url: await desktopAPI.openUrl('https://fallout.example'),
 	logs: await desktopAPI.openLogLocation(),
     terminal: await desktopAPI.requestTerminalClear(),
@@ -116,7 +116,7 @@ test('generated desktop service calls remain explicit and normalized behind the 
 
   const calls = await page.evaluate(() => __desktopFixture.calls.map(call => call.method));
   expect(calls).toEqual(expect.arrayContaining([
-	'OpenSession', 'SaveSession', 'OpenURL', 'OpenLogLocation', 'RequestTerminalClear', 'OpenPlayerConfig',
+	'OpenSession', 'SaveAuthoring', 'OpenURL', 'OpenLogLocation', 'RequestTerminalClear', 'OpenPlayerConfig',
   ]));
   expect(calls).not.toContain('Dispatch');
   expect(calls).not.toContain('Call');
@@ -157,7 +157,7 @@ test('terminal-group replacement forwards both revisions and returns detached ca
   expect(observed.call.args[0].terminalGroups[0].terminalIds).toEqual(['terminal-a', 'terminal-b']);
 });
 
-test('facility authoring and dependency inspection preserve typed revisions and detached data', async ({ page }) => {
+test('authoring saves and dependency inspection preserve typed revisions and detached data', async ({ page }) => {
   const request = {
     session: {
       version: 1,
@@ -165,15 +165,20 @@ test('facility authoring and dependency inspection preserve typed revisions and 
       terminals: [],
       facility: { revision: 7, devices: [], conditions: [], recoveryPrograms: [] },
     },
-    expectedSessionRevision: 17,
-    expectedFacilityRevision: 7,
-    correlationId: 'authoring-17',
+    expectedAuthoringRevision: 4,
+    correlationId: 'authoring-4',
   };
 
   const observed = await page.evaluate(async candidate => {
-    const pending = desktopAPI.saveFacilityAuthoring(candidate);
+    __desktopFixture.setNextTerminalActionResult('SaveAuthoring', {
+      ok: true, changed: true, correlationId: 'authoring-4', failure: '', issues: [],
+      sessionRevision: 18, previousFacilityRevision: 7, resultingFacilityRevision: 8, authoringRevision: 5,
+      affectedDeviceIds: ['security-door'],
+      session: { ...candidate.session, facility: { ...candidate.session.facility, revision: 8 } },
+    });
+    const pending = desktopAPI.saveAuthoring(candidate);
     candidate.session.name = 'mutated after invocation';
-    candidate.expectedSessionRevision = -1;
+    candidate.expectedAuthoringRevision = -1;
     const saved = await pending;
     saved.session.name = 'mutated result';
 
@@ -208,7 +213,7 @@ test('facility authoring and dependency inspection preserve typed revisions and 
       savedFrozen: Object.isFrozen(saved),
       dependencyFrozen: Object.isFrozen(inspected.report.dependencies[0]),
       calls: __desktopFixture.calls.filter(call => [
-        'SaveFacilityAuthoring', 'InspectFacilityDependencies',
+        'SaveAuthoring', 'InspectFacilityDependencies',
       ].includes(call.method)).slice(-3),
     };
   }, request);
@@ -216,12 +221,14 @@ test('facility authoring and dependency inspection preserve typed revisions and 
   expect(observed.saved).toEqual(expect.objectContaining({
     ok: true,
     changed: true,
-    correlationId: 'authoring-17',
+    correlationId: 'authoring-4',
     failure: '',
     sessionRevision: 18,
     previousFacilityRevision: 7,
     resultingFacilityRevision: 8,
+    authoringRevision: 5,
     affectedDeviceIds: ['security-door'],
+    resetCommands: [],
   }));
   expect(observed.savedFrozen).toBe(true);
   expect(observed.calls[0].args[0]).toEqual(request);
@@ -260,93 +267,58 @@ test('facility authoring and dependency inspection preserve typed revisions and 
   expect(observed.calls[2].args[0].target.ownerId).toBe('security-door');
 });
 
-test('facility authoring rejects inconsistent or out-of-order successful responses', async ({ page }) => {
+test('authoring saves reject inconsistent successful responses', async ({ page }) => {
   const observed = await page.evaluate(async () => {
     const request = {
-      session: {
-        version: 1,
-        name: 'Facility draft',
-        terminals: [],
-        facility: { revision: 7, devices: [], conditions: [], recoveryPrograms: [] },
-      },
-      expectedSessionRevision: 17,
-      expectedFacilityRevision: 7,
-      correlationId: 'authoring-17',
+      session: { version: 1, name: 'Facility draft', terminals: [] },
+      expectedAuthoringRevision: 4,
+      correlationId: 'authoring-4',
     };
     const success = {
-      ok: true,
-      changed: true,
-      correlationId: request.correlationId,
-      failure: '',
-      issues: [],
-      sessionRevision: 18,
-      previousFacilityRevision: 7,
-      resultingFacilityRevision: 8,
-      session: {
-        ...request.session,
-        facility: { ...request.session.facility, revision: 8 },
-      },
+      ok: true, changed: true, correlationId: request.correlationId, failure: '', issues: [],
+      sessionRevision: 18, authoringRevision: 5, session: request.session,
     };
     const candidates = [
       { ...success, correlationId: 'another-operation' },
-      { ...success, previousFacilityRevision: 6 },
-      { ...success, resultingFacilityRevision: 10 },
-      { ...success, sessionRevision: 16 },
-      { ...success, sessionRevision: 19 },
       { ...success, session: null },
-      { ...success, session: request.session },
-      { ...success, session: { ...success.session, facility: { ...success.session.facility, revision: 9 } } },
-      {
-        ...success,
-        changed: false,
-        sessionRevision: 18,
-        resultingFacilityRevision: 7,
-        session: request.session,
-      },
-      {
-        ...success,
-        changed: false,
-        sessionRevision: 17,
-        resultingFacilityRevision: 8,
-      },
+      { ...success, authoringRevision: 4 },
+      { ...success, authoringRevision: 6 },
+      { ...success, sessionRevision: 0 },
+      { ...success, changed: false, authoringRevision: 5 },
+      { ...success, ok: false, correlationId: 'another-operation', failure: 'stale-revision' },
     ];
     const results = [];
     for (const candidate of candidates) {
-      __desktopFixture.setNextTerminalActionResult('SaveFacilityAuthoring', candidate);
-      results.push(await desktopAPI.saveFacilityAuthoring(request));
+      __desktopFixture.setNextTerminalActionResult('SaveAuthoring', candidate);
+      results.push(await desktopAPI.saveAuthoring(request));
     }
-    __desktopFixture.setNextTerminalActionResult('SaveFacilityAuthoring', {
-      ...success,
-      changed: false,
-      sessionRevision: 17,
-      resultingFacilityRevision: 7,
-      session: null,
+    __desktopFixture.setNextTerminalActionResult('SaveAuthoring', { ...success, changed: false, authoringRevision: 4 });
+    const unchanged = await desktopAPI.saveAuthoring(request);
+    __desktopFixture.setNextTerminalActionResult('SaveAuthoring', {
+      ok: false, changed: false, correlationId: request.correlationId, failure: 'stale-revision',
+      issues: [], authoringRevision: 6, session: request.session,
     });
-    return { failures: results, unchanged: await desktopAPI.saveFacilityAuthoring(request) };
+    const stale = await desktopAPI.saveAuthoring(request);
+    return { failures: results, unchanged, stale };
   });
 
-  expect(observed.failures).toHaveLength(10);
+  expect(observed.failures).toHaveLength(7);
   for (const result of observed.failures) {
     expect(result).toEqual(expect.objectContaining({
       ok: false,
       changed: false,
-      correlationId: 'authoring-17',
+      correlationId: 'authoring-4',
       failure: 'conflict',
-      sessionRevision: 17,
-      previousFacilityRevision: 7,
-      resultingFacilityRevision: 7,
+      authoringRevision: 4,
       session: null,
     }));
     expect(result.issues).toEqual([{ code: 'conflict', entityKind: 'desktop-result' }]);
   }
-  expect(observed.unchanged).toEqual(expect.objectContaining({
-    ok: true,
-    changed: false,
-    sessionRevision: 17,
-    previousFacilityRevision: 7,
-    resultingFacilityRevision: 7,
-    session: null,
-  }));
+  expect(observed.unchanged).toEqual(expect.objectContaining({ ok: true, changed: false, authoringRevision: 4 }));
+  expect(observed.stale).toEqual(expect.objectContaining({
+    ok: false, failure: 'stale-revision', authoringRevision: 6,
+  }), 'a stale save keeps the canonical session and current authoring revision');
+  expect(observed.stale.session).not.toBeNull();
 });
 
 test('facility inspection, preview, resets, and recovery use normalized detached contracts', async ({ page }) => {
@@ -366,13 +338,20 @@ test('facility inspection, preview, resets, and recovery use normalized detached
     const recoveryPending = desktopAPI.recoverFacilityCondition(recoveryRequest);
     previewRequest.deviceState.stateId = 'offline';
     recoveryRequest.recovery.transition.transitionId = 'mutated';
+    __desktopFixture.setNextTerminalActionResult('ResetScene', {
+      ok: true, changed: true, correlationId: 'scene-reset-8', sessionRevision: 19,
+      previousFacilityRevision: 8, resultingFacilityRevision: 9, authoringRevision: 3,
+      affectedDeviceIds: ['security-door'],
+      resetCommands: [{ terminalId: 'terminal-security', commandId: 'open-door' }],
+      session: { version: 1, terminals: [], facility: { revision: 9 } },
+    });
     const [preview, recovery, deviceReset, facilityReset] = await Promise.all([
       previewPending,
       recoveryPending,
       desktopAPI.resetFacilityDevice({
         deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8',
       }),
-      desktopAPI.resetFacility({ expectedFacilityRevision: 8, correlationId: 'facility-reset-8' }),
+      desktopAPI.resetScene({ expectedSessionRevision: 18, expectedFacilityRevision: 8, correlationId: 'scene-reset-8' }),
     ]);
     preview.terminal.terminalName = 'mutated result';
     recovery.session.name = 'mutated result';
@@ -382,7 +361,7 @@ test('facility inspection, preview, resets, and recovery use normalized detached
       deviceReset,
       facilityReset,
       calls: __desktopFixture.calls.filter(call => [
-        'PreviewFacility', 'RecoverFacilityCondition', 'ResetFacilityDevice', 'ResetFacility',
+        'PreviewFacility', 'RecoverFacilityCondition', 'ResetFacilityDevice', 'ResetScene',
       ].includes(call.method)).slice(-4),
     };
   });
@@ -392,6 +371,7 @@ test('facility inspection, preview, resets, and recovery use normalized detached
       method: 'PreviewFacility',
       args: [{
         expectedFacilityRevision: 8,
+        expectedAuthoringRevision: 0,
         terminalId: 'terminal-security',
         deviceState: { DeviceID: 'security-door', StateID: 'open' },
       }],
@@ -410,8 +390,8 @@ test('facility inspection, preview, resets, and recovery use normalized detached
       args: [{ deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8' }],
     },
     {
-      method: 'ResetFacility',
-      args: [{ expectedFacilityRevision: 8, correlationId: 'facility-reset-8' }],
+      method: 'ResetScene',
+      args: [{ expectedSessionRevision: 18, expectedFacilityRevision: 8, correlationId: 'scene-reset-8' }],
     },
   ]);
   expect(observed.preview).toEqual(expect.objectContaining({
@@ -437,9 +417,46 @@ test('facility inspection, preview, resets, and recovery use normalized detached
   expect(observed.facilityReset).toEqual(expect.objectContaining({
     ok: true,
     changed: true,
-    correlationId: 'facility-reset-8',
+    correlationId: 'scene-reset-8',
     resultingFacilityRevision: 9,
+    authoringRevision: 3,
+    resetCommands: [{ terminalId: 'terminal-security', commandId: 'open-door' }],
   }));
+  expect(observed.preview).toEqual(expect.objectContaining({ current: null, differences: [] }));
+});
+
+test('presentation explanations are requested by authoring revision and returned detached', async ({ page }) => {
+  const observed = await page.evaluate(async () => {
+    __desktopFixture.setNextTerminalActionResult('DescribePresentation', {
+      ok: true, sessionRevision: 18, facilityRevision: 8, authoringRevision: 5,
+      terminals: [{ terminalId: 'terminal-security', nodes: [{
+        nodeId: 'open-door', playerName: 'Door already open', visible: true,
+        nameRules: [{ kind: 'state-name', precedence: 3, condition: { deviceState: { deviceId: 'door', stateId: 'open' } },
+          text: 'Door already open', conditionHolds: true, playersSee: true }],
+        visibilityRules: [], availabilityRules: [],
+      }] }],
+    });
+    const explained = await desktopAPI.describePresentation({ expectedAuthoringRevision: 5 });
+    const frozen = Object.isFrozen(explained) && Object.isFrozen(explained.terminals[0]);
+    const call = __desktopFixture.calls.filter(entry => entry.method === 'DescribePresentation').at(-1);
+    __desktopFixture.setNextTerminalActionResult('DescribePresentation', {
+      ok: false, failure: 'stale-revision', authoringRevision: 6, terminals: [],
+    });
+    const stale = await desktopAPI.describePresentation({ expectedAuthoringRevision: -2 });
+    const staleCall = __desktopFixture.calls.filter(entry => entry.method === 'DescribePresentation').at(-1);
+    return { explained, frozen, call, stale, staleCall };
+  });
+
+  expect(observed.call.args).toEqual([{ expectedAuthoringRevision: 5 }]);
+  expect(observed.frozen).toBe(true);
+  expect(observed.explained).toEqual(expect.objectContaining({
+    ok: true, failure: '', sessionRevision: 18, facilityRevision: 8, authoringRevision: 5,
+  }));
+  expect(observed.explained.terminals[0].nodes[0].nameRules[0]).toEqual(expect.objectContaining({
+    kind: 'state-name', playersSee: true,
+  }));
+  expect(observed.staleCall.args).toEqual([{ expectedAuthoringRevision: 0 }], 'an invalid revision is normalized to zero');
+  expect(observed.stale).toEqual(expect.objectContaining({ ok: false, failure: 'stale-revision', authoringRevision: 6, terminals: [] }));
 });
 
 test('facility read and mutation calls reject inconsistent successful revisions', async ({ page }) => {
@@ -621,7 +638,7 @@ test('updateCharacter and deleteCharacter forward complete revisioned payloads w
   ]);
 });
 
-test('saveSession snapshots the complete cross-terminal document at the Wails boundary', async ({ page }) => {
+test('saveAuthoring snapshots the complete cross-terminal document at the Wails boundary', async ({ page }) => {
   const retained = await page.evaluate(async () => {
     const candidate = {
       version: 1,
@@ -643,10 +660,10 @@ test('saveSession snapshots the complete cross-terminal document at the Wails bo
         },
       ],
     };
-    const pending = desktopAPI.saveSession(candidate);
+    const pending = desktopAPI.saveAuthoring({ session: candidate, expectedAuthoringRevision: 1, correlationId: 'boundary' });
     candidate.terminals.splice(1, 1);
     await pending;
-    return __desktopFixture.calls.filter(call => call.method === 'SaveSession').at(-1).args[0];
+    return __desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').at(-1).args[0].session;
   });
 
   expect(retained.terminals.map(terminal => terminal.id)).toEqual(['t_demo1', 't_demo2']);

@@ -28,14 +28,14 @@ actual="$temporary/actual-methods"
 expected="$temporary/expected-methods"
 sed -n 's/^export function \([A-Za-z0-9_]*\)(.*/\1/p' "$service" | LC_ALL=C sort >"$actual"
 printf '%s\n' \
-    AddCharacter AssignCharacter CopyDemo CopyPublicAccessCredentials DeleteCharacter EndBroadcast ForceHackSuccess \
+    AddCharacter AssignCharacter CopyDemo CopyPublicAccessCredentials DeleteCharacter DescribePresentation EndBroadcast ForceHackSuccess \
 	GeneratePlayerPassword GetApplicationUpdateStatus GetPublicAccess GetRuntimeStatus InspectFacilityDependencies LoadReferencedPlayerConfig MoveCharacter NewPlayerConfig NewSession \
 	OpenLogLocation OpenPlayerConfig OpenSession OpenURL PreviewFacility RecoverFacilityCondition ReleaseCharacter RenameLogicalSession ReplaceTerminalGroups \
-	RequestTerminalActivation RequestTerminalClear ResetCommandState ResetFacility ResetFacilityDevice ResetFailedHack ResetTerminalCommandStates ResolveApplicationUpdateOffer ResolveApplicationUpdateRestart ResolveCommandExecution ResolveTerminalNavigation ResolveTerminalSwitch \
-	SaveFacilityAuthoring SavePublicAccessSettings SaveSession SetActiveController StartBroadcast StartPublicAccess \
-    StopPublicAccess UpdateCharacter UpdateLiveTerminal | LC_ALL=C sort >"$expected"
+	RequestTerminalActivation RequestTerminalClear ResetCommandState ResetFacilityDevice ResetFailedHack ResetScene ResolveApplicationUpdateOffer ResolveApplicationUpdateRestart ResolveCommandExecution ResolveTerminalNavigation ResolveTerminalSwitch \
+	SaveAuthoring SavePublicAccessSettings SetActiveController StartBroadcast StartPublicAccess \
+    StopPublicAccess UpdateCharacter | LC_ALL=C sort >"$expected"
 diff -u "$expected" "$actual"
-test "$(wc -l <"$actual" | tr -d ' ')" = 46
+test "$(wc -l <"$actual" | tr -d ' ')" = 44
 
 assert_method_signature() {
     method=$1
@@ -50,12 +50,13 @@ assert_method_signature() {
     ' "$service"
 }
 
+assert_method_signature DescribePresentation '$models.PresentationPayload' '$CancellablePromise<$models.PresentationResult>'
 assert_method_signature InspectFacilityDependencies '$models.FacilityDependencyInspectionPayload' '$CancellablePromise<$models.FacilityDependencyInspectionResult>'
 assert_method_signature PreviewFacility '$models.FacilityPreviewPayload' '$CancellablePromise<$models.FacilityPreviewResult>'
 assert_method_signature RecoverFacilityCondition '$models.FacilityRecoveryPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
-assert_method_signature ResetFacility '$models.FacilityResetPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
 assert_method_signature ResetFacilityDevice '$models.FacilityDeviceResetPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
-assert_method_signature SaveFacilityAuthoring '$models.FacilityAuthoringPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
+assert_method_signature ResetScene '$models.SceneResetPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
+assert_method_signature SaveAuthoring '$models.AuthoringSavePayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
 
 for forbidden in Start Shutdown ServiceStartup ServiceShutdown Dispatch Call Capabilities \
     ReadFile WriteFile Exec Environment OpenDialog Browser PlayerService Subscribe; do
@@ -73,4 +74,4 @@ for event in server-info client-count hack-state coordination-state session-stat
 done
 test "$(grep -E '^[[:space:]]+"(server-info|client-count|hack-state|coordination-state|session-state|public-access-status|application-update-status)"' "$event_types" | wc -l | tr -d ' ')" = 7
 
-echo "Wails bindings are deterministic and expose exactly 46 accepted desktop methods and seven named events."
+echo "Wails bindings are deterministic and expose exactly 44 accepted desktop methods and seven named events."

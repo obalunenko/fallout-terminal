@@ -157,17 +157,17 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 	effectRouter := &coordinationEffectRouter{}
 	sessionStore := &sessionCommandStateStore{service: sessions}
 	coordination := controlservice.New(controlservice.Config{
-		Enqueue:                effectRouter.Enqueue,
-		Runtime:                live,
-		Terminals:              live,
-		TrustedHack:            live,
-		RosterStore:            playerConfigs,
-		CommandStateStore:      sessionStore,
-		FacilityStore:          sessionStore,
-		FacilityAuthoringStore: sessionStore,
-		TerminalGroupStore:     sessionStore,
-		TerminalCatalog:        sessions,
-		RequestResultLimit:     int(runtimeConfig.Coordination.RequestResultLimit),
+		Enqueue:            effectRouter.Enqueue,
+		Runtime:            live,
+		Terminals:          live,
+		TrustedHack:        live,
+		RosterStore:        playerConfigs,
+		CommandStateStore:  sessionStore,
+		FacilityStore:      sessionStore,
+		AuthoringStore:     sessionStore,
+		TerminalGroupStore: sessionStore,
+		TerminalCatalog:    sessions,
+		RequestResultLimit: int(runtimeConfig.Coordination.RequestResultLimit),
 	})
 	playerConfig := playerserver.Config{
 		Address: runtimeConfig.PlayerServer.Address,
@@ -279,7 +279,8 @@ var _ coordinationFacilityLifecycleService = (*controlservice.Service)(nil)
 var _ controlservice.CommandStateStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.FacilityStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.FacilityResetStore = (*sessionCommandStateStore)(nil)
-var _ controlservice.FacilityAuthoringStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.AuthoringStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.SceneResetStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.TerminalGroupStore = (*sessionCommandStateStore)(nil)
 
 func (store *sessionCommandStateStore) ApplyWorldAction(
@@ -313,9 +314,9 @@ func cloneDiagnosticRecoveryReference(
 	return &clone
 }
 
-func (store *sessionCommandStateStore) SaveFacilityAuthoring(
+func (store *sessionCommandStateStore) SaveAuthoring(
 	ctx context.Context,
-	request controlservice.FacilityAuthoringRequest,
+	request controlservice.AuthoringSaveRequest,
 ) domain.FacilityOperationResult {
 	if store == nil || store.service == nil {
 		return domain.FacilityOperationResult{
@@ -323,8 +324,24 @@ func (store *sessionCommandStateStore) SaveFacilityAuthoring(
 			Failure:       domain.FacilityFailurePersistenceFailed,
 		}
 	}
-	return store.service.SaveFacilityAuthoring(ctx, sessionservice.FacilityAuthoringRequest{
-		Candidate:                domain.CloneSession(request.Candidate),
+	return store.service.SaveAuthoring(ctx, sessionservice.AuthoringSaveRequest{
+		Candidate:                 domain.CloneSession(request.Candidate),
+		ExpectedAuthoringRevision: request.ExpectedAuthoringRevision,
+		CorrelationID:             request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ResetScene(
+	ctx context.Context,
+	request controlservice.SceneResetRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ResetScene(ctx, sessionservice.SceneResetRequest{
 		ExpectedSessionRevision:  request.ExpectedSessionRevision,
 		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
 		CorrelationID:            request.CorrelationID,
@@ -343,22 +360,6 @@ func (store *sessionCommandStateStore) ResetFacilityDevice(
 	}
 	return store.service.ResetFacilityDevice(ctx, sessionservice.FacilityDeviceResetRequest{
 		DeviceID:                 request.DeviceID,
-		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
-		CorrelationID:            request.CorrelationID,
-	})
-}
-
-func (store *sessionCommandStateStore) ResetFacility(
-	ctx context.Context,
-	request controlservice.FacilityResetRequest,
-) domain.FacilityOperationResult {
-	if store == nil || store.service == nil {
-		return domain.FacilityOperationResult{
-			CorrelationID: request.CorrelationID,
-			Failure:       domain.FacilityFailurePersistenceFailed,
-		}
-	}
-	return store.service.ResetFacility(ctx, sessionservice.FacilityResetRequest{
 		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
 		CorrelationID:            request.CorrelationID,
 	})
@@ -404,13 +405,6 @@ func (store *sessionCommandStateStore) ResetCommandState(ctx context.Context, te
 		return controlservice.CommandStateMutation{}, errors.New("session command-state store is unavailable")
 	}
 	return commandStateMutation(store.service.ResetCommandState(ctx, terminalID, commandID))
-}
-
-func (store *sessionCommandStateStore) ResetTerminalCommandStates(ctx context.Context, terminalID string) (controlservice.CommandStateMutation, error) {
-	if store == nil || store.service == nil {
-		return controlservice.CommandStateMutation{}, errors.New("session command-state store is unavailable")
-	}
-	return commandStateMutation(store.service.ResetTerminalCommandStates(ctx, terminalID))
 }
 
 func commandStateMutation(result sessionservice.CommandStateResult) (controlservice.CommandStateMutation, error) {

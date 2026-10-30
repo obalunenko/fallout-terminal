@@ -8,12 +8,10 @@ const APP_METHODS = Object.freeze({
   getApplicationUpdateStatus: desktopService.GetApplicationUpdateStatus,
   newSession: desktopService.NewSession,
   openSession: desktopService.OpenSession,
-  saveSession: desktopService.SaveSession,
   loadReferencedPlayerConfig: desktopService.LoadReferencedPlayerConfig,
   newPlayerConfig: desktopService.NewPlayerConfig,
   openPlayerConfig: desktopService.OpenPlayerConfig,
   requestTerminalActivation: desktopService.RequestTerminalActivation,
-  updateLiveTerminal: desktopService.UpdateLiveTerminal,
   requestTerminalClear: desktopService.RequestTerminalClear,
   resolveTerminalSwitch: desktopService.ResolveTerminalSwitch,
   resolveCommandExecution: desktopService.ResolveCommandExecution,
@@ -21,16 +19,16 @@ const APP_METHODS = Object.freeze({
   forceHackSuccess: desktopService.ForceHackSuccess,
   resetFailedHack: desktopService.ResetFailedHack,
   resetCommandState: desktopService.ResetCommandState,
-  resetTerminalCommandStates: desktopService.ResetTerminalCommandStates,
   resolveApplicationUpdateOffer: desktopService.ResolveApplicationUpdateOffer,
   resolveApplicationUpdateRestart: desktopService.ResolveApplicationUpdateRestart,
   replaceTerminalGroups: desktopService.ReplaceTerminalGroups,
   inspectFacilityDependencies: desktopService.InspectFacilityDependencies,
   previewFacility: desktopService.PreviewFacility,
   recoverFacilityCondition: desktopService.RecoverFacilityCondition,
-  resetFacility: desktopService.ResetFacility,
+  saveAuthoring: desktopService.SaveAuthoring,
+  resetScene: desktopService.ResetScene,
+  describePresentation: desktopService.DescribePresentation,
   resetFacilityDevice: desktopService.ResetFacilityDevice,
-  saveFacilityAuthoring: desktopService.SaveFacilityAuthoring,
   addCharacter: desktopService.AddCharacter,
   updateCharacter: desktopService.UpdateCharacter,
   deleteCharacter: desktopService.DeleteCharacter,
@@ -96,19 +94,6 @@ function normalizeTerminalGroups(groups) {
   });
 }
 
-function saveSessionCommand(session) {
-  try {
-    // Wails may complete the native call asynchronously. Capture the complete
-    // portable document now so later UI/event mutations cannot change which
-    // terminals the backend validates for this revision.
-    return command(APP_METHODS.saveSession, snapshotPortableSession(session));
-  } catch (error) {
-    return Promise.resolve({
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
 
 function normalizePortableSession(session) {
   if (!session || typeof session !== 'object') return null;
@@ -358,21 +343,17 @@ function normalizeFacilityOperationResult(result) {
     resultingFacilityRevision: nonnegativeSafeInteger(value.resultingFacilityRevision),
     affectedDeviceIds: facilityIDs(value.affectedDeviceIds),
     affectedConditionIds: facilityIDs(value.affectedConditionIds),
+    authoringRevision: nonnegativeSafeInteger(value.authoringRevision),
+    resetCommands: Object.freeze(Array.isArray(value.resetCommands)
+      ? value.resetCommands.map(reference => Object.freeze({
+        terminalId: typeof reference?.terminalId === 'string' ? reference.terminalId : '',
+        commandId: typeof reference?.commandId === 'string' ? reference.commandId : '',
+      }))
+      : []),
     session: normalizePortableSession(value.session),
   });
 }
 
-function normalizeFacilityAuthoringPayload(payload) {
-  const value = payload && typeof payload === 'object' ? payload : {};
-  return {
-    session: value.session && typeof value.session === 'object'
-      ? snapshotPortableSession(value.session)
-      : null,
-    expectedSessionRevision: nonnegativeSafeInteger(value.expectedSessionRevision),
-    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
-    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
-  };
-}
 
 function normalizeFacilityDependencyInspectionPayload(payload) {
   const value = payload && typeof payload === 'object' ? payload : {};
@@ -427,6 +408,7 @@ function normalizeFacilityPreviewPayload(payload) {
   const value = payload && typeof payload === 'object' ? payload : {};
   const result = {
     expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    expectedAuthoringRevision: nonnegativeSafeInteger(value.expectedAuthoringRevision),
     terminalId: typeof value.terminalId === 'string' ? value.terminalId : '',
   };
   if (value.deviceState && typeof value.deviceState === 'object') {
@@ -455,6 +437,12 @@ function normalizeFacilityPreviewResult(result) {
     terminal: value.terminal && typeof value.terminal === 'object'
       ? snapshotPortableSession(value.terminal)
       : null,
+    current: value.current && typeof value.current === 'object'
+      ? snapshotPortableSession(value.current)
+      : null,
+    differences: Object.freeze(Array.isArray(value.differences)
+      ? value.differences.map(difference => Object.freeze(snapshotPortableSession(difference)))
+      : []),
   });
 }
 
@@ -484,13 +472,6 @@ function normalizeFacilityDeviceResetPayload(payload) {
   };
 }
 
-function normalizeFacilityResetPayload(payload) {
-  const value = payload && typeof payload === 'object' ? payload : {};
-  return {
-    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
-    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
-  };
-}
 
 function normalizeFacilityRecoveryPayload(payload) {
   const value = payload && typeof payload === 'object' ? payload : {};
@@ -539,9 +520,6 @@ function validateFacilityMutationResult(result, request, operation) {
     affectedIDsAreValid = affectedIDsAreValid
       && result.affectedDeviceIds.length === 1
       && result.affectedDeviceIds[0] === request.deviceId;
-  } else {
-    affectedIDsAreValid = affectedIDsAreValid
-      && result.affectedDeviceIds.length + result.affectedConditionIds.length > 0;
   }
   const consistent = result.correlationId === request.correlationId
     && result.previousFacilityRevision === request.expectedFacilityRevision
@@ -563,47 +541,7 @@ function facilityBindingFailure(normalize) {
   });
 }
 
-function validateFacilityAuthoringResult(result, request) {
-  if (!result.ok) return result;
-  const canonicalFacilityRevision = Number(result.session?.facility?.revision);
-  const changedRevisionIsValid = result.changed
-    ? result.resultingFacilityRevision === request.expectedFacilityRevision + 1
-    : result.resultingFacilityRevision === request.expectedFacilityRevision;
-  const sessionRevisionIsValid = result.changed
-    ? result.sessionRevision === request.expectedSessionRevision + 1
-    : result.sessionRevision === request.expectedSessionRevision;
-  const consistent = result.correlationId === request.correlationId
-    && result.previousFacilityRevision === request.expectedFacilityRevision
-    && changedRevisionIsValid
-    && sessionRevisionIsValid
-    && (result.session === null || (Number.isSafeInteger(canonicalFacilityRevision)
-      && canonicalFacilityRevision === result.resultingFacilityRevision))
-    && (!result.changed || (result.session !== null
-      && Number.isSafeInteger(canonicalFacilityRevision)));
-  if (consistent) return result;
-  return normalizeFacilityOperationResult({
-    ok: false,
-    changed: false,
-    correlationId: request.correlationId,
-    failure: 'conflict',
-    issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
-    sessionRevision: request.expectedSessionRevision,
-    previousFacilityRevision: request.expectedFacilityRevision,
-    resultingFacilityRevision: request.expectedFacilityRevision,
-  });
-}
 
-function saveFacilityAuthoringCommand(payload) {
-  try {
-    const request = normalizeFacilityAuthoringPayload(payload);
-    return invoke(APP_METHODS.saveFacilityAuthoring, request)
-      .then(normalizeFacilityOperationResult)
-      .then(result => validateFacilityAuthoringResult(result, request))
-      .catch(() => facilityBindingFailure(normalizeFacilityOperationResult));
-  } catch {
-    return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
-  }
-}
 
 function inspectFacilityDependenciesCommand(payload) {
   try {
@@ -639,6 +577,110 @@ function facilityMutationCommand(binding, payload, normalizePayload, operation) 
   } catch {
     return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
   }
+}
+
+function normalizeAuthoringSavePayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    // Capture the complete portable document now so later UI or event
+    // mutations cannot change which edit the backend validates.
+    session: value.session && typeof value.session === 'object'
+      ? snapshotPortableSession(value.session)
+      : null,
+    expectedAuthoringRevision: nonnegativeSafeInteger(value.expectedAuthoringRevision),
+    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
+  };
+}
+
+function authoringResultConflict(request) {
+  return normalizeFacilityOperationResult({
+    ok: false,
+    changed: false,
+    correlationId: request.correlationId,
+    failure: 'conflict',
+    issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+    authoringRevision: request.expectedAuthoringRevision,
+  });
+}
+
+// validateAuthoringSaveResult accepts a save only when it belongs to the
+// request and its authoring revision advanced exactly when it changed.
+function validateAuthoringSaveResult(result, request) {
+  if (result.correlationId !== request.correlationId) return authoringResultConflict(request);
+  if (!result.ok) return result;
+  const wantAuthoringRevision = request.expectedAuthoringRevision + (result.changed ? 1 : 0);
+  const consistent = result.session !== null
+    && result.authoringRevision === wantAuthoringRevision
+    && (!result.changed || result.sessionRevision > 0);
+  return consistent ? result : authoringResultConflict(request);
+}
+
+function saveAuthoringCommand(payload) {
+  try {
+    const request = normalizeAuthoringSavePayload(payload);
+    return invoke(APP_METHODS.saveAuthoring, request)
+      .then(normalizeFacilityOperationResult)
+      .then(result => validateAuthoringSaveResult(result, request))
+      .catch(() => facilityBindingFailure(normalizeFacilityOperationResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
+  }
+}
+
+function normalizeSceneResetPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    expectedSessionRevision: nonnegativeSafeInteger(value.expectedSessionRevision),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
+  };
+}
+
+// validateSceneResetResult accepts a reset that started from the counted
+// facility revision and returned the starting scene when it changed.
+function validateSceneResetResult(result, request) {
+  if (result.correlationId !== request.correlationId) return facilityOperationConflict(request);
+  if (!result.ok) return result;
+  const consistent = result.previousFacilityRevision === request.expectedFacilityRevision
+    && result.session !== null
+    && (!result.changed || result.sessionRevision > request.expectedSessionRevision);
+  return consistent ? result : facilityOperationConflict(request);
+}
+
+function resetSceneCommand(payload) {
+  try {
+    const request = normalizeSceneResetPayload(payload);
+    return invoke(APP_METHODS.resetScene, request)
+      .then(normalizeFacilityOperationResult)
+      .then(result => validateSceneResetResult(result, request))
+      .catch(() => facilityBindingFailure(normalizeFacilityOperationResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
+  }
+}
+
+function normalizePresentationResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  return Object.freeze({
+    ok,
+    failure: facilityFailure(value.failure, ok),
+    sessionRevision: nonnegativeSafeInteger(value.sessionRevision),
+    facilityRevision: nonnegativeSafeInteger(value.facilityRevision),
+    authoringRevision: nonnegativeSafeInteger(value.authoringRevision),
+    terminals: Object.freeze(Array.isArray(value.terminals)
+      ? value.terminals.map(terminal => Object.freeze(snapshotPortableSession(terminal)))
+      : []),
+  });
+}
+
+function describePresentationCommand(payload) {
+  const request = {
+    expectedAuthoringRevision: nonnegativeSafeInteger(payload?.expectedAuthoringRevision),
+  };
+  return invoke(APP_METHODS.describePresentation, request)
+    .then(normalizePresentationResult)
+    .catch(() => normalizePresentationResult({ ok: false, failure: 'runtime-context-ended' }));
 }
 
 function normalizeAddCharacterPayload(payload) {
@@ -1048,12 +1090,13 @@ const desktopAPI = {
   writeClipboardText,
   openSession: () => command(APP_METHODS.openSession).then(normalizeSessionResult),
   newSession: () => command(APP_METHODS.newSession).then(normalizeSessionResult),
-  saveSession: saveSessionCommand,
+  saveAuthoring: saveAuthoringCommand,
+  resetScene: resetSceneCommand,
+  describePresentation: describePresentationCommand,
   loadReferencedPlayerConfig: () => playerConfigCommand(APP_METHODS.loadReferencedPlayerConfig),
   newPlayerConfig: () => playerConfigCommand(APP_METHODS.newPlayerConfig),
   openPlayerConfig: () => playerConfigCommand(APP_METHODS.openPlayerConfig),
   requestTerminalActivation: (payload) => switchCommand(APP_METHODS.requestTerminalActivation, payload),
-  updateLiveTerminal: (payload) => command(APP_METHODS.updateLiveTerminal, payload),
   requestTerminalClear: () => switchCommand(APP_METHODS.requestTerminalClear),
   resolveTerminalSwitch: (payload) => switchCommand(APP_METHODS.resolveTerminalSwitch, payload),
   resolveCommandExecution: (payload) => command(APP_METHODS.resolveCommandExecution, {
@@ -1072,9 +1115,6 @@ const desktopAPI = {
     terminalId: typeof payload?.terminalId === 'string' ? payload.terminalId : '',
     commandId: typeof payload?.commandId === 'string' ? payload.commandId : '',
   }),
-  resetTerminalCommandStates: (payload) => sessionStateCommand(APP_METHODS.resetTerminalCommandStates, {
-    terminalId: typeof payload?.terminalId === 'string' ? payload.terminalId : '',
-  }),
   replaceTerminalGroups: replaceTerminalGroupsCommand,
   inspectFacilityDependencies: inspectFacilityDependenciesCommand,
   previewFacility: previewFacilityCommand,
@@ -1084,19 +1124,12 @@ const desktopAPI = {
     normalizeFacilityRecoveryPayload,
     'recovery',
   ),
-  resetFacility: payload => facilityMutationCommand(
-    APP_METHODS.resetFacility,
-    payload,
-    normalizeFacilityResetPayload,
-    'facility-reset',
-  ),
   resetFacilityDevice: payload => facilityMutationCommand(
     APP_METHODS.resetFacilityDevice,
     payload,
     normalizeFacilityDeviceResetPayload,
     'device-reset',
   ),
-  saveFacilityAuthoring: saveFacilityAuthoringCommand,
   addCharacter: (payload) => command(APP_METHODS.addCharacter, normalizeAddCharacterPayload(payload)),
   updateCharacter: (payload) => command(APP_METHODS.updateCharacter, normalizeUpdateCharacterPayload(payload)),
   deleteCharacter: (payload) => command(APP_METHODS.deleteCharacter, normalizeDeleteCharacterPayload(payload)),
