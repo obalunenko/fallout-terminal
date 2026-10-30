@@ -4,6 +4,7 @@ package domain
 import (
 	"encoding/json"
 	"maps"
+	"slices"
 )
 
 const (
@@ -22,6 +23,7 @@ type Session struct {
 	PlayerConfig   string                     `json:"playerConfig,omitempty"`
 	Terminals      []Terminal                 `json:"terminals"`
 	TerminalGroups []TerminalGroup            `json:"terminalGroups,omitempty"`
+	Facility       *Facility                  `json:"facility,omitempty"`
 	Extra          map[string]json.RawMessage `json:"-"`
 }
 
@@ -85,8 +87,10 @@ type PlayerConfigMetadata struct {
 
 // EntryContentBlock is one stable ordered text section authored within an entry.
 type EntryContentBlock struct {
-	ID          string `json:"id"`
-	InitialText string `json:"initialText"`
+	ID                   string                     `json:"id"`
+	InitialText          string                     `json:"initialText"`
+	FacilityTextVariants []FacilityTextVariant      `json:"facilityTextVariants,omitempty"`
+	Extra                map[string]json.RawMessage `json:"-"`
 }
 
 // EntryContentChange is an explicitly present authored or frozen replacement
@@ -99,9 +103,10 @@ type EntryContentChange struct {
 // StateChangeConfig is the optional authored configuration for a command
 // whose first successful execution durably changes its menu presentation.
 type StateChangeConfig struct {
-	CompletedName      string              `json:"completedName"`
-	ConfirmationText   string              `json:"confirmationText"`
-	EntryContentChange *EntryContentChange `json:"entryContentChange,omitempty"`
+	CompletedName      string                `json:"completedName"`
+	ConfirmationText   string                `json:"confirmationText"`
+	EntryContentChange *EntryContentChange   `json:"entryContentChange,omitempty"`
+	FacilityAction     *FacilityActionConfig `json:"facilityAction,omitempty"`
 }
 
 // TerminalTransitionConfig links an authored command to another terminal in
@@ -143,16 +148,20 @@ type Terminal struct {
 
 // ContentNode is a tagged folder, command, or entry node.
 type ContentNode struct {
-	ID                 string                     `json:"id"`
-	Type               string                     `json:"type"`
-	Name               string                     `json:"name"`
-	Children           []ContentNode              `json:"children,omitempty"`
-	Text               string                     `json:"text,omitempty"`
-	Description        string                     `json:"description,omitempty"`
-	Blocks             []EntryContentBlock        `json:"blocks,omitempty"`
-	StateChange        *StateChangeConfig         `json:"stateChange,omitempty"`
-	TerminalTransition *TerminalTransitionConfig  `json:"terminalTransition,omitempty"`
-	Extra              map[string]json.RawMessage `json:"-"`
+	ID                   string                     `json:"id"`
+	Type                 string                     `json:"type"`
+	Name                 string                     `json:"name"`
+	Children             []ContentNode              `json:"children,omitempty"`
+	Text                 string                     `json:"text,omitempty"`
+	Description          string                     `json:"description,omitempty"`
+	Blocks               []EntryContentBlock        `json:"blocks,omitempty"`
+	StateChange          *StateChangeConfig         `json:"stateChange,omitempty"`
+	TerminalTransition   *TerminalTransitionConfig  `json:"terminalTransition,omitempty"`
+	FacilityNameVariants []FacilityTextVariant      `json:"facilityNameVariants,omitempty"`
+	VisibleWhen          *FacilityStateEquality     `json:"visibleWhen,omitempty"`
+	AvailableWhen        *FacilityStateEquality     `json:"availableWhen,omitempty"`
+	Available            *bool                      `json:"-"`
+	Extra                map[string]json.RawMessage `json:"-"`
 }
 
 // Behavior returns the command's discriminated behavior without mutating its
@@ -278,6 +287,7 @@ type PublicLiveState struct {
 	CommandExecution   *CommandExecutionPresentation   `json:"commandExecution,omitempty"`
 	TerminalNavigation *TerminalNavigationPresentation `json:"terminalNavigation,omitempty"`
 	Presentation       ControllerTerminalPresentation  `json:"controllerPresentation"`
+	Effects            []TerminalPresentationEffect    `json:"effects,omitempty"`
 }
 
 // LogicalSessionID identifies one browser profile for the lifetime of a server process.
@@ -640,6 +650,7 @@ type ControllerAssignment struct {
 type TerminalRuntime struct {
 	TerminalID       string
 	TerminalName     string
+	AuthoredTree     ContentNode
 	Tree             ContentNode
 	CommandStates    map[string]CommandExecutionState
 	CommandExecution *CommandExecutionPresentation
@@ -648,6 +659,7 @@ type TerminalRuntime struct {
 	Nav              NavState
 	Hack             *HackState
 	Presentation     ControllerTerminalPresentation
+	Effects          []TerminalPresentationEffect
 	Lifecycle        TerminalLifecycle
 }
 
@@ -674,6 +686,7 @@ type TerminalTarget struct {
 	CommandStates map[string]CommandExecutionState
 	HackLevel     int
 	IntroText     string
+	Effects       []TerminalPresentationEffect
 }
 
 // TerminalTransitionTarget is a detached trusted lookup of an authored link.
@@ -696,6 +709,7 @@ type PendingCommandExecution struct {
 	Mode                CommandApprovalMode
 	ConfirmationText    string
 	ControllerSessionID LogicalSessionID
+	FacilityAction      *PendingFacilityAction
 }
 
 // TerminalSwitchDecision keeps a switch request ordered against the source runtime.
@@ -716,6 +730,7 @@ type ProcessRuntime struct {
 	RosterByID                map[CharacterID]*CharacterRosterEntry
 	RosterOrder               []CharacterID
 	ActivePlayerConfig        *PlayerConfigHandle
+	Facility                  *Facility
 	Broadcast                 *LiveBroadcast
 	PendingSwitch             *TerminalSwitchDecision
 	PendingCommandExecution   *PendingCommandExecution
@@ -878,13 +893,14 @@ type MasterPendingSwitch struct {
 
 // MasterPendingCommandExecution is the complete private prompt projection.
 type MasterPendingCommandExecution struct {
-	RequestID        string              `json:"requestId"`
-	BroadcastID      BroadcastID         `json:"broadcastId"`
-	TerminalID       string              `json:"terminalId"`
-	CommandID        string              `json:"commandId"`
-	CommandName      string              `json:"commandName"`
-	Mode             CommandApprovalMode `json:"mode"`
-	ConfirmationText string              `json:"confirmationText"`
+	RequestID        string                 `json:"requestId"`
+	BroadcastID      BroadcastID            `json:"broadcastId"`
+	TerminalID       string                 `json:"terminalId"`
+	CommandID        string                 `json:"commandId"`
+	CommandName      string                 `json:"commandName"`
+	Mode             CommandApprovalMode    `json:"mode"`
+	ConfirmationText string                 `json:"confirmationText"`
+	FacilityAction   *PendingFacilityAction `json:"facilityAction,omitempty"`
 }
 
 type MasterPendingTerminalNavigation struct {
@@ -910,6 +926,7 @@ type MasterTerminalNavigationNotice struct {
 // MasterCoordinationState is one detached private-desktop projection.
 type MasterCoordinationState struct {
 	Revision                  uint64                           `json:"revision"`
+	FacilityRevision          *uint64                          `json:"facilityRevision,omitempty"`
 	PlayerConfig              *PlayerConfigMetadata            `json:"playerConfig"`
 	Roster                    []MasterRosterEntry              `json:"roster"`
 	Sessions                  []MasterSessionEntry             `json:"sessions"`
@@ -951,7 +968,11 @@ func CloneMasterCoordinationState(state *MasterCoordinationState) *MasterCoordin
 	}
 	if state.PendingCommandExecution != nil {
 		pending := *state.PendingCommandExecution
+		pending.FacilityAction = ClonePendingFacilityAction(state.PendingCommandExecution.FacilityAction)
 		clone.PendingCommandExecution = &pending
+	}
+	if state.FacilityRevision != nil {
+		clone.FacilityRevision = new(*state.FacilityRevision)
 	}
 	if state.PendingTerminalNavigation != nil {
 		pending := *state.PendingTerminalNavigation
@@ -1031,6 +1052,7 @@ func clonePublicLiveState(state *PublicLiveState) *PublicLiveState {
 	clone.Nav.ViewEntryID = cloneString(state.Nav.ViewEntryID)
 	clone.Nav.CommandNodeID = cloneString(state.Nav.CommandNodeID)
 	clone.Hack = clonePublicHackState(state.Hack)
+	clone.Effects = slices.Clone(state.Effects)
 	if state.CommandExecution != nil {
 		execution := *state.CommandExecution
 		clone.CommandExecution = &execution
@@ -1056,6 +1078,7 @@ func CloneContentNode(node ContentNode) ContentNode {
 	if node.StateChange != nil {
 		stateChange := *node.StateChange
 		stateChange.EntryContentChange = cloneEntryContentChange(node.StateChange.EntryContentChange)
+		stateChange.FacilityAction = CloneFacilityActionConfig(node.StateChange.FacilityAction)
 		clone.StateChange = &stateChange
 	}
 	if node.TerminalTransition != nil {
@@ -1064,8 +1087,16 @@ func CloneContentNode(node ContentNode) ContentNode {
 	}
 	if node.Blocks != nil {
 		clone.Blocks = make([]EntryContentBlock, len(node.Blocks))
-		copy(clone.Blocks, node.Blocks)
+		for index := range node.Blocks {
+			clone.Blocks[index] = node.Blocks[index]
+			clone.Blocks[index].FacilityTextVariants = CloneFacilityTextVariants(node.Blocks[index].FacilityTextVariants)
+			clone.Blocks[index].Extra = cloneRawMessages(node.Blocks[index].Extra)
+		}
 	}
+	clone.FacilityNameVariants = CloneFacilityTextVariants(node.FacilityNameVariants)
+	clone.VisibleWhen = cloneFacilityStateEquality(node.VisibleWhen)
+	clone.AvailableWhen = cloneFacilityStateEquality(node.AvailableWhen)
+	clone.Available = cloneBool(node.Available)
 	clone.Extra = cloneRawMessages(node.Extra)
 	if node.Children != nil {
 		clone.Children = make([]ContentNode, len(node.Children))
@@ -1115,6 +1146,7 @@ func cloneLiveTerminalRuntime(runtime *TerminalRuntime) *TerminalRuntime {
 		return nil
 	}
 	clone := *runtime
+	clone.AuthoredTree = CloneContentNode(runtime.AuthoredTree)
 	clone.Tree = CloneContentNode(runtime.Tree)
 	clone.CommandStates = CloneCommandExecutionStates(runtime.CommandStates)
 	if runtime.CommandExecution != nil {
@@ -1125,6 +1157,7 @@ func cloneLiveTerminalRuntime(runtime *TerminalRuntime) *TerminalRuntime {
 	clone.Nav.ViewEntryID = cloneString(runtime.Nav.ViewEntryID)
 	clone.Nav.CommandNodeID = cloneString(runtime.Nav.CommandNodeID)
 	clone.Hack = cloneLiveHackState(runtime.Hack)
+	clone.Effects = slices.Clone(runtime.Effects)
 	return &clone
 }
 
@@ -1157,6 +1190,7 @@ func cloneLiveHackState(state *HackState) *HackState {
 func CloneSession(session Session) Session {
 	clone := session
 	clone.Extra = cloneRawMessages(session.Extra)
+	clone.Facility = CloneFacility(session.Facility)
 	if session.TerminalGroups != nil {
 		clone.TerminalGroups = CloneTerminalGroups(session.TerminalGroups)
 	}
@@ -1177,6 +1211,35 @@ func cloneEntryContentChange(change *EntryContentChange) *EntryContentChange {
 		return nil
 	}
 	clone := *change
+	return &clone
+}
+
+func cloneFacilityStateEquality(equality *FacilityStateEquality) *FacilityStateEquality {
+	if equality == nil {
+		return nil
+	}
+	clone := *equality
+	clone.Extra = cloneRawMessages(equality.Extra)
+	return &clone
+}
+
+func cloneBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	return new(*value)
+}
+
+// ClonePendingFacilityAction returns a deeply detached pending world action.
+func ClonePendingFacilityAction(action *PendingFacilityAction) *PendingFacilityAction {
+	if action == nil {
+		return nil
+	}
+	clone := *action
+	clone.TransitionRequests = CloneFacilityTransitionRequests(action.TransitionRequests)
+	clone.ExpectedSourceStates = cloneFacilityStateEqualities(action.ExpectedSourceStates)
+	clone.AffectedConditionIDs = slices.Clone(action.AffectedConditionIDs)
+	clone.RecoveryProgramID = cloneString(action.RecoveryProgramID)
 	return &clone
 }
 
