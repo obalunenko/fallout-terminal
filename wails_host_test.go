@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
-	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	tunnelservice "github.com/obalunenko/Fallout-Terminal/v2/internal/tunnel"
 	updateservice "github.com/obalunenko/Fallout-Terminal/v2/internal/update"
@@ -106,41 +105,38 @@ func TestWailsApplicationOptionsEnableSingleInstanceLaunches(t *testing.T) {
 	require.Equal(t, launch, received)
 }
 
-func TestWailsSaveSessionBindingRetainsAllRealDemoTerminals(t *testing.T) {
+func TestWailsSaveAuthoringBindingRetainsAllRealDemoTerminals(t *testing.T) {
 	raw, err := os.ReadFile("sessions/demo.json")
 	require.NoError(t, err)
-	target := "/Campaigns/wails-demo-transition.json"
-	fileSystem := testutil.NewFakeFileSystem()
-	fileSystem.SeedFile(target, raw)
-	sessions := sessionservice.NewService(
-		sessionservice.NewStorage(fileSystem),
-		&testutil.FakeDialog{OpenResult: target},
-		sessionservice.Locations{
-			DocumentsDefault: "/Campaigns",
-			BundledDemo:      "/Applications/Fallout Terminal.app/Contents/Resources/sessions/demo.json",
+	coordination := &recordingAuthoringCoordination{
+		recorder: &callRecorder{},
+		result: &domain.FacilityOperationResult{
+			CorrelationID: "wails-demo", Failure: domain.FacilityFailureStaleRevision, AuthoringRevision: 2,
 		},
-	)
-	t.Cleanup(func() { require.NoError(t, sessions.Shutdown(context.WithoutCancel(t.Context()))) })
-	core := NewAppWithDependencies(t.Context(), AppDependencies{Sessions: sessions})
-	require.True(t, core.OpenSession().OK)
+	}
+	core := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination})
 
 	_ = application.New(application.Options{})
 	bindings := application.NewBindings(nil, nil)
 	require.NoError(t, bindings.Add(application.NewService(newDesktopService(core))))
 	method := bindings.Get(&application.CallOptions{
-		MethodName: "github.com/obalunenko/Fallout-Terminal/v2.desktopService.SaveSession",
+		MethodName: "github.com/obalunenko/Fallout-Terminal/v2.desktopService.SaveAuthoring",
 	})
-	require.NotNil(t, method, "SaveSession binding must resolve")
-	result, err := method.Call(t.Context(), []json.RawMessage{json.RawMessage(raw)})
+	require.NotNil(t, method, "SaveAuthoring binding must resolve")
+	payload, err := json.Marshal(map[string]any{
+		"session": json.RawMessage(raw), "expectedAuthoringRevision": 1, "correlationId": "wails-demo",
+	})
 	require.NoError(t, err)
-	saved, ok := result.(sessionservice.SaveResult)
-	require.True(t, ok, "SaveSession result type = %T", result)
-	require.True(t, saved.OK, "SaveSession binding result = %#v", saved)
+	result, err := method.Call(t.Context(), []json.RawMessage{payload})
+	require.NoError(t, err)
+	saved, ok := result.(domain.FacilityOperationResult)
+	require.True(t, ok, "SaveAuthoring result type = %T", result)
+	require.Equal(t, domain.FacilityFailureStaleRevision, saved.Failure)
 
-	reopened := core.OpenSession()
-	require.True(t, reopened.OK, "reopen = %#v", reopened)
-	require.Len(t, reopened.Session.Terminals, 6)
-	transition := findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
+	require.Len(t, coordination.saves, 1)
+	candidate := coordination.saves[0].Candidate
+	require.Len(t, candidate.Terminals, 6)
+	transition := findNodeByID(&candidate.Terminals[0].Root, "n_cmd_state_change_1")
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 }

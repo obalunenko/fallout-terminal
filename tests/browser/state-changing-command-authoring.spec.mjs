@@ -40,8 +40,8 @@ async function lastDesktopCall(page, method) {
 
 async function commandFromLastSave(page, commandID) {
   return page.evaluate(({ id }) => {
-    const call = __desktopFixture.calls.filter(candidate => candidate.method === 'SaveSession').at(-1);
-    const session = call?.args?.[0];
+    const call = __desktopFixture.calls.filter(candidate => candidate.method === 'SaveAuthoring').at(-1);
+    const session = call?.args?.[0]?.session;
     const visit = (node) => {
       if (!node || typeof node !== 'object') return null;
       if (node.id === id) return node;
@@ -57,6 +57,12 @@ async function commandFromLastSave(page, commandID) {
 
 async function nodeFromLastSave(page, nodeID) {
   return commandFromLastSave(page, nodeID);
+}
+
+// expectAutosaved waits until every applied edit is saved, so a reload reads
+// the durable session.
+async function expectAutosaved(page) {
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'saved');
 }
 
 function findFixtureNode(node, nodeID) {
@@ -218,6 +224,16 @@ async function authoringDurableState(page) {
   return page.evaluate(() => __desktopFixture.authoringDurableState());
 }
 
+function sceneReset(page) {
+  return {
+    open: page.getByRole('button', { name: 'СБРОСИТЬ СЦЕНУ', exact: true }),
+    dialog: page.locator('#sceneResetDialog'),
+    confirm: page.locator('#btnConfirmSceneReset'),
+    cancel: page.locator('#btnCancelSceneReset'),
+    status: page.locator('#sceneResetStatus'),
+  };
+}
+
 async function emitCoordination(page, revision, activeTerminalId = null, { roster = [], sessions = [] } = {}) {
   await page.evaluate(({ nextRevision, liveTerminalId, nextRoster, nextSessions }) => {
     __desktopFixture.emit('coordination-state', {
@@ -251,7 +267,6 @@ test.beforeEach(async ({ page }) => {
 test('terminal actions follow selected-terminal, editor, and broadcast context', async ({ page }) => {
   const makeLive = page.locator('#btnMakeLive');
   const liveFlag = page.locator('#liveFlag');
-  const publish = page.locator('#btnPublish');
   const settings = page.locator('#terminalSettingsMenu');
   const takeOffAir = page.locator('#btnStopBroadcast');
 
@@ -259,14 +274,13 @@ test('terminal actions follow selected-terminal, editor, and broadcast context',
   await expect(makeLive).toHaveText('СДЕЛАТЬ АКТИВНЫМ');
   await expect(makeLive).toBeDisabled();
   await expect(liveFlag).toBeHidden();
-  await expect(publish).toBeHidden();
+  await expect(page.locator('#btnPublish')).toHaveCount(0);
   await expect(settings).toBeHidden();
   await expect(takeOffAir).toBeHidden();
 
   await emitCoordination(page, 20, 'another-terminal');
   await expect(makeLive).toBeVisible();
   await expect(makeLive).toBeEnabled();
-  await expect(publish).toBeHidden();
   await expect(settings).toBeHidden();
   await expect(takeOffAir).toBeVisible();
   await makeLive.click();
@@ -276,8 +290,9 @@ test('terminal actions follow selected-terminal, editor, and broadcast context',
   await expect(makeLive).toBeHidden();
   await expect(liveFlag).toBeVisible();
   await expect(liveFlag).toContainText('В ЭФИРЕ');
-  await expect(publish).toBeVisible();
-  await expect(publish).toHaveText('ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ');
+  // Applied edits reach players at once, so a live terminal offers no publish step.
+  await expect(page.locator('#btnPublish')).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('ОПУБЛИКОВАТЬ');
   await expect(settings).toBeVisible();
 
   const disclosure = settings.getByText('ДОПОЛНИТЕЛЬНО', { exact: true });
@@ -424,73 +439,78 @@ test('counts zero through seven sessions and keeps a seven-session mobile dialog
   expect(metrics.overflowY).toMatch(/auto|scroll/);
 });
 
-test('publishing uses only the live-content command and preserves active identity', async ({ page }) => {
+test('an applied edit on the live terminal is saved for players at once without a publish step', async ({ page }) => {
   await emitCoordination(page, 30, TERMINAL_ID);
-  const publish = page.locator('#btnPublish');
-  await expect(publish).toBeVisible();
-
-  await page.evaluate(() => __desktopFixture.deferTerminalAction('UpdateLiveTerminal'));
-  await publish.click();
-  await expect.poll(() => desktopCallCount(page, 'UpdateLiveTerminal')).toBe(1);
-  await expect(publish).toBeDisabled();
-  await publish.click({ force: true });
-  await expect.poll(() => desktopCallCount(page, 'UpdateLiveTerminal')).toBe(1);
-  await page.evaluate(() => __desktopFixture.resolveTerminalAction('UpdateLiveTerminal', {
-    ok: true,
-    status: 'updated',
-  }));
-  await expect(publish).toBeEnabled();
-  await expect(publish).toHaveText('ОБНОВЛЕНО ✓');
-
-  const publishCall = await lastDesktopCall(page, 'UpdateLiveTerminal');
-  expect(publishCall.args).toHaveLength(1);
-  expect(publishCall.args[0]).toEqual(expect.objectContaining({
-    introText: expect.any(String),
-    tree: expect.objectContaining({ id: 'root', type: 'folder' }),
-  }));
-  expect(await desktopCallCount(page, 'RequestTerminalActivation')).toBe(0);
   await expect(page.locator('#liveFlag')).toBeVisible();
+  await expect(page.locator('#btnPublish')).toHaveCount(0);
+  const savesBefore = await desktopCallCount(page, 'SaveAuthoring');
+  const durableBefore = await authoringDurableState(page);
 
-  await page.evaluate(() => __desktopFixture.setNextTerminalActionResult('UpdateLiveTerminal', {
-    ok: false,
-    error: 'fixture publish failed',
+  await selectCommand(page, 'Включить аварийный свет');
+  await page.locator('#fldText').fill('Аварийное освещение включено для всех отсеков.');
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+
+  // One SaveAuthoring call carries the edit; the server publishes it to the
+  // live terminal, so no other call or confirmation follows.
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBefore + 1);
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'saved');
+  const saved = await lastDesktopCall(page, 'SaveAuthoring');
+  expect(saved.args).toHaveLength(1);
+  expect(saved.args[0]).toEqual(expect.objectContaining({
+    expectedAuthoringRevision: expect.any(Number),
+    correlationId: expect.stringMatching(/\S+/),
   }));
-  await publish.click();
-  await expect(page.locator('#coordinationError')).toContainText('fixture publish failed');
+  expect(await commandFromLastSave(page, 'emergency-lights')).toMatchObject({
+    text: 'Аварийное освещение включено для всех отсеков.',
+  });
+  for (const legacy of ['UpdateLiveTerminal', 'SaveSession', 'RequestTerminalActivation']) {
+    expect(await desktopCallCount(page, legacy), legacy).toBe(0);
+  }
+  await expect.poll(async () => {
+    const response = await page.request.get(`${FIXTURE_URL}/session`);
+    const snapshot = await response.json();
+    return findFixtureNode(snapshot.session.terminals[0].root, 'emergency-lights')?.text;
+  }).toBe('Аварийное освещение включено для всех отсеков.');
+  // Executed commands are live state and survive the authoring save.
+  expect((await authoringDurableState(page)).commandStates).toEqual(durableBefore.commandStates);
   await expect(page.locator('#liveFlag')).toBeVisible();
 
   await emitCoordination(page, 31, 'another-terminal');
-  await expect(publish).toBeHidden();
+  await expect(page.locator('#liveFlag')).toBeHidden();
+  await expect(page.locator('#btnPublish')).toHaveCount(0);
 });
 
 test('terminal creation validates a name and mutates the session only after confirmation', async ({ page }) => {
   const createButton = page.locator('#btnAddTerminal');
   const dialog = page.getByRole('dialog', { name: 'СОЗДАТЬ ТЕРМИНАЛ' });
   const nameInput = page.locator('#createTerminalName');
-  const saveCountBefore = await desktopCallCount(page, 'SaveSession');
+  const saveCountBefore = await desktopCallCount(page, 'SaveAuthoring');
 
   await createButton.click();
   await expect(dialog).toBeVisible();
   await expect(nameInput).toBeFocused();
+  await expect(page.locator('#createTerminalDialogDescription')).toHaveText(
+    'Новый терминал сохранится сразу и не появится у игроков, пока вы не сделаете его активным.',
+  );
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(createButton).toBeFocused();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBefore);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(saveCountBefore);
 
   await createButton.click();
   await dialog.getByRole('button', { name: 'СОЗДАТЬ ТЕРМИНАЛ' }).click();
   await expect(page.locator('#createTerminalError')).toHaveText('УКАЖИТЕ НАЗВАНИЕ ТЕРМИНАЛА');
   await expect(dialog).toBeVisible();
   await expect(nameInput).toBeFocused();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBefore);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(saveCountBefore);
 
   await nameInput.fill('  Технический терминал  ');
   await dialog.getByRole('button', { name: 'СОЗДАТЬ ТЕРМИНАЛ' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.locator('#editingTermName')).toHaveText('Технический терминал');
   await expect(page.locator('.term-row', { hasText: 'Технический терминал' })).toHaveCount(1);
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBefore + 1);
-  expect((await lastDesktopCall(page, 'SaveSession')).args[0].terminals.at(-1)).toEqual(expect.objectContaining({
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(saveCountBefore + 1);
+  expect((await lastDesktopCall(page, 'SaveAuthoring')).args[0].session.terminals.at(-1)).toEqual(expect.objectContaining({
     name: 'Технический терминал',
     hackLevel: 0,
     introText: '',
@@ -656,17 +676,17 @@ test('state-change mode requires all four authored texts and persists one config
   ];
   for (const item of authored) await item.field.fill(item.value);
 
-  const saveCountBeforeValidation = await desktopCallCount(page, 'SaveSession');
+  const saveCountBeforeValidation = await desktopCallCount(page, 'SaveAuthoring');
   for (const item of authored) {
     await item.field.fill(' \t ');
     await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
     await expect(form.getByRole('alert')).toContainText(item.error);
-    await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBeforeValidation);
+    await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(saveCountBeforeValidation);
     await item.field.fill(item.value);
   }
 
   await form.getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(saveCountBeforeValidation + 1);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(saveCountBeforeValidation + 1);
   await expect.poll(() => commandFromLastSave(page, 'emergency-lights')).toEqual(expect.objectContaining({
     id: 'emergency-lights',
     type: 'command',
@@ -712,14 +732,15 @@ test('completed command displays its frozen snapshot while authored fields remai
   await expect(page.locator('.tree-row', { hasText: 'Двери открыты' })).toHaveCount(1);
   await expect(frozen).toContainText('Двери открыты');
   await expect(frozen).toContainText('Доступ в сектор разрешён.');
-  const save = await lastDesktopCall(page, 'SaveSession');
-  expect(save.args[0].terminals[0].commandStates.doors).toEqual({
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'saved');
+  const save = await lastDesktopCall(page, 'SaveAuthoring');
+  expect(save.args[0].session.terminals[0].commandStates.doors).toEqual({
     completedName: 'Двери открыты',
     resultText: 'Доступ в сектор разрешён.',
   });
 });
 
-test('individual and terminal resets require confirmation and update only the intended snapshots', async ({ page }) => {
+test('individual and scene resets require confirmation and update only the intended snapshots', async ({ page }) => {
   await selectCommand(page, 'Двери открыты');
   const form = page.locator('#nodeForm');
   const resetOne = form.getByRole('button', { name: 'СБРОСИТЬ СОСТОЯНИЕ' });
@@ -749,24 +770,30 @@ test('individual and terminal resets require confirmation and update only the in
   await expect(page.locator('.tree-row', { hasText: 'Открыть двери' })).toHaveCount(1);
   await expect(page.locator('.tree-row', { hasText: 'Тревога включена' })).toHaveCount(1);
 
-  const resetAll = page.getByRole('button', { name: 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ' });
-  await resetAll.click();
-  await expect(resetConfirmation).toContainText(/сбросить.*все.*терминал/i);
-  await resetConfirmation.getByRole('button', { name: 'ОТМЕНИТЬ' }).click();
-  await expect.poll(() => desktopCallCount(page, 'ResetTerminalCommandStates')).toBe(0);
+  await expect(page.getByRole('button', { name: 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ' })).toHaveCount(0);
+  const scene = sceneReset(page);
+  await scene.open.click();
+  await expect(scene.dialog).toBeVisible();
+  await expect(scene.dialog.locator('#sceneResetCounts li')).toHaveText([
+    'УСТРОЙСТВА: 0', 'НЕИСПРАВНОСТИ: 0', 'ВЫПОЛНЕННЫЕ КОМАНДЫ: 1 (Терминал охраны: 1)',
+  ]);
+  await scene.cancel.click();
+  await expect(scene.dialog).toBeHidden();
+  await expect.poll(() => desktopCallCount(page, 'ResetScene')).toBe(0);
   await expect.poll(() => authoringDurableState(page)).toEqual({
     revision: initialDurable.revision + 1,
     commandStates: { alarm: initialDurable.commandStates.alarm },
   });
   await expect(page.locator('.tree-row', { hasText: 'Тревога включена' })).toHaveCount(1);
 
-  await resetAll.click();
-  await expect(resetConfirmation).toContainText(/сбросить.*все.*терминал/i);
-  await resetConfirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
-  await expect.poll(() => desktopCallCount(page, 'ResetTerminalCommandStates')).toBe(1);
-  expect(await lastDesktopCall(page, 'ResetTerminalCommandStates')).toMatchObject({
-    args: [{ terminalId: TERMINAL_ID }],
+  await scene.open.click();
+  await scene.confirm.click();
+  await expect(scene.dialog).toBeHidden();
+  await expect.poll(() => desktopCallCount(page, 'ResetScene')).toBe(1);
+  expect(await lastDesktopCall(page, 'ResetScene')).toMatchObject({
+    args: [{ expectedSessionRevision: initialDurable.revision + 1, expectedFacilityRevision: 0 }],
   });
+  expect(await desktopCallCount(page, 'ResetTerminalCommandStates')).toBe(0);
   await expect.poll(() => authoringDurableState(page)).toEqual({
     revision: initialDurable.revision + 2,
     commandStates: {},
@@ -784,48 +811,32 @@ test('individual and terminal resets require confirmation and update only the in
   });
 });
 
-test('terminal reset rejects a stale backend success even when its session looks reset', async ({ page }) => {
+test('scene reset rejects a backend success that does not advance the session revision', async ({ page }) => {
   const durableBefore = await authoringDurableState(page);
   const snapshotResponse = await page.request.get(`${FIXTURE_URL}/session`);
   expect(snapshotResponse.ok()).toBe(true);
   const stale = await snapshotResponse.json();
-  stale.revision = 0;
   stale.session.terminals.find(terminal => terminal.id === TERMINAL_ID).commandStates = {};
 
-  await page.route(`**${FIXTURE_URL}/reset-terminal`, route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(stale),
-  }));
-  await page.getByRole('button', { name: 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ' }).click();
-  await page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ СБРОСА' })
-    .getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
+  // Hold the request, then answer it with a success that looks reset but
+  // reports the revision it was counted against.
+  await page.evaluate(() => __desktopFixture.holdCalls('ResetScene'));
+  const scene = sceneReset(page);
+  await scene.open.click();
+  await scene.confirm.click();
+  await expect.poll(() => desktopCallCount(page, 'ResetScene')).toBe(1);
+  const call = await lastDesktopCall(page, 'ResetScene');
+  await page.evaluate(({ correlationId, revision, session }) => {
+    __desktopFixture.setNextTerminalActionResult('ResetScene', {
+      ok: true, changed: true, correlationId, sessionRevision: revision,
+      previousFacilityRevision: 0, resultingFacilityRevision: 0, session,
+    });
+    __desktopFixture.releaseHeldCalls('ResetScene');
+  }, { correlationId: call.args[0].correlationId, revision: call.args[0].expectedSessionRevision, session: stale.session });
 
-  await expect(page.locator('#saveStatus')).toHaveClass(/err/);
-  await expect(page.locator('#saveStatus')).toContainText(/не подтвердил канонический сброс/i);
-  await expect(page.locator('.tree-row', { hasText: 'Двери открыты' })).toHaveCount(1);
-  await expect(page.locator('.tree-row', { hasText: 'Тревога включена' })).toHaveCount(1);
-  await expect.poll(() => authoringDurableState(page)).toEqual(durableBefore);
-});
-
-test('terminal reset rejects a newer backend result that still contains completed snapshots', async ({ page }) => {
-  const durableBefore = await authoringDurableState(page);
-  const snapshotResponse = await page.request.get(`${FIXTURE_URL}/session`);
-  expect(snapshotResponse.ok()).toBe(true);
-  const nonCanonical = await snapshotResponse.json();
-  nonCanonical.revision = durableBefore.revision + 1;
-
-  await page.route(`**${FIXTURE_URL}/reset-terminal`, route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(nonCanonical),
-  }));
-  await page.getByRole('button', { name: 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ' }).click();
-  await page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ СБРОСА' })
-    .getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
-
-  await expect(page.locator('#saveStatus')).toHaveClass(/err/);
-  await expect(page.locator('#saveStatus')).toContainText(/не подтвердил канонический сброс/i);
+  await expect(scene.status).toHaveText('СЦЕНА НЕ СБРОШЕНА: КОМАНДА ИЛИ ЕЁ ДЕЙСТВИЕ ИЗМЕНИЛИСЬ · desktop-result');
+  await expect(scene.dialog).toBeVisible();
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-wails-result', 'error');
   await expect(page.locator('.tree-row', { hasText: 'Двери открыты' })).toHaveCount(1);
   await expect(page.locator('.tree-row', { hasText: 'Тревога включена' })).toHaveCount(1);
   await expect.poll(() => authoringDurableState(page)).toEqual(durableBefore);
@@ -852,6 +863,7 @@ test('entry blocks add, edit, reorder, delete, and reopen with stable identities
   page.once('dialog', dialog => dialog.accept());
   await block(BLOCK_IDS.long).locator('[data-entry-block-action="delete"]').click();
   await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await expectAutosaved(page);
 
   const saved = await nodeFromLastSave(page, BLOCK_ENTRY_ID);
   expect(saved.description ?? '').toBe('');
@@ -901,6 +913,7 @@ test('legacy description converts only when an accepted block edit is applied', 
   await selectEntry(page, 'СТАРАЯ ЗАПИСЬ');
   await page.locator('[data-entry-block-content]').fill('ПРЕОБРАЗОВАННОЕ ОПИСАНИЕ');
   await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await expectAutosaved(page);
   const converted = await nodeFromLastSave(page, 'entry-legacy-record');
   expect(converted.description ?? '').toBe('');
   expect(converted.blocks).toHaveLength(1);
@@ -958,12 +971,12 @@ test('duplicate targets and deletion of targeted blocks or containing nodes iden
   await seedBlockAuthoringSession(page);
   await selectCommand(page, 'Проверить резервный контур');
 
-  const savesBeforeConflict = await desktopCallCount(page, 'SaveSession');
+  const savesBeforeConflict = await desktopCallCount(page, 'SaveAuthoring');
   await page.locator('#fldEntryBlockTarget').selectOption(BLOCK_IDS.power);
   await page.locator('#fldCompletedEntryBlockContent').fill('РЕЗЕРВ: ВКЛЮЧЕН');
   await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
   await expect(page.locator('#nodeValidationError')).toContainText('Включить питание реактора');
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeConflict);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBeforeConflict);
 
   page.on('dialog', dialog => dialog.accept());
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
@@ -1041,7 +1054,8 @@ test('individual block-owner reset cancels and fails atomically before restoring
   }));
   await reset.click();
   await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
-  await expect(page.locator('#saveStatus')).toContainText('fixture entry block reset failed');
+  await expect(page.locator('#coordinationError')).toContainText('fixture entry block reset failed');
+  await expect(page.locator('#saveStatus')).not.toHaveAttribute('data-state', 'error');
   await expect.poll(() => authoringDurableState(page)).toEqual(initial);
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
   await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
@@ -1076,40 +1090,37 @@ test('individual block-owner reset cancels and fails atomically before restoring
   await expect(page.locator('#fldCompletedEntryBlockContent')).toHaveValue('ПИТАНИЕ: ВКЛЮЧЕНО');
 });
 
-test('terminal-wide block reset cancels and fails atomically before restoring every owner label and initial block', async ({ page }) => {
+test('scene reset cancels and fails atomically before restoring every owner label and initial block', async ({ page }) => {
   await seedBlockAuthoringSession(page, { completedOwner: true, completedSecondary: true });
   const initial = await authoringDurableState(page);
-  const resetAll = page.getByRole('button', { name: 'СБРОСИТЬ ВСЕ СОСТОЯНИЯ' });
-  const confirmation = page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ СБРОСА' });
+  const scene = sceneReset(page);
 
-  await resetAll.click();
-  await expect(confirmation).toContainText(/сбросить.*все.*терминал/i);
-  await confirmation.getByRole('button', { name: 'ОТМЕНИТЬ' }).click();
-  await expect.poll(() => desktopCallCount(page, 'ResetTerminalCommandStates')).toBe(0);
+  await scene.open.click();
+  await expect(scene.dialog.locator('#sceneResetCounts li').last()).toHaveText('ВЫПОЛНЕННЫЕ КОМАНДЫ: 4 (Терминал охраны: 4)');
+  await scene.cancel.click();
+  await expect.poll(() => desktopCallCount(page, 'ResetScene')).toBe(0);
   await expect.poll(() => authoringDurableState(page)).toEqual(initial);
 
-  await page.route(`**${FIXTURE_URL}/reset-terminal`, route => route.fulfill({
+  await page.route(`**${FIXTURE_URL}/save`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({
-      ok: false,
-      error: 'fixture terminal block reset failed',
-      revision: initial.revision,
-    }),
+    body: JSON.stringify({ ok: false, error: 'fixture scene reset failed', revision: initial.revision }),
   }));
-  await resetAll.click();
-  await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
-  await expect(page.locator('#saveStatus')).toContainText('fixture terminal block reset failed');
+  await scene.open.click();
+  await scene.confirm.click();
+  await expect(scene.status).toContainText('СЦЕНА НЕ СБРОШЕНА: НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
   await expect.poll(() => authoringDurableState(page)).toEqual(initial);
+  await scene.cancel.click();
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
   await expect(entryBlockOwner(page, BLOCK_IDS.power, BLOCK_OWNER_COMMAND_ID))
     .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Питание реактора включено');
   await expect(entryBlockOwner(page, BLOCK_IDS.empty, 'command-reactor-secondary'))
     .toHaveText('ИЗМЕНЯЕТСЯ КОМАНДОЙ: Резервный контур проверен');
 
-  await page.unroute(`**${FIXTURE_URL}/reset-terminal`);
-  await resetAll.click();
-  await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
+  await page.unroute(`**${FIXTURE_URL}/save`);
+  await scene.open.click();
+  await scene.confirm.click();
+  await expect(scene.dialog).toBeHidden();
   await expect.poll(() => authoringDurableState(page)).toEqual({
     revision: initial.revision + 1,
     commandStates: {},
@@ -1138,12 +1149,12 @@ test('block dialog assigns an eligible existing command with empty text and canc
   await expect(command.locator('option')).toHaveText(['ВЫБЕРИТЕ КОМАНДУ', 'Проверить резервный контур']);
   await expect(command.locator(`option[value="${BLOCK_OWNER_COMMAND_ID}"]`)).toHaveCount(0);
 
-  const savesBeforeCancel = await desktopCallCount(page, 'SaveSession');
+  const savesBeforeCancel = await desktopCallCount(page, 'SaveAuthoring');
   await command.selectOption('command-reactor-secondary');
-  await dialog.locator('#entryBlockCompletedText').fill('ЧЕРНОВИК');
+  await dialog.locator('#entryBlockCompletedText').fill('НЕ ПРИМЕНЁННЫЙ ТЕКСТ');
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeCancel);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBeforeCancel);
   await expect(trigger).toBeFocused();
 
   const reopened = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateOne);
@@ -1151,7 +1162,7 @@ test('block dialog assigns an eligible existing command with empty text and canc
   await reopened.dialog.locator('#entryBlockCompletedText').fill('');
   await reopened.dialog.locator('[data-entry-block-command-action="apply"]').click();
   await expect(reopened.dialog).not.toBeVisible();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBeforeCancel + 1);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBeforeCancel + 1);
   const saved = await commandFromLastSave(page, 'command-reactor-secondary');
   expect(saved.stateChange.entryContentChange).toEqual({
     blockId: BLOCK_IDS.duplicateOne,
@@ -1164,7 +1175,7 @@ test('block dialog assigns an eligible existing command with empty text and canc
 test('block dialog creates one complete command in the selected same-terminal folder', async ({ page }) => {
   await seedBlockAuthoringSession(page);
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
-  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  const savesBefore = await desktopCallCount(page, 'SaveAuthoring');
   const { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateTwo);
 
   await dialog.locator('input[name="entryBlockCommandMode"][value="new"]').check();
@@ -1177,7 +1188,7 @@ test('block dialog creates one complete command in the selected same-terminal fo
   await dialog.locator('[data-entry-block-command-action="apply"]').click();
 
   await expect(dialog).not.toBeVisible();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore + 1);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBefore + 1);
   const folder = await nodeFromLastSave(page, BLOCK_FOLDER_ID);
   const created = folder.children.find(node => node.name === 'Подтвердить состояние реактора');
   expect(created).toEqual(expect.objectContaining({
@@ -1200,7 +1211,7 @@ test('block dialog creates one complete command in the selected same-terminal fo
 test('block dialog atomically reassigns and removes an uncompleted owner', async ({ page }) => {
   await seedBlockAuthoringSession(page);
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
-  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  const savesBefore = await desktopCallCount(page, 'SaveAuthoring');
   let { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.power);
 
   await expect(dialog.locator('#entryBlockExistingCommand').locator('option')).toHaveText([
@@ -1211,7 +1222,7 @@ test('block dialog atomically reassigns and removes an uncompleted owner', async
   await dialog.locator('#entryBlockExistingCommand').selectOption('command-reactor-secondary');
   await dialog.locator('#entryBlockCompletedText').fill('ПИТАНИЕ: РЕЗЕРВ');
   await dialog.locator('[data-entry-block-command-action="apply"]').click();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore + 1);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBefore + 1);
 
   const oldOwner = await commandFromLastSave(page, BLOCK_OWNER_COMMAND_ID);
   const newOwner = await commandFromLastSave(page, 'command-reactor-secondary');
@@ -1225,7 +1236,7 @@ test('block dialog atomically reassigns and removes an uncompleted owner', async
 
   ({ dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.power));
   await dialog.locator('[data-entry-block-command-action="remove"]').click();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore + 2);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBefore + 2);
   const removed = await commandFromLastSave(page, 'command-reactor-secondary');
   expect(removed.stateChange).toEqual({
     completedName: 'Резервный контур проверен',
@@ -1239,7 +1250,7 @@ test('block dialog atomically reassigns and removes an uncompleted owner', async
 test('block dialog keeps a completed owner read-only until reset', async ({ page }) => {
   await seedBlockAuthoringSession(page, { completedOwner: true });
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
-  const savesBefore = await desktopCallCount(page, 'SaveSession');
+  const savesBefore = await desktopCallCount(page, 'SaveAuthoring');
   const { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.power);
 
   await expect(dialog).toContainText('Питание реактора включено');
@@ -1252,27 +1263,40 @@ test('block dialog keeps a completed owner read-only until reset', async ({ page
   await expect(dialog.locator('[data-entry-block-command-action="apply"]')).toBeDisabled();
   await expect(dialog.locator('[data-entry-block-command-action="remove"]')).toBeDisabled();
   await dialog.locator('[data-entry-block-command-action="cancel"]').click();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBefore);
 });
 
-test('block dialog rejects a stale block reference without saving', async ({ page }) => {
+test('block dialog rejects a block reference that a rejected save removed, without saving', async ({ page }) => {
   await seedBlockAuthoringSession(page);
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
-  const savesBefore = await desktopCallCount(page, 'SaveSession');
-  const { dialog } = await openEntryBlockCommandDialog(page, BLOCK_IDS.duplicateOne);
+
+  // The new block's save is held, so its dialog opens before the server answers.
+  await page.evaluate(() => __desktopFixture.holdCalls('SaveAuthoring'));
+  await page.locator('#btnAddEntryContentBlock').click();
+  const added = page.locator('#entryContentBlocks .entry-content-block').last();
+  const addedID = await added.getAttribute('data-block-id');
+  await added.locator('[data-entry-block-content]').fill('ВРЕМЕННЫЙ БЛОК');
+  await page.locator('#nodeForm').getByRole('button', { name: 'ПРИМЕНИТЬ' }).click();
+  await expect.poll(() => page.evaluate(() => __desktopFixture.inFlightCount('SaveAuthoring'))).toBe(1);
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'saving');
+
+  const { dialog } = await openEntryBlockCommandDialog(page, addedID);
   await dialog.locator('#entryBlockExistingCommand').selectOption('command-reactor-secondary');
   await dialog.locator('#entryBlockCompletedText').fill('СТАТУС: УСТАРЕЛ');
 
-  const snapshot = await page.request.get(`${FIXTURE_URL}/session`).then(response => response.json());
-  const terminal = snapshot.session.terminals.find(candidate => candidate.id === TERMINAL_ID);
-  const entry = findFixtureNode(terminal.root, BLOCK_ENTRY_ID);
-  entry.blocks = entry.blocks.filter(block => block.id !== BLOCK_IDS.duplicateOne);
-  await page.evaluate(({ revision, session }) => {
-    __desktopFixture.emit('session-state', { revision, session });
-  }, { revision: snapshot.revision + 100, session: snapshot.session });
+  // The server rejects the block, so the applied session no longer has it.
+  await page.route(`**${FIXTURE_URL}/save`, route => route.fulfill({ json: { ok: false } }));
+  await page.evaluate(() => __desktopFixture.releaseHeldCalls('SaveAuthoring'));
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'error');
+  await expect(page.locator('#saveStatus')).toContainText('ОШИБКА СОХРАНЕНИЯ: ');
+  const savesBefore = await desktopCallCount(page, 'SaveAuthoring');
 
   await dialog.locator('[data-entry-block-command-action="apply"]').click();
   await expect(dialog.locator('#entryBlockCommandError')).toContainText('БЛОК БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
   await expect(dialog).toBeVisible();
-  await expect.poll(() => desktopCallCount(page, 'SaveSession')).toBe(savesBefore);
+  await expect.poll(() => desktopCallCount(page, 'SaveAuthoring')).toBe(savesBefore);
+  await page.unroute(`**${FIXTURE_URL}/save`);
+  const durable = await page.request.get(`${FIXTURE_URL}/session`).then(response => response.json());
+  const entry = findFixtureNode(durable.session.terminals.find(terminal => terminal.id === TERMINAL_ID).root, BLOCK_ENTRY_ID);
+  expect(entry.blocks.map(block => block.id)).not.toContain(addedID);
 });

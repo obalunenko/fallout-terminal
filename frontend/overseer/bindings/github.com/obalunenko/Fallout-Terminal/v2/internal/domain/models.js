@@ -106,6 +106,44 @@ export class CommandExecutionPresentation {
 }
 
 /**
+ * CommandReference names one command of one terminal.
+ */
+export class CommandReference {
+    /**
+     * Creates a new CommandReference instance.
+     * @param {Partial<CommandReference>} [$$source = {}] - The source object to create the CommandReference.
+     */
+    constructor($$source = {}) {
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (!("commandId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["commandId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CommandReference instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CommandReference}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CommandReference(/** @type {Partial<CommandReference>} */($$parsedSource));
+    }
+}
+
+/**
  * ContentNode is a tagged folder, command, or entry node.
  * @typedef {any} ContentNode
  */
@@ -640,6 +678,24 @@ export class FacilityOperationResult {
              */
             this["session"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * AuthoringRevision is the active session's authoring revision after an
+             * authoring save or scene reset; other operations leave it zero.
+             * @member
+             * @type {number | undefined}
+             */
+            this["authoringRevision"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * ResetCommands lists the executed commands a scene reset cleared,
+             * ordered by terminal ID, then command ID.
+             * @member
+             * @type {CommandReference[] | undefined}
+             */
+            this["resetCommands"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -653,6 +709,7 @@ export class FacilityOperationResult {
         const $$createField4_0 = $$createType4;
         const $$createField8_0 = $$createType5;
         const $$createField9_0 = $$createType5;
+        const $$createField12_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("issues" in $$parsedSource) {
             $$parsedSource["issues"] = $$createField4_0($$parsedSource["issues"]);
@@ -663,9 +720,17 @@ export class FacilityOperationResult {
         if ("affectedConditionIds" in $$parsedSource) {
             $$parsedSource["affectedConditionIds"] = $$createField9_0($$parsedSource["affectedConditionIds"]);
         }
+        if ("resetCommands" in $$parsedSource) {
+            $$parsedSource["resetCommands"] = $$createField12_0($$parsedSource["resetCommands"]);
+        }
         return new FacilityOperationResult(/** @type {Partial<FacilityOperationResult>} */($$parsedSource));
     }
 }
+
+/**
+ * FacilityStateEquality requires one device to equal one of its named states.
+ * @typedef {any} FacilityStateEquality
+ */
 
 /**
  * HackColumn is one 192-character public hacking column.
@@ -708,7 +773,7 @@ export class HackColumn {
      */
     static createFrom($$source = {}) {
         const $$createField0_0 = $$createType5;
-        const $$createField2_0 = $$createType7;
+        const $$createField2_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("addresses" in $$parsedSource) {
             $$parsedSource["addresses"] = $$createField0_0($$parsedSource["addresses"]);
@@ -904,14 +969,14 @@ export class MasterCoordinationState {
      * @returns {MasterCoordinationState}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType9;
-        const $$createField3_0 = $$createType11;
-        const $$createField4_0 = $$createType13;
-        const $$createField5_0 = $$createType15;
-        const $$createField6_0 = $$createType17;
-        const $$createField7_0 = $$createType19;
-        const $$createField8_0 = $$createType21;
-        const $$createField9_0 = $$createType23;
+        const $$createField2_0 = $$createType11;
+        const $$createField3_0 = $$createType13;
+        const $$createField4_0 = $$createType15;
+        const $$createField5_0 = $$createType17;
+        const $$createField6_0 = $$createType19;
+        const $$createField7_0 = $$createType21;
+        const $$createField8_0 = $$createType23;
+        const $$createField9_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playerConfig" in $$parsedSource) {
             $$parsedSource["playerConfig"] = $$createField2_0($$parsedSource["playerConfig"]);
@@ -1277,7 +1342,7 @@ export class MasterSessionEntry {
      * @returns {MasterSessionEntry}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType25;
+        const $$createField3_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("character" in $$parsedSource) {
             $$parsedSource["character"] = $$createField3_0($$parsedSource["character"]);
@@ -1687,8 +1752,8 @@ export class PublicHackState {
      */
     static createFrom($$source = {}) {
         const $$createField6_0 = $$createType5;
-        const $$createField7_0 = $$createType27;
-        const $$createField8_0 = $$createType29;
+        const $$createField7_0 = $$createType29;
+        const $$createField8_0 = $$createType31;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("log" in $$parsedSource) {
             $$parsedSource["log"] = $$createField6_0($$parsedSource["log"]);
@@ -1799,12 +1864,12 @@ export class PublicLiveState {
      * @returns {PublicLiveState}
      */
     static createFrom($$source = {}) {
-        const $$createField5_0 = $$createType30;
-        const $$createField6_0 = $$createType32;
-        const $$createField7_0 = $$createType34;
-        const $$createField8_0 = $$createType36;
-        const $$createField9_0 = $$createType37;
-        const $$createField10_0 = $$createType38;
+        const $$createField5_0 = $$createType32;
+        const $$createField6_0 = $$createType34;
+        const $$createField7_0 = $$createType36;
+        const $$createField8_0 = $$createType38;
+        const $$createField9_0 = $$createType39;
+        const $$createField10_0 = $$createType40;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("nav" in $$parsedSource) {
             $$parsedSource["nav"] = $$createField5_0($$parsedSource["nav"]);
@@ -2037,8 +2102,8 @@ export class TerminalNavigationPresentation {
      * @returns {TerminalNavigationPresentation}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType40;
-        const $$createField2_0 = $$createType42;
+        const $$createField1_0 = $$createType42;
+        const $$createField2_0 = $$createType44;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("returnTarget" in $$parsedSource) {
             $$parsedSource["returnTarget"] = $$createField1_0($$parsedSource["returnTarget"]);
@@ -2123,40 +2188,42 @@ const $$createType2 = $Create.Array($$createType1);
 const $$createType3 = FacilityIssue.createFrom;
 const $$createType4 = $Create.Array($$createType3);
 const $$createType5 = $Create.Array($Create.Any);
-const $$createType6 = HackWord.createFrom;
+const $$createType6 = CommandReference.createFrom;
 const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = PlayerConfigMetadata.createFrom;
-const $$createType9 = $Create.Nullable($$createType8);
-const $$createType10 = MasterRosterEntry.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = MasterSessionEntry.createFrom;
+const $$createType8 = HackWord.createFrom;
+const $$createType9 = $Create.Array($$createType8);
+const $$createType10 = PlayerConfigMetadata.createFrom;
+const $$createType11 = $Create.Nullable($$createType10);
+const $$createType12 = MasterRosterEntry.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = MasterBroadcastState.createFrom;
-const $$createType15 = $Create.Nullable($$createType14);
-const $$createType16 = MasterPendingSwitch.createFrom;
+const $$createType14 = MasterSessionEntry.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = MasterBroadcastState.createFrom;
 const $$createType17 = $Create.Nullable($$createType16);
-const $$createType18 = MasterPendingCommandExecution.createFrom;
+const $$createType18 = MasterPendingSwitch.createFrom;
 const $$createType19 = $Create.Nullable($$createType18);
-const $$createType20 = MasterPendingTerminalNavigation.createFrom;
+const $$createType20 = MasterPendingCommandExecution.createFrom;
 const $$createType21 = $Create.Nullable($$createType20);
-const $$createType22 = MasterTerminalNavigationNotice.createFrom;
+const $$createType22 = MasterPendingTerminalNavigation.createFrom;
 const $$createType23 = $Create.Nullable($$createType22);
-const $$createType24 = PlayerCharacter.createFrom;
+const $$createType24 = MasterTerminalNavigationNotice.createFrom;
 const $$createType25 = $Create.Nullable($$createType24);
-const $$createType26 = HackColumn.createFrom;
-const $$createType27 = $Create.Array($$createType26);
-const $$createType28 = PublicHackPattern.createFrom;
+const $$createType26 = PlayerCharacter.createFrom;
+const $$createType27 = $Create.Nullable($$createType26);
+const $$createType28 = HackColumn.createFrom;
 const $$createType29 = $Create.Array($$createType28);
-const $$createType30 = NavState.createFrom;
-const $$createType31 = PublicHackState.createFrom;
-const $$createType32 = $Create.Nullable($$createType31);
-const $$createType33 = CommandExecutionPresentation.createFrom;
+const $$createType30 = PublicHackPattern.createFrom;
+const $$createType31 = $Create.Array($$createType30);
+const $$createType32 = NavState.createFrom;
+const $$createType33 = PublicHackState.createFrom;
 const $$createType34 = $Create.Nullable($$createType33);
-const $$createType35 = TerminalNavigationPresentation.createFrom;
+const $$createType35 = CommandExecutionPresentation.createFrom;
 const $$createType36 = $Create.Nullable($$createType35);
-const $$createType37 = ControllerTerminalPresentation.createFrom;
-const $$createType38 = $Create.Array($Create.Any);
-const $$createType39 = TerminalReturnTarget.createFrom;
-const $$createType40 = $Create.Nullable($$createType39);
-const $$createType41 = PendingTerminalNavigationPresentation.createFrom;
+const $$createType37 = TerminalNavigationPresentation.createFrom;
+const $$createType38 = $Create.Nullable($$createType37);
+const $$createType39 = ControllerTerminalPresentation.createFrom;
+const $$createType40 = $Create.Array($Create.Any);
+const $$createType41 = TerminalReturnTarget.createFrom;
 const $$createType42 = $Create.Nullable($$createType41);
+const $$createType43 = PendingTerminalNavigationPresentation.createFrom;
+const $$createType44 = $Create.Nullable($$createType43);

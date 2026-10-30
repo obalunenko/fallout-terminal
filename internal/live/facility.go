@@ -38,29 +38,11 @@ func (service *Service) PreviewFacility(
 	facility *domain.Facility,
 	preview domain.FacilityPreview,
 ) (*domain.PublicLiveState, []domain.FacilityIssue) {
-	if service == nil || state == nil {
+	if service == nil {
 		return nil, facilityPreviewIssue(domain.FacilityFailureRuntimeContextEnded, "terminal", "")
 	}
-	if facility == nil {
-		return nil, facilityPreviewIssue(domain.FacilityFailureMissingReference, "facility", "")
-	}
-	if preview.ExpectedFacilityRevision != facility.Revision {
-		return nil, facilityPreviewIssue(domain.FacilityFailureStaleRevision, "facility", "")
-	}
-	if preview.TerminalID == "" || strings.TrimSpace(preview.TerminalID) != preview.TerminalID ||
-		preview.TerminalID != state.TerminalID {
-		return nil, facilityPreviewIssue(domain.FacilityFailureMissingReference, "terminal", preview.TerminalID)
-	}
-	if (preview.DeviceState == nil) == (preview.Condition == nil) {
-		return nil, facilityPreviewIssue(domain.FacilityFailureInvalidConfiguration, "preview", "")
-	}
-
-	candidate := domain.CloneFacility(facility)
-	if preview.DeviceState != nil {
-		if issues := applyDeviceStatePreview(candidate, *preview.DeviceState); len(issues) != 0 {
-			return nil, issues
-		}
-	} else if issues := applyConditionPreview(candidate, *preview.Condition); len(issues) != 0 {
+	candidate, issues := previewFacilityCandidate(state, facility, preview)
+	if len(issues) != 0 {
 		return nil, issues
 	}
 
@@ -413,36 +395,19 @@ func applyFacilityProjection(
 	if node == nil {
 		return false
 	}
-	if !root && node.VisibleWhen != nil &&
-		!facilityEqualityMatches(*node.VisibleWhen, deviceStates) && !diagnostics.forcedVisible[node.ID] {
+	if !resolveNodeVisible(*node, deviceStates, diagnostics, root) {
 		return false
 	}
 
-	node.Available = nil
 	if state, ok := completed[node.ID]; ok && node.Type == domain.NodeCommand {
-		node.Name = state.CompletedName
 		node.Text = state.ResultText
 	}
-	if name, ok := matchingFacilityText(node.FacilityNameVariants, deviceStates); ok {
-		node.Name = name
-	}
-	if node.AvailableWhen != nil {
-		node.Available = new(facilityEqualityMatches(*node.AvailableWhen, deviceStates))
-	}
+	node.Name = resolveNodeName(*node, completed, deviceStates)
+	node.Available = resolveNodeAvailable(*node, deviceStates)
 	if node.Type == domain.NodeEntry && len(node.Blocks) != 0 {
 		parts := make([]string, len(node.Blocks))
 		for index, block := range node.Blocks {
-			text := block.InitialText
-			if completedText, ok := completedBlocks[block.ID]; ok {
-				text = completedText
-			}
-			if facilityText, ok := matchingFacilityText(block.FacilityTextVariants, deviceStates); ok {
-				text = facilityText
-			}
-			if diagnosticText, ok := diagnostics.recordSubstitutions[block.ID]; ok {
-				text = diagnosticText
-			}
-			parts[index] = text
+			parts[index] = resolveBlockText(block, completedBlocks, deviceStates, diagnostics)
 		}
 		node.Description = strings.Join(parts, "\n\n")
 	}
@@ -457,6 +422,60 @@ func applyFacilityProjection(
 		node.Children = children
 	}
 	return true
+}
+
+// The resolvers below decide one player-visible value each. The projection
+// and the Overseer explanation share them so the two cannot diverge.
+
+func resolveNodeVisible(
+	node domain.ContentNode,
+	deviceStates map[string]projectedDeviceState,
+	diagnostics diagnosticProjection,
+	root bool,
+) bool {
+	return root || node.VisibleWhen == nil ||
+		facilityEqualityMatches(*node.VisibleWhen, deviceStates) || diagnostics.forcedVisible[node.ID]
+}
+
+func resolveNodeName(
+	node domain.ContentNode,
+	completed map[string]domain.CommandExecutionState,
+	deviceStates map[string]projectedDeviceState,
+) string {
+	name := node.Name
+	if state, ok := completed[node.ID]; ok && node.Type == domain.NodeCommand {
+		name = state.CompletedName
+	}
+	if variant, ok := matchingFacilityText(node.FacilityNameVariants, deviceStates); ok {
+		name = variant
+	}
+	return name
+}
+
+func resolveNodeAvailable(node domain.ContentNode, deviceStates map[string]projectedDeviceState) *bool {
+	if node.AvailableWhen == nil {
+		return nil
+	}
+	return new(facilityEqualityMatches(*node.AvailableWhen, deviceStates))
+}
+
+func resolveBlockText(
+	block domain.EntryContentBlock,
+	completedBlocks map[string]string,
+	deviceStates map[string]projectedDeviceState,
+	diagnostics diagnosticProjection,
+) string {
+	text := block.InitialText
+	if completedText, ok := completedBlocks[block.ID]; ok {
+		text = completedText
+	}
+	if facilityText, ok := matchingFacilityText(block.FacilityTextVariants, deviceStates); ok {
+		text = facilityText
+	}
+	if diagnosticText, ok := diagnostics.recordSubstitutions[block.ID]; ok {
+		text = diagnosticText
+	}
+	return text
 }
 
 func matchingFacilityText(

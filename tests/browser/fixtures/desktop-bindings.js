@@ -108,14 +108,31 @@ const state = globalThis.__desktopFixtureState ??= {
   publicAccessCredentialShareError: '',
   clipboardText: '',
   authoringSession: stateChangingAuthoringSession(),
-  authoringRevision: 1,
+  authoringSessionRevision: 1,
+  // The authoring revision the fakes check SaveAuthoring against: 1 after an
+  // open, +1 per accepted save that changes the document (data-model.md).
+  authoringRevision: 0,
+  // The canonical session of a page whose fixture server stores none.
+  authoringMemory: { session: null, sessionRevision: 0 },
+  authoringQueue: Promise.resolve(),
+  inFlight: new Map(),
+  peakInFlight: new Map(),
+  heldCalls: new Map(),
   terminalActionNextResults: new Map(),
   terminalActionDeferred: new Map(),
 };
 let playerPassword = 'synthetic-player-share-value';
 let pendingPlayerPassword = null;
 if (!state.authoringSession) state.authoringSession = stateChangingAuthoringSession();
-if (!Number.isSafeInteger(state.authoringRevision)) state.authoringRevision = 1;
+if (!Number.isSafeInteger(state.authoringSessionRevision)) state.authoringSessionRevision = 1;
+if (!Number.isSafeInteger(state.authoringRevision)) state.authoringRevision = 0;
+if (!state.authoringMemory || typeof state.authoringMemory !== 'object') {
+  state.authoringMemory = { session: null, sessionRevision: 0 };
+}
+if (!(state.authoringQueue instanceof Promise)) state.authoringQueue = Promise.resolve();
+if (!(state.inFlight instanceof Map)) state.inFlight = new Map();
+if (!(state.peakInFlight instanceof Map)) state.peakInFlight = new Map();
+if (!(state.heldCalls instanceof Map)) state.heldCalls = new Map();
 if (!(state.terminalActionNextResults instanceof Map)) state.terminalActionNextResults = new Map();
 if (!(state.terminalActionDeferred instanceof Map)) state.terminalActionDeferred = new Map();
 if (!state.applicationUpdate || typeof state.applicationUpdate !== 'object') {
@@ -127,7 +144,7 @@ try {
   const durableAuthoring = JSON.parse(globalThis.localStorage?.getItem('fallout-fixture-authoring-session') ?? 'null');
   if (durableAuthoring?.session && Number.isSafeInteger(durableAuthoring.revision)) {
     state.authoringSession = durableAuthoring.session;
-    state.authoringRevision = durableAuthoring.revision;
+    state.authoringSessionRevision = durableAuthoring.revision;
   }
 } catch {
   // A fresh fixture remains available when browser storage is unavailable.
@@ -137,7 +154,7 @@ function persistAuthoringState() {
   try {
     globalThis.localStorage?.setItem('fallout-fixture-authoring-session', JSON.stringify({
       session: state.authoringSession,
-      revision: state.authoringRevision,
+      revision: state.authoringSessionRevision,
     }));
   } catch {
     // The in-memory authoring fixture remains authoritative for this page.
@@ -212,7 +229,7 @@ async function authoringFixtureCommand(path, payload) {
   const result = await response.json();
   if (result?.session) {
     state.authoringSession = structuredClone(result.session);
-    state.authoringRevision = Number(result.revision || state.authoringRevision);
+    state.authoringSessionRevision = Number(result.revision || state.authoringSessionRevision);
   }
   return result;
 }
@@ -288,9 +305,365 @@ function applicationUpdateResult(ok, error = '') {
 function authoringSessionResult() {
   return {
     ok: true,
-    revision: state.authoringRevision,
+    revision: state.authoringSessionRevision,
     session: structuredClone(state.authoringSession),
   };
+}
+
+// track records one call for journeys and counts it in flight until it
+// settles. A deferred method answers with the result given to
+// resolveTerminalAction; a held method waits for releaseHeldCalls; an
+// injected next result replaces run. run receives a detached copy of args.
+function track(method, args, run) {
+  state.calls.push({ method, args: structuredClone(args) });
+  const count = (state.inFlight.get(method) ?? 0) + 1;
+  state.inFlight.set(method, count);
+  state.peakInFlight.set(method, Math.max(count, state.peakInFlight.get(method) ?? 0));
+  return answerTracked(method, () => run(structuredClone(args))).finally(() => {
+    state.inFlight.set(method, state.inFlight.get(method) - 1);
+  });
+}
+
+async function answerTracked(method, run) {
+  const deferred = state.terminalActionDeferred.get(method);
+  if (deferred) return deferred.promise;
+  await state.heldCalls.get(method)?.promise;
+  if (state.terminalActionNextResults.has(method)) {
+    const result = structuredClone(state.terminalActionNextResults.get(method));
+    state.terminalActionNextResults.delete(method);
+    return result;
+  }
+  return run();
+}
+
+// serializeAuthoring runs authoring operations one at a time, as the app's
+// coordinator mutex does.
+function serializeAuthoring(operation) {
+  const result = state.authoringQueue.then(operation);
+  state.authoringQueue = result.catch(() => {});
+  return result;
+}
+
+// The authoring stores hold a page's canonical session: the fixture server's
+// when it stores one, otherwise page memory. load returns { session,
+// sessionRevision }; save stores a complete session once and returns the
+// canonical result, or { ok: false, failure } when the store rejects it.
+const authoringStores = {
+  stateChangingAuthoring: {
+    async load() {
+      await authoringFixtureCommand('session');
+      return { session: structuredClone(state.authoringSession), sessionRevision: state.authoringSessionRevision };
+    },
+    async save(session) {
+      const result = await authoringFixtureCommand('save', session);
+      if (result.ok !== true) return { ok: false, failure: 'persistence-failed' };
+      return { ok: true, session: structuredClone(state.authoringSession), sessionRevision: state.authoringSessionRevision };
+    },
+  },
+  terminalNavigation: {
+    async load() {
+      const response = await fetch('/__fixture/terminal-navigation/session');
+      if (!response.ok) throw new Error('terminal navigation session fixture is unavailable');
+      return { session: await response.json(), sessionRevision: state.authoringMemory.sessionRevision };
+    },
+    async save(session) {
+      const response = await fetch('/__fixture/terminal-navigation/save', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(session),
+      });
+      if (!response.ok) return { ok: false, failure: 'invalid-configuration' };
+      state.authoringMemory.sessionRevision = Number((await response.json()).revision);
+      return { ok: true, ...await this.load() };
+    },
+  },
+  memory: {
+    async load() {
+      return structuredClone(state.authoringMemory);
+    },
+    async save(session) {
+      state.authoringMemory = {
+        session: structuredClone(session),
+        sessionRevision: state.authoringMemory.sessionRevision + 1,
+      };
+      return { ok: true, ...structuredClone(state.authoringMemory) };
+    },
+  },
+};
+
+function authoringStore() {
+  if (authoringFixtureActive()) return authoringStores.stateChangingAuthoring;
+  if (terminalNavigationFixtureActive()) return authoringStores.terminalNavigation;
+  return authoringStores.memory;
+}
+
+// adoptOpenedSession makes an opened session the page's canonical one, as the
+// app does on open: the session revision is unknown to the page and the
+// authoring revision restarts at 1.
+function adoptOpenedSession(session) {
+  state.authoringMemory = { session: structuredClone(session), sessionRevision: 0 };
+  state.authoringRevision = 1;
+  return state.authoringRevision;
+}
+
+// compareIds orders identifiers by code unit, as Go orders their bytes.
+function compareIds(left, right) {
+  return left < right ? -1 : Number(left > right);
+}
+
+// canonicalJSON encodes value with sorted object keys, so equal sessions
+// encode equally whatever order their fields were written in.
+function canonicalJSON(value) {
+  return JSON.stringify(value, (_, nested) => (nested && typeof nested === 'object' && !Array.isArray(nested)
+    ? Object.fromEntries(Object.entries(nested).sort(([left], [right]) => compareIds(left, right)))
+    : nested));
+}
+
+function facilityRevisionOf(session) {
+  return Number(session?.facility?.revision ?? 0);
+}
+
+function authoringIssue(entityKind, entityId) {
+  return {
+    code: 'invalid-configuration',
+    entityKind,
+    ...(entityId === undefined ? {} : { entityId }),
+  };
+}
+
+function contentNode(node, id) {
+  if (!node || typeof node !== 'object') return null;
+  if (node.id === id) return node;
+  for (const child of node.children ?? []) {
+    const found = contentNode(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+// mergeLiveValues returns a detached candidate whose live values are the
+// canonical ones (internal/session/authoring.go): command states, terminal
+// groups, device current states, fault activity, and the facility revision.
+// Entities new to the candidate start at their initial values. Without a
+// canonical session the candidate is taken as it is.
+function mergeLiveValues(candidate, canonical) {
+  const merged = structuredClone(candidate);
+  if (!canonical) return { merged };
+
+  const terminalIds = new Set((merged.terminals ?? []).map(terminal => terminal.id));
+  const groups = (canonical.terminalGroups ?? [])
+    .map(group => ({ ...structuredClone(group), terminalIds: (group.terminalIds ?? []).filter(id => terminalIds.has(id)) }))
+    .filter(group => group.terminalIds.length !== 0);
+  if (groups.length === 0) delete merged.terminalGroups;
+  else merged.terminalGroups = groups;
+
+  const commandStates = new Map((canonical.terminals ?? []).map(terminal => [terminal.id, terminal.commandStates ?? {}]));
+  for (const terminal of merged.terminals ?? []) {
+    const states = commandStates.get(terminal.id) ?? {};
+    delete terminal.commandStates;
+    for (const commandId of Object.keys(states).sort()) {
+      const node = contentNode(terminal.root, commandId);
+      if (!node) continue;
+      if (node.type !== 'command' || !node.stateChange) return { issues: [authoringIssue('command', commandId)] };
+      terminal.commandStates ??= {};
+      terminal.commandStates[commandId] = structuredClone(states[commandId]);
+    }
+  }
+
+  if (canonical.facility && !merged.facility) return { issues: [authoringIssue('facility')] };
+  if (merged.facility) {
+    const devices = new Map((canonical.facility?.devices ?? []).map(device => [device.id, device]));
+    for (const device of merged.facility.devices ?? []) {
+      device.currentStateId = devices.get(device.id)?.currentStateId ?? device.initialStateId;
+    }
+    const conditions = new Map((canonical.facility?.conditions ?? []).map(condition => [condition.id, condition]));
+    for (const condition of merged.facility.conditions ?? []) {
+      condition.currentActive = conditions.has(condition.id)
+        ? conditions.get(condition.id).currentActive === true
+        : condition.initialActive === true;
+    }
+    merged.facility.revision = facilityRevisionOf(canonical);
+  }
+  return { merged };
+}
+
+// changedEntityIds lists, sorted, the facility entities whose authored
+// definition differs, ignoring the live field.
+function changedEntityIds(current = [], candidate = [], liveField) {
+  const authored = entities => new Map(entities.map(entity => {
+    const { [liveField]: _live, ...definition } = entity;
+    return [entity.id, canonicalJSON(definition)];
+  }));
+  const before = authored(current);
+  const after = authored(candidate);
+  return [...new Set([...before.keys(), ...after.keys()])]
+    .filter(id => before.get(id) !== after.get(id))
+    .sort();
+}
+
+function facilityOperationResult({
+  ok = false,
+  changed = false,
+  correlationId,
+  failure = '',
+  issues = [],
+  sessionRevision,
+  previousFacilityRevision,
+  resultingFacilityRevision = previousFacilityRevision,
+  affectedDeviceIds = [],
+  affectedConditionIds = [],
+  session = null,
+  resetCommands = [],
+}) {
+  return {
+    ok,
+    changed,
+    correlationId,
+    failure,
+    issues,
+    sessionRevision,
+    previousFacilityRevision,
+    resultingFacilityRevision,
+    affectedDeviceIds,
+    affectedConditionIds,
+    session: session ? structuredClone(session) : null,
+    authoringRevision: state.authoringRevision,
+    resetCommands,
+  };
+}
+
+function correlationIdOf(request) {
+  return typeof request?.correlationId === 'string' ? request.correlationId : '';
+}
+
+// saveAuthoring mirrors App.SaveAuthoring: checked against the authoring
+// revision only, with the candidate's live values replaced by canonical ones.
+// A page with no canonical session adopts the first candidate at the
+// authoring revision the request expected.
+async function saveAuthoring(request) {
+  const store = authoringStore();
+  const canonical = await store.load();
+  const correlationId = correlationIdOf(request);
+  const previousFacilityRevision = facilityRevisionOf(canonical.session ?? request.session);
+  const reject = (failure, issues = []) => facilityOperationResult({
+    correlationId, failure, issues, sessionRevision: canonical.sessionRevision, previousFacilityRevision,
+    session: canonical.session,
+  });
+
+  if (!request.session || typeof request.session !== 'object' || Array.isArray(request.session)) {
+    return reject('invalid-configuration', [authoringIssue('session')]);
+  }
+  const expected = Number(request.expectedAuthoringRevision);
+  if (canonical.session && expected !== state.authoringRevision) return reject('stale-revision');
+  if (!correlationId.trim()) return reject('invalid-configuration', [authoringIssue('request')]);
+  const { merged, issues } = mergeLiveValues(request.session, canonical.session);
+  if (issues) return reject('invalid-configuration', issues);
+  if (canonical.session && canonicalJSON(merged) === canonicalJSON(canonical.session)) {
+    return facilityOperationResult({
+      ok: true, correlationId, sessionRevision: canonical.sessionRevision, previousFacilityRevision,
+      session: canonical.session,
+    });
+  }
+
+  let affectedDeviceIds = [];
+  let affectedConditionIds = [];
+  if (canonicalJSON(merged.facility ?? null) !== canonicalJSON(canonical.session?.facility ?? null)) {
+    const before = canonical.session?.facility;
+    affectedDeviceIds = changedEntityIds(before?.devices, merged.facility?.devices, 'currentStateId');
+    affectedConditionIds = changedEntityIds(before?.conditions, merged.facility?.conditions, 'currentActive');
+    if (merged.facility) merged.facility.revision = previousFacilityRevision + 1;
+  }
+  const saved = await store.save(merged);
+  if (!saved.ok) return reject(saved.failure, [{ code: saved.failure, entityKind: 'session' }]);
+
+  const baseRevision = canonical.session || !Number.isSafeInteger(expected) ? state.authoringRevision : expected;
+  state.authoringRevision = baseRevision + 1;
+  emitFixtureEvent('session-state', { revision: saved.sessionRevision, session: saved.session });
+  return facilityOperationResult({
+    ok: true, changed: true, correlationId, sessionRevision: saved.sessionRevision, previousFacilityRevision,
+    resultingFacilityRevision: facilityRevisionOf(saved.session), affectedDeviceIds, affectedConditionIds,
+    session: saved.session,
+  });
+}
+
+// resetScene mirrors App.ResetScene: every device and fault returns to its
+// starting value and every terminal's executed commands clear in one write.
+// The authoring revision never changes.
+async function resetScene(request) {
+  const store = authoringStore();
+  const canonical = await store.load();
+  const correlationId = correlationIdOf(request);
+  const previousFacilityRevision = facilityRevisionOf(canonical.session);
+  const fail = (failure, entityKind) => facilityOperationResult({
+    correlationId, failure, issues: [{ code: failure, entityKind }], sessionRevision: canonical.sessionRevision,
+    previousFacilityRevision, session: canonical.session,
+  });
+
+  if (!canonical.session) return fail('runtime-context-ended', 'session');
+  if (Number(request.expectedSessionRevision) !== canonical.sessionRevision) return fail('stale-revision', 'session');
+  if (Number(request.expectedFacilityRevision) !== previousFacilityRevision) return fail('stale-revision', 'facility');
+  if (!correlationId.trim()) return fail('invalid-configuration', 'request');
+
+  const candidate = structuredClone(canonical.session);
+  const affectedDeviceIds = [];
+  for (const device of candidate.facility?.devices ?? []) {
+    if (device.currentStateId === device.initialStateId) continue;
+    device.currentStateId = device.initialStateId;
+    affectedDeviceIds.push(device.id);
+  }
+  const affectedConditionIds = [];
+  for (const condition of candidate.facility?.conditions ?? []) {
+    const initialActive = condition.initialActive === true;
+    if ((condition.currentActive === true) === initialActive) continue;
+    condition.currentActive = initialActive;
+    affectedConditionIds.push(condition.id);
+  }
+  const resetCommands = [];
+  for (const terminal of candidate.terminals ?? []) {
+    for (const commandId of Object.keys(terminal.commandStates ?? {})) {
+      resetCommands.push({ terminalId: terminal.id, commandId });
+    }
+    delete terminal.commandStates;
+  }
+  affectedDeviceIds.sort();
+  affectedConditionIds.sort();
+  resetCommands.sort((left, right) => compareIds(left.terminalId, right.terminalId)
+    || compareIds(left.commandId, right.commandId));
+  const facilityChanged = affectedDeviceIds.length !== 0 || affectedConditionIds.length !== 0;
+  if (!facilityChanged && resetCommands.length === 0) {
+    return facilityOperationResult({
+      ok: true, correlationId, sessionRevision: canonical.sessionRevision, previousFacilityRevision,
+      session: canonical.session,
+    });
+  }
+
+  if (facilityChanged) candidate.facility.revision = previousFacilityRevision + 1;
+  const saved = await store.save(candidate);
+  if (!saved.ok) return fail('persistence-failed', 'persistence');
+  emitFixtureEvent('session-state', { revision: saved.sessionRevision, session: saved.session });
+  return facilityOperationResult({
+    ok: true, changed: true, correlationId, sessionRevision: saved.sessionRevision, previousFacilityRevision,
+    resultingFacilityRevision: facilityRevisionOf(saved.session), affectedDeviceIds, affectedConditionIds,
+    session: saved.session, resetCommands,
+  });
+}
+
+// describePresentation mirrors App.DescribePresentation's revisions and
+// failures. Explanations come from internal/live, so this page-level fake
+// explains no terminal; fixture servers and injected results provide them.
+async function describePresentation(request) {
+  const canonical = await authoringStore().load();
+  const result = {
+    ok: false,
+    failure: '',
+    sessionRevision: canonical.sessionRevision,
+    facilityRevision: 0,
+    authoringRevision: state.authoringRevision,
+    terminals: [],
+  };
+  if (!canonical.session) return { ...result, failure: 'runtime-context-ended' };
+  result.facilityRevision = facilityRevisionOf(canonical.session);
+  const expected = Number(request.expectedAuthoringRevision ?? 0);
+  if (expected !== 0 && expected !== state.authoringRevision) return { ...result, failure: 'stale-revision' };
+  return { ...result, ok: true };
 }
 
 globalThis.__desktopFixture = {
@@ -308,7 +681,7 @@ globalThis.__desktopFixture = {
   async authoringDurableState() {
     if (authoringFixtureActive()) await authoringFixtureCommand('session');
     return {
-      revision: state.authoringRevision,
+      revision: state.authoringSessionRevision,
       commandStates: structuredClone(state.authoringSession.terminals[0].commandStates ?? {}),
     };
   },
@@ -333,6 +706,25 @@ globalThis.__desktopFixture = {
     if (!deferred) return;
     state.terminalActionDeferred.delete(method);
     deferred.resolve(structuredClone(result));
+  },
+  // Shims record their own SaveAuthoring, ResetScene, and DescribePresentation
+  // through track, so journeys read one call log and one in-flight count.
+  track,
+  inFlightCount(method) { return state.inFlight.get(method) ?? 0; },
+  peakInFlight(method) { return state.peakInFlight.get(method) ?? 0; },
+  // holdCalls keeps every later tracked call of method in flight, recorded but
+  // unanswered, until releaseHeldCalls lets them run in arrival order.
+  holdCalls(method) {
+    if (state.heldCalls.has(method)) return;
+    let release;
+    const promise = new Promise(done => { release = done; });
+    state.heldCalls.set(method, { promise, release });
+  },
+  releaseHeldCalls(method) {
+    const held = state.heldCalls.get(method);
+    if (!held) return;
+    state.heldCalls.delete(method);
+    held.release();
   },
   deferStatus() {
     state.statusPromise = new Promise(resolve => { state.resolveStatus = resolve; });
@@ -469,6 +861,13 @@ export function GetRuntimeStatus() {
     return stateChangingCoordinationState().then(coordinationState => ({
       ...state.status,
       coordinationState,
+    }));
+  }
+  if (authoringFixtureActive()) {
+    // ResetScene checks the session revision this status reports.
+    return authoringFixtureCommand('session').then(result => ({
+      ...state.status,
+      savedRevision: Number(result.revision),
     }));
   }
   return state.statusPromise ?? Promise.resolve(state.status);
@@ -673,38 +1072,43 @@ export const MoveCharacter = (...args) => record('MoveCharacter', args);
 export const NewPlayerConfig = (...args) => record('NewPlayerConfig', args);
 export const NewSession = (...args) => record('NewSession', args);
 export const OpenPlayerConfig = (...args) => record('OpenPlayerConfig', args);
+async function openFixtureSession(path, filePath, unavailable) {
+  const response = await fetch(path);
+  if (!response.ok) return { ok: false, error: unavailable, filePath, session: null };
+  const session = await response.json();
+  return { ok: true, error: '', filePath, session, authoringRevision: adoptOpenedSession(session) };
+}
+
 export async function OpenSession(...args) {
 	if (!authoringFixtureActive() && !stateChangingLifecycleBase()) return record('OpenSession', args);
   state.calls.push({ method: 'OpenSession', args: [] });
   if (syncFixtureActive()) {
-    return fetch('/__fixture/state-changing-command-sync/session').then(async response => ({
-      ok: response.ok,
-      error: response.ok ? '' : 'synchronization session fixture is unavailable',
-      filePath: '/private/tmp/fallout-state-changing-sync.json',
-      session: response.ok ? await response.json() : null,
-    }));
+    return openFixtureSession(
+      '/__fixture/state-changing-command-sync/session',
+      '/private/tmp/fallout-state-changing-sync.json',
+      'synchronization session fixture is unavailable',
+    );
   }
   if (approvalFixtureActive()) {
-    return fetch('/__fixture/state-changing-command-approval/session').then(async response => ({
-      ok: response.ok,
-      error: response.ok ? '' : 'approval session fixture is unavailable',
-      filePath: '/private/tmp/fallout-state-changing-approval.json',
-      session: response.ok ? await response.json() : null,
-    }));
+    return openFixtureSession(
+      '/__fixture/state-changing-command-approval/session',
+      '/private/tmp/fallout-state-changing-approval.json',
+      'approval session fixture is unavailable',
+    );
   }
-	if (terminalNavigationFixtureActive()) {
-		return fetch('/__fixture/terminal-navigation/session').then(async response => ({
-			ok: response.ok,
-			error: response.ok ? '' : 'terminal navigation session fixture is unavailable',
-			filePath: '/private/tmp/fallout-terminal-navigation.json',
-			session: response.ok ? await response.json() : null,
-		}));
-	}
+  if (terminalNavigationFixtureActive()) {
+    return openFixtureSession(
+      '/__fixture/terminal-navigation/session',
+      '/private/tmp/fallout-terminal-navigation.json',
+      'terminal navigation session fixture is unavailable',
+    );
+  }
   const result = await authoringFixtureCommand('session');
   return {
     ok: true,
     filePath: '/private/tmp/fallout-state-changing-authoring.json',
     session: structuredClone(result.session),
+    authoringRevision: adoptOpenedSession(result.session),
   };
 }
 export const OpenURL = (...args) => record('OpenURL', args);
@@ -847,9 +1251,6 @@ function facilityOperationFixture(method, payload, affectedDeviceIds, affectedCo
 export const RecoverFacilityCondition = payload => facilityOperationFixture(
   'RecoverFacilityCondition', payload, [], [payload?.conditionId ?? ''],
 );
-export const ResetFacility = payload => facilityOperationFixture(
-  'ResetFacility', payload, ['security-door'], [],
-);
 export const ResetFacilityDevice = payload => facilityOperationFixture(
   'ResetFacilityDevice', payload, [payload?.deviceId ?? ''], [],
 );
@@ -884,85 +1285,26 @@ export async function ResolveTerminalNavigation(payload) {
 	});
 	return response.json();
 }
-export function SaveFacilityAuthoring(payload) {
-  const retained = structuredClone(payload ?? {});
-  state.calls.push({ method: 'SaveFacilityAuthoring', args: [retained] });
-  if (state.terminalActionNextResults.has('SaveFacilityAuthoring')) {
-    const result = structuredClone(state.terminalActionNextResults.get('SaveFacilityAuthoring'));
-    state.terminalActionNextResults.delete('SaveFacilityAuthoring');
-    return Promise.resolve(result);
-  }
-  const resultingFacilityRevision = Number(retained.expectedFacilityRevision ?? 0) + 1;
-  const canonicalSession = structuredClone(retained.session);
-  if (canonicalSession?.facility && typeof canonicalSession.facility === 'object') {
-    canonicalSession.facility.revision = resultingFacilityRevision;
-  }
-  return Promise.resolve({
-    ok: true,
-    changed: true,
-    correlationId: retained.correlationId ?? '',
-    failure: '',
-    issues: [],
-    sessionRevision: Number(retained.expectedSessionRevision ?? 0) + 1,
-    previousFacilityRevision: retained.expectedFacilityRevision ?? 0,
-    resultingFacilityRevision,
-    affectedDeviceIds: ['security-door'],
-    affectedConditionIds: [],
-    session: canonicalSession,
-  });
-}
 export async function ResetCommandState(payload) {
-  if (!authoringFixtureActive()) return record('ResetCommandState', [payload]);
+  if (!authoringFixtureActive()) {
+    // Tracked so journeys can hold the reset in flight.
+    return track('ResetCommandState', [payload], args => ({ ok: true, method: 'ResetCommandState', args }));
+  }
   const retained = structuredClone(payload ?? {});
   state.calls.push({ method: 'ResetCommandState', args: [retained] });
   const result = await authoringFixtureCommand('reset-command', retained);
   emitFixtureEvent('session-state', { revision: result.revision, session: result.session });
   return result;
 }
-export async function ResetTerminalCommandStates(payload) {
-  if (!authoringFixtureActive()) return record('ResetTerminalCommandStates', [payload]);
-  const retained = structuredClone(payload ?? {});
-  state.calls.push({ method: 'ResetTerminalCommandStates', args: [retained] });
-  const result = await authoringFixtureCommand('reset-terminal', retained);
-  emitFixtureEvent('session-state', { revision: result.revision, session: result.session });
-  return result;
-}
+export const SaveAuthoring = payload => track(
+  'SaveAuthoring', [payload ?? {}], ([request]) => serializeAuthoring(() => saveAuthoring(request)),
+);
+export const ResetScene = payload => track(
+  'ResetScene', [payload ?? {}], ([request]) => serializeAuthoring(() => resetScene(request)),
+);
+export const DescribePresentation = payload => track(
+  'DescribePresentation', [payload ?? {}], ([request]) => serializeAuthoring(() => describePresentation(request)),
+);
 export const ResolveTerminalSwitch = (...args) => record('ResolveTerminalSwitch', args);
-export async function SaveSession(session) {
-  if (globalThis.location?.pathname === '/__fixture/facility-authoring/overseer') {
-    const retained = structuredClone(session);
-    state.calls.push({ method: 'SaveSession', args: [retained] });
-    const statusResponse = await fetch('/__fixture/facility-authoring/status');
-    const status = await statusResponse.json();
-    const response = await fetch('/__fixture/facility-authoring/save', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session: retained, expectedSessionRevision: status.sessionRevision,
-        expectedFacilityRevision: retained.facility?.revision || 0,
-        correlationId: 'terminal-autosave-authoring-journey',
-      }),
-    });
-    const result = await response.json();
-    if (result.ok) emitFixtureEvent('session-state', { revision: result.sessionRevision, session: result.session });
-    return { ok: result.ok, error: result.failure || '', savedRevision: result.sessionRevision };
-  }
-	if (terminalNavigationFixtureActive()) {
-		const retained = structuredClone(session);
-		state.calls.push({ method: 'SaveSession', args: [retained] });
-		const response = await fetch('/__fixture/terminal-navigation/save', {
-			method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(retained),
-		});
-		const result = response.ok
-			? await response.json()
-			: { ok: false, error: (await response.text()).trim() || 'terminal navigation save failed' };
-		return { ok: result.ok === true, error: result.error || '', savedRevision: result.revision };
-	}
-	if (!authoringFixtureActive()) return record('SaveSession', [session]);
-  const retained = structuredClone(session);
-  state.calls.push({ method: 'SaveSession', args: [retained] });
-  const result = await authoringFixtureCommand('save', retained);
-  return { ok: result.ok === true, error: result.error || '', savedRevision: result.revision };
-}
 export const SetActiveController = (...args) => record('SetActiveController', args);
 export const StartBroadcast = (...args) => record('StartBroadcast', args);
-export const UpdateLiveTerminal = (...args) => terminalAction('UpdateLiveTerminal', args);
