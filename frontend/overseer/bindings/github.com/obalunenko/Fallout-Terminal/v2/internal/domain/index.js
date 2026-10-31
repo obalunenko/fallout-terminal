@@ -75,12 +75,6 @@ import * as $models from "./models.js";
  */
 
 /**
- * DiagnosticRecoveryReference is one allowlisted recovery variant. Validation
- * requires exactly one pointer to be non-nil.
- * @typedef {$models.DiagnosticRecoveryReference} DiagnosticRecoveryReference
- */
-
-/**
  * FacilityStateEquality requires one device to equal one of its named states.
  * @typedef {$models.FacilityStateEquality} FacilityStateEquality
  */

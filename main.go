@@ -300,19 +300,7 @@ func (store *sessionCommandStateStore) ApplyWorldAction(
 		CommandID:                request.CommandID,
 		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
 		Transitions:              domain.CloneFacilityTransitionRequests(request.Transitions),
-		RecoveryConditionID:      request.RecoveryConditionID,
-		Recovery:                 cloneDiagnosticRecoveryReference(request.Recovery),
 	})
-}
-
-func cloneDiagnosticRecoveryReference(
-	recovery *domain.DiagnosticRecoveryReference,
-) *domain.DiagnosticRecoveryReference {
-	if recovery == nil {
-		return nil
-	}
-	clone := domain.CloneDiagnosticRecoveryReference(*recovery)
-	return &clone
 }
 
 func (store *sessionCommandStateStore) SaveAuthoring(

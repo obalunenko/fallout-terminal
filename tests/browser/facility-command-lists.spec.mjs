@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { expectSaved, switchTab } from './helpers/authoring-bar.mjs';
+import { blockedReason, expectSaved, switchTab } from './helpers/authoring-bar.mjs';
+import { expectRussianMessage, renderedError, ruleDialog } from './helpers/facility-editors.mjs';
 import {
   FIXTURE, demoSession, fixtureSession, openOverseer, resetFixture, seedSession,
 } from './helpers/overseer-forms.mjs';
@@ -11,6 +12,7 @@ import {
 const COMMAND = 'Открыть выход и подать сигнал';
 const PLAYER_FIXTURE = '/__fixture/facility-player-state';
 const TOKEN_KEY = 'fallout-terminal.player-token';
+const COMMAND_PATH = `Терминал смотрителя — Убежище 76 › ПРОТОКОЛ ВЫХОДА › ${COMMAND}`;
 
 function walk(node, visit, path = []) {
   visit(node, path);
@@ -320,26 +322,52 @@ test('a terminal-transition command lists only its transition', async ({ page, r
   expect(await effectItems(page)).toHaveLength(1);
 });
 
-test('a rule edited from the command form is the same rule on ОБЪЕКТЫ (FR-013)', async ({ page, request }) => {
+// expectRuleSentence checks that the rule dialog opened on an existing rule
+// of kind, with its tab fixed and its sentence filled (US4, FR-022, FR-026).
+async function expectRuleSentence(page, kind, { deviceId, stateId, where }) {
+  const rule = ruleDialog(page);
+  await expect(page.getByRole('dialog', { name: 'ПРАВИЛО ОТОБРАЖЕНИЯ', exact: true })).toBeVisible();
+  await expect(rule.tab(kind)).toHaveAttribute('aria-selected', 'true');
+  for (const other of ['entry-content', 'menu-name', 'visibility', 'availability'].filter(value => value !== kind)) {
+    expect(await blockedReason(rule.tab(other))).toBe('ЧТОБЫ СМЕНИТЬ ТИП, СОЗДАЙТЕ НОВОЕ ПРАВИЛО');
+  }
+  await expect(rule.device).toHaveValue(deviceId);
+  await expect(rule.state).toHaveValue(stateId);
+  await expect(rule.where.locator('option:checked')).toHaveText(where);
+  return rule;
+}
+
+test('a rule edited from the command form opens «ПРАВИЛО ОТОБРАЖЕНИЯ» and is the same rule on ОБЪЕКТЫ (FR-013, FR-029)', async ({ page, request }) => {
   const session = await seedDemoWith(request);
   await openOverseer(page, '');
   const command = commandByName(session, COMMAND);
   await openCommand(page, session, command.id);
 
+  // An availability rule opens on its own tab, and «ОТМЕНА» saves nothing.
+  await ruleTarget(page, 'availability').locator('li.command-rule[data-kind="state-availability"]')
+    .getByRole('button', { name: 'ИЗМЕНИТЬ' }).click();
+  const availability = await expectRuleSentence(page, 'availability',
+    { deviceId: 'power-grid-main', stateId: 'online', where: COMMAND_PATH });
+  await expect(availability.text).toBeHidden();
+  await availability.cancel.click();
+  await expect(availability.dialog).toBeHidden();
+
   await ruleTarget(page, 'name').locator('li.command-rule[data-kind="state-name"]')
     .getByRole('button', { name: 'ИЗМЕНИТЬ' }).click();
-  const dialog = page.locator('#facilityBindingDialog');
-  await expect(dialog).toBeVisible();
-  await expect(page.locator('#facilityBindingText')).toHaveValue('Выход уже открыт');
-  await page.locator('#facilityBindingText').fill('Выход распахнут');
-  await dialog.getByRole('button', { name: 'ГОТОВО' }).click();
-  await expect(dialog).toBeHidden();
+  const rule = await expectRuleSentence(page, 'menu-name',
+    { deviceId: 'vault-door-main', stateId: 'open', where: COMMAND_PATH });
+  await expect(rule.text).toHaveValue('Выход уже открыт');
+  await rule.text.fill('Выход распахнут');
+  await rule.save.click();
+  await expect(rule.dialog).toBeHidden();
   await expectSaved(page);
 
   await expect.poll(async () => findNode(await fixtureSession(request), command.id).node.facilityNameVariants[0].text)
     .toBe('Выход распахнут');
   await expect(ruleTarget(page, 'name').locator('li.command-rule[data-kind="state-name"]'))
     .toContainText('Выход распахнут');
+  // The command's device action is not a display rule.
+  await expect(page.locator('#btnEditCommandFacilityAction')).toHaveAttribute('aria-controls', 'facilityCommandActionDialog');
   await switchTab(page, 'ОБЪЕКТЫ');
   await page.locator('#facilityTabInformation').click();
   await expect(page.locator('#facilityInformationBindingList')).toBeVisible();
@@ -371,7 +399,12 @@ test('scene reset counts what changes, and a failure resets nothing (FR-014, SC-
   const failed = await request.post(`${FIXTURE}/next-operation`, { data: { failure: 'persistence-failed' } });
   expect(failed.status()).toBe(204);
   await page.locator('#btnConfirmSceneReset').click();
-  await expect(page.locator('#sceneResetStatus')).toHaveText('СЦЕНА НЕ СБРОШЕНА: НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
+  const status = page.locator('#sceneResetStatus');
+  await expect(status.locator('.overseer-error-prefix')).toHaveText('СЦЕНА НЕ СБРОШЕНА:');
+  const failure = await renderedError(status);
+  expect(failure).toMatchObject({ area: 'facility', key: 'persistence-failed', original: 'failure: persistence-failed' });
+  expect(failure.message).toBe('Не удалось записать файл сессии. Проверьте, что диск доступен и файл не защищён от записи, затем повторите.');
+  expectRussianMessage(failure.message);
   const unchanged = await fixtureSession(request);
   expect(unchanged.facility.devices.map(device => device.currentStateId))
     .toEqual(session.facility.devices.map(device => device.currentStateId));

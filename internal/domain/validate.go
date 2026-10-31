@@ -862,28 +862,21 @@ func (validator *facilityGraphValidator) validateDeviceReferences() error {
 func (validator *facilityGraphValidator) validateConditions() error {
 	for conditionIndex, condition := range validator.facility.Conditions {
 		path := fmt.Sprintf("facility.conditions[%d]", conditionIndex)
-		blocksProgress := false
 		for effectIndex, effect := range condition.Effects {
 			effectPath := fmt.Sprintf("%s.effects[%d]", path, effectIndex)
 			if err := validator.validateDiagnosticEffect(effectPath, condition, effect); err != nil {
 				return err
 			}
-			blocksProgress = blocksProgress || effect.CapabilityBlock != nil
 		}
-		hasViableRecovery := false
+		// The Overseer can always clear a fault by hand, so a fault needs no
+		// recovery entry; each stored entry must still be valid.
 		for recoveryIndex, recovery := range condition.Recovery {
-			clearsCondition, err := validator.validateRecoveryReference(
+			if err := validator.validateRecoveryReference(
 				fmt.Sprintf("%s.recovery[%d]", path, recoveryIndex),
-				condition.ID,
 				recovery,
-			)
-			if err != nil {
+			); err != nil {
 				return err
 			}
-			hasViableRecovery = hasViableRecovery || clearsCondition
-		}
-		if (blocksProgress || len(condition.Recovery) != 0) && !hasViableRecovery {
-			return fmt.Errorf("%s must provide recovery that clears the condition", path)
 		}
 	}
 	return nil
@@ -971,72 +964,58 @@ func (validator *facilityGraphValidator) validateDiagnosticEffect(
 
 func (validator *facilityGraphValidator) validateRecoveryReference(
 	path string,
-	conditionID string,
 	recovery DiagnosticRecoveryReference,
-) (bool, error) {
+) error {
 	if err := validator.addReference(path); err != nil {
-		return false, err
+		return err
 	}
 	if err := validateExtras(path, recovery.Extra, diagnosticRecoveryFields); err != nil {
-		return false, err
+		return err
 	}
 	variants := 0
-	clearsCondition := false
 	if recovery.Transition != nil {
 		variants++
 		if err := validator.validateTransitionRequests(path+".transition", []FacilityTransitionRequest{*recovery.Transition}); err != nil {
-			return false, err
+			return err
 		}
 		transition := validator.devices[recovery.Transition.DeviceID].transitions[recovery.Transition.TransitionID]
 		if !transition.Recovery {
-			return false, fmt.Errorf("%s.transition must reference a recovery transition", path)
+			return fmt.Errorf("%s.transition must reference a recovery transition", path)
 		}
-		clearsCondition = transitionClearsCondition(transition, conditionID)
 	}
 	if recovery.RecoveryProgramID != nil {
 		variants++
 		if err := validateFacilityID(path+".recoveryProgramId", *recovery.RecoveryProgramID); err != nil {
-			return false, err
+			return err
 		}
 		program, exists := validator.programs[*recovery.RecoveryProgramID]
 		if !exists {
-			return false, fmt.Errorf("%s.recoveryProgramId references unknown recovery program %q", path, *recovery.RecoveryProgramID)
+			return fmt.Errorf("%s.recoveryProgramId references unknown recovery program %q", path, *recovery.RecoveryProgramID)
 		}
 		for _, request := range program.Transitions {
 			device, exists := validator.devices[request.DeviceID]
 			if !exists {
-				return false, fmt.Errorf("%s.recoveryProgramId references a program with unknown device %q", path, request.DeviceID)
+				return fmt.Errorf("%s.recoveryProgramId references a program with unknown device %q", path, request.DeviceID)
 			}
 			transition, exists := device.transitions[request.TransitionID]
 			if !exists {
-				return false, fmt.Errorf("%s.recoveryProgramId references a program with unknown transition %q", path, request.TransitionID)
+				return fmt.Errorf("%s.recoveryProgramId references a program with unknown transition %q", path, request.TransitionID)
 			}
 			if !transition.Recovery {
-				return false, fmt.Errorf("%s.recoveryProgramId references a program with non-recovery transition %q", path, request.TransitionID)
+				return fmt.Errorf("%s.recoveryProgramId references a program with non-recovery transition %q", path, request.TransitionID)
 			}
-			clearsCondition = clearsCondition || transitionClearsCondition(transition, conditionID)
 		}
 	}
 	if recovery.PrivateOverseerAction != nil {
 		variants++
 		if !*recovery.PrivateOverseerAction {
-			return false, fmt.Errorf("%s.privateOverseerAction must be true when configured", path)
+			return fmt.Errorf("%s.privateOverseerAction must be true when configured", path)
 		}
-		clearsCondition = true
 	}
 	if variants != 1 {
-		return false, fmt.Errorf("%s must configure exactly one recovery variant", path)
+		return fmt.Errorf("%s must configure exactly one recovery variant", path)
 	}
-	return clearsCondition, nil
-}
-
-func transitionClearsCondition(transition FacilityDeviceTransition, conditionID string) bool {
-	for _, effect := range transition.ConditionEffects {
-		if effect.ConditionID == conditionID && !effect.Active {
-			return true
-		}
-	}
-	return false
+	return nil
 }
 
 func (validator *facilityGraphValidator) validateRecoveryPrograms() error {

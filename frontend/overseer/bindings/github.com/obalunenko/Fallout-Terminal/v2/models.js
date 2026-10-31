@@ -1089,59 +1089,6 @@ export class FacilityPreviewResult {
 }
 
 /**
- * FacilityRecoveryPayload selects one authored private recovery against the
- * exact facility revision reviewed by the Overseer.
- */
-export class FacilityRecoveryPayload {
-    /**
-     * Creates a new FacilityRecoveryPayload instance.
-     * @param {Partial<FacilityRecoveryPayload>} [$$source = {}] - The source object to create the FacilityRecoveryPayload.
-     */
-    constructor($$source = {}) {
-        if (!("conditionId" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["conditionId"] = "";
-        }
-        if (!("expectedFacilityRevision" in $$source)) {
-            /**
-             * @member
-             * @type {number}
-             */
-            this["expectedFacilityRevision"] = 0;
-        }
-        if (!("correlationId" in $$source)) {
-            /**
-             * @member
-             * @type {string}
-             */
-            this["correlationId"] = "";
-        }
-        if (!("recovery" in $$source)) {
-            /**
-             * @member
-             * @type {domain$0.DiagnosticRecoveryReference | null}
-             */
-            this["recovery"] = null;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new FacilityRecoveryPayload instance from a string or object.
-     * @param {any} [$$source = {}]
-     * @returns {FacilityRecoveryPayload}
-     */
-    static createFrom($$source = {}) {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new FacilityRecoveryPayload(/** @type {Partial<FacilityRecoveryPayload>} */($$parsedSource));
-    }
-}
-
-/**
  * GeneratedPlayerPasswordResult is deliberately not reusable and contains no
  * snapshot. GeneratedPassword is populated only after secure-store replacement
  * and settings persistence both succeed.

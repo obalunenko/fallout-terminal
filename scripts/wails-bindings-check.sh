@@ -30,12 +30,12 @@ sed -n 's/^export function \([A-Za-z0-9_]*\)(.*/\1/p' "$service" | LC_ALL=C sort
 printf '%s\n' \
     AddCharacter ApplyFacilityDeviceTransition AssignCharacter CopyDemo CopyPublicAccessCredentials DeleteCharacter DescribePresentation EndBroadcast ForceFacilityDeviceState ForceHackSuccess \
 	GeneratePlayerPassword GetApplicationUpdateStatus GetPublicAccess GetRuntimeStatus InspectFacilityDependencies LoadReferencedPlayerConfig MoveCharacter NewPlayerConfig NewSession \
-	OpenLogLocation OpenPlayerConfig OpenSession OpenURL PreviewFacility RecoverFacilityCondition ReleaseCharacter RenameLogicalSession ReplaceTerminalGroups \
+	OpenLogLocation OpenPlayerConfig OpenSession OpenURL PreviewFacility ReleaseCharacter RenameLogicalSession ReplaceTerminalGroups \
 	RequestTerminalActivation RequestTerminalClear ResetCommandState ResetFacilityDevice ResetFailedHack ResetScene ResolveApplicationUpdateOffer ResolveApplicationUpdateRestart ResolveCommandExecution ResolveTerminalNavigation ResolveTerminalSwitch \
 	SaveAuthoring SavePublicAccessSettings SetActiveController SetFacilityConditionActive StartBroadcast StartPublicAccess \
     StopPublicAccess UpdateCharacter | LC_ALL=C sort >"$expected"
 diff -u "$expected" "$actual"
-test "$(wc -l <"$actual" | tr -d ' ')" = 47
+test "$(wc -l <"$actual" | tr -d ' ')" = 46
 
 assert_method_signature() {
     method=$1
@@ -55,7 +55,6 @@ assert_method_signature DescribePresentation '$models.PresentationPayload' '$Can
 assert_method_signature ForceFacilityDeviceState '$models.FacilityDeviceForcePayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
 assert_method_signature InspectFacilityDependencies '$models.FacilityDependencyInspectionPayload' '$CancellablePromise<$models.FacilityDependencyInspectionResult>'
 assert_method_signature PreviewFacility '$models.FacilityPreviewPayload' '$CancellablePromise<$models.FacilityPreviewResult>'
-assert_method_signature RecoverFacilityCondition '$models.FacilityRecoveryPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
 assert_method_signature ResetFacilityDevice '$models.FacilityDeviceResetPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
 assert_method_signature ResetScene '$models.SceneResetPayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
 assert_method_signature SaveAuthoring '$models.AuthoringSavePayload' '$CancellablePromise<domain$0.FacilityOperationResult>'
@@ -77,4 +76,4 @@ for event in server-info client-count hack-state coordination-state session-stat
 done
 test "$(grep -E '^[[:space:]]+"(server-info|client-count|hack-state|coordination-state|session-state|public-access-status|application-update-status)"' "$event_types" | wc -l | tr -d ' ')" = 7
 
-echo "Wails bindings are deterministic and expose exactly 47 accepted desktop methods and seven named events."
+echo "Wails bindings are deterministic and expose exactly 46 accepted desktop methods and seven named events."

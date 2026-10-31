@@ -43,6 +43,14 @@ button {
 .btn-mini { padding: 4px 10px; font-size: 12px; }
 .full-w { width: 100%; margin-bottom: 6px; }
 
+/* ── Overseer errors ─────────────────────────────────── */
+.overseer-error-prefix { display: block; margin-bottom: 3px; }
+.overseer-error-message,
+.log-access-location { margin: 0; }
+.overseer-error-details { margin-top: 5px; color: #9bb88c; }
+.overseer-error-details summary { cursor: pointer; }
+.overseer-error-original { margin: 4px 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+
 /* ── Start screen ────────────────────────────────────── */
 .start-screen {
   height: 100%;
@@ -1939,7 +1947,6 @@ button {
 .facility-workspace-header h1,
 .facility-workspace-grid h2,
 #facilitySelectionEditor h2,
-#facilityConditionSelectionEditor h2,
 .facility-dialog h2 {
   margin: 0;
   color: #d8ffb8;
@@ -2011,6 +2018,45 @@ button {
   scrollbar-gutter: stable;
   padding: 2px 3px 4px 2px;
 }
+.facility-device-filters { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; }
+.facility-device-filter {
+  padding: 5px 8px;
+  border: 1px solid #456334;
+  background: #0d1309;
+  color: #b9ffb0;
+  font-size: 12px;
+}
+.facility-device-filter[aria-pressed="true"] { background: #1d2c14; color: #ffe08a; border-color: #769c56; }
+.facility-filter-count { color: #9bb88c; }
+.facility-device-hidden-selection { flex: 0 0 auto; margin: 0; color: #ffe08a; font-size: 12px; }
+/* The name and type start at the left edge; the badge and mark end at the right. */
+#facilityDeviceList > [data-facility-kind="device"] { display: flex; align-items: center; gap: 8px; text-align: left; }
+.facility-device-row-text { display: grid; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.facility-device-row-kind { color: #9bb88c; font-size: 11px; letter-spacing: 1px; }
+.facility-state-badge { flex: 0 0 auto; max-width: 55%; padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid #3a4a30; color: #d8ffb8; font-size: 12px; }
+.facility-state-badge[data-changed="true"] { border-color: #d0a63a; color: #ffe08a; }
+.facility-fault-mark { flex: 0 0 auto; color: #ff9a7a; white-space: nowrap; }
+#btnFacilityDeviceFilterReset { justify-self: start; }
+.facility-terminal-faults {
+  display: grid;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  padding-top: 10px;
+  border-top: 1px solid #2a3520;
+}
+.facility-terminal-faults h3 { margin: 0; font-size: 12px; color: #ffe08a; letter-spacing: 1px; }
+#facilityTerminalFaultStatus:empty { display: none; }
+#facilityTerminalFaultStatus[data-state="stale"], #facilityTerminalFaultStatus[data-state="error"] { color: #ffb08a; }
+.facility-terminal-fault-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.facility-terminal-fault-list[hidden] { display: none; }
+.facility-terminal-fault { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; }
+.facility-terminal-fault > .facility-play-fault-switch { grid-column: 1 / 3; justify-self: start; padding: 4px 10px; font-size: 12px; }
+.facility-terminal-fault-open { grid-column: 3; grid-row: 1; }
+.facility-terminal-fault-terminal { grid-column: 2 / -1; color: #9bb88c; font-size: 12px; }
+.facility-terminal-fault > .control-reason { grid-column: 1 / -1; }
 .facility-detail-panel {
   overflow: auto;
   scrollbar-gutter: stable;
@@ -2092,20 +2138,6 @@ button {
 .facility-technical-details summary { cursor: pointer; }
 .facility-technical-details[open] summary { margin-bottom: 6px; }
 .facility-technical-details code { font-family: inherit; }
-#facilityConditionSelectionEditor {
-  min-width: 0;
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid #2a3520;
-  background: rgba(15, 18, 9, .94);
-}
-#facilityConditionSelectionEditor h2 { margin: 0 0 8px; font-size: 13px; }
-#facilityConditionSelectionEditor > [role="group"] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
 .facility-workspace-grid h2,
 #facilitySelectionEditor h2 { font-size: 13px; }
 #facilityDeviceList,
@@ -2113,7 +2145,8 @@ button {
 #facilityInformationBindingList,
 #facilityConditionList,
 #facilityRecoveryProgramList,
-#facilityDependencyList {
+#facilityDependencyList,
+#facilityRepairDependencyList {
   display: grid;
   gap: 7px;
 }
@@ -2223,14 +2256,9 @@ button {
   background: #21120e;
   color: #ffb19c;
 }
-.facility-dependency-row {
-  display: grid;
-  grid-template-columns: minmax(110px, .7fr) minmax(0, 1.3fr);
-  gap: 6px 12px;
-}
-.facility-dependency-kind { color: #ffe08a; }
-.facility-dependency-property { color: #9bb88c; }
-.facility-dependency-navigation { grid-column: 2; justify-self: start; }
+.facility-dependency-row { display: grid; gap: 4px; }
+.facility-dependency-place { color: #9bb88c; }
+.facility-dependency-navigation { justify-self: start; }
 #facilityDeviceActions {
   display: flex;
   flex-wrap: wrap;
@@ -2311,49 +2339,207 @@ button {
   outline: 2px solid #ffe08a;
   outline-offset: 3px;
 }
-#facilityDeviceStates,
-#facilityDeviceTransitions {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.facility-state-row,
 .facility-transition-row {
-  display: grid;
-  align-items: end;
-  gap: 8px;
-  padding: 9px;
-  border: 1px solid #253018;
-  background: #10140c;
-}
-.facility-state-row { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; }
-.facility-transition-row { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; gap: 12px; }
-.facility-transition-row > .btn { grid-column: 1 / -1; justify-self: end; }
-.facility-transition-summary {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #3a4a30;
-  color: #d8ffb8;
-  font-size: 14px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.facility-transition-references { grid-column: 1 / -1; min-width: 0; }
-details.facility-transition-references > summary { cursor: pointer; color: #ffe08a; line-height: 1.5; padding: 6px 0; }
-details.facility-transition-references[open] > summary { margin-bottom: 10px; }
-.facility-transition-references > div { display: grid; gap: 10px; }
-.facility-transition-reference-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
-  gap: 10px;
-  margin-block: 8px;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #253018;
+  background: #10140c;
+}
+.facility-transition-row > .btn { grid-column: 1 / -1; justify-self: end; }
+.facility-transition-reference-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.facility-transition-reference-row > .field-input { min-width: 0; width: 100%; }
+
+/* Device dialog (specs/041-facility-editors-language/contracts/overseer-ui.md) */
+#facilityDeviceTemplate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border: 1px dashed #3a4a30;
+  font-size: 12px;
+  line-height: 1.5;
+}
+#facilityDeviceTemplateLabel { color: #ffe08a; letter-spacing: 1px; }
+#facilityDeviceTemplateSummary { flex: 1 1 220px; color: #d8ffb8; overflow-wrap: anywhere; }
+.facility-state-chip-line,
+#facilityDeviceStateChips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.facility-state-chip {
+  padding: 5px 10px;
+  border: 1px solid #3a4a30;
+  background: #14180f;
+  color: #d8ffb8;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.facility-state-chip:hover { border-color: #6fae55; }
+.facility-state-chip[aria-expanded="true"] { border-color: #ffe08a; background: #1d2c14; }
+.facility-state-star { margin-right: 5px; color: #ffe08a; }
+.facility-state-chip[data-problem="true"],
+.facility-transition-cell[data-problem="true"] { border-color: #c65a3a; background: #21120e; }
+#facilityStateEditor {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #3a4a30;
+  background: #10140c;
+}
+.facility-state-editor-actions,
+#facilityStateDeleteConfirm,
+#facilityTransitionCellList { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#facilityStateDeleteConfirm p { flex-basis: 100%; margin: 0; color: #ffe08a; line-height: 1.5; }
+#facilityStateUses,
+#facilityTransitionUses,
+#facilityTransitionCellList,
+.facility-transition-fault-effects ul { margin: 0; padding: 0; list-style: none; }
+#facilityStateUses,
+#facilityTransitionUses,
+.facility-transition-fault-effects ul { display: grid; gap: 6px; }
+.facility-state-use,
+.facility-transition-fault-effect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#facilityDeviceTemplate .control-reason,
+.facility-state-use .control-reason,
+.facility-transition-fault-effect .control-reason { flex-basis: 100%; }
+.facility-transition-choice[aria-pressed="true"] { border-color: #ffe08a; color: #ffe08a; }
+/* The matrix scrolls in its own frame, so the dialog buttons stay in view (SC-001). */
+.facility-transition-matrix-frame { max-height: min(340px, 40dvh); overflow: auto; border: 1px solid #253018; }
+#facilityTransitionMatrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+#facilityTransitionMatrix caption { padding: 4px 6px; color: #9bb88c; letter-spacing: 1px; text-align: left; }
+#facilityTransitionMatrix :is(th, td) {
+  padding: 3px;
+  border-right: 1px solid #253018;
+  border-bottom: 1px solid #253018;
+  vertical-align: top;
+}
+#facilityTransitionMatrix th {
+  position: sticky;
+  z-index: 1;
+  padding: 6px;
+  background: #0f140b;
+  color: #ffe08a;
+  font-weight: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+#facilityTransitionMatrix thead :is(th, td) { position: sticky; top: 0; z-index: 1; background: #0f140b; }
+#facilityTransitionMatrix thead th { min-width: 140px; }
+#facilityTransitionMatrix thead td { left: 0; z-index: 2; }
+#facilityTransitionMatrix tbody th { left: 0; min-width: 110px; max-width: 170px; }
+#facilityTransitionMatrix .facility-transition-cell-unavailable { color: #4a5a3e; text-align: center; vertical-align: middle; }
+.facility-transition-cell {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px;
+  border: 1px solid #3a4a30;
+  background: #10140c;
+  color: #d8ffb8;
+  font-size: 12px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.facility-transition-cell[data-count="0"] { place-content: center; border-style: dashed; color: #6f9a5f; }
+.facility-transition-cell:hover { border-color: #6fae55; }
+.facility-transition-cell[aria-expanded="true"] { border-color: #ffe08a; background: #1d2c14; }
+.facility-transition-cell-summary { margin-bottom: 3px; color: #9bb88c; font-size: 11px; }
+.facility-transition-cell-summary:empty { display: none; }
+#facilityTransitionPanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #456334;
+  background: #0f140b;
+}
+#facilityTransitionPanel > .btn { justify-self: start; }
+#facilityTransitionPanelHeading { margin: 0; color: #ffe08a; font-size: 13px; letter-spacing: 1px; overflow-wrap: anywhere; }
+#facilityTransitionPanel .facility-transition-row > :is(.facility-transition-name-field, fieldset, section) { grid-column: 1 / -1; }
+.facility-dialog .facility-transition-preconditions { display: grid; gap: 6px; margin: 0; }
+.facility-transition-preconditions > .btn { justify-self: start; }
+.facility-transition-fault-effects h4 { margin: 0 0 6px; color: #ffe08a; font-size: 12px; font-weight: normal; letter-spacing: 1px; }
+.facility-transition-fault-effects .facility-empty { margin: 0; color: #9bb88c; line-height: 1.5; }
+.facility-technical-fields,
+#facilityDeviceStateIDs,
+#facilityDeviceTransitionIDs,
+.facility-state-row,
+.facility-transition-id-row { display: grid; gap: 6px; }
+
+/* Fault and program dialogs (specs/041-facility-editors-language/contracts/overseer-ui.md) */
+.facility-fault-ways,
+#facilityProgramCommands {
+  display: grid;
+  gap: 8px;
   padding: 10px;
   border: 1px solid #3a4a30;
 }
-.facility-transition-reference-row > .field-input { min-width: 0; width: 100%; }
-.facility-transition-reference-row > button { grid-column: 1 / -1; justify-self: end; }
+.facility-fault-ways > .btn,
+#facilityProgramTransitionsField > .btn,
+#btnPreviewFacilityCondition { justify-self: start; }
+.facility-fault-ways h3,
+#facilityProgramCommands h3 { margin: 0; color: #ffe08a; font-size: 12px; font-weight: normal; letter-spacing: 1px; }
+.facility-fault-ways ul,
+#facilityProgramCommandList { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; overflow-wrap: anywhere; }
+.facility-fault-way { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; line-height: 1.5; }
+.facility-fault-way-kind,
+.facility-fault-way-hint { color: #9bb88c; font-size: 12px; }
+.facility-fault-way > .btn { margin-left: auto; }
+#facilityFaultAppearsInitial { margin: 0; color: #d8ffb8; }
+.facility-fault-warning { margin: 0; color: #ffb08a; line-height: 1.5; }
+#facilityRecoveryProgramFault { color: #ffe08a; }
+.facility-dialog #facilityProgramTransitionsField,
+#facilityProgramTransitions { display: grid; gap: 8px; }
+
+/* Display rule dialog (specs/041-facility-editors-language/contracts/overseer-ui.md) */
+#facilityRuleSentence { display: grid; gap: 10px; min-width: 0; }
+.facility-rule-clause { display: grid; gap: 4px; min-width: 0; }
+.facility-dialog .facility-rule-clause fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.facility-dialog .facility-rule-clause :is(legend, label) { padding: 0; color: #ffe08a; font-size: 12px; letter-spacing: 1px; }
+.facility-dialog .facility-rule-clause legend { margin-bottom: 4px; }
+.facility-rule-clause .field-input { min-width: 0; }
+.facility-rule-clause fieldset .field-input { flex: 1 1 200px; width: auto; }
+.facility-rule-equals { color: #d8ffb8; }
+#facilityRuleConflict {
+  padding: 7px 8px;
+  border: 1px solid #8a3a2a;
+  background: #1d0e0a;
+  color: #ffb08a;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#btnOpenConflictingFacilityRule { justify-self: start; }
+
+/* Command action dialog (specs/041-facility-editors-language/contracts/overseer-ui.md) */
+#facilityCommandActionCommandFixed { color: #d8ffb8; overflow-wrap: anywhere; }
+.facility-dialog #facilityCommandActionMode { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+#facilityCommandActionMode label { display: flex; align-items: center; gap: 8px; }
+#facilityCommandActionTransitions { display: grid; gap: 8px; }
+#btnAddFacilityCommandActionTransition { justify-self: start; }
 #facilityRepairImpact {
   min-height: 34px;
   padding: 8px;
@@ -2397,7 +2583,9 @@ details.facility-transition-references[open] > summary { margin-bottom: 10px; }
   .player-management-row-actions { justify-content: flex-end; }
   .logical-session-dialog-header { align-items: stretch; flex-direction: column; }
   .facility-workspace-grid { grid-template-columns: 1fr; overflow: auto; align-content: start; }
-  .facility-device-sidebar { min-height: 190px; max-height: 260px; }
+  .facility-device-sidebar { min-height: 190px; max-height: 260px; overflow: auto; }
+  /* The short sidebar scrolls as one, so the terminal faults follow the devices. */
+  #facilityDeviceList, .facility-terminal-faults { flex-shrink: 0; overflow: visible; }
   .facility-detail-panel { overflow: visible; }
   .facility-workspace-header { flex-direction: column; gap: 10px; }
   .facility-workspace-header > [role="group"] { max-width: none; justify-content: flex-start; }
@@ -2501,12 +2689,8 @@ details.facility-transition-references[open] > summary { margin-bottom: 10px; }
     max-height: calc(100dvh - 20px);
   }
   .facility-dialog-panel { --facility-dialog-padding: 16px; max-height: calc(100dvh - 22px); }
-  .facility-state-row,
   .facility-transition-row,
-  .facility-transition-reference-row,
-  .facility-dependency-row { grid-template-columns: 1fr; }
-  .facility-dependency-navigation { grid-column: 1; }
-  .facility-state-row > .btn,
+  .facility-transition-reference-row { grid-template-columns: 1fr; }
   .facility-transition-row > .btn { width: 100%; }
   .facility-dialog [role="group"] { display: grid; grid-template-columns: 1fr; }
 }
@@ -2543,7 +2727,8 @@ details.facility-transition-references[open] > summary { margin-bottom: 10px; }
 .facility-play-fault-switch { white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .facility-play-fault-switch[aria-checked="true"] { border-color: #ffb08a; color: #ffb08a; }
 .facility-play-fault-current { color: #d8ffb8; font-size: 12px; }
-.facility-play-fault[data-active="true"] .facility-play-fault-current { color: #ffb08a; }
+.facility-play-fault[data-active="true"] .facility-play-fault-current,
+.facility-terminal-fault[data-active="true"] .facility-play-fault-current { color: #ffb08a; }
 .facility-play-fault-initial { color: #9bb88c; font-size: 12px; }
 .facility-play-feed { display: grid; gap: 6px; min-width: 0; }
 .facility-play-feed-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: #d8ffb8; }
@@ -2551,8 +2736,11 @@ details.facility-transition-references[open] > summary { margin-bottom: 10px; }
 .facility-feed-entry { overflow-wrap: anywhere; }
 .facility-feed-entry time { color: #ffe08a; }
 .facility-feed-entry[data-kind="player-refusal"] { color: #ffb08a; }
-.facility-detail-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 18px; border-bottom: 1px solid #456334; }
-.facility-detail-tab {
+.facility-detail-tabs,
+.facility-rule-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid #456334; }
+.facility-detail-tabs { margin-top: 18px; }
+.facility-detail-tab,
+.facility-rule-tab {
   padding: 7px 10px;
   border: 1px solid #456334;
   border-bottom: none;
@@ -2561,9 +2749,10 @@ details.facility-transition-references[open] > summary { margin-bottom: 10px; }
   font: inherit;
   cursor: pointer;
 }
-.facility-detail-tab[aria-selected="true"] { background: #1d2c14; color: #ffe08a; border-color: #769c56; }
+.facility-detail-tab[aria-selected="true"],
+.facility-rule-tab[aria-selected="true"] { background: #1d2c14; color: #ffe08a; border-color: #769c56; }
+.facility-rule-tab[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 .facility-tab-count { color: #9bb88c; }
 .facility-tab-panel { display: grid; gap: 8px; padding-top: 10px; min-width: 0; }
 .facility-tab-panel[hidden] { display: none; }
 .facility-tab-panel > .btn { justify-self: start; }
-.facility-fault-count { color: #ffb08a; }

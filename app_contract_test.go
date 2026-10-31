@@ -439,12 +439,6 @@ func TestPrivateFacilityAuthoringAndDependencyDescriptorsAreTyped(t *testing.T) 
 		"expected_authoring_revision": 2,
 		"correlation_id":              3,
 	})
-	assertDescriptorFields(t, desktop, "RecoverFacilityConditionRequest", map[protoreflect.Name]protoreflect.FieldNumber{
-		"condition_id":               1,
-		"expected_facility_revision": 2,
-		"correlation_id":             3,
-		"recovery":                   4,
-	})
 
 	entityReference := desktop.Messages().ByName("FacilityEntityReference")
 	require.True(t, entityReference.Fields().ByName("owner_id").HasPresence())
@@ -1733,7 +1727,7 @@ func TestPrivateStatusResultAndEventAdaptersRoundTripEveryNativeSemantic(t *test
 func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.T) {
 	requiredMethods := []string{
 		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
-		"InspectFacilityDependencies", "PreviewFacility", "ResetFacilityDevice", "RecoverFacilityCondition",
+		"InspectFacilityDependencies", "PreviewFacility", "ResetFacilityDevice",
 		"ApplyFacilityDeviceTransition", "ForceFacilityDeviceState", "SetFacilityConditionActive",
 		"SaveAuthoring", "ResetScene", "DescribePresentation",
 		"RequestTerminalActivation", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState",
@@ -1745,7 +1739,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 47)
+	require.Len(t, actualMethods, 46)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -1789,7 +1783,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 47)
+	require.Len(t, forwarded, 46)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

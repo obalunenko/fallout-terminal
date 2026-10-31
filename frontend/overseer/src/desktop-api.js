@@ -24,7 +24,6 @@ const APP_METHODS = Object.freeze({
   replaceTerminalGroups: desktopService.ReplaceTerminalGroups,
   inspectFacilityDependencies: desktopService.InspectFacilityDependencies,
   previewFacility: desktopService.PreviewFacility,
-  recoverFacilityCondition: desktopService.RecoverFacilityCondition,
   saveAuthoring: desktopService.SaveAuthoring,
   resetScene: desktopService.ResetScene,
   describePresentation: desktopService.DescribePresentation,
@@ -566,18 +565,6 @@ function normalizeCoordinationState(payload) {
   return { ...payload, facilityChanges: Object.freeze(changes) };
 }
 
-function normalizeFacilityRecoveryPayload(payload) {
-  const value = payload && typeof payload === 'object' ? payload : {};
-  return {
-    conditionId: typeof value.conditionId === 'string' ? value.conditionId : '',
-    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
-    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
-    recovery: value.recovery && typeof value.recovery === 'object'
-      ? snapshotPortableSession(value.recovery)
-      : null,
-  };
-}
-
 function facilityOperationConflict(request) {
   return normalizeFacilityOperationResult({
     ok: false,
@@ -610,11 +597,6 @@ function validateFacilityMutationResult(result, request, operation) {
     affectedIDsAreValid = affectedIDsAreValid
       && result.affectedDeviceIds.length === 0
       && result.affectedConditionIds.length === 0;
-  } else if (operation === 'recovery') {
-    affectedIDsAreValid = affectedIDsAreValid
-      && result.affectedDeviceIds.length === 0
-      && result.affectedConditionIds.length === 1
-      && result.affectedConditionIds[0] === request.conditionId;
   } else if (operation === 'device-reset') {
     // A reset may restore only the device's own faults.
     const conditions = Array.isArray(result.session?.facility?.conditions) ? result.session.facility.conditions : [];
@@ -1238,12 +1220,6 @@ const desktopAPI = {
   replaceTerminalGroups: replaceTerminalGroupsCommand,
   inspectFacilityDependencies: inspectFacilityDependenciesCommand,
   previewFacility: previewFacilityCommand,
-  recoverFacilityCondition: payload => facilityMutationCommand(
-    APP_METHODS.recoverFacilityCondition,
-    payload,
-    normalizeFacilityRecoveryPayload,
-    'recovery',
-  ),
   resetFacilityDevice: payload => facilityMutationCommand(
     APP_METHODS.resetFacilityDevice,
     payload,

@@ -350,13 +350,6 @@ message SetFacilityConditionActiveRequest {
   string correlation_id = 4;
 }
 
-message RecoverFacilityConditionRequest {
-  string condition_id = 1;
-  uint64 expected_facility_revision = 2;
-  string correlation_id = 3;
-  fallout.terminal.persistence.v1.DiagnosticRecoveryReference recovery = 4;
-}
-
 message ResolveTerminalNavigationRequest {
   string request_id = 1;
   TerminalNavigationDecision decision = 2;

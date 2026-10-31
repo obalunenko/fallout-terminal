@@ -173,7 +173,8 @@ test('inventory covers every facility mode, prerequisite, effect, and recovery s
   const recoveryKinds = new Set();
   for (const condition of facility.conditions) {
     expect(inventory).toContain(`\`${condition.id}\``);
-    expect(condition.recovery.length).toBeGreaterThan(0);
+    // A fault may have no stored recovery entry (FR-020); the demo's entries
+    // are unchanged, so every shape is still present below.
     for (const effect of condition.effects) {
       const kind = conditionEffectKind(effect);
       expect(kind).toBeDefined();
@@ -188,7 +189,7 @@ test('inventory covers every facility mode, prerequisite, effect, and recovery s
           .toBe(true);
       }
     }
-    for (const recovery of condition.recovery) {
+    for (const recovery of condition.recovery ?? []) {
       const kind = recoveryKind(recovery);
       expect(kind).toBeDefined();
       recoveryKinds.add(kind);
@@ -227,8 +228,12 @@ test('inventory covers every facility mode, prerequisite, effect, and recovery s
     'ПРЕДПРОСМОТР',
     'СБРОСИТЬ К НАЧАЛЬНОМУ…',
     'СБРОСИТЬ СЦЕНУ',
+    // Private recovery is the Overseer's fault switch, listed in every fault dialog.
+    'private Overseer recovery',
+    'Смотритель вручную',
+    'КАК УСТРАНЯЕТСЯ',
   ]) {
-    expect(inventory).toContain(marker);
+    expect(inventory, marker).toContain(marker);
   }
 });
 
@@ -304,13 +309,136 @@ test('inventory reaches every play control on the device card (FR-027)', async (
   for (const marker of [
     'ВО ВРЕМЯ ИГРЫ', 'ПОСЛЕДНИЕ ИЗМЕНЕНИЯ', 'Открыть гермодверь → Открыта', 'НЕ ВЫПОЛНЕНО: Резервная сеть Убежища 76 = В работе',
     'ПРИНУДИТЕЛЬНО В ДРУГОЕ СОСТОЯНИЕ…', 'Критический перегрев', 'ПЕРЕВЕСТИ', 'РЕАКТОР: КРИТИЧЕСКИЙ ПЕРЕГРЕВ',
-    'Контроллер гермодвери не отвечает', 'запрос игрока отклонён: Смотрителем', 'Загрязнён · ● 1',
-    'СБРОСИТЬ К НАЧАЛЬНОМУ…', 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', 'КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: ОБЪЕКТ',
-    'ПОКАЗАТЬ', 'НЕИСПРАВНОСТИ',
+    'Контроллер гермодвери не отвечает', 'запрос игрока отклонён: Смотрителем',
+    // The device row: a state badge, then the fault mark (FR-030).
+    'the badge **Загрязнён** and the fault mark **● 1**',
+    'СБРОСИТЬ К НАЧАЛЬНОМУ…', 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', 'КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: УСТРОЙСТВО',
+    '1. Устройство', 'ПОКАЗАТЬ', 'НЕИСПРАВНОСТИ',
   ]) {
     expect(inventory, marker).toContain(marker);
   }
   for (const removed of ['РЕДАКТИРОВАТЬ ГРАФ', 'СБРОСИТЬ УСТРОЙСТВО', 'open by default', 'ДИАГНОСТИЧЕСКИЕ УСЛОВИЯ']) {
+    expect(inventory, removed).not.toContain(removed);
+  }
+});
+
+// FR-044 needs one reachable route per editor case. The cases come from the
+// demo data, so a demo edit that drops one fails here.
+test('inventory reaches every facility editor case from the demo (FR-044)', async () => {
+  const { demo, inventory } = await loadDemoAssets();
+  const { devices, conditions, recoveryPrograms } = demo.facility;
+  const deviceByID = new Map(devices.map(device => [device.id, device]));
+  const stateName = (device, stateID) => device.states.find(state => state.id === stateID).name;
+  const transitionOf = request => deviceByID.get(request.deviceId).transitions
+    .find(transition => transition.id === request.transitionId);
+
+  // Templates: applying one to a new door, and one with nothing left to add.
+  for (const marker of [
+    'ПРИМЕНИТЬ ШАБЛОН', 'ШАБЛОН: ДВЕРЬ', 'ИЗ ШАБЛОНА ДОБАВЛЕНО: СОСТОЯНИЙ — 2, ПЕРЕХОДОВ — 2',
+    'ШАБЛОН: ТУРЕЛЬ', 'ВСЁ ИЗ ШАБЛОНА УЖЕ ЕСТЬ',
+  ]) {
+    expect(inventory, marker).toContain(marker);
+  }
+
+  // A matrix cell with two transitions.
+  const sharedCells = devices.flatMap(device => {
+    const cells = Map.groupBy(device.transitions ?? [],
+      transition => `${transition.sourceStateId}→${transition.destinationStateId}`);
+    return [...cells.values()].filter(cell => cell.length > 1).map(cell => ({ device, cell }));
+  });
+  expect(sharedCells.length).toBeGreaterThan(0);
+  for (const { device, cell } of sharedCells) {
+    const heading = `ПЕРЕХОД: ${stateName(device, cell[0].sourceStateId)} → ${stateName(device, cell[0].destinationStateId)}`;
+    expect(inventory, heading).toContain(heading);
+    for (const transition of cell) {
+      expect(inventory, transition.name).toContain(transition.name);
+      expect(inventory).toContain(`\`${device.id}/${transition.id}\``);
+    }
+  }
+
+  // Each display rule type, each stored somewhere in the demo.
+  const nodes = demo.terminals.flatMap(walkNodes).map(({ node }) => node);
+  const ruleTypes = {
+    'ТЕКСТ ЗАПИСИ': nodes.some(node => node.blocks?.some(block => block.facilityTextVariants?.length)),
+    'НАЗВАНИЕ В МЕНЮ': nodes.some(node => node.facilityNameVariants?.length),
+    'ПОКАЗАТЬ ЭЛЕМЕНТ': nodes.some(node => node.visibleWhen),
+    'РАЗРЕШИТЬ КОМАНДУ': nodes.some(node => node.availableWhen),
+  };
+  for (const [tab, stored] of Object.entries(ruleTypes)) {
+    expect(stored, tab).toBe(true);
+    expect(inventory, tab).toContain(`Display rule: **${tab}**`);
+  }
+
+  // The command action dialog opened from the command form.
+  for (const marker of ['ДЕЙСТВИЕ КОМАНДЫ → ИЗМЕНИТЬ ДЕЙСТВИЕ КОМАНДЫ', 'ЧТО ЗАПУСТИТЬ']) {
+    expect(inventory, marker).toContain(marker);
+  }
+
+  // Faults with and without a transition that switches them on.
+  const activating = new Map();
+  for (const device of devices) {
+    for (const transition of device.transitions ?? []) {
+      for (const effect of transition.conditionEffects ?? []) {
+        if (effect.active) activating.set(effect.conditionId, `${device.id}/${transition.id}`);
+      }
+    }
+  }
+  const unswitched = conditions.filter(condition => !activating.has(condition.id));
+  expect(activating.size).toBeGreaterThan(0);
+  expect(unswitched.length).toBeGreaterThan(0);
+  for (const [conditionID, transition] of activating) {
+    expect(inventory, conditionID).toContain(`| \`${conditionID}\` |`);
+    expect(inventory, transition).toContain(`\`${transition}\``);
+  }
+  expect(inventory).toContain('Ни один переход не включает эту неисправность. Сейчас её можно включить только вручную.');
+  expect(unswitched.map(condition => condition.id)).toContain('door-offline');
+
+  // A recovery program with at least two transitions.
+  const multiStep = recoveryPrograms.filter(program => program.transitions.length > 1);
+  expect(multiStep.length).toBeGreaterThan(0);
+  for (const program of multiStep) {
+    expect(inventory).toContain(`«${program.name}»`);
+    for (const request of program.transitions) {
+      expect(inventory).toContain(`\`${request.deviceId}/${request.transitionId}\``);
+      expect(inventory).toContain(`**${deviceByID.get(request.deviceId).name} / ${transitionOf(request).name}**`);
+    }
+  }
+
+  // Terminal faults in their own group.
+  expect(inventory).toContain('ОБЪЕКТЫ → НЕИСПРАВНОСТИ ТЕРМИНАЛОВ');
+  const terminalName = new Map(demo.terminals.map(terminal => [terminal.id, terminal.name]));
+  for (const fault of conditions.filter(condition => condition.terminal)) {
+    const row = `**${fault.name}** · **${fault.currentActive ? 'АКТИВНА' : 'НЕАКТИВНА'}** · `
+      + `**ТЕРМИНАЛ: ${terminalName.get(fault.terminal.terminalId)}**`;
+    expect(inventory, fault.id).toContain(row);
+  }
+
+  // Every dependency destination.
+  for (const destination of ['К УСТРОЙСТВУ', 'К НЕИСПРАВНОСТИ', 'К ПРОГРАММЕ', 'К КОМАНДЕ', 'К ПРАВИЛУ ОТОБРАЖЕНИЯ']) {
+    expect(inventory, destination).toContain(`| **${destination}** |`);
+  }
+
+  // Each list filter with its nonzero demo count.
+  const activeFaults = deviceID => conditions
+    .filter(condition => condition.device?.deviceId === deviceID && condition.currentActive).length;
+  const counts = {
+    'ВСЕ': devices.length,
+    'ИЗМЕНЁННЫЕ': devices.filter(device => device.currentStateId !== device.initialStateId).length,
+    'С НЕИСПРАВНОСТЬЮ': devices.filter(device => activeFaults(device.id) > 0).length,
+  };
+  expect(counts).toEqual({ 'ВСЕ': 10, 'ИЗМЕНЁННЫЕ': 5, 'С НЕИСПРАВНОСТЬЮ': 1 });
+  for (const [filter, count] of Object.entries(counts)) {
+    expect(inventory, filter).toContain(`ОБЪЕКТЫ → ${filter} ${count}`);
+  }
+
+  // The 041 names replace these everywhere in the inventory.
+  for (const removed of [
+    'Загрязнён · ● 1', 'ШАГ 1 ИЗ 5: ОБЪЕКТ', '1. Объект', 'ОБЪЕКТЫ → НЕИСПРАВНОСТИ →',
+    'ПРЕДПРОСМОТР УСЛОВИЯ', 'ВОССТАНОВИТЬ УСЛОВИЕ', 'ВОССТАНОВЛЕНИЕ ОПЕРАТОРОМ', 'Operator recovery',
+    'display-rule editor', 'ЗАВИСИМОСТИ → ОТКРЫТЬ', 'Область неисправности', '→ ОТКРЫТЬ**',
+    'ДЕЙСТВИЕ УСТРОЙСТВ', 'Технические идентификаторы', 'ПРЕДУСЛОВИЯ И ЭФФЕКТЫ',
+    'АКТИВИРОВАТЬ НЕИСПРАВНОСТЬ', 'СНЯТЬ НЕИСПРАВНОСТЬ', 'confirmed private Overseer recovery',
+  ]) {
     expect(inventory, removed).not.toContain(removed);
   }
 });

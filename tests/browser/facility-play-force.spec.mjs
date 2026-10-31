@@ -3,13 +3,15 @@ import { expect, test } from '@playwright/test';
 import {
   feedEntries, forceState, openPlayerTable, playCard, PLAYER_FIXTURE, selectDevice,
 } from './helpers/facility-play.mjs';
+import { renderedError } from './helpers/facility-editors.mjs';
 import { demoSession, facilityState, fixtureSession, openOverseer, seedDemo, seedSession } from './helpers/overseer-forms.mjs';
 
 // User Story 3: force a device into any state
 // (specs/040-facility-play-controls/spec.md, contracts/overseer-ui.md).
 
 const REACTOR = 'reactor-main';
-const STALE = 'СОСТОЯНИЕ ОБЪЕКТА ИЗМЕНИЛОСЬ. ПОВТОРИТЕ ЗАПРОС';
+// The facility stale-revision message (specs/041-facility-editors-language/contracts/overseer-ui.md «Errors»).
+const STALE = 'Локация изменилась, пока выполнялся запрос. Проверьте новое состояние и повторите.';
 
 async function openReactorAtStandby(page, request) {
   await seedDemo(request);
@@ -80,7 +82,11 @@ test('a scene that changed while the dialog was open is refused as stale', async
   await forceState(request, REACTOR, 'scrammed');
   await page.locator('#btnConfirmFacilityForceState').click();
   await expect(dialog(page)).toBeHidden();
-  await expect(card.status).toHaveText(STALE);
+  await expect(card.status.locator('.overseer-error-message')).toHaveText(STALE);
+  await expect(card.status).toHaveAttribute('data-state', 'stale');
+  expect(await renderedError(card.status)).toMatchObject({
+    area: 'facility', key: 'stale-revision', message: STALE, original: 'failure: stale-revision',
+  });
   await expect(page.locator('#facilityDeviceHeaderCurrent')).toHaveText('СЕЙЧАС: Аварийная остановка');
 });
 

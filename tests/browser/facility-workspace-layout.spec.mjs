@@ -22,21 +22,20 @@ test('the guide is open without devices and collapses to one line on the first d
   await expect(guideToggle(page)).toHaveText('СКРЫТЬ');
 
   await guide(page).getByRole('button', { name: 'СОЗДАТЬ УСТРОЙСТВО', exact: true }).click();
-  const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+  const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
   await device.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Дверь в убежище');
   await device.getByLabel('ТИП', { exact: true }).selectOption('door');
-  for (const [id, name] of [['closed', 'Заперта'], ['open', 'Открыта']]) {
-    await device.getByRole('button', { name: 'ДОБАВИТЬ СОСТОЯНИЕ', exact: true }).click();
-    const row = device.locator('.facility-state-row').last();
-    await row.locator('.facility-state-id').fill(id);
-    await row.locator('.facility-state-name').fill(name);
+  // The first state added is the starting state (041 FR-003).
+  for (const name of ['Заперта', 'Открыта']) {
+    await device.getByRole('button', { name: '+ СОСТОЯНИЕ', exact: true }).click();
+    await device.getByLabel('НАЗВАНИЕ СОСТОЯНИЯ', { exact: true }).fill(name);
   }
-  await device.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('closed');
   await device.getByRole('button', { name: 'ГОТОВО', exact: true }).click();
 
   await expect.poll(async () => (await facilityState(request)).facility.devices.length).toBe(1);
+  expect((await facilityState(request)).facility.devices[0].initialStateId).toBe('zaperta');
   await expect(guide(page)).not.toHaveAttribute('open', '');
-  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: ОБЪЕКТ');
+  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: УСТРОЙСТВО');
   await expect(guideToggle(page)).toHaveText('ПОКАЗАТЬ');
   // Focus stays on a visible control when the guide collapses under it.
   await expect(page.locator('#facilityStoryGuideSummary')).toBeFocused();

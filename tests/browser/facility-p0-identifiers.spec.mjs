@@ -1,113 +1,182 @@
 import { expect, test } from '@playwright/test';
 
 import { expectSaved } from './helpers/authoring-bar.mjs';
+import { deviceDialog, openTransitionCell } from './helpers/facility-editors.mjs';
 import { facilityState, openOverseer, resetFixture } from './helpers/overseer-forms.mjs';
 
-const DONE = 'ГОТОВО';
+// Identifiers live in the folded «ТЕХНИЧЕСКИЕ ИДЕНТИФИКАТОРЫ» block of every
+// facility dialog (specs/041-facility-editors-language/spec.md FR-007, SC-002).
 
 async function openNewDevice(page) {
   await page.locator('#btnAddFacilityDevice').click();
-  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
-  await expect(dialog).toBeVisible();
-  return dialog;
+  await expect(page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true })).toBeVisible();
+  return deviceDialog(page);
 }
 
-async function addState(dialog, name) {
-  await dialog.getByRole('button', { name: 'ДОБАВИТЬ СОСТОЯНИЕ', exact: true }).click();
-  await dialog.locator('.facility-state-name').last().fill(name);
+// addState presses «+ СОСТОЯНИЕ» and renames the new state in its chip editor.
+async function addState(page, name) {
+  await page.locator('#btnAddFacilityState').click();
+  await page.locator('#facilityStateEditorName').fill(name);
+}
+
+// unfold opens a folded «ТЕХНИЧЕСКИЕ ИДЕНТИФИКАТОРЫ» block.
+async function unfold(details) {
+  await expect(details).not.toHaveAttribute('open', '');
+  await expect(details.locator('summary')).toHaveText('ТЕХНИЧЕСКИЕ ИДЕНТИФИКАТОРЫ');
+  await details.locator('summary').click();
+  await expect(details).toHaveAttribute('open', '');
+}
+
+async function fold(details) {
+  if (await details.evaluate(element => element.open)) await details.locator('summary').click();
+  await expect(details).not.toHaveAttribute('open', '');
 }
 
 const values = locator => locator.evaluateAll(inputs => inputs.map(input => input.value));
 
-test('Russian names produce readable, unique identifiers that survive save and rename', async ({ page, request }) => {
+test('Russian names suggest readable, unique identifiers in the folded block that survive save and rename (FR-007)', async ({ page, request }) => {
   await resetFixture(request, 'empty');
   await openOverseer(page);
   const dialog = await openNewDevice(page);
-  const deviceID = dialog.locator('#facilityDeviceID');
+  const deviceID = page.locator('#facilityDeviceID');
+  const stateIDs = dialog.technical.locator('.facility-state-row .facility-state-id');
+  const transitionIDs = dialog.technical.locator('.facility-transition-id-row .facility-transition-id');
 
-  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Очень длинное название шлюза '.repeat(12));
+  await dialog.name.fill('Очень длинное название шлюза '.repeat(12));
+  await expect(deviceID).toBeHidden();
+  await unfold(dialog.technical);
+  await expect(deviceID).toBeVisible();
   expect((await deviceID.inputValue()).length).toBeLessThanOrEqual(256);
   await expect(deviceID).toHaveValue(/^device-ochen-dlinnoe-nazvanie-shlyuza-/);
-  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Дверь в убежище');
+  await dialog.name.fill('Дверь в убежище');
   await expect(deviceID).toHaveValue('device-dver-v-ubezhishche');
-  await dialog.getByLabel('ТИП', { exact: true }).selectOption('door');
+  await dialog.kind.selectOption('door');
 
-  for (const name of ['Заперта', 'Открыта', 'Открыта!', '★★★', 'Ґанок', 'Café']) await addState(dialog, name);
-  expect(await values(dialog.locator('.facility-state-id')))
-    .toEqual(['zaperta', 'otkryta', 'otkryta-2', 'state-1', 'ganok', 'cafe']);
+  for (const name of ['Заперта', 'Открыта', 'Открыта!', '★★★', 'Ґанок', 'Café']) await addState(page, name);
+  expect(await values(stateIDs)).toEqual(['zaperta', 'otkryta', 'otkryta-2', 'state-1', 'ganok', 'cafe']);
+  await expect(dialog.technical.locator('.facility-state-row label'))
+    .toHaveText(['Заперта', 'Открыта', 'Открыта!', '★★★', 'Ґанок', 'Café']);
 
-  await dialog.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД', exact: true }).click();
-  const transition = dialog.locator('.facility-transition-row').last();
-  await transition.locator('.facility-transition-name').fill('Открыть дверь');
-  await expect(transition.locator('.facility-transition-id')).toHaveValue('otkryt-dver');
-  await transition.locator('.facility-transition-source').selectOption('zaperta');
-  await transition.locator('.facility-transition-destination').selectOption('otkryta');
-  await dialog.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('zaperta');
-  await dialog.getByRole('button', { name: DONE, exact: true }).click();
-  await expect(dialog).toBeHidden();
+  // The matrix cell suggests the door's «Открыть»; the identifier follows the typed name.
+  await openTransitionCell(page, 'zaperta', 'otkryta');
+  const transitionName = page.locator('#facilityTransitionPanel .facility-transition-row:not([hidden]) .facility-transition-name');
+  await expect(transitionName).toHaveValue('Открыть');
+  expect(await values(transitionIDs)).toEqual(['otkryt']);
+  await transitionName.fill('Открыть дверь');
+  expect(await values(transitionIDs)).toEqual(['otkryt-dver']);
+  await expect(dialog.technical.locator('.facility-transition-id-row label')).toHaveText(['Открыть дверь: Заперта → Открыта']);
+  // The first state is the starting state without any list.
+  await expect(dialog.chip('zaperta')).toHaveAttribute('data-initial', 'true');
+  await dialog.save.click();
+  await expect(dialog.dialog).toBeHidden();
   await expect.poll(async () => (await facilityState(request)).facility.devices.length).toBe(1);
   await expectSaved(page);
 
   const saved = (await facilityState(request)).facility.devices[0];
   expect(saved.id).toBe('device-dver-v-ubezhishche');
+  expect(saved.initialStateId).toBe('zaperta');
   expect(saved.states.map(value => value.id)).toEqual(['zaperta', 'otkryta', 'otkryta-2', 'state-1', 'ganok', 'cafe']);
   expect(saved.transitions.map(value => value.id)).toEqual(['otkryt-dver']);
 
+  // Renaming a saved device, state, or transition keeps every saved identifier, read-only.
   await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
-  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Гермодверь');
-  await dialog.locator('.facility-state-name').first().fill('Закрыта');
-  await dialog.locator('.facility-transition-name').first().fill('Распахнуть дверь');
+  await expect(dialog.dialog).toBeVisible();
+  await expect(deviceID).toBeHidden();
+  await dialog.name.fill('Гермодверь');
+  await dialog.chip('zaperta').click();
+  await dialog.stateName.fill('Закрыта');
+  await openTransitionCell(page, 'zaperta', 'otkryta');
+  await transitionName.fill('Распахнуть дверь');
+  await unfold(dialog.technical);
   await expect(deviceID).toHaveValue('device-dver-v-ubezhishche');
-  await expect(dialog.locator('.facility-state-id').first()).toHaveValue('zaperta');
-  await expect(dialog.locator('.facility-transition-id').first()).toHaveValue('otkryt-dver');
-  await dialog.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
+  await expect(stateIDs.first()).toHaveValue('zaperta');
+  await expect(transitionIDs.first()).toHaveValue('otkryt-dver');
+  for (const input of [deviceID, stateIDs.first(), transitionIDs.first()]) {
+    await expect(input).toHaveAttribute('readonly', '');
+  }
+  await expect(dialog.technical.locator('.facility-state-row label').first()).toHaveText('Закрыта');
+  await expect(dialog.technical.locator('.facility-transition-id-row label')).toHaveText(['Распахнуть дверь: Закрыта → Открыта']);
+  await dialog.cancel.click();
   // Cancel discards the dialog input; the saved identifiers and names stay.
   expect((await facilityState(request)).facility.devices[0]).toEqual(saved);
 
   await page.locator('#facilityTabConditions').click();
   await page.locator('#btnAddFacilityCondition').click();
-  const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
+  const condition = page.getByRole('dialog', { name: 'НЕИСПРАВНОСТЬ', exact: true });
+  await expect(condition).toBeVisible();
   await condition.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Отказ привода');
-  await expect(condition.locator('#facilityConditionID')).toHaveValue('condition-otkaz-privoda');
+  const conditionID = condition.locator('#facilityConditionID');
+  await expect(conditionID).toBeHidden();
+  await unfold(condition.locator('#facilityConditionTechnical'));
+  await expect(conditionID).toHaveValue('condition-otkaz-privoda');
   await condition.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
 
   await page.locator('#facilityTabPrograms').click();
   await page.locator('#btnAddFacilityRecoveryProgram').click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
+  await expect(program).toBeVisible();
   await program.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Перезапуск контроллера');
-  await expect(program.locator('#facilityRecoveryProgramID')).toHaveValue('program-perezapusk-kontrollera');
+  const programID = program.locator('#facilityRecoveryProgramID');
+  await expect(programID).toBeHidden();
+  await unfold(program.locator('#facilityRecoveryProgramTechnical'));
+  await expect(programID).toHaveValue('program-perezapusk-kontrollera');
 });
 
-test('invalid state rows get their own messages and the first one receives focus', async ({ page, request }) => {
+test('invalid states get their own messages, and an identifier conflict unfolds the block and focuses its row (FR-007)', async ({ page, request }) => {
   await resetFixture(request, 'empty');
   await openOverseer(page);
   const dialog = await openNewDevice(page);
-  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Шлюз');
-  await dialog.getByLabel('ТИП', { exact: true }).selectOption('door');
-  for (const name of ['Открыт', 'Закрыт', 'Аварийный', ' открыт ']) await addState(dialog, name);
-  await dialog.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('otkryt');
-  const rows = dialog.locator('.facility-state-row');
-  await rows.nth(1).locator('.facility-state-name').fill('');
+  await dialog.name.fill('Шлюз');
+  await dialog.kind.selectOption('door');
+  for (const name of ['Открыт', 'Закрыт', 'Аварийный', ' открыт ']) await addState(page, name);
+  const rows = dialog.technical.locator('.facility-state-row');
+  await dialog.chips.nth(1).click();
+  await dialog.stateName.fill('');
+  await unfold(dialog.technical);
   await rows.nth(2).locator('.facility-state-id').fill('otkryt');
+  await fold(dialog.technical);
 
-  await dialog.getByRole('button', { name: DONE, exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator('#facilityDeviceError')).toHaveText('ИСПРАВЬТЕ ОТМЕЧЕННЫЕ СТРОКИ: 3');
+  await dialog.save.click();
+  await expect(dialog.dialog).toBeVisible();
+  await expect(dialog.error).toHaveText('ИСПРАВЬТЕ ОТМЕЧЕННОЕ: 3');
+  // The first problem, the empty name, opens its chip's editor and takes focus.
+  await expect(dialog.chips.nth(1)).toHaveAttribute('aria-expanded', 'true');
+  await expect(dialog.stateName).toBeFocused();
+  await expect(dialog.stateName).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.stateEditor.locator('.facility-row-error')).toHaveText('УКАЖИТЕ НАЗВАНИЕ СОСТОЯНИЯ');
+  expect(await dialog.chips.evaluateAll(chips => chips.map(chip => chip.dataset.problem === 'true')))
+    .toEqual([false, true, true, true]);
   await expect(rows.nth(0).locator('.facility-row-error')).toHaveCount(0);
-  await expect(rows.nth(1).locator('.facility-row-error')).toHaveText('УКАЖИТЕ НАЗВАНИЕ СОСТОЯНИЯ');
   await expect(rows.nth(2).locator('.facility-row-error')).toHaveText('ИДЕНТИФИКАТОР УЖЕ ИСПОЛЬЗУЕТСЯ: otkryt');
-  await expect(rows.nth(3).locator('.facility-row-error')).toHaveText('НАЗВАНИЕ УЖЕ ИСПОЛЬЗУЕТСЯ: открыт');
-  await expect(rows.nth(1).locator('.facility-state-name')).toBeFocused();
-  await expect(rows.nth(1).locator('.facility-state-name')).toHaveAttribute('aria-invalid', 'true');
   await expect(rows.nth(2).locator('.facility-state-id')).toHaveAttribute('aria-invalid', 'true');
+  await dialog.chips.nth(3).click();
+  await expect(dialog.stateEditor.locator('.facility-row-error')).toHaveText('НАЗВАНИЕ УЖЕ ИСПОЛЬЗУЕТСЯ: открыт');
 
-  await rows.nth(1).locator('.facility-state-name').fill('Закрыт');
-  await expect(rows.nth(1).locator('.facility-row-error')).toHaveCount(0);
+  await dialog.stateName.fill('Заблокирован');
+  await expect(dialog.stateEditor.locator('.facility-row-error')).toHaveCount(0);
+  await dialog.chips.nth(1).click();
+  await dialog.stateName.fill('Закрыт');
+  await expect(dialog.stateEditor.locator('.facility-row-error')).toHaveCount(0);
+
+  // With only the identifier conflict left, «ГОТОВО» unfolds the block and focuses that row.
+  await fold(dialog.technical);
+  await dialog.save.click();
+  await expect(dialog.error).toHaveText('ИСПРАВЬТЕ ОТМЕЧЕННОЕ: 1');
+  await expect(dialog.technical).toHaveAttribute('open', '');
+  await expect(rows.nth(2).locator('.facility-state-id')).toBeFocused();
+  await expect(rows.nth(2).locator('.facility-state-id')).toHaveAttribute('aria-invalid', 'true');
+  await expect(rows.nth(2).locator('.facility-row-error')).toHaveText('ИДЕНТИФИКАТОР УЖЕ ИСПОЛЬЗУЕТСЯ: otkryt');
+  await expect(dialog.chips.nth(2)).toHaveAttribute('data-problem', 'true');
+
   await rows.nth(2).locator('.facility-state-id').fill('avariynyy');
-  await rows.nth(3).locator('.facility-state-name').fill('Заблокирован');
-  await dialog.getByRole('button', { name: DONE, exact: true }).click();
-  await expect(dialog).toBeHidden();
+  await expect(rows.nth(2).locator('.facility-row-error')).toHaveCount(0);
+  await dialog.save.click();
+  await expect(dialog.dialog).toBeHidden();
   await expect.poll(async () => (await facilityState(request)).facility.devices.map(device => device.name))
     .toEqual(['Шлюз']);
   await expectSaved(page);
+  const saved = (await facilityState(request)).facility.devices[0];
+  expect(saved.states.map(value => [value.id, value.name]))
+    .toEqual([['otkryt', 'Открыт'], ['zakryt', 'Закрыт'], ['avariynyy', 'Аварийный'], ['zablokirovan', 'Заблокирован']]);
+  expect(saved.initialStateId).toBe('otkryt');
 });

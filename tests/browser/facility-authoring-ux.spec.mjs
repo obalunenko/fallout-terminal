@@ -3,7 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 import { buildFacilityAuthoringSession, FACILITY_IDS } from './fixtures/facility-session.mjs';
-import { expectSaved, undo } from './helpers/authoring-bar.mjs';
+import { expectSaved, switchTab, undo } from './helpers/authoring-bar.mjs';
+import {
+  commandActionDialog, deviceDialog, fillRule, openTransitionCell, ruleDialog, stateChips,
+} from './helpers/facility-editors.mjs';
 
 const FIXTURE = '/__fixture/facility-authoring';
 const DONE = 'ГОТОВО';
@@ -117,7 +120,7 @@ function deviceRow(page, id = FACILITY_IDS.devices.power) {
 async function openPowerGraph(page) {
   await deviceRow(page).click();
   await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
   await expect(dialog).toBeVisible();
   return dialog;
 }
@@ -142,19 +145,73 @@ async function openGuide(page) {
   return guide;
 }
 
-async function expandReferences(transition) {
-  const collapsed = transition.locator('details.facility-transition-references:not([open]) > summary');
-  if (await collapsed.count()) await collapsed.click();
+// openTransitionRow is the transition the device dialog's panel shows.
+function openTransitionRow(page) {
+  return page.locator('#facilityTransitionPanel .facility-transition-row:not([hidden])');
 }
 
-async function expectPowerReferences(dialog) {
-  const first = dialog.locator('.facility-transition-row').first();
-  await expect(first.locator('.facility-transition-id')).toHaveValue('restore');
-  await expect(first.locator('.facility-precondition-device')).toHaveValue(FACILITY_IDS.devices.cooling);
-  await expect(first.locator('.facility-precondition-state')).toHaveValue('online');
-  await expect(first.locator('.facility-effect-condition')).toHaveValue(FACILITY_IDS.conditions.unpowered);
-  await expect(dialog.locator('.facility-transition-row').nth(1).locator('.facility-effect-condition'))
-    .toHaveValue(FACILITY_IDS.conditions.unpowered);
+// openTransition opens the matrix cell from → to and, when the cell lists
+// several transitions, the one with id. It returns the open transition.
+async function openTransition(page, from, to, id) {
+  await openTransitionCell(page, from, to);
+  const list = page.locator('#facilityTransitionCellList');
+  if (await list.isVisible()) await list.locator(`.facility-transition-choice[data-transition-id="${id}"]`).click();
+  const transition = openTransitionRow(page);
+  await expect(transition).toHaveAttribute('data-transition-id', id);
+  return transition;
+}
+
+// addStates adds one state per name through «+ СОСТОЯНИЕ» and its chip editor.
+async function addStates(page, names) {
+  const device = deviceDialog(page);
+  for (const name of names) {
+    await device.addState.click();
+    await expect(device.stateName).toBeFocused();
+    await device.stateName.fill(name);
+  }
+}
+
+// addTransition starts a transition in the empty matrix cell from → to and
+// names it.
+async function addTransition(page, from, to, name) {
+  const device = deviceDialog(page);
+  await expect(device.cell(from, to)).toHaveAttribute('data-count', '0');
+  await device.cell(from, to).click();
+  const transition = openTransitionRow(page);
+  await expect(transition.locator('.facility-transition-name')).toBeFocused();
+  await transition.locator('.facility-transition-name').fill(name);
+  await expect(device.cell(from, to).locator('.facility-transition-cell-name')).toHaveText(name);
+  return transition;
+}
+
+// fillProgramTransition picks the device and transition of the program
+// dialog's first transition row.
+async function fillProgramTransition(page, deviceID, transitionID) {
+  const row = page.locator('#facilityProgramTransitions .facility-action-request-row').first();
+  await row.locator('.facility-action-device').selectOption(deviceID);
+  await row.locator('.facility-action-transition').selectOption(transitionID);
+}
+
+// fillTechnicalID opens a dialog's folded «ТЕХНИЧЕСКИЕ ИДЕНТИФИКАТОРЫ» and
+// types a new entity's ID.
+async function fillTechnicalID(dialog, technicalID, value) {
+  const technical = dialog.locator(`#${technicalID}`);
+  await expect(technical).not.toHaveAttribute('open', '');
+  await technical.locator('summary').click();
+  await technical.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill(value);
+}
+
+// expectPowerReferences checks that both power transitions keep their
+// precondition and their fault effects.
+async function expectPowerReferences(page) {
+  const restore = await openTransition(page, 'offline', 'online', 'restore');
+  await expect(restore.locator('.facility-precondition-device')).toHaveValue(FACILITY_IDS.devices.cooling);
+  await expect(restore.locator('.facility-precondition-state')).toHaveValue('online');
+  await expect(restore.locator('.facility-transition-fault-effect'))
+    .toHaveAttribute('data-condition-id', FACILITY_IDS.conditions.unpowered);
+  const disconnect = await openTransition(page, 'online', 'offline', 'disconnect');
+  await expect(disconnect.locator('.facility-transition-fault-effect'))
+    .toHaveAttribute('data-condition-id', FACILITY_IDS.conditions.unpowered);
 }
 
 test('preserves multi-transition references and recovery metadata through state edits, autosave, and reopen', async ({ page, request }) => {
@@ -164,19 +221,24 @@ test('preserves multi-transition references and recovery metadata through state 
   expect(original.currentStateId).not.toBe(original.initialStateId);
   await openWorkspace(page);
   const dialog = await openPowerGraph(page);
+  const device = deviceDialog(page);
 
-  await expectPowerReferences(dialog);
-  await dialog.locator('.facility-state-name').first().fill('Power isolated');
-  await expectPowerReferences(dialog);
-  await dialog.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД', exact: true }).click();
-  const added = dialog.locator('.facility-transition-row').last();
-  await added.locator('.facility-transition-id').fill('restart');
-  await added.locator('.facility-transition-name').fill('Restart primary grid');
-  await added.locator('.facility-transition-source').selectOption('online');
-  await added.locator('.facility-transition-destination').selectOption('offline');
-  await expectPowerReferences(dialog);
-  await expect(dialog.locator('#btnSaveFacilityDevice')).toHaveText(DONE);
-  await dialog.locator('#btnSaveFacilityDevice').click();
+  await expectPowerReferences(page);
+  await device.chip('offline').click();
+  await device.stateName.fill('Power isolated');
+  await expect(device.chip('offline')).toContainText('Power isolated');
+  await expectPowerReferences(page);
+  // A second transition in the filled cell «Online → Offline», with the ID
+  // typed in the folded technical block.
+  await openTransition(page, 'online', 'offline', 'disconnect');
+  await device.addCellTransition.click();
+  await openTransitionRow(page).locator('.facility-transition-name').fill('Restart primary grid');
+  await device.technical.locator('summary').click();
+  await device.technical.locator('.facility-transition-id-row').last().locator('.facility-transition-id').fill('restart');
+  await expect(device.cell('online', 'offline')).toHaveAttribute('data-count', '2');
+  await expectPowerReferences(page);
+  await expect(device.save).toHaveText(DONE);
+  await device.save.click();
   await expect(dialog).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 1);
   const saved = await facilityState(request);
@@ -192,23 +254,27 @@ test('preserves multi-transition references and recovery metadata through state 
   expect(saved.facility.recoveryPrograms).toEqual(before.facility.recoveryPrograms);
   expect(saved.brokenReferenceCount).toBe(0);
   await openWorkspace(page);
-  await expectPowerReferences(await openPowerGraph(page));
+  await openPowerGraph(page);
+  await expectPowerReferences(page);
+  await expect(deviceDialog(page).cell('online', 'offline')).toHaveAttribute('data-count', '2');
 });
 
-for (const missing of ['prerequisite device', 'prerequisite state', 'condition effect']) {
-  test(`rejects an incomplete ${missing} row with focused feedback and no lost draft row`, async ({ page, request }) => {
+// Fault effects are edited in the fault dialog, whose pickers add only whole
+// effects, so the device dialog's incomplete rows are its preconditions and
+// its transition names.
+for (const missing of ['prerequisite device', 'prerequisite state', 'transition name']) {
+  test(`rejects an incomplete ${missing} with focused feedback and no lost draft row`, async ({ page, request }) => {
     await resetFixture(request);
     const before = await facilityState(request);
     await openWorkspace(page);
     const dialog = await openPowerGraph(page);
-    const transition = dialog.locator('.facility-transition-row').first();
-    await expandReferences(transition);
+    const transition = await openTransition(page, 'offline', 'online', 'restore');
     let invalid;
-    if (missing === 'condition effect') {
-      await transition.getByRole('button', { name: 'ДОБАВИТЬ ЭФФЕКТ УСЛОВИЯ', exact: true }).click();
-      invalid = transition.locator('.facility-effect-condition').last();
+    if (missing === 'transition name') {
+      invalid = transition.locator('.facility-transition-name');
+      await invalid.fill('');
     } else {
-      await transition.getByRole('button', { name: 'ДОБАВИТЬ ПРЕДУСЛОВИЕ', exact: true }).click();
+      await transition.getByRole('button', { name: '+ ПРЕДУСЛОВИЕ', exact: true }).click();
       const row = transition.locator('.facility-precondition-row').last();
       invalid = row.locator('.facility-precondition-device');
       if (missing === 'prerequisite state') {
@@ -216,10 +282,14 @@ for (const missing of ['prerequisite device', 'prerequisite state', 'condition e
         invalid = row.locator('.facility-precondition-state');
       }
     }
+    // The folded panel keeps the draft row, and «ГОТОВО» reopens it on the problem.
+    await page.locator('#btnCloseFacilityTransitionPanel').click();
+    await expect(page.locator('#facilityTransitionPanel')).toBeHidden();
     await dialog.locator('#btnSaveFacilityDevice').click();
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[role="alert"]')).toBeVisible();
-    await expect(dialog.locator('[role="alert"]')).not.toBeEmpty();
+    await expect(dialog.locator('#facilityDeviceError')).toBeVisible();
+    await expect(dialog.locator('#facilityDeviceError')).not.toBeEmpty();
+    await expect(page.locator('#facilityTransitionPanel')).toBeVisible();
     await expect(invalid).toHaveAttribute('aria-invalid', 'true');
     await expect(invalid).toBeFocused();
     expect(await facilityState(request)).toEqual(before);
@@ -239,14 +309,13 @@ async function applyName(page, name) {
 
 async function applyCondition(page) {
   await openDetailTab(page, 'facilityTabConditions');
-  await page.getByRole('button', { name: 'ДОБАВИТЬ УСЛОВИЕ', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
-  await dialog.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('condition-staged-ux');
+  await page.getByRole('button', { name: 'ДОБАВИТЬ НЕИСПРАВНОСТЬ', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'НЕИСПРАВНОСТЬ', exact: true });
   await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Staged power fault');
   await dialog.getByLabel('КАТЕГОРИЯ', { exact: true }).selectOption('unpowered');
   await dialog.getByLabel('УСТРОЙСТВО', { exact: true }).selectOption(FACILITY_IDS.devices.power);
-  await dialog.getByLabel('БЛОКИРУЕМАЯ ВОЗМОЖНОСТЬ', { exact: true }).selectOption('execute-command');
-  await dialog.getByLabel('ВОССТАНОВЛЕНИЕ ОПЕРАТОРОМ', { exact: true }).check();
+  await dialog.getByLabel('ЧТО БЛОКИРУЕТ', { exact: true }).selectOption('execute-command');
+  await fillTechnicalID(dialog, 'facilityConditionTechnical', 'condition-staged-ux');
   await dialog.getByRole('button', { name: DONE, exact: true }).click();
   await expect(dialog).toBeHidden();
 }
@@ -263,22 +332,21 @@ test('every facility form autosaves on «ГОТОВО», and ОТМЕНИТЬ re
   await openDetailTab(page, 'facilityTabPrograms');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true }).click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
-  await program.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('program-staged-ux');
   await program.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Staged recovery');
-  await program.getByLabel('УСТРОЙСТВО', { exact: true }).selectOption(FACILITY_IDS.devices.power);
-  await program.getByLabel('ПЕРЕХОД', { exact: true }).selectOption('restore');
+  await fillProgramTransition(page, FACILITY_IDS.devices.power, 'restore');
+  await fillTechnicalID(program, 'facilityRecoveryProgramTechnical', 'program-staged-ux');
   await program.getByRole('button', { name: DONE, exact: true }).click();
   await expect(program).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 3);
 
   await openDetailTab(page, 'facilityTabInformation');
-  await page.getByRole('button', { name: 'ДОБАВИТЬ ПРИВЯЗКУ', exact: true }).click();
-  const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
-  await binding.getByLabel('ТЕРМИНАЛ', { exact: true }).selectOption(FACILITY_IDS.terminals.reactor);
-  await binding.getByLabel('ЭЛЕМЕНТ', { exact: true }).selectOption(FACILITY_IDS.nodes.startReactor);
-  await binding.getByLabel('УСТРОЙСТВО', { exact: true }).selectOption(FACILITY_IDS.devices.power);
-  await binding.getByLabel('СОСТОЯНИЕ', { exact: true }).selectOption('online');
-  await binding.getByLabel('ТЕКСТ', { exact: true }).fill('Staged startup label');
+  await page.getByRole('button', { name: 'ДОБАВИТЬ ПРАВИЛО', exact: true }).click();
+  const binding = page.getByRole('dialog', { name: 'ПРАВИЛО ОТОБРАЖЕНИЯ', exact: true });
+  await ruleDialog(page).tab('menu-name').click();
+  await fillRule(page, {
+    deviceId: FACILITY_IDS.devices.power, stateId: 'online',
+    terminalId: FACILITY_IDS.terminals.reactor, nodeId: FACILITY_IDS.nodes.startReactor, text: 'Staged startup label',
+  });
   await binding.getByRole('button', { name: DONE, exact: true }).click();
   await expect(binding).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 4);
@@ -318,13 +386,14 @@ test('a rejected autosave shows its reason, reopens the edit with its input, and
 
   const status = page.locator('#saveStatus');
   await expect(status).toHaveAttribute('data-state', 'error');
-  await expect(status).toContainText('ОШИБКА СОХРАНЕНИЯ: НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
+  const reason = 'Не удалось записать файл сессии. Проверьте, что диск доступен и файл не защищён от записи, затем повторите.';
+  await expect(status).toHaveText(`ОШИБКА СОХРАНЕНИЯ: ${reason}`);
   // Only the rejected edit is reverted, and the device dialog reopens with its
   // input and the reason.
   await expect(deviceRow(page)).toContainText('Primary power grid');
   await expect(dialog).toBeVisible();
   await expect(name).toHaveValue('Retry primary grid');
-  await expect(dialog.locator('#facilityDeviceError')).toContainText('НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
+  await expect(dialog.locator('#facilityDeviceError .overseer-error-message')).toHaveText(reason);
   expect(await facilityState(request)).toEqual(before);
 
   await dialog.getByRole('button', { name: DONE, exact: true }).click();
@@ -436,23 +505,35 @@ test('keeps the actual ten-device demo usable at desktop and narrow widths', asy
   await page.screenshot({ path: 'test-results/facility-story-guide-narrow.png' });
 });
 
-test('explains transitions, exposes optional rules by keyboard, and makes fault activation explicit', async ({ page, request }) => {
+test('explains transitions in the matrix, opens them by keyboard, and makes fault activation explicit', async ({ page, request }) => {
   await seedMultiTransitionDevice(request);
   await openWorkspace(page);
   const dialog = await openPowerGraph(page);
-  const transition = dialog.locator('.facility-transition-row').first();
-  await expect(transition.locator('.facility-transition-summary'))
-    .toContainText('Restore primary power: Offline → Online');
-  const rules = transition.locator('details.facility-transition-references');
-  await expect(rules.locator('summary')).toContainText('ПРЕДУСЛОВИЯ: 1 · ЭФФЕКТЫ: 1');
-  await rules.locator('summary').focus();
-  await rules.locator('summary').press('Enter');
-  await expect(rules).not.toHaveAttribute('open', '');
-  await rules.locator('summary').press('Enter');
-  await expect(rules).toHaveAttribute('open', '');
-  const effect = transition.getByLabel('ДЕЙСТВИЕ С НЕИСПРАВНОСТЬЮ', { exact: true });
-  await expect(effect.locator('option')).toHaveText(['АКТИВИРОВАТЬ НЕИСПРАВНОСТЬ', 'СНЯТЬ НЕИСПРАВНОСТЬ']);
-  await expect(effect).toHaveValue('remove');
+  const device = deviceDialog(page);
+  // Each filled cell names its transition and sums up its rules.
+  const restore = device.cell('offline', 'online');
+  await expect(restore).toHaveAttribute('aria-label', 'Offline → Online: Restore primary power');
+  await expect(restore.locator('.facility-transition-cell-name')).toHaveText('Restore primary power');
+  await expect(restore.locator('.facility-transition-cell-summary')).toHaveText('1 предусловие · снимает 1 неисправность');
+  await expect(device.cell('online', 'offline').locator('.facility-transition-cell-summary'))
+    .toHaveText('включает 1 неисправность');
+  await expect(device.unavailable('offline', 'offline')).toHaveText('—');
+  // The keyboard opens a cell, and folding the panel returns to the cell.
+  await restore.focus();
+  await restore.press('Enter');
+  await expect(device.panel).toBeVisible();
+  await expect(device.panelHeading).toHaveText('ПЕРЕХОД: Offline → Online');
+  const transition = openTransitionRow(page);
+  await expect(transition.locator('.facility-transition-name')).toBeFocused();
+  // The panel says which fault the transition clears; the fault dialog edits it.
+  const effect = transition.locator('.facility-transition-fault-effect');
+  await expect(effect).toHaveAttribute('data-active', 'false');
+  await expect(effect).toContainText('Снимает «Reactor controls unpowered»');
+  await expect(effect.getByRole('button', { name: 'К НЕИСПРАВНОСТИ', exact: true })).toBeVisible();
+  await page.locator('#btnCloseFacilityTransitionPanel').focus();
+  await page.keyboard.press('Enter');
+  await expect(device.panel).toBeHidden();
+  await expect(restore).toBeFocused();
   expect(await dialog.locator('.facility-dialog-actions').evaluate(element => getComputedStyle(element).position)).toBe('sticky');
 });
 
@@ -464,7 +545,8 @@ test('edits and removes bindings and an unreferenced recovery program, saving ea
   await openDetailTab(page, 'facilityTabInformation');
   const textBinding = page.locator('[data-facility-kind="binding"]').filter({ hasText: 'PRIMARY POWER: ONLINE' });
   await textBinding.getByRole('button', { name: /^Изменить:/ }).click();
-  const bindingDialog = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
+  const bindingDialog = page.getByRole('dialog', { name: 'ПРАВИЛО ОТОБРАЖЕНИЯ', exact: true });
+  await expect(ruleDialog(page).tab('entry-content')).toHaveAttribute('aria-selected', 'true');
   await expect(bindingDialog.getByLabel('ТЕКСТ', { exact: true })).toHaveValue('PRIMARY POWER: ONLINE');
   await bindingDialog.getByLabel('ТЕКСТ', { exact: true }).fill('PRIMARY POWER: RESTORED');
   await bindingDialog.getByRole('button', { name: DONE, exact: true }).click();
@@ -478,10 +560,9 @@ test('edits and removes bindings and an unreferenced recovery program, saving ea
   await openDetailTab(page, 'facilityTabPrograms');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true }).click();
   const programDialog = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
-  await programDialog.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('program-temporary');
   await programDialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Temporary recovery');
-  await programDialog.getByLabel('УСТРОЙСТВО', { exact: true }).selectOption(FACILITY_IDS.devices.power);
-  await programDialog.getByLabel('ПЕРЕХОД', { exact: true }).selectOption('restore');
+  await fillProgramTransition(page, FACILITY_IDS.devices.power, 'restore');
+  await fillTechnicalID(programDialog, 'facilityRecoveryProgramTechnical', 'program-temporary');
   await programDialog.getByRole('button', { name: DONE, exact: true }).click();
   const program = page.locator('[data-facility-kind="recovery-program"]').filter({ hasText: 'Temporary recovery' });
   await expectAutosaved(page, request, before.saveCalls + 3);
@@ -502,62 +583,101 @@ test('edits and removes bindings and an unreferenced recovery program, saving ea
   expect(saved.brokenReferenceCount).toBe(0);
 });
 
-test('opens readable dependencies at blocks, commands, and composite transitions', async ({ page, request }) => {
+// openDependencies opens «ЗАВИСИМОСТИ» for the selected device and returns
+// the dialog and a row finder by dependency kind.
+async function openDependencies(page) {
+  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
+  const report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ УСТРОЙСТВА', exact: true });
+  await expect(report).toBeVisible();
+  await expect(report.locator('#facilityDependencyStatus')).toHaveText(/^НАЙДЕНО ССЫЛОК: \d+$/);
+  return { report, row: kind => report.locator(`.facility-dependency-row[data-kind="${kind}"]`) };
+}
+
+test('opens readable dependencies at display rules, commands, and composite transitions', async ({ page, request }) => {
   await seedMultiTransitionDevice(request);
   await openWorkspace(page);
   await deviceRow(page).click();
-  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  let report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  const blockDependency = report.locator('.facility-dependency-row').filter({ hasText: 'Текст блока записи' });
-  await expect(blockDependency).toContainText('Security control › FACILITY STATUS');
-  await blockDependency.getByRole('button', { name: /^Открыть ссылку/ }).click();
-  await expect(page.locator(`[data-block-id="${FACILITY_IDS.nodes.securityPowerBlock}"] textarea`)).toBeFocused();
+  let { report, row } = await openDependencies(page);
+  await expect(report.locator('#facilityDependencyDialogDescription'))
+    .toHaveText('Что в локации зависит от устройства «Primary power grid».');
+  const block = row('entry-content-variant');
+  await expect(block.locator('.facility-dependency-sentence'))
+    .toHaveText('Текст записи «FACILITY STATUS» (блок 1) меняется, когда Primary power grid = Online.');
+  await expect(block.locator('.facility-dependency-place')).toHaveText('Security control › FACILITY STATUS › блок 1');
+  await block.getByRole('button', { name: 'К ПРАВИЛУ ОТОБРАЖЕНИЯ: FACILITY STATUS', exact: true }).click();
+  const rule = ruleDialog(page);
+  await expect(rule.dialog).toBeVisible();
+  await expect(rule.tab('entry-content')).toHaveAttribute('aria-selected', 'true');
+  await expect(rule.block).toHaveValue(FACILITY_IDS.nodes.securityPowerBlock);
+  await expect(rule.text).toHaveValue('PRIMARY POWER: ONLINE');
+  await rule.cancel.click();
 
-  await page.getByRole('tab', { name: 'ОБЪЕКТЫ', exact: true }).click();
-  await deviceRow(page).click();
-  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  const commandDependency = report.locator('.facility-dependency-row').filter({ hasText: 'Доступность команды' });
-  await commandDependency.getByRole('button', { name: /^Открыть ссылку/ }).click();
+  ({ report, row } = await openDependencies(page));
+  const availability = row('availability');
+  await expect(availability.locator('.facility-dependency-sentence'))
+    .toHaveText('Команду «START MAIN REACTOR» можно запросить, только когда Primary power grid = Online.');
+  await availability.getByRole('button', { name: 'К ПРАВИЛУ ОТОБРАЖЕНИЯ: START MAIN REACTOR', exact: true }).click();
+  await expect(rule.tab('availability')).toHaveAttribute('aria-selected', 'true');
+  await expect(rule.where.locator('option:checked')).toHaveAttribute('data-node-id', FACILITY_IDS.nodes.startReactor);
+  await rule.cancel.click();
+
+  ({ report, row } = await openDependencies(page));
+  const command = row('command-action');
+  await expect(command.locator('.facility-dependency-sentence'))
+    .toHaveText('Команда «START MAIN REACTOR» запускает переход «Restore primary power».');
+  await expect(command.locator('.facility-dependency-place')).toHaveText('Reactor control › START MAIN REACTOR');
+  await command.getByRole('button', { name: 'К КОМАНДЕ: START MAIN REACTOR', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'ТЕРМИНАЛЫ', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#btnEditCommandFacilityAction')).toBeFocused();
   await expect(page.locator('.command-facility-action-summary')).toContainText('Primary power grid — Restore primary power');
   await expect(page.locator('.command-facility-action-summary')).toContainText('Требуется: Reactor cooling loop: Online');
-  await page.getByRole('button', { name: 'ИЗМЕНИТЬ ДЕЙСТВИЕ УСТРОЙСТВ', exact: true }).click();
-  const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
-  await expect(binding.getByLabel('ТИП ПРИВЯЗКИ', { exact: true })).toHaveValue('command-action');
-  await expect(binding.getByLabel('ТЕРМИНАЛ', { exact: true })).toHaveValue(FACILITY_IDS.terminals.reactor);
-  await expect(binding.getByLabel('ЭЛЕМЕНТ', { exact: true })).toHaveValue(FACILITY_IDS.nodes.startReactor);
-  await binding.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
+  await page.getByRole('button', { name: 'ИЗМЕНИТЬ ДЕЙСТВИЕ КОМАНДЫ', exact: true }).click();
+  const action = commandActionDialog(page);
+  await expect(action.dialog).toBeVisible();
+  await expect(action.commandFixed).toHaveText('Reactor control › START MAIN REACTOR');
+  await expect(action.modeTransitions).toBeChecked();
+  await expect(action.rows.first().locator('.facility-action-device')).toHaveValue(FACILITY_IDS.devices.power);
+  await expect(action.rows.first().locator('.facility-action-transition')).toHaveValue('restore');
+  await action.cancel.click();
 
-  await page.getByRole('tab', { name: 'ОБЪЕКТЫ', exact: true }).click();
+  await switchTab(page, 'ОБЪЕКТЫ');
   await deviceRow(page, FACILITY_IDS.devices.cooling).click();
-  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  const transitionDependency = report.locator('.facility-dependency-row').filter({ hasText: 'Предусловие перехода' }).first();
-  await transitionDependency.getByRole('button', { name: /^Открыть ссылку/ }).click();
-  const deviceDialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
-  await expect(deviceDialog.locator('.facility-transition-id:focus')).toHaveValue('restore');
+  ({ report, row } = await openDependencies(page));
+  const precondition = row('transition-precondition').first();
+  await expect(precondition.locator('.facility-dependency-sentence'))
+    .toHaveText('Переход «Restore primary power» устройства «Primary power grid» требует: Reactor cooling loop = Online.');
+  await expect(precondition.locator('.facility-dependency-place')).toHaveText('Primary power grid › Restore primary power');
+  await precondition.getByRole('button', { name: 'К УСТРОЙСТВУ: Restore primary power', exact: true }).click();
+  const device = deviceDialog(page);
+  await expect(device.dialog).toBeVisible();
+  await expect(page.locator('#facilityDeviceID')).toHaveValue(FACILITY_IDS.devices.power);
+  await expect(openTransitionRow(page)).toHaveAttribute('data-transition-id', 'restore');
+  await expect(openTransitionRow(page).locator('.facility-transition-name')).toBeFocused();
 });
 
-test('opens condition and recovery-program dependencies for editing and reports a missing target', async ({ page, request }) => {
+test('opens fault and recovery-program dependencies for editing and reports a missing target', async ({ page, request }) => {
   const before = await seedMultiTransitionDevice(request);
   await openWorkspace(page);
   await deviceRow(page).click();
-  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  let report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  const programDependency = report.locator('.facility-dependency-row')
-    .filter({ hasText: 'Программа восстановления' });
-  await programDependency.getByRole('button', { name: /^Открыть ссылку/ }).click();
+  let { report, row } = await openDependencies(page);
+  const programDependency = row('recovery-program-transition');
+  await expect(programDependency.locator('.facility-dependency-sentence'))
+    .toHaveText('Программа восстановления «VAULT-TEC NETWORK RECOVERY» запускает переход «Restore primary power».');
+  await programDependency.getByRole('button', { name: 'К ПРОГРАММЕ: VAULT-TEC NETWORK RECOVERY', exact: true }).click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
+  await expect(program.getByLabel('НАЗВАНИЕ', { exact: true })).toHaveValue('VAULT-TEC NETWORK RECOVERY');
+  // The program ID waits in the folded technical block.
+  await expect(program.locator('#facilityRecoveryProgramTechnical')).not.toHaveAttribute('open', '');
   await expect(program.getByLabel('ИДЕНТИФИКАТОР', { exact: true }))
     .toHaveValue(FACILITY_IDS.programs.networkRecovery);
   await program.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
 
-  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  const conditionDependency = report.locator('.facility-dependency-row')
-    .filter({ hasText: 'Область неисправности' });
-  await conditionDependency.getByRole('button', { name: /^Открыть ссылку/ }).click();
-  const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
+  ({ report, row } = await openDependencies(page));
+  const conditionDependency = row('diagnostic-scope');
+  await expect(conditionDependency.locator('.facility-dependency-sentence'))
+    .toHaveText('Неисправность «Reactor controls unpowered» действует на это устройство.');
+  await conditionDependency.getByRole('button', { name: 'К НЕИСПРАВНОСТИ: Reactor controls unpowered', exact: true }).click();
+  const condition = page.getByRole('dialog', { name: 'НЕИСПРАВНОСТЬ', exact: true });
   await expect(condition.getByLabel('ИДЕНТИФИКАТОР', { exact: true }))
     .toHaveValue(FACILITY_IDS.conditions.unpowered);
   await condition.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Reactor controls unpowered updated');
@@ -589,11 +709,15 @@ test('opens condition and recovery-program dependencies for editing and reports 
     },
   }));
   await deviceRow(page).click();
-  await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  await expect(report).toContainText('missing-command');
-  await report.getByRole('button', { name: /^Открыть ссылку/ }).click();
-  await expect(report.locator('#facilityDependencyError')).toContainText('БОЛЬШЕ НЕ СУЩЕСТВУЕТ');
+  ({ report } = await openDependencies(page));
+  // An unresolved name falls back to its raw ID in the sentence only.
+  const missing = report.locator('.facility-dependency-row');
+  await expect(missing.locator('.facility-dependency-sentence')).toContainText('«missing-command»');
+  await expect(missing.locator('.facility-dependency-place')).toHaveCount(0);
+  await missing.getByRole('button', { name: 'К ПРАВИЛУ ОТОБРАЖЕНИЯ: missing-command', exact: true }).click();
+  await expect(report).toBeVisible();
+  await expect(report.locator('#facilityDependencyError'))
+    .toContainText('Связанный элемент больше не существует. Закройте окно и откройте зависимости снова.');
 });
 
 test('compares preview effects side by side without publication, and unapplied input never blocks it', async ({ page, request }) => {
@@ -602,7 +726,7 @@ test('compares preview effects side by side without publication, and unapplied i
   await openWorkspace(page);
   await deviceRow(page).click();
   await page.getByRole('button', { name: 'ПРЕДПРОСМОТР СОСТОЯНИЯ', exact: true }).click();
-  const preview = page.getByRole('dialog', { name: 'ПРЕДПРОСМОТР ОБЪЕКТА', exact: true });
+  const preview = page.getByRole('dialog', { name: 'ПРЕДПРОСМОТР УСТРОЙСТВА', exact: true });
   await expect(preview.locator('#facilityPreviewContext'))
     .toHaveText('ПРЕДПРОСМОТР ПОКАЗЫВАЕТ ПРИМЕНЁННЫЕ ПРАВКИ И НЕ МЕНЯЕТ МИР ДЛЯ ИГРОКОВ.');
   // The first state that differs from the current «Online» is preselected.
@@ -652,53 +776,53 @@ test('guides an empty facility through a door story, command, and visible result
   await expect(guide).toHaveAttribute('open', '');
   await expect(page.locator('#facilityStoryGuideToggle')).toHaveText('СКРЫТЬ');
   await expect(guide).toContainText('Устройств в сессии: 0');
+  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: УСТРОЙСТВО');
+  await expect(guide.getByRole('button', { name: '1. Устройство', exact: true })).toHaveAttribute('aria-current', 'step');
   await guide.getByRole('button', { name: 'СОЗДАТЬ УСТРОЙСТВО', exact: true }).click();
-  const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+  const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
   await device.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Дверь в убежище');
   await device.getByLabel('ТИП', { exact: true }).selectOption('door');
-  for (const [id, name] of [['closed', 'Заперта'], ['open', 'Открыта']]) {
-    await device.getByRole('button', { name: 'ДОБАВИТЬ СОСТОЯНИЕ', exact: true }).click();
-    const row = device.locator('.facility-state-row').last();
-    await row.locator('.facility-state-id').fill(id);
-    await row.locator('.facility-state-name').fill(name);
-  }
-  await device.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('closed');
+  await addStates(page, ['Заперта', 'Открыта']);
+  // The first state starts the device: its chip carries the star.
+  expect((await stateChips(page)).map(({ name, initial }) => [name, initial]))
+    .toEqual([['Заперта', true], ['Открыта', false]]);
   await device.getByRole('button', { name: DONE, exact: true }).click();
   // The first saved device collapses the guide to its summary line, which
   // reopens it on demand.
   await expect(guide).toContainText('Настраиваем «Дверь в убежище»');
   await expectAutosaved(page, request, before.saveCalls + 1);
-  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: ОБЪЕКТ');
+  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: УСТРОЙСТВО');
+  const door = (await facilityState(request)).facility.devices[0];
+  const stateID = name => door.states.find(value => value.name === name).id;
+  expect(door.initialStateId).toBe(stateID('Заперта'));
   await openGuide(page);
   await guide.getByRole('button', { name: 'СЛЕДУЮЩИЙ ШАГ', exact: true }).click();
   await expect(page.locator('#facilityStoryTitle')).toBeFocused();
   await expect(guide).toContainText('Сначала добавьте переход');
-  await guide.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД В УСТРОЙСТВО', exact: true }).click();
-  await device.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД', exact: true }).click();
-  const transition = device.locator('.facility-transition-row').last();
-  await transition.locator('.facility-transition-id').fill('open');
-  await transition.locator('.facility-transition-name').fill('Открыть дверь');
-  await transition.locator('.facility-transition-source').selectOption('closed');
-  await transition.locator('.facility-transition-destination').selectOption('open');
+  await guide.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
+  await addTransition(page, stateID('Заперта'), stateID('Открыта'), 'Открыть дверь');
   await device.getByRole('button', { name: DONE, exact: true }).click();
   await expectAutosaved(page, request, before.saveCalls + 2);
   await guide.getByRole('button', { name: 'СВЯЗАТЬ С КОМАНДОЙ', exact: true }).click();
-  const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
-  await expect(binding.getByLabel('ТИП ПРИВЯЗКИ', { exact: true })).toHaveValue('command-action');
-  await expect(binding.locator('.facility-action-device option:checked')).toHaveText('Дверь в убежище');
-  await binding.locator('.facility-action-transition').selectOption('open');
-  await binding.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', { exact: true }).fill('Дверь открыта');
-  await binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true }).fill('Открыть дверь в убежище?');
-  await binding.getByRole('button', { name: DONE, exact: true }).click();
+  const action = commandActionDialog(page);
+  await expect(action.dialog).toBeVisible();
+  await expect(action.modeTransitions).toBeChecked();
+  await expect(action.rows.first().locator('.facility-action-device option:checked')).toHaveText('Дверь в убежище');
+  await action.rows.first().locator('.facility-action-transition').selectOption({ label: 'Открыть дверь' });
+  await action.completedName.fill('Дверь открыта');
+  await action.confirmationText.fill('Открыть дверь в убежище?');
+  await action.save.click();
   await expect(guide).toContainText('команд: 1');
   await expectAutosaved(page, request, before.saveCalls + 3);
   await guide.getByRole('button', { name: '3. Результат', exact: true }).click();
   await guide.getByRole('button', { name: 'НАСТРОИТЬ РЕЗУЛЬТАТ НА ТЕРМИНАЛЕ', exact: true }).click();
-  await expect(binding.getByLabel('ТИП ПРИВЯЗКИ', { exact: true })).toHaveValue('entry-content');
-  await binding.getByLabel('БЛОК ЗАПИСИ', { exact: true }).selectOption({ index: 1 });
-  await binding.getByLabel('СОСТОЯНИЕ', { exact: true }).selectOption('open');
-  await binding.getByLabel('ТЕКСТ', { exact: true }).fill('Путь свободен');
-  await binding.getByRole('button', { name: DONE, exact: true }).click();
+  const rule = ruleDialog(page);
+  await expect(rule.tab('entry-content')).toHaveAttribute('aria-selected', 'true');
+  await expect(rule.device).toHaveValue(door.id);
+  await rule.block.selectOption({ index: 1 });
+  await rule.state.selectOption({ label: 'Открыта' });
+  await rule.text.fill('Путь свободен');
+  await rule.save.click();
   await expect(page.getByRole('list', { name: 'Что делают игроки', exact: true })).toContainText('Открыть дверь');
   await openDetailTab(page, 'facilityTabInformation');
   await expect(page.getByRole('list', { name: 'Что видят игроки', exact: true })).toContainText('Путь свободен');
@@ -712,8 +836,8 @@ test('guides an empty facility through a door story, command, and visible result
   expect(saved.saveCalls).toBe(before.saveCalls + 4);
   expect(saved.brokenReferenceCount).toBe(0);
   await guide.getByRole('button', { name: 'ПРОВЕРИТЬ В ПРЕДПРОСМОТРЕ', exact: true }).click();
-  const preview = page.getByRole('dialog', { name: 'ПРЕДПРОСМОТР ОБЪЕКТА', exact: true });
-  await expect(preview.getByLabel('СОСТОЯНИЕ', { exact: true })).toHaveValue('open');
+  const preview = page.getByRole('dialog', { name: 'ПРЕДПРОСМОТР УСТРОЙСТВА', exact: true });
+  await expect(preview.getByLabel('СОСТОЯНИЕ', { exact: true })).toHaveValue(stateID('Открыта'));
   await expect(preview.locator('#facilityPreviewHypothetical')).toContainText('Путь свободен');
   await preview.getByRole('button', { name: 'ЗАКРЫТЬ', exact: true }).click();
   const after = await facilityState(request);
@@ -728,29 +852,32 @@ test('connects optional recovery from the story guide to a command without losin
   const guide = await openGuide(page);
   await guide.getByRole('button', { name: '4. Осложнения', exact: true }).click();
   await guide.getByRole('button', { name: 'ДОБАВИТЬ НЕИСПРАВНОСТЬ', exact: true }).click();
-  const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
+  const condition = page.getByRole('dialog', { name: 'НЕИСПРАВНОСТЬ', exact: true });
   await expect(condition.getByLabel('УСТРОЙСТВО', { exact: true })).toHaveValue(FACILITY_IDS.devices.power);
   await condition.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
   await expect(page.locator('#facilityStoryTitle')).toBeFocused();
   await guide.getByRole('button', { name: 'СОБРАТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true }).click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
-  await program.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('program-story');
   await program.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Восстановить путь');
-  await program.getByLabel('ПЕРЕХОД', { exact: true }).selectOption('restore');
+  await fillProgramTransition(page, FACILITY_IDS.devices.power, 'restore');
+  await fillTechnicalID(program, 'facilityRecoveryProgramTechnical', 'program-story');
   await program.getByRole('button', { name: DONE, exact: true }).click();
   await expectAutosaved(page, request, before.saveCalls + 1);
   await guide.getByRole('button', { name: '2. Действие', exact: true }).click();
   await guide.getByRole('button', { name: 'ИЗМЕНИТЬ ДЕЙСТВИЕ КОМАНДЫ', exact: true }).click();
-  const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
-  await binding.getByLabel('ЧТО ЗАПУСТИТЬ', { exact: true }).selectOption('program-story');
-  await expect(binding.locator('#facilityBindingActionRequests')).toBeHidden();
-  await binding.getByRole('button', { name: DONE, exact: true }).click();
+  const action = commandActionDialog(page);
+  await expect(action.dialog).toBeVisible();
+  await action.modeProgram.check();
+  await action.program.selectOption('program-story');
+  await expect(action.rows.first()).toBeHidden();
+  await action.save.click();
   await expectAutosaved(page, request, before.saveCalls + 2);
   await expect(page.getByRole('list', { name: 'Что делают игроки', exact: true })).toContainText('Восстановить путь');
   await guide.getByRole('button', { name: '2. Действие', exact: true }).click();
   await guide.getByRole('button', { name: 'ИЗМЕНИТЬ ДЕЙСТВИЕ КОМАНДЫ', exact: true }).click();
-  await expect(binding.getByLabel('ЧТО ЗАПУСТИТЬ', { exact: true })).toHaveValue('program-story');
-  await binding.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
+  await expect(action.modeProgram).toBeChecked();
+  await expect(action.program).toHaveValue('program-story');
+  await action.cancel.click();
   const saved = await facilityState(request);
   expect(saved.saveCalls).toBe(before.saveCalls + 2);
   expect(saved.facility.recoveryPrograms).toEqual([...before.facility.recoveryPrograms, {
@@ -849,28 +976,24 @@ for (const kind of ['command', 'entry']) {
     await openWorkspace(page);
     const guide = page.locator('#facilityStoryGuide');
     await guide.getByRole('button', { name: 'СОЗДАТЬ УСТРОЙСТВО', exact: true }).click();
-    const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+    const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
     await device.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Дверь нового маршрута');
     await device.getByLabel('ТИП', { exact: true }).selectOption('door');
-    await device.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('door-checkpoint');
-    for (const [id, name] of [['closed', 'Заперта'], ['open', 'Открыта']]) {
-      await device.getByRole('button', { name: 'ДОБАВИТЬ СОСТОЯНИЕ', exact: true }).click();
-      const row = device.locator('.facility-state-row').last();
-      await row.locator('.facility-state-id').fill(id);
-      await row.locator('.facility-state-name').fill(name);
-    }
-    await device.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('closed');
-    await device.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД', exact: true }).click();
-    const transition = device.locator('.facility-transition-row').last();
-    await transition.locator('.facility-transition-id').fill('open');
-    await transition.locator('.facility-transition-name').fill('Открыть дверь');
-    await transition.locator('.facility-transition-source').selectOption('closed');
-    await transition.locator('.facility-transition-destination').selectOption('open');
+    await addStates(page, ['Заперта', 'Открыта']);
+    const [closed, open] = await stateChips(page);
+    expect(closed.initial).toBe(true);
+    await addTransition(page, closed.id, open.id, 'Открыть дверь');
+    // The device ID waits in the folded technical block.
+    await deviceDialog(page).technical.locator('summary').click();
+    await page.locator('#facilityDeviceID').fill('door-checkpoint');
     await device.getByRole('button', { name: DONE, exact: true }).click();
     await expect(device).not.toBeVisible();
     await expectAutosaved(page, request, baseline.saveCalls + 1);
     const checkpoint = await facilityState(request);
-    expect(checkpoint.facility.devices[0]).toMatchObject({ id: 'door-checkpoint', transitions: [{ id: 'open' }] });
+    expect(checkpoint.facility.devices[0]).toMatchObject({
+      id: 'door-checkpoint', initialStateId: closed.id,
+      transitions: [{ name: 'Открыть дверь', sourceStateId: closed.id, destinationStateId: open.id }],
+    });
 
     // The first saved device collapsed the guide; the author reopens it.
     await openGuide(page);
@@ -902,17 +1025,21 @@ for (const kind of ['command', 'entry']) {
     await guide.getByRole('button', {
       name: kind === 'command' ? 'СВЯЗАТЬ С КОМАНДОЙ' : 'НАСТРОИТЬ РЕЗУЛЬТАТ НА ТЕРМИНАЛЕ', exact: true,
     }).click();
-    const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
     if (kind === 'command') {
-      await binding.locator('.facility-action-transition').selectOption('open');
-      await binding.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', { exact: true }).fill('Дверь открыта');
-      await binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true }).fill('Открыть дверь?');
+      const action = commandActionDialog(page);
+      await expect(action.dialog).toBeVisible();
+      await action.rows.first().locator('.facility-action-transition').selectOption({ label: 'Открыть дверь' });
+      await action.completedName.fill('Дверь открыта');
+      await action.confirmationText.fill('Открыть дверь?');
+      await action.save.click();
     } else {
-      await binding.getByLabel('БЛОК ЗАПИСИ', { exact: true }).selectOption({ index: 1 });
-      await binding.getByLabel('СОСТОЯНИЕ', { exact: true }).selectOption('open');
-      await binding.getByLabel('ТЕКСТ', { exact: true }).fill('Путь свободен');
+      const rule = ruleDialog(page);
+      await expect(rule.tab('entry-content')).toHaveAttribute('aria-selected', 'true');
+      await rule.block.selectOption({ index: 1 });
+      await rule.state.selectOption({ label: 'Открыта' });
+      await rule.text.fill('Путь свободен');
+      await rule.save.click();
     }
-    await binding.getByRole('button', { name: DONE, exact: true }).click();
     await expectAutosaved(page, request, checkpoint.saveCalls + 3);
     const saved = await facilityState(request);
     expect(saved.brokenReferenceCount).toBe(0);
@@ -946,19 +1073,17 @@ test('explains the optional recovery prerequisite and resumes after adding a tra
   await expect(guide).toContainText('Если нужна программа восстановления, сначала добавьте переход устройства');
   await expect(guide).toContainText('Для простой сцены этот шаг можно пропустить');
   await expect(guide.getByRole('button', { name: 'СОБРАТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true })).toHaveCount(0);
-  const addTransition = guide.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД ДЛЯ ПРОГРАММЫ', exact: true });
-  await addTransition.focus();
+  const editDevice = guide.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true });
+  await expect(editDevice).toHaveCount(1);
+  await editDevice.focus();
   await page.screenshot({ path: 'test-results/facility-story-recovery-prerequisite-narrow.png' });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.keyboard.press('Enter');
-  const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+  const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
   await expect(device.getByLabel('НАЗВАНИЕ', { exact: true })).toHaveValue('Дверь без переходов');
-  await device.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД', exact: true }).click();
-  const transition = device.locator('.facility-transition-row').last();
-  await transition.locator('.facility-transition-id').fill('open');
-  await transition.locator('.facility-transition-name').fill('Открыть дверь');
-  await transition.locator('.facility-transition-source').selectOption('closed');
-  await transition.locator('.facility-transition-destination').selectOption('open');
+  await addTransition(page, 'closed', 'open', 'Открыть дверь');
+  await deviceDialog(page).technical.locator('summary').click();
+  await deviceDialog(page).technical.locator('.facility-transition-id').fill('open');
   await device.getByRole('button', { name: DONE, exact: true }).click();
   await expect(page.locator('#facilityStoryTitle')).toBeFocused();
   await expect(guide).toContainText('переходов: 1');
@@ -966,9 +1091,8 @@ test('explains the optional recovery prerequisite and resumes after adding a tra
   await expect(guide).not.toContainText('сначала добавьте переход устройства');
   await guide.getByRole('button', { name: 'СОБРАТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true }).click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
-  await expect(program.getByLabel('УСТРОЙСТВО', { exact: true })).toHaveValue('door-no-transitions');
   await program.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Восстановить проход');
-  await program.getByLabel('ПЕРЕХОД', { exact: true }).selectOption('open');
+  await fillProgramTransition(page, 'door-no-transitions', 'open');
   await program.getByRole('button', { name: DONE, exact: true }).click();
   await expect(page.locator('#facilityStoryTitle')).toBeFocused();
   await expectAutosaved(page, request, baseline.saveCalls + 2);

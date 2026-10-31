@@ -330,7 +330,7 @@ func TestValidateSessionAcceptsEveryDiagnosticRecoveryReference(t *testing.T) {
 	}
 }
 
-func TestValidateSessionRequiresRecoveryMarkedViableConditionRecovery(t *testing.T) {
+func TestValidateSessionRequiresRecoveryMarkedRecoveryTransitions(t *testing.T) {
 	t.Parallel()
 
 	programID := "open-door"
@@ -344,18 +344,8 @@ func TestValidateSessionRequiresRecoveryMarkedViableConditionRecovery(t *testing
 				Transition: &FacilityTransitionRequest{DeviceID: "door", TransitionID: "open"},
 			}}
 		}},
-		{name: "direct transition does not clear condition", mutate: func(session *Session) {
-			session.Facility.Devices[1].Transitions[0].ConditionEffects = nil
-			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{
-				Transition: &FacilityTransitionRequest{DeviceID: "door", TransitionID: "open"},
-			}}
-		}},
 		{name: "program contains non-recovery transition", mutate: func(session *Session) {
 			session.Facility.Devices[1].Transitions[0].Recovery = false
-			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{RecoveryProgramID: &programID}}
-		}},
-		{name: "program does not clear condition", mutate: func(session *Session) {
-			session.Facility.Devices[1].Transitions[0].ConditionEffects = nil
 			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{RecoveryProgramID: &programID}}
 		}},
 		{name: "non-recovery reference remains invalid beside private recovery", mutate: func(session *Session) {

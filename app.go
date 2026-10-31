@@ -118,10 +118,6 @@ type coordinationSceneResetService interface {
 	ResetScene(context.Context, controlservice.SceneResetRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
 }
 
-type coordinationFacilityRecoveryService interface {
-	RecoverFacilityCondition(context.Context, controlservice.FacilityRecoveryRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
-}
-
 type coordinationFacilityPreviewService interface {
 	PreviewFacility(context.Context, domain.FacilityPreview) controlservice.FacilityPreviewResult
 }
@@ -444,15 +440,6 @@ type PresentationResult struct {
 	FacilityRevision  uint64                     `json:"facilityRevision"`
 	AuthoringRevision uint64                     `json:"authoringRevision"`
 	Terminals         []live.TerminalExplanation `json:"terminals"`
-}
-
-// FacilityRecoveryPayload selects one authored private recovery against the
-// exact facility revision reviewed by the Overseer.
-type FacilityRecoveryPayload struct {
-	ConditionID              string                              `json:"conditionId"`
-	ExpectedFacilityRevision uint64                              `json:"expectedFacilityRevision"`
-	CorrelationID            string                              `json:"correlationId"`
-	Recovery                 *domain.DiagnosticRecoveryReference `json:"recovery"`
 }
 
 // FacilityPreviewPayload selects one detached state or condition override for
@@ -887,7 +874,7 @@ func (app *App) recordRuntimeAuditEvent(outcome string, fields logger.Fields) {
 func facilityAuditEvent(name string) bool {
 	switch name {
 	case "facility.request_received", "facility.decision", "facility.transition", "facility.failure",
-		"facility.recovery", "facility.reset", "facility.overseer_transition", "facility.force", "facility.fault":
+		"facility.reset", "facility.overseer_transition", "facility.force", "facility.fault":
 		return true
 	default:
 		return false
@@ -988,7 +975,6 @@ func knownFacilityAuditAction(action controlservice.FacilityAuditAction) bool {
 	switch action {
 	case controlservice.FacilityAuditActionCommand,
 		controlservice.FacilityAuditActionReset,
-		controlservice.FacilityAuditActionRecover,
 		controlservice.FacilityAuditActionTransition,
 		controlservice.FacilityAuditActionForce,
 		controlservice.FacilityAuditActionFault:
@@ -2087,130 +2073,6 @@ func facilityRevisionForApp(facility *domain.Facility) uint64 {
 		return 0
 	}
 	return facility.Revision
-}
-
-// RecoverFacilityCondition routes one authored private recovery through the
-// coordinator and publishes the canonical durable session before its matching
-// coordination state becomes visible.
-func (app *App) RecoverFacilityCondition(payload FacilityRecoveryPayload) domain.FacilityOperationResult {
-	app.coordinationCommandMu.Lock()
-	defer app.coordinationCommandMu.Unlock()
-
-	if payload.ConditionID == "" || strings.TrimSpace(payload.ConditionID) != payload.ConditionID ||
-		payload.CorrelationID == "" || strings.TrimSpace(payload.CorrelationID) != payload.CorrelationID {
-		return facilityOperationFailureForApp(
-			payload.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"request",
-			0,
-			payload.ExpectedFacilityRevision,
-		)
-	}
-	request := controlservice.FacilityRecoveryRequest{
-		ConditionID:              payload.ConditionID,
-		ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
-		CorrelationID:            payload.CorrelationID,
-		Recovery:                 cloneDiagnosticRecoveryReference(payload.Recovery),
-	}
-	semantic, err := facilityRecoveryRequestToPrivate(request)
-	if err != nil {
-		return facilityOperationFailureForApp(
-			payload.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"request",
-			0,
-			payload.ExpectedFacilityRevision,
-		)
-	}
-	routed, err := facilityRecoveryRequestFromPrivate(semantic)
-	if err != nil {
-		return facilityOperationFailureForApp(
-			payload.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"request",
-			0,
-			payload.ExpectedFacilityRevision,
-		)
-	}
-	coordination, ok := app.deps.Coordination.(coordinationFacilityRecoveryService)
-	if !ok {
-		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailureRuntimeContextEnded,
-			"request",
-			0,
-			routed.ExpectedFacilityRevision,
-		)
-	}
-
-	masterEvents := app.deferMasterEvents()
-	defer masterEvents.Commit()
-
-	state, result, _ := coordination.RecoverFacilityCondition(app.contextSnapshot(), routed)
-	if result == nil {
-		masterEvents.Discard(state)
-		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailurePersistenceFailed,
-			"facility",
-			0,
-			routed.ExpectedFacilityRevision,
-		)
-	}
-	detached, conversionErr := detachedFacilityOperationResultForApp(*result)
-	if conversionErr != nil || detached.CorrelationID != routed.CorrelationID ||
-		!validFacilityRecoveryResultForApp(detached, routed) ||
-		(detached.OK && detached.Changed && !app.canPublishFacilityMutationState(
-			state,
-			detached.SessionRevision,
-			detached.ResultingFacilityRevision,
-		)) {
-		masterEvents.Discard(state)
-		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailurePersistenceFailed,
-			"facility",
-			0,
-			routed.ExpectedFacilityRevision,
-		)
-	}
-	if detached.OK && detached.Changed && detached.Session != nil {
-		canonical := domain.CloneSession(*detached.Session)
-		app.acceptSessionStateRevision(detached.SessionRevision)
-		app.publishSessionState(SessionStateEvent{Revision: detached.SessionRevision, Session: &canonical})
-		masterEvents.Commit()
-		app.publishCoordinationStateIfNewer(state)
-	} else {
-		masterEvents.Discard(state)
-	}
-	return detached
-}
-
-func validFacilityRecoveryResultForApp(
-	result domain.FacilityOperationResult,
-	request controlservice.FacilityRecoveryRequest,
-) bool {
-	if !result.OK {
-		return !result.Changed && knownFacilityRecoveryFailureForApp(result.Failure) &&
-			result.CorrelationID == request.CorrelationID && result.Session == nil &&
-			result.PreviousFacilityRevision == result.ResultingFacilityRevision &&
-			len(result.AffectedDeviceIDs) == 0 && len(result.AffectedConditionIDs) == 0
-	}
-	if result.Failure != "" && result.Failure != domain.FacilityFailureUnspecified {
-		return false
-	}
-	if result.PreviousFacilityRevision != request.ExpectedFacilityRevision ||
-		len(result.AffectedDeviceIDs) != 0 {
-		return false
-	}
-	if !result.Changed {
-		return result.ResultingFacilityRevision == result.PreviousFacilityRevision &&
-			len(result.AffectedConditionIDs) == 0
-	}
-	return result.SessionRevision != 0 && result.Session != nil && result.Session.Facility != nil &&
-		result.ResultingFacilityRevision == result.PreviousFacilityRevision+1 &&
-		result.Session.Facility.Revision == result.ResultingFacilityRevision &&
-		len(result.AffectedConditionIDs) == 1 && result.AffectedConditionIDs[0] == request.ConditionID
 }
 
 func knownFacilityRecoveryFailureForApp(failure domain.FacilityFailureCode) bool {

@@ -20,30 +20,36 @@ async function openFaultsTab(page) {
   await page.locator('#facilityTabConditions').click();
 }
 
+// openSporeCondition follows the ventilation loop's scope link to its fault
+// dialog (FR-019, FR-037).
 async function openSporeCondition(page) {
   await selectDevice(page, 'ventilation-main');
   await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
-  const report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ ОБЪЕКТА', exact: true });
-  await report.locator('.facility-dependency-row').filter({ hasText: 'Область неисправности' })
-    .getByRole('button', { name: /^Открыть ссылку/ }).click();
-  const dialog = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
+  const report = page.getByRole('dialog', { name: 'ЗАВИСИМОСТИ УСТРОЙСТВА', exact: true });
+  const link = report.locator('.facility-dependency-row[data-kind="diagnostic-scope"]')
+    .filter({ hasText: `Неисправность «${SPORES}» действует на это устройство.` });
+  await expect(link).toHaveAttribute('data-destination', 'condition');
+  await link.getByRole('button', { name: `К НЕИСПРАВНОСТИ: ${SPORES}`, exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'НЕИСПРАВНОСТЬ', exact: true });
   await expect(dialog.locator('#facilityConditionName')).toHaveValue(SPORES);
   return dialog;
 }
 
-test('a new fault can start the game active and stays active after resets', async ({ page, request }) => {
+test('a new fault can start the game active and stays active after resets (FR-013, FR-020)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page);
   await selectDevice(page, 'vault-door-main');
   await openFaultsTab(page);
   await page.locator('#btnAddFacilityCondition').click();
-  const dialog = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'НЕИСПРАВНОСТЬ', exact: true });
   await expect(dialog.locator('#facilityConditionInitialWorking')).toBeChecked();
+  // The Overseer clears any fault by hand, so the dialog has no operator-recovery checkbox.
+  await expect(dialog.locator('#facilityConditionPrivateRecovery')).toHaveCount(0);
   await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Привод заклинило');
   await dialog.getByLabel('КАТЕГОРИЯ', { exact: true }).selectOption('offline');
-  await dialog.getByLabel('БЛОКИРУЕМАЯ ВОЗМОЖНОСТЬ', { exact: true }).selectOption('execute-command');
-  await dialog.locator('#facilityConditionPrivateRecovery').check();
+  await dialog.getByLabel('ЧТО БЛОКИРУЕТ', { exact: true }).selectOption('execute-command');
   await dialog.locator('#facilityConditionInitialActive').check();
+  await expect(dialog.locator('#facilityFaultAppearsInitial')).toHaveText('Активна с начала игры.');
   await dialog.getByRole('button', { name: DONE, exact: true }).click();
   await expect(dialog).toBeHidden();
   const row = page.locator('#facilityConditionList').getByRole('button', { name: /Привод заклинило/ });
@@ -52,6 +58,7 @@ test('a new fault can start the game active and stays active after resets', asyn
   await expect.poll(() => conditionByName(request, 'Привод заклинило'))
     .toMatchObject({ initialActive: true, currentActive: true });
   await expectSaved(page);
+  expect((await conditionByName(request, 'Привод заклинило')).recovery).toBeUndefined();
 
   // «СБРОСИТЬ К НАЧАЛЬНОМУ…» on the play card restores the starting value, which is active.
   await page.locator('#btnResetFacilityDevice').click();
@@ -75,7 +82,7 @@ test('a new fault can start the game active and stays active after resets', asyn
   await expect(row).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: АКТИВНА');
 });
 
-test('changing an existing fault starting activity keeps its current activity', async ({ page, request }) => {
+test('changing an existing fault starting activity keeps its current activity (FR-013)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page);
   const dialog = await openSporeCondition(page);
@@ -87,11 +94,16 @@ test('changing an existing fault starting activity keeps its current activity', 
   await expect(row).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: ИСПРАВНО');
   await expect.poll(() => conditionByName(request, SPORES)).toMatchObject({ initialActive: false, currentActive: true });
   await expectSaved(page);
+  // The row opens the fault dialog, which shows the new starting position (FR-019).
   await row.click();
-  await expect(page.locator('#facilitySelectedConditionSummary')).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: ИСПРАВНО');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#facilityConditionInitialWorking')).toBeChecked();
+  await expect(dialog.locator('#facilityFaultAppearsInitial')).toBeHidden();
+  await dialog.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
+  await expect(dialog).toBeHidden();
 });
 
-test('a saved fault without a starting activity opens as working at game start', async ({ page, request }) => {
+test('a saved fault without a starting activity opens as working at game start (FR-013)', async ({ page, request }) => {
   await resetFixture(request);
   const demo = await demoSession();
   delete demo.facility.conditions.find(condition => condition.name === SPORES).initialActive;

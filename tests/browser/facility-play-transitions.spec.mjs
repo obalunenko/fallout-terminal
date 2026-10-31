@@ -5,13 +5,15 @@ import { expect, test } from '@playwright/test';
 import {
   feedEntries, forceState, openPlayerTable, playCard, PLAYER_FIXTURE, selectDevice, setConditionActive,
 } from './helpers/facility-play.mjs';
+import { renderedError } from './helpers/facility-editors.mjs';
 import { FIXTURE, demoSession, facilityState, fixtureSession, openOverseer, seedDemo } from './helpers/overseer-forms.mjs';
 
 // User Story 1: run a device's transitions from its card
 // (specs/040-facility-play-controls/spec.md, contracts/overseer-ui.md).
 
 const VERDICTS_URL = new URL('../../internal/session/testdata/demo-transition-verdicts.json', import.meta.url);
-const STALE = 'СОСТОЯНИЕ ОБЪЕКТА ИЗМЕНИЛОСЬ. ПОВТОРИТЕ ЗАПРОС';
+// The facility stale-revision message (specs/041-facility-editors-language/contracts/overseer-ui.md «Errors»).
+const STALE = 'Локация изменилась, пока выполнялся запрос. Проверьте новое состояние и повторите.';
 const DOOR = 'vault-door-main';
 const GRID = 'power-grid-main';
 
@@ -112,8 +114,11 @@ test('a transition based on an old state is refused and the card shows the state
   await forceState(request, DOOR, 'open');
   await card.run('open').click();
 
-  await expect(card.status).toHaveText(STALE);
+  await expect(card.status.locator('.overseer-error-message')).toHaveText(STALE);
   await expect(card.status).toHaveAttribute('data-state', 'stale');
+  expect(await renderedError(card.status)).toMatchObject({
+    area: 'facility', key: 'stale-revision', message: STALE, original: 'failure: stale-revision',
+  });
   await expect(page.locator('#facilityDeviceHeaderCurrent')).toHaveText('СЕЙЧАС: Открыта');
   await expect(card.transition('seal')).toBeVisible();
   await expect(card.transition('open')).toHaveCount(0);

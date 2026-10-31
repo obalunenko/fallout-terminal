@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 47 methods and seven named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 46 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -64,7 +64,6 @@ test('desktop facade retains one v2 service with 47 methods and seven named even
     'OpenSession',
     'OpenURL',
     'PreviewFacility',
-    'RecoverFacilityCondition',
     'ReleaseCharacter',
     'RenameLogicalSession',
     'ReplaceTerminalGroups',
@@ -123,6 +122,17 @@ test('generated desktop service calls remain explicit and normalized behind the 
   ]));
   expect(calls).not.toContain('Dispatch');
   expect(calls).not.toContain('Call');
+});
+
+test('a queued fixture result answers one recorded call and is then cleared', async ({ page }) => {
+  const [failed, next] = await page.evaluate(async () => {
+    __desktopFixture.setNextTerminalActionResult('OpenPlayerConfig', {
+      ok: false, error: 'could not read the player config',
+    });
+    return [await desktopAPI.openPlayerConfig(), await desktopAPI.openPlayerConfig()];
+  });
+  expect(failed).toEqual(expect.objectContaining({ ok: false, error: 'could not read the player config' }));
+  expect(next).toEqual(expect.objectContaining({ ok: true, error: '' }));
 });
 
 test('terminal-group replacement forwards both revisions and returns detached canonical authorities', async ({ page }) => {
@@ -324,23 +334,15 @@ test('authoring saves reject inconsistent successful responses', async ({ page }
   expect(observed.stale.session).not.toBeNull();
 });
 
-test('facility inspection, preview, resets, and recovery use normalized detached contracts', async ({ page }) => {
+test('facility inspection, preview, and resets use normalized detached contracts', async ({ page }) => {
   const observed = await page.evaluate(async () => {
     const previewRequest = {
       expectedFacilityRevision: 8,
       terminalId: 'terminal-security',
       deviceState: { deviceId: 'security-door', stateId: 'open' },
     };
-    const recoveryRequest = {
-      conditionId: 'grid-offline',
-      expectedFacilityRevision: 8,
-      correlationId: 'recover-8',
-      recovery: { transition: { deviceId: 'power-grid', transitionId: 'restore' } },
-    };
     const previewPending = desktopAPI.previewFacility(previewRequest);
-    const recoveryPending = desktopAPI.recoverFacilityCondition(recoveryRequest);
     previewRequest.deviceState.stateId = 'offline';
-    recoveryRequest.recovery.transition.transitionId = 'mutated';
     __desktopFixture.setNextTerminalActionResult('ResetScene', {
       ok: true, changed: true, correlationId: 'scene-reset-8', sessionRevision: 19,
       previousFacilityRevision: 8, resultingFacilityRevision: 9, authoringRevision: 3,
@@ -348,24 +350,21 @@ test('facility inspection, preview, resets, and recovery use normalized detached
       resetCommands: [{ terminalId: 'terminal-security', commandId: 'open-door' }],
       session: { version: 1, terminals: [], facility: { revision: 9 } },
     });
-    const [preview, recovery, deviceReset, facilityReset] = await Promise.all([
+    const [preview, deviceReset, facilityReset] = await Promise.all([
       previewPending,
-      recoveryPending,
       desktopAPI.resetFacilityDevice({
         deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8',
       }),
       desktopAPI.resetScene({ expectedSessionRevision: 18, expectedFacilityRevision: 8, correlationId: 'scene-reset-8' }),
     ]);
     preview.terminal.terminalName = 'mutated result';
-    recovery.session.name = 'mutated result';
     return {
       preview,
-      recovery,
       deviceReset,
       facilityReset,
       calls: __desktopFixture.calls.filter(call => [
-        'PreviewFacility', 'RecoverFacilityCondition', 'ResetFacilityDevice', 'ResetScene',
-      ].includes(call.method)).slice(-4),
+        'PreviewFacility', 'ResetFacilityDevice', 'ResetScene',
+      ].includes(call.method)).slice(-3),
     };
   });
 
@@ -377,15 +376,6 @@ test('facility inspection, preview, resets, and recovery use normalized detached
         expectedAuthoringRevision: 0,
         terminalId: 'terminal-security',
         deviceState: { DeviceID: 'security-door', StateID: 'open' },
-      }],
-    },
-    {
-      method: 'RecoverFacilityCondition',
-      args: [{
-        conditionId: 'grid-offline',
-        expectedFacilityRevision: 8,
-        correlationId: 'recover-8',
-        recovery: { transition: { deviceId: 'power-grid', transitionId: 'restore' } },
       }],
     },
     {
@@ -402,14 +392,6 @@ test('facility inspection, preview, resets, and recovery use normalized detached
     failure: '',
     facilityRevision: 8,
     terminal: expect.objectContaining({ terminalId: 'terminal-security', terminalName: 'mutated result' }),
-  }));
-  expect(observed.recovery).toEqual(expect.objectContaining({
-    ok: true,
-    changed: true,
-    correlationId: 'recover-8',
-    previousFacilityRevision: 8,
-    resultingFacilityRevision: 9,
-    affectedConditionIds: ['grid-offline'],
   }));
   expect(observed.deviceReset).toEqual(expect.objectContaining({
     ok: true,
@@ -503,23 +485,7 @@ test('facility read and mutation calls reject inconsistent successful revisions'
     const reset = await desktopAPI.resetFacilityDevice({
       deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8',
     });
-
-    __desktopFixture.setNextTerminalActionResult('RecoverFacilityCondition', {
-      ok: false,
-      changed: false,
-      correlationId: 'recover-8',
-      failure: 'stale-revision',
-      issues: [{ code: 'stale-revision', entityKind: 'facility' }],
-      previousFacilityRevision: 9,
-      resultingFacilityRevision: 9,
-    });
-    const staleRecovery = await desktopAPI.recoverFacilityCondition({
-      conditionId: 'grid-offline',
-      expectedFacilityRevision: 8,
-      correlationId: 'recover-8',
-      recovery: { privateOverseerAction: true },
-    });
-    return { inspection, preview, reset, staleRecovery };
+    return { inspection, preview, reset };
   });
 
   for (const result of [observed.inspection, observed.preview, observed.reset]) {
@@ -537,14 +503,6 @@ test('facility read and mutation calls reject inconsistent successful revisions'
     previousFacilityRevision: 8,
     resultingFacilityRevision: 8,
     session: null,
-  }));
-  expect(observed.staleRecovery).toEqual(expect.objectContaining({
-    ok: false,
-    changed: false,
-    correlationId: 'recover-8',
-    failure: 'stale-revision',
-    previousFacilityRevision: 9,
-    resultingFacilityRevision: 9,
   }));
 });
 

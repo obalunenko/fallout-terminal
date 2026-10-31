@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test';
 
+import { expectRussianMessage, renderedError } from './helpers/facility-editors.mjs';
+
+// The general messages of the public-access and credentials areas
+// (specs/041-facility-editors-language/contracts/overseer-ui.md «Errors»).
+const PUBLIC_ACCESS_MESSAGE = 'Не удалось изменить публичный доступ. Повторите попытку. Если ошибка повторится, сохраните журнал.';
+const CREDENTIALS_MESSAGE = 'Не удалось сохранить данные доступа. Проверьте введённые значения и повторите попытку. Если ошибка повторится, сохраните журнал.';
+
+// expectGeneralError checks that sink shows the area's general Russian
+// message and keeps the original text only under the collapsed
+// «подробности для разработчика» (FR-041, SC-008).
+async function expectGeneralError(sink, { area, message, original, prefix = '' }) {
+  await expect(sink.locator('.overseer-error-original')).toHaveText(original);
+  expect(await renderedError(sink)).toEqual({
+    area, key: 'general', message, original, summary: 'подробности для разработчика',
+  });
+  expectRussianMessage(message);
+  expect(await sink.locator('.overseer-error-details').evaluate(details => details.open)).toBe(false);
+  if (prefix) await expect(sink.locator('.overseer-error-prefix')).toHaveText(prefix);
+  await expect(sink.locator('.overseer-error-message')).not.toContainText(original);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/__fixture/public-access-settings');
   await expect(page.locator('#publicAccessSection')).toBeVisible();
@@ -219,7 +240,10 @@ test('token replacement failure stays open, clears the secret, and preserves the
   }));
 
   await expect(page.locator('#publicAccessProviderTokenDialog')).toBeVisible();
-  await expect(page.locator('#publicAccessProviderTokenError')).toContainText('Keychain is unavailable');
+  await expectGeneralError(page.locator('#publicAccessProviderTokenError'), {
+    area: 'credentials', message: CREDENTIALS_MESSAGE,
+    original: 'Keychain is unavailable; local access remains available.',
+  });
   await expect(page.locator('#publicAccessReplacementProviderToken')).toHaveValue('');
   await expect(page.getByLabel('Зарезервированный домен')).toHaveValue('draft.example');
   await expect(page.locator('body')).not.toContainText('synthetic-failed-provider-token');
@@ -381,6 +405,25 @@ test('credential sharing stays native when WebView clipboard permission is unava
     .toBe('Логин: players\nПароль: synthetic-player-share-value');
 });
 
+test('a credential-copy failure shows the general credentials message with its original text (FR-041, SC-008)', async ({ page }) => {
+  await openPublicAccessSettings(page);
+  await page.evaluate(() => __desktopFixture.emit('public-access-status', {
+    preferences: { version: 1, enabledPreference: false, username: 'players', revision: 2 },
+    providerTokenPresence: 'present', playerPasswordPresence: 'present',
+    status: { state: 'disabled', generation: 2, settingsRevision: 2 },
+  }));
+  await page.evaluate(() => __desktopFixture.failNextPublicAccessCredentialShare());
+  await page.locator('#btnSharePublicAccessCredentials').click();
+  await expectGeneralError(page.locator('#publicAccessSettingsCopyStatus'), {
+    area: 'credentials', message: CREDENTIALS_MESSAGE, original: 'The secure credential store is unavailable.',
+  });
+  expect(await page.evaluate(() => __desktopFixture.takeClipboardText())).toBe('');
+
+  // The next share succeeds and replaces the failure.
+  await page.locator('#btnSharePublicAccessCredentials').click();
+  await expect(page.locator('#publicAccessSettingsCopyStatus')).toHaveText('ЛОГИН И ПАРОЛЬ СКОПИРОВАНЫ');
+});
+
 test('failed domain state is redacted, URL-free, and rendered as error', async ({ page }) => {
   await page.evaluate(() => __desktopFixture.emit('public-access-status', {
     preferences: { version: 1, reservedDomain: 'unavailable.example', username: 'players', revision: 8 },
@@ -392,7 +435,11 @@ test('failed domain state is redacted, URL-free, and rendered as error', async (
     },
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ОШИБКА');
-  await expect(page.locator('#publicAccessError')).toContainText('unavailable');
+  await expectGeneralError(page.locator('#publicAccessError'), {
+    area: 'public-access', message: PUBLIC_ACCESS_MESSAGE,
+    original: 'The reserved domain is unavailable for this account.',
+    prefix: 'ЛОКАЛЬНЫЙ РЕЖИМ ПРОДОЛЖАЕТ РАБОТАТЬ',
+  });
   await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
   await expect(page.locator('body')).not.toContainText(/authtoken|password-test-value/i);
 });
@@ -532,11 +579,18 @@ test('active mutation failure stays URL-free, redacted, and keeps transition act
   }));
   await expect(page.locator('#publicAccessStatus')).toHaveText('ОШИБКА');
   await expect(page.locator('#publicAccessURL')).toHaveText('ПОЯВИТСЯ ПОСЛЕ ЗАПУСКА');
-  await expect(page.locator('#publicAccessError')).toContainText('secure credential store is unavailable');
+  await expectGeneralError(page.locator('#publicAccessError'), {
+    area: 'public-access', message: PUBLIC_ACCESS_MESSAGE,
+    original: 'The secure credential store is unavailable; local access remains available.',
+    prefix: 'ЛОКАЛЬНЫЙ РЕЖИМ ПРОДОЛЖАЕТ РАБОТАТЬ',
+  });
   await expect(page.locator('#publicAccessSettingsDialog')).toBeVisible();
   await expect(page.locator('#publicAccessPlayerCredentialsDialog')).toBeVisible();
   await expect(page.getByLabel('Логин игроков')).toHaveValue('friends');
-  await expect(page.locator('#publicAccessPlayerCredentialsError')).toContainText('Keychain is unavailable');
+  await expectGeneralError(page.locator('#publicAccessPlayerCredentialsError'), {
+    area: 'credentials', message: CREDENTIALS_MESSAGE,
+    original: 'Keychain is unavailable; local access remains available.',
+  });
   await expect(page.locator('#btnSavePublicAccessPlayerCredentials')).toBeEnabled();
   await expect(page.locator('#btnStartPublicAccess')).toBeEnabled();
 });

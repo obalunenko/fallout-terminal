@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { expectSaved } from './helpers/authoring-bar.mjs';
+import { faultDialog, fillRule, ruleDialog } from './helpers/facility-editors.mjs';
 import {
   demoSession, facilityState, fixtureSession, openOverseer, resetFixture, seedSession,
 } from './helpers/overseer-forms.mjs';
@@ -11,6 +12,11 @@ import {
 const WARDEN_TERMINAL = 't_demo1';
 const DOOR = 'vault-door-main';
 const DOOR_BINDING = 't_demo1/b_vault_door_status/entry-content/0';
+// The demo's door text rule as its sentence fields (FR-023).
+const DOOR_RULE = {
+  deviceId: DOOR, stateId: 'open', terminalId: WARDEN_TERMINAL, nodeId: 'n_entry_vault_shutdown',
+  block: 'b_vault_door_status',
+};
 const KIND_LABELS = {
   'name-changed': 'ПЕРЕИМЕНУЕТСЯ',
   'text-changed': 'ТЕКСТ ИЗМЕНИТСЯ',
@@ -158,18 +164,25 @@ test('the panes stack on a narrow window', async ({ page, request }) => {
 test('a fault preview preselects the opposite activity', async ({ page, request }) => {
   const session = await seedDemoWith(request);
   await openOverseer(page);
-  // Faults are listed on the «НЕИСПРАВНОСТИ» tab.
+  // Faults are listed on the «НЕИСПРАВНОСТИ» tab, and a row opens the fault dialog.
   await page.locator('#facilityTabConditions').click();
+  const fault = faultDialog(page);
   for (const condition of session.facility.conditions.slice(0, 3)) {
     await page.locator(`[data-facility-kind="condition"][data-facility-id="${condition.id}"]`).click();
+    await expect(fault.dialog).toBeVisible();
+    await expect(fault.name).toHaveValue(condition.name);
     await page.locator('#btnPreviewFacilityCondition').click();
     await expect(page.locator('#facilityPreviewDialog')).toBeVisible();
     if (condition.currentActive) await expect(page.locator('#facilityPreviewActive')).not.toBeChecked();
     else await expect(page.locator('#facilityPreviewActive')).toBeChecked();
     await waitForPreview(page);
     await expectNamedDifferences(page);
+    // The preview opens over the fault dialog, which stays open behind it.
     await page.locator('#btnCloseFacilityPreview').click();
     await expect(page.locator('#facilityPreviewDialog')).toBeHidden();
+    await expect(fault.dialog).toBeVisible();
+    await page.locator('#btnCancelFacilityCondition').click();
+    await expect(fault.dialog).toBeHidden();
   }
 });
 
@@ -196,12 +209,18 @@ test('the preview reflects an applied text rule, even while its save is in fligh
   // Text rules are listed on the «ЧТО ВИДЯТ ИГРОКИ» tab.
   await page.locator('#facilityTabInformation').click();
   const binding = page.locator(`[data-facility-kind="binding"][data-facility-id="${DOOR_BINDING}"]`);
+  const rule = ruleDialog(page);
   const editRule = async text => {
     await binding.getByRole('button', { name: /^Изменить/ }).click();
-    await expect(page.locator('#facilityBindingDialog')).toBeVisible();
-    await page.locator('#facilityBindingText').fill(text);
-    await page.locator('#facilityBindingDialog').getByRole('button', { name: 'ГОТОВО' }).click();
-    await expect(page.locator('#facilityBindingDialog')).toBeHidden();
+    await expect(rule.dialog).toBeVisible();
+    await expect(rule.tab('entry-content')).toHaveAttribute('aria-selected', 'true');
+    await expect(rule.device).toHaveValue(DOOR_RULE.deviceId);
+    await expect(rule.state).toHaveValue(DOOR_RULE.stateId);
+    await expect(rule.where.locator('option:checked')).toHaveAttribute('data-node-id', DOOR_RULE.nodeId);
+    await expect(rule.block).toHaveValue(DOOR_RULE.block);
+    await fillRule(page, { ...DOOR_RULE, text });
+    await rule.save.click();
+    await expect(rule.dialog).toBeHidden();
   };
 
   await editRule('ГЕРМОДВЕРЬ: НАСТЕЖЬ');

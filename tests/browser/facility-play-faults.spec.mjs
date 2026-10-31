@@ -26,6 +26,8 @@ async function openDoor(page, request, session = null) {
 
 const savedFault = async request => (await fixtureSession(request)).facility.conditions.find(value => value.id === FAULT);
 const doorRow = page => page.locator(`#facilityDeviceList [data-facility-id="${DOOR}"]`);
+const badge = row => row.locator('.facility-state-badge');
+const faultMark = row => row.locator('.facility-fault-mark');
 
 test('turning a fault on applies its effect and is counted (AS1, FR-009)', async ({ page, request }) => {
   const card = await openDoor(page, request);
@@ -40,7 +42,9 @@ test('turning a fault on applies its effect and is counted (AS1, FR-009)', async
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
   await expect(card.fault(FAULT).locator('.facility-play-fault-current')).toHaveText('АКТИВНА');
   await expect(page.locator('#facilityDeviceHeaderFaults')).toHaveText('АКТИВНЫХ НЕИСПРАВНОСТЕЙ: 1');
-  await expect(doorRow(page).locator('.facility-device-row-state')).toHaveText('Заперта · ● 1');
+  await expect(badge(doorRow(page))).toHaveText('Заперта');
+  await expect(faultMark(doorRow(page))).toHaveText('● 1');
+  await expect(faultMark(doorRow(page))).toHaveAttribute('aria-label', 'Активных неисправностей: 1');
   await expect(doorRow(page)).toHaveAttribute('data-active-faults', '1');
   expect(await savedFault(request)).toMatchObject({ currentActive: true, initialActive: false });
 
@@ -60,7 +64,9 @@ test('turning a fault off keeps its starting position (AS2, FR-010)', async ({ p
   await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ СНЯТА');
   await expect(card.faultSwitch(FAULT)).toHaveAttribute('aria-checked', 'false');
   await expect(card.fault(FAULT).locator('.facility-play-fault-initial')).toHaveText('В НАЧАЛЕ ИГРЫ: ИСПРАВНО');
-  await expect(doorRow(page).locator('.facility-device-row-state')).toHaveText('Заперта');
+  await expect(badge(doorRow(page))).toHaveText('Заперта');
+  await expect(faultMark(doorRow(page))).toHaveCount(0);
+  await expect(doorRow(page)).toHaveAttribute('data-active-faults', '0');
   expect(await savedFault(request)).toMatchObject({ currentActive: false, initialActive: false });
   const kinds = (await feedEntries(page)).map(entry => entry.kind);
   expect(kinds.slice(0, 2)).toEqual(['fault', 'fault']);
@@ -74,15 +80,20 @@ test('a device without faults says so and offers no switch (AS3)', async ({ page
   await expect(page.locator('#facilityPlayFaultsEmpty')).toHaveText('У УСТРОЙСТВА НЕТ НЕИСПРАВНОСТЕЙ');
 });
 
-test('operator recovery does not limit the switch (FR-009)', async ({ page, request }) => {
+test('a fault with no recovery entry is still switched on and off by hand (FR-009, 041 FR-020)', async ({ page, request }) => {
   const demo = await demoSession();
-  const fault = demo.facility.conditions.find(value => value.id === FAULT);
-  fault.recovery = fault.recovery.filter(reference => reference.privateOverseerAction !== true);
+  delete demo.facility.conditions.find(value => value.id === FAULT).recovery;
   const card = await openDoor(page, request, demo);
+  expect((await savedFault(request)).recovery).toBeUndefined();
   await card.faultSwitch(FAULT).click();
   await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ АКТИВИРОВАНА');
-  expect((await savedFault(request)).recovery.some(reference => reference.privateOverseerAction)).toBe(false);
-  expect((await savedFault(request)).currentActive).toBe(true);
+  expect(await savedFault(request)).toMatchObject({ currentActive: true });
+  await card.faultSwitch(FAULT).click();
+  await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ СНЯТА');
+  await expect(card.faultSwitch(FAULT)).toHaveAttribute('aria-checked', 'false');
+  const saved = await savedFault(request);
+  expect(saved.currentActive ?? false).toBe(false);
+  expect(saved.recovery).toBeUndefined();
 });
 
 test('a reset that only restores faults succeeds (FR-011)', async ({ page, request }) => {
@@ -100,14 +111,18 @@ test('a reset that only restores faults succeeds (FR-011)', async ({ page, reque
   expect((await feedEntries(page))[0].text).toContain('сброс к начальному: неисправности восстановлены · Смотритель');
 });
 
-test('the device row follows a fault switched on another device card', async ({ page, request }) => {
+test('the device row follows a fault switched on another device card (041 FR-030, FR-032)', async ({ page, request }) => {
   await openDoor(page, request);
   await setConditionActive(request, 'air-spore-bloom', true);
   await openOverseer(page);
   const ventilation = page.locator('#facilityDeviceList [data-facility-id="ventilation-main"]');
-  await expect(ventilation.locator('.facility-device-row-state')).toHaveText(/^\S+ · ● 1$/);
+  await expect(faultMark(ventilation)).toHaveText('● 1');
+  await expect(ventilation).toHaveAttribute('data-active-faults', '1');
+  const state = await badge(ventilation).textContent();
   await selectDevice(page, 'ventilation-main');
   await playCard(page).faultSwitch('air-spore-bloom').click();
-  await expect(ventilation.locator('.facility-device-row-state')).not.toContainText('●');
+  await expect(faultMark(ventilation)).toHaveCount(0);
   await expect(ventilation).toHaveAttribute('data-active-faults', '0');
+  // A fault changes only the mark: the state badge stays.
+  await expect(badge(ventilation)).toHaveText(state);
 });

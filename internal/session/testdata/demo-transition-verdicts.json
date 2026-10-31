@@ -235,6 +235,42 @@
   },
   {
     "deviceId": "reactor-main",
+    "transitionId": "backup-grid-start",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "scrammed",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "reactor-main",
+    "transitionId": "backup-grid-start",
+    "case": "unmet:power-grid-main",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "offline",
+      "reactor-main": "scrammed",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": false
+  },
+  {
+    "deviceId": "reactor-main",
     "transitionId": "scram",
     "case": "met",
     "states": {

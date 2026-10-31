@@ -1,6 +1,30 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+import { expectRussianMessage, renderedError } from './helpers/facility-editors.mjs';
+
+// Catalog messages (specs/041-facility-editors-language/contracts/overseer-ui.md «Errors»).
+const MESSAGES = Object.freeze({
+  broadcast: 'Не удалось изменить трансляцию. Повторите попытку. Если ошибка повторится, сохраните журнал.',
+  commands: 'Не удалось обработать запрос игрока. Повторите решение. Если ошибка повторится, сохраните журнал.',
+  conflict: 'Правка противоречит текущим данным локации. Проверьте связанные элементы и повторите.',
+  persistenceFailed: 'Не удалось записать файл сессии. Проверьте, что диск доступен и файл не защищён от записи, затем повторите.',
+});
+
+// expectCatalogError checks that sink shows a catalog message after its
+// prefix, with the original text only under the collapsed
+// «подробности для разработчика» (FR-039, FR-041, SC-008).
+async function expectCatalogError(sink, { area, key, message, original, prefix = '' }) {
+  await expect(sink.locator('.overseer-error-message')).toHaveText(message);
+  expect(await renderedError(sink)).toEqual({
+    area, key, message, original, summary: 'подробности для разработчика',
+  });
+  expectRussianMessage(message);
+  expect(await sink.locator('.overseer-error-details').evaluate(details => details.open)).toBe(false);
+  if (prefix) await expect(sink.locator('.overseer-error-prefix')).toHaveText(prefix);
+  else await expect(sink.locator('.overseer-error-prefix')).toHaveCount(0);
+}
+
 const FIXTURE_URL = '/__fixture/state-changing-command-authoring';
 const TERMINAL_ID = 'terminal-stateful';
 const BUNDLED_DEMO_URL = new URL('../../sessions/demo.json', import.meta.url);
@@ -540,7 +564,9 @@ test('take-off-air always confirms, exposes failures, and chains unfinished prog
   await page.locator('#btnConfirmTakeOffAir').click();
   await expect.poll(() => desktopCallCount(page, 'RequestTerminalClear')).toBe(1);
   await expect(dialog).toBeVisible();
-  await expect(page.locator('#takeOffAirError')).toContainText('fixture clear failed');
+  await expectCatalogError(page.locator('#takeOffAirError'), {
+    area: 'broadcast', key: 'general', message: MESSAGES.broadcast, original: 'fixture clear failed',
+  });
   await expect(page.locator('#liveFlag')).toBeVisible();
 
   await page.evaluate(() => __desktopFixture.setNextTerminalActionResult('RequestTerminalClear', {
@@ -834,7 +860,10 @@ test('scene reset rejects a backend success that does not advance the session re
     __desktopFixture.releaseHeldCalls('ResetScene');
   }, { correlationId: call.args[0].correlationId, revision: call.args[0].expectedSessionRevision, session: stale.session });
 
-  await expect(scene.status).toHaveText('СЦЕНА НЕ СБРОШЕНА: КОМАНДА ИЛИ ЕЁ ДЕЙСТВИЕ ИЗМЕНИЛИСЬ · desktop-result');
+  await expectCatalogError(scene.status, {
+    area: 'facility', key: 'conflict', message: MESSAGES.conflict,
+    original: 'failure: conflict · desktop-result', prefix: 'СЦЕНА НЕ СБРОШЕНА:',
+  });
   await expect(scene.dialog).toBeVisible();
   await expect(page.locator('#saveStatus')).toHaveAttribute('data-wails-result', 'error');
   await expect(page.locator('.tree-row', { hasText: 'Двери открыты' })).toHaveCount(1);
@@ -1054,7 +1083,10 @@ test('individual block-owner reset cancels and fails atomically before restoring
   }));
   await reset.click();
   await confirmation.getByRole('button', { name: 'ПОДТВЕРДИТЬ' }).click();
-  await expect(page.locator('#coordinationError')).toContainText('fixture entry block reset failed');
+  await expectCatalogError(page.locator('#coordinationError'), {
+    area: 'commands', key: 'general', message: MESSAGES.commands,
+    original: 'fixture entry block reset failed', prefix: 'ОШИБКА ИЗМЕНЕНИЯ СОСТОЯНИЯ:',
+  });
   await expect(page.locator('#saveStatus')).not.toHaveAttribute('data-state', 'error');
   await expect.poll(() => authoringDurableState(page)).toEqual(initial);
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
@@ -1108,7 +1140,10 @@ test('scene reset cancels and fails atomically before restoring every owner labe
   }));
   await scene.open.click();
   await scene.confirm.click();
-  await expect(scene.status).toContainText('СЦЕНА НЕ СБРОШЕНА: НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
+  await expectCatalogError(scene.status, {
+    area: 'facility', key: 'persistence-failed', message: MESSAGES.persistenceFailed,
+    original: 'failure: persistence-failed · persistence', prefix: 'СЦЕНА НЕ СБРОШЕНА:',
+  });
   await expect.poll(() => authoringDurableState(page)).toEqual(initial);
   await scene.cancel.click();
   await selectEntry(page, 'СОСТОЯНИЕ РЕАКТОРА');
@@ -1288,7 +1323,7 @@ test('block dialog rejects a block reference that a rejected save removed, witho
   await page.route(`**${FIXTURE_URL}/save`, route => route.fulfill({ json: { ok: false } }));
   await page.evaluate(() => __desktopFixture.releaseHeldCalls('SaveAuthoring'));
   await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'error');
-  await expect(page.locator('#saveStatus')).toContainText('ОШИБКА СОХРАНЕНИЯ: ');
+  await expect(page.locator('#saveStatus')).toContainText(`ОШИБКА СОХРАНЕНИЯ: ${MESSAGES.persistenceFailed}`);
   const savesBefore = await desktopCallCount(page, 'SaveAuthoring');
 
   await dialog.locator('[data-entry-block-command-action="apply"]').click();

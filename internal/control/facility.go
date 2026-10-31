@@ -25,23 +25,12 @@ type FacilityMutationRequest struct {
 	CommandID                string
 	ExpectedFacilityRevision uint64
 	Transitions              []domain.FacilityTransitionRequest
-	RecoveryConditionID      string
-	Recovery                 *domain.DiagnosticRecoveryReference
 }
 
 // FacilityStore is the one-way synchronous durability boundary for an
 // approved facility-backed command.
 type FacilityStore interface {
 	ApplyWorldAction(context.Context, FacilityMutationRequest) domain.FacilityOperationResult
-}
-
-// FacilityRecoveryRequest identifies one allowlisted private recovery against
-// the exact facility revision inspected by the Overseer.
-type FacilityRecoveryRequest struct {
-	ConditionID              string
-	ExpectedFacilityRevision uint64
-	CorrelationID            string
-	Recovery                 *domain.DiagnosticRecoveryReference
 }
 
 // FacilityDependencyInspectionRequest carries the canonical session snapshot
@@ -139,7 +128,6 @@ type FacilityAuditAction string
 const (
 	FacilityAuditActionCommand    FacilityAuditAction = "command"
 	FacilityAuditActionReset      FacilityAuditAction = "reset"
-	FacilityAuditActionRecover    FacilityAuditAction = "recover"
 	FacilityAuditActionTransition FacilityAuditAction = "transition"
 	FacilityAuditActionForce      FacilityAuditAction = "force"
 	FacilityAuditActionFault      FacilityAuditAction = "fault"
@@ -150,7 +138,6 @@ const (
 	facilityAuditEventDecision           = "facility.decision"
 	facilityAuditEventTransition         = "facility.transition"
 	facilityAuditEventFailure            = "facility.failure"
-	facilityAuditEventRecovery           = "facility.recovery"
 	facilityAuditEventReset              = "facility.reset"
 	facilityAuditEventOverseerTransition = "facility.overseer_transition"
 	facilityAuditEventForce              = "facility.force"
@@ -206,19 +193,6 @@ type FacilityAuditFacts struct {
 func cloneFacilityMutationRequest(request FacilityMutationRequest) FacilityMutationRequest {
 	clone := request
 	clone.Transitions = domain.CloneFacilityTransitionRequests(request.Transitions)
-	if request.Recovery != nil {
-		recovery := domain.CloneDiagnosticRecoveryReference(*request.Recovery)
-		clone.Recovery = &recovery
-	}
-	return clone
-}
-
-func cloneFacilityRecoveryRequest(request FacilityRecoveryRequest) FacilityRecoveryRequest {
-	clone := request
-	if request.Recovery != nil {
-		recovery := domain.CloneDiagnosticRecoveryReference(*request.Recovery)
-		clone.Recovery = &recovery
-	}
 	return clone
 }
 
@@ -436,133 +410,6 @@ func cloneFacilityDependencyReport(report *domain.FacilityDependencyReport) *dom
 		clone.Dependencies[index].TerminalID = cloneString(clone.Dependencies[index].TerminalID)
 	}
 	return &clone
-}
-
-// RecoverFacilityCondition applies one explicitly allowlisted private
-// Overseer recovery through the same durable world-action boundary used by
-// approved player commands.
-func (service *Service) RecoverFacilityCondition(
-	ctx context.Context,
-	request FacilityRecoveryRequest,
-) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
-	if service == nil {
-		result := facilityRecoveryDecisionResult(request, 0, domain.FacilityFailureRuntimeContextEnded)
-		return nil, &result, facilityFailureError(result.Failure)
-	}
-	if ctx == nil {
-		result := facilityRecoveryDecisionResult(
-			request,
-			service.currentFacilityRevision(),
-			domain.FacilityFailureRuntimeContextEnded,
-		)
-		return service.Snapshot(), &result, facilityFailureError(result.Failure)
-	}
-
-	request = cloneFacilityRecoveryRequest(request)
-	var state *domain.MasterCoordinationState
-	var operation *domain.FacilityOperationResult
-	var operationErr error
-	committed := service.commit(func(runtime *domain.ProcessRuntime) transition {
-		state = masterSnapshot(runtime)
-		currentRevision := facilityRevision(runtime.Facility)
-		fail := func(code domain.FacilityFailureCode, outcome string) transition {
-			result := facilityRecoveryDecisionResult(request, currentRevision, code)
-			operation = new(result)
-			operationErr = facilityFailureError(code)
-			change := transition{}
-			change.audit(facilityRecoveryAudit(request, result, outcome, nil, nil))
-			return change
-		}
-
-		if ctx.Err() != nil {
-			return fail(domain.FacilityFailureRuntimeContextEnded, "failed")
-		}
-		if strings.TrimSpace(request.CorrelationID) == "" || strings.TrimSpace(request.ConditionID) == "" ||
-			!privateFacilityRecovery(request.Recovery) {
-			return fail(domain.FacilityFailureInvalidConfiguration, "invalid")
-		}
-		if runtime.Facility == nil {
-			return fail(domain.FacilityFailureMissingReference, "failed")
-		}
-		if request.ExpectedFacilityRevision != currentRevision {
-			return fail(domain.FacilityFailureStaleRevision, "stale")
-		}
-		condition := facilityCondition(runtime.Facility, request.ConditionID)
-		if condition == nil {
-			return fail(domain.FacilityFailureMissingReference, "failed")
-		}
-		if !conditionAllowsRecovery(*condition, *request.Recovery) {
-			return fail(domain.FacilityFailureInvalidConfiguration, "invalid")
-		}
-		if service.facilityStore == nil {
-			return fail(domain.FacilityFailurePersistenceFailed, "failed")
-		}
-
-		mutation := FacilityMutationRequest{
-			CorrelationID:            request.CorrelationID,
-			ExpectedFacilityRevision: request.ExpectedFacilityRevision,
-			RecoveryConditionID:      request.ConditionID,
-			Recovery:                 request.Recovery,
-		}
-		durable := cloneFacilityOperationResult(service.facilityStore.ApplyWorldAction(
-			ctx,
-			cloneFacilityMutationRequest(mutation),
-		))
-		if !durable.OK {
-			if !validFacilityRecoveryFailure(durable, request) {
-				return fail(domain.FacilityFailurePersistenceFailed, "failed")
-			}
-			failed := normalizedFacilityFailureResult(durable)
-			operation = new(cloneFacilityOperationResult(failed))
-			operationErr = facilityFailureError(failed.Failure)
-			change := transition{}
-			change.audit(facilityRecoveryAudit(request, failed, "failed", nil, nil))
-			return change
-		}
-		if !validFacilityRecoverySuccess(durable, request, runtime.Facility) {
-			return fail(domain.FacilityFailurePersistenceFailed, "failed")
-		}
-
-		operation = new(cloneFacilityOperationResult(durable))
-		if !durable.Changed {
-			cached := cloneFacilityOperationResult(durable)
-			service.lastFacilityResult = &cached
-			change := transition{}
-			change.audit(facilityRecoveryAudit(request, durable, "unchanged", nil, nil))
-			return change
-		}
-
-		change := transition{accepted: true}
-		change.audit(facilityRecoveryAudit(
-			request, durable, "succeeded", runtime.Facility, durable.Session.Facility,
-		))
-		runtime.Facility = domain.CloneFacility(durable.Session.Facility)
-		service.withdrawPendingFacilityAction(runtime, &change, service.now(), durable)
-		cached := cloneFacilityOperationResult(durable)
-		service.lastFacilityResult = &cached
-		projection := service.reprojectTerminalRuntimes(runtime)
-		state = masterSnapshot(runtime)
-		change.effects = append(change.effects, stateEffects(runtime)...)
-		if projection != nil {
-			change.effects = append(change.effects, Effect{Live: projection})
-		}
-		return change
-	})
-	if state == nil {
-		state = service.Snapshot()
-	}
-	state.Revision = committed.revision
-	if operation == nil {
-		result := facilityRecoveryDecisionResult(
-			request,
-			service.currentFacilityRevision(),
-			domain.FacilityFailurePersistenceFailed,
-		)
-		operation = &result
-		operationErr = facilityFailureError(result.Failure)
-	}
-	result := cloneFacilityOperationResult(*operation)
-	return domain.CloneMasterCoordinationState(state), &result, operationErr
 }
 
 // ResetFacilityDevice restores one device and its directly scoped conditions
@@ -1027,106 +874,6 @@ func facilityPlayAuditEvent(
 	return AuditEvent{Name: play.event, Outcome: outcome, RequestID: play.correlationID, Facility: &facts}
 }
 
-func facilityRecoveryDecisionResult(
-	request FacilityRecoveryRequest,
-	currentRevision uint64,
-	failure domain.FacilityFailureCode,
-) domain.FacilityOperationResult {
-	return domain.FacilityOperationResult{
-		CorrelationID:             request.CorrelationID,
-		Failure:                   failure,
-		PreviousFacilityRevision:  currentRevision,
-		ResultingFacilityRevision: currentRevision,
-	}
-}
-
-func validFacilityRecoveryFailure(
-	result domain.FacilityOperationResult,
-	request FacilityRecoveryRequest,
-) bool {
-	if result.OK || result.Changed || result.CorrelationID != request.CorrelationID ||
-		!knownFacilityFailure(result.Failure) || result.Failure == domain.FacilityFailureRejected ||
-		result.Failure == domain.FacilityFailureUnspecified ||
-		len(result.AffectedDeviceIDs) != 0 || len(result.AffectedConditionIDs) != 0 ||
-		result.PreviousFacilityRevision != result.ResultingFacilityRevision {
-		return false
-	}
-	if result.Session == nil {
-		return true
-	}
-	return domain.ValidateSession(*result.Session) == nil &&
-		facilityRevision(result.Session.Facility) == result.ResultingFacilityRevision
-}
-
-func validFacilityRecoverySuccess(
-	result domain.FacilityOperationResult,
-	request FacilityRecoveryRequest,
-	current *domain.Facility,
-) bool {
-	if current == nil || !result.OK ||
-		(result.Failure != "" && result.Failure != domain.FacilityFailureUnspecified) ||
-		result.CorrelationID != request.CorrelationID || result.Session == nil || result.Session.Facility == nil ||
-		result.PreviousFacilityRevision != request.ExpectedFacilityRevision ||
-		result.Session.Facility.Revision != result.ResultingFacilityRevision ||
-		len(result.AffectedDeviceIDs) != 0 || domain.ValidateSession(*result.Session) != nil {
-		return false
-	}
-
-	expected := domain.CloneFacility(current)
-	expectedAffectedConditions := []string(nil)
-	if result.Changed {
-		expected.Revision++
-		condition := facilityCondition(expected, request.ConditionID)
-		if condition == nil || !condition.CurrentActive {
-			return false
-		}
-		condition.CurrentActive = false
-		expectedAffectedConditions = []string{request.ConditionID}
-	}
-	if result.ResultingFacilityRevision != expected.Revision ||
-		!slices.Equal(result.AffectedConditionIDs, expectedAffectedConditions) {
-		return false
-	}
-	return reflect.DeepEqual(result.Session.Facility, expected)
-}
-
-func privateFacilityRecovery(recovery *domain.DiagnosticRecoveryReference) bool {
-	return recovery != nil && recovery.Transition == nil && recovery.RecoveryProgramID == nil &&
-		recovery.PrivateOverseerAction != nil && *recovery.PrivateOverseerAction
-}
-
-func conditionAllowsRecovery(
-	condition domain.DiagnosticCondition,
-	requested domain.DiagnosticRecoveryReference,
-) bool {
-	for _, recovery := range condition.Recovery {
-		if sameDiagnosticRecoveryReference(recovery, requested) {
-			return true
-		}
-	}
-	return false
-}
-
-func sameDiagnosticRecoveryReference(left, right domain.DiagnosticRecoveryReference) bool {
-	switch {
-	case left.Transition != nil && right.Transition != nil:
-		return left.RecoveryProgramID == nil && left.PrivateOverseerAction == nil &&
-			right.RecoveryProgramID == nil && right.PrivateOverseerAction == nil &&
-			left.Transition.DeviceID == right.Transition.DeviceID &&
-			left.Transition.TransitionID == right.Transition.TransitionID
-	case left.RecoveryProgramID != nil && right.RecoveryProgramID != nil:
-		return left.Transition == nil && left.PrivateOverseerAction == nil &&
-			right.Transition == nil && right.PrivateOverseerAction == nil &&
-			*left.RecoveryProgramID == *right.RecoveryProgramID
-	case left.PrivateOverseerAction != nil && right.PrivateOverseerAction != nil:
-		return left.Transition == nil && left.RecoveryProgramID == nil &&
-			right.Transition == nil && right.RecoveryProgramID == nil &&
-			*left.PrivateOverseerAction && *right.PrivateOverseerAction
-	default:
-		return false
-	}
-}
-
 func facilityCondition(facility *domain.Facility, conditionID string) *domain.DiagnosticCondition {
 	if facility == nil {
 		return nil
@@ -1137,30 +884,6 @@ func facilityCondition(facility *domain.Facility, conditionID string) *domain.Di
 		}
 	}
 	return nil
-}
-
-func facilityRecoveryAudit(
-	request FacilityRecoveryRequest,
-	result domain.FacilityOperationResult,
-	outcome string,
-	previous *domain.Facility,
-	resulting *domain.Facility,
-) AuditEvent {
-	facts := FacilityAuditFacts{
-		CorrelationID:             request.CorrelationID,
-		Action:                    FacilityAuditActionRecover,
-		Outcome:                   outcome,
-		DeviceIDs:                 sortedUniqueStrings(result.AffectedDeviceIDs),
-		ConditionIDs:              sortedUniqueStrings(result.AffectedConditionIDs),
-		Failure:                   result.Failure,
-		PreviousFacilityRevision:  result.PreviousFacilityRevision,
-		ResultingFacilityRevision: result.ResultingFacilityRevision,
-	}
-	if len(facts.ConditionIDs) == 0 && request.ConditionID != "" {
-		facts.ConditionIDs = []string{request.ConditionID}
-	}
-	addFacilityAuditTransitions(&facts, previous, resulting)
-	return AuditEvent{Name: facilityAuditEventRecovery, Outcome: outcome, RequestID: request.CorrelationID, Facility: &facts}
 }
 
 // withdrawPendingFacilityAction withdraws a pending player request that

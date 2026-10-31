@@ -1,6 +1,24 @@
 import { expect, test } from '@playwright/test';
 
+import { expectRussianMessage, renderedError } from './helpers/facility-editors.mjs';
+
 const RUNTIME_LOG_FIXTURE = '/__fixture/runtime-logs';
+const LOG_DIRECTORY = '/Users/fixture/Application Support/Fallout Terminal/logs';
+// The logs catalog message (specs/041-facility-editors-language/contracts/overseer-ui.md «Errors»).
+const LOGS_MESSAGE = 'Не удалось открыть журналы. Откройте папку журналов вручную.';
+
+// expectLogAccessFailure checks a failed open: the Russian logs message, the
+// directory right after it as the next step, and the Go text only under
+// «подробности для разработчика» (FR-041, SC-008).
+async function expectLogAccessFailure(status, { location, original }) {
+  await expect(status.locator('.overseer-error-message')).toHaveText(LOGS_MESSAGE);
+  expect(await renderedError(status)).toEqual({
+    area: 'logs', key: 'general', message: LOGS_MESSAGE, original, summary: 'подробности для разработчика',
+  });
+  expectRussianMessage(LOGS_MESSAGE);
+  await expect(status.locator('.overseer-error-message + p.log-access-location')).toHaveText(location);
+  expect(await status.locator('.overseer-error-details').evaluate(details => details.open)).toBe(false);
+}
 
 test('startup and main controls open retained logs with shared accessible feedback', async ({ page }) => {
   await page.goto('/__fixture/public-access-settings');
@@ -30,8 +48,10 @@ test('log access remains available during degraded startup and shows the exact m
   await expect(button).toBeEnabled();
   await button.click();
   const status = page.locator('[data-log-access-status]:visible').first();
-  await expect(status).toContainText('Could not open the application log directory.');
-  await expect(status).toContainText('/Users/fixture/Application Support/Fallout Terminal/logs');
+  await expectLogAccessFailure(status, {
+    location: `${LOG_DIRECTORY} · ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА`,
+    original: 'Could not open the application log directory.',
+  });
 });
 
 test('log access failure names the directory even when an active log file exists', async ({ page }) => {
@@ -45,7 +65,10 @@ test('log access failure names the directory even when an active log file exists
   }));
   await page.locator('[data-action="open-log-location"]').nth(1).click();
   const status = page.locator('[data-log-access-status]').nth(1);
-  await expect(status).toHaveText('Could not open the application log directory. · /Users/fixture/Application Support/Fallout Terminal/logs');
+  await expectLogAccessFailure(status, {
+    location: LOG_DIRECTORY,
+    original: 'Could not open the application log directory.',
+  });
 });
 
 test('log access reports degraded retained output when no active log file exists', async ({ page }) => {

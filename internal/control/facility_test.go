@@ -121,50 +121,6 @@ func TestFacilityAuditFailureCarriesTypedOutcomeWithoutCommitEvidence(t *testing
 	}
 }
 
-func TestFacilityAuditRecoveryAndResetRecordSafeStateAndRevisionTransitions(t *testing.T) {
-	t.Parallel()
-
-	t.Run("recovery", func(t *testing.T) {
-		t.Parallel()
-		store := &recordingFacilityStore{}
-		fixture := newFacilityCommandFixture(t, store)
-		facility := recoveryFacilityState()
-		fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
-			runtime.Facility = domain.CloneFacility(facility)
-			return transition{accepted: true}
-		})
-		canonical := facilityAuthoringSession(facility)
-		canonical.Facility.Revision++
-		canonical.Facility.Conditions[0].CurrentActive = false
-		store.result = domain.FacilityOperationResult{
-			OK: true, Changed: true, SessionRevision: 52,
-			PreviousFacilityRevision:  facility.Revision,
-			ResultingFacilityRevision: canonical.Facility.Revision,
-			AffectedConditionIDs:      []string{"door-alarm"}, Session: &canonical,
-		}
-		recovery := domain.DiagnosticRecoveryReference{PrivateOverseerAction: new(true)}
-		baseline := fixture.effects.Calls()
-		correlationID := "facility-audit-recovery"
-
-		_, result, err := fixture.service.RecoverFacilityCondition(t.Context(), FacilityRecoveryRequest{
-			ConditionID: "door-alarm", ExpectedFacilityRevision: facility.Revision,
-			CorrelationID: correlationID, Recovery: &recovery,
-		})
-		require.NoError(t, err)
-		require.True(t, result.OK)
-
-		event := requireFacilityAuditEvent(t, fixture.effects.Values()[baseline:], "facility.recovery", correlationID)
-		require.Equal(t, "succeeded", event.Outcome)
-		require.Equal(t, FacilityAuditActionRecover, event.Facility.Action)
-		require.Equal(t, []string{"door-alarm"}, event.Facility.ConditionIDs)
-		require.Equal(t, facility.Revision, event.Facility.PreviousFacilityRevision)
-		require.Equal(t, canonical.Facility.Revision, event.Facility.ResultingFacilityRevision)
-		require.Equal(t, []FacilityConditionAuditTransition{{
-			ConditionID: "door-alarm", PreviousActive: true, ResultingActive: false,
-		}}, event.Facility.ConditionTransitions)
-	})
-}
-
 func TestFacilityCommandSelectionSnapshotsDetachedIntentWithoutMutation(t *testing.T) {
 	t.Parallel()
 
@@ -754,87 +710,6 @@ func TestRecoveryProgramCommandExpandsOnlyItsAllowlistedTransitions(t *testing.T
 	require.NoError(t, err)
 	require.True(t, result.OK)
 	require.Equal(t, facility.RecoveryPrograms[0].Transitions, fixture.store.Requests()[0].Transitions)
-}
-
-func TestRecoverFacilityConditionUsesExplicitAuthoredPrivateRecovery(t *testing.T) {
-	t.Parallel()
-
-	store := &recordingFacilityStore{}
-	fixture := newFacilityCommandFixture(t, store)
-	facility := recoveryFacilityState()
-	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
-		runtime.Facility = domain.CloneFacility(facility)
-		return transition{accepted: true}
-	})
-	recovered := facilityAuthoringSession(facility)
-	recovered.Facility.Revision++
-	recovered.Facility.Conditions[0].CurrentActive = false
-	store.result = domain.FacilityOperationResult{
-		OK: true, Changed: true,
-		PreviousFacilityRevision: facility.Revision, ResultingFacilityRevision: recovered.Facility.Revision,
-		AffectedConditionIDs: []string{"door-alarm"}, Session: &recovered,
-	}
-	recovery := domain.DiagnosticRecoveryReference{PrivateOverseerAction: new(true)}
-
-	staleState, stale, err := fixture.service.RecoverFacilityCondition(t.Context(), FacilityRecoveryRequest{
-		ConditionID: "door-alarm", ExpectedFacilityRevision: facility.Revision - 1,
-		CorrelationID: "private-recovery-stale", Recovery: &recovery,
-	})
-	require.ErrorIs(t, err, ErrFacilityStaleRevision)
-	require.NotNil(t, staleState)
-	require.NotNil(t, stale)
-	require.Equal(t, domain.FacilityFailureStaleRevision, stale.Failure)
-	require.Zero(t, store.CallCount())
-	require.True(t, facilityConditionActive(t, coordinatorFacilitySnapshot(t, fixture.service), "door-alarm"))
-
-	state, result, err := fixture.service.RecoverFacilityCondition(t.Context(), FacilityRecoveryRequest{
-		ConditionID: "door-alarm", ExpectedFacilityRevision: facility.Revision,
-		CorrelationID: "private-recovery", Recovery: &recovery,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, state)
-	require.NotNil(t, result)
-	require.True(t, result.OK)
-	require.True(t, result.Changed)
-	require.Equal(t, recovered.Facility.Revision, *state.FacilityRevision)
-	require.False(t, facilityConditionActive(t, coordinatorFacilitySnapshot(t, fixture.service), "door-alarm"))
-	require.Equal(t, 1, store.CallCount())
-	request := store.Requests()[0]
-	require.Equal(t, "door-alarm", request.RecoveryConditionID)
-	require.Equal(t, &recovery, request.Recovery)
-	require.Empty(t, request.TerminalID)
-	require.Empty(t, request.CommandID)
-}
-
-func TestRecoverFacilityConditionStripsStateFromValidStoreFailure(t *testing.T) {
-	t.Parallel()
-
-	store := &recordingFacilityStore{}
-	fixture := newFacilityCommandFixture(t, store)
-	facility := recoveryFacilityState()
-	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
-		runtime.Facility = domain.CloneFacility(facility)
-		return transition{accepted: true}
-	})
-	returnedSession := facilityAuthoringSession(facility)
-	store.result = domain.FacilityOperationResult{
-		Failure:                   domain.FacilityFailureConflict,
-		PreviousFacilityRevision:  facility.Revision,
-		ResultingFacilityRevision: facility.Revision,
-		Session:                   &returnedSession,
-	}
-	recovery := domain.DiagnosticRecoveryReference{PrivateOverseerAction: new(true)}
-
-	_, result, err := fixture.service.RecoverFacilityCondition(t.Context(), FacilityRecoveryRequest{
-		ConditionID: "door-alarm", ExpectedFacilityRevision: facility.Revision,
-		CorrelationID: "recovery-failure", Recovery: &recovery,
-	})
-	require.ErrorIs(t, err, ErrFacilityConflict)
-	require.Equal(t, domain.FacilityFailureConflict, result.Failure)
-	require.False(t, result.Changed)
-	require.Nil(t, result.Session)
-	require.Empty(t, result.AffectedDeviceIDs)
-	require.Empty(t, result.AffectedConditionIDs)
 }
 
 func TestActiveDiagnosticConditionsBlockSelectedCapabilities(t *testing.T) {
@@ -1679,6 +1554,73 @@ func TestFacilityPlayChangeCommitsReprojectsAuditsAndFeedsOneChange(t *testing.T
 				"the published master snapshot must carry the feed")
 		})
 	}
+}
+
+func TestFacilityFaultSwitchedOffReachesConnectedPlayers(t *testing.T) {
+	t.Parallel()
+
+	unstable := []domain.TerminalPresentationEffect{domain.TerminalPresentationEffectDisplayUnstable}
+	// The terminal fault is scoped to terminal-1, and door-alarm to the door
+	// that terminal-1's command opens.
+	for _, conditionID := range []string{facilityPlayTerminalFaultID, "door-alarm"} {
+		t.Run(conditionID, func(t *testing.T) {
+			t.Parallel()
+			fixture := newFacilityPlayFixture(t, nil)
+			fixture.service.terminals = live.New(nil, nil)
+
+			revision := fixture.service.Revision()
+			for index, step := range []struct {
+				active bool
+				want   []domain.TerminalPresentationEffect
+			}{
+				{active: true, want: unstable},
+				{active: false, want: nil},
+				{active: true, want: unstable},
+			} {
+				update := switchFacilityFaultForPlayer(
+					t, fixture, conditionID, step.active, fmt.Sprintf("player-fault-%d", index),
+				)
+				require.Greater(t, update.Revision, revision, "the connected player gets a newer revision")
+				require.NotNil(t, update.Terminal)
+				require.NotNil(t, update.Terminal.Live)
+				require.Empty(t, cmp.Diff(step.want, update.Terminal.Live.Effects, cmpopts.EquateEmpty()),
+					"the connected player's effects with the fault active=%t", step.active)
+				revision = update.Revision
+			}
+		})
+	}
+}
+
+// switchFacilityFaultForPlayer switches conditionID through the Overseer and
+// returns the update that the commit sends the controller's session.
+func switchFacilityFaultForPlayer(
+	t *testing.T,
+	fixture facilityPlayFixture,
+	conditionID string,
+	active bool,
+	correlationID string,
+) *domain.CompoundUpdate {
+	t.Helper()
+	call := facilityPlayFault(
+		conditionID, active, coordinatorFacilitySnapshot(t, fixture.service).Revision, correlationID,
+	)
+	fixture.play.setResult(facilityPlayDurable(t, fixture, func(t *testing.T, facility *domain.Facility) {
+		facilityPlayCondition(t, facility, conditionID).CurrentActive = active
+	}, nil, []string{conditionID}))
+	before := fixture.effects.Calls()
+
+	_, result, err := call.run(t.Context(), fixture.service)
+	require.NoError(t, err)
+	require.True(t, result.Changed)
+
+	var updates []*domain.CompoundUpdate
+	for _, effect := range fixture.effects.Values()[before:] {
+		if effect.Update != nil && effect.SessionID == fixture.controllerSession {
+			updates = append(updates, effect.Update)
+		}
+	}
+	require.Len(t, updates, 1, "one commit sends the session one update")
+	return updates[0]
 }
 
 func TestFacilityPlayChangeWithdrawsThePendingRequest(t *testing.T) {

@@ -25,16 +25,16 @@ func TestSaveAuthoringAcceptsEditAfterLiveChanges(t *testing.T) {
 		{name: "legacy command execution", live: executeAuthoringLegacyCommand},
 		{name: "approved facility command", live: approveAuthoringFacilityCommand},
 		{
-			name: "private fault recovery",
+			name: "fault switched off",
 			live: func(t *testing.T, service *Service) {
 				t.Helper()
-				result := service.ApplyWorldAction(t.Context(), WorldActionRequest{
-					CorrelationID:            "authoring-live-recovery",
+				result := service.SetFacilityConditionActive(t.Context(), FacilityConditionActiveRequest{
+					ConditionID:              "door-offline",
+					Active:                   false,
 					ExpectedFacilityRevision: facilityRevision(service.Snapshot().Session),
-					RecoveryConditionID:      "door-offline",
-					Recovery:                 &domain.DiagnosticRecoveryReference{PrivateOverseerAction: new(true)},
+					CorrelationID:            "authoring-live-fault-switch",
 				})
-				require.True(t, result.OK, "ApplyWorldAction(recovery) = %#v", result)
+				require.True(t, result.OK, "SetFacilityConditionActive() = %#v", result)
 				require.True(t, result.Changed)
 			},
 		},

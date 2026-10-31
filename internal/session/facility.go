@@ -18,8 +18,6 @@ type WorldActionRequest struct {
 	CommandID                string
 	ExpectedFacilityRevision uint64
 	Transitions              []domain.FacilityTransitionRequest
-	RecoveryConditionID      string
-	Recovery                 *domain.DiagnosticRecoveryReference
 }
 
 // FacilityDeviceResetRequest restores one device and conditions scoped
@@ -416,10 +414,6 @@ func (service *Service) ApplyWorldAction(ctx context.Context, request WorldActio
 			facilityRevision(&canonical), &canonical, "session", "",
 		)
 	}
-	if request.RecoveryConditionID != "" || request.Recovery != nil {
-		return service.applyConditionRecoveryLocked(request, canonical, sessionRevision, path)
-	}
-
 	terminal := terminalByID(&canonical, request.TerminalID)
 	if terminal == nil {
 		service.mu.Unlock()
@@ -535,138 +529,6 @@ func (service *Service) ApplyWorldAction(ctx context.Context, request WorldActio
 	)
 }
 
-// applyConditionRecoveryLocked validates one authored condition recovery and
-// persists its complete facility candidate. The caller holds service.mu and
-// the world-action serialization locks; this method releases service.mu before
-// every return.
-func (service *Service) applyConditionRecoveryLocked(
-	request WorldActionRequest,
-	canonical domain.Session,
-	sessionRevision uint64,
-	path string,
-) domain.FacilityOperationResult {
-	facility := canonical.Facility
-	currentRevision := facilityRevision(&canonical)
-	fail := func(
-		code domain.FacilityFailureCode,
-		entityKind string,
-		entityID string,
-		issues []domain.FacilityIssue,
-	) domain.FacilityOperationResult {
-		service.mu.Unlock()
-		result := worldActionFailure(
-			request, code, sessionRevision, currentRevision, &canonical, entityKind, entityID,
-		)
-		if issues != nil {
-			result.Issues = cloneFacilityIssues(issues)
-		}
-		return result
-	}
-
-	if facility == nil {
-		return fail(domain.FacilityFailureMissingReference, "facility", "", nil)
-	}
-	if request.ExpectedFacilityRevision != currentRevision {
-		return fail(domain.FacilityFailureStaleRevision, "facility", "", nil)
-	}
-	if strings.TrimSpace(request.CorrelationID) == "" ||
-		strings.TrimSpace(request.RecoveryConditionID) == "" ||
-		request.Recovery == nil || request.TerminalID != "" || request.CommandID != "" || len(request.Transitions) != 0 {
-		return fail(domain.FacilityFailureInvalidConfiguration, "request", "", nil)
-	}
-
-	conditionIndex := -1
-	for index := range facility.Conditions {
-		if facility.Conditions[index].ID == request.RecoveryConditionID {
-			conditionIndex = index
-			break
-		}
-	}
-	if conditionIndex < 0 {
-		return fail(domain.FacilityFailureMissingReference, "condition", request.RecoveryConditionID, nil)
-	}
-	condition := facility.Conditions[conditionIndex]
-	if !conditionAllowsRecovery(condition, *request.Recovery) {
-		return fail(domain.FacilityFailureInvalidConfiguration, "condition", condition.ID, nil)
-	}
-
-	transitions, private, issues := resolveConditionRecovery(facility, *request.Recovery)
-	if len(issues) != 0 {
-		code := facilityRecoveryFailureCode(issues)
-		return fail(code, "condition", condition.ID, issues)
-	}
-	if !condition.CurrentActive {
-		service.mu.Unlock()
-		return worldActionSuccess(
-			request.CorrelationID, false, sessionRevision, currentRevision, currentRevision,
-			nil, nil, canonical,
-		)
-	}
-
-	var (
-		resolved             []resolvedWorldTransition
-		conditionValues      map[string]bool
-		affectedDeviceIDs    []string
-		affectedConditionIDs []string
-	)
-	if private {
-		conditionValues = map[string]bool{condition.ID: false}
-		affectedConditionIDs = []string{condition.ID}
-	} else {
-		var failure domain.FacilityFailureCode
-		var entityKind, entityID string
-		resolved, conditionValues, affectedDeviceIDs, affectedConditionIDs, failure, entityKind, entityID =
-			resolveWorldTransitions(facility, transitions)
-		if failure != domain.FacilityFailureUnspecified {
-			return fail(failure, entityKind, entityID, nil)
-		}
-		for _, transition := range resolved {
-			if !transition.transition.Recovery {
-				return fail(
-					domain.FacilityFailureInvalidConfiguration,
-					"transition",
-					transition.transition.ID,
-					nil,
-				)
-			}
-		}
-		if clears, exists := conditionValues[condition.ID]; !exists || clears {
-			return fail(domain.FacilityFailureInvalidConfiguration, "condition", condition.ID, nil)
-		}
-	}
-
-	candidate := domain.CloneSession(canonical)
-	for _, transition := range resolved {
-		candidate.Facility.Devices[transition.deviceIndex].CurrentStateID = transition.transition.DestinationStateID
-	}
-	conditionsByID := make(map[string]int, len(candidate.Facility.Conditions))
-	for index, candidateCondition := range candidate.Facility.Conditions {
-		conditionsByID[candidateCondition.ID] = index
-	}
-	for conditionID, active := range conditionValues {
-		candidate.Facility.Conditions[conditionsByID[conditionID]].CurrentActive = active
-	}
-	candidate.Facility.Revision++
-
-	saved, err := service.commitFacilityCandidateLocked(path, canonical, candidate)
-	if err != nil {
-		return worldActionFailure(
-			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
-			currentRevision, &canonical, "candidate", "",
-		)
-	}
-	if !saved.OK {
-		return worldActionFailure(
-			request, domain.FacilityFailurePersistenceFailed, saved.SavedRevision,
-			currentRevision, &canonical, "persistence", "",
-		)
-	}
-	return worldActionSuccess(
-		request.CorrelationID, true, saved.SavedRevision, currentRevision,
-		candidate.Facility.Revision, affectedDeviceIDs, affectedConditionIDs, candidate,
-	)
-}
-
 // commitFacilityCandidateLocked queues one rollback-safe complete-session
 // replacement. The caller holds service.mu; this method releases it on every
 // return and waits for the queued revision to become durable.
@@ -720,59 +582,7 @@ func (service *Service) commitCandidateLocked(
 
 func cloneWorldActionRequest(request WorldActionRequest) WorldActionRequest {
 	request.Transitions = domain.CloneFacilityTransitionRequests(request.Transitions)
-	if request.Recovery != nil {
-		recovery := domain.CloneDiagnosticRecoveryReference(*request.Recovery)
-		request.Recovery = &recovery
-	}
 	return request
-}
-
-func conditionAllowsRecovery(condition domain.DiagnosticCondition, requested domain.DiagnosticRecoveryReference) bool {
-	for _, authored := range condition.Recovery {
-		if sameDiagnosticRecoveryReference(authored, requested) {
-			return true
-		}
-	}
-	return false
-}
-
-func sameDiagnosticRecoveryReference(left, right domain.DiagnosticRecoveryReference) bool {
-	switch {
-	case left.Transition != nil && right.Transition != nil:
-		return left.RecoveryProgramID == nil && left.PrivateOverseerAction == nil &&
-			right.RecoveryProgramID == nil && right.PrivateOverseerAction == nil &&
-			left.Transition.DeviceID == right.Transition.DeviceID &&
-			left.Transition.TransitionID == right.Transition.TransitionID
-	case left.RecoveryProgramID != nil && right.RecoveryProgramID != nil:
-		return left.Transition == nil && left.PrivateOverseerAction == nil &&
-			right.Transition == nil && right.PrivateOverseerAction == nil &&
-			*left.RecoveryProgramID == *right.RecoveryProgramID
-	case left.PrivateOverseerAction != nil && right.PrivateOverseerAction != nil:
-		return left.Transition == nil && left.RecoveryProgramID == nil &&
-			right.Transition == nil && right.RecoveryProgramID == nil &&
-			*left.PrivateOverseerAction && *right.PrivateOverseerAction
-	default:
-		return false
-	}
-}
-
-func resolveConditionRecovery(
-	facility *domain.Facility,
-	recovery domain.DiagnosticRecoveryReference,
-) ([]domain.FacilityTransitionRequest, bool, []domain.FacilityIssue) {
-	switch {
-	case recovery.Transition != nil:
-		return domain.CloneFacilityTransitionRequests([]domain.FacilityTransitionRequest{*recovery.Transition}), false, nil
-	case recovery.RecoveryProgramID != nil:
-		transitions, issues := domain.ExpandRecoveryProgram(facility, *recovery.RecoveryProgramID)
-		return transitions, false, issues
-	case recovery.PrivateOverseerAction != nil && *recovery.PrivateOverseerAction:
-		return nil, true, nil
-	default:
-		return nil, false, []domain.FacilityIssue{{
-			Code: domain.FacilityFailureInvalidConfiguration, EntityKind: "recovery",
-		}}
-	}
 }
 
 func facilityRecoveryFailureCode(issues []domain.FacilityIssue) domain.FacilityFailureCode {

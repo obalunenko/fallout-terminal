@@ -231,24 +231,30 @@ for (const recovery of [
   });
 }
 
-test('private Overseer recovery remains available when every player capability is blocked', async ({ browser, request }) => {
+// The Overseer's fault switch, SetFacilityConditionActive, is the escape hatch:
+// it clears a terminal fault that leaves players no command to recover with.
+test('the terminal-fault switch clears a fault while every player capability is blocked (FR-021)', async ({ browser, request }) => {
   await resetDiagnosticFixture(request, 'private-recovery-escape');
   const participant = await openParticipant(browser);
+  const conditionId = FACILITY_IDS.conditions.authorizationCorrupted;
   try {
     const before = await diagnosticState(request);
+    expect(before.facility.conditionStates[conditionId]).toBe(true);
+    expect(before.blockedCapabilities).toEqual(['execute-command']);
     await expectBlockedWithEscape(participant.page, 'AFFECTED COMMAND');
-    const response = await request.post(`${FIXTURE}/recover-private`, {
+    const response = await request.post(`${FIXTURE}/set-condition-active`, {
       data: {
-        conditionId: FACILITY_IDS.conditions.authorizationCorrupted,
+        conditionId,
+        active: false,
         expectedFacilityRevision: before.facility.revision,
-        correlationId: 'browser-private-recovery',
+        correlationId: 'browser-terminal-fault-switch',
       },
     });
     expect(response.ok()).toBe(true);
     expect(await response.json()).toMatchObject({
       ok: true,
       changed: true,
-      correlationId: 'browser-private-recovery',
+      correlationId: 'browser-terminal-fault-switch',
       previousFacilityRevision: before.facility.revision,
       resultingFacilityRevision: before.facility.revision + 1,
     });
@@ -256,8 +262,9 @@ test('private Overseer recovery remains available when every player capability i
     await expect.poll(async () => (await diagnosticState(request)).facility.revision)
       .toBe(before.facility.revision + 1);
     const after = await diagnosticState(request);
-    expect(after.facility.conditionStates[FACILITY_IDS.conditions.authorizationCorrupted]).toBe(false);
-    expect(after.audit).toMatchObject({ durableWrites: 1, privateRecoveries: 1 });
+    expect(after.facility.conditionStates[conditionId]).toBe(false);
+    expect(after.blockedCapabilities).toEqual([]);
+    expect(after.audit).toMatchObject({ durableWrites: 1, conditionSwitches: 1, approvedRecoveries: 0 });
     await expect(participant.page.locator('.term-row', { hasText: 'AFFECTED COMMAND' }))
       .not.toHaveAttribute('aria-disabled', 'true');
   } finally {

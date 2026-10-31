@@ -1336,42 +1336,6 @@ func facilityIssueFromPrivate(issue *privatev1.FacilityIssue) domain.FacilityIss
 	return native
 }
 
-func facilityRecoveryRequestToPrivate(
-	request controlservice.FacilityRecoveryRequest,
-) (*privatev1.RecoverFacilityConditionRequest, error) {
-	if request.Recovery == nil {
-		return nil, fmt.Errorf("facility recovery reference is required")
-	}
-	recovery, err := diagnosticRecoveryReferenceToPrivate(*request.Recovery)
-	if err != nil {
-		return nil, err
-	}
-	return &privatev1.RecoverFacilityConditionRequest{
-		ConditionId:              request.ConditionID,
-		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
-		CorrelationId:            request.CorrelationID,
-		Recovery:                 recovery,
-	}, nil
-}
-
-func facilityRecoveryRequestFromPrivate(
-	request *privatev1.RecoverFacilityConditionRequest,
-) (controlservice.FacilityRecoveryRequest, error) {
-	if request == nil || request.Recovery == nil {
-		return controlservice.FacilityRecoveryRequest{}, fmt.Errorf("facility recovery reference is required")
-	}
-	recovery, err := diagnosticRecoveryReferenceFromPrivate(request.Recovery)
-	if err != nil {
-		return controlservice.FacilityRecoveryRequest{}, err
-	}
-	return controlservice.FacilityRecoveryRequest{
-		ConditionID:              request.GetConditionId(),
-		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
-		CorrelationID:            request.GetCorrelationId(),
-		Recovery:                 &recovery,
-	}, nil
-}
-
 func facilityPreviewRequestToPrivate(preview domain.FacilityPreview) (*privatev1.PreviewFacilityRequest, error) {
 	semantic := &privatev1.PreviewFacilityRequest{
 		ExpectedFacilityRevision:  preview.ExpectedFacilityRevision,
@@ -1844,56 +1808,6 @@ func facilityConditionActiveRequestFromPrivate(
 		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
 		CorrelationID:            request.GetCorrelationId(),
 	}
-}
-
-func diagnosticRecoveryReferenceToPrivate(
-	reference domain.DiagnosticRecoveryReference,
-) (*persistencev1.DiagnosticRecoveryReference, error) {
-	result := &persistencev1.DiagnosticRecoveryReference{}
-	switch {
-	case reference.Transition != nil && reference.RecoveryProgramID == nil && reference.PrivateOverseerAction == nil:
-		result.Recovery = &persistencev1.DiagnosticRecoveryReference_Transition{
-			Transition: &persistencev1.FacilityTransitionRequest{
-				DeviceId: reference.Transition.DeviceID, TransitionId: reference.Transition.TransitionID,
-			},
-		}
-	case reference.Transition == nil && reference.RecoveryProgramID != nil && reference.PrivateOverseerAction == nil:
-		result.Recovery = &persistencev1.DiagnosticRecoveryReference_RecoveryProgramId{
-			RecoveryProgramId: *reference.RecoveryProgramID,
-		}
-	case reference.Transition == nil && reference.RecoveryProgramID == nil && reference.PrivateOverseerAction != nil:
-		result.Recovery = &persistencev1.DiagnosticRecoveryReference_PrivateOverseerAction{
-			PrivateOverseerAction: *reference.PrivateOverseerAction,
-		}
-	default:
-		return nil, fmt.Errorf("exactly one facility recovery variant is required")
-	}
-	return result, nil
-}
-
-func diagnosticRecoveryReferenceFromPrivate(
-	reference *persistencev1.DiagnosticRecoveryReference,
-) (domain.DiagnosticRecoveryReference, error) {
-	if reference == nil {
-		return domain.DiagnosticRecoveryReference{}, fmt.Errorf("facility recovery reference is required")
-	}
-	result := domain.DiagnosticRecoveryReference{}
-	switch recovery := reference.GetRecovery().(type) {
-	case *persistencev1.DiagnosticRecoveryReference_Transition:
-		if recovery.Transition == nil {
-			return domain.DiagnosticRecoveryReference{}, fmt.Errorf("facility recovery transition is required")
-		}
-		result.Transition = &domain.FacilityTransitionRequest{
-			DeviceID: recovery.Transition.GetDeviceId(), TransitionID: recovery.Transition.GetTransitionId(),
-		}
-	case *persistencev1.DiagnosticRecoveryReference_RecoveryProgramId:
-		result.RecoveryProgramID = new(recovery.RecoveryProgramId)
-	case *persistencev1.DiagnosticRecoveryReference_PrivateOverseerAction:
-		result.PrivateOverseerAction = new(recovery.PrivateOverseerAction)
-	default:
-		return domain.DiagnosticRecoveryReference{}, fmt.Errorf("facility recovery variant is required")
-	}
-	return result, nil
 }
 
 type facilityDependencyInspectionRequest struct {

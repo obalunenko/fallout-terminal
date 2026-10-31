@@ -7,7 +7,8 @@ import {
 import { FIXTURE, facilityState, fixtureSession, openOverseer, seedDemo } from './helpers/overseer-forms.mjs';
 
 // User Story 6: find device settings by role
-// (specs/040-facility-play-controls/spec.md, contracts/overseer-ui.md).
+// (specs/040-facility-play-controls/spec.md, contracts/overseer-ui.md), with
+// the device rows of User Story 5 in specs/041-facility-editors-language.
 
 const DOOR = 'vault-door-main';
 const DOOR_NAME = 'Гермодверь Убежища 76';
@@ -22,6 +23,10 @@ const REMOVED_ELEMENTS = [
   'facilitySelectedDeviceName', 'btnSaveFacilityDeviceChanges', 'btnCancelFacilityDeviceChanges',
   'facilityDeviceSummary', 'facilitySelectionHeading', 'facilityBindingList',
 ];
+const KIND_LABELS = {
+  door: 'ДВЕРЬ', turret: 'ТУРЕЛЬ', 'power-grid': 'ЭЛЕКТРОСЕТЬ', reactor: 'РЕАКТОР', ventilation: 'ВЕНТИЛЯЦИЯ',
+  alarm: 'СИГНАЛИЗАЦИЯ', 'robot-pod': 'РОБОТЕХНИЧЕСКАЯ КАПСУЛА', elevator: 'ЛИФТ', 'network-segment': 'СЕГМЕНТ СЕТИ',
+};
 const PLAY_CONTROLS = [
   '#btnForceFacilityDeviceState', '#btnResetFacilityDevice',
   'button.facility-play-transition-run', 'button.facility-play-fault-switch',
@@ -106,23 +111,33 @@ async function openTab(page, id) {
   await expect(page.locator(`#${panelID}`)).toBeVisible();
 }
 
-// rowState is the device row text the session implies (FR-025).
+// rowState is the device row badge and fault mark the session implies (FR-025, FR-030).
 function rowState(facility, device) {
   const faults = facility.conditions.filter(value => value.device?.deviceId === device.id && value.currentActive).length;
   const name = device.states.find(value => value.id === device.currentStateId).name;
-  return { text: faults ? `${name} · ● ${faults}` : name, faults };
+  return { state: name, changed: device.currentStateId !== device.initialStateId, faults };
 }
 
-async function expectRow(page, id, text, faults) {
+async function expectRow(page, id, state, changed, faults) {
   const row = deviceRow(page, id);
-  await expect(row.locator('.facility-device-row-state'), id).toHaveText(text);
+  const badge = row.locator('span.facility-state-badge');
+  await expect(badge, id).toHaveText(state);
+  await expect(badge, id).toHaveAttribute('data-changed', String(changed));
   await expect(row, id).toHaveAttribute('data-active-faults', String(faults));
   if (faults) {
-    await expect(row.locator('span.facility-fault-count'), id).toHaveText(`● ${faults}`);
-    await expect(row.locator('span.facility-fault-count'), id).toHaveAttribute('aria-label', `Активных неисправностей: ${faults}`);
+    await expect(row.locator('span.facility-fault-mark'), id).toHaveText(`● ${faults}`);
+    await expect(row.locator('span.facility-fault-mark'), id).toHaveAttribute('aria-label', `Активных неисправностей: ${faults}`);
   } else {
-    await expect(row.locator('.facility-fault-count'), id).toHaveCount(0);
+    await expect(row.locator('.facility-fault-mark'), id).toHaveCount(0);
   }
+}
+
+// rowParts lists a row's children: the text with the name over the kind,
+// the state badge, and the fault mark when any fault is active.
+async function rowParts(page, id) {
+  return deviceRow(page, id).evaluate(row => [...row.children].map(child => (child.className === 'facility-device-row-text'
+    ? [child.className, ...[...child.children].map(part => (part.tagName === 'STRONG' ? `STRONG ${part.textContent}` : `${part.className} ${part.textContent}`))]
+    : [child.className])));
 }
 
 test('actions are grouped by role, and no destructive control sits outside «⋯» (AS1, FR-022, SC-007)', async ({ page, request }) => {
@@ -165,12 +180,17 @@ test('actions are grouped by role, and no destructive control sits outside «⋯
   await expect(page.locator('#facilitySelectionEditor').getByRole('button', { name: /УДАЛИТЬ/ })).toHaveCount(0);
   await expect(page.locator('#facilitySelectionEditor').getByRole('menuitem', { name: /УДАЛИТЬ/ })).toHaveCount(0);
 
-  // Play controls live only on the play card.
+  // Play controls live only on the play card. The one exception is the fault
+  // switch of each terminal fault, in «НЕИСПРАВНОСТИ ТЕРМИНАЛОВ» (FR-021).
   const card = page.locator('#facilityPlayCard');
+  const terminalFaults = page.locator('#facilityTerminalFaults');
+  const terminalFaultCount = (await fixtureSession(request)).facility.conditions.filter(value => value.terminal).length;
   for (const control of PLAY_CONTROLS) {
     const everywhere = await page.locator(control).count();
-    expect(everywhere, control).toBeGreaterThan(0);
-    await expect(card.locator(control), control).toHaveCount(everywhere);
+    const outside = control === 'button.facility-play-fault-switch' ? terminalFaultCount : 0;
+    await expect(card.locator(control), control).not.toHaveCount(0);
+    await expect(terminalFaults.locator(control), control).toHaveCount(outside);
+    await expect(card.locator(control), control).toHaveCount(everywhere - outside);
   }
   for (const copy of [/СБРОСИТЬ К НАЧАЛЬНОМУ/, /ПРИНУДИТЕЛЬНО В ДРУГОЕ СОСТОЯНИЕ/]) {
     await expect(page.getByRole('button', { name: copy }), String(copy)).toHaveCount(1);
@@ -264,7 +284,7 @@ test('the device is renamed in its dialog, and no name field sits under the head
   const before = (await fixtureSession(request)).facility.devices.find(device => device.id === DOOR);
 
   await page.locator('#btnEditFacilityDevice').click();
-  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
   await expect(dialog).toBeVisible();
   const name = dialog.locator('#facilityDeviceName');
   await expect(name).toBeFocused();
@@ -396,7 +416,7 @@ test('an empty tab stays visible with count 0, its empty text, and its add contr
   await page.locator('#btnCancelFacilityCondition').click();
   await expect(page.locator('#facilityConditionDialog')).toBeHidden();
 
-  // No command acts on the reactor; «ДОБАВИТЬ КОМАНДУ» opens a command action.
+  // No command acts on the reactor; «ДОБАВИТЬ ДЕЙСТВИЕ КОМАНДЫ» opens «ДЕЙСТВИЕ КОМАНДЫ».
   await selectDevice(page, 'reactor-main');
   await openTab(page, 'actions');
   await expect(page.getByRole('tab', { name: 'ЧТО ДЕЛАЮТ ИГРОКИ 0', exact: true })).toBeVisible();
@@ -404,15 +424,18 @@ test('an empty tab stays visible with count 0, its empty text, and its add contr
   await expect(actions.locator('#facilityActionBindingList > [data-facility-kind]')).toHaveCount(0);
   await expect(actions.locator('.facility-empty')).toHaveText('Команды ещё не связаны. Откройте шаг 2 «Действие» в инструкции.');
   const add = actions.locator('#btnAddFacilityActionBinding');
-  await expect(add).toHaveText('ДОБАВИТЬ КОМАНДУ');
+  await expect(add).toHaveText('ДОБАВИТЬ ДЕЙСТВИЕ КОМАНДЫ');
+  await expect(add).toHaveAttribute('aria-controls', 'facilityCommandActionDialog');
   await add.click();
-  await expect(page.locator('#facilityBindingDialog')).toBeVisible();
-  await expect(page.locator('#facilityBindingKind')).toHaveValue('command-action');
-  await page.locator('#btnCancelFacilityBinding').click();
+  const commandAction = page.getByRole('dialog', { name: 'ДЕЙСТВИЕ КОМАНДЫ', exact: true });
+  await expect(commandAction).toHaveAttribute('id', 'facilityCommandActionDialog');
   await expect(page.locator('#facilityBindingDialog')).toBeHidden();
+  await expect(page.locator('#facilityBindingKind')).toHaveCount(0);
+  await page.locator('#btnCancelFacilityCommandAction').click();
+  await expect(commandAction).toBeHidden();
 });
 
-test('each device row shows its state and active fault count and follows play changes from either side (AS4, FR-025)', async ({ page, request }) => {
+test('each device row shows its name, type, state badge, and fault mark and follows play changes from either side (AS4, FR-025, FR-030, FR-031)', async ({ page, request }) => {
   const errors = pageErrors(page);
   await seedDemo(request);
   // The door scene lets the evacuation command run: grid online, door sealed, its faults off.
@@ -426,48 +449,57 @@ test('each device row shows its state and active fault count and follows play ch
   const facility = (await fixtureSession(request)).facility;
   await expect(page.locator('#facilityDeviceList button[data-facility-kind="device"]')).toHaveCount(facility.devices.length);
   for (const device of facility.devices) {
-    const { text, faults } = rowState(facility, device);
-    await expectRow(page, device.id, text, faults);
+    const { state, changed, faults } = rowState(facility, device);
+    await expectRow(page, device.id, state, changed, faults);
     await expect(deviceRow(page, device.id)).toHaveAttribute('data-current-state-id', device.currentStateId);
-    // The row holds the name and the state; the kind label moved to the header.
-    expect(await deviceRow(page, device.id).evaluate(row => [...row.children].map(child => child.tagName === 'STRONG'
-      ? ['STRONG', child.textContent] : [child.className]))).toEqual([['STRONG', device.name], ['facility-device-row-state']]);
+    await expect(deviceRow(page, device.id), device.id).not.toHaveAttribute('title');
+    // The row holds the name over its type, then the state badge and any fault mark.
+    const kind = device.kind === 'custom' ? 'ДРУГОЙ' : KIND_LABELS[device.kind];
+    expect(await rowParts(page, device.id), device.id).toEqual([
+      ['facility-device-row-text', `STRONG ${device.name}`, `facility-device-row-kind ${kind}`],
+      ['facility-state-badge'],
+      ...(faults ? [['facility-fault-mark']] : []),
+    ]);
   }
-  await expectRow(page, VENTILATION, 'Загрязнён · ● 1', 1);
+  await expectRow(page, 'power-grid-main', 'В работе', true, 0);
+  await expectRow(page, VENTILATION, 'Загрязнён', false, 1);
 
   // Card changes on the ventilation loop: the fault, then the state.
   await selectDevice(page, VENTILATION);
   const card = playCard(page);
   await card.faultSwitch('air-spore-bloom').click();
   await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ СНЯТА');
-  await expectRow(page, VENTILATION, 'Загрязнён', 0);
+  await expectRow(page, VENTILATION, 'Загрязнён', false, 0);
   await card.faultSwitch('air-spore-bloom').click();
   await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ АКТИВИРОВАНА');
-  await expectRow(page, VENTILATION, 'Загрязнён · ● 1', 1);
+  await expectRow(page, VENTILATION, 'Загрязнён', false, 1);
   await card.run('purge').click();
   await expect(card.status).toHaveText('ПЕРЕХОД ВЫПОЛНЕН');
-  await expectRow(page, VENTILATION, 'Очищен', 0);
+  await expectRow(page, VENTILATION, 'Очищен', true, 0);
   await expect(deviceRow(page, VENTILATION)).toHaveAttribute('data-current-state-id', 'filtered');
   await card.run('contaminate').click();
   await expect(card.status).toHaveText('ПЕРЕХОД ВЫПОЛНЕН');
-  await expectRow(page, VENTILATION, 'Загрязнён · ● 1', 1);
+  await expectRow(page, VENTILATION, 'Загрязнён', false, 1);
 
   // A player command opens the door from the terminal side.
-  await expectRow(page, DOOR, 'Заперта', 0);
+  await expectRow(page, DOOR, 'Заперта', false, 0);
   const command = await request.post(`${FIXTURE}/player-command`, {
     data: { terminalId: 't_demo1', commandId: 'n_cmd_open_evacuation', decision: 'approve' },
   });
   expect(command.ok()).toBe(true);
-  await expectRow(page, DOOR, 'Открыта', 0);
+  await expectRow(page, DOOR, 'Открыта', true, 0);
   await expect(deviceRow(page, DOOR)).toHaveAttribute('data-current-state-id', 'open');
 
-  // Search matches the name, the ID, and the current state name.
+  // Search matches the name and the current state name, but not the ID.
   const search = page.locator('#facilityDeviceSearch');
-  for (const query of ['Контур вентиляции', VENTILATION, 'Загрязнён']) {
+  const listed = () => page.locator('#facilityDeviceList button[data-facility-kind="device"]')
+    .evaluateAll(rows => rows.map(row => row.dataset.facilityId));
+  for (const [query, ids] of [['Контур вентиляции', [VENTILATION]], ['Загрязнён', [VENTILATION]], [VENTILATION, []], [DOOR, []]]) {
     await search.fill(query);
-    expect(await page.locator('#facilityDeviceList button[data-facility-kind="device"]')
-      .evaluateAll(rows => rows.map(row => row.dataset.facilityId)), query).toEqual([VENTILATION]);
+    await expect.poll(listed, query).toEqual(ids);
   }
+  await expect(page.locator('#facilityDeviceList > p.facility-empty')).toHaveText('Ни одно устройство не подходит под фильтр и поиск.');
   await search.fill('');
+  await expect(page.locator('#facilityDeviceList button[data-facility-kind="device"]')).toHaveCount(facility.devices.length);
   expect(errors).toEqual([]);
 });

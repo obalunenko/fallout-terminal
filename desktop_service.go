@@ -85,10 +85,6 @@ func (service *desktopService) SetFacilityConditionActive(payload FacilityCondit
 	return service.core.SetFacilityConditionActive(payload)
 }
 
-func (service *desktopService) RecoverFacilityCondition(payload FacilityRecoveryPayload) domain.FacilityOperationResult {
-	return service.core.RecoverFacilityCondition(payload)
-}
-
 func (service *desktopService) LoadReferencedPlayerConfig() PlayerConfigCommandResult {
 	return service.core.LoadReferencedPlayerConfig()
 }

@@ -191,8 +191,15 @@ function persistPublicAccess({ preserveVisiblePreferences = false } = {}) {
   }
 }
 
+// record answers a call with a result queued through
+// setNextTerminalActionResult once, then with a plain success.
 function record(method, args) {
   state.calls.push({ method, args });
+  if (state.terminalActionNextResults.has(method)) {
+    const result = structuredClone(state.terminalActionNextResults.get(method));
+    state.terminalActionNextResults.delete(method);
+    return Promise.resolve(result);
+  }
   return Promise.resolve({ ok: true, method, args });
 }
 
@@ -1248,9 +1255,6 @@ function facilityOperationFixture(method, payload, affectedDeviceIds, affectedCo
     },
   });
 }
-export const RecoverFacilityCondition = payload => facilityOperationFixture(
-  'RecoverFacilityCondition', payload, [], [payload?.conditionId ?? ''],
-);
 export const ResetFacilityDevice = payload => facilityOperationFixture(
   'ResetFacilityDevice', payload, [payload?.deviceId ?? ''], [],
 );

@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 import { expectSaved, saveStatus, switchTab } from './helpers/authoring-bar.mjs';
+import { commandActionDialog, openDeviceDialog } from './helpers/facility-editors.mjs';
 import { facilityState, fixtureSession, openOverseer, seedDemo } from './helpers/overseer-forms.mjs';
+
+// A command's device action is edited in «ДЕЙСТВИЕ КОМАНДЫ» (FR-029, R7).
 
 const EVACUATION = 'Открыть выход и подать сигнал';
 const ORDINARY = 'Проверить наружные датчики';
-const DONE = 'ГОТОВО';
 const RENAMED_DOOR = 'Гермодверь 76';
+const KEEP_OR_REMOVE = 'ВЫБЕРИТЕ, ЧТО СДЕЛАТЬ С ДЕЙСТВИЕМ КОМАНДЫ. ОНО РАБОТАЕТ ТОЛЬКО В РЕЖИМЕ «ИЗМЕНЯЕТ СОСТОЯНИЕ».';
+const WILL_REMOVE = 'ДЕЙСТВИЕ КОМАНДЫ БУДЕТ УДАЛЕНО, КОГДА ВЫ ПРИМЕНИТЕ ФОРМУ.';
+const TEXTS_MISSING = 'ЗАПОЛНИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ И ЗАПРОС ПОДТВЕРЖДЕНИЯ';
 
 function findNode(node, id) {
   if (node.id === id) return node;
@@ -36,21 +41,28 @@ async function saveCount(page) {
   return page.evaluate(() => window.__desktopFixture.calls.filter(call => call.method === 'SaveAuthoring').length);
 }
 
+// chooseCommand picks a «КОМАНДА» option by its terminal and node IDs, since
+// option values are opaque indexes.
+async function chooseCommand(page, terminalId, nodeId) {
+  const option = page.locator(
+    `#facilityCommandActionCommand option[data-terminal-id="${terminalId}"][data-node-id="${nodeId}"]`);
+  await expect(option).toHaveCount(1);
+  await page.locator('#facilityCommandActionCommand').selectOption(await option.getAttribute('value'));
+}
+
 async function renameDoor(page, request) {
   await switchTab(page, 'ОБЪЕКТЫ');
-  await page.locator('[data-facility-kind="device"][data-facility-id="vault-door-main"]').click();
-  await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
-  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill(RENAMED_DOOR);
-  await dialog.getByRole('button', { name: DONE, exact: true }).click();
-  await expect(dialog).toBeHidden();
+  const device = await openDeviceDialog(page, 'vault-door-main');
+  await device.name.fill(RENAMED_DOOR);
+  await device.save.click();
+  await expect(device.dialog).toBeHidden();
   await expect.poll(async () => (await facilityState(request)).facility.devices
-    .find(device => device.id === 'vault-door-main').name).toBe(RENAMED_DOOR);
+    .find(value => value.id === 'vault-door-main').name).toBe(RENAMED_DOOR);
   await expectSaved(page);
   await switchTab(page, 'ТЕРМИНАЛЫ');
 }
 
-test('leaving state-changing mode with a device action requires keep or remove before applying', async ({ page, request }) => {
+test('leaving state-changing mode with a command action requires keep or remove before applying (FR-029)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page, 'ТЕРМИНАЛЫ');
   await openExitProtocolCommand(page, EVACUATION);
@@ -58,14 +70,16 @@ test('leaving state-changing mode with a device action requires keep or remove b
   const decision = page.locator('#commandModeDecision');
   const apply = page.locator('#btnApplyNode');
   const action = page.locator('.command-facility-action');
+  const remove = page.locator('#btnRemoveDeviceAction');
   await expect(decision).toBeHidden();
   await expect(action).toBeVisible();
+  await expect(page.locator('#commandFacilityActionHeading')).toHaveText('ДЕЙСТВИЕ КОМАНДЫ');
 
   await mode.selectOption('ordinary');
   await expect(decision).toBeVisible();
+  await expect(decision.locator('[data-decision-message]')).toHaveText(KEEP_OR_REMOVE);
   await expect(decision).toContainText('Гермодверь Убежища 76');
   await expect(decision).toContainText('Сигнал эвакуации');
-  await expect(decision).toContainText('ВЫБЕРИТЕ, ЧТО СДЕЛАТЬ С ДЕЙСТВИЕМ УСТРОЙСТВ');
   await expect(action).toBeHidden();
   await expect(apply).toBeDisabled();
 
@@ -82,7 +96,9 @@ test('leaving state-changing mode with a device action requires keep or remove b
 
   const before = await facilityState(request);
   await mode.selectOption('ordinary');
-  await page.locator('#btnRemoveDeviceAction').click();
+  await remove.click();
+  await expect(decision.locator('[data-decision-message]')).toHaveText(WILL_REMOVE);
+  await expect(remove).toBeHidden();
   await expect(apply).toBeEnabled();
   expect((await facilityState(request)).sessionRevision).toBe(before.sessionRevision);
   await apply.click();
@@ -93,21 +109,53 @@ test('leaving state-changing mode with a device action requires keep or remove b
   await expect(page.getByRole('list', { name: 'Что делают игроки', exact: true })).not.toContainText(EVACUATION);
 });
 
-test('the device-action block appears only in state-changing mode and waits for that mode to be applied', async ({ page, request }) => {
+test('a command switched to state-changing mode adds its action at once, with the form\'s player texts (FR-029)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page, 'ТЕРМИНАЛЫ');
   await openExitProtocolCommand(page, ORDINARY);
-  const action = page.locator('.command-facility-action');
-  await expect(action).toBeHidden();
+  const section = page.locator('.command-facility-action');
+  const opener = page.locator('#btnEditCommandFacilityAction');
+  await expect(section).toBeHidden();
   await expect(page.locator('#commandModeDecision')).toBeHidden();
 
+  // The mode is not applied yet, and the action is still available.
   await page.locator('#fldCommandMode').selectOption('state-change');
-  await expect(action).toBeVisible();
-  await expect(action).toContainText('ПРИМЕНИТЕ РЕЖИМ, ЧТОБЫ ДОБАВИТЬ ДЕЙСТВИЕ УСТРОЙСТВ');
-  await expect(page.locator('#btnEditCommandFacilityAction')).toBeDisabled();
+  await expect(section).toBeVisible();
+  await expect(section).not.toContainText('ПРИМЕНИТЕ РЕЖИМ');
+  await expect(opener).toHaveText('ДОБАВИТЬ ДЕЙСТВИЕ КОМАНДЫ');
+  await expect(opener).toBeEnabled();
+  await expect(opener).toHaveAttribute('aria-haspopup', 'dialog');
+  await expect(opener).toHaveAttribute('aria-controls', 'facilityCommandActionDialog');
+  await page.locator('#fldCompletedName').fill('Датчики опрошены');
+  await page.locator('#fldConfirmationText').fill('Опросить наружные датчики?');
+
+  await opener.click();
+  const action = commandActionDialog(page);
+  await expect(page.getByRole('dialog', { name: 'ДЕЙСТВИЕ КОМАНДЫ', exact: true })).toBeVisible();
+  await expect(action.commandFixed).toHaveText(`Терминал смотрителя — Убежище 76 › ПРОТОКОЛ ВЫХОДА › ${ORDINARY}`);
+  await expect(action.command).toBeHidden();
+  await expect(action.modeTransitions).toBeChecked();
+  // The command has no stateChange yet, so the dialog asks for the texts the form holds.
+  await expect(action.completedName).toHaveValue('Датчики опрошены');
+  await expect(action.confirmationText).toHaveValue('Опросить наружные датчики?');
+  await expect(action.rows).toHaveCount(1);
+  await action.rows.first().locator('.facility-action-device').selectOption('evacuation-alarm');
+  await action.rows.first().locator('.facility-action-transition').selectOption('sound-evacuation');
+  await action.save.click();
+  await expect(action.dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+  await expect.poll(async () => (await savedCommand(request, 'n_cmd_ordinary_1'))?.stateChange).toBeTruthy();
+  await expectSaved(page);
+  expect((await savedCommand(request, 'n_cmd_ordinary_1')).stateChange).toEqual({
+    completedName: 'Датчики опрошены',
+    confirmationText: 'Опросить наружные датчики?',
+    facilityAction: { transitions: { transitions: [{ deviceId: 'evacuation-alarm', transitionId: 'sound-evacuation' }] } },
+  });
+  await expect(page.locator('#fldCommandMode')).toHaveValue('state-change');
+  await expect(opener).toHaveText('ИЗМЕНИТЬ ДЕЙСТВИЕ КОМАНДЫ');
 });
 
-test('an executed command with a device action keeps its mode locked and shows no decision', async ({ page, request }) => {
+test('an executed command with a command action keeps its mode locked and shows no decision', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page, 'ТЕРМИНАЛЫ');
   await openExitProtocolCommand(page, 'Резервная сеть запущена');
@@ -115,7 +163,7 @@ test('an executed command with a device action keeps its mode locked and shows n
   await expect(page.locator('#commandModeDecision')).toBeHidden();
 });
 
-test('a command with a device action has no draft guard and its edit saves after a facility edit (FR-006)', async ({ page, request }) => {
+test('a command with a command action has no draft guard and its edit saves after a facility edit (FR-006)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page, 'ТЕРМИНАЛЫ');
   await renameDoor(page, request);
@@ -145,38 +193,48 @@ test('a command with a device action has no draft guard and its edit saves after
   expect((await saveStatus(page)).text).not.toMatch(/СЕССИЯ ИЗМЕНИЛАСЬ|ЧЕРНОВИК/i);
 });
 
-test('attaching an action to an ordinary command asks for both player texts and never invents them', async ({ page, request }) => {
+test('attaching an action to an ordinary command asks for both player texts and never invents them (FR-029)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page);
+  const before = await saveCount(page);
   await page.locator('#btnAddFacilityActionBinding').click();
-  const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
-  await binding.getByLabel('ТИП ПРИВЯЗКИ', { exact: true }).selectOption('command-action');
-  await binding.getByLabel('ТЕРМИНАЛ', { exact: true }).selectOption('t_demo1');
-  const completed = binding.getByLabel('НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ', { exact: true });
-  const confirmation = binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true });
+  const action = commandActionDialog(page);
+  await expect(page.getByRole('dialog', { name: 'ДЕЙСТВИЕ КОМАНДЫ', exact: true })).toBeVisible();
+  await expect(action.command).toBeVisible();
+  await expect(action.commandFixed).toBeHidden();
+  // A command that moves players to another terminal takes no action.
+  await expect(action.command.locator('option[data-node-id="n_cmd_state_change_1"]')).toHaveCount(0);
 
-  await binding.getByLabel('ЭЛЕМЕНТ', { exact: true }).selectOption('n_cmd_open_evacuation');
-  await expect(completed).toBeHidden();
-  await expect(confirmation).toBeHidden();
+  // A command with a stateChange keeps its player texts.
+  await chooseCommand(page, 't_demo1', 'n_cmd_open_evacuation');
+  await expect(action.modeTransitions).toBeChecked();
+  await expect(action.rows).toHaveCount(2);
+  await expect(action.completedName).toBeHidden();
+  await expect(action.confirmationText).toBeHidden();
 
-  await binding.getByLabel('ЭЛЕМЕНТ', { exact: true }).selectOption('n_cmd_ordinary_1');
-  await expect(completed).toBeVisible();
-  await expect(completed).toHaveValue('');
-  await expect(confirmation).toHaveValue('');
-  const row = binding.locator('.facility-action-request-row').first();
-  await row.getByLabel('УСТРОЙСТВО ПЕРЕХОДА').selectOption('evacuation-alarm');
-  await row.getByLabel('ПЕРЕХОД КОМАНДЫ').selectOption('sound-evacuation');
-  await binding.getByRole('button', { name: DONE, exact: true }).click();
-  await expect(binding).toBeVisible();
-  await expect(completed).toBeFocused();
-  await expect(binding.locator('#facilityBindingError')).toContainText('ЗАПОЛНИТЕ НАЗВАНИЕ ПОСЛЕ ВЫПОЛНЕНИЯ И ЗАПРОС ПОДТВЕРЖДЕНИЯ');
+  await chooseCommand(page, 't_demo1', 'n_cmd_ordinary_1');
+  await expect(action.completedName).toBeVisible();
+  await expect(action.completedName).toHaveValue('');
+  await expect(action.confirmationText).toHaveValue('');
+  await expect(action.rows).toHaveCount(1);
+  await action.rows.first().locator('.facility-action-device').selectOption('evacuation-alarm');
+  await action.rows.first().locator('.facility-action-transition').selectOption('sound-evacuation');
+  await action.save.click();
+  await expect(action.dialog).toBeVisible();
+  await expect(action.completedName).toBeFocused();
+  await expect(action.error).toHaveText(TEXTS_MISSING);
+  expect(await saveCount(page)).toBe(before);
 
-  await completed.fill('Датчики опрошены');
-  await confirmation.fill('Опросить наружные датчики и подать сигнал?');
-  await binding.getByRole('button', { name: DONE, exact: true }).click();
-  await expect(binding).toBeHidden();
+  await action.completedName.fill('Датчики опрошены');
+  await action.save.click();
+  await expect(action.confirmationText).toBeFocused();
+  await expect(action.error).toHaveText(TEXTS_MISSING);
+  await action.confirmationText.fill('Опросить наружные датчики и подать сигнал?');
+  await action.save.click();
+  await expect(action.dialog).toBeHidden();
   await expect.poll(async () => (await savedCommand(request, 'n_cmd_ordinary_1')).stateChange).toBeTruthy();
   await expectSaved(page);
+  expect(await saveCount(page)).toBe(before + 1);
   expect((await savedCommand(request, 'n_cmd_ordinary_1')).stateChange).toEqual({
     completedName: 'Датчики опрошены',
     confirmationText: 'Опросить наружные датчики и подать сигнал?',

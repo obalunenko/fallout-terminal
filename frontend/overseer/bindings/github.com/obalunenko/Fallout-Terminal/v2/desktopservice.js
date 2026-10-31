@@ -253,16 +253,6 @@ export function PreviewFacility(payload) {
 }
 
 /**
- * @param {$models.FacilityRecoveryPayload} payload
- * @returns {$CancellablePromise<domain$0.FacilityOperationResult>}
- */
-export function RecoverFacilityCondition(payload) {
-    return $Call.ByID(3026030627, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
-    }));
-}
-
-/**
  * @param {string} sessionID
  * @returns {$CancellablePromise<$models.CoordinationCommandResult>}
  */

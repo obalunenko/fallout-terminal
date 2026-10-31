@@ -229,12 +229,6 @@ export const ControllerTerminalPresentationKind = {
 };
 
 /**
- * DiagnosticRecoveryReference is one allowlisted recovery variant. Validation
- * requires exactly one pointer to be non-nil.
- * @typedef {any} DiagnosticRecoveryReference
- */
-
-/**
  * FacilityChange is one runtime-only entry of a device's recent-changes feed.
  * Exactly one variant is set. Entries carry stable IDs only; the Overseer
  * resolves names from the session.

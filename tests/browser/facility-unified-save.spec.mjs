@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 import { blockedReason, expectSaved, redo, saveStatus, switchTab, undo } from './helpers/authoring-bar.mjs';
+import { deviceDialog, faultDialog, renderedError, stateChips } from './helpers/facility-editors.mjs';
+import { playCard, selectDevice } from './helpers/facility-play.mjs';
 import {
   FIXTURE, facilityState, fixtureSession, openOverseer, seedDemo, seedSession,
 } from './helpers/overseer-forms.mjs';
@@ -27,11 +29,23 @@ const REMOVED_COPY = [
   'ОПУБЛИКОВАТЬ ИЗМЕНЕНИЯ',
   'СБРОСИТЬ ВСЕ СОСТОЯНИЯ',
   'СБРОСИТЬ ВЕСЬ ОБЪЕКТ',
+  // The fault switch replaced the operator recovery controls (041 FR-020).
+  'ВОССТАНОВИТЬ УСЛОВИЕ',
+  'УСЛОВИЕ ВОССТАНОВЛЕНО',
+  'ВОССТАНОВЛЕНИЕ ОПЕРАТОРОМ',
+  'Восстановление оператором',
+  'recoverFacilityCondition',
 ];
 const REMOVED_ELEMENTS = [
   'btnSaveFacility', 'btnDiscardFacility', 'btnResetFacility', 'facilityResetDialog', 'commandDraftGuard',
   'btnPublish',
+  'facilityConditionPrivateRecovery', 'facilityConditionSelectionEditor', 'facilityConditionSelectionHeading',
+  'facilitySelectedConditionSummary', 'btnRecoverFacilityCondition', 'btnRecoverFacilityConditionReason',
+  'facilityRecoveryConfirmationDialog', 'facilityRecoveryConfirmationDialogTitle', 'btnCancelFacilityRecovery',
+  'btnConfirmFacilityRecovery',
 ];
+// A rejected save names the failure in Russian, then what it touched (041 FR-038, FR-039).
+const INVALID_CONFIGURATION = 'Настройка локации не прошла проверку. Исправьте последнюю правку или отмените её кнопкой «Отменить».';
 
 function findNode(node, id) {
   if (node?.id === id) return node;
@@ -172,13 +186,12 @@ test('edits on both tabs both save, the status matches on both tabs, and undo an
   expect((await statusOnBothTabs(page)).text).not.toMatch(DRAFT_OR_STALE);
   await expect(page.locator('#facilityStatus')).not.toContainText(DRAFT_OR_STALE);
 
-  // A live change between the edits: the spore fault is recovered.
-  await deviceRow(page, 'ventilation-main').click();
-  await openDetailTab(page, 'facilityTabConditions');
-  await page.locator('[data-facility-kind="condition"][data-facility-id="air-spore-bloom"]').click();
-  await page.locator('#btnRecoverFacilityCondition').click();
-  await page.locator('#btnConfirmFacilityRecovery').click();
-  await expect(page.locator('#facilityStatus')).toHaveText('УСЛОВИЕ ВОССТАНОВЛЕНО');
+  // A live change between the edits: the Overseer switches the spore fault off.
+  await selectDevice(page, 'ventilation-main');
+  const card = playCard(page);
+  await card.faultSwitch('air-spore-bloom').click();
+  await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ СНЯТА');
+  await expect(card.faultSwitch('air-spore-bloom')).toHaveAttribute('aria-checked', 'false');
   expect((await savedCondition(request, 'air-spore-bloom')).currentActive).toBe(false);
 
   // ОТМЕНИТЬ reverses newest first; each reversal is a save (AS7).
@@ -194,7 +207,7 @@ test('edits on both tabs both save, the status matches on both tabs, and undo an
   await expect(deviceRow(page, DOOR)).toContainText(DOOR_NAME);
   expect(await blockedReason(page.locator('#btnUndo'))).toBe('НЕЧЕГО ОТМЕНЯТЬ');
 
-  // Live state is never reversed: the fault stays recovered and the executed
+  // Live state is never reversed: the fault stays off and the executed
   // commands stay executed.
   const live = await fixtureSession(request);
   expect(live.facility.conditions.find(condition => condition.id === 'air-spore-bloom').currentActive).toBe(false);
@@ -273,7 +286,7 @@ test('the status reads the same on both tabs while saving, with unapplied input,
 
   // A rejected save shows its reason on both tabs, and the device dialog
   // reopens with the input (AS6).
-  const reason = 'ДЕЙСТВИЕ ОБЪЕКТА НАСТРОЕНО НЕКОРРЕКТНО · device · evacuation-alarm';
+  const reason = `${INVALID_CONFIGURATION} Затронуто: устройство «Сигнал эвакуации».`;
   await rejectSave(page, request, { issue: { entityKind: 'device', entityId: 'evacuation-alarm' } });
   await renameDevice(page, 'evacuation-alarm', 'Сирена эвакуации');
   await expect(status).toHaveAttribute('data-state', 'error');
@@ -281,7 +294,9 @@ test('the status reads the same on both tabs while saving, with unapplied input,
   const dialog = page.locator('#facilityDeviceDialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('#facilityDeviceName')).toHaveValue('Сирена эвакуации');
-  await expect(dialog.locator('#facilityDeviceError')).toHaveText(reason);
+  expect(await renderedError(dialog.locator('#facilityDeviceError'))).toMatchObject({
+    key: 'invalid-configuration', message: reason, original: 'failure: invalid-configuration · device evacuation-alarm',
+  });
   await dialog.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
   await expect(dialog).toBeHidden();
   expect((await statusOnBothTabs(page)).state).toBe('error');
@@ -346,17 +361,19 @@ test('of two quick edits the valid one saves and the rejected one reopens its di
 
   await deviceRow(page, 'power-grid-main').click();
   await page.locator('#btnEditFacilityDevice').click();
-  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
-  await dialog.locator('.facility-state-name').first().fill('Обесточена · проверка');
+  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО', exact: true });
+  const device = deviceDialog(page);
+  await device.chips.first().click();
+  await device.stateName.fill('Обесточена · проверка');
   await dialog.getByRole('button', { name: 'ГОТОВО', exact: true }).click();
   await expect(dialog).toBeHidden();
 
   await rejectSave(page, request, { nth: 2, issue: { entityKind: 'device', entityId: 'power-grid-main' } });
   await releaseSaves(page);
-  const reason = 'ДЕЙСТВИЕ ОБЪЕКТА НАСТРОЕНО НЕКОРРЕКТНО · device · power-grid-main';
+  const reason = `${INVALID_CONFIGURATION} Затронуто: устройство «Резервная сеть Убежища 76».`;
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('#facilityDeviceError')).toHaveText(reason);
-  await expect(dialog.locator('.facility-state-name').first()).toHaveValue('Обесточена · проверка');
+  expect((await renderedError(device.error)).message).toBe(reason);
+  expect((await stateChips(page))[0]).toMatchObject({ id: 'offline', name: 'Обесточена · проверка' });
   await expect(page.locator('#saveStatus')).toHaveText(`ОШИБКА СОХРАНЕНИЯ: ${reason}`);
   expect((await savedDevice(request, DOOR)).name).toBe('Гермодверь 76');
   expect((await savedDevice(request, 'power-grid-main')).states[0].name).toBe('Нет питания');
@@ -500,43 +517,74 @@ test('every facility dialog that edits data confirms with «ГОТОВО», and 
   await switchTab(page, 'ТЕРМИНАЛЫ');
   await openCommand(page, EVACUATION_NAME);
   await sweep('ТЕРМИНАЛЫ');
-  for (const source of [`${FIXTURE}/overseer`, '/__fixture/overseer.js']) {
+  for (const source of [`${FIXTURE}/overseer`, '/__fixture/overseer.js', '/__fixture/desktop-api.js']) {
     const text = await (await request.get(source)).text();
     for (const copy of REMOVED_COPY) expect(text, `${copy} in ${source}`).not.toContain(copy);
     expect(text, `ЧЕРНОВИК in ${source}`).not.toMatch(/черновик/i);
   }
 });
 
-test('reset, preview, and private-recovery controls run or say on the control why not (AS4, FR-005)', async ({ page, request }) => {
-  await seedDemo(request);
+test('reset, preview, and fault-switch controls run or say on the control why not (AS4, FR-005, 041 FR-020)', async ({ page, request }) => {
+  // The door fault has no stored «Восстановление оператором» entry; the
+  // Overseer can still switch it (041 FR-020).
+  const demo = await seedDemo(request);
+  const doorFault = demo.facility.conditions.find(condition => condition.id === 'door-offline');
+  doorFault.recovery = doorFault.recovery.filter(entry => !entry.privateOverseerAction);
+  await seedSession(request, demo);
   await openOverseer(page, 'ОБЪЕКТЫ');
-  await deviceRow(page, DOOR).click();
+  await selectDevice(page, DOOR);
   for (const id of ['btnPreviewFacilityDevice', 'btnResetFacilityDevice', 'btnResetScene']) {
     await expect(page.locator(`#${id}`), id).not.toHaveAttribute('aria-disabled', 'true');
   }
 
-  // An inactive fault cannot be recovered; the control stays focusable and
-  // its visible reason says why.
+  // While an edit saves, the fault switch stays focusable and its visible
+  // reason says why it waits; activating it changes nothing.
+  const card = playCard(page);
+  const toggle = card.faultSwitch('door-offline');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await expect(toggle).not.toHaveAttribute('aria-disabled', 'true');
+  await holdSaves(page);
+  await renameDevice(page, DOOR, 'Гермодверь 76');
+  expect(await blockedReason(toggle)).toBe('ДОЖДИТЕСЬ СОХРАНЕНИЯ');
+  await expect(page.locator(`#${await toggle.getAttribute('aria-describedby')}`)).toBeVisible();
+  await toggle.focus();
+  await expect(toggle).toBeFocused();
+  await toggle.press('Enter');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect((await savedCondition(request, 'door-offline')).currentActive).toBe(false);
+  await releaseSaves(page);
+  await expectSaved(page);
+
+  // After the save the switch turns the fault on and off.
+  await expect(toggle).not.toHaveAttribute('aria-disabled', 'true');
+  await toggle.click();
+  await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ АКТИВИРОВАНА');
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  expect((await savedCondition(request, 'door-offline')).currentActive).toBe(true);
+  await toggle.click();
+  await expect(card.status).toHaveText('НЕИСПРАВНОСТЬ СНЯТА');
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  expect((await savedCondition(request, 'door-offline')).recovery).toEqual(doorFault.recovery);
+
+  // The fault dialog lists «Смотритель вручную», and its preview says why it
+  // waits while the dialog has unsaved changes.
   await openDetailTab(page, 'facilityTabConditions');
   await page.locator('[data-facility-kind="condition"][data-facility-id="door-offline"]').click();
-  const recover = page.locator('#btnRecoverFacilityCondition');
-  expect(await blockedReason(recover)).toBe('НЕИСПРАВНОСТЬ НЕ АКТИВНА');
-  await expect(page.locator('#btnRecoverFacilityConditionReason')).toBeVisible();
-  await recover.focus();
-  await expect(recover).toBeFocused();
-  await recover.press('Enter');
-  await expect(page.locator('#facilityRecoveryConfirmationDialog')).toBeHidden();
-  await expect(page.locator('#btnPreviewFacilityCondition')).not.toHaveAttribute('aria-disabled', 'true');
-
-  // An active fault with operator recovery runs.
-  await deviceRow(page, 'ventilation-main').click();
-  await page.locator('[data-facility-kind="condition"][data-facility-id="air-spore-bloom"]').click();
-  await expect(recover).not.toHaveAttribute('aria-disabled', 'true');
-  await recover.click();
-  await expect(page.locator('#facilityRecoveryConfirmationDialog')).toBeVisible();
-  await page.locator('#btnConfirmFacilityRecovery').click();
-  await expect(page.locator('#facilityStatus')).toHaveText('УСЛОВИЕ ВОССТАНОВЛЕНО');
-  expect(await blockedReason(recover)).toBe('НЕИСПРАВНОСТЬ НЕ АКТИВНА');
+  const fault = faultDialog(page);
+  await expect(fault.dialog).toBeVisible();
+  await expect(page.locator('#facilityFaultClearsList li[data-kind="overseer"] .facility-fault-way-name'))
+    .toHaveText('Смотритель вручную');
+  const preview = page.locator('#btnPreviewFacilityCondition');
+  await expect(preview).not.toHaveAttribute('aria-disabled', 'true');
+  await fault.name.fill('Контроллер гермодвери молчит');
+  expect(await blockedReason(preview)).toBe('СНАЧАЛА НАЖМИТЕ «ГОТОВО»');
+  await preview.focus();
+  await expect(preview).toBeFocused();
+  await preview.press('Enter');
+  await expect(page.locator('#facilityPreviewDialog')).toBeHidden();
+  await fault.cancel.click();
+  await expect(fault.dialog).toBeHidden();
+  expect(await saveCalls(page)).toBe(1);
 });
 
 test('the single-command reset says on the control why it waits for another reset (FR-005)', async ({ page, request }) => {
@@ -565,7 +613,7 @@ test('the single-command reset says on the control why it waits for another rese
 test('a rejected terminal dialog edit reopens the dialog with its input and the reason (AS6)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page, 'ТЕРМИНАЛЫ');
-  const reason = 'ДЕЙСТВИЕ ОБЪЕКТА НАСТРОЕНО НЕКОРРЕКТНО · session';
+  const reason = INVALID_CONFIGURATION;
 
   // The entry-block command dialog, creating a new command for block 4.
   await page.locator('.tree-row', { hasText: 'ДИРЕКТИВЫ VAULT-TEC' }).click();

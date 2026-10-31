@@ -26,7 +26,6 @@ export {
     FacilityDeviceTransitionPayload,
     FacilityPreviewPayload,
     FacilityPreviewResult,
-    FacilityRecoveryPayload,
     GeneratedPlayerPasswordResult,
     LiveTerminalPayload,
     LogAccessResult,

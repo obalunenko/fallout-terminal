@@ -900,6 +900,18 @@
             "destinationStateId": "standby"
           },
           {
+            "id": "backup-grid-start",
+            "name": "Пуск от резервной сети",
+            "sourceStateId": "scrammed",
+            "destinationStateId": "standby",
+            "preconditions": [
+              {
+                "deviceId": "power-grid-main",
+                "stateId": "online"
+              }
+            ]
+          },
+          {
             "id": "scram",
             "name": "Остановить реактор",
             "sourceStateId": "standby",
@@ -928,7 +940,8 @@
             "id": "track",
             "name": "Включить сопровождение",
             "sourceStateId": "safe",
-            "destinationStateId": "tracking"
+            "destinationStateId": "tracking",
+            "recovery": true
           },
           {
             "id": "safe",
@@ -1267,6 +1280,10 @@
           {
             "deviceId": "network-overseer",
             "transitionId": "connect"
+          },
+          {
+            "deviceId": "security-turret",
+            "transitionId": "track"
           }
         ]
       },

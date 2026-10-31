@@ -1,15 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 import { switchTab } from './helpers/authoring-bar.mjs';
+import { RULE_TABS, chooseWhere } from './helpers/facility-editors.mjs';
 import { expectNoOrphanLabels, openOverseer, seedDemo } from './helpers/overseer-forms.mjs';
 
-const BINDING_KINDS = ['menu-name', 'entry-content', 'visibility', 'availability', 'command-action'];
-const BINDING_NODES = ['n_entry_vault_shutdown', 'n_cmd_ordinary_1', 'n_cmd_open_evacuation'];
+// A record, an ordinary command, and a command with an action, each picked
+// on every rule tab that offers it.
+const RULE_NODES = ['n_entry_vault_shutdown', 'n_cmd_ordinary_1', 'n_cmd_open_evacuation'];
 // Opened above through their real routes, where their lists and modes are populated.
 const NATURALLY_COVERED = new Set([
-  'facilityBindingDialog', 'facilityConditionDialog', 'facilityDeviceDialog', 'facilityRecoveryProgramDialog',
-  'facilityPreviewDialog', 'facilityDependencyDialog', 'facilityRepairDialog', 'facilityDeviceResetDialog',
-  'sceneResetDialog', 'facilityRecoveryConfirmationDialog', 'createTerminalDialog', 'logicalSessionDialog',
+  'facilityBindingDialog', 'facilityCommandActionDialog', 'facilityConditionDialog', 'facilityDeviceDialog',
+  'facilityRecoveryProgramDialog', 'facilityPreviewDialog', 'facilityDependencyDialog', 'facilityRepairDialog',
+  'facilityDeviceResetDialog', 'sceneResetDialog', 'createTerminalDialog', 'logicalSessionDialog',
   'terminalGroupDraftDialog', 'entryBlockCommandDialog', 'resetConfirmationDialog',
 ]);
 
@@ -28,49 +30,94 @@ async function within(page, opener, dialogID, check, closeID) {
   await expect(dialog).toBeHidden();
 }
 
-test('facility dialogs show no orphan labels in any kind, scope, or mode', async ({ page, request }) => {
+async function chooseCommand(page, terminalId, nodeId) {
+  const option = page.locator(
+    `#facilityCommandActionCommand option[data-terminal-id="${terminalId}"][data-node-id="${nodeId}"]`);
+  await page.locator('#facilityCommandActionCommand').selectOption(await option.getAttribute('value'));
+}
+
+test('facility dialogs show no orphan labels on any tab, scope, or mode (FR-023, SC-005)', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page);
   await page.locator('[data-facility-kind="device"][data-facility-id="vault-door-main"]').click();
 
   await openDetailTab(page, 'facilityTabInformation');
   await within(page, () => page.locator('#btnAddFacilityBinding').click(), 'facilityBindingDialog', async dialog => {
-    await dialog.locator('#facilityBindingTerminal').selectOption('t_demo1');
-    for (const kind of BINDING_KINDS) {
-      await dialog.locator('#facilityBindingKind').selectOption(kind);
-      for (const node of BINDING_NODES) {
-        await dialog.locator('#facilityBindingNode').selectOption(node);
-        await expectNoOrphanLabels(dialog, `binding ${kind} ${node}`);
+    for (const [kind, tabID] of Object.entries(RULE_TABS)) {
+      await dialog.locator(tabID).click();
+      await expect(dialog.locator(tabID)).toHaveAttribute('aria-selected', 'true');
+      await expectNoOrphanLabels(dialog, `rule ${kind} without element`);
+      for (const node of RULE_NODES) {
+        const offered = dialog.locator(`#facilityBindingNode option[data-terminal-id="t_demo1"][data-node-id="${node}"]`);
+        if (!await offered.count()) continue;
+        await chooseWhere(page, 't_demo1', node);
+        if (kind === 'entry-content') await dialog.locator('#facilityBindingBlock').selectOption({ index: 1 });
+        await expectNoOrphanLabels(dialog, `rule ${kind} ${node}`);
       }
     }
   }, 'btnCancelFacilityBinding');
+  // An existing rule keeps its tab, and its blocked tabs carry no orphan reason.
+  await page.locator('[data-facility-kind="binding"][data-facility-id="t_demo1/b_vault_door_status/entry-content/0"]')
+    .getByRole('button', { name: /^Изменить/ }).click();
+  await expect(page.locator('#facilityBindingDialog')).toBeVisible();
+  await expectNoOrphanLabels(page.locator('#facilityBindingDialog'), 'existing rule');
+  await page.locator('#btnCancelFacilityBinding').click();
+
+  await openDetailTab(page, 'facilityTabActions');
+  await within(page, () => page.locator('#btnAddFacilityActionBinding').click(), 'facilityCommandActionDialog', async dialog => {
+    await expectNoOrphanLabels(dialog, 'command action with a picked command');
+    await chooseCommand(page, 't_demo1', 'n_cmd_ordinary_1');
+    await expect(dialog.locator('#facilityCommandActionCompletedName')).toBeVisible();
+    await expectNoOrphanLabels(dialog, 'command action without stateChange');
+    await dialog.locator('#facilityCommandActionModeProgram').check();
+    await expect(dialog.locator('#facilityCommandActionProgram')).toBeVisible();
+    await expectNoOrphanLabels(dialog, 'command action in program mode');
+    await dialog.locator('#facilityCommandActionModeTransitions').check();
+    await dialog.locator('#btnAddFacilityCommandActionTransition').click();
+    await expectNoOrphanLabels(dialog, 'command action with two transitions');
+  }, 'btnCancelFacilityCommandAction');
+  await within(page, () => page.locator('#facilityActionBindingList [role="listitem"]').first()
+    .getByRole('button', { name: /^Изменить/ }).click(), 'facilityCommandActionDialog', async dialog => {
+    await expect(dialog.locator('#facilityCommandActionCommandFixed')).toBeVisible();
+    await expectNoOrphanLabels(dialog, 'command action with a fixed command');
+  }, 'btnCancelFacilityCommandAction');
 
   await openDetailTab(page, 'facilityTabConditions');
   await within(page, () => page.locator('#btnAddFacilityCondition').click(), 'facilityConditionDialog', async dialog => {
     await expectNoOrphanLabels(dialog, 'condition device scope');
+    await dialog.locator('#btnAddFaultActivation').click();
+    await expect(dialog.locator('#facilityFaultActivationPicker')).toBeVisible();
+    await expectNoOrphanLabels(dialog, 'condition with the activation picker');
     await dialog.locator('#facilityConditionScope').selectOption('terminal');
     await expectNoOrphanLabels(dialog, 'condition terminal scope');
   }, 'btnCancelFacilityCondition');
 
   await within(page, () => page.locator('#btnAddFacilityDevice').click(), 'facilityDeviceDialog', async dialog => {
-    await dialog.getByRole('button', { name: 'ДОБАВИТЬ СОСТОЯНИЕ', exact: true }).click();
-    await dialog.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД', exact: true }).click();
-    await expectNoOrphanLabels(dialog, 'new device');
+    // With fewer than two states the matrix holds only its hint, so the
+    // check waits for a second state, whose editor stays open.
+    await dialog.locator('#btnAddFacilityState').click();
+    await dialog.locator('#btnAddFacilityState').click();
+    await expect(dialog.locator('#facilityStateEditor')).toBeVisible();
+    await expectNoOrphanLabels(dialog, 'new device with the state editor');
+    await dialog.locator('#facilityTransitionMatrix button.facility-transition-cell').first().click();
+    await expect(dialog.locator('#facilityTransitionPanel')).toBeVisible();
+    await dialog.locator('#facilityTransitionPanel .facility-transition-row:not([hidden]) .facility-add-precondition').click();
+    await expectNoOrphanLabels(dialog, 'new device with a transition');
   }, 'btnCancelFacilityDevice');
 
   await within(page, () => page.locator('#btnEditFacilityDevice').click(),
     'facilityDeviceDialog', async dialog => {
-      for (const summary of await dialog.locator('details.facility-transition-references:not([open]) > summary').all()) {
-        await summary.click();
-      }
+      await dialog.locator('#facilityTransitionMatrix button.facility-transition-cell[data-from="sealed"][data-to="open"]').click();
+      await expect(dialog.locator('#facilityTransitionPanel')).toBeVisible();
+      await dialog.locator('#facilityDeviceTechnical > summary').click();
       await expectNoOrphanLabels(dialog, 'existing device');
     }, 'btnCancelFacilityDevice');
 
   await openDetailTab(page, 'facilityTabPrograms');
   await within(page, () => page.locator('#btnAddFacilityRecoveryProgram').click(), 'facilityRecoveryProgramDialog', async dialog => {
     await expectNoOrphanLabels(dialog, 'program');
-    await dialog.getByRole('button', { name: 'ДОБАВИТЬ ПЕРЕХОД ПРОГРАММЫ', exact: true }).click();
-    await expectNoOrphanLabels(dialog, 'program with extra transition');
+    await dialog.locator('#btnAddFacilityProgramTransition').click();
+    await expectNoOrphanLabels(dialog, 'program with a second transition');
   }, 'btnCancelFacilityRecoveryProgram');
 
   await within(page, () => page.locator('#btnPreviewFacilityDevice').click(), 'facilityPreviewDialog', async dialog => {
@@ -92,15 +139,18 @@ test('facility dialogs show no orphan labels in any kind, scope, or mode', async
     await expectNoOrphanLabels(dialog, 'scene reset');
   }, 'btnCancelSceneReset');
 
+  // A fault row opens its dialog, and the fault preview opens over it.
   await page.locator('[data-facility-kind="device"][data-facility-id="ventilation-main"]').click();
   await openDetailTab(page, 'facilityTabConditions');
-  await page.locator('#facilityConditionList').getByRole('button', { name: /Споровое загрязнение/ }).click();
-  await within(page, () => page.locator('#btnPreviewFacilityCondition').click(), 'facilityPreviewDialog', async dialog => {
-    await expect(dialog.locator('#facilityPreviewStatus')).toContainText('ПРЕДПРОСМОТР ГОТОВ');
-    await expectNoOrphanLabels(dialog, 'condition preview');
-  }, 'btnCloseFacilityPreview');
-  await within(page, () => page.locator('#btnRecoverFacilityCondition').click(), 'facilityRecoveryConfirmationDialog',
-    dialog => expectNoOrphanLabels(dialog, 'recovery confirmation'), 'btnCancelFacilityRecovery');
+  await within(page, () => page.locator('#facilityConditionList').getByRole('button', { name: /Споровое загрязнение/ }).click(),
+    'facilityConditionDialog', async dialog => {
+      await expectNoOrphanLabels(dialog, 'existing condition');
+      await within(page, () => dialog.locator('#btnPreviewFacilityCondition').click(), 'facilityPreviewDialog', async preview => {
+        await expect(preview.locator('#facilityPreviewStatus')).toContainText('ПРЕДПРОСМОТР ГОТОВ');
+        await expectNoOrphanLabels(preview, 'condition preview');
+      }, 'btnCloseFacilityPreview');
+      await expect(dialog).toBeVisible();
+    }, 'btnCancelFacilityCondition');
 });
 
 test('the shared authoring bar shows no orphan labels on either tab and keeps no removed control', async ({ page, request }) => {

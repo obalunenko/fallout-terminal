@@ -138,7 +138,7 @@ type fixtureFacilityDiagnosticState struct {
 type fixtureFacilityDiagnosticAudit struct {
 	DurableWrites        int `json:"durableWrites"`
 	ApprovedRecoveries   int `json:"approvedRecoveries"`
-	PrivateRecoveries    int `json:"privateRecoveries"`
+	ConditionSwitches    int `json:"conditionSwitches"`
 	ProjectionReplays    int `json:"projectionReplays"`
 	VisualStateMutations int `json:"visualStateMutations"`
 }
@@ -200,7 +200,6 @@ type fixtureFacilityAuthoringState struct {
 	repairWrites    int
 	previewCalls    int
 	resetWrites     int
-	recoveryWrites  int
 	publishedEvents int
 	nextFailure     string
 
@@ -237,7 +236,6 @@ type fixtureFacilityAuthoringSnapshot struct {
 	AuthoringRevision    uint64           `json:"authoringRevision"`
 	PreviewCalls         int              `json:"previewCalls"`
 	ResetWrites          int              `json:"resetWrites"`
-	RecoveryWrites       int              `json:"recoveryWrites"`
 	PublishedEvents      int              `json:"publishedEvents"`
 }
 
@@ -303,13 +301,6 @@ type fixtureFacilityDeviceResetRequest struct {
 	DeviceID                 string `json:"deviceId"`
 	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
 	CorrelationID            string `json:"correlationId"`
-}
-
-type fixtureFacilityRecoveryRequest struct {
-	ConditionID              string                              `json:"conditionId"`
-	ExpectedFacilityRevision uint64                              `json:"expectedFacilityRevision"`
-	CorrelationID            string                              `json:"correlationId"`
-	Recovery                 *domain.DiagnosticRecoveryReference `json:"recovery"`
 }
 
 // fixtureFacilityTransitionRequest mirrors the App's
@@ -428,7 +419,6 @@ func (state *fixtureFacilityAuthoringState) reset(scenario string) error {
 	state.repairWrites = 0
 	state.previewCalls = 0
 	state.resetWrites = 0
-	state.recoveryWrites = 0
 	state.publishedEvents = 0
 	state.nextFailure = ""
 	state.feed.clear()
@@ -510,12 +500,16 @@ func (state *fixtureFacilityAuthoringState) seed(
 
 // saveAuthoring is the Overseer's SaveAuthoring. Every accepted change goes
 // live, so it counts as a publication, and drops the feeds of deleted
-// devices.
+// devices. A failure set through next-operation applies to it, and it then
+// saves nothing.
 func (state *fixtureFacilityAuthoringState) saveAuthoring(
 	request fixtureAuthoringSaveRequest,
 ) domain.FacilityOperationResult {
 	state.mu.Lock()
 	defer state.mu.Unlock()
+	if failure := state.takeNextFailureLocked(); failure != "" {
+		return state.rejectLocked(request.CorrelationID, failure, nil)
+	}
 	if request.Session == nil {
 		return state.rejectLocked(
 			request.CorrelationID, domain.FacilityFailureInvalidConfiguration,
@@ -589,7 +583,7 @@ func (state *fixtureFacilityAuthoringState) snapshot() fixtureFacilityAuthoringS
 		BrokenReferenceCount: broken, SessionRevision: state.sessionRevision,
 		AuthoringRevision: state.authoringRevision,
 		PreviewCalls:      state.previewCalls, ResetWrites: state.resetWrites,
-		RecoveryWrites: state.recoveryWrites, PublishedEvents: state.publishedEvents,
+		PublishedEvents: state.publishedEvents,
 	}
 }
 
@@ -701,21 +695,32 @@ func (state *fixtureFacilityAuthoringState) operationFailure(
 	expectedRevision uint64,
 ) *domain.FacilityOperationResult {
 	current := fixtureSessionFacilityRevision(state.session)
-	failure := state.nextFailure
-	state.nextFailure = ""
+	code := state.takeNextFailureLocked()
 	if expectedRevision != current {
-		failure = "stale-revision"
-	}
-	if failure == "" {
-		return nil
-	}
-	code := domain.FacilityFailurePersistenceFailed
-	if failure == "stale-revision" {
 		code = domain.FacilityFailureStaleRevision
+	}
+	if code == "" {
+		return nil
 	}
 	return &domain.FacilityOperationResult{
 		CorrelationID: correlationID, Failure: code, SessionRevision: state.sessionRevision,
 		PreviousFacilityRevision: current, ResultingFacilityRevision: current,
+	}
+}
+
+// takeNextFailureLocked clears the failure set through next-operation and
+// returns its code: stale-revision for "stale-revision", persistence-failed
+// for any other text, and "" when none is set.
+func (state *fixtureFacilityAuthoringState) takeNextFailureLocked() domain.FacilityFailureCode {
+	failure := state.nextFailure
+	state.nextFailure = ""
+	switch failure {
+	case "":
+		return ""
+	case string(domain.FacilityFailureStaleRevision):
+		return domain.FacilityFailureStaleRevision
+	default:
+		return domain.FacilityFailurePersistenceFailed
 	}
 }
 
@@ -958,34 +963,6 @@ func (state *fixtureFacilityAuthoringState) coordination() domain.MasterCoordina
 	}
 	coordination.Revision = state.coordinationRevision
 	return coordination
-}
-
-func (state *fixtureFacilityAuthoringState) recover(
-	request fixtureFacilityRecoveryRequest,
-) domain.FacilityOperationResult {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	if failed := state.operationFailure(request.CorrelationID, request.ExpectedFacilityRevision); failed != nil {
-		return *failed
-	}
-	condition := fixtureFacilityConditionByID(state.session.Facility, request.ConditionID)
-	if condition == nil || request.Recovery == nil || request.Recovery.PrivateOverseerAction == nil ||
-		!*request.Recovery.PrivateOverseerAction {
-		return domain.FacilityOperationResult{CorrelationID: request.CorrelationID, Failure: domain.FacilityFailureMissingReference}
-	}
-	previous := state.session.Facility.Revision
-	condition.CurrentActive = false
-	state.session.Facility.Revision++
-	state.sessionRevision++
-	state.recoveryWrites++
-	state.publishedEvents++
-	canonical := domain.CloneSession(state.session)
-	return domain.FacilityOperationResult{
-		OK: true, Changed: true, CorrelationID: request.CorrelationID,
-		SessionRevision: state.sessionRevision, PreviousFacilityRevision: previous,
-		ResultingFacilityRevision: state.session.Facility.Revision,
-		AffectedConditionIDs:      []string{request.ConditionID}, Session: &canonical,
-	}
 }
 
 func fixtureFacilityConditionByID(facility *domain.Facility, conditionID string) *domain.DiagnosticCondition {
@@ -1847,25 +1824,50 @@ func (state *fixtureFacilityDiagnosticState) replay() {
 	state.mu.Unlock()
 }
 
-func (state *fixtureFacilityDiagnosticState) recover(conditionID string, private bool) (domain.FacilityOperationResult, error) {
+// recover clears an active fault when the Overseer approves its recovery
+// command.
+func (state *fixtureFacilityDiagnosticState) recover(conditionID string) (domain.FacilityOperationResult, error) {
 	state.mu.Lock()
 	defer state.mu.Unlock()
+	result, err := state.setConditionActiveLocked(conditionID, false)
+	if err == nil {
+		state.audit.ApprovedRecoveries++
+	}
+	return result, err
+}
+
+// setConditionActive is the Overseer's fault switch,
+// SetFacilityConditionActive.
+func (state *fixtureFacilityDiagnosticState) setConditionActive(
+	conditionID string,
+	active bool,
+) (domain.FacilityOperationResult, error) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	result, err := state.setConditionActiveLocked(conditionID, active)
+	if err == nil {
+		state.audit.ConditionSwitches++
+	}
+	return result, err
+}
+
+// setConditionActiveLocked moves one fault to the given position in one
+// durable write. A fault already there is an error.
+func (state *fixtureFacilityDiagnosticState) setConditionActiveLocked(
+	conditionID string,
+	active bool,
+) (domain.FacilityOperationResult, error) {
 	if !state.active || state.session.Facility == nil {
 		return domain.FacilityOperationResult{}, errors.New("facility diagnostic fixture is inactive")
 	}
 	condition := fixtureDiagnosticConditionByID(state.session.Facility, conditionID)
-	if condition == nil || !condition.CurrentActive {
-		return domain.FacilityOperationResult{}, errors.New("diagnostic condition is not active")
+	if condition == nil || condition.CurrentActive == active {
+		return domain.FacilityOperationResult{}, errors.New("diagnostic condition is missing or already in that position")
 	}
 	previous := state.session.Facility.Revision
-	condition.CurrentActive = false
+	condition.CurrentActive = active
 	state.session.Facility.Revision++
 	state.audit.DurableWrites++
-	if private {
-		state.audit.PrivateRecoveries++
-	} else {
-		state.audit.ApprovedRecoveries++
-	}
 	canonical := domain.CloneSession(state.session)
 	return domain.FacilityOperationResult{
 		OK: true, Changed: true, PreviousFacilityRevision: previous,
@@ -2561,6 +2563,12 @@ type fixtureFacilityLifecycle struct {
 	base        *live.Service
 	state       *fixtureFacilityPlayerState
 	diagnostics *fixtureFacilityDiagnosticState
+
+	mu sync.Mutex
+	// pinned holds, by terminal ID, the presentation effects the latest
+	// target carried, as the CRT journeys set them. ProjectFacility adds them
+	// to the effects the facility projects, which it recomputes every time.
+	pinned map[string][]domain.TerminalPresentationEffect
 }
 
 type fixtureFacilityLifecycleState struct {
@@ -2668,7 +2676,7 @@ func (state *fixtureFacilityLifecycleState) snapshot(service *control.Service) f
 func (lifecycle *fixtureFacilityLifecycle) CreateRuntime(target domain.TerminalTarget) (*domain.TerminalRuntime, *domain.PublicLiveState) {
 	lifecycle.state.takeNavigationReset(target.TerminalID)
 	runtime, projection := lifecycle.base.CreateRuntime(target)
-	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	lifecycle.pin(target, runtime, projection)
 	return runtime, projection
 }
 
@@ -2677,8 +2685,38 @@ func (lifecycle *fixtureFacilityLifecycle) UpdateRuntime(runtime *domain.Termina
 		runtime.Nav = nav.Default()
 	}
 	projection := lifecycle.base.UpdateRuntime(runtime, target)
-	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	lifecycle.pin(target, runtime, projection)
 	return projection
+}
+
+// pin records the effects of target, which the production projector built
+// projection from, and applies them to runtime and projection. A projection
+// that did not build records nothing.
+func (lifecycle *fixtureFacilityLifecycle) pin(
+	target domain.TerminalTarget,
+	runtime *domain.TerminalRuntime,
+	projection *domain.PublicLiveState,
+) {
+	if runtime == nil || projection == nil {
+		return
+	}
+	lifecycle.mu.Lock()
+	if len(target.Effects) == 0 {
+		delete(lifecycle.pinned, target.TerminalID)
+	} else {
+		if lifecycle.pinned == nil {
+			lifecycle.pinned = make(map[string][]domain.TerminalPresentationEffect)
+		}
+		lifecycle.pinned[target.TerminalID] = slices.Clone(target.Effects)
+	}
+	lifecycle.mu.Unlock()
+	applyFixturePresentationEffects(runtime, projection, target.Effects)
+}
+
+func (lifecycle *fixtureFacilityLifecycle) pinnedEffects(terminalID string) []domain.TerminalPresentationEffect {
+	lifecycle.mu.Lock()
+	defer lifecycle.mu.Unlock()
+	return slices.Clone(lifecycle.pinned[terminalID])
 }
 
 func applyFixturePresentationEffects(
@@ -2700,11 +2738,17 @@ func (lifecycle *fixtureFacilityLifecycle) ProjectFacility(runtime *domain.Termi
 	} else if projected := lifecycle.state.projectionFacility(); projected != nil {
 		facility = projected
 	}
-	fixtureEffects := slices.Clone(runtime.Effects)
 	projection := lifecycle.base.ProjectFacility(runtime, facility)
-	if facility == nil || len(fixtureEffects) != 0 {
-		applyFixturePresentationEffects(runtime, projection, fixtureEffects)
+	if runtime == nil {
+		return projection
 	}
+	effects := runtime.Effects
+	for _, effect := range lifecycle.pinnedEffects(runtime.TerminalID) {
+		if !slices.Contains(effects, effect) {
+			effects = append(effects, effect)
+		}
+	}
+	applyFixturePresentationEffects(runtime, projection, effects)
 	return projection
 }
 
@@ -2724,7 +2768,7 @@ func (lifecycle *fixtureFacilityLifecycle) ReactivateRuntime(
 		runtime.Nav = nav.Default()
 	}
 	projection := lifecycle.base.ReactivateRuntime(runtime, target)
-	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	lifecycle.pin(target, runtime, projection)
 	return projection
 }
 
@@ -2733,7 +2777,7 @@ func (lifecycle *fixtureFacilityLifecycle) DiscardRuntime(
 ) (*domain.TerminalRuntime, *domain.PublicLiveState) {
 	lifecycle.state.takeNavigationReset(target.TerminalID)
 	runtime, projection := lifecycle.base.DiscardRuntime(target)
-	applyFixturePresentationEffects(runtime, projection, target.Effects)
+	lifecycle.pin(target, runtime, projection)
 	return runtime, projection
 }
 
@@ -2742,7 +2786,7 @@ func (lifecycle *fixtureFacilityLifecycle) ResetFailedHack(
 	target domain.TerminalTarget,
 ) (*domain.TerminalRuntime, *domain.PublicLiveState) {
 	replacement, projection := lifecycle.base.ResetFailedHack(runtime, target)
-	applyFixturePresentationEffects(replacement, projection, target.Effects)
+	lifecycle.pin(target, replacement, projection)
 	return replacement, projection
 }
 
@@ -5266,7 +5310,7 @@ export async function ResolveCommandExecution(payload) {
 				"run-network-recovery":  fixtureFacilityNetworkConditionID,
 			}[commandID]
 			if conditionID != "" {
-				result, recoverErr := facilityDiagnosticState.recover(conditionID, false)
+				result, recoverErr := facilityDiagnosticState.recover(conditionID)
 				if recoverErr != nil {
 					resolveErr = recoverErr
 				} else {
@@ -5284,16 +5328,15 @@ export async function ResolveCommandExecution(payload) {
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(result)
 	})
-	mux.HandleFunc("POST /__fixture/facility-diagnostics/recover-private", func(response http.ResponseWriter, request *http.Request) {
-		var payload struct {
-			ConditionID              string `json:"conditionId"`
-			ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
-			CorrelationID            string `json:"correlationId"`
-		}
+	// set-condition-active is the Overseer's fault switch,
+	// SetFacilityConditionActive, which works while every player capability
+	// is blocked.
+	mux.HandleFunc("POST /__fixture/facility-diagnostics/set-condition-active", func(response http.ResponseWriter, request *http.Request) {
+		var payload fixtureFacilityConditionActiveRequest
 		decoder := json.NewDecoder(request.Body)
 		decoder.DisallowUnknownFields()
 		if err := decoder.Decode(&payload); err != nil || strings.TrimSpace(payload.CorrelationID) == "" {
-			http.Error(response, "invalid private facility recovery", http.StatusBadRequest)
+			http.Error(response, "invalid facility condition switch", http.StatusBadRequest)
 			return
 		}
 		before := facilityDiagnosticState.snapshot().Facility.Revision
@@ -5301,9 +5344,9 @@ export async function ResolveCommandExecution(payload) {
 			http.Error(response, "stale facility revision", http.StatusConflict)
 			return
 		}
-		result, recoverErr := facilityDiagnosticState.recover(payload.ConditionID, true)
-		if recoverErr != nil {
-			http.Error(response, recoverErr.Error(), http.StatusConflict)
+		result, switchErr := facilityDiagnosticState.setConditionActive(payload.ConditionID, payload.Active)
+		if switchErr != nil {
+			http.Error(response, switchErr.Error(), http.StatusConflict)
 			return
 		}
 		result.CorrelationID = payload.CorrelationID
@@ -5424,7 +5467,6 @@ export const ResetFacilityDevice = payload => post("reset-device", payload);
 export const ApplyFacilityDeviceTransition = payload => post("apply-transition", payload);
 export const ForceFacilityDeviceState = payload => post("force-state", payload);
 export const SetFacilityConditionActive = payload => post("set-condition-active", payload);
-export const RecoverFacilityCondition = payload => post("recover", payload);
 `)
 	})
 	mux.HandleFunc("POST /__fixture/facility-authoring/reset", func(response http.ResponseWriter, request *http.Request) {
@@ -5554,17 +5596,6 @@ export const RecoverFacilityCondition = payload => post("recover", payload);
 		}
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(facilityAuthoringState.resetScene(payload))
-	})
-	mux.HandleFunc("POST /__fixture/facility-authoring/recover", func(response http.ResponseWriter, request *http.Request) {
-		var payload fixtureFacilityRecoveryRequest
-		decoder := json.NewDecoder(request.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&payload); err != nil {
-			http.Error(response, "invalid facility recovery", http.StatusBadRequest)
-			return
-		}
-		response.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(response).Encode(facilityAuthoringState.recover(payload))
 	})
 	mux.HandleFunc("POST /__fixture/facility-authoring/apply-transition", serveFixtureJSON(
 		"invalid facility device transition",

@@ -266,7 +266,7 @@ func TestGeneratedProtobufIdentityChangesOnlyGoPackageForV2(t *testing.T) {
 			"browser descriptor %s diverged from the Go descriptor", contract.browserFile)
 	}
 
-	const stableDescriptorShape = "3c01ee1727ef5a189f42b096b58caf74631ff2e950d4f86db874da3f844033b5"
+	const stableDescriptorShape = "03f093dca1cc3a6c429540b0c5e6a499ab386388c2b31394419bd54991f1ab94"
 	require.Equal(t, stableDescriptorShape, hex.EncodeToString(descriptorHash.Sum(nil)),
 		"protobuf packages, fields, services, or RPC directions changed")
 	sort.Strings(wantBrowserFiles)
@@ -500,13 +500,26 @@ func TestBundledDemoInventoryCoversReachableSessionGraph(t *testing.T) {
 	for _, device := range demo.Facility.Devices {
 		assert.Contains(t, inventory, "`"+device.ID+"`", "inventory omits device %s", device.ID)
 	}
+	sharedCell := false
+	for _, device := range demo.Facility.Devices {
+		cells := make(map[[2]string]int)
+		for _, transition := range device.Transitions {
+			cells[[2]string{transition.SourceStateID, transition.DestinationStateID}]++
+		}
+		for _, count := range cells {
+			sharedCell = sharedCell || count > 1
+		}
+	}
+	require.True(t, sharedCell, "demo has no transition-matrix cell with two transitions")
 	for _, condition := range demo.Facility.Conditions {
 		assert.Contains(t, inventory, "`"+condition.ID+"`", "inventory omits condition %s", condition.ID)
-		require.NotEmpty(t, condition.Recovery, "condition %s has no authored escape path", condition.ID)
 	}
+	multiStepProgram := false
 	for _, program := range demo.Facility.RecoveryPrograms {
 		assert.Contains(t, inventory, "`"+program.ID+"`", "inventory omits recovery program %s", program.ID)
+		multiStepProgram = multiStepProgram || len(program.Transitions) > 1
 	}
+	require.True(t, multiStepProgram, "demo has no recovery program with two transitions")
 	for _, role := range []string{"Overseer", "controller", "observer"} {
 		assert.Contains(t, inventory, role, "inventory omits the %s journey", role)
 	}
@@ -576,8 +589,8 @@ func TestWailsMigrationRuntimeStatusContractIsFrozen(t *testing.T) {
 	root := assetRepositoryRoot(t)
 	wantDigests := map[string]string{
 		"proto/fallout/terminal/private/v1/runtime.proto": "6d137c97b08cfe2992bacb1b0f080192fc5051af3c54128920991bedd29f0e54",
-		"proto/schema-revision.txt":                       "0ca780bb85e7059ec63b1efb5262541ad077cf2068adfbfaddce6cd579f5bc67",
-		"proto/compatibility-baseline.binpb":              "541ee9038f277dbd2f1a18832e2f940c616dd3f72d4faed9a9546f8348a0808a",
+		"proto/schema-revision.txt":                       "1043ac277835c9d018f954ddf6c3c4453ebdcd7673d6b75c95a80747de81ecab",
+		"proto/compatibility-baseline.binpb":              "19fbe68d7ced356cd90342b6b3ba6a44e230b2eb1adf06cbf701c017d7555922",
 	}
 	for relative, want := range wantDigests {
 		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
