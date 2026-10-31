@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/live"
@@ -93,23 +94,67 @@ type FacilityResetStore interface {
 	ResetFacilityDevice(context.Context, FacilityDeviceResetRequest) domain.FacilityOperationResult
 }
 
+// FacilityDeviceTransitionRequest runs one authored transition of one device
+// from the Overseer play card against the exact current facility revision.
+type FacilityDeviceTransitionRequest struct {
+	DeviceID                 string
+	TransitionID             string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityDeviceForceRequest sets one device to any of its states, without
+// transitions, preconditions, or fault effects, against the exact current
+// facility revision.
+type FacilityDeviceForceRequest struct {
+	DeviceID                 string
+	StateID                  string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityConditionActiveRequest switches the current position of one fault
+// against the exact current facility revision. Its starting position never
+// changes.
+type FacilityConditionActiveRequest struct {
+	ConditionID              string
+	Active                   bool
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityPlayStore is the Overseer play capability implemented by the
+// durable facility owner, next to FacilityResetStore. None of its operations
+// writes command state.
+type FacilityPlayStore interface {
+	ApplyFacilityDeviceTransition(context.Context, FacilityDeviceTransitionRequest) domain.FacilityOperationResult
+	ForceFacilityDeviceState(context.Context, FacilityDeviceForceRequest) domain.FacilityOperationResult
+	SetFacilityConditionActive(context.Context, FacilityConditionActiveRequest) domain.FacilityOperationResult
+}
+
 // FacilityAuditAction identifies a bounded facility operation without
 // carrying authored display content.
 type FacilityAuditAction string
 
 const (
-	FacilityAuditActionCommand FacilityAuditAction = "command"
-	FacilityAuditActionReset   FacilityAuditAction = "reset"
-	FacilityAuditActionRecover FacilityAuditAction = "recover"
+	FacilityAuditActionCommand    FacilityAuditAction = "command"
+	FacilityAuditActionReset      FacilityAuditAction = "reset"
+	FacilityAuditActionRecover    FacilityAuditAction = "recover"
+	FacilityAuditActionTransition FacilityAuditAction = "transition"
+	FacilityAuditActionForce      FacilityAuditAction = "force"
+	FacilityAuditActionFault      FacilityAuditAction = "fault"
 )
 
 const (
-	facilityAuditEventRequestReceived = "facility.request_received"
-	facilityAuditEventDecision        = "facility.decision"
-	facilityAuditEventTransition      = "facility.transition"
-	facilityAuditEventFailure         = "facility.failure"
-	facilityAuditEventRecovery        = "facility.recovery"
-	facilityAuditEventReset           = "facility.reset"
+	facilityAuditEventRequestReceived    = "facility.request_received"
+	facilityAuditEventDecision           = "facility.decision"
+	facilityAuditEventTransition         = "facility.transition"
+	facilityAuditEventFailure            = "facility.failure"
+	facilityAuditEventRecovery           = "facility.recovery"
+	facilityAuditEventReset              = "facility.reset"
+	facilityAuditEventOverseerTransition = "facility.overseer_transition"
+	facilityAuditEventForce              = "facility.force"
+	facilityAuditEventFault              = "facility.fault"
 )
 
 // FacilityDeviceAuditTransition records one log-safe device state change.
@@ -148,6 +193,12 @@ type FacilityAuditFacts struct {
 	PreviousSessionRevision  uint64
 	ResultingSessionRevision uint64
 	ResetCommands            []domain.CommandReference
+	// The requested target of an Overseer play change: the transition of a
+	// card transition, the state of a forced change, or the position of a
+	// fault switch.
+	TransitionID  string
+	TargetStateID string
+	TargetActive  *bool
 }
 
 // cloneFacilityMutationRequest returns a request detached from caller-owned
@@ -481,21 +532,20 @@ func (service *Service) RecoverFacilityCondition(
 			return change
 		}
 
-		audit := facilityRecoveryAudit(
+		change := transition{accepted: true}
+		change.audit(facilityRecoveryAudit(
 			request, durable, "succeeded", runtime.Facility, durable.Session.Facility,
-		)
+		))
 		runtime.Facility = domain.CloneFacility(durable.Session.Facility)
-		service.invalidatePendingFacilityAction(runtime)
+		service.withdrawPendingFacilityAction(runtime, &change, service.now(), durable)
 		cached := cloneFacilityOperationResult(durable)
 		service.lastFacilityResult = &cached
 		projection := service.reprojectTerminalRuntimes(runtime)
 		state = masterSnapshot(runtime)
-		effects := stateEffects(runtime)
+		change.effects = append(change.effects, stateEffects(runtime)...)
 		if projection != nil {
-			effects = append(effects, Effect{Live: projection})
+			change.effects = append(change.effects, Effect{Live: projection})
 		}
-		change := transition{accepted: true, effects: effects}
-		change.audit(audit)
 		return change
 	})
 	if state == nil {
@@ -516,27 +566,177 @@ func (service *Service) RecoverFacilityCondition(
 }
 
 // ResetFacilityDevice restores one device and its directly scoped conditions
-// through the shared durable facility owner.
+// through the shared durable facility owner. A reset that only restores
+// faults is a change too.
 func (service *Service) ResetFacilityDevice(
 	ctx context.Context,
 	request FacilityDeviceResetRequest,
 ) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
-	return service.resetFacility(ctx, request)
+	return service.playFacility(ctx, facilityPlay{
+		event: facilityAuditEventReset, correlationID: request.CorrelationID,
+		expectedRevision: request.ExpectedFacilityRevision,
+		named:            strings.TrimSpace(request.DeviceID) != "",
+		target: func(*domain.Facility) FacilityAuditFacts {
+			return FacilityAuditFacts{
+				Action: FacilityAuditActionReset, DeviceIDs: facilityAuditIDs(request.DeviceID), ResetScope: "device",
+			}
+		},
+		call: func(ctx context.Context, store FacilityStore) (domain.FacilityOperationResult, bool) {
+			reset, ok := store.(FacilityResetStore)
+			if !ok {
+				return domain.FacilityOperationResult{}, false
+			}
+			return reset.ResetFacilityDevice(ctx, request), true
+		},
+		apply: func(facility *domain.Facility) ([]string, []string, bool, bool) {
+			return applyExpectedFacilityReset(facility, request.DeviceID)
+		},
+		feed: func(previous, resulting *domain.Facility) (domain.FacilityChange, bool) {
+			return facilityResetChange(previous, resulting, request.DeviceID)
+		},
+	})
 }
 
-func (service *Service) resetFacility(
+// ApplyFacilityDeviceTransition runs one authored transition of one device
+// for the Overseer. The durable owner applies the same source-state,
+// precondition, and fault-effect rules as a player command, and marks no
+// command executed.
+func (service *Service) ApplyFacilityDeviceTransition(
 	ctx context.Context,
-	deviceRequest FacilityDeviceResetRequest,
+	request FacilityDeviceTransitionRequest,
 ) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
-	requestRevision := deviceRequest.ExpectedFacilityRevision
-	correlationID := deviceRequest.CorrelationID
+	return service.playFacility(ctx, facilityPlay{
+		event: facilityAuditEventOverseerTransition, correlationID: request.CorrelationID,
+		expectedRevision: request.ExpectedFacilityRevision,
+		named:            strings.TrimSpace(request.DeviceID) != "" && strings.TrimSpace(request.TransitionID) != "",
+		target: func(*domain.Facility) FacilityAuditFacts {
+			return FacilityAuditFacts{
+				Action: FacilityAuditActionTransition, DeviceIDs: facilityAuditIDs(request.DeviceID),
+				TransitionID: request.TransitionID,
+			}
+		},
+		call: func(ctx context.Context, store FacilityStore) (domain.FacilityOperationResult, bool) {
+			play, ok := store.(FacilityPlayStore)
+			if !ok {
+				return domain.FacilityOperationResult{}, false
+			}
+			return play.ApplyFacilityDeviceTransition(ctx, request), true
+		},
+		apply: func(facility *domain.Facility) ([]string, []string, bool, bool) {
+			return applyExpectedFacilityTransition(facility, request.DeviceID, request.TransitionID)
+		},
+		feed: func(previous, resulting *domain.Facility) (domain.FacilityChange, bool) {
+			return facilityTransitionChange(previous, resulting, request.DeviceID, request.TransitionID)
+		},
+	})
+}
+
+// ForceFacilityDeviceState sets one device to any of its states for the
+// Overseer, without transitions, preconditions, or fault effects.
+func (service *Service) ForceFacilityDeviceState(
+	ctx context.Context,
+	request FacilityDeviceForceRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.playFacility(ctx, facilityPlay{
+		event: facilityAuditEventForce, correlationID: request.CorrelationID,
+		expectedRevision: request.ExpectedFacilityRevision,
+		named:            strings.TrimSpace(request.DeviceID) != "" && strings.TrimSpace(request.StateID) != "",
+		target: func(*domain.Facility) FacilityAuditFacts {
+			return FacilityAuditFacts{
+				Action: FacilityAuditActionForce, DeviceIDs: facilityAuditIDs(request.DeviceID),
+				TargetStateID: request.StateID,
+			}
+		},
+		call: func(ctx context.Context, store FacilityStore) (domain.FacilityOperationResult, bool) {
+			play, ok := store.(FacilityPlayStore)
+			if !ok {
+				return domain.FacilityOperationResult{}, false
+			}
+			return play.ForceFacilityDeviceState(ctx, request), true
+		},
+		apply: func(facility *domain.Facility) ([]string, []string, bool, bool) {
+			return applyExpectedFacilityForce(facility, request.DeviceID, request.StateID)
+		},
+		feed: func(previous, resulting *domain.Facility) (domain.FacilityChange, bool) {
+			return facilityForcedChange(previous, resulting, request.DeviceID)
+		},
+	})
+}
+
+// SetFacilityConditionActive switches the current position of one fault for
+// the Overseer. Any fault can be switched, whatever its scope or recovery
+// list, and its starting position never changes.
+func (service *Service) SetFacilityConditionActive(
+	ctx context.Context,
+	request FacilityConditionActiveRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.playFacility(ctx, facilityPlay{
+		event: facilityAuditEventFault, correlationID: request.CorrelationID,
+		expectedRevision: request.ExpectedFacilityRevision,
+		named:            strings.TrimSpace(request.ConditionID) != "",
+		target: func(facility *domain.Facility) FacilityAuditFacts {
+			facts := FacilityAuditFacts{
+				Action: FacilityAuditActionFault, ConditionIDs: facilityAuditIDs(request.ConditionID),
+				TargetActive: new(request.Active),
+			}
+			if condition := facilityCondition(facility, request.ConditionID); condition != nil && condition.Device != nil {
+				facts.DeviceIDs = facilityAuditIDs(condition.Device.DeviceID)
+			}
+			return facts
+		},
+		call: func(ctx context.Context, store FacilityStore) (domain.FacilityOperationResult, bool) {
+			play, ok := store.(FacilityPlayStore)
+			if !ok {
+				return domain.FacilityOperationResult{}, false
+			}
+			return play.SetFacilityConditionActive(ctx, request), true
+		},
+		apply: func(facility *domain.Facility) ([]string, []string, bool, bool) {
+			return applyExpectedFacilityConditionActive(facility, request.ConditionID, request.Active)
+		},
+		feed: func(_, resulting *domain.Facility) (domain.FacilityChange, bool) {
+			return facilityFaultChange(resulting, request.ConditionID)
+		},
+	})
+}
+
+// facilityPlay is one Overseer play change: a device reset, card transition,
+// forced change, or fault switch. playFacility runs it.
+type facilityPlay struct {
+	event            string
+	correlationID    string
+	expectedRevision uint64
+	// named is true when the request names every target it needs.
+	named bool
+	// target returns the request's audit facts against facility, which may be
+	// nil: the action, the requested target, and the IDs the request names.
+	target func(facility *domain.Facility) FacilityAuditFacts
+	// call runs the change on the durable store. It reports false when the
+	// store lacks the capability.
+	call func(context.Context, FacilityStore) (domain.FacilityOperationResult, bool)
+	// apply makes the change on facility, a copy of the runtime facility. It
+	// returns the IDs a changed result names and whether anything changed,
+	// and reports false when the change cannot apply.
+	apply func(facility *domain.Facility) (devices, conditions []string, changed, ok bool)
+	// feed returns the feed entry of a committed change.
+	feed func(previous, resulting *domain.Facility) (domain.FacilityChange, bool)
+}
+
+// playFacility runs one Overseer play change in one commit: the revision
+// check, the durable write, the check of the durable result, the audit
+// record, and, on a change, the installed facility, the feed entry, the
+// withdrawal of a pending player request, and the reprojected terminals.
+func (service *Service) playFacility(
+	ctx context.Context,
+	play facilityPlay,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
 	if service == nil {
-		result := facilityResetDecisionResult(correlationID, 0, domain.FacilityFailureRuntimeContextEnded)
+		result := facilityPlayDecisionResult(play.correlationID, 0, domain.FacilityFailureRuntimeContextEnded)
 		return nil, &result, facilityFailureError(result.Failure)
 	}
 	if ctx == nil {
-		result := facilityResetDecisionResult(
-			correlationID,
+		result := facilityPlayDecisionResult(
+			play.correlationID,
 			service.currentFacilityRevision(),
 			domain.FacilityFailureRuntimeContextEnded,
 		)
@@ -549,68 +749,74 @@ func (service *Service) resetFacility(
 	committed := service.commit(func(runtime *domain.ProcessRuntime) transition {
 		state = masterSnapshot(runtime)
 		currentRevision := facilityRevision(runtime.Facility)
+		target := play.target(runtime.Facility)
+		audit := func(result domain.FacilityOperationResult, outcome string, previous, resulting *domain.Facility) AuditEvent {
+			return facilityPlayAuditEvent(play, target, result, outcome, previous, resulting)
+		}
 		fail := func(code domain.FacilityFailureCode, outcome string) transition {
-			result := facilityResetDecisionResult(correlationID, currentRevision, code)
+			result := facilityPlayDecisionResult(play.correlationID, currentRevision, code)
 			operation = new(result)
 			operationErr = facilityFailureError(code)
 			change := transition{}
-			change.audit(facilityResetAudit(deviceRequest, result, outcome, nil, nil))
+			change.audit(audit(result, outcome, nil, nil))
 			return change
 		}
 
 		if ctx.Err() != nil {
 			return fail(domain.FacilityFailureRuntimeContextEnded, "failed")
 		}
-		if strings.TrimSpace(correlationID) == "" || strings.TrimSpace(deviceRequest.DeviceID) == "" {
+		if strings.TrimSpace(play.correlationID) == "" || !play.named {
 			return fail(domain.FacilityFailureInvalidConfiguration, "invalid")
 		}
 		if runtime.Facility == nil {
 			return fail(domain.FacilityFailureMissingReference, "failed")
 		}
-		if requestRevision != currentRevision {
+		if play.expectedRevision != currentRevision {
 			return fail(domain.FacilityFailureStaleRevision, "stale")
 		}
-		store, ok := service.facilityStore.(FacilityResetStore)
+		durable, ok := play.call(ctx, service.facilityStore)
 		if !ok {
 			return fail(domain.FacilityFailurePersistenceFailed, "failed")
 		}
 
-		durable := cloneFacilityOperationResult(store.ResetFacilityDevice(ctx, deviceRequest))
+		durable = cloneFacilityOperationResult(durable)
 		if !durable.OK {
-			if !validFacilityResetFailure(durable, correlationID, currentRevision, runtime.Facility) {
+			if !validFacilityPlayFailure(durable, play.correlationID, currentRevision, runtime.Facility) {
 				return fail(domain.FacilityFailurePersistenceFailed, "failed")
 			}
 			failed := normalizedFacilityFailureResult(durable)
 			operation = new(failed)
 			operationErr = facilityFailureError(failed.Failure)
 			change := transition{}
-			change.audit(facilityResetAudit(deviceRequest, failed, "failed", nil, nil))
+			change.audit(audit(failed, "failed", nil, nil))
 			return change
 		}
-		if !validFacilityResetSuccess(durable, deviceRequest, runtime.Facility) {
+		if !validFacilityPlaySuccess(durable, play, runtime.Facility) {
 			return fail(domain.FacilityFailurePersistenceFailed, "failed")
 		}
 
 		operation = new(cloneFacilityOperationResult(durable))
 		if !durable.Changed {
 			change := transition{}
-			change.audit(facilityResetAudit(deviceRequest, durable, "unchanged", nil, nil))
+			change.audit(audit(durable, "unchanged", nil, nil))
 			return change
 		}
 
-		audit := facilityResetAudit(
-			deviceRequest, durable, "succeeded", runtime.Facility, durable.Session.Facility,
-		)
+		previous := runtime.Facility
+		change := transition{accepted: true}
+		change.audit(audit(durable, "succeeded", previous, durable.Session.Facility))
 		runtime.Facility = domain.CloneFacility(durable.Session.Facility)
-		service.invalidatePendingFacilityAction(runtime)
+		at := service.now()
+		if entry, ok := play.feed(previous, runtime.Facility); ok {
+			appendFacilityChanges(runtime, at, entry)
+		}
+		service.withdrawPendingFacilityAction(runtime, &change, at, durable)
 		projection := service.reprojectTerminalRuntimes(runtime)
 		state = masterSnapshot(runtime)
-		effects := stateEffects(runtime)
+		change.effects = append(change.effects, stateEffects(runtime)...)
 		if projection != nil {
-			effects = append(effects, Effect{Live: projection})
+			change.effects = append(change.effects, Effect{Live: projection})
 		}
-		change := transition{accepted: true, effects: effects}
-		change.audit(audit)
 		return change
 	})
 	if state == nil {
@@ -618,8 +824,8 @@ func (service *Service) resetFacility(
 	}
 	state.Revision = committed.revision
 	if operation == nil {
-		result := facilityResetDecisionResult(
-			correlationID,
+		result := facilityPlayDecisionResult(
+			play.correlationID,
 			service.currentFacilityRevision(),
 			domain.FacilityFailurePersistenceFailed,
 		)
@@ -630,7 +836,15 @@ func (service *Service) resetFacility(
 	return domain.CloneMasterCoordinationState(state), &result, operationErr
 }
 
-func facilityResetDecisionResult(
+// facilityAuditIDs returns id as an audit ID list, or nil when id is empty.
+func facilityAuditIDs(id string) []string {
+	if id == "" {
+		return nil
+	}
+	return []string{id}
+}
+
+func facilityPlayDecisionResult(
 	correlationID string,
 	currentRevision uint64,
 	failure domain.FacilityFailureCode,
@@ -643,7 +857,7 @@ func facilityResetDecisionResult(
 	}
 }
 
-func validFacilityResetFailure(
+func validFacilityPlayFailure(
 	result domain.FacilityOperationResult,
 	correlationID string,
 	currentRevision uint64,
@@ -662,30 +876,28 @@ func validFacilityResetFailure(
 	return domain.ValidateSession(*result.Session) == nil && reflect.DeepEqual(result.Session.Facility, current)
 }
 
-func validFacilityResetSuccess(
+// validFacilityPlaySuccess reports whether result is exactly what play makes
+// of current: the revisions, the affected IDs, and the facility.
+func validFacilityPlaySuccess(
 	result domain.FacilityOperationResult,
-	request FacilityDeviceResetRequest,
+	play facilityPlay,
 	current *domain.Facility,
 ) bool {
 	if current == nil || !result.OK ||
 		(result.Failure != "" && result.Failure != domain.FacilityFailureUnspecified) ||
-		result.CorrelationID != request.CorrelationID || result.Session == nil || result.Session.Facility == nil ||
-		result.PreviousFacilityRevision != request.ExpectedFacilityRevision ||
+		result.CorrelationID != play.correlationID || result.Session == nil || result.Session.Facility == nil ||
+		result.PreviousFacilityRevision != play.expectedRevision ||
 		result.Session.Facility.Revision != result.ResultingFacilityRevision ||
 		domain.ValidateSession(*result.Session) != nil {
 		return false
 	}
 
 	expected := domain.CloneFacility(current)
-	affectedDevices, affectedConditions, ok := applyExpectedFacilityReset(expected, request.DeviceID)
-	if !ok {
+	affectedDevices, affectedConditions, changed, ok := play.apply(expected)
+	if !ok || result.Changed != changed {
 		return false
 	}
-	changed := len(affectedDevices) != 0 || len(affectedConditions) != 0
-	if result.Changed != changed {
-		return false
-	}
-	if result.Changed {
+	if changed {
 		expected.Revision++
 	}
 	return result.ResultingFacilityRevision == expected.Revision &&
@@ -694,22 +906,16 @@ func validFacilityResetSuccess(
 		reflect.DeepEqual(result.Session.Facility, expected)
 }
 
+// applyExpectedFacilityReset restores deviceID and the faults scoped to it to
+// their starting values.
 func applyExpectedFacilityReset(
 	facility *domain.Facility,
 	deviceID string,
-) ([]string, []string, bool) {
-	if facility == nil {
-		return nil, nil, false
+) (affectedDevices, affectedConditions []string, changed, ok bool) {
+	device := facilityDevice(facility, deviceID)
+	if device == nil {
+		return nil, nil, false, false
 	}
-	affectedDevices := []string(nil)
-	affectedConditions := []string(nil)
-	deviceIndex := slices.IndexFunc(facility.Devices, func(device domain.FacilityDevice) bool {
-		return device.ID == deviceID
-	})
-	if deviceIndex < 0 {
-		return nil, nil, false
-	}
-	device := &facility.Devices[deviceIndex]
 	if device.CurrentStateID != device.InitialStateID {
 		device.CurrentStateID = device.InitialStateID
 		affectedDevices = append(affectedDevices, device.ID)
@@ -722,31 +928,103 @@ func applyExpectedFacilityReset(
 			affectedConditions = append(affectedConditions, condition.ID)
 		}
 	}
-	slices.Sort(affectedDevices)
 	slices.Sort(affectedConditions)
-	return affectedDevices, affectedConditions, true
+	return affectedDevices, affectedConditions, len(affectedDevices) != 0 || len(affectedConditions) != 0, true
 }
 
-func facilityResetAudit(
-	request FacilityDeviceResetRequest,
+// applyExpectedFacilityTransition runs transitionID of deviceID: the device
+// takes the destination state and each fault the transition names takes its
+// effect's value. Preconditions leave the facility as it is, so they are the
+// durable owner's to check. A transition always changes the facility.
+func applyExpectedFacilityTransition(
+	facility *domain.Facility,
+	deviceID string,
+	transitionID string,
+) (affectedDevices, affectedConditions []string, changed, ok bool) {
+	device := facilityDevice(facility, deviceID)
+	if device == nil {
+		return nil, nil, false, false
+	}
+	move := facilityTransition(device, transitionID)
+	if move == nil || device.CurrentStateID != move.SourceStateID {
+		return nil, nil, false, false
+	}
+	device.CurrentStateID = move.DestinationStateID
+	values := make(map[string]bool, len(move.ConditionEffects))
+	for _, effect := range move.ConditionEffects {
+		condition := facilityCondition(facility, effect.ConditionID)
+		if condition == nil {
+			return nil, nil, false, false
+		}
+		if active, seen := values[effect.ConditionID]; seen && active != effect.Active {
+			return nil, nil, false, false
+		}
+		values[effect.ConditionID] = effect.Active
+		condition.CurrentActive = effect.Active
+		affectedConditions = append(affectedConditions, effect.ConditionID)
+	}
+	return []string{deviceID}, sortedUniqueStrings(affectedConditions), true, true
+}
+
+// applyExpectedFacilityForce sets deviceID to stateID, one of its states.
+func applyExpectedFacilityForce(
+	facility *domain.Facility,
+	deviceID string,
+	stateID string,
+) (affectedDevices, affectedConditions []string, changed, ok bool) {
+	device := facilityDevice(facility, deviceID)
+	if device == nil || !slices.ContainsFunc(device.States, func(state domain.FacilityDeviceState) bool {
+		return state.ID == stateID
+	}) {
+		return nil, nil, false, false
+	}
+	if device.CurrentStateID == stateID {
+		return nil, nil, false, true
+	}
+	device.CurrentStateID = stateID
+	return []string{deviceID}, nil, true, true
+}
+
+// applyExpectedFacilityConditionActive sets the current position of
+// conditionID to active.
+func applyExpectedFacilityConditionActive(
+	facility *domain.Facility,
+	conditionID string,
+	active bool,
+) (affectedDevices, affectedConditions []string, changed, ok bool) {
+	condition := facilityCondition(facility, conditionID)
+	if condition == nil {
+		return nil, nil, false, false
+	}
+	if condition.CurrentActive == active {
+		return nil, nil, false, true
+	}
+	condition.CurrentActive = active
+	return nil, []string{conditionID}, true, true
+}
+
+// facilityPlayAuditEvent records one play change. target holds the action, the
+// requested target, and the IDs the request names. result adds the IDs it
+// affected and its revisions, and previous and resulting, when set, add the
+// values before and after.
+func facilityPlayAuditEvent(
+	play facilityPlay,
+	target FacilityAuditFacts,
 	result domain.FacilityOperationResult,
 	outcome string,
 	previous *domain.Facility,
 	resulting *domain.Facility,
 ) AuditEvent {
-	deviceIDs := sortedUniqueStrings(result.AffectedDeviceIDs)
-	if len(deviceIDs) == 0 && request.DeviceID != "" {
-		deviceIDs = []string{request.DeviceID}
-	}
-	facts := FacilityAuditFacts{
-		CorrelationID: request.CorrelationID, Action: FacilityAuditActionReset,
-		Outcome: outcome, DeviceIDs: deviceIDs,
-		ConditionIDs: sortedUniqueStrings(result.AffectedConditionIDs), ResetScope: "device",
-		Failure: result.Failure, PreviousFacilityRevision: result.PreviousFacilityRevision,
-		ResultingFacilityRevision: result.ResultingFacilityRevision,
-	}
+	facts := target
+	facts.CorrelationID = play.correlationID
+	facts.Outcome = outcome
+	facts.DeviceIDs = sortedUniqueStrings(slices.Concat(result.AffectedDeviceIDs, target.DeviceIDs))
+	facts.ConditionIDs = sortedUniqueStrings(slices.Concat(result.AffectedConditionIDs, target.ConditionIDs))
+	facts.Failure = result.Failure
+	facts.PreviousFacilityRevision = result.PreviousFacilityRevision
+	facts.ResultingFacilityRevision = result.ResultingFacilityRevision
 	addFacilityAuditTransitions(&facts, previous, resulting)
-	return AuditEvent{Name: facilityAuditEventReset, Outcome: outcome, RequestID: request.CorrelationID, Facility: &facts}
+	return AuditEvent{Name: play.event, Outcome: outcome, RequestID: play.correlationID, Facility: &facts}
 }
 
 func facilityRecoveryDecisionResult(
@@ -885,11 +1163,45 @@ func facilityRecoveryAudit(
 	return AuditEvent{Name: facilityAuditEventRecovery, Outcome: outcome, RequestID: request.CorrelationID, Facility: &facts}
 }
 
-func (service *Service) invalidatePendingFacilityAction(runtime *domain.ProcessRuntime) {
+// withdrawPendingFacilityAction withdraws a pending player request that
+// carries a device action after an Overseer change committed result. It adds
+// the request's superseded record to change and a WITHDRAWN entry, at the
+// commit time at, to the feed of each device the request targeted. Call it
+// after the change's own feed entries and after installing the resulting
+// facility.
+func (service *Service) withdrawPendingFacilityAction(
+	runtime *domain.ProcessRuntime,
+	change *transition,
+	at time.Time,
+	result domain.FacilityOperationResult,
+) {
+	pending := runtime.PendingCommandExecution
+	if pending == nil || pending.FacilityAction == nil {
+		return
+	}
+	change.audit(pendingRequestOutcomeAudit(
+		pending, "superseded", result.PreviousFacilityRevision, result.ResultingFacilityRevision,
+	))
+	service.invalidatePendingFacilityAction(runtime, at, domain.FacilityChangeRefusalWithdrawn)
+}
+
+// invalidatePendingFacilityAction rejects a pending player request that
+// carries a device action and records the refusal, with reason and the commit
+// time at, in the feed of each device the request targeted. Call it after the
+// operation's own feed entries and after installing the resulting facility.
+// The caller writes the request's outcome record.
+func (service *Service) invalidatePendingFacilityAction(
+	runtime *domain.ProcessRuntime,
+	at time.Time,
+	reason domain.FacilityChangeRefusalReason,
+) {
 	if runtime == nil || runtime.PendingCommandExecution == nil || runtime.PendingCommandExecution.FacilityAction == nil {
 		return
 	}
 	pending := runtime.PendingCommandExecution
+	appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
+		pending.TerminalID, pending.CommandID, pending.FacilityAction.TransitionRequests, reason,
+	)...)
 	stale := facilityDecisionResult(pending, runtime.Facility, domain.FacilityFailureStaleRevision)
 	if runtime.Broadcast != nil {
 		if terminal := runtime.Broadcast.TerminalRuntimes[pending.TerminalID]; terminal != nil {

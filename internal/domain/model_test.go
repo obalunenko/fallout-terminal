@@ -1031,3 +1031,20 @@ func validSessionForPlayerConfigTest() Session {
 		}},
 	}
 }
+
+func TestCloneMasterCoordinationStateDetachesFacilityChanges(t *testing.T) {
+	t.Parallel()
+
+	original := &MasterCoordinationState{FacilityChanges: []FacilityChange{
+		{Sequence: 2, DeviceID: "door", Fault: &FacilityChangeFault{ConditionID: "jam", Active: true}},
+	}}
+	clone := CloneMasterCoordinationState(original)
+	require.Equal(t, original, clone)
+
+	clone.FacilityChanges[0].Fault.Active = false
+	assert.True(t, original.FacilityChanges[0].Fault.Active)
+
+	encoded, err := json.Marshal(&MasterCoordinationState{})
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "facilityChanges")
+}

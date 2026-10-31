@@ -1203,71 +1203,761 @@ func TestAppFacilityResetsAcceptCanonicalNewerRevisionAndPublishOnce(t *testing.
 	}
 }
 
-func TestAppFacilityPreviewAndResetPreserveTypedFailuresWithoutEvents(t *testing.T) {
+func TestAppFacilityPreviewPreservesTypedFailuresWithoutEvents(t *testing.T) {
 	t.Parallel()
 
 	issues := []domain.FacilityIssue{{
 		Code: domain.FacilityFailureStaleRevision, EntityKind: "facility", EntityID: new("security-door"),
 	}}
-	t.Run("preview", func(t *testing.T) {
-		t.Parallel()
-		coordination := &recordingFacilityOperationsCoordination{
-			previewResult: controlservice.FacilityPreviewResult{
-				Failure: domain.FacilityFailureStaleRevision, Issues: slices.Clone(issues), FacilityRevision: 8,
-			},
-		}
-		events := &recordingEventSink{}
-		app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
+	coordination := &recordingFacilityOperationsCoordination{
+		previewResult: controlservice.FacilityPreviewResult{
+			Failure: domain.FacilityFailureStaleRevision, Issues: slices.Clone(issues), FacilityRevision: 8,
+		},
+	}
+	events := &recordingEventSink{}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
 
-		result := app.PreviewFacility(FacilityPreviewPayload{
-			ExpectedFacilityRevision: 7, TerminalID: "terminal-security",
-			Condition: &domain.FacilityConditionPreview{ConditionID: "door-offline", Active: true},
-		})
-
-		require.False(t, result.OK)
-		require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
-		require.Equal(t, uint64(8), result.FacilityRevision)
-		require.Equal(t, issues, result.Issues)
-		require.Nil(t, result.Terminal)
-		require.Empty(t, events.Records())
+	result := app.PreviewFacility(FacilityPreviewPayload{
+		ExpectedFacilityRevision: 7, TerminalID: "terminal-security",
+		Condition: &domain.FacilityConditionPreview{ConditionID: "door-offline", Active: true},
 	})
 
-	for _, test := range []struct {
-		name          string
-		correlationID string
-		invoke        func(*App) domain.FacilityOperationResult
+	require.False(t, result.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+	require.Equal(t, uint64(8), result.FacilityRevision)
+	require.Equal(t, issues, result.Issues)
+	require.Nil(t, result.Terminal)
+	require.Empty(t, events.Records())
+}
+
+func TestAppFacilityPlayChangesPublishTheCanonicalSessionThenCoordinationOnce(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		call       appFacilityPlayCall
+		devices    []string
+		conditions []string
 	}{
 		{
-			name: "single device reset", correlationID: "reset-device-stale",
-			invoke: func(app *App) domain.FacilityOperationResult {
-				return app.ResetFacilityDevice(FacilityDeviceResetPayload{
-					DeviceID: "security-door", ExpectedFacilityRevision: 7, CorrelationID: "reset-device-stale",
-				})
-			},
+			name:    "card transition with a fault effect",
+			call:    appFacilityPlayTransition("security-door", "open", 7, "play-transition"),
+			devices: []string{"security-door"}, conditions: []string{"door-offline"},
 		},
-	} {
+		{
+			name:    "card transition without fault effects",
+			call:    appFacilityPlayTransition("security-door", "open", 7, "play-transition-plain"),
+			devices: []string{"security-door"},
+		},
+		{
+			name:    "forced change",
+			call:    appFacilityPlayForce("security-door", "open", 7, "play-force"),
+			devices: []string{"security-door"},
+		},
+		{
+			name:       "fault switch",
+			call:       appFacilityPlayFault("door-offline", true, 7, "play-fault"),
+			conditions: []string{"door-offline"},
+		},
+		{
+			name:       "terminal-scoped fault switch",
+			call:       appFacilityPlayFault("terminal-glitch", false, 7, "play-fault-terminal"),
+			conditions: []string{"terminal-glitch"},
+		},
+		{
+			name:    "device reset",
+			call:    appFacilityPlayReset("security-door", 7, "play-reset"),
+			devices: []string{"security-door"}, conditions: []string{"door-offline"},
+		},
+		{
+			name:       "device reset of faults only",
+			call:       appFacilityPlayReset("security-door", 7, "play-reset-faults"),
+			conditions: []string{"door-offline"},
+		},
+	}
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			coordination := &recordingFacilityOperationsCoordination{
-				resetResult: &domain.FacilityOperationResult{
-					CorrelationID: test.correlationID,
-					Failure:       domain.FacilityFailureStaleRevision, Issues: slices.Clone(issues),
-					PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
-				},
+			canonical := appFacilityPlaySession(8)
+			operation := &domain.FacilityOperationResult{
+				OK: true, Changed: true, CorrelationID: test.call.correlationID,
+				SessionRevision: 19, PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+				AffectedDeviceIDs: test.devices, AffectedConditionIDs: test.conditions, Session: &canonical,
 			}
-			events := &recordingEventSink{}
-			app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
+			app, coordination, events, recorder := newFacilityPlayAppForTest(t, operation, nil)
 
-			result := test.invoke(app)
+			result := test.call.invoke(app)
+
+			require.True(t, result.OK, "play change = %#v", result)
+			require.True(t, result.Changed)
+			require.Empty(t, cmp.Diff(*operation, result, cmpopts.EquateEmpty()))
+			require.Equal(t, []any{test.call.request}, coordination.requests)
+			require.Equal(t, []string{test.call.coordinatorCall, "event:session-state", "event:coordination-state"},
+				recorder.Calls(), "the canonical session must be published before the coordination state that carries the feed")
+			records := events.Records()
+			require.Len(t, records, 2)
+			published, ok := records[0].Payload.(SessionStateEvent)
+			require.True(t, ok, "session-state payload = %#v", records[0].Payload)
+			require.Equal(t, uint64(19), published.Revision)
+			require.Empty(t, cmp.Diff(&canonical, published.Session))
+
+			result.Session.Facility.Devices[0].Name = "mutated result"
+			require.Equal(t, "Security door", canonical.Facility.Devices[0].Name, "the result must be detached")
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesReturnUnchangedResultsWithoutEvents(t *testing.T) {
+	t.Parallel()
+
+	for _, call := range []appFacilityPlayCall{
+		appFacilityPlayForce("security-door", "open", 7, "unchanged-force"),
+		appFacilityPlayFault("door-offline", false, 7, "unchanged-fault"),
+		appFacilityPlayReset("security-door", 7, "unchanged-reset"),
+	} {
+		t.Run(call.coordinatorCall, func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(7)
+			app, _, events, recorder := newFacilityPlayAppForTest(t, &domain.FacilityOperationResult{
+				OK: true, CorrelationID: call.correlationID, SessionRevision: 18,
+				PreviousFacilityRevision: 7, ResultingFacilityRevision: 7, Session: &canonical,
+			}, nil)
+
+			result := call.invoke(app)
+
+			require.True(t, result.OK, "play change = %#v", result)
+			require.False(t, result.Changed)
+			require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+			require.Equal(t, []string{call.coordinatorCall}, recorder.Calls())
+			require.Empty(t, events.Records(), "an unchanged play change publishes nothing")
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesRejectBlankOrPaddedIDsBeforeTheCoordinator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		call appFacilityPlayCall
+	}{
+		{name: "transition with a blank device", call: appFacilityPlayTransition("", "open", 7, "blank-device")},
+		{name: "transition with a padded device", call: appFacilityPlayTransition(" security-door", "open", 7, "padded-device")},
+		{name: "transition with a blank transition", call: appFacilityPlayTransition("security-door", " ", 7, "blank-transition")},
+		{name: "transition with a padded transition", call: appFacilityPlayTransition("security-door", "open\n", 7, "padded-transition")},
+		{name: "transition with a blank correlation", call: appFacilityPlayTransition("security-door", "open", 7, "")},
+		{name: "transition with a padded correlation", call: appFacilityPlayTransition("security-door", "open", 7, " padded")},
+		{name: "forced change with a blank device", call: appFacilityPlayForce(" ", "open", 7, "force-blank-device")},
+		{name: "forced change with a blank state", call: appFacilityPlayForce("security-door", "", 7, "force-blank-state")},
+		{name: "forced change with a padded state", call: appFacilityPlayForce("security-door", "open ", 7, "force-padded-state")},
+		{name: "forced change with a padded correlation", call: appFacilityPlayForce("security-door", "open", 7, "force\t")},
+		{name: "fault switch with a blank fault", call: appFacilityPlayFault("", true, 7, "fault-blank")},
+		{name: "fault switch with a padded fault", call: appFacilityPlayFault(" door-offline ", true, 7, "fault-padded")},
+		{name: "fault switch with a blank correlation", call: appFacilityPlayFault("door-offline", true, 7, " ")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(8)
+			app, coordination, events, recorder := newFacilityPlayAppForTest(t, &domain.FacilityOperationResult{
+				OK: true, Changed: true, SessionRevision: 19,
+				PreviousFacilityRevision: 7, ResultingFacilityRevision: 8, Session: &canonical,
+			}, nil)
+
+			result := test.call.invoke(app)
 
 			require.False(t, result.OK)
 			require.False(t, result.Changed)
-			require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
-			require.Equal(t, issues, result.Issues)
+			require.Equal(t, domain.FacilityFailureInvalidConfiguration, result.Failure)
+			require.Equal(t, []domain.FacilityIssue{{
+				Code: domain.FacilityFailureInvalidConfiguration, EntityKind: "request",
+			}}, result.Issues)
+			require.Equal(t, uint64(7), result.PreviousFacilityRevision)
+			require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+			require.Nil(t, result.Session)
+			require.Empty(t, coordination.requests, "an invalid request must never reach the coordinator")
+			require.Empty(t, recorder.Calls())
+			require.Empty(t, events.Records())
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesWithoutACoordinatorEndTheRuntimeContext(t *testing.T) {
+	t.Parallel()
+
+	for _, call := range []appFacilityPlayCall{
+		appFacilityPlayTransition("security-door", "open", 7, "no-coordinator-transition"),
+		appFacilityPlayForce("security-door", "open", 7, "no-coordinator-force"),
+		appFacilityPlayFault("door-offline", true, 7, "no-coordinator-fault"),
+	} {
+		t.Run(call.coordinatorCall, func(t *testing.T) {
+			t.Parallel()
+			recorder := &callRecorder{}
+			events := &recordingEventSink{recorder: recorder}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Coordination: &recordingCoordinationService{}, Events: events,
+			})
+
+			result := call.invoke(app)
+
+			require.False(t, result.OK)
+			require.Equal(t, domain.FacilityFailureRuntimeContextEnded, result.Failure)
+			require.Equal(t, call.correlationID, result.CorrelationID)
 			require.Nil(t, result.Session)
 			require.Empty(t, events.Records())
 		})
 	}
+}
+
+func TestAppFacilityPlayChangesRejectResultsThatDoNotVerify(t *testing.T) {
+	t.Parallel()
+
+	changed := func(correlationID string, devices, conditions []string) domain.FacilityOperationResult {
+		session := appFacilityPlaySession(8)
+		return domain.FacilityOperationResult{
+			OK: true, Changed: true, CorrelationID: correlationID, SessionRevision: 19,
+			PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+			AffectedDeviceIDs: devices, AffectedConditionIDs: conditions, Session: &session,
+		}
+	}
+	unchanged := func(correlationID string, devices, conditions []string) domain.FacilityOperationResult {
+		session := appFacilityPlaySession(7)
+		return domain.FacilityOperationResult{
+			OK: true, CorrelationID: correlationID, SessionRevision: 18,
+			PreviousFacilityRevision: 7, ResultingFacilityRevision: 7,
+			AffectedDeviceIDs: devices, AffectedConditionIDs: conditions, Session: &session,
+		}
+	}
+	failed := func(correlationID string, failure domain.FacilityFailureCode) domain.FacilityOperationResult {
+		return domain.FacilityOperationResult{
+			CorrelationID: correlationID, Failure: failure,
+			PreviousFacilityRevision: 7, ResultingFacilityRevision: 7,
+			Issues: []domain.FacilityIssue{{Code: failure, EntityKind: "device"}},
+		}
+	}
+	transition := appFacilityPlayTransition("security-door", "open", 7, "verify-transition")
+	force := appFacilityPlayForce("security-door", "open", 7, "verify-force")
+	fault := appFacilityPlayFault("door-offline", true, 7, "verify-fault")
+	reset := appFacilityPlayReset("security-door", 7, "verify-reset")
+	tests := []struct {
+		name   string
+		call   appFacilityPlayCall
+		result func() domain.FacilityOperationResult
+	}{
+		{name: "transition reported as unchanged", call: transition, result: func() domain.FacilityOperationResult {
+			return unchanged(transition.correlationID, nil, nil)
+		}},
+		{name: "transition names no device", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, nil, []string{"door-offline"})
+		}},
+		{name: "transition names another device", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"reactor"}, nil)
+		}},
+		{name: "transition names two devices", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"reactor", "security-door"}, nil)
+		}},
+		{name: "transition lists a fault twice", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"security-door"}, []string{"door-offline", "door-offline"})
+		}},
+		{name: "transition lists faults out of order", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"security-door"}, []string{"terminal-glitch", "door-offline"})
+		}},
+		{name: "transition skips a revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.ResultingFacilityRevision = 9
+			result.Session.Facility.Revision = 9
+			return result
+		}},
+		{name: "transition session at another revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.Session.Facility.Revision = 9
+			return result
+		}},
+		{name: "transition without a session revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.SessionRevision = 0
+			return result
+		}},
+		{name: "transition from another revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.PreviousFacilityRevision = 6
+			result.ResultingFacilityRevision = 7
+			result.Session.Facility.Revision = 7
+			return result
+		}},
+		{name: "transition for another correlation", call: transition, result: func() domain.FacilityOperationResult {
+			return changed("another-request", []string{"security-door"}, nil)
+		}},
+		{name: "transition without a session", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.Session = nil
+			return result
+		}},
+		{name: "forced change names a fault", call: force, result: func() domain.FacilityOperationResult {
+			return changed(force.correlationID, []string{"security-door"}, []string{"door-offline"})
+		}},
+		{name: "forced change names no device", call: force, result: func() domain.FacilityOperationResult {
+			return changed(force.correlationID, nil, nil)
+		}},
+		{name: "forced change names another device", call: force, result: func() domain.FacilityOperationResult {
+			return changed(force.correlationID, []string{"reactor"}, nil)
+		}},
+		{name: "unchanged forced change names a device", call: force, result: func() domain.FacilityOperationResult {
+			return unchanged(force.correlationID, []string{"security-door"}, nil)
+		}},
+		{name: "fault switch names a device", call: fault, result: func() domain.FacilityOperationResult {
+			return changed(fault.correlationID, []string{"security-door"}, []string{"door-offline"})
+		}},
+		{name: "fault switch names another fault", call: fault, result: func() domain.FacilityOperationResult {
+			return changed(fault.correlationID, nil, []string{"terminal-glitch"})
+		}},
+		{name: "fault switch names no fault", call: fault, result: func() domain.FacilityOperationResult {
+			return changed(fault.correlationID, nil, nil)
+		}},
+		{name: "unchanged fault switch names the fault", call: fault, result: func() domain.FacilityOperationResult {
+			return unchanged(fault.correlationID, nil, []string{"door-offline"})
+		}},
+		{name: "device reset names nothing", call: reset, result: func() domain.FacilityOperationResult {
+			return changed(reset.correlationID, nil, nil)
+		}},
+		{name: "device reset names another device", call: reset, result: func() domain.FacilityOperationResult {
+			return changed(reset.correlationID, []string{"reactor"}, nil)
+		}},
+		{name: "device reset names a fault of another scope", call: reset, result: func() domain.FacilityOperationResult {
+			return changed(reset.correlationID, nil, []string{"terminal-glitch"})
+		}},
+		{name: "failure without a code", call: transition, result: func() domain.FacilityOperationResult {
+			return failed(transition.correlationID, domain.FacilityFailureUnspecified)
+		}},
+		{name: "failure marked changed", call: force, result: func() domain.FacilityOperationResult {
+			result := failed(force.correlationID, domain.FacilityFailureMissingReference)
+			result.Changed = true
+			return result
+		}},
+		{name: "failure names a device", call: transition, result: func() domain.FacilityOperationResult {
+			result := failed(transition.correlationID, domain.FacilityFailurePreconditionFailed)
+			result.AffectedDeviceIDs = []string{"security-door"}
+			return result
+		}},
+		{name: "failure names a fault", call: fault, result: func() domain.FacilityOperationResult {
+			result := failed(fault.correlationID, domain.FacilityFailureMissingReference)
+			result.AffectedConditionIDs = []string{"door-offline"}
+			return result
+		}},
+		{name: "failure moves the revision", call: fault, result: func() domain.FacilityOperationResult {
+			result := failed(fault.correlationID, domain.FacilityFailureConflict)
+			result.ResultingFacilityRevision = 8
+			return result
+		}},
+		{name: "failure other than stale carries a session", call: transition, result: func() domain.FacilityOperationResult {
+			result := failed(transition.correlationID, domain.FacilityFailureInvalidTransition)
+			session := appFacilityPlaySession(7)
+			result.Session = &session
+			return result
+		}},
+		{name: "stale failure carries a session at another revision", call: reset, result: func() domain.FacilityOperationResult {
+			result := failed(reset.correlationID, domain.FacilityFailureStaleRevision)
+			result.PreviousFacilityRevision, result.ResultingFacilityRevision = 8, 8
+			session := appFacilityPlaySession(9)
+			result.Session = &session
+			return result
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			operation := test.result()
+			app, _, events, recorder := newFacilityPlayAppForTest(t, &operation, nil)
+
+			result := test.call.invoke(app)
+
+			require.False(t, result.OK, "a result that does not verify was accepted: %#v", result)
+			require.False(t, result.Changed)
+			require.Equal(t, domain.FacilityFailurePersistenceFailed, result.Failure)
+			require.Equal(t, test.call.correlationID, result.CorrelationID)
+			require.Equal(t, uint64(7), result.PreviousFacilityRevision)
+			require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+			require.Nil(t, result.Session)
+			require.Empty(t, result.AffectedDeviceIDs)
+			require.Empty(t, result.AffectedConditionIDs)
+			require.Equal(t, []string{test.call.coordinatorCall}, recorder.Calls())
+			require.Empty(t, events.Records(), "a result that does not verify must not publish")
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesKeepEveryKnownFailure(t *testing.T) {
+	t.Parallel()
+
+	failures := []domain.FacilityFailureCode{
+		domain.FacilityFailureRejected,
+		domain.FacilityFailureMissingReference,
+		domain.FacilityFailureInvalidTransition,
+		domain.FacilityFailurePreconditionFailed,
+		domain.FacilityFailureConflict,
+		domain.FacilityFailureDuplicate,
+		domain.FacilityFailureInvalidConfiguration,
+		domain.FacilityFailurePersistenceFailed,
+		domain.FacilityFailureRuntimeContextEnded,
+	}
+	for _, call := range []appFacilityPlayCall{
+		appFacilityPlayTransition("security-door", "open", 7, "known-transition"),
+		appFacilityPlayForce("security-door", "open", 7, "known-force"),
+		appFacilityPlayFault("door-offline", true, 7, "known-fault"),
+	} {
+		for _, failure := range failures {
+			t.Run(call.coordinatorCall+"/"+string(failure), func(t *testing.T) {
+				t.Parallel()
+				issues := []domain.FacilityIssue{{Code: failure, EntityKind: "device", EntityID: new("security-door")}}
+				app, _, events, _ := newFacilityPlayAppForTest(t, &domain.FacilityOperationResult{
+					CorrelationID: call.correlationID, Failure: failure, Issues: issues,
+					PreviousFacilityRevision: 7, ResultingFacilityRevision: 7,
+				}, nil)
+
+				result := call.invoke(app)
+
+				require.False(t, result.OK)
+				require.False(t, result.Changed)
+				require.Equal(t, failure, result.Failure)
+				require.Equal(t, issues, result.Issues)
+				require.Equal(t, uint64(7), result.PreviousFacilityRevision)
+				require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+				require.Nil(t, result.Session)
+				require.Empty(t, events.Records())
+			})
+		}
+	}
+}
+
+func TestAppFacilityPlayStaleResultsCarryTheCanonicalSession(t *testing.T) {
+	t.Parallel()
+
+	calls := []appFacilityPlayCall{
+		appFacilityPlayTransition("security-door", "open", 7, "stale-transition"),
+		appFacilityPlayForce("security-door", "open", 7, "stale-force"),
+		appFacilityPlayFault("door-offline", true, 7, "stale-fault"),
+		appFacilityPlayReset("security-door", 7, "stale-reset"),
+	}
+	for _, call := range calls {
+		t.Run(call.coordinatorCall+"/rejected by the coordinator", func(t *testing.T) {
+			t.Parallel()
+			sessions := openAuthoringSessionForAppTest(t, appFacilityPlaySession(8))
+			active := sessions.Snapshot()
+			require.NotNil(t, active.Session)
+			app, _, events, _ := newFacilityPlayAppForTest(t, appFacilityPlayStale(call.correlationID, nil), sessions)
+
+			result := call.invoke(app)
+
+			require.False(t, result.OK)
+			require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+			require.Equal(t, uint64(8), result.PreviousFacilityRevision)
+			require.Equal(t, uint64(8), result.ResultingFacilityRevision)
+			require.NotNil(t, result.Session, "a stale play change must return the canonical session")
+			require.Empty(t, cmp.Diff(active.Session, result.Session),
+				"the App fills the session from the active snapshot when the coordinator rejected first")
+			require.Empty(t, events.Records(), "a stale play change publishes nothing")
+
+			result.Session.Facility.Devices[0].Name = "mutated result"
+			require.Equal(t, "Security door", sessions.Snapshot().Session.Facility.Devices[0].Name,
+				"the returned session must be detached from the active session")
+		})
+		t.Run(call.coordinatorCall+"/rejected by the store", func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(8)
+			canonical.Facility.Devices[0].CurrentStateID = "open"
+			app, _, events, _ := newFacilityPlayAppForTest(t, appFacilityPlayStale(call.correlationID, &canonical), nil)
+
+			result := call.invoke(app)
+
+			require.False(t, result.OK)
+			require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+			require.NotNil(t, result.Session, "a stale play change must return the canonical session")
+			require.Empty(t, cmp.Diff(&canonical, result.Session))
+			require.Empty(t, events.Records())
+		})
+	}
+}
+
+func TestRuntimeFacilityAuditLogsEveryPlayChange(t *testing.T) {
+	t.Parallel()
+
+	recorder := testutil.NewRecordingLogger()
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: recorder.WithField("run_id", "play-audit-run")})
+	events := []controlservice.AuditEvent{
+		{
+			Name: "facility.overseer_transition", Outcome: "succeeded", RequestID: "play-transition",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-transition", Action: controlservice.FacilityAuditActionTransition,
+				Outcome: "succeeded", DeviceIDs: []string{"security-door"}, ConditionIDs: []string{"door-offline"},
+				DeviceTransitions: []controlservice.FacilityDeviceAuditTransition{{
+					DeviceID: "security-door", PreviousStateID: "locked", ResultingStateID: "open",
+				}},
+				ConditionTransitions: []controlservice.FacilityConditionAuditTransition{{
+					ConditionID: "door-offline", PreviousActive: false, ResultingActive: true,
+				}},
+				TransitionID: "open", PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.overseer_transition", Outcome: "failed", RequestID: "play-transition-blocked",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-transition-blocked", Action: controlservice.FacilityAuditActionTransition,
+				Outcome: "failed", DeviceIDs: []string{"security-door"}, TransitionID: "open",
+				Failure:                  domain.FacilityFailurePreconditionFailed,
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.force", Outcome: "unchanged", RequestID: "play-force",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-force", Action: controlservice.FacilityAuditActionForce,
+				Outcome: "unchanged", DeviceIDs: []string{"security-door"}, TargetStateID: "open",
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.force", Outcome: "invalid", RequestID: "play-force-invalid",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-force-invalid", Action: controlservice.FacilityAuditActionForce,
+				Outcome: "invalid", DeviceIDs: []string{"security-door"}, TargetStateID: "melted",
+				Failure:                  domain.FacilityFailureInvalidConfiguration,
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.fault", Outcome: "stale", RequestID: "play-fault",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-fault", Action: controlservice.FacilityAuditActionFault,
+				Outcome: "stale", DeviceIDs: []string{"security-door"}, ConditionIDs: []string{"door-offline"},
+				TargetActive: new(false), Failure: domain.FacilityFailureStaleRevision,
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+	}
+
+	app.recordAuditEvents(events, 62)
+
+	records := recorder.Records()
+	require.Len(t, records, len(events))
+	for index, event := range events {
+		record := records[index]
+		require.Equal(t, "runtime audit event", record.Message)
+		require.Equal(t, "play-audit-run", record.Fields["run_id"])
+		require.Equal(t, event.Name, record.Fields["event"])
+		require.Equal(t, event.Outcome, record.Fields["outcome"], "a known play outcome must not be logged as invalid")
+		require.Equal(t, event.Facility.CorrelationID, record.Fields["correlation_id"])
+		require.Equal(t, string(event.Facility.Action), record.Fields["facility_action"],
+			"a play action must not be dropped from the log")
+		require.Equal(t, event.Facility.PreviousFacilityRevision, record.Fields["previous_facility_revision"])
+		require.Equal(t, event.Facility.ResultingFacilityRevision, record.Fields["resulting_facility_revision"])
+		require.Equal(t, event.Facility.DeviceIDs, record.Fields["device_ids"])
+		require.Equal(t, sortedUniqueAuditIDs(event.Facility.ConditionIDs), record.Fields["condition_ids"])
+		if event.Facility.Failure != "" {
+			require.Equal(t, string(event.Facility.Failure), record.Fields["facility_failure"])
+		}
+	}
+	require.Equal(t, "info", records[0].Level)
+	require.NotEmpty(t, records[0].Fields["device_transitions"])
+	require.NotEmpty(t, records[0].Fields["condition_transitions"])
+	require.Equal(t, "open", records[0].Fields["transition_id"])
+	require.NotContains(t, records[0].Fields, "target_state_id")
+	require.NotContains(t, records[0].Fields, "target_active")
+	require.Equal(t, "warn", records[1].Level)
+	require.Equal(t, "open", records[1].Fields["transition_id"], "a rejected transition still names its target")
+	require.Equal(t, "info", records[2].Level)
+	require.Equal(t, "open", records[2].Fields["target_state_id"])
+	require.NotContains(t, records[2].Fields, "transition_id")
+	require.NotContains(t, records[2].Fields, "target_active")
+	require.Equal(t, "warn", records[3].Level)
+	require.Equal(t, "melted", records[3].Fields["target_state_id"])
+	require.Equal(t, "warn", records[4].Level)
+	require.Equal(t, false, records[4].Fields["target_active"], "switching a fault off must still log its target")
+	require.NotContains(t, records[4].Fields, "transition_id")
+	require.NotContains(t, records[4].Fields, "target_state_id")
+}
+
+// appFacilityPlayCall is one play change sent through the App, with the
+// coordinator call and the control request it must produce.
+type appFacilityPlayCall struct {
+	coordinatorCall string
+	correlationID   string
+	request         any
+	invoke          func(*App) domain.FacilityOperationResult
+}
+
+func appFacilityPlayTransition(deviceID, transitionID string, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:apply-facility-device-transition", correlationID: correlationID,
+		request: controlservice.FacilityDeviceTransitionRequest{
+			DeviceID: deviceID, TransitionID: transitionID,
+			ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.ApplyFacilityDeviceTransition(FacilityDeviceTransitionPayload{
+				DeviceID: deviceID, TransitionID: transitionID,
+				ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+func appFacilityPlayForce(deviceID, stateID string, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:force-facility-device-state", correlationID: correlationID,
+		request: controlservice.FacilityDeviceForceRequest{
+			DeviceID: deviceID, StateID: stateID,
+			ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.ForceFacilityDeviceState(FacilityDeviceForcePayload{
+				DeviceID: deviceID, StateID: stateID,
+				ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+func appFacilityPlayFault(conditionID string, active bool, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:set-facility-condition-active", correlationID: correlationID,
+		request: controlservice.FacilityConditionActiveRequest{
+			ConditionID: conditionID, Active: active,
+			ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.SetFacilityConditionActive(FacilityConditionActivePayload{
+				ConditionID: conditionID, Active: active,
+				ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+func appFacilityPlayReset(deviceID string, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:reset-facility-device", correlationID: correlationID,
+		request: controlservice.FacilityDeviceResetRequest{
+			DeviceID: deviceID, ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.ResetFacilityDevice(FacilityDeviceResetPayload{
+				DeviceID: deviceID, ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+// appFacilityPlaySession is the canonical session behind the App play tests:
+// the security door with a fault scoped to it, a one-state reactor, and a
+// fault scoped to the security terminal.
+func appFacilityPlaySession(facilityRevision uint64) domain.Session {
+	session := facilityApprovalSessionForAppTest(facilityRevision, "locked")
+	session.Facility.Devices = append(session.Facility.Devices, domain.FacilityDevice{
+		ID: "reactor", Name: "Reactor", Kind: domain.FacilityDeviceKindReactor,
+		InitialStateID: "online", CurrentStateID: "online",
+		States: []domain.FacilityDeviceState{{ID: "online", Name: "Online"}},
+	})
+	session.Facility.Conditions = []domain.DiagnosticCondition{
+		{
+			ID: "door-offline", Name: "Door controller offline", Category: domain.DiagnosticConditionCategoryOffline,
+			Device:  &domain.DiagnosticDeviceScope{DeviceID: "security-door"},
+			Effects: []domain.DiagnosticEffect{{DisplayInstability: &domain.DisplayInstabilityEffect{}}},
+		},
+		{
+			ID: "terminal-glitch", Name: "Terminal glitch", Category: domain.DiagnosticConditionCategoryOffline,
+			Terminal: &domain.DiagnosticTerminalScope{TerminalID: "terminal-security"},
+			Effects:  []domain.DiagnosticEffect{{DisplayInstability: &domain.DisplayInstabilityEffect{}}},
+		},
+	}
+	return session
+}
+
+// appFacilityPlayStale is a stale rejection at facility revision 8, with the
+// canonical session when the store rejected the change.
+func appFacilityPlayStale(correlationID string, session *domain.Session) *domain.FacilityOperationResult {
+	return &domain.FacilityOperationResult{
+		CorrelationID: correlationID, Failure: domain.FacilityFailureStaleRevision,
+		Issues:                   []domain.FacilityIssue{{Code: domain.FacilityFailureStaleRevision, EntityKind: "facility"}},
+		SessionRevision:          18,
+		PreviousFacilityRevision: 8, ResultingFacilityRevision: 8, Session: session,
+	}
+}
+
+// newFacilityPlayAppForTest wires an App to a play coordinator that returns
+// result for every play change and publishes its master state on a change.
+func newFacilityPlayAppForTest(
+	t *testing.T,
+	result *domain.FacilityOperationResult,
+	sessions SessionService,
+) (*App, *recordingFacilityPlayCoordination, *recordingEventSink, *callRecorder) {
+	t.Helper()
+	recorder := &callRecorder{}
+	coordination := &recordingFacilityPlayCoordination{
+		recordingCoordinationService: recordingCoordinationService{
+			state: &domain.MasterCoordinationState{Revision: 40, FacilityRevision: new(uint64(7))},
+		},
+		recorder: recorder, result: result,
+		state: &domain.MasterCoordinationState{Revision: 44, FacilityRevision: new(result.ResultingFacilityRevision)},
+	}
+	events := &recordingEventSink{recorder: recorder}
+	router := &coordinationEffectRouter{}
+	coordination.enqueue = router.Enqueue
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Coordination: coordination, CoordinationEvents: router, Events: events,
+	})
+	router.Bind(nil, app)
+	return app, coordination, events, recorder
+}
+
+// recordingFacilityPlayCoordination answers every play change, device reset
+// included, with one result and records each request in order.
+type recordingFacilityPlayCoordination struct {
+	recordingCoordinationService
+	recorder *callRecorder
+	state    *domain.MasterCoordinationState
+	result   *domain.FacilityOperationResult
+	requests []any
+	enqueue  func(controlservice.Effect)
+}
+
+func (service *recordingFacilityPlayCoordination) ApplyFacilityDeviceTransition(
+	_ context.Context,
+	request controlservice.FacilityDeviceTransitionRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:apply-facility-device-transition", request)
+}
+
+func (service *recordingFacilityPlayCoordination) ForceFacilityDeviceState(
+	_ context.Context,
+	request controlservice.FacilityDeviceForceRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:force-facility-device-state", request)
+}
+
+func (service *recordingFacilityPlayCoordination) SetFacilityConditionActive(
+	_ context.Context,
+	request controlservice.FacilityConditionActiveRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:set-facility-condition-active", request)
+}
+
+func (service *recordingFacilityPlayCoordination) ResetFacilityDevice(
+	_ context.Context,
+	request controlservice.FacilityDeviceResetRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:reset-facility-device", request)
+}
+
+func (service *recordingFacilityPlayCoordination) play(
+	call string,
+	request any,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	service.requests = append(service.requests, request)
+	service.recorder.Add(call)
+	if service.enqueue != nil && service.result != nil && service.result.OK && service.result.Changed {
+		service.enqueue(controlservice.Effect{Master: domain.CloneMasterCoordinationState(service.state)})
+	}
+	return domain.CloneMasterCoordinationState(service.state), service.result, nil
 }
 
 func TestApplicationStartsPlayerBeforePublishingReady(t *testing.T) {

@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
 });
 
-test('desktop facade retains one v2 service with 44 methods and seven named events', async ({ page }) => {
+test('desktop facade retains one v2 service with 47 methods and seven named events', async ({ page }) => {
   const contract = await page.evaluate(async () => {
     const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports;
     const servicePaths = Object.keys(imports)
@@ -41,12 +41,14 @@ test('desktop facade retains one v2 service with 44 methods and seven named even
   ]);
   expect(contract.methods).toEqual([
     'AddCharacter',
+    'ApplyFacilityDeviceTransition',
     'AssignCharacter',
     'CopyDemo',
     'CopyPublicAccessCredentials',
     'DeleteCharacter',
     'DescribePresentation',
     'EndBroadcast',
+    'ForceFacilityDeviceState',
     'ForceHackSuccess',
     'GeneratePlayerPassword',
     'GetApplicationUpdateStatus',
@@ -80,6 +82,7 @@ test('desktop facade retains one v2 service with 44 methods and seven named even
     'SaveAuthoring',
     'SavePublicAccessSettings',
     'SetActiveController',
+    'SetFacilityConditionActive',
     'StartBroadcast',
     'StartPublicAccess',
     'StopPublicAccess',
@@ -543,6 +546,587 @@ test('facility read and mutation calls reject inconsistent successful revisions'
     previousFacilityRevision: 9,
     resultingFacilityRevision: 9,
   }));
+});
+
+// The four Overseer play changes, keyed by their validateFacilityMutationResult
+// operation. Each request is sent at facility revision 8.
+const FACILITY_PLAY_OPERATIONS = {
+  'device-transition': {
+    method: 'ApplyFacilityDeviceTransition',
+    call: 'applyFacilityDeviceTransition',
+    request: {
+      deviceId: 'security-door', transitionId: 'open', expectedFacilityRevision: 8, correlationId: 'transition-8',
+    },
+  },
+  'device-force': {
+    method: 'ForceFacilityDeviceState',
+    call: 'forceFacilityDeviceState',
+    request: {
+      deviceId: 'reactor-main', stateId: 'critical-overheat', expectedFacilityRevision: 8, correlationId: 'force-8',
+    },
+  },
+  'condition-active': {
+    method: 'SetFacilityConditionActive',
+    call: 'setFacilityConditionActive',
+    request: { conditionId: 'door-controller', active: true, expectedFacilityRevision: 8, correlationId: 'fault-8' },
+  },
+  'device-reset': {
+    method: 'ResetFacilityDevice',
+    call: 'resetFacilityDevice',
+    request: { deviceId: 'security-door', expectedFacilityRevision: 8, correlationId: 'device-reset-8' },
+  },
+};
+
+// playFacility has two faults scoped to the door, one to the grid, and one
+// to a terminal, so the reset branch can tell the door's faults apart.
+function playFacility(revision) {
+  return {
+    revision,
+    devices: [{ id: 'security-door' }, { id: 'power-grid' }, { id: 'reactor-main' }],
+    conditions: [
+      { id: 'door-controller', device: { deviceId: 'security-door' } },
+      { id: 'door-sensor', device: { deviceId: 'security-door' } },
+      { id: 'grid-overload', device: { deviceId: 'power-grid' } },
+      { id: 'terminal-lock', terminal: { terminalId: 't_demo' } },
+    ],
+    recoveryPrograms: [],
+  };
+}
+
+function playSession(revision, facility = playFacility(revision)) {
+  return { version: 1, name: `Canonical ${revision}`, terminals: [], facility };
+}
+
+function changedPlayResult(operation, affectedDeviceIds, affectedConditionIds, overrides = {}) {
+  return {
+    ok: true, changed: true, correlationId: FACILITY_PLAY_OPERATIONS[operation].request.correlationId,
+    failure: '', issues: [], sessionRevision: 19, previousFacilityRevision: 8, resultingFacilityRevision: 9,
+    affectedDeviceIds, affectedConditionIds, session: playSession(9), ...overrides,
+  };
+}
+
+function unchangedPlayResult(operation) {
+  return {
+    ok: true, changed: false, correlationId: FACILITY_PLAY_OPERATIONS[operation].request.correlationId,
+    failure: '', issues: [], sessionRevision: 18, previousFacilityRevision: 8, resultingFacilityRevision: 8,
+    affectedDeviceIds: [], affectedConditionIds: [], session: playSession(8),
+  };
+}
+
+function failedPlayResult(operation, failure, issue, revision, session) {
+  const result = {
+    ok: false, changed: false, correlationId: FACILITY_PLAY_OPERATIONS[operation].request.correlationId,
+    failure, issues: [issue], sessionRevision: session ? 30 : 0,
+    previousFacilityRevision: revision, resultingFacilityRevision: revision,
+    affectedDeviceIds: [], affectedConditionIds: [],
+  };
+  return session === undefined ? result : { ...result, session };
+}
+
+// runFacilityPlayCases answers each case's call with its result through the
+// fixture and returns what the facade resolved to, in case order.
+function runFacilityPlayCases(page, cases) {
+  return page.evaluate(async ({ operations, cases: entries }) => {
+    const results = [];
+    for (const { operation, request, result } of entries) {
+      const { method, call } = operations[operation];
+      __desktopFixture.setNextTerminalActionResult(method, result);
+      results.push(await desktopAPI[call](request ?? operations[operation].request));
+    }
+    return results;
+  }, { operations: FACILITY_PLAY_OPERATIONS, cases });
+}
+
+function playResultSummary(result) {
+  return {
+    ok: result.ok,
+    changed: result.changed,
+    correlationId: result.correlationId,
+    failure: result.failure,
+    sessionRevision: result.sessionRevision,
+    previousFacilityRevision: result.previousFacilityRevision,
+    resultingFacilityRevision: result.resultingFacilityRevision,
+    affectedDeviceIds: result.affectedDeviceIds,
+    affectedConditionIds: result.affectedConditionIds,
+    sessionName: result.session?.name ?? null,
+    sessionFacilityRevision: result.session?.facility?.revision ?? null,
+  };
+}
+
+function expectPlayVerdicts(cases, results) {
+  expect(results).toHaveLength(cases.length);
+  cases.forEach(({ label, operation, verdict, result: sent }, index) => {
+    const result = results[index];
+    if (verdict === 'accept') {
+      expect(playResultSummary(result), label).toEqual(playResultSummary(sent));
+      return;
+    }
+    const { correlationId } = FACILITY_PLAY_OPERATIONS[operation].request;
+    expect(result, label).toEqual(expect.objectContaining({
+      ok: false,
+      changed: false,
+      correlationId,
+      failure: 'conflict',
+      issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+      previousFacilityRevision: 8,
+      resultingFacilityRevision: 8,
+      affectedDeviceIds: [],
+      affectedConditionIds: [],
+      session: null,
+    }));
+  });
+}
+
+test('play change requests reach their bindings as exact normalized payloads', async ({ page }) => {
+  const observed = await page.evaluate(async () => {
+    const results = {
+      transition: await desktopAPI.applyFacilityDeviceTransition({
+        deviceId: 'security-door', transitionId: 'open', expectedFacilityRevision: 8, correlationId: 'transition-8',
+        stateId: 'not-a-transition-field', sessionRevision: 4,
+      }),
+      force: await desktopAPI.forceFacilityDeviceState({
+        deviceId: 'reactor-main', stateId: 'critical-overheat', expectedFacilityRevision: 8, correlationId: 'force-8',
+        transitionId: 'not-a-force-field',
+      }),
+      fault: await desktopAPI.setFacilityConditionActive({
+        conditionId: 'door-controller', active: true, expectedFacilityRevision: 8, correlationId: 'fault-8',
+        deviceId: 'not-a-fault-field',
+      }),
+    };
+    const frozen = Object.values(results).map(result => Object.isFrozen(result));
+
+    await desktopAPI.applyFacilityDeviceTransition({ deviceId: 7, transitionId: null, expectedFacilityRevision: -1 });
+    await desktopAPI.applyFacilityDeviceTransition('security-door');
+    await desktopAPI.forceFacilityDeviceState({
+      deviceId: 'reactor-main', stateId: ['standby'], expectedFacilityRevision: 8.5, correlationId: 9,
+    });
+    for (const active of ['true', 1, {}, null]) {
+      await desktopAPI.setFacilityConditionActive({
+        conditionId: 'door-controller', active, expectedFacilityRevision: 8, correlationId: 'fault-8',
+      });
+    }
+    await desktopAPI.setFacilityConditionActive();
+    return {
+      results,
+      frozen,
+      calls: __desktopFixture.calls.filter(call => [
+        'ApplyFacilityDeviceTransition', 'ForceFacilityDeviceState', 'SetFacilityConditionActive',
+      ].includes(call.method)),
+    };
+  });
+
+  const blankTransition = { deviceId: '', transitionId: '', expectedFacilityRevision: 0, correlationId: '' };
+  const inactiveFault = { conditionId: 'door-controller', active: false, expectedFacilityRevision: 8, correlationId: 'fault-8' };
+  expect(observed.calls).toEqual([
+    {
+      method: 'ApplyFacilityDeviceTransition',
+      args: [{ deviceId: 'security-door', transitionId: 'open', expectedFacilityRevision: 8, correlationId: 'transition-8' }],
+    },
+    {
+      method: 'ForceFacilityDeviceState',
+      args: [{ deviceId: 'reactor-main', stateId: 'critical-overheat', expectedFacilityRevision: 8, correlationId: 'force-8' }],
+    },
+    {
+      method: 'SetFacilityConditionActive',
+      args: [{ conditionId: 'door-controller', active: true, expectedFacilityRevision: 8, correlationId: 'fault-8' }],
+    },
+    { method: 'ApplyFacilityDeviceTransition', args: [blankTransition] },
+    { method: 'ApplyFacilityDeviceTransition', args: [blankTransition] },
+    {
+      method: 'ForceFacilityDeviceState',
+      args: [{ deviceId: 'reactor-main', stateId: '', expectedFacilityRevision: 0, correlationId: '' }],
+    },
+    { method: 'SetFacilityConditionActive', args: [inactiveFault] },
+    { method: 'SetFacilityConditionActive', args: [inactiveFault] },
+    { method: 'SetFacilityConditionActive', args: [inactiveFault] },
+    { method: 'SetFacilityConditionActive', args: [inactiveFault] },
+    {
+      method: 'SetFacilityConditionActive',
+      args: [{ conditionId: '', active: false, expectedFacilityRevision: 0, correlationId: '' }],
+    },
+  ], 'only `active: true` switches a fault on');
+  expect(observed.frozen).toEqual([true, true, true]);
+  expect(observed.results.transition).toEqual(expect.objectContaining({
+    ok: true, changed: true, correlationId: 'transition-8', previousFacilityRevision: 8, resultingFacilityRevision: 9,
+    affectedDeviceIds: ['security-door'], affectedConditionIds: [],
+  }));
+  expect(observed.results.force).toEqual(expect.objectContaining({
+    ok: true, changed: true, correlationId: 'force-8', previousFacilityRevision: 8, resultingFacilityRevision: 9,
+    affectedDeviceIds: ['reactor-main'], affectedConditionIds: [],
+  }));
+  expect(observed.results.fault).toEqual(expect.objectContaining({
+    ok: true, changed: true, correlationId: 'fault-8', previousFacilityRevision: 8, resultingFacilityRevision: 9,
+    affectedDeviceIds: [], affectedConditionIds: ['door-controller'],
+  }));
+});
+
+test('play change validators accept only the exact result of each operation', async ({ page }) => {
+  const cases = [
+    {
+      label: 'a transition names its device and the faults its effects set',
+      operation: 'device-transition', verdict: 'accept',
+      result: changedPlayResult('device-transition', ['security-door'], ['door-controller', 'door-sensor']),
+    },
+    {
+      label: 'a transition without fault effects names only its device',
+      operation: 'device-transition', verdict: 'accept',
+      result: changedPlayResult('device-transition', ['security-door'], []),
+    },
+    {
+      label: 'a transition always changes its device',
+      operation: 'device-transition', verdict: 'conflict',
+      result: unchangedPlayResult('device-transition'),
+    },
+    {
+      label: 'a transition that names no device',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', [], ['door-controller']),
+    },
+    {
+      label: 'a transition that names another device',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', ['power-grid'], []),
+    },
+    {
+      label: 'a transition that moves two devices',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', ['security-door', 'power-grid'], []),
+    },
+    {
+      label: 'a transition that repeats a fault',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', ['security-door'], ['door-controller', 'door-controller']),
+    },
+    {
+      label: 'a transition answered for another request',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', ['security-door'], [], { correlationId: 'another-operation' }),
+    },
+    {
+      label: 'a transition that skipped a facility revision',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', ['security-door'], [], {
+        resultingFacilityRevision: 10, session: playSession(10),
+      }),
+    },
+    {
+      label: 'a transition without the canonical session',
+      operation: 'device-transition', verdict: 'conflict',
+      result: changedPlayResult('device-transition', ['security-door'], [], { session: null }),
+    },
+    {
+      label: 'a forced change names only its device',
+      operation: 'device-force', verdict: 'accept',
+      result: changedPlayResult('device-force', ['reactor-main'], []),
+    },
+    {
+      label: 'forcing the current state changes nothing',
+      operation: 'device-force', verdict: 'accept',
+      result: unchangedPlayResult('device-force'),
+    },
+    {
+      label: 'a forced change runs no fault effects',
+      operation: 'device-force', verdict: 'conflict',
+      result: changedPlayResult('device-force', ['reactor-main'], ['door-controller']),
+    },
+    {
+      label: 'a forced change that names no device',
+      operation: 'device-force', verdict: 'conflict',
+      result: changedPlayResult('device-force', [], []),
+    },
+    {
+      label: 'a forced change that names another device',
+      operation: 'device-force', verdict: 'conflict',
+      result: changedPlayResult('device-force', ['security-door'], []),
+    },
+    {
+      label: 'a fault switch names only its fault',
+      operation: 'condition-active', verdict: 'accept',
+      result: changedPlayResult('condition-active', [], ['door-controller']),
+    },
+    {
+      label: 'a fault switch accepts a terminal-scoped fault',
+      operation: 'condition-active', verdict: 'accept',
+      request: { ...FACILITY_PLAY_OPERATIONS['condition-active'].request, conditionId: 'terminal-lock' },
+      result: changedPlayResult('condition-active', [], ['terminal-lock']),
+    },
+    {
+      label: 'a fault already in the requested position changes nothing',
+      operation: 'condition-active', verdict: 'accept',
+      result: unchangedPlayResult('condition-active'),
+    },
+    {
+      label: 'a fault switch moves no device',
+      operation: 'condition-active', verdict: 'conflict',
+      result: changedPlayResult('condition-active', ['security-door'], ['door-controller']),
+    },
+    {
+      label: 'a fault switch that names another fault',
+      operation: 'condition-active', verdict: 'conflict',
+      result: changedPlayResult('condition-active', [], ['door-sensor']),
+    },
+    {
+      label: 'a fault switch that names two faults',
+      operation: 'condition-active', verdict: 'conflict',
+      result: changedPlayResult('condition-active', [], ['door-controller', 'door-sensor']),
+    },
+    {
+      label: 'a fault switch that names no fault',
+      operation: 'condition-active', verdict: 'conflict',
+      result: changedPlayResult('condition-active', [], []),
+    },
+    {
+      label: 'a reset that restores only the device state',
+      operation: 'device-reset', verdict: 'accept',
+      result: changedPlayResult('device-reset', ['security-door'], []),
+    },
+    {
+      label: 'a reset that restores the device state and its faults',
+      operation: 'device-reset', verdict: 'accept',
+      result: changedPlayResult('device-reset', ['security-door'], ['door-controller']),
+    },
+    {
+      label: 'a fault-only reset names no device (R9)',
+      operation: 'device-reset', verdict: 'accept',
+      result: changedPlayResult('device-reset', [], ['door-controller', 'door-sensor']),
+    },
+    {
+      label: 'a reset of a device already at its starting values changes nothing',
+      operation: 'device-reset', verdict: 'accept',
+      result: unchangedPlayResult('device-reset'),
+    },
+    {
+      label: 'a changed reset that names nothing',
+      operation: 'device-reset', verdict: 'conflict',
+      result: changedPlayResult('device-reset', [], []),
+    },
+    {
+      label: 'a reset that restores a fault of another device',
+      operation: 'device-reset', verdict: 'conflict',
+      result: changedPlayResult('device-reset', [], ['grid-overload']),
+    },
+    {
+      label: 'a reset that restores a terminal-scoped fault',
+      operation: 'device-reset', verdict: 'conflict',
+      result: changedPlayResult('device-reset', ['security-door'], ['terminal-lock']),
+    },
+    {
+      label: 'a reset that restores a fault missing from the session',
+      operation: 'device-reset', verdict: 'conflict',
+      result: changedPlayResult('device-reset', [], ['missing-fault']),
+    },
+    {
+      label: 'a reset that names another device',
+      operation: 'device-reset', verdict: 'conflict',
+      result: changedPlayResult('device-reset', ['power-grid'], []),
+    },
+    {
+      label: 'a reset that repeats a fault',
+      operation: 'device-reset', verdict: 'conflict',
+      result: changedPlayResult('device-reset', [], ['door-controller', 'door-controller']),
+    },
+  ];
+
+  expectPlayVerdicts(cases, await runFacilityPlayCases(page, cases));
+});
+
+test('play change failures carry a session only when stale at the matching revision', async ({ page }) => {
+  const operationFailures = {
+    'device-transition': ['precondition-failed', { code: 'precondition-failed', entityKind: 'device', entityId: 'power-grid' }],
+    'device-force': ['missing-reference', { code: 'missing-reference', entityKind: 'state', entityId: 'critical-overheat' }],
+    'condition-active': ['missing-reference', { code: 'missing-reference', entityKind: 'condition', entityId: 'door-controller' }],
+    'device-reset': ['missing-reference', { code: 'missing-reference', entityKind: 'device', entityId: 'security-door' }],
+  };
+  const stale = { code: 'stale-revision', entityKind: 'facility' };
+  const cases = Object.entries(operationFailures).flatMap(([operation, [failure, issue]]) => [
+    {
+      label: `${operation}: a stale rejection keeps the canonical session at its facility revision`,
+      operation, verdict: 'accept',
+      result: failedPlayResult(operation, 'stale-revision', stale, 11, playSession(11)),
+    },
+    {
+      label: `${operation}: a stale rejection without a session stays a stale rejection`,
+      operation, verdict: 'accept',
+      result: failedPlayResult(operation, 'stale-revision', stale, 11),
+    },
+    {
+      label: `${operation}: a stale rejection whose session is at another facility revision`,
+      operation, verdict: 'conflict',
+      result: failedPlayResult(operation, 'stale-revision', stale, 11, playSession(10)),
+    },
+    {
+      label: `${operation}: a stale rejection whose session has no facility`,
+      operation, verdict: 'conflict',
+      result: failedPlayResult(operation, 'stale-revision', stale, 11, { version: 1, name: 'No facility', terminals: [] }),
+    },
+    {
+      label: `${operation}: a ${failure} rejection that carries a session`,
+      operation, verdict: 'conflict',
+      result: failedPlayResult(operation, failure, issue, 8, playSession(8)),
+    },
+    {
+      label: `${operation}: a ${failure} rejection without a session`,
+      operation, verdict: 'accept',
+      result: failedPlayResult(operation, failure, issue, 8),
+    },
+  ]);
+
+  const results = await runFacilityPlayCases(page, cases);
+  expectPlayVerdicts(cases, results);
+  cases.forEach(({ label, verdict, result: sent }, index) => {
+    if (verdict === 'accept') expect(results[index].issues, label).toEqual(sent.issues);
+  });
+});
+
+test('coordination-state feed entries are normalized, frozen, and malformed ones dropped', async ({ page }) => {
+  const at = 1793390820000;
+  const reasons = [
+    'declined', 'precondition-failed', 'transition-unavailable', 'fault-blocked',
+    'stale', 'withdrawn', 'failed', 'unspecified',
+  ];
+  const refusal = (sequence, reason) => ({
+    sequence, deviceId: 'security-door', occurredAtUnixMs: at,
+    playerRefusal: { terminalId: 't_demo', commandId: 'open-exit', reason },
+  });
+  const forced = { fromStateId: 'standby', toStateId: 'critical-overheat' };
+  const malformed = [
+    null,
+    'forced',
+    { sequence: 60, deviceId: 'security-door', occurredAtUnixMs: at },
+    {
+      sequence: 59, deviceId: 'security-door', occurredAtUnixMs: at,
+      transition: { transitionId: 'open', fromStateId: 'sealed', toStateId: 'open' }, forced,
+    },
+    { sequence: 58, deviceId: 'reactor-main', occurredAtUnixMs: at, reset: { fromStateId: 'standby', toStateId: 'standby' }, forced },
+    { sequence: 57, deviceId: '', occurredAtUnixMs: at, forced },
+    { sequence: 56, occurredAtUnixMs: at, forced },
+    { sequence: 55, deviceId: 42, occurredAtUnixMs: at, forced },
+    { sequence: 2 ** 53, deviceId: 'reactor-main', occurredAtUnixMs: at, forced },
+    { sequence: '54', deviceId: 'reactor-main', occurredAtUnixMs: at, forced },
+    { sequence: 53.5, deviceId: 'reactor-main', occurredAtUnixMs: at, forced },
+    { deviceId: 'reactor-main', occurredAtUnixMs: at, forced },
+    { sequence: 52, deviceId: 'reactor-main', occurredAtUnixMs: at + 0.5, forced },
+    { sequence: 51, deviceId: 'reactor-main', occurredAtUnixMs: String(at), forced },
+    { sequence: 50, deviceId: 'reactor-main', forced },
+  ];
+  const valid = [
+    {
+      sequence: 40, deviceId: 'security-door', occurredAtUnixMs: at,
+      transition: { transitionId: 'open', fromStateId: 'sealed', toStateId: 'open' },
+    },
+    { sequence: 39, deviceId: 'reactor-main', occurredAtUnixMs: at, forced },
+    { sequence: 38, deviceId: 'security-door', occurredAtUnixMs: at, fault: { conditionId: 'door-controller', active: true } },
+    {
+      sequence: 37, deviceId: 'security-door', occurredAtUnixMs: at,
+      reset: { fromStateId: 'open', toStateId: 'open', conditionIds: ['door-controller', 'door-sensor'] },
+    },
+    { sequence: 36, deviceId: 'power-grid', occurredAtUnixMs: at, sceneReset: { fromStateId: 'offline', toStateId: 'online' } },
+    {
+      sequence: 35, deviceId: 'security-door', occurredAtUnixMs: at,
+      playerCommand: {
+        terminalId: 't_demo', commandId: 'open-exit', transitionId: 'open', fromStateId: 'sealed', toStateId: 'open',
+      },
+    },
+    ...reasons.map((reason, index) => refusal(34 - index, reason)),
+    refusal(26, 'exploded'),
+  ];
+  const snapshotFeed = [
+    { sequence: 5, deviceId: 'security-door', occurredAtUnixMs: at - 1, fault: { conditionId: 'door-sensor', active: false } },
+    { sequence: 4, deviceId: '', occurredAtUnixMs: at - 1, fault: { conditionId: 'door-sensor', active: true } },
+  ];
+
+  const observed = await page.evaluate(async ({ eventFeed, snapshotFeed: statusFeed }) => {
+    __desktopFixture.deferStatus();
+    const states = [];
+    const releases = [
+      desktopAPI.onServerInfo(() => {}),
+      desktopAPI.onClientCount(() => {}),
+      desktopAPI.onHackState(() => {}),
+      desktopAPI.onCoordinationState(value => states.push(value)),
+    ];
+    __desktopFixture.resolveStatus({
+      serverInfo: { url: 'http://127.0.0.1:3690', tunnel: false },
+      clientCount: 1,
+      hackState: { attemptsLeft: 2 },
+      coordinationState: { revision: 50, facilityRevision: 8, facilityChanges: statusFeed },
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    __desktopFixture.emit('coordination-state', { revision: 51, facilityRevision: 9, facilityChanges: eventFeed });
+    releases.forEach(release => release());
+    return states.map(value => ({
+      revision: value.revision,
+      facilityRevision: value.facilityRevision,
+      facilityChanges: value.facilityChanges,
+      frozen: Array.isArray(value.facilityChanges) ? value.facilityChanges.map(entry => Object.isFrozen(entry)) : null,
+    }));
+  }, { eventFeed: [...malformed, ...valid], snapshotFeed });
+
+  const entry = fields => ({
+    transitionId: '',
+    fromStateId: '',
+    toStateId: '',
+    conditionId: '',
+    active: false,
+    conditionIds: [],
+    terminalId: '',
+    commandId: '',
+    reason: '',
+    ...fields,
+  });
+  const expected = [
+    entry({
+      sequence: 40, deviceId: 'security-door', occurredAtUnixMs: at, kind: 'transition', author: 'overseer',
+      transitionId: 'open', fromStateId: 'sealed', toStateId: 'open',
+    }),
+    entry({
+      sequence: 39, deviceId: 'reactor-main', occurredAtUnixMs: at, kind: 'forced', author: 'overseer',
+      fromStateId: 'standby', toStateId: 'critical-overheat',
+    }),
+    entry({
+      sequence: 38, deviceId: 'security-door', occurredAtUnixMs: at, kind: 'fault', author: 'overseer',
+      conditionId: 'door-controller', active: true,
+    }),
+    entry({
+      sequence: 37, deviceId: 'security-door', occurredAtUnixMs: at, kind: 'reset', author: 'overseer',
+      fromStateId: 'open', toStateId: 'open', conditionIds: ['door-controller', 'door-sensor'],
+    }),
+    entry({
+      sequence: 36, deviceId: 'power-grid', occurredAtUnixMs: at, kind: 'scene-reset', author: 'overseer',
+      fromStateId: 'offline', toStateId: 'online',
+    }),
+    entry({
+      sequence: 35, deviceId: 'security-door', occurredAtUnixMs: at, kind: 'player-command', author: 'terminal',
+      terminalId: 't_demo', commandId: 'open-exit', transitionId: 'open', fromStateId: 'sealed', toStateId: 'open',
+    }),
+    ...[...reasons, 'unspecified'].map((reason, index) => entry({
+      sequence: index < reasons.length ? 34 - index : 26,
+      deviceId: 'security-door',
+      occurredAtUnixMs: at,
+      kind: 'player-refusal',
+      author: 'terminal',
+      terminalId: 't_demo',
+      commandId: 'open-exit',
+      reason,
+    })),
+  ];
+
+  expect(observed).toEqual([
+    {
+      revision: 50,
+      facilityRevision: 8,
+      facilityChanges: [entry({
+        sequence: 5, deviceId: 'security-door', occurredAtUnixMs: at - 1, kind: 'fault', author: 'overseer',
+        conditionId: 'door-sensor', active: false,
+      })],
+      frozen: [true],
+    },
+    {
+      revision: 51,
+      facilityRevision: 9,
+      facilityChanges: expected,
+      frozen: expected.map(() => true),
+    },
+  ]);
 });
 
 test('multi-link legacy partial and complete candidates remain exact at the desktop facade', async ({ page }) => {

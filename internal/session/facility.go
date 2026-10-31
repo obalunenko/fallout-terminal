@@ -35,25 +35,193 @@ type resolvedWorldTransition struct {
 	transition  domain.FacilityDeviceTransition
 }
 
+// FacilityDeviceTransitionRequest runs one authored transition of one device
+// for the Overseer against an exact facility revision.
+type FacilityDeviceTransitionRequest struct {
+	DeviceID                 string
+	TransitionID             string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityDeviceForceRequest sets one device's current state without
+// checking transitions or preconditions.
+type FacilityDeviceForceRequest struct {
+	DeviceID                 string
+	StateID                  string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityConditionActiveRequest sets one condition's current position.
+type FacilityConditionActiveRequest struct {
+	ConditionID              string
+	Active                   bool
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// facilityEditFailure is the first failure a facility edit found.
+type facilityEditFailure struct {
+	code       domain.FacilityFailureCode
+	entityKind string
+	entityID   string
+}
+
+// facilityEdit changes a candidate facility in place and returns the sorted
+// device and condition IDs it affected. No affected ID means unchanged.
+type facilityEdit func(facility *domain.Facility) ([]string, []string, *facilityEditFailure)
+
 // ResetFacilityDevice restores one authored device and only conditions scoped
 // directly to that device.
 func (service *Service) ResetFacilityDevice(
 	ctx context.Context,
 	request FacilityDeviceResetRequest,
 ) domain.FacilityOperationResult {
-	return service.resetFacility(
+	deviceID := request.DeviceID
+	return service.commitFacilityEdit(
 		ctx,
 		request.CorrelationID,
 		request.ExpectedFacilityRevision,
-		new(request.DeviceID),
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(deviceID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "device", deviceID}
+			}
+			device := facilityDevice(facility, deviceID)
+			if device == nil {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureMissingReference, "device", deviceID}
+			}
+			var affectedDeviceIDs, affectedConditionIDs []string
+			if device.CurrentStateID != device.InitialStateID {
+				device.CurrentStateID = device.InitialStateID
+				affectedDeviceIDs = append(affectedDeviceIDs, device.ID)
+			}
+			for index := range facility.Conditions {
+				condition := &facility.Conditions[index]
+				if condition.Device == nil || condition.Device.DeviceID != deviceID ||
+					condition.CurrentActive == condition.InitialActive {
+					continue
+				}
+				condition.CurrentActive = condition.InitialActive
+				affectedConditionIDs = append(affectedConditionIDs, condition.ID)
+			}
+			slices.Sort(affectedConditionIDs)
+			return affectedDeviceIDs, affectedConditionIDs, nil
+		},
 	)
 }
 
-func (service *Service) resetFacility(
+// ApplyFacilityDeviceTransition runs one authored transition with the same
+// source-state, precondition, and condition-effect rules as a player command.
+// It never writes command state.
+func (service *Service) ApplyFacilityDeviceTransition(
+	ctx context.Context,
+	request FacilityDeviceTransitionRequest,
+) domain.FacilityOperationResult {
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(request.DeviceID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "device", request.DeviceID}
+			}
+			if strings.TrimSpace(request.TransitionID) == "" {
+				return nil, nil, &facilityEditFailure{
+					domain.FacilityFailureInvalidConfiguration, "transition", request.TransitionID,
+				}
+			}
+			resolved, conditionValues, affectedDeviceIDs, affectedConditionIDs, failure, entityKind, entityID :=
+				resolveWorldTransitions(facility, []domain.FacilityTransitionRequest{{
+					DeviceID: request.DeviceID, TransitionID: request.TransitionID,
+				}})
+			if failure != domain.FacilityFailureUnspecified {
+				return nil, nil, &facilityEditFailure{failure, entityKind, entityID}
+			}
+			applyResolvedWorldTransitions(facility, resolved, conditionValues)
+			return affectedDeviceIDs, affectedConditionIDs, nil
+		},
+	)
+}
+
+// ForceFacilityDeviceState sets one device's current state. It checks no
+// transition or precondition and runs no condition effect.
+func (service *Service) ForceFacilityDeviceState(
+	ctx context.Context,
+	request FacilityDeviceForceRequest,
+) domain.FacilityOperationResult {
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(request.DeviceID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "device", request.DeviceID}
+			}
+			if strings.TrimSpace(request.StateID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "state", request.StateID}
+			}
+			device := facilityDevice(facility, request.DeviceID)
+			if device == nil {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureMissingReference, "device", request.DeviceID}
+			}
+			if !slices.ContainsFunc(device.States, func(state domain.FacilityDeviceState) bool {
+				return state.ID == request.StateID
+			}) {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureMissingReference, "state", request.StateID}
+			}
+			if device.CurrentStateID == request.StateID {
+				return nil, nil, nil
+			}
+			device.CurrentStateID = request.StateID
+			return []string{device.ID}, nil, nil
+		},
+	)
+}
+
+// SetFacilityConditionActive sets one condition's current position. Its
+// scope and recovery list do not limit the Overseer, and its initial position
+// never changes.
+func (service *Service) SetFacilityConditionActive(
+	ctx context.Context,
+	request FacilityConditionActiveRequest,
+) domain.FacilityOperationResult {
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(request.ConditionID) == "" {
+				return nil, nil, &facilityEditFailure{
+					domain.FacilityFailureInvalidConfiguration, "condition", request.ConditionID,
+				}
+			}
+			index := slices.IndexFunc(facility.Conditions, func(condition domain.DiagnosticCondition) bool {
+				return condition.ID == request.ConditionID
+			})
+			if index < 0 {
+				return nil, nil, &facilityEditFailure{
+					domain.FacilityFailureMissingReference, "condition", request.ConditionID,
+				}
+			}
+			condition := &facility.Conditions[index]
+			if condition.CurrentActive == request.Active {
+				return nil, nil, nil
+			}
+			condition.CurrentActive = request.Active
+			return nil, []string{condition.ID}, nil
+		},
+	)
+}
+
+// commitFacilityEdit runs one Overseer play change: it checks the active
+// session and the facility revision, applies edit to a candidate, and commits
+// a changed candidate with the facility revision advanced by one.
+func (service *Service) commitFacilityEdit(
 	ctx context.Context,
 	correlationID string,
 	expectedFacilityRevision uint64,
-	deviceID *string,
+	edit facilityEdit,
 ) domain.FacilityOperationResult {
 	if service == nil || contextError(ctx) != nil {
 		return facilityResetFailure(
@@ -131,54 +299,12 @@ func (service *Service) resetFacility(
 	if strings.TrimSpace(correlationID) == "" {
 		return fail(domain.FacilityFailureInvalidConfiguration, "request", "")
 	}
-	if deviceID != nil && strings.TrimSpace(*deviceID) == "" {
-		return fail(domain.FacilityFailureInvalidConfiguration, "device", *deviceID)
-	}
 
 	candidate := domain.CloneSession(canonical)
-	affectedDeviceIDs := make([]string, 0, len(candidate.Facility.Devices))
-	affectedConditionIDs := make([]string, 0, len(candidate.Facility.Conditions))
-	if deviceID == nil {
-		for index := range candidate.Facility.Devices {
-			device := &candidate.Facility.Devices[index]
-			if device.CurrentStateID == device.InitialStateID {
-				continue
-			}
-			device.CurrentStateID = device.InitialStateID
-			affectedDeviceIDs = append(affectedDeviceIDs, device.ID)
-		}
-		for index := range candidate.Facility.Conditions {
-			condition := &candidate.Facility.Conditions[index]
-			if condition.CurrentActive == condition.InitialActive {
-				continue
-			}
-			condition.CurrentActive = condition.InitialActive
-			affectedConditionIDs = append(affectedConditionIDs, condition.ID)
-		}
-	} else {
-		deviceIndex := slices.IndexFunc(candidate.Facility.Devices, func(device domain.FacilityDevice) bool {
-			return device.ID == *deviceID
-		})
-		if deviceIndex < 0 {
-			return fail(domain.FacilityFailureMissingReference, "device", *deviceID)
-		}
-		device := &candidate.Facility.Devices[deviceIndex]
-		if device.CurrentStateID != device.InitialStateID {
-			device.CurrentStateID = device.InitialStateID
-			affectedDeviceIDs = append(affectedDeviceIDs, device.ID)
-		}
-		for index := range candidate.Facility.Conditions {
-			condition := &candidate.Facility.Conditions[index]
-			if condition.Device == nil || condition.Device.DeviceID != *deviceID ||
-				condition.CurrentActive == condition.InitialActive {
-				continue
-			}
-			condition.CurrentActive = condition.InitialActive
-			affectedConditionIDs = append(affectedConditionIDs, condition.ID)
-		}
+	affectedDeviceIDs, affectedConditionIDs, failure := edit(candidate.Facility)
+	if failure != nil {
+		return fail(failure.code, failure.entityKind, failure.entityID)
 	}
-	slices.Sort(affectedDeviceIDs)
-	slices.Sort(affectedConditionIDs)
 	if len(affectedDeviceIDs) == 0 && len(affectedConditionIDs) == 0 {
 		service.mu.Unlock()
 		return worldActionSuccess(
@@ -227,6 +353,34 @@ func (service *Service) resetFacility(
 		affectedConditionIDs,
 		candidate,
 	)
+}
+
+// facilityDevice returns the device with id, or nil.
+func facilityDevice(facility *domain.Facility, id string) *domain.FacilityDevice {
+	index := slices.IndexFunc(facility.Devices, func(device domain.FacilityDevice) bool {
+		return device.ID == id
+	})
+	if index < 0 {
+		return nil
+	}
+	return &facility.Devices[index]
+}
+
+// applyResolvedWorldTransitions moves each resolved device to its destination
+// and sets each condition effect's value.
+func applyResolvedWorldTransitions(
+	facility *domain.Facility,
+	resolved []resolvedWorldTransition,
+	conditionValues map[string]bool,
+) {
+	for _, transition := range resolved {
+		facility.Devices[transition.deviceIndex].CurrentStateID = transition.transition.DestinationStateID
+	}
+	for index := range facility.Conditions {
+		if active, exists := conditionValues[facility.Conditions[index].ID]; exists {
+			facility.Conditions[index].CurrentActive = active
+		}
+	}
 }
 
 // ApplyWorldAction validates and persists one approved command completion and
@@ -345,16 +499,7 @@ func (service *Service) ApplyWorldAction(ctx context.Context, request WorldActio
 	}
 
 	candidate := domain.CloneSession(canonical)
-	for _, transition := range resolved {
-		candidate.Facility.Devices[transition.deviceIndex].CurrentStateID = transition.transition.DestinationStateID
-	}
-	conditionsByID := make(map[string]int, len(candidate.Facility.Conditions))
-	for index, condition := range candidate.Facility.Conditions {
-		conditionsByID[condition.ID] = index
-	}
-	for conditionID, active := range conditionValues {
-		candidate.Facility.Conditions[conditionsByID[conditionID]].CurrentActive = active
-	}
+	applyResolvedWorldTransitions(candidate.Facility, resolved, conditionValues)
 	candidate.Facility.Revision++
 	candidateTerminal := terminalByID(&candidate, request.TerminalID)
 	if candidateTerminal.CommandStates == nil {

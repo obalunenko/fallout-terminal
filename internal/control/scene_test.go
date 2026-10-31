@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -105,10 +106,11 @@ func TestResetSceneHandlesEachPendingRequestWithOneCorrelatedOutcome(t *testing.
 		name         string
 		commandID    string
 		cleared      bool
+		withdrawn    bool
 		presentation *domain.CommandExecutionPresentation
 	}{
 		{
-			name: "device action is invalidated", commandID: sceneDoorCommandID, cleared: true,
+			name: "device action is invalidated", commandID: sceneDoorCommandID, cleared: true, withdrawn: true,
 			presentation: &domain.CommandExecutionPresentation{
 				Phase: domain.CommandExecutionPhaseRejected, CommandID: sceneDoorCommandID,
 			},
@@ -142,6 +144,22 @@ func TestResetSceneHandlesEachPendingRequestWithOneCorrelatedOutcome(t *testing.
 			require.True(t, result.OK)
 			terminal := canonicalTerminal(t, fixture.service, fixture.terminalID)
 			require.Equal(t, test.presentation, terminal.CommandExecution)
+			feed := fixture.service.Snapshot().FacilityChanges
+			wantFeed := []domain.FacilityChange{sceneDoorResetEntry()}
+			if test.withdrawn {
+				wantFeed = slices.Insert(wantFeed, 0, domain.FacilityChange{
+					DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+						TerminalID: fixture.terminalID, CommandID: test.commandID,
+						Reason: domain.FacilityChangeRefusalWithdrawn,
+					},
+				})
+			}
+			require.Empty(t, cmp.Diff(wantFeed, feed, sceneFeedContent),
+				"only a withdrawn device action adds a refusal entry for each of its devices")
+			if test.withdrawn {
+				require.Greater(t, feed[0].Sequence, feed[1].Sequence, "the withdrawal follows the reset entry")
+				require.Equal(t, feed[1].OccurredAtUnixMs, feed[0].OccurredAtUnixMs, "entries of one commit share one time")
+			}
 			records := sceneRequestRecords(fixture.effects.Values()[effectsBefore:], pending.RequestID)
 			if !test.cleared {
 				after := fixture.service.Snapshot().PendingCommandExecution
@@ -177,8 +195,46 @@ func TestResetSceneHandlesEachPendingRequestWithOneCorrelatedOutcome(t *testing.
 			require.False(t, retry.Changed)
 			require.Empty(t, sceneRequestRecords(fixture.effects.Values()[retryBefore:], pending.RequestID),
 				"a retried reset must not record the request again")
+			require.Empty(t, cmp.Diff(feed, fixture.service.Snapshot().FacilityChanges),
+				"an unchanged reset must not add feed entries")
 		})
 	}
+}
+
+func TestResetSceneAddsOneFeedEntryPerChangedDevice(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSceneResetFixture(t)
+	addSceneFeedEntities(t, fixture)
+	durable := sceneResetSuccess(fixture)
+	durable.AffectedConditionIDs = []string{"door-alarm", "terminal-fault", "vent-fault"}
+	fixture.scene.setResult(durable)
+	effectsBefore := fixture.effects.Calls()
+
+	state, result, err := fixture.service.ResetScene(t.Context(), sceneResetRequest(fixture, "scene-reset-feed"))
+
+	require.NoError(t, err)
+	require.True(t, result.OK)
+	require.True(t, result.Changed)
+	feed := fixture.service.Snapshot().FacilityChanges
+	require.Empty(t, cmp.Diff([]domain.FacilityChange{
+		{DeviceID: "vent", SceneReset: &domain.FacilityChangeReset{
+			FromStateID: "idle", ToStateID: "idle", ConditionIDs: []string{"vent-fault"},
+		}},
+		sceneDoorResetEntry(),
+	}, feed, sceneFeedContent), "the unchanged grid and the terminal fault must add no entry")
+	require.Greater(t, feed[0].Sequence, feed[1].Sequence,
+		"entries are appended in device ID order and listed newest first")
+	require.Equal(t, feed[1].OccurredAtUnixMs, feed[0].OccurredAtUnixMs, "entries of one commit share one time")
+	require.Empty(t, cmp.Diff(feed, state.FacilityChanges), "the returned state must carry the feed")
+	var published []*domain.MasterCoordinationState
+	for _, effect := range fixture.effects.Values()[effectsBefore:] {
+		if effect.Master != nil {
+			published = append(published, effect.Master)
+		}
+	}
+	require.Len(t, published, 1)
+	require.Empty(t, cmp.Diff(feed, published[0].FacilityChanges), "the published snapshot must carry the feed")
 }
 
 func TestResetSceneInvalidatedDeviceActionCannotBeApproved(t *testing.T) {
@@ -389,6 +445,7 @@ func TestResetSceneOfTheStartingSceneReportsUnchanged(t *testing.T) {
 	require.False(t, result.Changed)
 	require.Empty(t, result.ResetCommands)
 	require.Equal(t, before.Revision, state.Revision)
+	require.Empty(t, fixture.service.Snapshot().FacilityChanges, "an unchanged reset must not add feed entries")
 	effects := fixture.effects.Values()[effectsBefore:]
 	require.Zero(t, masterEffectCount(effects))
 	audit := requireFacilityAuditEvent(t, effects, facilityAuditEventReset, correlationID)
@@ -451,11 +508,13 @@ func TestResetSceneDecisionAndPublicationIgnoreAFailingLogSink(t *testing.T) {
 	require.Zero(t, failing.audits)
 	require.Equal(t, working.err, failing.err)
 	require.Empty(t, cmp.Diff(working.result, failing.result), "the reset decision depends on logging")
-	require.Empty(t, cmp.Diff(working.state, failing.state))
-	require.Empty(t, cmp.Diff(working.snapshot, failing.snapshot))
+	// The two runs read the clock separately, so feed times may differ.
+	feedTime := cmpopts.IgnoreFields(domain.FacilityChange{}, "OccurredAtUnixMs")
+	require.Empty(t, cmp.Diff(working.state, failing.state, feedTime))
+	require.Empty(t, cmp.Diff(working.snapshot, failing.snapshot, feedTime))
 	require.Equal(t, working.terminals, failing.terminals)
 	require.NotEmpty(t, working.publication)
-	require.Empty(t, cmp.Diff(working.publication, failing.publication), "publication depends on logging")
+	require.Empty(t, cmp.Diff(working.publication, failing.publication, feedTime), "publication depends on logging")
 }
 
 type sceneResetFixture struct {
@@ -632,6 +691,47 @@ func sceneResetFailure(
 		Failure: failure, SessionRevision: sessionRevision,
 		PreviousFacilityRevision: fixture.current.Revision, ResultingFacilityRevision: fixture.current.Revision,
 	}
+}
+
+// sceneFeedContent compares feed entries by what they record, leaving out the
+// sequence and time the run assigns.
+var sceneFeedContent = cmpopts.IgnoreFields(domain.FacilityChange{}, "Sequence", "OccurredAtUnixMs")
+
+// sceneDoorResetEntry is the feed entry the fixture's scene reset adds for the
+// door: it closes and its alarm clears.
+func sceneDoorResetEntry() domain.FacilityChange {
+	return domain.FacilityChange{DeviceID: "door", SceneReset: &domain.FacilityChangeReset{
+		FromStateID: "open", ToStateID: "sealed", ConditionIDs: []string{"door-alarm"},
+	}}
+}
+
+// addSceneFeedEntities adds two faults the scene reset clears: one on a
+// ventilation unit that stays in its starting state, and one scoped to a
+// terminal rather than a device.
+func addSceneFeedEntities(t *testing.T, fixture sceneResetFixture) {
+	t.Helper()
+	displayInstability := []domain.DiagnosticEffect{{DisplayInstability: &domain.DisplayInstabilityEffect{}}}
+	fixture.current.Devices = append(fixture.current.Devices, domain.FacilityDevice{
+		ID: "vent", Name: "Ventilation", Kind: domain.FacilityDeviceKindVentilation,
+		InitialStateID: "idle", CurrentStateID: "idle",
+		States: []domain.FacilityDeviceState{{ID: "idle", Name: "Idle"}, {ID: "running", Name: "Running"}},
+	})
+	fixture.current.Conditions = append(fixture.current.Conditions,
+		domain.DiagnosticCondition{
+			ID: "vent-fault", Name: "Vent fault", Category: domain.DiagnosticConditionCategoryCustom,
+			CustomCategory: "vent-fault", Device: &domain.DiagnosticDeviceScope{DeviceID: "vent"},
+			CurrentActive: true, Effects: displayInstability,
+		},
+		domain.DiagnosticCondition{
+			ID: "terminal-fault", Name: "Terminal fault", Category: domain.DiagnosticConditionCategoryDisplayUnstable,
+			Terminal:      &domain.DiagnosticTerminalScope{TerminalID: fixture.terminalID},
+			CurrentActive: true, Effects: displayInstability,
+		},
+	)
+	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+		runtime.Facility = domain.CloneFacility(fixture.current)
+		return transition{accepted: true}
+	})
 }
 
 func sceneBroadcastRoute(t *testing.T, service *Service) []domain.TerminalReturnPoint {

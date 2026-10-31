@@ -1182,3 +1182,116 @@ func CloneFacilityTextVariants(variants []FacilityTextVariant) []FacilityTextVar
 	}
 	return clone
 }
+
+// FacilityChangeRefusalReason says why a player request affecting a device
+// was not applied.
+type FacilityChangeRefusalReason string
+
+const (
+	FacilityChangeRefusalUnspecified           FacilityChangeRefusalReason = "unspecified"
+	FacilityChangeRefusalDeclined              FacilityChangeRefusalReason = "declined"
+	FacilityChangeRefusalPreconditionFailed    FacilityChangeRefusalReason = "precondition-failed"
+	FacilityChangeRefusalTransitionUnavailable FacilityChangeRefusalReason = "transition-unavailable"
+	FacilityChangeRefusalFaultBlocked          FacilityChangeRefusalReason = "fault-blocked"
+	FacilityChangeRefusalStale                 FacilityChangeRefusalReason = "stale"
+	FacilityChangeRefusalWithdrawn             FacilityChangeRefusalReason = "withdrawn"
+	FacilityChangeRefusalFailed                FacilityChangeRefusalReason = "failed"
+)
+
+// FacilityChange is one runtime-only entry of a device's recent-changes feed.
+// Exactly one variant is set. Entries carry stable IDs only; the Overseer
+// resolves names from the session.
+type FacilityChange struct {
+	Sequence         uint64                       `json:"sequence"`
+	DeviceID         string                       `json:"deviceId"`
+	OccurredAtUnixMs int64                        `json:"occurredAtUnixMs"`
+	Transition       *FacilityChangeTransition    `json:"transition,omitempty"`
+	Forced           *FacilityChangeForced        `json:"forced,omitempty"`
+	Fault            *FacilityChangeFault         `json:"fault,omitempty"`
+	Reset            *FacilityChangeReset         `json:"reset,omitempty"`
+	SceneReset       *FacilityChangeReset         `json:"sceneReset,omitempty"`
+	PlayerCommand    *FacilityChangePlayerCommand `json:"playerCommand,omitempty"`
+	PlayerRefusal    *FacilityChangePlayerRefusal `json:"playerRefusal,omitempty"`
+}
+
+// FacilityChangeTransition records an authored transition the Overseer ran
+// from the play card.
+type FacilityChangeTransition struct {
+	TransitionID string `json:"transitionId"`
+	FromStateID  string `json:"fromStateId"`
+	ToStateID    string `json:"toStateId"`
+}
+
+// FacilityChangeForced records a state the Overseer forced.
+type FacilityChangeForced struct {
+	FromStateID string `json:"fromStateId"`
+	ToStateID   string `json:"toStateId"`
+}
+
+// FacilityChangeFault records a fault the Overseer switched. Active is the
+// resulting position.
+type FacilityChangeFault struct {
+	ConditionID string `json:"conditionId"`
+	Active      bool   `json:"active"`
+}
+
+// FacilityChangeReset records a device reset or a scene reset of one device.
+// FromStateID equals ToStateID when only faults were restored.
+type FacilityChangeReset struct {
+	FromStateID  string   `json:"fromStateId"`
+	ToStateID    string   `json:"toStateId"`
+	ConditionIDs []string `json:"conditionIds,omitempty"`
+}
+
+// FacilityChangePlayerCommand records an approved player command that moved
+// the device.
+type FacilityChangePlayerCommand struct {
+	TerminalID   string `json:"terminalId"`
+	CommandID    string `json:"commandId"`
+	TransitionID string `json:"transitionId"`
+	FromStateID  string `json:"fromStateId"`
+	ToStateID    string `json:"toStateId"`
+}
+
+// FacilityChangePlayerRefusal records a player request affecting the device
+// that was not applied.
+type FacilityChangePlayerRefusal struct {
+	TerminalID string                      `json:"terminalId"`
+	CommandID  string                      `json:"commandId"`
+	Reason     FacilityChangeRefusalReason `json:"reason"`
+}
+
+// CloneFacilityChanges returns a deeply detached feed.
+func CloneFacilityChanges(changes []FacilityChange) []FacilityChange {
+	if changes == nil {
+		return nil
+	}
+	clone := slices.Clone(changes)
+	for index, change := range changes {
+		clone[index].Transition = clonePointer(change.Transition)
+		clone[index].Forced = clonePointer(change.Forced)
+		clone[index].Fault = clonePointer(change.Fault)
+		clone[index].Reset = cloneFacilityChangeReset(change.Reset)
+		clone[index].SceneReset = cloneFacilityChangeReset(change.SceneReset)
+		clone[index].PlayerCommand = clonePointer(change.PlayerCommand)
+		clone[index].PlayerRefusal = clonePointer(change.PlayerRefusal)
+	}
+	return clone
+}
+
+func cloneFacilityChangeReset(reset *FacilityChangeReset) *FacilityChangeReset {
+	if reset == nil {
+		return nil
+	}
+	clone := *reset
+	clone.ConditionIDs = slices.Clone(reset.ConditionIDs)
+	return &clone
+}
+
+func clonePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
+}

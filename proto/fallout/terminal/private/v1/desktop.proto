@@ -329,6 +329,27 @@ message ResetFacilityDeviceRequest {
   string correlation_id = 3;
 }
 
+message ApplyFacilityDeviceTransitionRequest {
+  string device_id = 1;
+  string transition_id = 2;
+  uint64 expected_facility_revision = 3;
+  string correlation_id = 4;
+}
+
+message ForceFacilityDeviceStateRequest {
+  string device_id = 1;
+  string state_id = 2;
+  uint64 expected_facility_revision = 3;
+  string correlation_id = 4;
+}
+
+message SetFacilityConditionActiveRequest {
+  string condition_id = 1;
+  bool active = 2;
+  uint64 expected_facility_revision = 3;
+  string correlation_id = 4;
+}
+
 message RecoverFacilityConditionRequest {
   string condition_id = 1;
   uint64 expected_facility_revision = 2;

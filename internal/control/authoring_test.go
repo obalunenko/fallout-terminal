@@ -201,6 +201,132 @@ func TestSaveAuthoringKeepsRequestsWithoutDeviceActionPending(t *testing.T) {
 	require.Empty(t, authoringRequestRecords(fixture.effects.Values()[effectsBefore:], pending.RequestID))
 }
 
+func TestSaveAuthoringFeedsAStaleRefusalWhenAPendingRequestCannotRebase(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range authoringPendingCases() {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newAuthoringSaveFixture(t)
+			fixture.selectDoorCommand(t, "authoring-feed-pending")
+			candidate := fixture.durable.Session()
+			test.edit(t, &candidate)
+			effectsBefore := fixture.effects.Calls()
+
+			state, result, err := fixture.service.SaveAuthoring(t.Context(), AuthoringSaveRequest{
+				Candidate: candidate, ExpectedAuthoringRevision: 1, CorrelationID: "authoring-feed-save",
+			})
+
+			require.NoError(t, err)
+			require.True(t, result.OK)
+			require.True(t, result.Changed)
+			var want []domain.FacilityChange
+			if test.staleRefusal {
+				want = []domain.FacilityChange{{DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+					TerminalID: fixture.terminalID, CommandID: fixture.commandID,
+					Reason: domain.FacilityChangeRefusalStale,
+				}}}
+			}
+			authoringRequireFeed(t, want, state.FacilityChanges)
+			authoringRequireFeed(t, want, fixture.service.Snapshot().FacilityChanges)
+			published := authoringLastMasterEffect(t, fixture.effects.Values()[effectsBefore:])
+			authoringRequireFeed(t, want, published.FacilityChanges)
+
+			_, retry, retryErr := fixture.service.SaveAuthoring(t.Context(), AuthoringSaveRequest{
+				Candidate: candidate, ExpectedAuthoringRevision: result.AuthoringRevision,
+				CorrelationID: "authoring-feed-retry",
+			})
+			require.NoError(t, retryErr)
+			require.True(t, retry.OK)
+			require.False(t, retry.Changed)
+			authoringRequireFeed(t, want, fixture.service.Snapshot().FacilityChanges)
+		})
+	}
+}
+
+func TestSaveAuthoringDropsTheFeedOfDeletedDevices(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		edit        func(*testing.T, *domain.Session)
+		stale       bool
+		wantDevices []string
+	}{
+		{
+			name:        "a deleted device loses its feed",
+			edit:        authoringDeleteLamp,
+			wantDevices: []string{"door"},
+		},
+		{
+			name:        "a save that keeps every device keeps every feed",
+			edit:        authoringRenamePower,
+			wantDevices: []string{"door", "lamp"},
+		},
+		{
+			name:        "a rejected save keeps every feed",
+			edit:        authoringDeleteLamp,
+			stale:       true,
+			wantDevices: []string{"door", "lamp"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newAuthoringSaveFixture(t)
+			withLamp := fixture.durable.Session()
+			withLamp.Facility.Devices = append(withLamp.Facility.Devices, authoringLampDevice())
+			_, added, err := fixture.service.SaveAuthoring(t.Context(), AuthoringSaveRequest{
+				Candidate: withLamp, ExpectedAuthoringRevision: 1, CorrelationID: "authoring-add-lamp",
+			})
+			require.NoError(t, err)
+			require.True(t, added.Changed)
+			seeded := authoringSeedFeed(fixture.service)
+			candidate := fixture.durable.Session()
+			test.edit(t, &candidate)
+			expectedAuthoringRevision := added.AuthoringRevision
+			if test.stale {
+				expectedAuthoringRevision++
+			}
+			effectsBefore := fixture.effects.Calls()
+
+			state, result, err := fixture.service.SaveAuthoring(t.Context(), AuthoringSaveRequest{
+				Candidate: candidate, ExpectedAuthoringRevision: expectedAuthoringRevision,
+				CorrelationID: "authoring-feed-prune",
+			})
+
+			require.NotNil(t, result)
+			if test.stale {
+				require.ErrorIs(t, err, ErrFacilityStaleRevision)
+				require.False(t, result.OK)
+			} else {
+				require.NoError(t, err)
+				require.True(t, result.OK)
+				require.True(t, result.Changed)
+			}
+			var want []domain.FacilityChange
+			for _, change := range seeded {
+				if slices.Contains(test.wantDevices, change.DeviceID) {
+					want = append(want, change)
+				}
+			}
+			require.Empty(t, cmp.Diff(want, state.FacilityChanges, cmpopts.EquateEmpty()))
+			require.Empty(t, cmp.Diff(want, fixture.service.Snapshot().FacilityChanges, cmpopts.EquateEmpty()))
+			if !test.stale {
+				published := authoringLastMasterEffect(t, fixture.effects.Values()[effectsBefore:])
+				require.Empty(t, cmp.Diff(want, published.FacilityChanges, cmpopts.EquateEmpty()),
+					"the published snapshot must carry the pruned feed")
+			}
+			fixture.service.mu.RLock()
+			devices := slices.Sorted(maps.Keys(fixture.service.runtime.FacilityChanges))
+			sequence := fixture.service.runtime.FacilityChangeSequence
+			fixture.service.mu.RUnlock()
+			require.Equal(t, test.wantDevices, devices)
+			require.Equal(t, seeded[0].Sequence, sequence, "pruning must keep the run's sequence")
+		})
+	}
+}
+
 func TestSaveAuthoringAcceptsSavesInterleavedWithWorldActions(t *testing.T) {
 	t.Parallel()
 
@@ -407,11 +533,15 @@ func TestSaveAuthoringDecisionAndPublicationIgnoreAFailingLogSink(t *testing.T) 
 			require.Zero(t, failing.audits)
 			require.Equal(t, working.err, failing.err)
 			require.Empty(t, cmp.Diff(working.result, failing.result), "the save decision depends on logging")
-			require.Empty(t, cmp.Diff(working.state, failing.state))
-			require.Empty(t, cmp.Diff(working.snapshot, failing.snapshot), "the pending decision depends on logging")
+			// The two runs read the clock at different moments.
+			feedTime := cmpopts.IgnoreFields(domain.FacilityChange{}, "OccurredAtUnixMs")
+			require.Empty(t, cmp.Diff(working.state, failing.state, feedTime))
+			require.Empty(t, cmp.Diff(working.snapshot, failing.snapshot, feedTime),
+				"the pending decision depends on logging")
 			require.Equal(t, working.terminals, failing.terminals)
 			require.NotEmpty(t, working.publication)
-			require.Empty(t, cmp.Diff(working.publication, failing.publication), "publication depends on logging")
+			require.Empty(t, cmp.Diff(working.publication, failing.publication, feedTime),
+				"publication depends on logging")
 		})
 	}
 }
@@ -501,6 +631,7 @@ type authoringPendingCase struct {
 	facilityStep uint64
 	keepsPending bool
 	wantOutcome  string
+	staleRefusal bool // the door's feed gains a STALE player refusal
 }
 
 func authoringPendingCases() []authoringPendingCase {
@@ -511,7 +642,7 @@ func authoringPendingCases() []authoringPendingCase {
 		},
 		{
 			name: "facility edit changes the device action", edit: authoringChangeDoorAction,
-			facilityStep: 1, wantOutcome: "superseded",
+			facilityStep: 1, wantOutcome: "superseded", staleRefusal: true,
 		},
 		{
 			name: "terminal edit leaves the device action alone",
@@ -547,6 +678,73 @@ func authoringChangeDoorAction(t *testing.T, session *domain.Session) {
 			DeviceID: "door", TransitionID: "force-open",
 		}}},
 	}
+}
+
+func authoringLampDevice() domain.FacilityDevice {
+	return domain.FacilityDevice{
+		ID: "lamp", Name: "Corridor lamp", Kind: domain.FacilityDeviceKindAlarm,
+		InitialStateID: "off", CurrentStateID: "off",
+		States: []domain.FacilityDeviceState{{ID: "off", Name: "Lamp off"}, {ID: "on", Name: "Lamp on"}},
+	}
+}
+
+func authoringDeleteLamp(t *testing.T, session *domain.Session) {
+	t.Helper()
+	require.NotNil(t, session.Facility)
+	devices := slices.DeleteFunc(slices.Clone(session.Facility.Devices), func(device domain.FacilityDevice) bool {
+		return device.ID == "lamp"
+	})
+	require.Len(t, devices, len(session.Facility.Devices)-1, "the lamp must exist before it is deleted")
+	session.Facility.Devices = devices
+}
+
+// authoringSeedFeed installs a feed for the door and the lamp and returns it
+// as the snapshot lists it, newest first.
+func authoringSeedFeed(service *Service) []domain.FacilityChange {
+	const at = int64(1793390820000)
+	seeded := []domain.FacilityChange{
+		{Sequence: 3, OccurredAtUnixMs: at, DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+			TerminalID: "terminal-1", CommandID: "command-open-doors", Reason: domain.FacilityChangeRefusalDeclined,
+		}},
+		{Sequence: 2, OccurredAtUnixMs: at, DeviceID: "lamp", Forced: &domain.FacilityChangeForced{
+			FromStateID: "off", ToStateID: "on",
+		}},
+		{Sequence: 1, OccurredAtUnixMs: at, DeviceID: "door", Forced: &domain.FacilityChangeForced{
+			FromStateID: "sealed", ToStateID: "open",
+		}},
+	}
+	service.commit(func(runtime *domain.ProcessRuntime) transition {
+		runtime.FacilityChanges = make(map[string][]domain.FacilityChange)
+		for _, change := range domain.CloneFacilityChanges(seeded) {
+			runtime.FacilityChanges[change.DeviceID] = append(runtime.FacilityChanges[change.DeviceID], change)
+		}
+		runtime.FacilityChangeSequence = seeded[0].Sequence
+		return transition{accepted: true}
+	})
+	return seeded
+}
+
+// authoringRequireFeed compares a projected feed with want. The coordinator
+// numbers and stamps each entry, so only their presence is checked.
+func authoringRequireFeed(t *testing.T, want, got []domain.FacilityChange) {
+	t.Helper()
+	require.Empty(t, cmp.Diff(want, got, cmpopts.EquateEmpty(),
+		cmpopts.IgnoreFields(domain.FacilityChange{}, "Sequence", "OccurredAtUnixMs")))
+	for _, change := range got {
+		require.NotZero(t, change.Sequence, "every entry must be numbered")
+		require.NotZero(t, change.OccurredAtUnixMs, "every entry must carry the commit time")
+	}
+}
+
+func authoringLastMasterEffect(t *testing.T, effects []Effect) *domain.MasterCoordinationState {
+	t.Helper()
+	for _, effect := range slices.Backward(effects) {
+		if effect.Master != nil {
+			return effect.Master
+		}
+	}
+	require.FailNow(t, "the save published no master snapshot")
+	return nil
 }
 
 type authoringSaveFixture struct {

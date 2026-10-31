@@ -602,6 +602,58 @@ export class CoordinationCommandResult {
 }
 
 /**
+ * FacilityConditionActivePayload switches the current position of one fault.
+ */
+export class FacilityConditionActivePayload {
+    /**
+     * Creates a new FacilityConditionActivePayload instance.
+     * @param {Partial<FacilityConditionActivePayload>} [$$source = {}] - The source object to create the FacilityConditionActivePayload.
+     */
+    constructor($$source = {}) {
+        if (!("conditionId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["conditionId"] = "";
+        }
+        if (!("active" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["active"] = false;
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityConditionActivePayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityConditionActivePayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityConditionActivePayload(/** @type {Partial<FacilityConditionActivePayload>} */($$parsedSource));
+    }
+}
+
+/**
  * FacilityDependencyInspectionPayload identifies one stable authored entity
  * without exposing the facility graph through the player service.
  */
@@ -727,6 +779,59 @@ export class FacilityDependencyInspectionResult {
 }
 
 /**
+ * FacilityDeviceForcePayload sets one device to any of its states, without
+ * transitions, preconditions, or fault effects.
+ */
+export class FacilityDeviceForcePayload {
+    /**
+     * Creates a new FacilityDeviceForcePayload instance.
+     * @param {Partial<FacilityDeviceForcePayload>} [$$source = {}] - The source object to create the FacilityDeviceForcePayload.
+     */
+    constructor($$source = {}) {
+        if (!("deviceId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["deviceId"] = "";
+        }
+        if (!("stateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["stateId"] = "";
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDeviceForcePayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDeviceForcePayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityDeviceForcePayload(/** @type {Partial<FacilityDeviceForcePayload>} */($$parsedSource));
+    }
+}
+
+/**
  * FacilityDeviceResetPayload restores one device and its directly scoped
  * conditions after the Overseer confirms the operation.
  */
@@ -769,6 +874,59 @@ export class FacilityDeviceResetPayload {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new FacilityDeviceResetPayload(/** @type {Partial<FacilityDeviceResetPayload>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDeviceTransitionPayload runs one authored transition of one device
+ * from the Overseer play card.
+ */
+export class FacilityDeviceTransitionPayload {
+    /**
+     * Creates a new FacilityDeviceTransitionPayload instance.
+     * @param {Partial<FacilityDeviceTransitionPayload>} [$$source = {}] - The source object to create the FacilityDeviceTransitionPayload.
+     */
+    constructor($$source = {}) {
+        if (!("deviceId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["deviceId"] = "";
+        }
+        if (!("transitionId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["transitionId"] = "";
+        }
+        if (!("expectedFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["expectedFacilityRevision"] = 0;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDeviceTransitionPayload instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDeviceTransitionPayload}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityDeviceTransitionPayload(/** @type {Partial<FacilityDeviceTransitionPayload>} */($$parsedSource));
     }
 }
 

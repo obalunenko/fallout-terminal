@@ -29,6 +29,9 @@ const APP_METHODS = Object.freeze({
   resetScene: desktopService.ResetScene,
   describePresentation: desktopService.DescribePresentation,
   resetFacilityDevice: desktopService.ResetFacilityDevice,
+  applyFacilityDeviceTransition: desktopService.ApplyFacilityDeviceTransition,
+  forceFacilityDeviceState: desktopService.ForceFacilityDeviceState,
+  setFacilityConditionActive: desktopService.SetFacilityConditionActive,
   addCharacter: desktopService.AddCharacter,
   updateCharacter: desktopService.UpdateCharacter,
   deleteCharacter: desktopService.DeleteCharacter,
@@ -472,6 +475,96 @@ function normalizeFacilityDeviceResetPayload(payload) {
   };
 }
 
+function normalizeFacilityDeviceTransitionPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    deviceId: optionalString(value.deviceId),
+    transitionId: optionalString(value.transitionId),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: optionalString(value.correlationId),
+  };
+}
+
+function normalizeFacilityDeviceForcePayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    deviceId: optionalString(value.deviceId),
+    stateId: optionalString(value.stateId),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: optionalString(value.correlationId),
+  };
+}
+
+function normalizeFacilityConditionActivePayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    conditionId: optionalString(value.conditionId),
+    active: value.active === true,
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: optionalString(value.correlationId),
+  };
+}
+
+const FACILITY_CHANGE_REFUSAL_REASONS = new Set([
+  'declined', 'precondition-failed', 'transition-unavailable', 'fault-blocked', 'stale', 'withdrawn', 'failed',
+  'unspecified',
+]);
+
+// Each feed variant key with its normalized kind and author.
+const FACILITY_CHANGE_VARIANTS = [
+  ['transition', 'transition', 'overseer'],
+  ['forced', 'forced', 'overseer'],
+  ['fault', 'fault', 'overseer'],
+  ['reset', 'reset', 'overseer'],
+  ['sceneReset', 'scene-reset', 'overseer'],
+  ['playerCommand', 'player-command', 'terminal'],
+  ['playerRefusal', 'player-refusal', 'terminal'],
+];
+
+// normalizeFacilityChange returns one frozen feed entry, or null for an entry
+// without exactly one variant, a device, and safe-integer sequence and time.
+function normalizeFacilityChange(change) {
+  if (!change || typeof change !== 'object') return null;
+  const present = FACILITY_CHANGE_VARIANTS.filter(([key]) => change[key] && typeof change[key] === 'object');
+  if (present.length !== 1
+    || typeof change.deviceId !== 'string' || change.deviceId === ''
+    || !Number.isSafeInteger(change.sequence)
+    || !Number.isSafeInteger(change.occurredAtUnixMs)) {
+    return null;
+  }
+  const [[key, kind, author]] = present;
+  const variant = change[key];
+  let reason = '';
+  if (kind === 'player-refusal') {
+    reason = FACILITY_CHANGE_REFUSAL_REASONS.has(variant.reason) ? variant.reason : 'unspecified';
+  }
+  return Object.freeze({
+    sequence: change.sequence,
+    deviceId: change.deviceId,
+    occurredAtUnixMs: change.occurredAtUnixMs,
+    kind,
+    author,
+    transitionId: optionalString(variant.transitionId),
+    fromStateId: optionalString(variant.fromStateId),
+    toStateId: optionalString(variant.toStateId),
+    conditionId: optionalString(variant.conditionId),
+    active: variant.active === true,
+    conditionIds: facilityIDs(variant.conditionIds),
+    terminalId: optionalString(variant.terminalId),
+    commandId: optionalString(variant.commandId),
+    reason,
+  });
+}
+
+// normalizeCoordinationState normalizes the device feed and leaves a state
+// without one untouched.
+function normalizeCoordinationState(payload) {
+  if (!payload || typeof payload !== 'object' || !Object.hasOwn(payload, 'facilityChanges')) return payload;
+  const changes = Array.isArray(payload.facilityChanges)
+    ? payload.facilityChanges.map(normalizeFacilityChange).filter(Boolean)
+    : [];
+  return { ...payload, facilityChanges: Object.freeze(changes) };
+}
 
 function normalizeFacilityRecoveryPayload(payload) {
   const value = payload && typeof payload === 'object' ? payload : {};
@@ -502,7 +595,13 @@ function facilityIDsAreUnique(values) {
 }
 
 function validateFacilityMutationResult(result, request, operation) {
-  if (!result.ok) return result;
+  if (!result.ok) {
+    // Only a stale rejection carries the canonical session, at its revision.
+    if (result.session === null) return result;
+    const staleWithSession = result.failure === 'stale-revision'
+      && Number(result.session.facility?.revision) === result.resultingFacilityRevision;
+    return staleWithSession ? result : facilityOperationConflict(request);
+  }
   const canonicalFacilityRevision = Number(result.session?.facility?.revision);
   const expectedResultingRevision = request.expectedFacilityRevision + (result.changed ? 1 : 0);
   let affectedIDsAreValid = facilityIDsAreUnique(result.affectedDeviceIds)
@@ -517,10 +616,31 @@ function validateFacilityMutationResult(result, request, operation) {
       && result.affectedConditionIds.length === 1
       && result.affectedConditionIds[0] === request.conditionId;
   } else if (operation === 'device-reset') {
+    // A reset may restore only the device's own faults.
+    const conditions = Array.isArray(result.session?.facility?.conditions) ? result.session.facility.conditions : [];
+    affectedIDsAreValid = affectedIDsAreValid
+      && (result.affectedDeviceIds.length === 0
+        || (result.affectedDeviceIds.length === 1 && result.affectedDeviceIds[0] === request.deviceId))
+      && result.affectedDeviceIds.length + result.affectedConditionIds.length > 0
+      && result.affectedConditionIds.every(id => conditions.some(
+        condition => condition?.id === id && condition?.device?.deviceId === request.deviceId));
+  } else if (operation === 'device-transition') {
     affectedIDsAreValid = affectedIDsAreValid
       && result.affectedDeviceIds.length === 1
       && result.affectedDeviceIds[0] === request.deviceId;
+  } else if (operation === 'device-force') {
+    affectedIDsAreValid = affectedIDsAreValid
+      && result.affectedDeviceIds.length === 1
+      && result.affectedDeviceIds[0] === request.deviceId
+      && result.affectedConditionIds.length === 0;
+  } else if (operation === 'condition-active') {
+    affectedIDsAreValid = affectedIDsAreValid
+      && result.affectedDeviceIds.length === 0
+      && result.affectedConditionIds.length === 1
+      && result.affectedConditionIds[0] === request.conditionId;
   }
+  // An authored transition never loops to its source state, so it always changes the device.
+  if (operation === 'device-transition' && !result.changed) affectedIDsAreValid = false;
   const consistent = result.correlationId === request.correlationId
     && result.previousFacilityRevision === request.expectedFacilityRevision
     && result.resultingFacilityRevision === expectedResultingRevision
@@ -1016,7 +1136,7 @@ const desktopAPI = {
   onClientCount: (callback) => subscribe('client-count', 'clientCount', callback),
   onHackState: (callback) => subscribe('hack-state', 'hackState', callback),
   onCoordinationState: (callback) => subscribe(
-    'coordination-state', 'coordinationState', callback, (payload) => payload, monotonicRevision,
+    'coordination-state', 'coordinationState', callback, normalizeCoordinationState, monotonicRevision,
   ),
   onSessionState: (callback) => subscribe('session-state', null, callback, normalizeSessionStateEvent),
   onPublicAccessStatus: (callback) => {
@@ -1129,6 +1249,24 @@ const desktopAPI = {
     payload,
     normalizeFacilityDeviceResetPayload,
     'device-reset',
+  ),
+  applyFacilityDeviceTransition: payload => facilityMutationCommand(
+    APP_METHODS.applyFacilityDeviceTransition,
+    payload,
+    normalizeFacilityDeviceTransitionPayload,
+    'device-transition',
+  ),
+  forceFacilityDeviceState: payload => facilityMutationCommand(
+    APP_METHODS.forceFacilityDeviceState,
+    payload,
+    normalizeFacilityDeviceForcePayload,
+    'device-force',
+  ),
+  setFacilityConditionActive: payload => facilityMutationCommand(
+    APP_METHODS.setFacilityConditionActive,
+    payload,
+    normalizeFacilityConditionActivePayload,
+    'condition-active',
   ),
   addCharacter: (payload) => command(APP_METHODS.addCharacter, normalizeAddCharacterPayload(payload)),
   updateCharacter: (payload) => command(APP_METHODS.updateCharacter, normalizeUpdateCharacterPayload(payload)),

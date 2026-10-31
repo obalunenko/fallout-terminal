@@ -134,6 +134,18 @@ type coordinationFacilityResetService interface {
 	ResetFacilityDevice(context.Context, controlservice.FacilityDeviceResetRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
 }
 
+type coordinationFacilityTransitionService interface {
+	ApplyFacilityDeviceTransition(context.Context, controlservice.FacilityDeviceTransitionRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
+}
+
+type coordinationFacilityForceService interface {
+	ForceFacilityDeviceState(context.Context, controlservice.FacilityDeviceForceRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
+}
+
+type coordinationFacilityConditionActiveService interface {
+	SetFacilityConditionActive(context.Context, controlservice.FacilityConditionActiveRequest) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error)
+}
+
 type coordinationFacilityLifecycleService interface {
 	ReplaceFacility(*domain.Facility) (*domain.MasterCoordinationState, error)
 }
@@ -469,6 +481,32 @@ type FacilityPreviewResult struct {
 // conditions after the Overseer confirms the operation.
 type FacilityDeviceResetPayload struct {
 	DeviceID                 string `json:"deviceId"`
+	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+	CorrelationID            string `json:"correlationId"`
+}
+
+// FacilityDeviceTransitionPayload runs one authored transition of one device
+// from the Overseer play card.
+type FacilityDeviceTransitionPayload struct {
+	DeviceID                 string `json:"deviceId"`
+	TransitionID             string `json:"transitionId"`
+	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+	CorrelationID            string `json:"correlationId"`
+}
+
+// FacilityDeviceForcePayload sets one device to any of its states, without
+// transitions, preconditions, or fault effects.
+type FacilityDeviceForcePayload struct {
+	DeviceID                 string `json:"deviceId"`
+	StateID                  string `json:"stateId"`
+	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
+	CorrelationID            string `json:"correlationId"`
+}
+
+// FacilityConditionActivePayload switches the current position of one fault.
+type FacilityConditionActivePayload struct {
+	ConditionID              string `json:"conditionId"`
+	Active                   bool   `json:"active"`
 	ExpectedFacilityRevision uint64 `json:"expectedFacilityRevision"`
 	CorrelationID            string `json:"correlationId"`
 }
@@ -849,7 +887,7 @@ func (app *App) recordRuntimeAuditEvent(outcome string, fields logger.Fields) {
 func facilityAuditEvent(name string) bool {
 	switch name {
 	case "facility.request_received", "facility.decision", "facility.transition", "facility.failure",
-		"facility.recovery", "facility.reset":
+		"facility.recovery", "facility.reset", "facility.overseer_transition", "facility.force", "facility.fault":
 		return true
 	default:
 		return false
@@ -924,6 +962,14 @@ func addFacilityAuditLogFields(fields logger.Fields, event controlservice.AuditE
 		(facts.ResetScope == "device" || facts.ResetScope == "facility") {
 		fields["reset_scope"] = facts.ResetScope
 	}
+	switch {
+	case facts.Action == controlservice.FacilityAuditActionTransition && facts.TransitionID != "":
+		fields["transition_id"] = facts.TransitionID
+	case facts.Action == controlservice.FacilityAuditActionForce && facts.TargetStateID != "":
+		fields["target_state_id"] = facts.TargetStateID
+	case facts.Action == controlservice.FacilityAuditActionFault && facts.TargetActive != nil:
+		fields["target_active"] = *facts.TargetActive
+	}
 	if knownFacilityFailure(facts.Failure) && facts.Failure != domain.FacilityFailureUnspecified {
 		fields["facility_failure"] = string(facts.Failure)
 	}
@@ -942,7 +988,10 @@ func knownFacilityAuditAction(action controlservice.FacilityAuditAction) bool {
 	switch action {
 	case controlservice.FacilityAuditActionCommand,
 		controlservice.FacilityAuditActionReset,
-		controlservice.FacilityAuditActionRecover:
+		controlservice.FacilityAuditActionRecover,
+		controlservice.FacilityAuditActionTransition,
+		controlservice.FacilityAuditActionForce,
+		controlservice.FacilityAuditActionFault:
 		return true
 	default:
 		return false
@@ -2333,55 +2382,185 @@ func (app *App) ResetFacilityDevice(payload FacilityDeviceResetPayload) domain.F
 	app.coordinationCommandMu.Lock()
 	defer app.coordinationCommandMu.Unlock()
 
-	request := controlservice.FacilityDeviceResetRequest{
-		DeviceID:                 payload.DeviceID,
-		ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
-		CorrelationID:            payload.CorrelationID,
+	routed := facilityDeviceResetRequestFromPrivate(facilityDeviceResetRequestToPrivate(
+		controlservice.FacilityDeviceResetRequest{
+			DeviceID:                 payload.DeviceID,
+			ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
+			CorrelationID:            payload.CorrelationID,
+		},
+	))
+	if !exactFacilityIDsForApp(routed.DeviceID, routed.CorrelationID) {
+		return facilityPlayInvalidRequestForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
 	}
-	routed := facilityDeviceResetRequestFromPrivate(facilityDeviceResetRequestToPrivate(request))
-	if routed.DeviceID == "" || strings.TrimSpace(routed.DeviceID) != routed.DeviceID ||
-		routed.CorrelationID == "" || strings.TrimSpace(routed.CorrelationID) != routed.CorrelationID {
-		return facilityOperationFailureForApp(
-			routed.CorrelationID,
-			domain.FacilityFailureInvalidConfiguration,
-			"request",
-			0,
-			routed.ExpectedFacilityRevision,
-		)
-	}
-	return app.resetFacility(routed)
-}
-
-func (app *App) resetFacility(
-	request controlservice.FacilityDeviceResetRequest,
-) domain.FacilityOperationResult {
 	coordination, ok := app.deps.Coordination.(coordinationFacilityResetService)
 	if !ok {
-		return facilityOperationFailureForApp(
-			request.CorrelationID,
-			domain.FacilityFailureRuntimeContextEnded,
-			"request",
-			0,
-			request.ExpectedFacilityRevision,
-		)
+		return facilityPlayContextEndedForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
 	}
+	return app.playFacility(
+		routed.CorrelationID,
+		routed.ExpectedFacilityRevision,
+		func(ctx context.Context) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+			return coordination.ResetFacilityDevice(ctx, routed)
+		},
+		facilityPlayRules{
+			known: knownFacilityRecoveryFailureForApp,
+			validChange: func(result domain.FacilityOperationResult) bool {
+				return validFacilityResetChangeForApp(result, routed.DeviceID)
+			},
+		},
+	)
+}
 
+// ApplyFacilityDeviceTransition runs one authored transition of one device
+// from the Overseer play card through the serialized coordinator operation.
+func (app *App) ApplyFacilityDeviceTransition(payload FacilityDeviceTransitionPayload) domain.FacilityOperationResult {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+
+	routed := facilityDeviceTransitionRequestFromPrivate(facilityDeviceTransitionRequestToPrivate(
+		controlservice.FacilityDeviceTransitionRequest{
+			DeviceID:                 payload.DeviceID,
+			TransitionID:             payload.TransitionID,
+			ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
+			CorrelationID:            payload.CorrelationID,
+		},
+	))
+	if !exactFacilityIDsForApp(routed.DeviceID, routed.TransitionID, routed.CorrelationID) {
+		return facilityPlayInvalidRequestForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
+	}
+	coordination, ok := app.deps.Coordination.(coordinationFacilityTransitionService)
+	if !ok {
+		return facilityPlayContextEndedForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
+	}
+	return app.playFacility(
+		routed.CorrelationID,
+		routed.ExpectedFacilityRevision,
+		func(ctx context.Context) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+			return coordination.ApplyFacilityDeviceTransition(ctx, routed)
+		},
+		facilityPlayRules{
+			known: knownFacilityPlayFailureForApp,
+			// An authored transition never loops to its own source state, so
+			// a successful one always changes the device.
+			changeRequired: true,
+			validChange: func(result domain.FacilityOperationResult) bool {
+				return slices.Equal(result.AffectedDeviceIDs, []string{routed.DeviceID}) &&
+					strictlyIncreasingIDsForApp(result.AffectedConditionIDs)
+			},
+		},
+	)
+}
+
+// ForceFacilityDeviceState sets one device to any of its states, without
+// transitions, preconditions, or fault effects, through the serialized
+// coordinator operation.
+func (app *App) ForceFacilityDeviceState(payload FacilityDeviceForcePayload) domain.FacilityOperationResult {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+
+	routed := facilityDeviceForceRequestFromPrivate(facilityDeviceForceRequestToPrivate(
+		controlservice.FacilityDeviceForceRequest{
+			DeviceID:                 payload.DeviceID,
+			StateID:                  payload.StateID,
+			ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
+			CorrelationID:            payload.CorrelationID,
+		},
+	))
+	if !exactFacilityIDsForApp(routed.DeviceID, routed.StateID, routed.CorrelationID) {
+		return facilityPlayInvalidRequestForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
+	}
+	coordination, ok := app.deps.Coordination.(coordinationFacilityForceService)
+	if !ok {
+		return facilityPlayContextEndedForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
+	}
+	return app.playFacility(
+		routed.CorrelationID,
+		routed.ExpectedFacilityRevision,
+		func(ctx context.Context) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+			return coordination.ForceFacilityDeviceState(ctx, routed)
+		},
+		facilityPlayRules{
+			known: knownFacilityPlayFailureForApp,
+			validChange: func(result domain.FacilityOperationResult) bool {
+				return slices.Equal(result.AffectedDeviceIDs, []string{routed.DeviceID}) &&
+					len(result.AffectedConditionIDs) == 0
+			},
+		},
+	)
+}
+
+// SetFacilityConditionActive switches the current position of one fault
+// through the serialized coordinator operation. Its starting position never
+// changes.
+func (app *App) SetFacilityConditionActive(payload FacilityConditionActivePayload) domain.FacilityOperationResult {
+	app.coordinationCommandMu.Lock()
+	defer app.coordinationCommandMu.Unlock()
+
+	routed := facilityConditionActiveRequestFromPrivate(facilityConditionActiveRequestToPrivate(
+		controlservice.FacilityConditionActiveRequest{
+			ConditionID:              payload.ConditionID,
+			Active:                   payload.Active,
+			ExpectedFacilityRevision: payload.ExpectedFacilityRevision,
+			CorrelationID:            payload.CorrelationID,
+		},
+	))
+	if !exactFacilityIDsForApp(routed.ConditionID, routed.CorrelationID) {
+		return facilityPlayInvalidRequestForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
+	}
+	coordination, ok := app.deps.Coordination.(coordinationFacilityConditionActiveService)
+	if !ok {
+		return facilityPlayContextEndedForApp(routed.CorrelationID, routed.ExpectedFacilityRevision)
+	}
+	return app.playFacility(
+		routed.CorrelationID,
+		routed.ExpectedFacilityRevision,
+		func(ctx context.Context) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+			return coordination.SetFacilityConditionActive(ctx, routed)
+		},
+		facilityPlayRules{
+			known: knownFacilityPlayFailureForApp,
+			validChange: func(result domain.FacilityOperationResult) bool {
+				return len(result.AffectedDeviceIDs) == 0 &&
+					slices.Equal(result.AffectedConditionIDs, []string{routed.ConditionID})
+			},
+		},
+	)
+}
+
+// facilityPlayRules are the result rules of one Overseer play method.
+type facilityPlayRules struct {
+	// known accepts the method's failure codes.
+	known func(domain.FacilityFailureCode) bool
+	// changeRequired rejects a successful result that changed nothing.
+	changeRequired bool
+	// validChange checks the affected IDs of a changed result.
+	validChange func(domain.FacilityOperationResult) bool
+}
+
+// playFacility runs one Overseer play change on the coordinator and checks
+// its result with rules. A changed result publishes the canonical session,
+// then the coordination state that carries the feed. A stale rejection
+// carries the canonical session. A result that does not verify becomes a
+// persistence failure and publishes nothing.
+func (app *App) playFacility(
+	correlationID string,
+	expectedRevision uint64,
+	run func(context.Context) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error),
+	rules facilityPlayRules,
+) domain.FacilityOperationResult {
 	masterEvents := app.deferMasterEvents()
 	defer masterEvents.Commit()
 
-	state, result, _ := coordination.ResetFacilityDevice(app.contextSnapshot(), request)
+	state, result, _ := run(app.contextSnapshot())
 	if result == nil {
 		masterEvents.Discard(state)
 		return facilityOperationFailureForApp(
-			request.CorrelationID,
-			domain.FacilityFailurePersistenceFailed,
-			"facility",
-			0,
-			request.ExpectedFacilityRevision,
+			correlationID, domain.FacilityFailurePersistenceFailed, "facility", 0, expectedRevision,
 		)
 	}
 	detached, conversionErr := detachedFacilityOperationResultForApp(*result)
-	if conversionErr != nil || !validFacilityResetResultForApp(detached, request) ||
+	if conversionErr != nil || detached.CorrelationID != correlationID ||
+		!validFacilityPlayResultForApp(detached, expectedRevision, rules) ||
 		(detached.OK && detached.Changed && !app.canPublishFacilityMutationState(
 			state,
 			detached.SessionRevision,
@@ -2389,55 +2568,146 @@ func (app *App) resetFacility(
 		)) {
 		masterEvents.Discard(state)
 		return facilityOperationFailureForApp(
-			request.CorrelationID,
-			domain.FacilityFailurePersistenceFailed,
-			"facility",
-			0,
-			request.ExpectedFacilityRevision,
+			correlationID, domain.FacilityFailurePersistenceFailed, "facility", 0, expectedRevision,
 		)
 	}
-	if detached.OK && detached.Changed {
-		canonical := domain.CloneSession(*detached.Session)
-		app.acceptSessionStateRevision(detached.SessionRevision)
-		app.publishSessionState(SessionStateEvent{Revision: detached.SessionRevision, Session: &canonical})
-		masterEvents.Commit()
-		app.publishCoordinationStateIfNewer(state)
-	} else {
+	if !detached.OK || !detached.Changed {
 		masterEvents.Discard(state)
+		return app.withStaleFacilitySession(detached)
 	}
+	canonical := domain.CloneSession(*detached.Session)
+	app.acceptSessionStateRevision(detached.SessionRevision)
+	app.publishSessionState(SessionStateEvent{Revision: detached.SessionRevision, Session: &canonical})
+	masterEvents.Commit()
+	app.publishCoordinationStateIfNewer(state)
 	return detached
 }
 
-func validFacilityResetResultForApp(
+// withStaleFacilitySession fills a stale play rejection with the canonical
+// session of the active snapshot when the coordinator rejected the change
+// before the store answered, so the Overseer can refresh the card. The
+// session is filled only when it is at the rejection's facility revision.
+func (app *App) withStaleFacilitySession(result domain.FacilityOperationResult) domain.FacilityOperationResult {
+	if result.Failure != domain.FacilityFailureStaleRevision || result.Session != nil {
+		return result
+	}
+	sessions, ok := app.deps.Sessions.(sessionSnapshotService)
+	if !ok {
+		return result
+	}
+	active := sessions.Snapshot()
+	if active.Session == nil || active.Session.Facility == nil ||
+		active.Session.Facility.Revision != result.ResultingFacilityRevision {
+		return result
+	}
+	result.SessionRevision = active.SavedRevision
+	result.Session = sessionPointerForApp(*active.Session)
+	return result
+}
+
+// validFacilityPlayResultForApp reports whether result is an exact answer to
+// one Overseer play change sent at expectedRevision under rules. An unchanged
+// result names no ID.
+func validFacilityPlayResultForApp(
 	result domain.FacilityOperationResult,
-	request controlservice.FacilityDeviceResetRequest,
+	expectedRevision uint64,
+	rules facilityPlayRules,
 ) bool {
-	if result.CorrelationID != request.CorrelationID {
-		return false
-	}
 	if !result.OK {
-		return !result.Changed && knownFacilityRecoveryFailureForApp(result.Failure) && result.Session == nil &&
-			result.PreviousFacilityRevision == result.ResultingFacilityRevision &&
-			len(result.AffectedDeviceIDs) == 0 && len(result.AffectedConditionIDs) == 0
+		return validFacilityPlayFailureForApp(result, rules.known)
 	}
-	if result.Failure != "" && result.Failure != domain.FacilityFailureUnspecified {
-		return false
-	}
-	if result.PreviousFacilityRevision != request.ExpectedFacilityRevision {
+	if (result.Failure != "" && result.Failure != domain.FacilityFailureUnspecified) ||
+		result.PreviousFacilityRevision != expectedRevision {
 		return false
 	}
 	if !result.Changed {
-		return result.ResultingFacilityRevision == result.PreviousFacilityRevision &&
+		return !rules.changeRequired && result.ResultingFacilityRevision == result.PreviousFacilityRevision &&
 			len(result.AffectedDeviceIDs) == 0 && len(result.AffectedConditionIDs) == 0
 	}
-	if result.SessionRevision == 0 || result.Session == nil || result.Session.Facility == nil ||
-		result.ResultingFacilityRevision != result.PreviousFacilityRevision+1 ||
-		result.Session.Facility.Revision != result.ResultingFacilityRevision ||
-		(len(result.AffectedDeviceIDs) == 0 && len(result.AffectedConditionIDs) == 0) ||
-		hasDuplicateStrings(result.AffectedDeviceIDs) || hasDuplicateStrings(result.AffectedConditionIDs) {
+	return result.SessionRevision != 0 && result.Session != nil && result.Session.Facility != nil &&
+		result.ResultingFacilityRevision == result.PreviousFacilityRevision+1 &&
+		result.Session.Facility.Revision == result.ResultingFacilityRevision &&
+		rules.validChange(result)
+}
+
+// validFacilityPlayFailureForApp reports whether a rejected play change
+// changed nothing. Only a stale rejection may carry a session, and only the
+// canonical one at the rejection's facility revision.
+func validFacilityPlayFailureForApp(
+	result domain.FacilityOperationResult,
+	known func(domain.FacilityFailureCode) bool,
+) bool {
+	if result.Changed || !known(result.Failure) ||
+		result.PreviousFacilityRevision != result.ResultingFacilityRevision ||
+		len(result.AffectedDeviceIDs) != 0 || len(result.AffectedConditionIDs) != 0 {
 		return false
 	}
-	return slices.Equal(result.AffectedDeviceIDs, []string{request.DeviceID})
+	if result.Session == nil {
+		return true
+	}
+	return result.Failure == domain.FacilityFailureStaleRevision && result.Session.Facility != nil &&
+		result.Session.Facility.Revision == result.ResultingFacilityRevision
+}
+
+// validFacilityResetChangeForApp reports whether a changed device reset
+// names the device or nothing, names only faults scoped to the device, and
+// names at least one ID. A reset that only restores faults names no device.
+func validFacilityResetChangeForApp(result domain.FacilityOperationResult, deviceID string) bool {
+	if len(result.AffectedDeviceIDs) != 0 && !slices.Equal(result.AffectedDeviceIDs, []string{deviceID}) {
+		return false
+	}
+	if (len(result.AffectedDeviceIDs) == 0 && len(result.AffectedConditionIDs) == 0) ||
+		hasDuplicateStrings(result.AffectedConditionIDs) {
+		return false
+	}
+	for _, conditionID := range result.AffectedConditionIDs {
+		scoped := slices.ContainsFunc(result.Session.Facility.Conditions, func(condition domain.DiagnosticCondition) bool {
+			return condition.ID == conditionID && condition.Device != nil && condition.Device.DeviceID == deviceID
+		})
+		if !scoped {
+			return false
+		}
+	}
+	return true
+}
+
+// knownFacilityPlayFailureForApp accepts every known failure of an Overseer
+// play change. Unlike a recovery, a play change may be rejected.
+func knownFacilityPlayFailureForApp(failure domain.FacilityFailureCode) bool {
+	return knownFacilityFailure(failure) && failure != domain.FacilityFailureUnspecified
+}
+
+// exactFacilityIDsForApp reports whether every ID is non-blank and unpadded.
+func exactFacilityIDsForApp(ids ...string) bool {
+	for _, id := range ids {
+		if id == "" || strings.TrimSpace(id) != id {
+			return false
+		}
+	}
+	return true
+}
+
+// strictlyIncreasingIDsForApp reports whether ids are non-blank, sorted, and
+// unique.
+func strictlyIncreasingIDsForApp(ids []string) bool {
+	for index, id := range ids {
+		if id == "" || (index > 0 && ids[index-1] >= id) {
+			return false
+		}
+	}
+	return true
+}
+
+func facilityPlayInvalidRequestForApp(correlationID string, expectedRevision uint64) domain.FacilityOperationResult {
+	return facilityOperationFailureForApp(
+		correlationID, domain.FacilityFailureInvalidConfiguration, "request", 0, expectedRevision,
+	)
+}
+
+func facilityPlayContextEndedForApp(correlationID string, expectedRevision uint64) domain.FacilityOperationResult {
+	return facilityOperationFailureForApp(
+		correlationID, domain.FacilityFailureRuntimeContextEnded, "request", 0, expectedRevision,
+	)
 }
 
 func hasDuplicateStrings(values []string) bool {

@@ -36,6 +36,16 @@ export function AddCharacter(payload) {
 }
 
 /**
+ * @param {$models.FacilityDeviceTransitionPayload} payload
+ * @returns {$CancellablePromise<domain$0.FacilityOperationResult>}
+ */
+export function ApplyFacilityDeviceTransition(payload) {
+    return $Call.ByID(1749036747, payload).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
  * @param {$models.AssignmentPayload} payload
  * @returns {$CancellablePromise<$models.CoordinationCommandResult>}
  */
@@ -50,7 +60,7 @@ export function AssignCharacter(payload) {
  */
 export function CopyDemo() {
     return $Call.ByID(2528704859).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType2($result);
     }));
 }
 
@@ -59,7 +69,7 @@ export function CopyDemo() {
  */
 export function CopyPublicAccessCredentials() {
     return $Call.ByID(644689427).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType2($result);
+        return $$createType3($result);
     }));
 }
 
@@ -79,7 +89,7 @@ export function DeleteCharacter(payload) {
  */
 export function DescribePresentation(payload) {
     return $Call.ByID(107524360, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType3($result);
+        return $$createType4($result);
     }));
 }
 
@@ -93,11 +103,21 @@ export function EndBroadcast() {
 }
 
 /**
+ * @param {$models.FacilityDeviceForcePayload} payload
+ * @returns {$CancellablePromise<domain$0.FacilityOperationResult>}
+ */
+export function ForceFacilityDeviceState(payload) {
+    return $Call.ByID(3348136584, payload).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<$models.CommandResult>}
  */
 export function ForceHackSuccess() {
     return $Call.ByID(900713832).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType2($result);
+        return $$createType3($result);
     }));
 }
 
@@ -107,7 +127,7 @@ export function ForceHackSuccess() {
  */
 export function GeneratePlayerPassword(payload) {
     return $Call.ByID(2485398858, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType4($result);
+        return $$createType5($result);
     }));
 }
 
@@ -116,7 +136,7 @@ export function GeneratePlayerPassword(payload) {
  */
 export function GetApplicationUpdateStatus() {
     return $Call.ByID(2806632640).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType5($result);
+        return $$createType6($result);
     }));
 }
 
@@ -125,7 +145,7 @@ export function GetApplicationUpdateStatus() {
  */
 export function GetPublicAccess() {
     return $Call.ByID(760826452).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType6($result);
+        return $$createType7($result);
     }));
 }
 
@@ -134,7 +154,7 @@ export function GetPublicAccess() {
  */
 export function GetRuntimeStatus() {
     return $Call.ByID(858476939).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType7($result);
+        return $$createType8($result);
     }));
 }
 
@@ -144,7 +164,7 @@ export function GetRuntimeStatus() {
  */
 export function InspectFacilityDependencies(payload) {
     return $Call.ByID(1368914055, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType8($result);
+        return $$createType9($result);
     }));
 }
 
@@ -153,7 +173,7 @@ export function InspectFacilityDependencies(payload) {
  */
 export function LoadReferencedPlayerConfig() {
     return $Call.ByID(3625309117).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType10($result);
     }));
 }
 
@@ -172,7 +192,7 @@ export function MoveCharacter(payload) {
  */
 export function NewPlayerConfig() {
     return $Call.ByID(1361487498).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType10($result);
     }));
 }
 
@@ -181,7 +201,7 @@ export function NewPlayerConfig() {
  */
 export function NewSession() {
     return $Call.ByID(3912692115).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType2($result);
     }));
 }
 
@@ -190,7 +210,7 @@ export function NewSession() {
  */
 export function OpenLogLocation() {
     return $Call.ByID(3787230102).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType10($result);
+        return $$createType11($result);
     }));
 }
 
@@ -199,7 +219,7 @@ export function OpenLogLocation() {
  */
 export function OpenPlayerConfig() {
     return $Call.ByID(3818260626).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType9($result);
+        return $$createType10($result);
     }));
 }
 
@@ -208,7 +228,7 @@ export function OpenPlayerConfig() {
  */
 export function OpenSession() {
     return $Call.ByID(3087464523).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType1($result);
+        return $$createType2($result);
     }));
 }
 
@@ -218,7 +238,7 @@ export function OpenSession() {
  */
 export function OpenURL(rawURL) {
     return $Call.ByID(1777024122, rawURL).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType2($result);
+        return $$createType3($result);
     }));
 }
 
@@ -228,7 +248,7 @@ export function OpenURL(rawURL) {
  */
 export function PreviewFacility(payload) {
     return $Call.ByID(3074187978, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType11($result);
+        return $$createType12($result);
     }));
 }
 
@@ -238,7 +258,7 @@ export function PreviewFacility(payload) {
  */
 export function RecoverFacilityCondition(payload) {
     return $Call.ByID(3026030627, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType1($result);
     }));
 }
 
@@ -307,7 +327,7 @@ export function ResetCommandState(payload) {
  */
 export function ResetFacilityDevice(payload) {
     return $Call.ByID(1285666603, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType1($result);
     }));
 }
 
@@ -327,7 +347,7 @@ export function ResetFailedHack(payload) {
  */
 export function ResetScene(payload) {
     return $Call.ByID(1137588968, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType1($result);
     }));
 }
 
@@ -387,7 +407,7 @@ export function ResolveTerminalSwitch(payload) {
  */
 export function SaveAuthoring(payload) {
     return $Call.ByID(996352253, payload).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType12($result);
+        return $$createType1($result);
     }));
 }
 
@@ -408,6 +428,16 @@ export function SavePublicAccessSettings(payload) {
 export function SetActiveController(sessionID) {
     return $Call.ByID(3767238137, sessionID).then(/** @type {($result: any) => any} */(($result) => {
         return $$createType0($result);
+    }));
+}
+
+/**
+ * @param {$models.FacilityConditionActivePayload} payload
+ * @returns {$CancellablePromise<domain$0.FacilityOperationResult>}
+ */
+export function SetFacilityConditionActive(payload) {
+    return $Call.ByID(3521650165, payload).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType1($result);
     }));
 }
 
@@ -452,18 +482,18 @@ export function UpdateCharacter(payload) {
 
 // Private type creation functions
 const $$createType0 = $models.CoordinationCommandResult.createFrom;
-const $$createType1 = session$0.SessionResult.createFrom;
-const $$createType2 = $models.CommandResult.createFrom;
-const $$createType3 = $models.PresentationResult.createFrom;
-const $$createType4 = $models.GeneratedPlayerPasswordResult.createFrom;
-const $$createType5 = $models.ApplicationUpdateSnapshot.createFrom;
-const $$createType6 = $models.PublicAccessSnapshot.createFrom;
-const $$createType7 = $models.RuntimeStatus.createFrom;
-const $$createType8 = $models.FacilityDependencyInspectionResult.createFrom;
-const $$createType9 = $models.PlayerConfigCommandResult.createFrom;
-const $$createType10 = $models.LogAccessResult.createFrom;
-const $$createType11 = $models.FacilityPreviewResult.createFrom;
-const $$createType12 = domain$0.FacilityOperationResult.createFrom;
+const $$createType1 = domain$0.FacilityOperationResult.createFrom;
+const $$createType2 = session$0.SessionResult.createFrom;
+const $$createType3 = $models.CommandResult.createFrom;
+const $$createType4 = $models.PresentationResult.createFrom;
+const $$createType5 = $models.GeneratedPlayerPasswordResult.createFrom;
+const $$createType6 = $models.ApplicationUpdateSnapshot.createFrom;
+const $$createType7 = $models.PublicAccessSnapshot.createFrom;
+const $$createType8 = $models.RuntimeStatus.createFrom;
+const $$createType9 = $models.FacilityDependencyInspectionResult.createFrom;
+const $$createType10 = $models.PlayerConfigCommandResult.createFrom;
+const $$createType11 = $models.LogAccessResult.createFrom;
+const $$createType12 = $models.FacilityPreviewResult.createFrom;
 const $$createType13 = $models.TerminalGroupReplacementResult.createFrom;
 const $$createType14 = $models.TerminalSwitchCommandResult.createFrom;
 const $$createType15 = $models.SessionStateResult.createFrom;
