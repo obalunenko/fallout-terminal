@@ -19,11 +19,11 @@ this reviewed file unchanged in its resources directory.
 - github.com/mattn/go-colorable@v0.1.15 — MIT; Copyright (c) 2016 Yasuhiro Matsumoto
 - github.com/mattn/go-isatty@v0.0.23 — MIT; Copyright (c) Yasuhiro Matsumoto
 - github.com/obalunenko/logger@v1.2.0 — MIT; Copyright (c) 2021 Oleg Balunenko
-- github.com/wailsapp/wails/v3@v3.0.0-beta.28 — MIT; Copyright (c) 2018-Present Lea Anthony
+- github.com/wailsapp/wails/v3@v3.0.0 — MIT; Copyright (c) 2018-Present Lea Anthony
 - go.uber.org/multierr@v1.11.0 — MIT; Copyright (c) 2017-2021 Uber Technologies, Inc.
 - golang.ngrok.com/muxado/v2@v2.0.1 — MIT; Copyright 2023 ngrok, Inc.
 - golang.ngrok.com/ngrok/v2@v2.2.0 — MIT; Copyright 2022 ngrok, Inc.
-- golang.org/x/net@v0.56.0 — BSD-3-Clause; Copyright 2009 The Go Authors
+- golang.org/x/net@v0.60.0 — BSD-3-Clause; Copyright 2009 The Go Authors
 - golang.org/x/sys@v0.49.0 — BSD-3-Clause; Copyright 2009 The Go Authors
 - google.golang.org/protobuf@v1.36.12 — BSD-3-Clause; Copyright (c) 2018 The Go Authors
 

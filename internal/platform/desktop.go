@@ -103,7 +103,7 @@ func wailsFileFilters(goos string, filters []FileFilter) []application.FileFilte
 	return nativeFilters
 }
 
-// Wails v3 beta passes filter patterns directly to
+// Wails v3 passes filter patterns directly to
 // UTType.typeWithFilenameExtension on Darwin. That API expects bare
 // extensions, while the cross-platform Wails contract documents glob patterns.
 // Normalize only the Darwin boundary so the native panel can select JSON files
