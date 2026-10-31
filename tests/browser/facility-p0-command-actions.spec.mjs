@@ -39,8 +39,11 @@ async function saveCount(page) {
 async function renameDoor(page, request) {
   await switchTab(page, 'ОБЪЕКТЫ');
   await page.locator('[data-facility-kind="device"][data-facility-id="vault-door-main"]').click();
-  await page.locator('#facilitySelectedDeviceName').fill(RENAMED_DOOR);
-  await page.getByRole('button', { name: DONE, exact: true }).click();
+  await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
+  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill(RENAMED_DOOR);
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expect.poll(async () => (await facilityState(request)).facility.devices
     .find(device => device.id === 'vault-door-main').name).toBe(RENAMED_DOOR);
   await expectSaved(page);
@@ -145,7 +148,7 @@ test('a command with a device action has no draft guard and its edit saves after
 test('attaching an action to an ordinary command asks for both player texts and never invents them', async ({ page, request }) => {
   await seedDemo(request);
   await openOverseer(page);
-  await page.locator('#btnAddFacilityBinding').click();
+  await page.locator('#btnAddFacilityActionBinding').click();
   const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
   await binding.getByLabel('ТИП ПРИВЯЗКИ', { exact: true }).selectOption('command-action');
   await binding.getByLabel('ТЕРМИНАЛ', { exact: true }).selectOption('t_demo1');

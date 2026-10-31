@@ -341,7 +341,9 @@ test('a rule edited from the command form is the same rule on ОБЪЕКТЫ (FR
   await expect(ruleTarget(page, 'name').locator('li.command-rule[data-kind="state-name"]'))
     .toContainText('Выход распахнут');
   await switchTab(page, 'ОБЪЕКТЫ');
-  await expect(page.locator('#facilityBindingList')).toContainText('Выход распахнут');
+  await page.locator('#facilityTabInformation').click();
+  await expect(page.locator('#facilityInformationBindingList')).toBeVisible();
+  await expect(page.locator('#facilityInformationBindingList')).toContainText('Выход распахнут');
 });
 
 test('scene reset counts what changes, and a failure resets nothing (FR-014, SC-005)', async ({ page, request }) => {

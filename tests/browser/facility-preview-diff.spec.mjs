@@ -158,6 +158,8 @@ test('the panes stack on a narrow window', async ({ page, request }) => {
 test('a fault preview preselects the opposite activity', async ({ page, request }) => {
   const session = await seedDemoWith(request);
   await openOverseer(page);
+  // Faults are listed on the «НЕИСПРАВНОСТИ» tab.
+  await page.locator('#facilityTabConditions').click();
   for (const condition of session.facility.conditions.slice(0, 3)) {
     await page.locator(`[data-facility-kind="condition"][data-facility-id="${condition.id}"]`).click();
     await page.locator('#btnPreviewFacilityCondition').click();
@@ -191,6 +193,8 @@ test('a one-state device has nothing to compare and makes no request', async ({ 
 test('the preview reflects an applied text rule, even while its save is in flight (FR-019)', async ({ page, request }) => {
   await seedDemoWith(request);
   await openOverseer(page);
+  // Text rules are listed on the «ЧТО ВИДЯТ ИГРОКИ» tab.
+  await page.locator('#facilityTabInformation').click();
   const binding = page.locator(`[data-facility-kind="binding"][data-facility-id="${DOOR_BINDING}"]`);
   const editRule = async text => {
     await binding.getByRole('button', { name: /^Изменить/ }).click();

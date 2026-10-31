@@ -112,12 +112,34 @@ function deviceRow(page, id = FACILITY_IDS.devices.power) {
   return page.locator(`[data-facility-kind="device"][data-facility-id="${id}"]`);
 }
 
+// openPowerGraph selects the power grid and opens its device dialog, where its
+// name, states, and transitions are edited.
 async function openPowerGraph(page) {
   await deviceRow(page).click();
-  await page.getByRole('button', { name: 'РЕДАКТИРОВАТЬ ГРАФ', exact: true }).click();
+  await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
   await expect(dialog).toBeVisible();
   return dialog;
+}
+
+// openDetailTab opens one of the «ОБЪЕКТЫ» detail tabs. Only the open tab's
+// list and add button are visible.
+async function openDetailTab(page, id) {
+  await page.locator(`#${id}`).click();
+  await expect(page.locator(`#${id}`)).toHaveAttribute('aria-selected', 'true');
+}
+
+// openGuide expands the scenario guide, which is collapsed to its summary
+// line while the session has devices.
+async function openGuide(page) {
+  const guide = page.locator('#facilityStoryGuide');
+  const toggle = page.locator('#facilityStoryGuideToggle');
+  await expect(guide).not.toHaveAttribute('open', '');
+  await expect(toggle).toHaveText('ПОКАЗАТЬ');
+  await page.locator('#facilityStoryGuideSummary').click();
+  await expect(guide).toHaveAttribute('open', '');
+  await expect(toggle).toHaveText('СКРЫТЬ');
+  return guide;
 }
 
 async function expandReferences(transition) {
@@ -206,15 +228,17 @@ for (const missing of ['prerequisite device', 'prerequisite state', 'condition e
   });
 }
 
+// applyName renames the power grid in its device dialog.
 async function applyName(page, name) {
-  await deviceRow(page).click();
-  const editor = page.locator('#facilitySelectionEditor');
-  await editor.getByLabel('НАЗВАНИЕ УСТРОЙСТВА', { exact: true }).fill(name);
-  await editor.getByRole('button', { name: DONE, exact: true }).click();
+  const dialog = await openPowerGraph(page);
+  await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill(name);
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expect(deviceRow(page)).toContainText(name);
 }
 
 async function applyCondition(page) {
+  await openDetailTab(page, 'facilityTabConditions');
   await page.getByRole('button', { name: 'ДОБАВИТЬ УСЛОВИЕ', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
   await dialog.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('condition-staged-ux');
@@ -236,6 +260,7 @@ test('every facility form autosaves on «ГОТОВО», and ОТМЕНИТЬ re
   await applyCondition(page);
   await expectAutosaved(page, request, before.saveCalls + 2);
 
+  await openDetailTab(page, 'facilityTabPrograms');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true }).click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
   await program.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('program-staged-ux');
@@ -246,6 +271,7 @@ test('every facility form autosaves on «ГОТОВО», and ОТМЕНИТЬ re
   await expect(program).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 3);
 
+  await openDetailTab(page, 'facilityTabInformation');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРИВЯЗКУ', exact: true }).click();
   const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
   await binding.getByLabel('ТЕРМИНАЛ', { exact: true }).selectOption(FACILITY_IDS.terminals.reactor);
@@ -285,37 +311,37 @@ test('a rejected autosave shows its reason, reopens the edit with its input, and
   const before = await facilityState(request);
   await openWorkspace(page);
   await rejectNextSave(page, request);
-  await deviceRow(page).click();
-  const name = page.locator('#facilitySelectedDeviceName');
+  const dialog = await openPowerGraph(page);
+  const name = dialog.getByLabel('НАЗВАНИЕ', { exact: true });
   await name.fill('Retry primary grid');
-  await page.locator('#btnSaveFacilityDeviceChanges').click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
 
   const status = page.locator('#saveStatus');
   await expect(status).toHaveAttribute('data-state', 'error');
   await expect(status).toContainText('ОШИБКА СОХРАНЕНИЯ: НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
-  await expect(status).toContainText('НЕ ПРИМЕНЕНО: Устройство «Primary power grid»');
-  // Only the rejected edit is reverted, and its input comes back unapplied.
+  // Only the rejected edit is reverted, and the device dialog reopens with its
+  // input and the reason.
   await expect(deviceRow(page)).toContainText('Primary power grid');
+  await expect(dialog).toBeVisible();
   await expect(name).toHaveValue('Retry primary grid');
-  await expect(name).toHaveAttribute('data-unapplied', 'true');
+  await expect(dialog.locator('#facilityDeviceError')).toContainText('НЕ УДАЛОСЬ СОХРАНИТЬ СОСТОЯНИЕ ОБЪЕКТА');
   expect(await facilityState(request)).toEqual(before);
 
-  await page.locator('#btnSaveFacilityDeviceChanges').click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 1);
   await expect(status).toHaveAttribute('data-unapplied-count', '0');
-  await expect(name).not.toHaveAttribute('data-unapplied', 'true');
   expect((await facilityState(request)).facility.devices.find(value => value.id === FACILITY_IDS.devices.power).name)
     .toBe('Retry primary grid');
 });
 
-test('unapplied input survives a live session change and still saves on «ГОТОВО»', async ({ page, request }) => {
+test('device dialog input survives a live session change and still saves on «ГОТОВО»', async ({ page, request }) => {
   await resetFixture(request);
   const before = await facilityState(request);
   await openWorkspace(page);
-  await deviceRow(page).click();
-  const name = page.locator('#facilitySelectedDeviceName');
+  const dialog = await openPowerGraph(page);
+  const name = dialog.getByLabel('НАЗВАНИЕ', { exact: true });
   await name.fill('Pending primary grid');
-  await expect(page.locator('#saveStatus')).toHaveText('НЕ ПРИМЕНЕНО: Устройство «Primary power grid»');
 
   // A live change arrives: the device goes offline. The authored name in the
   // event is ignored; only live values are taken.
@@ -329,14 +355,15 @@ test('unapplied input survives a live session change and still saves on «ГОТ
     globalThis.__desktopFixture.emit('session-state', { revision, session });
   }, { revision: before.sessionRevision + 1, session: canonical });
 
-  await expect(page.locator('#facilityDeviceSummary')).toContainText('Сейчас: Offline');
+  await expect(page.locator('#facilityDeviceHeaderCurrent')).toHaveText('СЕЙЧАС: Offline');
   await expect(deviceRow(page)).toContainText('Primary power grid');
+  await expect(dialog).toBeVisible();
   await expect(name).toHaveValue('Pending primary grid');
-  await expect(name).toHaveAttribute('data-unapplied', 'true');
   await expect(page.locator('#saveStatus')).not.toContainText('СЕССИЯ ИЗМЕНИЛАСЬ');
   expect(await facilityState(request)).toEqual(before);
 
-  await page.locator('#btnSaveFacilityDeviceChanges').click();
+  await dialog.getByRole('button', { name: DONE, exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 1);
   const saved = (await facilityState(request)).facility.devices.find(value => value.id === FACILITY_IDS.devices.power);
   expect(saved.name).toBe('Pending primary grid');
@@ -356,7 +383,7 @@ test('keeps searchable device details adjacent on desktop and stacked without ov
   await page.getByLabel('Поиск устройств', { exact: true }).fill('cooling');
   await expect(deviceRow(page, FACILITY_IDS.devices.cooling)).toBeVisible();
   await expect(deviceRow(page)).toHaveCount(0);
-  await expect(page.getByLabel('НАЗВАНИЕ УСТРОЙСТВА', { exact: true })).toHaveValue('Primary power grid');
+  await expect(page.locator('#facilityDeviceHeaderName')).toHaveText('Primary power grid');
 
   await page.setViewportSize({ width: 800, height: 700 });
   const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
@@ -387,11 +414,11 @@ test('keeps the actual ten-device demo usable at desktop and narrow widths', asy
   expect(listBox).not.toBeNull();
   expect(detailBox).not.toBeNull();
   expect(detailBox.x).toBeGreaterThan(listBox.x + listBox.width - 2);
-  await expect(page.getByLabel('НАЗВАНИЕ УСТРОЙСТВА', { exact: true }))
-    .toHaveValue('Резервная сеть Убежища 76');
-  await expect(page.locator('#facilityBindingList [data-facility-kind="binding"]')).not.toHaveCount(0);
+  await expect(page.locator('#facilityDeviceHeaderName')).toHaveText('Резервная сеть Убежища 76');
+  await expect(page.locator('#facilityActionBindingList, #facilityInformationBindingList')
+    .locator('[data-facility-kind="binding"]')).not.toHaveCount(0);
   await page.screenshot({ path: 'test-results/facility-authoring-ux-demo-desktop.png' });
-  const guide = page.locator('#facilityStoryGuide');
+  const guide = await openGuide(page);
   await guide.getByRole('button', { name: '2. Действие', exact: true }).click();
   await expect(guide.getByRole('button', { name: 'ИЗМЕНИТЬ ДЕЙСТВИЕ КОМАНДЫ', exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/facility-story-guide-desktop.png' });
@@ -434,6 +461,7 @@ test('edits and removes bindings and an unreferenced recovery program, saving ea
   const before = await facilityState(request);
   await openWorkspace(page);
   await deviceRow(page).click();
+  await openDetailTab(page, 'facilityTabInformation');
   const textBinding = page.locator('[data-facility-kind="binding"]').filter({ hasText: 'PRIMARY POWER: ONLINE' });
   await textBinding.getByRole('button', { name: /^Изменить:/ }).click();
   const bindingDialog = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА', exact: true });
@@ -447,6 +475,7 @@ test('edits and removes bindings and an unreferenced recovery program, saving ea
   await expect(editedBinding).toHaveCount(0);
   await expectAutosaved(page, request, before.saveCalls + 2);
 
+  await openDetailTab(page, 'facilityTabPrograms');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ', exact: true }).click();
   const programDialog = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
   await programDialog.getByLabel('ИДЕНТИФИКАТОР', { exact: true }).fill('program-temporary');
@@ -594,14 +623,23 @@ test('compares preview effects side by side without publication, and unapplied i
   expect((await facilityState(request)).publishedEvents).toBe(before.publishedEvents);
 
   // Unapplied input does not guard the preview, and it is still there after.
-  await page.locator('#facilitySelectedDeviceName').fill('Unapplied preview name');
+  // Devices are renamed in their dialog, so the input is a terminal's settings.
+  const unapplied = 'НЕ ПРИМЕНЕНО: Настройки «Security control»';
+  const introText = page.locator('#introTextArea');
+  await page.getByRole('tab', { name: 'ТЕРМИНАЛЫ', exact: true }).click();
+  await page.locator(`.term-row[data-terminal-id="${FACILITY_IDS.terminals.security}"]`).click();
+  await introText.fill('Unapplied preview text');
+  await expect(page.locator('#saveStatus')).toHaveText(unapplied);
+  await page.getByRole('tab', { name: 'ОБЪЕКТЫ', exact: true }).click();
   await page.getByRole('button', { name: 'ПРЕДПРОСМОТР СОСТОЯНИЯ', exact: true }).click();
   await expect(preview).toBeVisible();
   await expect(preview.locator('#facilityPreviewStatus')).toContainText('ПРЕДПРОСМОТР ГОТОВ');
   await expect(preview.locator('#facilityPreviewCurrentHeading')).toContainText('Primary power grid');
   await preview.getByRole('button', { name: 'ЗАКРЫТЬ', exact: true }).click();
-  await expect(page.locator('#facilitySelectedDeviceName')).toHaveValue('Unapplied preview name');
-  await expect(page.locator('#saveStatus')).toHaveText('НЕ ПРИМЕНЕНО: Устройство «Primary power grid»');
+  await expect(page.locator('#saveStatus')).toHaveText(unapplied);
+  await page.getByRole('tab', { name: 'ТЕРМИНАЛЫ', exact: true }).click();
+  await expect(introText).toHaveValue('Unapplied preview text');
+  await expect(introText).toHaveAttribute('data-unapplied', 'true');
   expect((await facilityState(request)).saveCalls).toBe(before.saveCalls);
 });
 
@@ -612,6 +650,7 @@ test('guides an empty facility through a door story, command, and visible result
   await openWorkspace(page);
   const guide = page.locator('#facilityStoryGuide');
   await expect(guide).toHaveAttribute('open', '');
+  await expect(page.locator('#facilityStoryGuideToggle')).toHaveText('СКРЫТЬ');
   await expect(guide).toContainText('Устройств в сессии: 0');
   await guide.getByRole('button', { name: 'СОЗДАТЬ УСТРОЙСТВО', exact: true }).click();
   const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
@@ -625,9 +664,12 @@ test('guides an empty facility through a door story, command, and visible result
   }
   await device.getByLabel('НАЧАЛЬНОЕ СОСТОЯНИЕ', { exact: true }).selectOption('closed');
   await device.getByRole('button', { name: DONE, exact: true }).click();
+  // The first saved device collapses the guide to its summary line, which
+  // reopens it on demand.
   await expect(guide).toContainText('Настраиваем «Дверь в убежище»');
-  await expect(page.locator('#facilityStoryTitle')).toBeFocused();
   await expectAutosaved(page, request, before.saveCalls + 1);
+  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: ОБЪЕКТ');
+  await openGuide(page);
   await guide.getByRole('button', { name: 'СЛЕДУЮЩИЙ ШАГ', exact: true }).click();
   await expect(page.locator('#facilityStoryTitle')).toBeFocused();
   await expect(guide).toContainText('Сначала добавьте переход');
@@ -658,6 +700,7 @@ test('guides an empty facility through a door story, command, and visible result
   await binding.getByLabel('ТЕКСТ', { exact: true }).fill('Путь свободен');
   await binding.getByRole('button', { name: DONE, exact: true }).click();
   await expect(page.getByRole('list', { name: 'Что делают игроки', exact: true })).toContainText('Открыть дверь');
+  await openDetailTab(page, 'facilityTabInformation');
   await expect(page.getByRole('list', { name: 'Что видят игроки', exact: true })).toContainText('Путь свободен');
   await expectAutosaved(page, request, before.saveCalls + 4);
   await guide.getByRole('button', { name: '4. Осложнения', exact: true }).click();
@@ -682,7 +725,7 @@ test('connects optional recovery from the story guide to a command without losin
   const before = await seedMultiTransitionDevice(request);
   await openWorkspace(page);
   await deviceRow(page).click();
-  const guide = page.locator('#facilityStoryGuide');
+  const guide = await openGuide(page);
   await guide.getByRole('button', { name: '4. Осложнения', exact: true }).click();
   await guide.getByRole('button', { name: 'ДОБАВИТЬ НЕИСПРАВНОСТЬ', exact: true }).click();
   const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
@@ -733,15 +776,28 @@ test('keeps story guidance contextual after selection and undo and supports keyb
   await expectAutosaved(page, request, before.saveCalls + 2);
   await deviceRow(page, FACILITY_IDS.devices.cooling).click();
   await expect(guide).toContainText('Настраиваем «Reactor cooling loop»');
+  // The session has devices, so the guide starts as its one-line summary,
+  // which opens and closes from the keyboard.
+  const summary = page.locator('#facilityStoryGuideSummary');
+  const toggle = page.locator('#facilityStoryGuideToggle');
+  await expect(guide).not.toHaveAttribute('open', '');
+  await expect(toggle).toHaveText('ПОКАЗАТЬ');
+  await summary.focus();
+  await page.keyboard.press('Enter');
+  await expect(guide).toHaveAttribute('open', '');
+  await expect(toggle).toHaveText('СКРЫТЬ');
   await guide.getByRole('button', { name: '3. Результат', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(guide.getByRole('button', { name: '3. Результат', exact: true })).toHaveAttribute('aria-current', 'step');
-  await guide.locator(':scope > summary').focus();
+  await summary.focus();
   await page.keyboard.press('Enter');
   await expect(guide).not.toHaveAttribute('open', '');
-  await expect(page.getByRole('button', { name: 'РЕДАКТИРОВАТЬ ГРАФ', exact: true })).toBeVisible();
+  await expect(toggle).toHaveText('ПОКАЗАТЬ');
+  await expect(page.locator('#facilityStoryGuideStep')).toHaveText('КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 3 ИЗ 5: РЕЗУЛЬТАТ');
+  await expect(page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true })).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(guide).toHaveAttribute('open', '');
+  await expect(toggle).toHaveText('СКРЫТЬ');
   expect(authoredFacility(await facilityState(request))).toEqual(authoredFacility(before));
 });
 
@@ -766,7 +822,7 @@ test('explains missing terminal destinations in the story guide and opens termin
   const baseline = await facilityState(request);
   await openWorkspace(page);
   await deviceRow(page, 'door-story').click();
-  const guide = page.locator('#facilityStoryGuide');
+  const guide = await openGuide(page);
   await guide.getByRole('button', { name: '2. Действие', exact: true }).click();
   await expect(guide).toContainText('Нет свободной команды');
   await guide.getByRole('button', { name: 'ОТКРЫТЬ ТЕРМИНАЛЫ', exact: true }).click();
@@ -816,6 +872,8 @@ for (const kind of ['command', 'entry']) {
     const checkpoint = await facilityState(request);
     expect(checkpoint.facility.devices[0]).toMatchObject({ id: 'door-checkpoint', transitions: [{ id: 'open' }] });
 
+    // The first saved device collapsed the guide; the author reopens it.
+    await openGuide(page);
     await guide.getByRole('button', { name: kind === 'command' ? '2. Действие' : '3. Результат', exact: true }).click();
     await expect(guide).toContainText(kind === 'command' ? 'Нет свободной команды' : 'Сначала создайте запись');
     const openTerminals = guide.getByRole('button', { name: 'ОТКРЫТЬ ТЕРМИНАЛЫ', exact: true });
@@ -859,6 +917,7 @@ for (const kind of ['command', 'entry']) {
     const saved = await facilityState(request);
     expect(saved.brokenReferenceCount).toBe(0);
     expect(saved.facility.devices).toEqual(checkpoint.facility.devices);
+    if (kind === 'entry') await openDetailTab(page, 'facilityTabInformation');
     await expect(page.getByRole('list', { name: kind === 'command' ? 'Что делают игроки' : 'Что видят игроки', exact: true }))
       .toContainText(kind === 'command' ? 'Открыть дверь' : 'Путь свободен');
   });
@@ -882,7 +941,7 @@ test('explains the optional recovery prerequisite and resumes after adding a tra
   await page.setViewportSize({ width: 800, height: 700 });
   await openWorkspace(page);
   await deviceRow(page, 'door-no-transitions').click();
-  const guide = page.locator('#facilityStoryGuide');
+  const guide = await openGuide(page);
   await guide.getByRole('button', { name: '4. Осложнения', exact: true }).click();
   await expect(guide).toContainText('Если нужна программа восстановления, сначала добавьте переход устройства');
   await expect(guide).toContainText('Для простой сцены этот шаг можно пропустить');

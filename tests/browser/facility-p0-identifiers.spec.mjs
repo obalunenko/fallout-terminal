@@ -53,7 +53,7 @@ test('Russian names produce readable, unique identifiers that survive save and r
   expect(saved.states.map(value => value.id)).toEqual(['zaperta', 'otkryta', 'otkryta-2', 'state-1', 'ganok', 'cafe']);
   expect(saved.transitions.map(value => value.id)).toEqual(['otkryt-dver']);
 
-  await page.getByRole('button', { name: 'РЕДАКТИРОВАТЬ ГРАФ', exact: true }).click();
+  await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', exact: true }).click();
   await dialog.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Гермодверь');
   await dialog.locator('.facility-state-name').first().fill('Закрыта');
   await dialog.locator('.facility-transition-name').first().fill('Распахнуть дверь');
@@ -64,12 +64,14 @@ test('Russian names produce readable, unique identifiers that survive save and r
   // Cancel discards the dialog input; the saved identifiers and names stay.
   expect((await facilityState(request)).facility.devices[0]).toEqual(saved);
 
+  await page.locator('#facilityTabConditions').click();
   await page.locator('#btnAddFacilityCondition').click();
   const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
   await condition.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Отказ привода');
   await expect(condition.locator('#facilityConditionID')).toHaveValue('condition-otkaz-privoda');
   await condition.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
 
+  await page.locator('#facilityTabPrograms').click();
   await page.locator('#btnAddFacilityRecoveryProgram').click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ', exact: true });
   await program.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Перезапуск контроллера');

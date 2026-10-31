@@ -736,6 +736,11 @@ type ProcessRuntime struct {
 	PendingCommandExecution   *PendingCommandExecution
 	PendingTerminalNavigation *PendingTerminalNavigation
 	TerminalNavigationNotice  *TerminalNavigationNotice
+	// FacilityChanges holds each device's recent changes for the current run,
+	// newest first. It is never saved and never rebuilt from logs.
+	FacilityChanges map[string][]FacilityChange
+	// FacilityChangeSequence is the last feed sequence assigned in this run.
+	FacilityChangeSequence uint64
 }
 
 // PlayerCharacter is the assigned identity visible at a projection boundary.
@@ -935,6 +940,7 @@ type MasterCoordinationState struct {
 	PendingCommandExecution   *MasterPendingCommandExecution   `json:"pendingCommandExecution"`
 	PendingTerminalNavigation *MasterPendingTerminalNavigation `json:"pendingTerminalNavigation"`
 	TerminalNavigationNotice  *MasterTerminalNavigationNotice  `json:"terminalNavigationNotice"`
+	FacilityChanges           []FacilityChange                 `json:"facilityChanges,omitempty"`
 }
 
 // CloneMasterCoordinationState returns a deeply detached desktop projection.
@@ -983,6 +989,7 @@ func CloneMasterCoordinationState(state *MasterCoordinationState) *MasterCoordin
 		notice.TargetTerminalID = cloneString(state.TerminalNavigationNotice.TargetTerminalID)
 		clone.TerminalNavigationNotice = &notice
 	}
+	clone.FacilityChanges = CloneFacilityChanges(state.FacilityChanges)
 	return &clone
 }
 

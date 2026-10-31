@@ -140,6 +140,8 @@ type Config struct {
 	TerminalGroupStore TerminalGroupStore
 	TerminalCatalog    TerminalCatalog
 	RequestResultLimit int
+	// Now stamps device feed entries. It defaults to time.Now.
+	Now func() time.Time
 }
 
 // SessionIdentity is the fresh process-local identity returned after an
@@ -225,6 +227,7 @@ type Service struct {
 	terminalCatalog     TerminalCatalog
 	requirePlayerConfig bool
 	requestResultLimit  int
+	now                 func() time.Time
 }
 
 type transition struct {
@@ -265,6 +268,10 @@ func New(config Config) *Service {
 	if requestResultLimit <= 0 {
 		requestResultLimit = defaultRequestResultLimit
 	}
+	now := config.Now
+	if now == nil {
+		now = time.Now
+	}
 	return &Service{
 		runtime:             newProcessRuntime(),
 		ids:                 ids,
@@ -280,6 +287,7 @@ func New(config Config) *Service {
 		terminalCatalog:     config.TerminalCatalog,
 		requirePlayerConfig: config.RosterStore != nil,
 		requestResultLimit:  requestResultLimit,
+		now:                 now,
 	}
 }
 
@@ -1317,6 +1325,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			cached := cloneFacilityOperationResult(failed)
 			service.lastFacilityResult = new(cached)
 			resolveErr = facilityFailureError(failure)
+			appendPendingFacilityRefusal(runtime, service.now(), pending, failure)
 			change := service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 			facts := facilityAuditFacts(pending, failed, FacilityAuditActionCommand, outcome)
 			change.audit(AuditEvent{
@@ -1356,6 +1365,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 				facilityResult = new(cloneFacilityOperationResult(rejected))
 				cached := cloneFacilityOperationResult(rejected)
 				service.lastFacilityResult = new(cached)
+				appendPendingFacilityRefusal(runtime, service.now(), pending, rejected.Failure)
 			}
 			runtime.PendingCommandExecution = nil
 			terminal.CommandExecution = &domain.CommandExecutionPresentation{
@@ -1423,6 +1433,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 				cached := cloneFacilityOperationResult(durableResult)
 				service.lastFacilityResult = new(cached)
 				resolveErr = facilityFailureError(failure)
+				appendPendingFacilityRefusal(runtime, service.now(), pending, failure)
 				change := service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
 				facts := facilityAuditFacts(pending, durableResult, FacilityAuditActionCommand, "failed")
 				change.audit(AuditEvent{
@@ -1446,7 +1457,12 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			addFacilityAuditTransitions(&facts, runtime.Facility, durableResult.Session.Facility)
 			committedFacts := facts
 			committedFacts.Outcome = "committed"
+			previousFacility := runtime.Facility
 			runtime.Facility = domain.CloneFacility(durableResult.Session.Facility)
+			appendFacilityChanges(runtime, service.now(), facilityPlayerCommandChanges(
+				previousFacility, runtime.Facility, pending.TerminalID, pending.CommandID,
+				pending.FacilityAction.TransitionRequests,
+			)...)
 			terminal.CommandStates = cloneCommandStates(durableTerminal.CommandStates)
 			terminal.CommandExecution = nil
 			commandID := pending.CommandID
@@ -1985,6 +2001,7 @@ func (service *Service) ResetFailedHack(target domain.TerminalTarget) (*domain.M
 // loaded session. A nil facility explicitly clears facility state for legacy
 // sessions. Replacement advances the coordination epoch even when the values
 // are equal so approvals from the prior session cannot cross the boundary.
+// It empties the device feeds and keeps the run-wide feed sequence.
 func (service *Service) ReplaceFacility(facility *domain.Facility) (*domain.MasterCoordinationState, error) {
 	if service == nil {
 		return nil, fmt.Errorf("facility coordinator is unavailable")
@@ -2004,6 +2021,7 @@ func (service *Service) ReplaceFacility(facility *domain.Facility) (*domain.Mast
 		}
 
 		runtime.Facility = domain.CloneFacility(replacement)
+		runtime.FacilityChanges = nil
 		runtime.PendingSwitch = nil
 		runtime.PendingCommandExecution = nil
 		runtime.PendingTerminalNavigation = nil
@@ -2636,7 +2654,9 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 		if capability, bounded := requestedFacilityCapability(command, authored, commandSelected); bounded &&
 			facilityCapabilityBlocked(runtime.Facility, terminal, capability) {
 			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
-			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+			stop = service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+			refuseFacilityCommand(runtime, &stop, service.now(), terminal, authored, domain.FacilityChangeRefusalFaultBlocked)
+			return stop
 		}
 		if commandSelected && authored.Behavior() == domain.CommandBehaviorTerminalTransition {
 			lookup, ok := domain.TerminalTransitionTarget{}, false
@@ -2667,12 +2687,15 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 		if commandSelected {
 			mode := commandApprovalMode(terminal, authored)
 			var facilityAction *domain.PendingFacilityAction
-			if mode == domain.CommandApprovalModeStateChange && authored.StateChange != nil && authored.StateChange.FacilityAction != nil {
+			if action := requestedCommandFacilityAction(terminal, authored); action != nil {
 				var failure domain.FacilityFailureCode
-				facilityAction, failure = pendingFacilityAction(runtime.Facility, authored.StateChange.FacilityAction)
+				facilityAction, failure = pendingFacilityAction(runtime.Facility, action)
 				if failure != domain.FacilityFailureUnspecified {
 					outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
 					stop = service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+					if reason, ok := facilityChangeRefusalReason(failure); ok {
+						refuseFacilityCommand(runtime, &stop, service.now(), terminal, authored, reason)
+					}
 					facts := facilityAuditFacts(nil, domain.FacilityOperationResult{
 						CorrelationID: command.RequestID,
 						Failure:       failure,
@@ -3577,6 +3600,86 @@ func (service *Service) cachePlayerActionRejection(runtime *domain.ProcessRuntim
 	return change
 }
 
+// requestedCommandFacilityAction returns the authored facility action that a
+// request for command would carry, or nil. A completed command carries none.
+func requestedCommandFacilityAction(
+	terminal *domain.TerminalRuntime,
+	command *domain.ContentNode,
+) *domain.FacilityActionConfig {
+	if commandApprovalMode(terminal, command) != domain.CommandApprovalModeStateChange {
+		return nil
+	}
+	return command.StateChange.FacilityAction
+}
+
+// authoredFacilityActionRequests returns the transitions that action names:
+// its own list, or the list of its recovery program. It does not validate
+// them.
+func authoredFacilityActionRequests(
+	facility *domain.Facility,
+	action *domain.FacilityActionConfig,
+) []domain.FacilityTransitionRequest {
+	switch {
+	case action == nil:
+		return nil
+	case action.Transitions != nil:
+		return action.Transitions.Transitions
+	case action.RecoveryProgramID != nil && facility != nil:
+		programID := strings.TrimSpace(*action.RecoveryProgramID)
+		for _, program := range facility.RecoveryPrograms {
+			if program.ID == programID {
+				return program.Transitions
+			}
+		}
+	}
+	return nil
+}
+
+// refuseFacilityCommand records the refusal of a player request for authored,
+// with reason and the commit time at, in the feed of each existing device the
+// command's facility action names. When it records an entry, change also
+// publishes the master snapshot that carries the feed, ahead of its other
+// effects.
+func refuseFacilityCommand(
+	runtime *domain.ProcessRuntime,
+	change *transition,
+	at time.Time,
+	terminal *domain.TerminalRuntime,
+	authored *domain.ContentNode,
+	reason domain.FacilityChangeRefusalReason,
+) {
+	action := requestedCommandFacilityAction(terminal, authored)
+	if action == nil {
+		return
+	}
+	requests := authoredFacilityActionRequests(runtime.Facility, action)
+	if !appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
+		terminal.TerminalID, authored.ID, requests, reason,
+	)...) {
+		return
+	}
+	change.effects = append([]Effect{{Master: masterSnapshot(runtime)}}, change.effects...)
+}
+
+// appendPendingFacilityRefusal records the refusal of a pending player
+// request, for failure and at the commit time at, in the feed of each device
+// its facility action targets. A failure without a refusal reason records
+// nothing.
+func appendPendingFacilityRefusal(
+	runtime *domain.ProcessRuntime,
+	at time.Time,
+	pending *domain.PendingCommandExecution,
+	failure domain.FacilityFailureCode,
+) {
+	reason, ok := facilityChangeRefusalReason(failure)
+	if !ok || pending == nil || pending.FacilityAction == nil {
+		return
+	}
+	appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
+		pending.TerminalID, pending.CommandID, pending.FacilityAction.TransitionRequests, reason,
+	)...)
+}
+
 func rejectedHackActionAudit(runtime *domain.ProcessRuntime, sessionID domain.LogicalSessionID, command domain.RuntimeCommand) (AuditEvent, bool) {
 	if command.Kind != domain.RuntimeCommandGuess && command.Kind != domain.RuntimeCommandActivatePattern {
 		return AuditEvent{}, false
@@ -3752,6 +3855,7 @@ func masterSnapshot(runtime *domain.ProcessRuntime) *domain.MasterCoordinationSt
 			CommandID: notice.CommandID, TargetTerminalID: cloneString(notice.TargetTerminalID),
 		}
 	}
+	state.FacilityChanges = facilityChangeSnapshot(runtime.FacilityChanges)
 	return state
 }
 
@@ -4437,6 +4541,7 @@ func cloneProcessRuntime(runtime *domain.ProcessRuntime) *domain.ProcessRuntime 
 		clone.ActivePlayerConfig = &value
 	}
 	clone.Facility = domain.CloneFacility(runtime.Facility)
+	clone.FacilityChanges = cloneFacilityChangeFeed(runtime.FacilityChanges)
 	clone.Broadcast = cloneBroadcast(runtime.Broadcast)
 	clone.PendingSwitch = clonePendingSwitch(runtime.PendingSwitch)
 	if runtime.PendingCommandExecution != nil {

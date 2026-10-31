@@ -29,6 +29,13 @@ function rowById(page, kind, id) {
   return page.locator(`[data-facility-kind="${kind}"][data-facility-id="${id}"]`);
 }
 
+// openDetailTab opens an ОБЪЕКТЫ detail tab by its label, whatever its count.
+async function openDetailTab(page, label) {
+  const tab = page.getByRole('tab', { name: new RegExp(`^${label} \\d+$`) });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
+
 // Every applied facility edit autosaves through SaveAuthoring; the shared bar
 // reports it once the save queue is idle.
 async function expectAutosaved(page, request, saveCalls) {
@@ -65,6 +72,7 @@ test('authors a complete reusable device graph, bindings, condition, and recover
   await expect(device).toBeHidden();
   await expectAutosaved(page, request, before.saveCalls + 1);
 
+  await openDetailTab(page, 'НЕИСПРАВНОСТИ');
   await page.getByRole('button', { name: 'ДОБАВИТЬ УСЛОВИЕ' }).click();
   const condition = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ' });
   await condition.getByLabel('ИДЕНТИФИКАТОР').fill('condition-aux-unpowered');
@@ -76,6 +84,7 @@ test('authors a complete reusable device graph, bindings, condition, and recover
   await condition.getByRole('button', { name: DONE }).click();
   await expectAutosaved(page, request, before.saveCalls + 2);
 
+  await openDetailTab(page, 'ПРОГРАММЫ');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРОГРАММУ ВОССТАНОВЛЕНИЯ' }).click();
   const program = page.getByRole('dialog', { name: 'ПРОГРАММА ВОССТАНОВЛЕНИЯ' });
   await program.getByLabel('ИДЕНТИФИКАТОР').fill('program-aux-start');
@@ -85,6 +94,7 @@ test('authors a complete reusable device graph, bindings, condition, and recover
   await program.getByRole('button', { name: DONE }).click();
   await expectAutosaved(page, request, before.saveCalls + 3);
 
+  await openDetailTab(page, 'ЧТО ВИДЯТ ИГРОКИ');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРИВЯЗКУ' }).click();
   const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА' });
   await binding.getByLabel('ТЕРМИНАЛ').selectOption(FACILITY_IDS.terminals.reactor);
@@ -124,14 +134,18 @@ test('dependency inspection protects stable identity and applies one complete re
   await expect(report).toContainText('VAULT-TEC NETWORK RECOVERY');
   await report.getByRole('button', { name: 'ЗАКРЫТЬ' }).click();
 
-  await page.getByLabel('НАЗВАНИЕ УСТРОЙСТВА').fill('Primary grid renamed');
-  await page.locator('#btnSaveFacilityDeviceChanges').click();
+  await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ' }).click();
+  const graph = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА' });
+  await graph.getByLabel('НАЗВАНИЕ', { exact: true }).fill('Primary grid renamed');
+  await graph.getByRole('button', { name: DONE }).click();
+  await expect(graph).toBeHidden();
   await expect(device).toContainText('Primary grid renamed');
   await expectAutosaved(page, request, before.saveCalls + 1);
   const renamed = (await facilityState(request)).facility.devices.find(candidate => candidate.id === FACILITY_IDS.devices.power);
   expect(renamed).toMatchObject({ id: FACILITY_IDS.devices.power, name: 'Primary grid renamed' });
 
-  await page.getByRole('button', { name: 'УДАЛИТЬ УСТРОЙСТВО' }).click();
+  await page.getByRole('button', { name: 'ДРУГИЕ ДЕЙСТВИЯ С УСТРОЙСТВОМ' }).click();
+  await page.getByRole('menuitem', { name: 'УДАЛИТЬ УСТРОЙСТВО' }).click();
   const repair = page.getByRole('dialog', { name: 'ИСПРАВЛЕНИЕ ССЫЛОК' });
   await expect(repair.locator('[role="alert"]')).toContainText('используется');
   await expect(repair.getByRole('button', { name: 'УДАЛИТЬ', exact: true })).toBeDisabled();
@@ -177,7 +191,7 @@ test('edits graph relationships and assigns one atomic multi-device command acti
   await openFacilityWorkspace(page);
 
   await rowById(page, 'device', FACILITY_IDS.devices.power).click();
-  await page.getByRole('button', { name: 'РЕДАКТИРОВАТЬ ГРАФ' }).click();
+  await page.getByRole('button', { name: 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ' }).click();
   const device = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА' });
   const advanced = device.locator('details.facility-transition-references').first();
   if (!await advanced.evaluate(element => element.open)) await advanced.locator('summary').click();
@@ -185,6 +199,7 @@ test('edits graph relationships and assigns one atomic multi-device command acti
   await expect(device.getByRole('button', { name: 'ДОБАВИТЬ ЭФФЕКТ УСЛОВИЯ' }).first()).toBeVisible();
   await device.getByRole('button', { name: 'ОТМЕНА' }).click();
 
+  await openDetailTab(page, 'ЧТО ВИДЯТ ИГРОКИ');
   await page.getByRole('button', { name: 'ДОБАВИТЬ ПРИВЯЗКУ' }).click();
   const binding = page.getByRole('dialog', { name: 'ПРИВЯЗКА ОБЪЕКТА' });
   await expect(binding.getByLabel('ТИП ПРИВЯЗКИ').locator('option')).toHaveText([
@@ -206,7 +221,8 @@ test('edits graph relationships and assigns one atomic multi-device command acti
   await binding.getByLabel('ЗАПРОС ПОДТВЕРЖДЕНИЯ', { exact: true }).fill('Start the main reactor?');
   await binding.getByRole('button', { name: DONE }).click();
 
-  await expect(page.locator('#facilityBindingList')).toContainText('ДЕЙСТВИЕ КОМАНДЫ');
+  await openDetailTab(page, 'ЧТО ДЕЛАЮТ ИГРОКИ');
+  await expect(page.locator('#facilityActionBindingList')).toContainText('ДЕЙСТВИЕ КОМАНДЫ');
   await expectAutosaved(page, request, before.saveCalls + 1);
 });
 
@@ -229,6 +245,7 @@ test('previews a device state and diagnostic fault without publishing or mutatin
   expect((await facilityState(request)).facility).toEqual(before.facility);
   await statePreview.getByRole('button', { name: 'ЗАКРЫТЬ' }).click();
 
+  await openDetailTab(page, 'НЕИСПРАВНОСТИ');
   await rowById(page, 'condition', FACILITY_IDS.conditions.unpowered).click();
   await page.getByRole('button', { name: 'ПРЕДПРОСМОТР УСЛОВИЯ' }).click();
   const faultPreview = page.getByRole('dialog', { name: 'ПРЕДПРОСМОТР ОБЪЕКТА' });
@@ -250,14 +267,14 @@ test('cancels then confirms one-device reset without changing unrelated facility
   await openFacilityWorkspace(page);
 
   await rowById(page, 'device', FACILITY_IDS.devices.power).click();
-  await page.getByRole('button', { name: 'СБРОСИТЬ УСТРОЙСТВО' }).click();
+  await page.getByRole('button', { name: 'СБРОСИТЬ К НАЧАЛЬНОМУ…' }).click();
   const confirmation = page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ СБРОСА УСТРОЙСТВА' });
   await confirmation.getByRole('button', { name: 'ОТМЕНА' }).click();
   expect((await facilityState(request)).facility).toEqual(before.facility);
 
-  await page.getByRole('button', { name: 'СБРОСИТЬ УСТРОЙСТВО' }).click();
+  await page.getByRole('button', { name: 'СБРОСИТЬ К НАЧАЛЬНОМУ…' }).click();
   await confirmation.getByRole('button', { name: 'СБРОСИТЬ' }).click();
-  await expect(page.locator('#facilityStatus')).toContainText('УСТРОЙСТВО СБРОШЕНО');
+  await expect(page.locator('#facilityPlayStatus')).toContainText('УСТРОЙСТВО СБРОШЕНО');
 
   const after = await facilityState(request);
   expect(after.facility.revision).toBe(before.facility.revision + 1);
@@ -311,6 +328,7 @@ test('private recovery stays available from the facility workspace and restores 
   const before = await facilityState(request);
 
   const condition = rowById(page, 'condition', FACILITY_IDS.conditions.authorizationCorrupted);
+  await openDetailTab(page, 'НЕИСПРАВНОСТИ');
   await condition.click();
   await page.getByRole('button', { name: 'ВОССТАНОВИТЬ УСЛОВИЕ' }).click();
   const confirmation = page.getByRole('dialog', { name: 'ПОДТВЕРЖДЕНИЕ ВОССТАНОВЛЕНИЯ' });

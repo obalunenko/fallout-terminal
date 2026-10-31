@@ -279,6 +279,7 @@ var _ coordinationFacilityLifecycleService = (*controlservice.Service)(nil)
 var _ controlservice.CommandStateStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.FacilityStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.FacilityResetStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.FacilityPlayStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.AuthoringStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.SceneResetStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.TerminalGroupStore = (*sessionCommandStateStore)(nil)
@@ -360,6 +361,60 @@ func (store *sessionCommandStateStore) ResetFacilityDevice(
 	}
 	return store.service.ResetFacilityDevice(ctx, sessionservice.FacilityDeviceResetRequest{
 		DeviceID:                 request.DeviceID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ApplyFacilityDeviceTransition(
+	ctx context.Context,
+	request controlservice.FacilityDeviceTransitionRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ApplyFacilityDeviceTransition(ctx, sessionservice.FacilityDeviceTransitionRequest{
+		DeviceID:                 request.DeviceID,
+		TransitionID:             request.TransitionID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ForceFacilityDeviceState(
+	ctx context.Context,
+	request controlservice.FacilityDeviceForceRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ForceFacilityDeviceState(ctx, sessionservice.FacilityDeviceForceRequest{
+		DeviceID:                 request.DeviceID,
+		StateID:                  request.StateID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) SetFacilityConditionActive(
+	ctx context.Context,
+	request controlservice.FacilityConditionActiveRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.SetFacilityConditionActive(ctx, sessionservice.FacilityConditionActiveRequest{
+		ConditionID:              request.ConditionID,
+		Active:                   request.Active,
 		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
 		CorrelationID:            request.CorrelationID,
 	})

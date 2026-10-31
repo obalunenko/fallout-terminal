@@ -117,6 +117,13 @@
                           "stateId": "standby"
                         },
                         "text": "РЕАКТОР: ДЕЖУРНЫЙ РЕЖИМ"
+                      },
+                      {
+                        "when": {
+                          "deviceId": "reactor-main",
+                          "stateId": "critical-overheat"
+                        },
+                        "text": "РЕАКТОР: КРИТИЧЕСКИЙ ПЕРЕГРЕВ"
                       }
                     ]
                   },
@@ -879,6 +886,10 @@
           {
             "id": "standby",
             "name": "Дежурный режим"
+          },
+          {
+            "id": "critical-overheat",
+            "name": "Критический перегрев"
           }
         ],
         "transitions": [

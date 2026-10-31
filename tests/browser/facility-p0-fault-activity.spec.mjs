@@ -15,6 +15,11 @@ async function selectDevice(page, id) {
   await page.locator(`[data-facility-kind="device"][data-facility-id="${id}"]`).click();
 }
 
+// Faults live on the «НЕИСПРАВНОСТИ» tab of the selected device.
+async function openFaultsTab(page) {
+  await page.locator('#facilityTabConditions').click();
+}
+
 async function openSporeCondition(page) {
   await selectDevice(page, 'ventilation-main');
   await page.getByRole('button', { name: 'ЗАВИСИМОСТИ', exact: true }).click();
@@ -30,6 +35,7 @@ test('a new fault can start the game active and stays active after resets', asyn
   await seedDemo(request);
   await openOverseer(page);
   await selectDevice(page, 'vault-door-main');
+  await openFaultsTab(page);
   await page.locator('#btnAddFacilityCondition').click();
   const dialog = page.getByRole('dialog', { name: 'ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ', exact: true });
   await expect(dialog.locator('#facilityConditionInitialWorking')).toBeChecked();
@@ -47,9 +53,10 @@ test('a new fault can start the game active and stays active after resets', asyn
     .toMatchObject({ initialActive: true, currentActive: true });
   await expectSaved(page);
 
+  // «СБРОСИТЬ К НАЧАЛЬНОМУ…» on the play card restores the starting value, which is active.
   await page.locator('#btnResetFacilityDevice').click();
   await page.locator('#btnConfirmFacilityDeviceReset').click();
-  await expect(page.locator('#facilityStatus')).toHaveText('УСТРОЙСТВО СБРОШЕНО');
+  await expect(page.locator('#facilityPlayStatus')).toHaveText('УСТРОЙСТВО СБРОШЕНО');
   expect(await conditionByName(request, 'Привод заклинило')).toMatchObject({ initialActive: true, currentActive: true });
 
   // «СБРОСИТЬ СЦЕНУ» restores every starting value, so the fault stays active.
@@ -75,6 +82,7 @@ test('changing an existing fault starting activity keeps its current activity', 
   await expect(dialog.locator('#facilityConditionInitialActive')).toBeChecked();
   await dialog.locator('#facilityConditionInitialWorking').check();
   await dialog.getByRole('button', { name: DONE, exact: true }).click();
+  await openFaultsTab(page);
   const row = page.locator('#facilityConditionList').getByRole('button', { name: new RegExp(SPORES) });
   await expect(row).toContainText('СЕЙЧАС: АКТИВНА · В НАЧАЛЕ: ИСПРАВНО');
   await expect.poll(() => conditionByName(request, SPORES)).toMatchObject({ initialActive: false, currentActive: true });

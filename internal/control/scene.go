@@ -24,7 +24,9 @@ type SceneResetStore interface {
 // ResetScene restores the starting scene in one durable write and one
 // coordinator transition. Players keep their active terminal, return route,
 // and hacking progress; a pending device action is invalidated and a pending
-// request for a reset command is cleared.
+// request for a reset command is cleared. Every device whose state or
+// device-scoped faults changed gets one feed entry, followed by the withdrawal
+// entries of an invalidated device action.
 func (service *Service) ResetScene(
 	ctx context.Context,
 	request SceneResetRequest,
@@ -99,8 +101,11 @@ func (service *Service) ResetScene(
 		if event, ok := sceneResetPendingOutcome(runtime, request, durable); ok {
 			change.audit(event)
 		}
+		previous := runtime.Facility
 		runtime.Facility = domain.CloneFacility(durable.Session.Facility)
-		service.invalidatePendingFacilityAction(runtime)
+		at := service.now()
+		appendFacilityChanges(runtime, at, facilitySceneResetChanges(previous, runtime.Facility)...)
+		service.invalidatePendingFacilityAction(runtime, at, domain.FacilityChangeRefusalWithdrawn)
 		if broadcast := runtime.Broadcast; broadcast != nil {
 			for terminalID, terminal := range broadcast.TerminalRuntimes {
 				if terminal == nil {

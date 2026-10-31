@@ -67,11 +67,18 @@ function deviceRow(page, id) {
   return page.locator(`[data-facility-kind="device"][data-facility-id="${id}"]`);
 }
 
-// renameDevice applies a name through the device detail form.
+// renameDevice applies a name through the device dialog.
 async function renameDevice(page, id, name) {
   await deviceRow(page, id).click();
-  await page.locator('#facilitySelectedDeviceName').fill(name);
-  await page.locator('#btnSaveFacilityDeviceChanges').click();
+  await page.locator('#btnEditFacilityDevice').click();
+  await page.locator('#facilityDeviceName').fill(name);
+  await page.locator('#facilityDeviceDialog').getByRole('button', { name: 'ГОТОВО', exact: true }).click();
+}
+
+// openDetailTab opens one of the ОБЪЕКТЫ detail tabs.
+async function openDetailTab(page, id) {
+  await page.locator(`#${id}`).click();
+  await expect(page.locator(`#${id}`)).toHaveAttribute('aria-selected', 'true');
 }
 
 function commandRow(page, authoredName) {
@@ -94,7 +101,7 @@ async function editCommandText(page, authoredName, text) {
 // statusOnBothTabs reads the shared status on the current tab and on the
 // other one, expects them to match, and returns to the current tab (SC-002).
 async function statusOnBothTabs(page) {
-  const current = (await page.locator('[role="tab"][aria-selected="true"]').textContent()).trim();
+  const current = (await page.locator('.workspace-tabs [role="tab"][aria-selected="true"]').textContent()).trim();
   const other = current === 'ОБЪЕКТЫ' ? 'ТЕРМИНАЛЫ' : 'ОБЪЕКТЫ';
   await expect(page.locator('#authoringBar')).toBeVisible();
   const here = await saveStatus(page);
@@ -167,6 +174,7 @@ test('edits on both tabs both save, the status matches on both tabs, and undo an
 
   // A live change between the edits: the spore fault is recovered.
   await deviceRow(page, 'ventilation-main').click();
+  await openDetailTab(page, 'facilityTabConditions');
   await page.locator('[data-facility-kind="condition"][data-facility-id="air-spore-bloom"]').click();
   await page.locator('#btnRecoverFacilityCondition').click();
   await page.locator('#btnConfirmFacilityRecovery').click();
@@ -250,38 +258,34 @@ test('the status reads the same on both tabs while saving, with unapplied input,
   await expect(status).toHaveText(`${saved} · НЕ ПРИМЕНЕНО: Команда «${EVACUATION_NAME}»`);
   await expect(page.locator('#fldText')).toHaveAttribute('data-unapplied', 'true');
   await switchTab(page, 'ОБЪЕКТЫ');
-  await deviceRow(page, 'evacuation-alarm').click();
-  await page.locator('#facilitySelectedDeviceName').fill('Неприменённое название');
-  await expect(status).toHaveAttribute('data-unapplied-count', '2');
-  await expect(status).toHaveText(
-    `${saved} · НЕ ПРИМЕНЕНО: Команда «${EVACUATION_NAME}», Устройство «Сигнал эвакуации»`,
-  );
+  await expect(status).toHaveAttribute('data-unapplied-count', '1');
+  await expect(status).toHaveText(`${saved} · НЕ ПРИМЕНЕНО: Команда «${EVACUATION_NAME}»`);
   await statusOnBothTabs(page);
   await switchTab(page, 'ТЕРМИНАЛЫ');
   await expect(page.locator('#fldText')).toHaveValue('Неприменённый результат');
   await expect(page.locator('#fldText')).toHaveAttribute('data-unapplied', 'true');
   await page.locator('#btnCancelNodeInput').click();
   await expect(page.locator('#fldText')).not.toHaveValue('Неприменённый результат');
-  await expect(status).toHaveAttribute('data-unapplied-count', '1');
+  await expect(status).toHaveAttribute('data-unapplied-count', '0');
   await switchTab(page, 'ОБЪЕКТЫ');
-  await expect(page.locator('#facilitySelectedDeviceName')).toHaveValue('Неприменённое название');
-  await page.locator('#btnCancelFacilityDeviceChanges').click();
-  await expect(page.locator('#facilitySelectedDeviceName')).toHaveValue('Сигнал эвакуации');
   await expect(status).toHaveText(saved);
   const before = await facilityState(request);
 
-  // A rejected save shows its reason on both tabs and keeps the input (AS6).
+  // A rejected save shows its reason on both tabs, and the device dialog
+  // reopens with the input (AS6).
+  const reason = 'ДЕЙСТВИЕ ОБЪЕКТА НАСТРОЕНО НЕКОРРЕКТНО · device · evacuation-alarm';
   await rejectSave(page, request, { issue: { entityKind: 'device', entityId: 'evacuation-alarm' } });
   await renameDevice(page, 'evacuation-alarm', 'Сирена эвакуации');
   await expect(status).toHaveAttribute('data-state', 'error');
-  await expect(status).toHaveText(
-    'ОШИБКА СОХРАНЕНИЯ: ДЕЙСТВИЕ ОБЪЕКТА НАСТРОЕНО НЕКОРРЕКТНО · device · evacuation-alarm'
-    + ' · НЕ ПРИМЕНЕНО: Устройство «Сигнал эвакуации»',
-  );
+  await expect(status).toHaveText(`ОШИБКА СОХРАНЕНИЯ: ${reason}`);
+  const dialog = page.locator('#facilityDeviceDialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('#facilityDeviceName')).toHaveValue('Сирена эвакуации');
+  await expect(dialog.locator('#facilityDeviceError')).toHaveText(reason);
+  await dialog.getByRole('button', { name: 'ОТМЕНА', exact: true }).click();
+  await expect(dialog).toBeHidden();
   expect((await statusOnBothTabs(page)).state).toBe('error');
   await expect(deviceRow(page, 'evacuation-alarm')).toContainText('Сигнал эвакуации');
-  await expect(page.locator('#facilitySelectedDeviceName')).toHaveValue('Сирена эвакуации');
-  await expect(page.locator('#facilitySelectedDeviceName')).toHaveAttribute('data-unapplied', 'true');
   expect((await facilityState(request)).facility).toEqual(before.facility);
 });
 
@@ -341,7 +345,7 @@ test('of two quick edits the valid one saves and the rejected one reopens its di
   await renameDevice(page, DOOR, 'Гермодверь 76');
 
   await deviceRow(page, 'power-grid-main').click();
-  await page.getByRole('button', { name: 'РЕДАКТИРОВАТЬ ГРАФ', exact: true }).click();
+  await page.locator('#btnEditFacilityDevice').click();
   const dialog = page.getByRole('dialog', { name: 'УСТРОЙСТВО ОБЪЕКТА', exact: true });
   await dialog.locator('.facility-state-name').first().fill('Обесточена · проверка');
   await dialog.getByRole('button', { name: 'ГОТОВО', exact: true }).click();
@@ -375,7 +379,7 @@ test('live changes never reject a save; a stale save is reapplied with «ПРИ�
   await deviceRow(page, 'power-grid-main').click();
   await page.locator('#btnResetFacilityDevice').click();
   await page.locator('#btnConfirmFacilityDeviceReset').click();
-  await expect(page.locator('#facilityStatus')).toHaveText('УСТРОЙСТВО СБРОШЕНО');
+  await expect(page.locator('#facilityPlayStatus')).toHaveText('УСТРОЙСТВО СБРОШЕНО');
   await renameDevice(page, 'evacuation-alarm', 'Сирена эвакуации');
   await expectSaved(page);
   expect((await savedDevice(request, 'evacuation-alarm')).name).toBe('Сирена эвакуации');
@@ -432,8 +436,9 @@ test('opening a session clears the history, and the history keeps the 20 newest 
   expect(await blockedReason(page.locator('#btnUndo'))).toBe('ИСТОРИЯ ХРАНИТ 20 ПОСЛЕДНИХ ПРАВОК');
   await expect(page.locator('#btnRedoReason')).toHaveText('ПОВТОРИТЬ: Устройство «Гермодверь · 2»');
 
-  await deviceRow(page, 'evacuation-alarm').click();
-  await page.locator('#facilitySelectedDeviceName').fill('Неприменённое название');
+  await switchTab(page, 'ТЕРМИНАЛЫ');
+  await openCommand(page, EVACUATION_NAME);
+  await page.locator('#fldText').fill('Неприменённый результат');
   await expect(page.locator('#saveStatus')).toHaveAttribute('data-unapplied-count', '1');
 
   // Opening a session again starts with no history and no unapplied input.
@@ -448,15 +453,23 @@ test('every facility dialog that edits data confirms with «ГОТОВО», and 
   await seedDemo(request);
   await openOverseer(page, 'ОБЪЕКТЫ');
   await deviceRow(page, DOOR).click();
-  await expect(page.locator('#btnSaveFacilityDeviceChanges')).toHaveText('ГОТОВО');
 
   const editingDialogs = [
     ['new device', () => page.locator('#btnAddFacilityDevice').click(), 'facilityDeviceDialog'],
-    ['device graph', () => page.getByRole('button', { name: 'РЕДАКТИРОВАТЬ ГРАФ', exact: true }).click(), 'facilityDeviceDialog'],
-    ['condition', () => page.locator('#btnAddFacilityCondition').click(), 'facilityConditionDialog'],
-    ['recovery program', () => page.locator('#btnAddFacilityRecoveryProgram').click(), 'facilityRecoveryProgramDialog'],
-    ['new binding', () => page.locator('#btnAddFacilityBinding').click(), 'facilityBindingDialog'],
-    ['existing binding', () => page.locator('#facilityBindingList [data-facility-kind="binding"]').first()
+    ['device graph', () => page.locator('#btnEditFacilityDevice').click(), 'facilityDeviceDialog'],
+    ['condition', async () => {
+      await openDetailTab(page, 'facilityTabConditions');
+      await page.locator('#btnAddFacilityCondition').click();
+    }, 'facilityConditionDialog'],
+    ['recovery program', async () => {
+      await openDetailTab(page, 'facilityTabPrograms');
+      await page.locator('#btnAddFacilityRecoveryProgram').click();
+    }, 'facilityRecoveryProgramDialog'],
+    ['new binding', async () => {
+      await openDetailTab(page, 'facilityTabInformation');
+      await page.locator('#btnAddFacilityBinding').click();
+    }, 'facilityBindingDialog'],
+    ['existing binding', () => page.locator('#facilityInformationBindingList [data-facility-kind="binding"]').first()
       .getByRole('button', { name: /^Изменить:/ }).click(), 'facilityBindingDialog'],
   ];
   for (const [name, open, id] of editingDialogs) {
@@ -504,6 +517,7 @@ test('reset, preview, and private-recovery controls run or say on the control wh
 
   // An inactive fault cannot be recovered; the control stays focusable and
   // its visible reason says why.
+  await openDetailTab(page, 'facilityTabConditions');
   await page.locator('[data-facility-kind="condition"][data-facility-id="door-offline"]').click();
   const recover = page.locator('#btnRecoverFacilityCondition');
   expect(await blockedReason(recover)).toBe('НЕИСПРАВНОСТЬ НЕ АКТИВНА');

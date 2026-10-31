@@ -214,11 +214,11 @@ const facilityWorkspace = document.getElementById('facilityWorkspace');
 const facilityStatus = document.getElementById('facilityStatus');
 const facilityValidation = document.getElementById('facilityValidation');
 const facilityDeviceList = document.getElementById('facilityDeviceList');
-const facilityBindingList = document.getElementById('facilityBindingList');
+const facilityActionBindingList = document.getElementById('facilityActionBindingList');
+const facilityInformationBindingList = document.getElementById('facilityInformationBindingList');
 const facilityConditionList = document.getElementById('facilityConditionList');
 const facilityRecoveryProgramList = document.getElementById('facilityRecoveryProgramList');
 const facilitySelectionEditor = document.getElementById('facilitySelectionEditor');
-const facilitySelectedDeviceName = document.getElementById('facilitySelectedDeviceName');
 const facilitySelectionStatus = document.getElementById('facilitySelectionStatus');
 const facilitySelectionError = document.getElementById('facilitySelectionError');
 const facilityConditionSelectionEditor = document.getElementById('facilityConditionSelectionEditor');
@@ -232,9 +232,9 @@ const btnAddFacilityCondition = document.getElementById('btnAddFacilityCondition
 const btnAddFacilityRecoveryProgram = document.getElementById('btnAddFacilityRecoveryProgram');
 const btnAddFacilityBinding = document.getElementById('btnAddFacilityBinding');
 const btnInspectFacilityDependencies = document.getElementById('btnInspectFacilityDependencies');
-const btnSaveFacilityDeviceChanges = document.getElementById('btnSaveFacilityDeviceChanges');
-const btnCancelFacilityDeviceChanges = document.getElementById('btnCancelFacilityDeviceChanges');
 const btnDeleteFacilityDevice = document.getElementById('btnDeleteFacilityDevice');
+const btnFacilityDeviceMenu = document.getElementById('btnFacilityDeviceMenu');
+const facilityDeviceMenu = document.getElementById('facilityDeviceMenu');
 const facilityDeviceDialog = document.getElementById('facilityDeviceDialog');
 const facilityDeviceForm = document.getElementById('facilityDeviceForm');
 const facilityDeviceID = document.getElementById('facilityDeviceID');
@@ -305,6 +305,12 @@ const facilityPreviewError = document.getElementById('facilityPreviewError');
 const btnRefreshFacilityPreview = document.getElementById('btnRefreshFacilityPreview');
 const btnCloseFacilityPreview = document.getElementById('btnCloseFacilityPreview');
 const facilityDeviceResetDialog = document.getElementById('facilityDeviceResetDialog');
+const btnForceFacilityDeviceState = document.getElementById('btnForceFacilityDeviceState');
+const facilityForceStateDialog = document.getElementById('facilityForceStateDialog');
+const facilityForceStateTarget = document.getElementById('facilityForceStateTarget');
+const facilityForceStateSummary = document.getElementById('facilityForceStateSummary');
+const facilityForceStateError = document.getElementById('facilityForceStateError');
+const btnConfirmFacilityForceState = document.getElementById('btnConfirmFacilityForceState');
 const btnCancelFacilityDeviceReset = document.getElementById('btnCancelFacilityDeviceReset');
 const btnConfirmFacilityDeviceReset = document.getElementById('btnConfirmFacilityDeviceReset');
 const sceneResetDialog = document.getElementById('sceneResetDialog');
@@ -321,6 +327,8 @@ let serverUrl = null;
 let serverUrlTitle = '';
 let newestDurableRevision = 0;
 let coordinationCommandPending = false;
+// facilityPlayPending is true while one Overseer play change is in flight.
+let facilityPlayPending = false;
 let createTerminalSubmitting = false;
 let takeOffAirPending = false;
 let pendingTerminalSwitch = null;
@@ -367,6 +375,10 @@ let editingFacilityConditionID = '';
 let editingFacilityBinding = null;
 let editingFacilityProgramID = '';
 let facilityStoryStep = 0;
+// The author's explicit guide choice for this run, 'expanded' or 'collapsed';
+// null lets the guide follow the device count (FR-019, FR-020).
+let facilityGuideChoice = null;
+let facilityGuideDeviceCount = null;
 let facilityBindingKind = null;
 let facilityBindingActionRequests = null;
 let facilityBindingProgram = null;
@@ -376,7 +388,8 @@ let facilityBindingConfirmationText = null;
 let facilityBindingBlock = null;
 let facilityConditionScope = null;
 let facilityConditionTerminal = null;
-let btnEditFacilityDeviceGraph = null;
+// facilityDetailTab is the open detail tab for this run.
+let facilityDetailTab = 'actions';
 const promptedApplicationUpdateRevisions = new Set();
 const promptedApplicationUpdateRestartRevisions = new Set();
 const suppressedApplicationUpdateAttempts = new Set();
@@ -550,6 +563,7 @@ desktopAPI.onHackState((hack) => {
 desktopAPI.onCoordinationState((coordination) => {
   applyCoordinationState(coordination);
   renderCoordination();
+  if (!facilityWorkspace.hidden && selectedFacilityDeviceID) renderFacilityPlayFeed();
   if (sceneResetDialog.open) renderSceneResetPending();
   if (state.session) {
     renderTermList();
@@ -2944,26 +2958,31 @@ function removeFacilityProgram(program) {
 
 const facilityStorySteps = [
   {
+    label: 'ОБЪЕКТ',
     title: '1. Что может измениться в сцене?',
     explanation: 'Создайте устройство — предмет или систему, важную для истории. Назовите его состояния и выберите начальное. Если устройство уже есть, выберите его слева и продолжайте настройку.',
     example: 'Пример: «Дверь в убежище». Состояния: «Заперта» и «Открыта». Начальное: «Заперта». В форме также добавьте переход «Открыть дверь»: «Заперта» → «Открыта».',
   },
   {
+    label: 'ДЕЙСТВИЕ',
     title: '2. Как игроки изменят ситуацию?',
     explanation: 'Переход описывает изменение устройства. Чтобы игроки могли его запросить, свяжите переход с командой терминала. Если команды ещё нет, создайте её на вкладке «ТЕРМИНАЛЫ», затем вернитесь сюда.',
     example: 'Пример: команда «Открыть дверь» запускает переход двери «Заперта» → «Открыта». Игрок запрашивает действие, Смотритель подтверждает. Если нужно питание, добавьте предусловие «Электросеть: В работе» в переход.',
   },
   {
+    label: 'РЕЗУЛЬТАТ',
     title: '3. Как игроки узнают о результате?',
     explanation: 'Добавьте правило отображения: текст записи, название в меню, видимость элемента или доступность команды. Оно проверяет состояние устройства, но само его не меняет. Исходный текст остаётся для остальных состояний.',
     example: 'Пример: в записи «Состояние шлюза» исходный текст — «Дверь заперта». Для состояния «Открыта» задайте текст блока «Путь свободен». Отдельным правилом можно показать новый маршрут или разрешить команду.',
   },
   {
+    label: 'ОСЛОЖНЕНИЯ',
     title: '4. Что может пойти не так? · Необязательно',
     explanation: 'Простая сцена уже обходится без неисправностей и программ. Добавляйте их, если истории нужны препятствие и способ его устранить. Неисправность задаёт ограничение, эффект перехода включает или снимает её.',
     example: 'Пример: «Привод двери повреждён» мешает выполнить команду. Переход ремонта снимает эту неисправность. Восстановление оператором — ручной выход; программа объединяет несколько переходов. После создания программы вернитесь к шагу «Действие» и выберите её в поле «Что запустить» у команды.',
   },
   {
+    label: 'ПРОВЕРКА',
     title: '5. Проверьте сцену',
     explanation: 'Каждая правка сохраняется сразу и сразу доходит до игроков. «ОТМЕНИТЬ» на общей панели возвращает последнюю правку. Сравните состояния в предпросмотре — он не меняет мир для игроков.',
     example: 'Проверка двери: выберите в предпросмотре «Открыта» и нужный терминал. Видно ли «Путь свободен»? После этого проверьте реальный запрос команды игроком и подтверждение Смотрителем. Предпросмотр проверяет отображение, а не выполнение команды.',
@@ -3003,9 +3022,34 @@ function openFacilityStoryBinding(kind, target, binding = null) {
   updateFacilityBindingMode();
 }
 
+// renderFacilityGuideOpen applies the guide rule: the author's explicit
+// choice for this run, or else open exactly while the session has no devices.
+// The first saved device clears the choice, so the guide collapses then.
+function renderFacilityGuideOpen(facility) {
+  const guide = document.getElementById('facilityStoryGuide');
+  const count = facility.devices.length;
+  if (facilityGuideDeviceCount === 0 && count > 0) facilityGuideChoice = null;
+  facilityGuideDeviceCount = count;
+  const open = facilityGuideChoice ? facilityGuideChoice === 'expanded' : count === 0;
+  // Collapsing hides whatever had focus inside the guide; keep focus on its summary.
+  const focusInside = guide.open && !open && guide.contains(document.activeElement);
+  guide.open = open;
+  if (focusInside) document.getElementById('facilityStoryGuideSummary').focus();
+  renderFacilityGuideSummary();
+}
+
+function renderFacilityGuideSummary() {
+  const step = facilityStorySteps[facilityStoryStep];
+  document.getElementById('facilityStoryGuideStep').textContent =
+    `КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ ${facilityStoryStep + 1} ИЗ ${facilityStorySteps.length}: ${step.label}`;
+  document.getElementById('facilityStoryGuideToggle').textContent =
+    document.getElementById('facilityStoryGuide').open ? 'СКРЫТЬ' : 'ПОКАЗАТЬ';
+}
+
 function renderFacilityStoryGuide() {
   const facility = authoredFacility();
   if (!facility) return;
+  renderFacilityGuideOpen(facility);
   const device = facilityDeviceByID(selectedFacilityDeviceID);
   const bindings = facilityBindingCatalog().filter(binding => device && facilityBindingUsesDevice(binding, device.id));
   const actions = bindings.filter(binding => Array.isArray(binding.requests));
@@ -3107,13 +3151,11 @@ function renderFacilityWorkspace() {
   facilityDeviceList.replaceChildren();
   for (const device of facility.devices || []) {
     if (search && !`${device.name} ${device.id} ${facilityStateName(device, device.currentStateId)}`.toLocaleLowerCase().includes(search)) continue;
-    const kind = [...facilityDeviceKind.options].find(option => option.value === device.kind)?.textContent || device.kind;
-    const activeFaults = (facility.conditions || []).filter(value => value.device?.deviceId === device.id && value.currentActive).length;
-    const row = facilityListRow('device', device.id, device.name,
-      `${kind} · ${facilityStateName(device, device.currentStateId)}${activeFaults ? ` · Активных неисправностей: ${activeFaults}` : ''}`);
+    const row = facilityDeviceRow(device, facility);
     row.dataset.facilitySelected = String(device.id === selectedFacilityDeviceID);
     row.setAttribute('aria-pressed', String(device.id === selectedFacilityDeviceID));
     row.addEventListener('click', () => {
+      if (device.id !== selectedFacilityDeviceID) setFacilityPlayStatus('');
       selectedFacilityDeviceID = device.id;
       selectedFacilityConditionID = '';
       facilitySelectionStatus.textContent = '';
@@ -3154,26 +3196,8 @@ function renderFacilityWorkspace() {
   }
   facilityEmptyList(facilityRecoveryProgramList, 'Программы восстановления не настроены.');
 
-  facilityBindingList.replaceChildren();
-  const bindingGroups = new Map();
-  for (const [kind, title, description] of [
-    ['action', 'Что делают игроки', 'Команды запускают переходы устройств или программы восстановления после подтверждения Смотрителем.'],
-    ['information', 'Что видят игроки', 'Текст, меню и доступность зависят от состояния устройства. Эти правила ничего не переключают.'],
-  ]) {
-    const group = document.createElement('section');
-    group.className = 'facility-binding-group';
-    const heading = document.createElement('h3');
-    heading.textContent = title;
-    const help = document.createElement('p');
-    help.className = 'facility-section-help';
-    help.textContent = description;
-    const list = document.createElement('div');
-    list.setAttribute('role', 'list');
-    list.setAttribute('aria-label', title);
-    group.append(heading, help, list);
-    facilityBindingList.appendChild(group);
-    bindingGroups.set(kind, list);
-  }
+  facilityActionBindingList.replaceChildren();
+  facilityInformationBindingList.replaceChildren();
   for (const binding of bindings) {
     if (selectedFacilityDeviceID && !facilityBindingUsesDevice(binding, selectedFacilityDeviceID)) continue;
     const id = `${binding.terminal.id}/${binding.block?.id || binding.node.id}/${binding.property}/${binding.index}`;
@@ -3187,46 +3211,407 @@ function renderFacilityWorkspace() {
         const key = facilityBindingKey(binding);
         commitFacilityEdit(`Правило «${binding.node.name}»`, session => removeFacilityBinding(session, key));
       });
-    bindingGroups.get(Array.isArray(binding.requests) ? 'action' : 'information').appendChild(row);
+    (Array.isArray(binding.requests) ? facilityActionBindingList : facilityInformationBindingList).appendChild(row);
   }
-  facilityEmptyList(bindingGroups.get('action'), 'Команды ещё не связаны. Откройте шаг 2 «Действие» в инструкции.');
-  facilityEmptyList(bindingGroups.get('information'), 'Правила отображения ещё не настроены. Откройте шаг 3 «Результат» в инструкции.');
+  renderFacilityDetailTabs();
+  facilityEmptyList(facilityActionBindingList, 'Команды ещё не связаны. Откройте шаг 2 «Действие» в инструкции.');
+  facilityEmptyList(facilityInformationBindingList, 'Правила отображения ещё не настроены. Откройте шаг 3 «Результат» в инструкции.');
 
   const selected = facilityDeviceByID(selectedFacilityDeviceID);
+  // A device removed by an edit, an undo, or a live change clears the selection.
+  if (selectedFacilityDeviceID && !selected) selectedFacilityDeviceID = '';
   facilitySelectionEditor.hidden = !selected;
-  const empty = document.getElementById('facilitySelectionEmpty');
-  if (empty) empty.hidden = Boolean(selected || selectedFacilityConditionID);
-  const clear = document.getElementById('btnClearFacilitySelection');
-  if (clear) clear.hidden = !selectedFacilityDeviceID && !selectedFacilityConditionID;
-  const summary = document.getElementById('facilityDeviceSummary');
-  if (summary) {
-    summary.hidden = !selected;
-    summary.replaceChildren();
-    if (selected) {
-      const status = document.createElement('p');
-      status.className = 'facility-device-status';
-      status.textContent = `Сейчас: ${facilityStateName(selected, selected.currentStateId)} · При сбросе: ${facilityStateName(selected, selected.initialStateId)}`;
-      const affected = document.createElement('p');
-      const terminals = [...new Set(bindings.filter(value => facilityBindingUsesDevice(value, selected.id)).map(value => value.terminal.name))];
-      affected.textContent = terminals.length ? `Связанные терминалы: ${terminals.join('; ')}` : 'Терминалы ещё не связаны с этим устройством.';
-      summary.append(status, affected);
-      facilityTechnicalDetails(summary, `${selected.id} · ${selected.kind} · ${selected.currentStateId}`);
-    }
+  document.getElementById('facilitySelectionEmpty').hidden = Boolean(selected || selectedFacilityConditionID);
+  if (selected) {
+    renderFacilityDeviceHeader(selected, facility, bindings);
+    renderFacilityPlayCard(selected, facility);
   }
-  const selectedDeviceID = selected?.id;
-  showUnappliedInput(facilitySelectionEditor, selected && {
-    key: `device:${selectedDeviceID}`,
-    label: `Устройство «${selected.name}»`,
-    exists: () => Boolean(facilityDeviceByID(selectedDeviceID, state.session)),
-    applied: { facilitySelectedDeviceName: selected.name },
-  });
+  if (!selected) closeFacilityDeviceMenu();
   const selectedCondition = facility.conditions?.find(condition => condition.id === selectedFacilityConditionID) || null;
   facilityConditionSelectionEditor.hidden = !selectedCondition;
   facilitySelectedConditionSummary.textContent = selectedCondition
     ? `${selectedCondition.name} · ${facilityConditionActivity(selectedCondition)}` : '';
-  for (const control of [btnResetFacilityDevice, btnPreviewFacilityDevice, btnPreviewFacilityCondition, btnRecoverFacilityCondition]) {
+  for (const control of [btnPreviewFacilityDevice, btnPreviewFacilityCondition, btnRecoverFacilityCondition]) {
     explainControl(control, controlBlockReason(control));
   }
+}
+
+// renderFacilityDeviceHeader shows the selected device's identity and live
+// state first in the detail area (FR-017).
+function renderFacilityDeviceHeader(device, facility, bindings) {
+  const kind = facilityDeviceKindLabel(device);
+  const terminals = new Set(bindings.filter(value => facilityBindingUsesDevice(value, device.id)).map(value => value.terminal.id));
+  const activeFaults = facilityActiveFaultCount(facility, device.id);
+  const set = (id, text, data = {}) => {
+    const element = document.getElementById(id);
+    element.textContent = text;
+    Object.assign(element.dataset, data);
+  };
+  set('facilityDeviceHeaderName', device.name);
+  set('facilityDeviceHeaderKind', kind.toLocaleUpperCase('ru'), { kind: device.kind });
+  set('facilityDeviceHeaderCurrent', `СЕЙЧАС: ${facilityStateName(device, device.currentStateId)}`, { stateId: device.currentStateId });
+  set('facilityDeviceHeaderInitial', `В НАЧАЛЕ: ${facilityStateName(device, device.initialStateId)}`, { stateId: device.initialStateId });
+  set('facilityDeviceHeaderFaults', `АКТИВНЫХ НЕИСПРАВНОСТЕЙ: ${activeFaults}`, { count: String(activeFaults) });
+  set('facilityDeviceHeaderTerminals', `ТЕРМИНАЛЫ: ${terminals.size}`, { count: String(terminals.size) });
+  const technical = document.getElementById('facilityDeviceHeaderTechnical');
+  technical.replaceChildren();
+  facilityTechnicalDetails(technical, `${device.id} · ${device.kind} · ${device.currentStateId}`);
+}
+
+// facilityTransitionVerdict applies the server's order to one transition: the
+// source state first, then each precondition in authored order. It drives the
+// display only; the server's result decides (FR-002, SC-002).
+function facilityTransitionVerdict(facility, deviceID, transition) {
+  const devices = new Map((facility.devices || []).map(device => [device.id, device]));
+  const preconditions = (transition.preconditions || []).map(precondition => ({
+    ...precondition,
+    met: devices.get(precondition.deviceId)?.currentStateId === precondition.stateId,
+  }));
+  const sourceMatches = devices.get(deviceID)?.currentStateId === transition.sourceStateId;
+  const firstUnmet = preconditions.find(precondition => !precondition.met) || null;
+  return { available: sourceMatches && !firstUnmet, sourceMatches, preconditions, firstUnmet };
+}
+
+// facilityEqualityLabel reads «<device> = <state>», with raw IDs for anything missing.
+function facilityEqualityLabel(equality) {
+  const device = facilityDeviceByID(equality.deviceId);
+  return `${device?.name || equality.deviceId} = ${facilityStateName(device, equality.stateId)}`;
+}
+
+// facilityPlayBlockReason says why no play control can run now, or returns ''.
+function facilityPlayBlockReason() {
+  if (!state.session || !state.filePath) return 'НЕТ ОТКРЫТОЙ СЕССИИ';
+  if (facilityPlayPending || coordinationCommandPending || sessionStateCommandPending) return 'ВЫПОЛНЯЕТСЯ ДРУГАЯ КОМАНДА';
+  // An authoring save in flight would make the play change stale.
+  if (authoringBusy()) return 'ДОЖДИТЕСЬ СОХРАНЕНИЯ';
+  return '';
+}
+
+// renderFacilityPlayCard lists the transitions that leave the device's current
+// state, with their preconditions and verdicts (FR-001, FR-002).
+function renderFacilityPlayCard(device, facility) {
+  const blockReason = facilityPlayBlockReason();
+  const list = document.getElementById('facilityPlayTransitions');
+  list.replaceChildren();
+  const transitions = (device.transitions || []).filter(value => value.sourceStateId === device.currentStateId);
+  transitions.forEach((transition, index) => {
+    const verdict = facilityTransitionVerdict(facility, device.id, transition);
+    const item = document.createElement('li');
+    item.className = 'facility-play-transition';
+    item.dataset.transitionId = transition.id;
+    item.dataset.available = String(verdict.available);
+    const run = document.createElement('button');
+    run.type = 'button';
+    run.className = 'btn btn-primary facility-play-transition-run';
+    run.textContent = `${transition.name} → ${facilityStateName(device, transition.destinationStateId)}`;
+    const reason = document.createElement('span');
+    reason.className = 'control-reason';
+    reason.id = `facilityPlayTransitionReason${index}`;
+    run.setAttribute('aria-describedby', reason.id);
+    const preconditions = document.createElement('ul');
+    preconditions.className = 'facility-play-preconditions';
+    for (const precondition of verdict.preconditions) {
+      const row = document.createElement('li');
+      row.className = 'facility-play-precondition';
+      row.dataset.deviceId = precondition.deviceId;
+      row.dataset.stateId = precondition.stateId;
+      row.dataset.met = String(precondition.met);
+      row.textContent = `${facilityEqualityLabel(precondition)} · ${precondition.met ? 'ВЫПОЛНЕНО' : 'НЕ ВЫПОЛНЕНО'}`;
+      preconditions.appendChild(row);
+    }
+    if (!verdict.preconditions.length) {
+      const row = document.createElement('li');
+      row.className = 'facility-play-precondition';
+      row.textContent = 'БЕЗ ПРЕДУСЛОВИЙ';
+      preconditions.appendChild(row);
+    }
+    item.append(run, reason, preconditions);
+    list.appendChild(item);
+    const unmet = verdict.firstUnmet && `НЕ ВЫПОЛНЕНО: ${facilityEqualityLabel(verdict.firstUnmet)}`;
+    explainControl(run, blockReason || unmet || '');
+  });
+  list.hidden = !transitions.length;
+  document.getElementById('facilityPlayTransitionsEmpty').hidden = Boolean(transitions.length);
+  explainControl(btnForceFacilityDeviceState,
+    blockReason || (device.states.length < 2 ? 'У УСТРОЙСТВА ОДНО СОСТОЯНИЕ' : ''));
+  renderFacilityPlayFaults(device, facility, blockReason);
+  explainControl(btnResetFacilityDevice, blockReason);
+  renderFacilityPlayFeed();
+}
+
+const FACILITY_REFUSAL_TEXT = Object.freeze({
+  declined: 'Смотрителем',
+  'precondition-failed': 'предусловие не выполнено',
+  'transition-unavailable': 'переход больше недоступен',
+  'fault-blocked': 'мешает неисправность',
+  stale: 'сцена изменилась',
+  withdrawn: 'отозван после действия Смотрителя',
+  failed: 'не удалось выполнить',
+  unspecified: 'причина неизвестна',
+});
+
+// renderFacilityPlayFeed lists the selected device's recent changes in this
+// run, newest first. Entries carry IDs; names come from the current session,
+// and a missing one shows its ID (FR-012 to FR-014).
+function renderFacilityPlayFeed() {
+  const list = document.getElementById('facilityPlayFeedList');
+  const device = facilityDeviceByID(selectedFacilityDeviceID, state.session);
+  const changes = (state.coordination?.facilityChanges || [])
+    .filter(change => change.deviceId === device?.id)
+    .sort((left, right) => right.sequence - left.sequence)
+    .slice(0, 5);
+  list.replaceChildren(...changes.map(change => facilityFeedEntry(device, change)));
+  list.hidden = !changes.length;
+  document.getElementById('facilityPlayFeedEmpty').hidden = Boolean(changes.length);
+}
+
+function facilityFeedEntry(device, change) {
+  const item = document.createElement('li');
+  item.className = 'facility-feed-entry';
+  item.dataset.sequence = String(change.sequence);
+  item.dataset.kind = change.kind;
+  item.dataset.author = change.author;
+  if (change.kind === 'player-refusal') item.dataset.reason = change.reason;
+  const at = new Date(change.occurredAtUnixMs);
+  const time = document.createElement('time');
+  time.dateTime = at.toISOString();
+  time.textContent = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+  item.append(time, ` · ${facilityFeedText(device, change)}`);
+  return item;
+}
+
+function facilityFeedText(device, change) {
+  const stateName = id => facilityStateName(device, id);
+  const move = `${stateName(change.fromStateId)} → ${stateName(change.toStateId)}`;
+  const terminal = state.session?.terminals?.find(value => value.id === change.terminalId);
+  const command = terminal && locateNode(terminal.root, change.commandId)?.node;
+  const commandName = `«${command?.name || change.commandId}»`;
+  const author = change.author === 'terminal' ? terminal?.name || change.terminalId : 'Смотритель';
+  const restored = change.fromStateId === change.toStateId ? 'неисправности восстановлены' : move;
+  switch (change.kind) {
+    case 'transition': {
+      const transition = device.transitions?.find(value => value.id === change.transitionId);
+      return `«${transition?.name || change.transitionId}»: ${move} · ${author}`;
+    }
+    case 'forced':
+      return `принудительно: ${move} · ${author}`;
+    case 'fault': {
+      const fault = state.session?.facility?.conditions?.find(value => value.id === change.conditionId);
+      return `неисправность «${fault?.name || change.conditionId}» ${change.active ? 'активирована' : 'снята'} · ${author}`;
+    }
+    case 'reset':
+      return `сброс к начальному: ${restored} · ${author}`;
+    case 'scene-reset':
+      return `сброс сцены: ${restored} · ${author}`;
+    case 'player-command':
+      return `${commandName}: ${move} · ${author}`;
+    default:
+      return `${commandName} · запрос игрока отклонён: ${FACILITY_REFUSAL_TEXT[change.reason] || FACILITY_REFUSAL_TEXT.unspecified} · ${author}`;
+  }
+}
+
+// renderFacilityPlayFaults lists every fault scoped to the device with a
+// switch. The operator-recovery setting never blocks it (FR-009, FR-010).
+function renderFacilityPlayFaults(device, facility, blockReason) {
+  const list = document.getElementById('facilityPlayFaults');
+  list.replaceChildren();
+  const faults = (facility.conditions || []).filter(value => value.device?.deviceId === device.id);
+  faults.forEach((fault, index) => {
+    const item = document.createElement('li');
+    item.className = 'facility-play-fault';
+    item.dataset.conditionId = fault.id;
+    item.dataset.active = String(Boolean(fault.currentActive));
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'btn btn-secondary facility-play-fault-switch';
+    toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-checked', String(Boolean(fault.currentActive)));
+    toggle.textContent = fault.name;
+    const reason = document.createElement('span');
+    reason.className = 'control-reason';
+    reason.id = `facilityPlayFaultReason${index}`;
+    toggle.setAttribute('aria-describedby', reason.id);
+    const current = document.createElement('span');
+    current.className = 'facility-play-fault-current';
+    current.textContent = fault.currentActive ? 'АКТИВНА' : 'НЕАКТИВНА';
+    const initial = document.createElement('span');
+    initial.className = 'facility-play-fault-initial';
+    initial.textContent = fault.initialActive ? 'В НАЧАЛЕ ИГРЫ: НЕИСПРАВНОСТЬ АКТИВНА' : 'В НАЧАЛЕ ИГРЫ: ИСПРАВНО';
+    item.append(toggle, current, initial, reason);
+    list.appendChild(item);
+    explainControl(toggle, blockReason);
+  });
+  list.hidden = !faults.length;
+  document.getElementById('facilityPlayFaultsEmpty').hidden = Boolean(faults.length);
+}
+
+function runFacilityFaultSwitch(conditionID, active) {
+  return runFacilityPlayChange(() => desktopAPI.setFacilityConditionActive({
+    conditionId: conditionID,
+    active,
+    expectedFacilityRevision: facilityRevision(),
+    correlationId: uid('facility-condition-active'),
+  }), active ? 'НЕИСПРАВНОСТЬ АКТИВИРОВАНА' : 'НЕИСПРАВНОСТЬ СНЯТА');
+}
+
+function setFacilityPlayStatus(text, outcome) {
+  const status = document.getElementById('facilityPlayStatus');
+  status.textContent = text;
+  if (outcome) status.dataset.state = outcome;
+  else delete status.dataset.state;
+}
+
+// runFacilityPlayChange sends one play change and reconciles its result. A
+// stale rejection installs the state that won before it says so (FR-004).
+async function runFacilityPlayChange(call, successMessage) {
+  facilityPlayPending = true;
+  setFacilityPlayStatus('');
+  renderFacilityWorkspace();
+  let result;
+  try {
+    result = await call();
+  } finally {
+    facilityPlayPending = false;
+  }
+  const stale = result?.failure === 'stale-revision' && result.session;
+  if ((result?.ok || stale) && result.session) applyLiveSession(result.session, result.sessionRevision);
+  if (result?.ok) setFacilityPlayStatus(successMessage, 'ok');
+  else if (stale) setFacilityPlayStatus(facilityFailureMessages['stale-revision'], 'stale');
+  else setFacilityPlayStatus(facilityIssueMessage(result), 'error');
+  renderAll();
+  return result;
+}
+
+// facilityForceRequest is captured when the forced-change dialog opens, so a
+// scene that changed while it was open is rejected as stale (FR-007, FR-008).
+let facilityForceRequest = null;
+
+function openFacilityForceStateDialog() {
+  const device = facilityDeviceByID(selectedFacilityDeviceID, state.session);
+  if (!device) return;
+  facilityForceRequest = {
+    deviceId: device.id, fromStateId: device.currentStateId, expectedFacilityRevision: facilityRevision(),
+  };
+  facilityForceStateTarget.replaceChildren(...device.states
+    .filter(value => value.id !== device.currentStateId)
+    .map(value => new Option(value.name, value.id)));
+  renderFacilityForceStateSummary();
+  setFacilityFeedback(facilityForceStateError);
+  btnConfirmFacilityForceState.disabled = false;
+  facilityOperationOpener = btnForceFacilityDeviceState;
+  showFacilityDialog(facilityForceStateDialog, facilityForceStateTarget);
+}
+
+function renderFacilityForceStateSummary() {
+  const device = facilityDeviceByID(facilityForceRequest?.deviceId, state.session);
+  if (!device) return;
+  facilityForceStateSummary.textContent = `${device.name}: ${facilityStateName(device, facilityForceRequest.fromStateId)} → ${facilityStateName(device, facilityForceStateTarget.value)}`;
+}
+
+function closeFacilityForceStateDialog() {
+  facilityForceRequest = null;
+  closeFacilityConfirmation(facilityForceStateDialog);
+}
+
+async function confirmFacilityForceState() {
+  const request = facilityForceRequest;
+  if (!request || btnConfirmFacilityForceState.disabled) return;
+  btnConfirmFacilityForceState.disabled = true;
+  const result = await runFacilityPlayChange(() => desktopAPI.forceFacilityDeviceState({
+    deviceId: request.deviceId,
+    stateId: facilityForceStateTarget.value,
+    expectedFacilityRevision: request.expectedFacilityRevision,
+    correlationId: uid('facility-device-force'),
+  }), 'СОСТОЯНИЕ ИЗМЕНЕНО ПРИНУДИТЕЛЬНО');
+  // A non-stale failure keeps the dialog open with its reason.
+  if (result?.ok || result?.failure === 'stale-revision') {
+    closeFacilityForceStateDialog();
+    return;
+  }
+  btnConfirmFacilityForceState.disabled = false;
+  setFacilityFeedback(facilityForceStateError, facilityIssueMessage(result));
+}
+
+function runFacilityTransition(deviceID, transitionID) {
+  return runFacilityPlayChange(() => desktopAPI.applyFacilityDeviceTransition({
+    deviceId: deviceID,
+    transitionId: transitionID,
+    expectedFacilityRevision: facilityRevision(),
+    correlationId: uid('facility-device-transition'),
+  }), 'ПЕРЕХОД ВЫПОЛНЕН');
+}
+
+// facilityDeviceRow shows a device with its current state and, when any are
+// active, its fault count, for example «Загрязнён · ● 1» (FR-025).
+function facilityDeviceRow(device, facility) {
+  const activeFaults = facilityActiveFaultCount(facility, device.id);
+  const row = facilityListRow('device', device.id, device.name);
+  row.dataset.currentStateId = device.currentStateId;
+  row.dataset.activeFaults = String(activeFaults);
+  const detail = document.createElement('div');
+  detail.className = 'facility-device-row-state';
+  detail.append(facilityStateName(device, device.currentStateId));
+  if (activeFaults) {
+    const count = document.createElement('span');
+    count.className = 'facility-fault-count';
+    count.setAttribute('aria-label', `Активных неисправностей: ${activeFaults}`);
+    count.textContent = `● ${activeFaults}`;
+    detail.append(' · ', count);
+  }
+  row.appendChild(detail);
+  return row;
+}
+
+const facilityDetailTabs = [
+  ['actions', 'facilityTabActions', 'facilityTabPanelActions', () => facilityActionBindingList],
+  ['information', 'facilityTabInformation', 'facilityTabPanelInformation', () => facilityInformationBindingList],
+  ['conditions', 'facilityTabConditions', 'facilityTabPanelConditions', () => facilityConditionList],
+  ['programs', 'facilityTabPrograms', 'facilityTabPanelPrograms', () => facilityRecoveryProgramList],
+];
+
+// renderFacilityDetailTabs shows only the open tab's panel and counts each
+// tab's rows under the current selection (FR-024). Call it before the empty
+// placeholders are added.
+function renderFacilityDetailTabs() {
+  for (const [id, tabID, panelID, list] of facilityDetailTabs) {
+    const tab = document.getElementById(tabID);
+    const open = id === facilityDetailTab;
+    const count = list().querySelectorAll(':scope > [data-facility-kind]').length;
+    tab.setAttribute('aria-selected', String(open));
+    tab.tabIndex = open ? 0 : -1;
+    tab.dataset.count = String(count);
+    tab.querySelector('.facility-tab-count').textContent = String(count);
+    document.getElementById(panelID).hidden = !open;
+  }
+}
+
+function selectFacilityDetailTab(id, focus = false) {
+  facilityDetailTab = id;
+  renderFacilityDetailTabs();
+  if (focus) document.getElementById(facilityDetailTabs.find(([tab]) => tab === id)[1]).focus();
+}
+
+function openFacilityDeviceMenu() {
+  facilityDeviceMenu.hidden = false;
+  btnFacilityDeviceMenu.setAttribute('aria-expanded', 'true');
+  btnDeleteFacilityDevice.focus();
+}
+
+function closeFacilityDeviceMenu(restoreFocus = false) {
+  if (facilityDeviceMenu.hidden) return;
+  facilityDeviceMenu.hidden = true;
+  btnFacilityDeviceMenu.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) btnFacilityDeviceMenu.focus();
+}
+
+function facilityDeviceKindLabel(device) {
+  if (device.kind === 'custom' && device.customKind) return device.customKind;
+  return [...facilityDeviceKind.options].find(option => option.value === device.kind)?.textContent || device.kind;
+}
+
+// facilityActiveFaultCount counts the device-scoped faults that are active now.
+function facilityActiveFaultCount(facility, deviceID) {
+  return (facility.conditions || []).filter(value => value.device?.deviceId === deviceID && value.currentActive).length;
 }
 
 // controlBlockReason says why a reset, preview, or recovery control cannot
@@ -3472,6 +3857,11 @@ function closeFacilityConfirmation(dialog) {
 
 function reconcileFacilityOperation(result, successMessage, focusKind = '', focusID = '') {
   if (!result?.ok || !result.session) {
+    // A stale rejection carries the state that won; show it before the message.
+    if (result?.failure === 'stale-revision' && result.session) {
+      applyLiveSession(result.session, result.sessionRevision);
+      renderAll();
+    }
     facilityStatus.dataset.error = 'true';
     const message = facilityIssueMessage(result);
     facilityStatus.textContent = message;
@@ -3492,12 +3882,11 @@ function reconcileFacilityOperation(result, successMessage, focusKind = '', focu
 async function resetSelectedFacilityDevice() {
   const deviceID = selectedFacilityDeviceID;
   closeFacilityConfirmation(facilityDeviceResetDialog);
-  const result = await desktopAPI.resetFacilityDevice({
+  await runFacilityPlayChange(() => desktopAPI.resetFacilityDevice({
     deviceId: deviceID,
     expectedFacilityRevision: facilityRevision(),
     correlationId: uid('facility-device-reset'),
-  });
-  reconcileFacilityOperation(result, 'УСТРОЙСТВО СБРОШЕНО', 'device', deviceID);
+  }), 'УСТРОЙСТВО СБРОШЕНО');
 }
 
 // ── Scene reset (FR-014) ────────────────────────────────────
@@ -4486,16 +4875,6 @@ function installFacilityConditionScopeControls() {
   facilityConditionScope.addEventListener('change', updateFacilityConditionScopePresentation);
 }
 
-function installFacilitySelectionControls() {
-  if (btnEditFacilityDeviceGraph) return;
-  btnEditFacilityDeviceGraph = document.createElement('button');
-  btnEditFacilityDeviceGraph.className = 'btn btn-secondary';
-  btnEditFacilityDeviceGraph.type = 'button';
-  btnEditFacilityDeviceGraph.textContent = 'РЕДАКТИРОВАТЬ ГРАФ';
-  btnEditFacilityDeviceGraph.addEventListener('click', () => openFacilityDeviceDialog(selectedFacilityDeviceID));
-  btnInspectFacilityDependencies.before(btnEditFacilityDeviceGraph);
-}
-
 function appendFacilityTransitionPrecondition(container, value = {}, onChange = () => {}) {
   const row = document.createElement('div');
   row.facilityOriginal = structuredClone(value);
@@ -4562,17 +4941,32 @@ function appendFacilityTransitionConditionEffect(container, value = {}, onChange
 
 installFacilityBindingControls();
 installFacilityConditionScopeControls();
-installFacilitySelectionControls();
 
 for (const button of document.querySelectorAll('[data-story-step]')) {
   button.addEventListener('click', () => setFacilityStoryStep(Number(button.dataset.storyStep)));
 }
+// Only the author's own toggle is a choice; the rule's toggles fire no click.
+document.getElementById('facilityStoryGuideSummary').addEventListener('click', () => {
+  facilityGuideChoice = document.getElementById('facilityStoryGuide').open ? 'collapsed' : 'expanded';
+});
+document.getElementById('facilityStoryGuide').addEventListener('toggle', renderFacilityGuideSummary);
 document.getElementById('btnFacilityStoryBack').addEventListener('click', () => setFacilityStoryStep(facilityStoryStep - 1, true));
 document.getElementById('btnFacilityStoryNext').addEventListener('click', () => setFacilityStoryStep(facilityStoryStep + 1, true));
 
 terminalWorkspaceTab.addEventListener('click', () => selectWorkspace('terminal'));
 facilityWorkspaceTab.addEventListener('click', () => selectWorkspace('facility'));
 document.getElementById('facilityDeviceSearch')?.addEventListener('input', renderFacilityWorkspace);
+document.getElementById('facilityPlayFaults').addEventListener('click', event => {
+  const toggle = event.target.closest('.facility-play-fault-switch');
+  if (!toggle || controlBlocked(toggle)) return;
+  const item = toggle.closest('.facility-play-fault');
+  void runFacilityFaultSwitch(item.dataset.conditionId, item.dataset.active !== 'true');
+});
+document.getElementById('facilityPlayTransitions').addEventListener('click', event => {
+  const run = event.target.closest('.facility-play-transition-run');
+  if (!run || controlBlocked(run)) return;
+  void runFacilityTransition(selectedFacilityDeviceID, run.closest('.facility-play-transition').dataset.transitionId);
+});
 document.getElementById('btnClearFacilitySelection')?.addEventListener('click', () => {
   selectedFacilityDeviceID = '';
   selectedFacilityConditionID = '';
@@ -4591,14 +4985,22 @@ for (const tab of [terminalWorkspaceTab, facilityWorkspaceTab]) {
 btnAddFacilityDevice.addEventListener('click', () => openFacilityDeviceDialog());
 btnAddFacilityState.addEventListener('click', () => appendFacilityStateRow());
 btnAddFacilityTransition.addEventListener('click', () => appendFacilityTransitionRow());
+// facilityDeviceDialogReturn is where focus goes when the device dialog
+// closes: the edit button for an existing device, or the add button.
+function facilityDeviceDialogReturn() {
+  const edit = document.getElementById('btnEditFacilityDevice');
+  return editingFacilityDeviceID && !facilitySelectionEditor.hidden ? edit : btnAddFacilityDevice;
+}
 btnCancelFacilityDevice.addEventListener('click', () => {
+  const opener = facilityDeviceDialogReturn();
   editingFacilityDeviceID = '';
-  hideFacilityDialog(facilityDeviceDialog, btnAddFacilityDevice);
+  hideFacilityDialog(facilityDeviceDialog, opener);
 });
 facilityDeviceDialog.addEventListener('cancel', event => {
   event.preventDefault();
+  const opener = facilityDeviceDialogReturn();
   editingFacilityDeviceID = '';
-  hideFacilityDialog(facilityDeviceDialog, btnAddFacilityDevice);
+  hideFacilityDialog(facilityDeviceDialog, opener);
 });
 facilityDeviceForm.addEventListener('submit', event => {
   event.preventDefault();
@@ -4612,10 +5014,11 @@ facilityDeviceForm.addEventListener('submit', event => {
     return;
   }
   const editingID = editingFacilityDeviceID;
+  const opener = facilityDeviceDialogReturn();
   selectedFacilityDeviceID = device.id;
   selectedFacilityConditionID = '';
   editingFacilityDeviceID = '';
-  hideFacilityDialog(facilityDeviceDialog, btnAddFacilityDevice);
+  hideFacilityDialog(facilityDeviceDialog, opener);
   commitFacilityEdit(`Устройство «${device.name}»`, session => {
     const facility = ensureFacility(session);
     const index = editingID ? facility.devices.findIndex(candidate => candidate.id === editingID) : -1;
@@ -4868,32 +5271,59 @@ facilityBindingForm.addEventListener('submit', event => {
   renderNodeForm();
 });
 
-btnSaveFacilityDeviceChanges.addEventListener('click', () => {
-  const selected = facilityDeviceByID(selectedFacilityDeviceID);
-  const name = facilitySelectedDeviceName.value.trim();
-  if (!selected || !name) {
-    setFacilityFeedback(facilitySelectionError, 'НАЗВАНИЕ УСТРОЙСТВА НЕ ДОЛЖНО БЫТЬ ПУСТЫМ', facilitySelectedDeviceName);
-    return;
-  }
-  const deviceID = selected.id;
-  setFacilityFeedback(facilitySelectionError);
-  commitFacilityEdit(`Устройство «${name}»`, session => {
-    const device = ensureFacility(session).devices.find(candidate => candidate.id === deviceID);
-    if (device) device.name = name;
-  }, takeUnappliedInput(facilitySelectionEditor));
-});
-btnCancelFacilityDeviceChanges.addEventListener('click', () => {
-  takeUnappliedInput(facilitySelectionEditor);
-  renderFacilityWorkspace();
-  renderSaveStatus();
-});
 btnInspectFacilityDependencies.addEventListener('click', () => { void inspectSelectedFacilityDevice(); });
 btnCloseFacilityDependencies.addEventListener('click', () => hideFacilityDialog(facilityDependencyDialog, btnInspectFacilityDependencies));
 facilityDependencyDialog.addEventListener('cancel', event => {
   event.preventDefault();
   hideFacilityDialog(facilityDependencyDialog, btnInspectFacilityDependencies);
 });
-btnDeleteFacilityDevice.addEventListener('click', () => { void openFacilityRepair(); });
+btnDeleteFacilityDevice.addEventListener('click', () => {
+  closeFacilityDeviceMenu();
+  void openFacilityRepair();
+});
+document.getElementById('btnEditFacilityDevice').addEventListener('click', () => openFacilityDeviceDialog(selectedFacilityDeviceID));
+btnFacilityDeviceMenu.addEventListener('click', () => {
+  if (facilityDeviceMenu.hidden) openFacilityDeviceMenu();
+  else closeFacilityDeviceMenu();
+});
+btnFacilityDeviceMenu.addEventListener('keydown', event => {
+  if (event.key !== 'ArrowDown') return;
+  event.preventDefault();
+  openFacilityDeviceMenu();
+});
+facilityDeviceMenu.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeFacilityDeviceMenu(true);
+  } else if (event.key === 'Tab') {
+    closeFacilityDeviceMenu();
+  }
+});
+document.addEventListener('click', event => {
+  if (!event.target.closest('.facility-device-menu')) closeFacilityDeviceMenu();
+});
+document.getElementById('facilityDetailTabs').addEventListener('click', event => {
+  const tab = event.target.closest('[role="tab"]');
+  if (tab) selectFacilityDetailTab(tab.dataset.tab);
+});
+document.getElementById('facilityDetailTabs').addEventListener('keydown', event => {
+  const ids = facilityDetailTabs.map(([id]) => id);
+  const index = ids.indexOf(facilityDetailTab);
+  const next = {
+    ArrowRight: (index + 1) % ids.length,
+    ArrowLeft: (index - 1 + ids.length) % ids.length,
+    Home: 0,
+    End: ids.length - 1,
+  }[event.key];
+  if (next === undefined) return;
+  event.preventDefault();
+  selectFacilityDetailTab(ids[next], true);
+});
+document.getElementById('btnAddFacilityActionBinding').addEventListener('click', () => {
+  openFacilityBindingDialog();
+  facilityBindingKind.value = 'command-action';
+  updateFacilityBindingMode();
+});
 btnPreviewFacilityDevice.addEventListener('click', () => {
   if (!controlBlocked(btnPreviewFacilityDevice)) openFacilityPreview('device', btnPreviewFacilityDevice);
 });
@@ -4914,6 +5344,17 @@ btnResetFacilityDevice.addEventListener('click', () => {
   openFacilityConfirmation(facilityDeviceResetDialog, btnResetFacilityDevice, btnCancelFacilityDeviceReset);
 });
 btnCancelFacilityDeviceReset.addEventListener('click', () => closeFacilityConfirmation(facilityDeviceResetDialog));
+btnForceFacilityDeviceState.addEventListener('click', () => {
+  if (controlBlocked(btnForceFacilityDeviceState)) return;
+  openFacilityForceStateDialog();
+});
+facilityForceStateTarget.addEventListener('change', renderFacilityForceStateSummary);
+document.getElementById('btnCancelFacilityForceState').addEventListener('click', closeFacilityForceStateDialog);
+btnConfirmFacilityForceState.addEventListener('click', () => { void confirmFacilityForceState(); });
+facilityForceStateDialog.addEventListener('cancel', event => {
+  event.preventDefault();
+  closeFacilityForceStateDialog();
+});
 btnConfirmFacilityDeviceReset.addEventListener('click', () => { void resetSelectedFacilityDevice(); });
 facilityDeviceResetDialog.addEventListener('cancel', event => {
   event.preventDefault();
@@ -7434,7 +7875,7 @@ function hideCreateTerminalDialog({ restoreFocus = true } = {}) {
 
 btnAddTerminal.addEventListener('click', showCreateTerminalDialog);
 btnReapplyEdit.addEventListener('click', reapplyHeldEdits);
-for (const container of [nodeForm, termSettings, facilitySelectionEditor]) {
+for (const container of [nodeForm, termSettings]) {
   container.addEventListener('input', () => stageUnappliedInput(container));
   container.addEventListener('change', () => stageUnappliedInput(container));
 }

@@ -1,0 +1,398 @@
+[
+  {
+    "deviceId": "power-grid-main",
+    "transitionId": "restore",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "offline",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "power-grid-main",
+    "transitionId": "shutdown",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "vault-door-main",
+    "transitionId": "open",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "vault-door-main",
+    "transitionId": "open",
+    "case": "unmet:power-grid-main",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "offline",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": false
+  },
+  {
+    "deviceId": "vault-door-main",
+    "transitionId": "seal",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "open",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "evacuation-alarm",
+    "transitionId": "sound-evacuation",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "evacuation-alarm",
+    "transitionId": "silence",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "evacuation",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "network-overseer",
+    "transitionId": "connect",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "network-overseer",
+    "transitionId": "connect",
+    "case": "unmet:power-grid-main",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "offline",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": false
+  },
+  {
+    "deviceId": "network-overseer",
+    "transitionId": "isolate",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "connected",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "ventilation-main",
+    "transitionId": "purge",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "ventilation-main",
+    "transitionId": "contaminate",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "filtered",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "reactor-main",
+    "transitionId": "standby",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "scrammed",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "reactor-main",
+    "transitionId": "scram",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "security-turret",
+    "transitionId": "track",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "security-turret",
+    "transitionId": "safe",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "tracking",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "robot-pod-atrium",
+    "transitionId": "deploy",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "charging",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "robot-pod-atrium",
+    "transitionId": "dock",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "freight-elevator",
+    "transitionId": "raise",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "lower",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "freight-elevator",
+    "transitionId": "lower",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "water-purifier-76",
+    "transitionId": "certify",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "service"
+    },
+    "available": true
+  },
+  {
+    "deviceId": "water-purifier-76",
+    "transitionId": "service",
+    "case": "met",
+    "states": {
+      "evacuation-alarm": "quiet",
+      "freight-elevator": "upper",
+      "network-overseer": "isolated",
+      "power-grid-main": "online",
+      "reactor-main": "standby",
+      "robot-pod-atrium": "patrol",
+      "security-turret": "safe",
+      "vault-door-main": "sealed",
+      "ventilation-main": "contaminated",
+      "water-purifier-76": "potable"
+    },
+    "available": true
+  }
+]

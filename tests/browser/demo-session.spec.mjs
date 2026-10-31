@@ -225,7 +225,7 @@ test('inventory covers every facility mode, prerequisite, effect, and recovery s
     'visibleWhen',
     'availableWhen',
     'ПРЕДПРОСМОТР',
-    'СБРОСИТЬ УСТРОЙСТВО',
+    'СБРОСИТЬ К НАЧАЛЬНОМУ…',
     'СБРОСИТЬ СЦЕНУ',
   ]) {
     expect(inventory).toContain(marker);
@@ -268,6 +268,51 @@ test('inventory demonstrates unified authoring on the demo command and door', as
     expect(inventory, removed).not.toContain(removed);
   }
   expect(inventory).not.toMatch(/черновик|draft/i);
+});
+
+test('inventory reaches every play control on the device card (FR-027)', async () => {
+  const { demo, inventory } = await loadDemoAssets();
+  const devices = new Map(demo.facility.devices.map(device => [device.id, device]));
+  const reactor = devices.get('reactor-main');
+  expect(reactor.states).toContainEqual({ id: 'critical-overheat', name: 'Критический перегрев' });
+  // Forced change is the only way into the overheat state.
+  for (const device of demo.facility.devices) {
+    for (const transition of device.transitions ?? []) expect(transition.destinationStateId).not.toBe('critical-overheat');
+  }
+  const variants = [];
+  const visit = node => {
+    for (const block of node.blocks ?? []) {
+      for (const variant of block.facilityTextVariants ?? []) variants.push({ block: block.id, ...variant });
+    }
+    for (const child of node.children ?? []) visit(child);
+  };
+  visit(demo.terminals.find(terminal => terminal.id === 't_demo1').root);
+  expect(variants).toContainEqual({
+    block: 'b_reactor_status',
+    when: { deviceId: 'reactor-main', stateId: 'critical-overheat' },
+    text: 'РЕАКТОР: КРИТИЧЕСКИЙ ПЕРЕГРЕВ',
+  });
+  // The ventilation row shows one active fault on a fresh copy.
+  const ventilation = devices.get('ventilation-main');
+  const activeVentilationFaults = demo.facility.conditions
+    .filter(condition => condition.device?.deviceId === 'ventilation-main' && condition.currentActive);
+  expect(ventilation.states.find(state => state.id === ventilation.currentStateId).name).toBe('Загрязнён');
+  expect(activeVentilationFaults).toHaveLength(1);
+  expect(devices.get('power-grid-main').currentStateId).toBe('online');
+  expect(devices.get('reactor-main').currentStateId).toBe('standby');
+
+  for (const marker of [
+    'ВО ВРЕМЯ ИГРЫ', 'ПОСЛЕДНИЕ ИЗМЕНЕНИЯ', 'Открыть гермодверь → Открыта', 'НЕ ВЫПОЛНЕНО: Резервная сеть Убежища 76 = В работе',
+    'ПРИНУДИТЕЛЬНО В ДРУГОЕ СОСТОЯНИЕ…', 'Критический перегрев', 'ПЕРЕВЕСТИ', 'РЕАКТОР: КРИТИЧЕСКИЙ ПЕРЕГРЕВ',
+    'Контроллер гермодвери не отвечает', 'запрос игрока отклонён: Смотрителем', 'Загрязнён · ● 1',
+    'СБРОСИТЬ К НАЧАЛЬНОМУ…', 'ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ', 'КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: ОБЪЕКТ',
+    'ПОКАЗАТЬ', 'НЕИСПРАВНОСТИ',
+  ]) {
+    expect(inventory, marker).toContain(marker);
+  }
+  for (const removed of ['РЕДАКТИРОВАТЬ ГРАФ', 'СБРОСИТЬ УСТРОЙСТВО', 'open by default', 'ДИАГНОСТИЧЕСКИЕ УСЛОВИЯ']) {
+    expect(inventory, removed).not.toContain(removed);
+  }
 });
 
 test('player-visible demo remains one in-world narrative without project warnings', async () => {

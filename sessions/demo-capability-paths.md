@@ -22,8 +22,9 @@ deliberately outside this inventory.
    **ОБЪЕКТЫ**, is saved at once and reaches players on live terminals at once; facility dialogs
    confirm with **ГОТОВО**. The shared bar next to the tabs shows one save status, **ОТМЕНИТЬ** and
    **ПОВТОРИТЬ** for authoring edits from either tab, and **СБРОСИТЬ СЦЕНУ**. **ПРЕДПРОСМОТР**
-   compares the current view with a hypothetical state of the applied configuration. Use
-   **СБРОСИТЬ УСТРОЙСТВО** or **СБРОСИТЬ СЦЕНУ** for confirmed live-state recovery.
+   compares the current view with a hypothetical state of the applied configuration. During
+   play, the selected device's **ВО ВРЕМЯ ИГРЫ** card changes live state (see "Play controls on
+   the device card"); **СБРОСИТЬ СЦЕНУ** restores the whole scene.
 
 ## Terminal installations and access
 
@@ -93,9 +94,10 @@ The controller performs actions while the observer verifies the same authoritati
 
 ### Prepare a story with the in-app guide
 
-Open **ОБЪЕКТЫ → КАК СОБРАТЬ СЦЕНАРИЙ · 5 ШАГОВ**. The guide is open by default;
-collapse it during play to give the device controls more space. Select a device on the left
-to make the guide use that device. The counts describe configured relationships, not
+Open **ОБЪЕКТЫ → КАК СОБРАТЬ СЦЕНАРИЙ**. The guide is open while the session has no devices.
+Once it has one, the guide is one line, for example **КАК СОБРАТЬ СЦЕНАРИЙ · ШАГ 1 ИЗ 5: ОБЪЕКТ**,
+so the device controls stay in view. **ПОКАЗАТЬ** opens it and **СКРЫТЬ** closes it; that choice
+holds until the application closes. Select a device on the left to make the guide use that device. The counts describe configured relationships, not
 a guarantee that the scenario is correct.
 
 Use one continuous example: players encounter a locked door, request that it open from a
@@ -111,8 +113,8 @@ terminal, and see a status record change to **Путь свободен**.
 
 If a command or display destination is missing, use **ОТКРЫТЬ ТЕРМИНАЛЫ**, create the command or
 entry, then return to **ОБЪЕКТЫ** to bind it to the selected device. Nothing is lost by switching
-tabs: applied edits are saved, and unapplied input in the node form, terminal settings, or device
-form stays and is listed in the shared bar as **НЕ ПРИМЕНЕНО: …**. Merely moving between guide
+tabs: applied edits are saved, and unapplied input in the node form or terminal settings stays
+and is listed in the shared bar as **НЕ ПРИМЕНЕНО: …**. Merely moving between guide
 steps never saves anything.
 
 Prerequisites are checked against the state **before** a command or recovery program runs.
@@ -121,13 +123,15 @@ door cannot satisfy the prerequisite within one atomic program: restore power fi
 separate action, then request the opening action. Use faults/programs only if the story needs
 them; a basic door scene does not require either.
 
-Relationship groups distinguish **Что делают игроки** (command actions) from **Что видят игроки**
-(display and availability rules). Both retain contextual edit/remove controls. The guide adds no
+The device's tabs distinguish **Что делают игроки** (command actions) from **Что видят игроки**
+(display and availability rules), next to **Неисправности** and **Программы**; each tab shows its
+count. Both retain contextual edit/remove controls. The guide adds no
 content or saved progress merely by moving between steps.
 
 ### Autosave, undo, and redo across both tabs
 
-Open a copy of the demo. On **ОБЪЕКТЫ**, rename **Гермодверь Убежища 76** with **ГОТОВО**; on
+Open a copy of the demo. On **ОБЪЕКТЫ**, rename **Гермодверь Убежища 76** in **ИЗМЕНИТЬ СОСТОЯНИЯ И
+ПЕРЕХОДЫ** with **ГОТОВО**; on
 **ТЕРМИНАЛЫ**, edit **ПРОТОКОЛ ВЫХОДА → Открыть выход и подать сигнал** and **ПРИМЕНИТЬ**; return to
 **ОБЪЕКТЫ**. Both edits are saved, the shared bar reads **СОХРАНЕНО · <time>** on both tabs, and no
 stale or "session changed" message exists. Press **ОТМЕНИТЬ** twice: the command edit, then the
@@ -178,15 +182,34 @@ names each one (**ПЕРЕИМЕНУЕТСЯ**, **ТЕКСТ ИЗМЕНИТСЯ*
 
 | Capability | Stable assets | Exact Overseer route and expected outcome | Recovery |
 |---|---|---|---|
-| All ten device kinds | `power-grid-main` (`power-grid`), `vault-door-main` (`door`), `evacuation-alarm` (`alarm`), `network-overseer` (`network-segment`), `ventilation-main` (`ventilation`), `reactor-main` (`reactor`), `security-turret` (`turret`), `robot-pod-atrium` (`robot-pod`), `freight-elevator` (`elevator`), `water-purifier-76` (`custom:water-purifier`) | **ОБЪЕКТЫ → Поиск устройств → [device] → РЕДАКТИРОВАТЬ ГРАФ**. Inspect readable transition summaries and expand advanced rules; **ГОТОВО** saves the complete graph. **ЗАВИСИМОСТИ** lists every command, binding, condition, and recovery reference before destructive edits. | **ОТМЕНА** leaves the form untouched; **ОТМЕНИТЬ** on the shared bar reverses a saved edit |
+| All ten device kinds | `power-grid-main` (`power-grid`), `vault-door-main` (`door`), `evacuation-alarm` (`alarm`), `network-overseer` (`network-segment`), `ventilation-main` (`ventilation`), `reactor-main` (`reactor`), `security-turret` (`turret`), `robot-pod-atrium` (`robot-pod`), `freight-elevator` (`elevator`), `water-purifier-76` (`custom:water-purifier`) | **ОБЪЕКТЫ → Поиск устройств → [device] → ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ**. Inspect readable transition summaries and expand advanced rules; **ГОТОВО** saves the complete graph. **ЗАВИСИМОСТИ** lists every command, binding, condition, and recovery reference before destructive edits. | **ОТМЕНА** leaves the form untouched; **ОТМЕНИТЬ** on the shared bar reverses a saved edit |
 | Direct single-device transition | `n_cmd_prime_grid` → `power-grid-main/restore` | Player route above, controller request, Overseer approval; exactly one device changes. | Reject leaves state unchanged; reset device |
 | Direct atomic multi-device transition | `n_cmd_open_evacuation` → `vault-door-main/open` + `evacuation-alarm/sound-evacuation` | Player route above; both transitions commit together only after approval. **ТЕРМИНАЛЫ → ПРОТОКОЛ ВЫХОДА → Открыть выход и подать сигнал** lists them under **ПРИ ОДОБРЕНИИ** with the name and block they change, and **ЧТО ВИДЯТ ИГРОКИ** marks the winning rule per target. | Reject/failure changes neither; reset devices or the scene |
-| Recovery program | `air-recovery-76`, `network-recovery-76` | **ОБЪЕКТЫ → [related device] → ПРОГРАММЫ ВОССТАНОВЛЕНИЯ → Изменить** for authoring; **ГОТОВО** saves and publishes it. Execute through `n_cmd_air_recovery` or `n2_cmd_network_recovery`. | Reset target device or the scene; referenced programs explain why removal is blocked |
+| Recovery program | `air-recovery-76`, `network-recovery-76` | **ОБЪЕКТЫ → [related device] → ПРОГРАММЫ → Изменить** for authoring; **ГОТОВО** saves and publishes it. Execute through `n_cmd_air_recovery` or `n2_cmd_network_recovery`. | Reset target device or the scene; referenced programs explain why removal is blocked |
 | Bound name/content/visibility/availability | `facilityNameVariants`, `facilityTextVariants`, `visibleWhen`, `availableWhen` | Use **ПРЕДПРОСМОТР** with the referenced state and terminal, then follow the corresponding player rows. Preview changes only the dialog; a saved edit or an approved transition publishes the canonical variant to controller and observer. | Close preview; reset device or the scene |
 | State preview | any device, for example `vault-door-main=open` on `t_demo1` | **ОБЪЕКТЫ → Поиск устройств → Гермодверь Убежища 76 → ПРЕДПРОСМОТР СОСТОЯНИЯ**. It preselects **Открыта** on **Терминал смотрителя — Убежище 76**, shows **СЕЙЧАС: … Заперта** beside **ЕСЛИ: … Открыта**, and lists **ИЗМЕНЕНИЙ: 3**: the text of block 3 of **СВОДКА ЭВАКУАЦИИ**, the appearing **НАРУЖНЫЙ МАРШРУТ ПОДТВЕРЖДЁН**, and the name **Выход уже открыт**. Edit the door's block text rule and reopen: the preview shows the new text. Nothing changes for players or revisions. | **ЗАКРЫТЬ** |
-| Condition preview | any condition, for example `relay-storage-damaged` on `t_demo_hack_4` | **ОБЪЕКТЫ → ДИАГНОСТИЧЕСКИЕ УСЛОВИЯ → Архив ретранслятора повреждён → ПРЕДПРОСМОТР УСЛОВИЯ**. **АКТИВНО** is preselected opposite to the current activity; the comparison shows substitution/instability only in preview. | **ЗАКРЫТЬ** |
-| Single-device reset | a device whose current differs from initial, including shipped `power-grid-main`, `reactor-main`, `robot-pod-atrium`, `freight-elevator`, or `water-purifier-76` | **ОБЪЕКТЫ → УСТРОЙСТВА → [device] → СБРОСИТЬ УСТРОЙСТВО → confirm**. Restores that device and its device-scoped initial conditions in one revision without changing unrelated devices. | Reapply an authored transition if desired |
+| Condition preview | any condition, for example `relay-storage-damaged` on `t_demo_hack_4` | **ОБЪЕКТЫ → НЕИСПРАВНОСТИ → Архив ретранслятора повреждён → ПРЕДПРОСМОТР УСЛОВИЯ**. **АКТИВНО** is preselected opposite to the current activity; the comparison shows substitution/instability only in preview. | **ЗАКРЫТЬ** |
+| Single-device reset | a device whose current differs from initial, including shipped `power-grid-main`, `reactor-main`, `robot-pod-atrium`, `freight-elevator`, or `water-purifier-76` | **ОБЪЕКТЫ → [device] → ВО ВРЕМЯ ИГРЫ → СБРОСИТЬ К НАЧАЛЬНОМУ… → СБРОСИТЬ**. Restores that device and its device-scoped initial conditions in one revision without changing unrelated devices. A reset that only restores faults also succeeds. | Reapply an authored transition if desired |
 | Scene reset | the shipped deltas: devices and faults away from their starting values, and executed `n_cmd_1` and `n_cmd_prime_grid` | Shared bar → **СБРОСИТЬ СЦЕНУ**. The dialog counts devices, faults, and executed commands per terminal, says players stay on their terminal with their route and hacking progress, and names what happens to a pending player request. **СБРОСИТЬ СЦЕНУ** returns every device, fault, and executed command to its starting value in one write; if it fails, nothing is reset. Afterwards the control reads **СЦЕНА УЖЕ В НАЧАЛЬНОМ СОСТОЯНИИ**. | Continue from the authored initial scenario |
+
+### Play controls on the device card
+
+Select a device on **ОБЪЕКТЫ**. Its header comes first: name, type, linked terminals, **СЕЙЧАС**,
+**В НАЧАЛЕ**, and active faults. The **ВО ВРЕМЯ ИГРЫ** card follows. Every play change is checked
+against the facility revision, reaches players at once, withdraws a pending player request, and
+is written to the runtime log. **ОТМЕНИТЬ** never reverses it. The card's **ПОСЛЕДНИЕ ИЗМЕНЕНИЯ**
+feed lists the device's last five changes in this run, newest first, and starts empty when the
+application starts or another session opens. The device list shows each row's current state and
+active fault count, for example **Загрязнён · ● 1** for `ventilation-main` with `air-spore-bloom`.
+
+| Capability | Stable assets | Exact Overseer route and expected outcome | Recovery |
+|---|---|---|---|
+| Card transition | `vault-door-main/open` with shipped `power-grid-main=online` | **Гермодверь Убежища 76 → ВО ВРЕМЯ ИГРЫ → Открыть гермодверь → Открыта**. One press, no dialog; the precondition **Резервная сеть Убежища 76 = В работе · ВЫПОЛНЕНО** is listed. The door opens on `t_demo1` without reconnecting, `n_cmd_open_evacuation` stays unexecuted, and the feed adds the transition by **Смотритель**. | **Запереть гермодверь → Заперта** on the card |
+| Blocked card transition | `power-grid-main/shutdown`, then `vault-door-main/open` | On **Резервная сеть Убежища 76**, press **Отключить резервную сеть → Нет питания**. On the door, **Открыть гермодверь** is unavailable with **НЕ ВЫПОЛНЕНО: Резервная сеть Убежища 76 = В работе**. | **Запустить резервную сеть → В работе** |
+| Forced change | `reactor-main=critical-overheat` («Критический перегрев»), which no transition reaches; `b_reactor_status` on `t_demo1` | **Реактор Убежища 76 → ПРИНУДИТЕЛЬНО В ДРУГОЕ СОСТОЯНИЕ… → Критический перегрев → ПЕРЕВЕСТИ**. The dialog names the reactor, **Дежурный режим**, and **Критический перегрев**. No fault effect runs. Players read **РЕАКТОР: КРИТИЧЕСКИЙ ПЕРЕГРЕВ**, and the feed records a forced change. | Force **Дежурный режим**, or **СБРОСИТЬ К НАЧАЛЬНОМУ…** |
+| Fault switch | `door-offline` («Контроллер гермодвери не отвечает») | **Гермодверь Убежища 76 → ВО ВРЕМЯ ИГРЫ → Контроллер гермодвери не отвечает** switch on. It blocks `execute-command` and exposes `n_diag_door` at once; **В НАЧАЛЕ ИГРЫ: ИСПРАВНО** stays. The header and the device row count it. | Switch it off |
+| Rejected player request in the feed | `n_cmd_open_evacuation` («Открыть выход и подать сигнал») | A player requests it on `t_demo1`; the Overseer rejects it. The door's feed reads **«Открыть выход и подать сигнал» · запрос игрока отклонён: Смотрителем · Терминал смотрителя — Убежище 76**. | Request it again |
+| Device row with an active fault | `ventilation-main` with `air-spore-bloom` | The list row reads **Загрязнён · ● 1**. Switching the fault off on the card changes it to **Загрязнён**. | Switch it on, or reset the device |
 
 ### Diagnostic modes and authored escape paths
 

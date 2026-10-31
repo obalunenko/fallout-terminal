@@ -124,6 +124,93 @@ message TerminalNavigationNotice {
   optional string target_terminal_id = 4;
 }
 
+enum FacilityChangeRefusalReason {
+  FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED = 0;
+  // The Overseer rejected the request.
+  FACILITY_CHANGE_REFUSAL_REASON_DECLINED = 1;
+  // A precondition was unmet.
+  FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED = 2;
+  // The device was no longer in the transition's source state.
+  FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE = 3;
+  // An active fault blocked the capability before the request became pending.
+  FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED = 4;
+  // The facility changed meanwhile.
+  FACILITY_CHANGE_REFUSAL_REASON_STALE = 5;
+  // An Overseer play change or a scene reset superseded the request.
+  FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN = 6;
+  // Any other facility failure.
+  FACILITY_CHANGE_REFUSAL_REASON_FAILED = 7;
+}
+
+// The Overseer ran an authored transition from the play card.
+message FacilityChangeTransition {
+  string transition_id = 1;
+  string from_state_id = 2;
+  string to_state_id = 3;
+}
+
+// The Overseer forced a device state.
+message FacilityChangeForced {
+  string from_state_id = 1;
+  string to_state_id = 2;
+}
+
+// The Overseer switched a fault scoped to the device.
+message FacilityChangeFault {
+  string condition_id = 1;
+  // The resulting position.
+  bool active = 2;
+}
+
+// The Overseer reset the device.
+message FacilityChangeReset {
+  string from_state_id = 1;
+  // Equals from_state_id when only faults were restored.
+  string to_state_id = 2;
+  // Device-scoped faults restored, sorted.
+  repeated string condition_ids = 3;
+}
+
+// A scene reset changed the device.
+message FacilityChangeSceneReset {
+  string from_state_id = 1;
+  string to_state_id = 2;
+  repeated string condition_ids = 3;
+}
+
+// An approved player command moved the device.
+message FacilityChangePlayerCommand {
+  string terminal_id = 1;
+  string command_id = 2;
+  string transition_id = 3;
+  string from_state_id = 4;
+  string to_state_id = 5;
+}
+
+// A player request affecting the device was not applied.
+message FacilityChangePlayerRefusal {
+  string terminal_id = 1;
+  string command_id = 2;
+  FacilityChangeRefusalReason reason = 3;
+}
+
+// One entry of a device's recent-changes feed. Entries carry IDs only.
+message FacilityChange {
+  // Run-wide, strictly increasing, never reused in a run.
+  uint64 sequence = 1;
+  string device_id = 2;
+  int64 occurred_at_unix_ms = 3;
+  oneof change {
+    FacilityChangeTransition transition = 4;
+    FacilityChangeForced forced = 5;
+    FacilityChangeFault fault = 6;
+    FacilityChangeReset reset = 7;
+    FacilityChangeSceneReset scene_reset = 8;
+    FacilityChangePlayerCommand player_command = 9;
+    FacilityChangePlayerRefusal player_refusal = 10;
+  }
+}
+
 message CoordinationState {
   repeated CharacterState roster = 1;
   repeated LogicalSessionState logical_sessions = 2;
@@ -135,4 +222,6 @@ message CoordinationState {
   optional PendingTerminalNavigation pending_terminal_navigation = 8;
   optional TerminalNavigationNotice terminal_navigation_notice = 9;
   optional uint64 facility_revision = 10;
+  // Newest first; at most five entries per device_id, for the current run.
+  repeated FacilityChange facility_changes = 11;
 }
