@@ -10,7 +10,7 @@ require (
 	github.com/keybase/go-keychain v0.0.1
 	github.com/obalunenko/logger v1.2.0
 	github.com/stretchr/testify v1.12.1
-	github.com/wailsapp/wails/v3 v3.0.0-beta.28
+	github.com/wailsapp/wails/v3 v3.0.0
 	golang.ngrok.com/ngrok/v2 v2.2.0
 	golang.org/x/sys v0.49.0
 	google.golang.org/protobuf v1.36.12
@@ -27,5 +27,5 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.ngrok.com/muxado/v2 v2.0.1 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 )

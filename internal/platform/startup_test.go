@@ -28,7 +28,7 @@ func TestWailsV3GoToolsAreIsolatedFromApplicationModule(t *testing.T) {
 			name:          "Wails CLI",
 			directory:     "wails",
 			tool:          "github.com/wailsapp/wails/v3/cmd/wails3",
-			parentRequire: "github.com/wailsapp/wails/v3 v3.0.0-beta.28",
+			parentRequire: "github.com/wailsapp/wails/v3 v3.0.0",
 			goVersion:     "1.27.0",
 		},
 		{
@@ -110,7 +110,7 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 
 	root := repositoryRoot(t)
 	applicationModule := readAcceptanceDocument(t, filepath.Join(root, "go.mod"))
-	assert.Equal(t, 1, strings.Count(applicationModule, "github.com/wailsapp/wails/v3 v3.0.0-beta.28"))
+	assert.Equal(t, 1, strings.Count(applicationModule, "\tgithub.com/wailsapp/wails/v3 v3.0.0\n"))
 
 	packageRaw, err := os.ReadFile(filepath.Join(root, "frontend", "overseer", "package.json"))
 	require.NoError(t, err)
@@ -118,11 +118,11 @@ func TestWailsV3PinsAndGoBuildToolAreOwnedAndExact(t *testing.T) {
 		Dependencies map[string]string `json:"dependencies"`
 	}
 	require.NoError(t, json.Unmarshal(packageRaw, &packageConfig))
-	assert.Equal(t, "3.0.0-beta.28", packageConfig.Dependencies["@wailsio/runtime"])
+	assert.Equal(t, "3.0.0", packageConfig.Dependencies["@wailsio/runtime"])
 
 	lock := readAcceptanceDocument(t, filepath.Join(root, "frontend", "package-lock.json"))
-	assert.Contains(t, lock, `"@wailsio/runtime": "3.0.0-beta.28"`)
-	assert.Contains(t, lock, `runtime-3.0.0-beta.28.tgz`)
+	assert.Contains(t, lock, `"@wailsio/runtime": "3.0.0"`)
+	assert.Contains(t, lock, `runtime-3.0.0.tgz`)
 
 	files := []struct {
 		path   string

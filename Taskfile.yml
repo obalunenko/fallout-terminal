@@ -259,7 +259,7 @@ tasks:
       - '{{.DARWIN_CGO_ENV}} {{.GO}} test ./internal/platform -run "Test(WailsV3|Taskfile|QualityWorkflow|PortableRelease|Distribution)"'
 
   wails:pins:check:
-    desc: Verify the exact Wails v3.0.0-beta.28 and frontend 3.0.0-beta.28 pins.
+    desc: Verify the exact Wails v3.0.0 and frontend 3.0.0 pins.
     cmds:
       - scripts/wails-v3-contract-check.sh
 

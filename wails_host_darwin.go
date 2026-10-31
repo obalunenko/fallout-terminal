@@ -17,7 +17,7 @@ func registerNativeWindowCloseFallback(window any, requestQuit func(*application
 		return
 	}
 
-	// Wails v3 beta may close its final Darwin NSWindow without asking
+	// Wails v3 may close its final Darwin NSWindow without asking
 	// NSApplication to terminate. A native/scripted close can also bypass
 	// WindowShouldClose, so observe AppKit's post-close notification while
 	// sharing the common hook's exactly-once quit intent.

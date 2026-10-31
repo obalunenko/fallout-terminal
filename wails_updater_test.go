@@ -659,6 +659,107 @@ func TestSafeApplicationUpdateExtractionRootRejectsUnsafeCleanupTargets(t *testi
 	assert.False(t, safeApplicationUpdateExtractionRoot(filepath.Join(root, "missing", wailsApplicationName)))
 }
 
+func TestIsolateApplicationUpdatePackageMovesPackageOutOfPortableUnit(t *testing.T) {
+	t.Parallel()
+
+	parent := t.TempDir()
+	installedUnit := filepath.Join(parent, wailsApplicationName)
+	frameworkStage := filepath.Join(installedUnit, wailsUpdaterStagePrefix+"123")
+	extracted := filepath.Join(frameworkStage, wailsApplicationName)
+	require.NoError(t, os.MkdirAll(extracted, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(installedUnit, "installed"), []byte("old"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(extracted, "replacement"), []byte("new"), 0o644))
+
+	packageRoot, cleanup, err := isolateApplicationUpdatePackage(extracted, installedUnit, "0123abcd")
+	require.NoError(t, err)
+
+	assert.False(t, pathWithin(installedUnit, packageRoot))
+	assert.Equal(t, wailsApplicationName, filepath.Base(packageRoot))
+	holder := filepath.Dir(packageRoot)
+	assert.Equal(t, parent, filepath.Dir(holder))
+	assert.True(t, strings.HasPrefix(filepath.Base(holder), "."+wailsApplicationName+".download-0123abcd-"))
+	contents, err := os.ReadFile(filepath.Join(packageRoot, "replacement"))
+	require.NoError(t, err)
+	assert.Equal(t, "new", string(contents))
+	assert.NoDirExists(t, frameworkStage)
+	assert.FileExists(t, filepath.Join(installedUnit, "installed"))
+
+	cleanup()
+	assert.NoDirExists(t, holder)
+	assert.FileExists(t, filepath.Join(installedUnit, "installed"))
+}
+
+func TestIsolateApplicationUpdatePackageKeepsPackageBesideBundle(t *testing.T) {
+	t.Parallel()
+
+	parent := t.TempDir()
+	installedUnit := filepath.Join(parent, wailsApplicationName+".app")
+	frameworkStage := filepath.Join(parent, wailsUpdaterStagePrefix+"456")
+	extracted := filepath.Join(frameworkStage, wailsApplicationName)
+	require.NoError(t, os.MkdirAll(installedUnit, 0o755))
+	require.NoError(t, os.MkdirAll(extracted, 0o755))
+
+	packageRoot, cleanup, err := isolateApplicationUpdatePackage(extracted, installedUnit, "0123abcd")
+	require.NoError(t, err)
+	assert.Equal(t, extracted, packageRoot)
+	assert.DirExists(t, extracted)
+
+	cleanup()
+	assert.NoDirExists(t, frameworkStage)
+	assert.DirExists(t, installedUnit)
+}
+
+func TestIsolateApplicationUpdatePackageRejectsUnexpectedLocations(t *testing.T) {
+	t.Parallel()
+
+	stagedPackage := []string{wailsUpdaterStagePrefix + "1", wailsApplicationName}
+	tests := []struct {
+		name          string
+		extracted     []string
+		installedUnit []string
+	}{
+		{
+			name:          "unexpected package name",
+			extracted:     []string{wailsUpdaterStagePrefix + "1", "other"},
+			installedUnit: []string{wailsApplicationName},
+		},
+		{
+			name:          "unexpected framework stage",
+			extracted:     []string{"stage", wailsApplicationName},
+			installedUnit: []string{wailsApplicationName},
+		},
+		{
+			name:          "installed unit is the package",
+			extracted:     stagedPackage,
+			installedUnit: stagedPackage,
+		},
+		{
+			name:          "installed unit inside framework stage",
+			extracted:     stagedPackage,
+			installedUnit: []string{wailsUpdaterStagePrefix + "1", "installed"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			parent := t.TempDir()
+			extracted := filepath.Join(append([]string{parent}, test.extracted...)...)
+			installedUnit := filepath.Join(append([]string{parent}, test.installedUnit...)...)
+			require.NoError(t, os.MkdirAll(extracted, 0o755))
+			require.NoError(t, os.MkdirAll(installedUnit, 0o755))
+
+			packageRoot, cleanup, err := isolateApplicationUpdatePackage(extracted, installedUnit, "0123abcd")
+			require.Error(t, err)
+			assert.Empty(t, packageRoot)
+			assert.Nil(t, cleanup)
+			assert.DirExists(t, extracted)
+			assert.DirExists(t, installedUnit)
+		})
+	}
+}
+
 func newGitHubProviderFixture(t *testing.T, releases []githubReleaseFixture) updater.Provider {
 	t.Helper()
 

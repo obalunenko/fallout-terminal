@@ -115,6 +115,13 @@ complete portable directory; macOS replaces the complete `.app` bundle. Session 
 configurations, credentials, preferences, Documents, and application-support data stay outside that
 replacement boundary.
 
+The pinned Wails updater downloads and extracts the release on the installed unit's volume: inside
+the portable directory on Windows and Linux, and beside the `.app` bundle on macOS. Before staging,
+the application moves an extracted package that lies inside the portable directory to an
+attempt-owned sibling, and it removes the download directories once staging finishes or fails. That
+volume therefore needs free space for the downloaded archive, its extracted package, and the staged
+unit.
+
 On restart approval, the application copies a temporary helper outside the installed unit, records
 non-sensitive recovery state, and performs the normal ordered shutdown. The helper waits for the
 parent to exit, renames the installed unit to a sibling backup, promotes the staged unit, and

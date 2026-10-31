@@ -683,21 +683,23 @@ func (adapter *wailsUpdaterAdapter) PrepareApplicationUpdate(
 	if err := adapter.DownloadAndInstall(ctx); err != nil {
 		return updateservice.PreparedApplicationUnit{}, err
 	}
-	extractedRoot := adapter.DownloadedPath()
-	if extractedRoot == "" {
-		return updateservice.PreparedApplicationUnit{}, errors.New("application update extraction produced no package")
+	packageRoot, removePackage, err := isolateApplicationUpdatePackage(
+		adapter.DownloadedPath(), installedUnit, attemptID,
+	)
+	if err != nil {
+		return updateservice.PreparedApplicationUnit{}, sanitizedApplicationUpdateBackendError(
+			"stage application update", err,
+		)
 	}
+	defer removePackage()
 	reportProgress(updateservice.UpdateStateStaging, nil)
 	prepared, err := updateservice.PrepareApplicationUnit(ctx, updateservice.PrepareApplicationUnitRequest{
 		Candidate:                   candidate,
 		AttemptID:                   attemptID,
-		ExtractedRoot:               extractedRoot,
+		ExtractedRoot:               packageRoot,
 		InstalledUnit:               installedUnit,
 		InstalledLaunchRelativePath: installedLaunchRelativePath,
 	})
-	if safeApplicationUpdateExtractionRoot(extractedRoot) {
-		_ = os.RemoveAll(extractedRoot)
-	}
 	if err != nil {
 		return updateservice.PreparedApplicationUnit{}, sanitizedApplicationUpdateBackendError(
 			"stage application update", err,
@@ -731,6 +733,56 @@ func applicationUpdateProgressFromWails(payload any) (updateservice.UpdateProgre
 		result.DownloadSizeKnown = true
 	}
 	return result, true
+}
+
+// wailsUpdaterStagePrefix is the os.MkdirTemp pattern prefix of the directory
+// in which the pinned Wails updater downloads and extracts a release.
+const wailsUpdaterStagePrefix = "wails-update-"
+
+// isolateApplicationUpdatePackage returns the extracted package root that the
+// application stager may read and a cleanup that removes every directory still
+// holding the package.
+//
+// Wails v3.0.0 stages a download beside its replacement target rather than in
+// the system temporary directory. For a macOS bundle that is the bundle's
+// parent, but for the Windows and Linux portable units it is inside the
+// installed unit, which the stager must never read from. Such a package is
+// moved to a launch-scoped directory adjacent to the installed unit, which is
+// on the same volume, before staging.
+func isolateApplicationUpdatePackage(extractedRoot, installedUnit, attemptID string) (string, func(), error) {
+	frameworkStage := filepath.Dir(extractedRoot)
+	if !safeApplicationUpdateExtractionRoot(extractedRoot) ||
+		!strings.HasPrefix(filepath.Base(frameworkStage), wailsUpdaterStagePrefix) ||
+		pathWithin(frameworkStage, installedUnit) {
+		return "", nil, errors.New("application update extraction produced no package")
+	}
+	removeFrameworkStage := func() { _ = os.RemoveAll(frameworkStage) }
+	if !pathWithin(installedUnit, extractedRoot) {
+		return extractedRoot, removeFrameworkStage, nil
+	}
+
+	holder, err := os.MkdirTemp(
+		filepath.Dir(installedUnit),
+		"."+filepath.Base(installedUnit)+".download-"+attemptID+"-",
+	)
+	if err != nil {
+		removeFrameworkStage()
+		return "", nil, fmt.Errorf("create adjacent update package directory: %w", err)
+	}
+	packageRoot := filepath.Join(holder, wailsApplicationName)
+	err = os.Rename(extractedRoot, packageRoot)
+	removeFrameworkStage()
+	if err != nil {
+		_ = os.RemoveAll(holder)
+		return "", nil, fmt.Errorf("move update package out of the installed unit: %w", err)
+	}
+	return packageRoot, func() { _ = os.RemoveAll(holder) }, nil
+}
+
+// pathWithin reports whether path is root or lexically below it.
+func pathWithin(root, path string) bool {
+	relative, err := filepath.Rel(root, path)
+	return err == nil && filepath.IsLocal(relative)
 }
 
 func safeApplicationUpdateExtractionRoot(path string) bool {

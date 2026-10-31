@@ -85,7 +85,7 @@ func TestQualityWorkflowUsesLockedFrontendAndExactWailsContracts(t *testing.T) {
 	} {
 		assert.Contains(t, composition, required)
 	}
-	for _, pin := range []string{"v3.0.0-beta.28", "3.0.0-beta.28"} {
+	for _, pin := range []string{"v3.0.0", "3.0.0"} {
 		assert.Contains(t, composition, pin)
 	}
 	assert.Contains(t, bindingsCheck, `GOCACHE=${GOCACHE:-${TMPDIR:-/tmp}/fallout-terminal-go-cache}`)
