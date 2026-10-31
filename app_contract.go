@@ -1771,6 +1771,81 @@ func facilityDeviceResetRequestFromPrivate(request *privatev1.ResetFacilityDevic
 	}
 }
 
+func facilityDeviceTransitionRequestToPrivate(
+	request controlservice.FacilityDeviceTransitionRequest,
+) *privatev1.ApplyFacilityDeviceTransitionRequest {
+	return &privatev1.ApplyFacilityDeviceTransitionRequest{
+		DeviceId:                 request.DeviceID,
+		TransitionId:             request.TransitionID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+	}
+}
+
+func facilityDeviceTransitionRequestFromPrivate(
+	request *privatev1.ApplyFacilityDeviceTransitionRequest,
+) controlservice.FacilityDeviceTransitionRequest {
+	if request == nil {
+		return controlservice.FacilityDeviceTransitionRequest{}
+	}
+	return controlservice.FacilityDeviceTransitionRequest{
+		DeviceID:                 request.GetDeviceId(),
+		TransitionID:             request.GetTransitionId(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+	}
+}
+
+func facilityDeviceForceRequestToPrivate(
+	request controlservice.FacilityDeviceForceRequest,
+) *privatev1.ForceFacilityDeviceStateRequest {
+	return &privatev1.ForceFacilityDeviceStateRequest{
+		DeviceId:                 request.DeviceID,
+		StateId:                  request.StateID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+	}
+}
+
+func facilityDeviceForceRequestFromPrivate(
+	request *privatev1.ForceFacilityDeviceStateRequest,
+) controlservice.FacilityDeviceForceRequest {
+	if request == nil {
+		return controlservice.FacilityDeviceForceRequest{}
+	}
+	return controlservice.FacilityDeviceForceRequest{
+		DeviceID:                 request.GetDeviceId(),
+		StateID:                  request.GetStateId(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+	}
+}
+
+func facilityConditionActiveRequestToPrivate(
+	request controlservice.FacilityConditionActiveRequest,
+) *privatev1.SetFacilityConditionActiveRequest {
+	return &privatev1.SetFacilityConditionActiveRequest{
+		ConditionId:              request.ConditionID,
+		Active:                   request.Active,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationId:            request.CorrelationID,
+	}
+}
+
+func facilityConditionActiveRequestFromPrivate(
+	request *privatev1.SetFacilityConditionActiveRequest,
+) controlservice.FacilityConditionActiveRequest {
+	if request == nil {
+		return controlservice.FacilityConditionActiveRequest{}
+	}
+	return controlservice.FacilityConditionActiveRequest{
+		ConditionID:              request.GetConditionId(),
+		Active:                   request.GetActive(),
+		ExpectedFacilityRevision: request.GetExpectedFacilityRevision(),
+		CorrelationID:            request.GetCorrelationId(),
+	}
+}
+
 func diagnosticRecoveryReferenceToPrivate(
 	reference domain.DiagnosticRecoveryReference,
 ) (*persistencev1.DiagnosticRecoveryReference, error) {
@@ -2182,6 +2257,12 @@ func coordinationStateToPrivate(state *domain.MasterCoordinationState) *privatev
 			result.TerminalNavigationNotice.TargetTerminalId = &value
 		}
 	}
+	if len(state.FacilityChanges) > 0 {
+		result.FacilityChanges = make([]*privatev1.FacilityChange, len(state.FacilityChanges))
+		for index, change := range state.FacilityChanges {
+			result.FacilityChanges[index] = facilityChangeToPrivate(change)
+		}
+	}
 	return result
 }
 
@@ -2275,7 +2356,163 @@ func coordinationStateFromPrivate(state *privatev1.CoordinationState) *domain.Ma
 			result.TerminalNavigationNotice.TargetTerminalID = &value
 		}
 	}
+	if len(state.GetFacilityChanges()) > 0 {
+		result.FacilityChanges = make([]domain.FacilityChange, len(state.GetFacilityChanges()))
+		for index, change := range state.GetFacilityChanges() {
+			result.FacilityChanges[index] = facilityChangeFromPrivate(change)
+		}
+	}
 	return result
+}
+
+// facilityChangeToPrivate maps one feed entry. It maps the first set variant,
+// because the domain entry carries exactly one.
+func facilityChangeToPrivate(change domain.FacilityChange) *privatev1.FacilityChange {
+	result := &privatev1.FacilityChange{
+		Sequence:         change.Sequence,
+		DeviceId:         change.DeviceID,
+		OccurredAtUnixMs: change.OccurredAtUnixMs,
+	}
+	switch {
+	case change.Transition != nil:
+		result.Change = &privatev1.FacilityChange_Transition{Transition: &privatev1.FacilityChangeTransition{
+			TransitionId: change.Transition.TransitionID,
+			FromStateId:  change.Transition.FromStateID,
+			ToStateId:    change.Transition.ToStateID,
+		}}
+	case change.Forced != nil:
+		result.Change = &privatev1.FacilityChange_Forced{Forced: &privatev1.FacilityChangeForced{
+			FromStateId: change.Forced.FromStateID,
+			ToStateId:   change.Forced.ToStateID,
+		}}
+	case change.Fault != nil:
+		result.Change = &privatev1.FacilityChange_Fault{Fault: &privatev1.FacilityChangeFault{
+			ConditionId: change.Fault.ConditionID,
+			Active:      change.Fault.Active,
+		}}
+	case change.Reset != nil:
+		result.Change = &privatev1.FacilityChange_Reset_{Reset_: &privatev1.FacilityChangeReset{
+			FromStateId:  change.Reset.FromStateID,
+			ToStateId:    change.Reset.ToStateID,
+			ConditionIds: slices.Clone(change.Reset.ConditionIDs),
+		}}
+	case change.SceneReset != nil:
+		result.Change = &privatev1.FacilityChange_SceneReset{SceneReset: &privatev1.FacilityChangeSceneReset{
+			FromStateId:  change.SceneReset.FromStateID,
+			ToStateId:    change.SceneReset.ToStateID,
+			ConditionIds: slices.Clone(change.SceneReset.ConditionIDs),
+		}}
+	case change.PlayerCommand != nil:
+		result.Change = &privatev1.FacilityChange_PlayerCommand{PlayerCommand: &privatev1.FacilityChangePlayerCommand{
+			TerminalId:   change.PlayerCommand.TerminalID,
+			CommandId:    change.PlayerCommand.CommandID,
+			TransitionId: change.PlayerCommand.TransitionID,
+			FromStateId:  change.PlayerCommand.FromStateID,
+			ToStateId:    change.PlayerCommand.ToStateID,
+		}}
+	case change.PlayerRefusal != nil:
+		result.Change = &privatev1.FacilityChange_PlayerRefusal{PlayerRefusal: &privatev1.FacilityChangePlayerRefusal{
+			TerminalId: change.PlayerRefusal.TerminalID,
+			CommandId:  change.PlayerRefusal.CommandID,
+			Reason:     facilityChangeRefusalReasonToPrivate(change.PlayerRefusal.Reason),
+		}}
+	}
+	return result
+}
+
+func facilityChangeFromPrivate(change *privatev1.FacilityChange) domain.FacilityChange {
+	result := domain.FacilityChange{
+		Sequence:         change.GetSequence(),
+		DeviceID:         change.GetDeviceId(),
+		OccurredAtUnixMs: change.GetOccurredAtUnixMs(),
+	}
+	switch variant := change.GetChange().(type) {
+	case *privatev1.FacilityChange_Transition:
+		result.Transition = &domain.FacilityChangeTransition{
+			TransitionID: variant.Transition.GetTransitionId(),
+			FromStateID:  variant.Transition.GetFromStateId(),
+			ToStateID:    variant.Transition.GetToStateId(),
+		}
+	case *privatev1.FacilityChange_Forced:
+		result.Forced = &domain.FacilityChangeForced{
+			FromStateID: variant.Forced.GetFromStateId(),
+			ToStateID:   variant.Forced.GetToStateId(),
+		}
+	case *privatev1.FacilityChange_Fault:
+		result.Fault = &domain.FacilityChangeFault{
+			ConditionID: variant.Fault.GetConditionId(),
+			Active:      variant.Fault.GetActive(),
+		}
+	case *privatev1.FacilityChange_Reset_:
+		result.Reset = &domain.FacilityChangeReset{
+			FromStateID:  variant.Reset_.GetFromStateId(),
+			ToStateID:    variant.Reset_.GetToStateId(),
+			ConditionIDs: slices.Clone(variant.Reset_.GetConditionIds()),
+		}
+	case *privatev1.FacilityChange_SceneReset:
+		result.SceneReset = &domain.FacilityChangeReset{
+			FromStateID:  variant.SceneReset.GetFromStateId(),
+			ToStateID:    variant.SceneReset.GetToStateId(),
+			ConditionIDs: slices.Clone(variant.SceneReset.GetConditionIds()),
+		}
+	case *privatev1.FacilityChange_PlayerCommand:
+		result.PlayerCommand = &domain.FacilityChangePlayerCommand{
+			TerminalID:   variant.PlayerCommand.GetTerminalId(),
+			CommandID:    variant.PlayerCommand.GetCommandId(),
+			TransitionID: variant.PlayerCommand.GetTransitionId(),
+			FromStateID:  variant.PlayerCommand.GetFromStateId(),
+			ToStateID:    variant.PlayerCommand.GetToStateId(),
+		}
+	case *privatev1.FacilityChange_PlayerRefusal:
+		result.PlayerRefusal = &domain.FacilityChangePlayerRefusal{
+			TerminalID: variant.PlayerRefusal.GetTerminalId(),
+			CommandID:  variant.PlayerRefusal.GetCommandId(),
+			Reason:     facilityChangeRefusalReasonFromPrivate(variant.PlayerRefusal.GetReason()),
+		}
+	}
+	return result
+}
+
+func facilityChangeRefusalReasonToPrivate(reason domain.FacilityChangeRefusalReason) privatev1.FacilityChangeRefusalReason {
+	switch reason {
+	case domain.FacilityChangeRefusalDeclined:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_DECLINED
+	case domain.FacilityChangeRefusalPreconditionFailed:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED
+	case domain.FacilityChangeRefusalTransitionUnavailable:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE
+	case domain.FacilityChangeRefusalFaultBlocked:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED
+	case domain.FacilityChangeRefusalStale:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_STALE
+	case domain.FacilityChangeRefusalWithdrawn:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN
+	case domain.FacilityChangeRefusalFailed:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAILED
+	default:
+		return privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED
+	}
+}
+
+func facilityChangeRefusalReasonFromPrivate(reason privatev1.FacilityChangeRefusalReason) domain.FacilityChangeRefusalReason {
+	switch reason {
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_DECLINED:
+		return domain.FacilityChangeRefusalDeclined
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED:
+		return domain.FacilityChangeRefusalPreconditionFailed
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE:
+		return domain.FacilityChangeRefusalTransitionUnavailable
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED:
+		return domain.FacilityChangeRefusalFaultBlocked
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_STALE:
+		return domain.FacilityChangeRefusalStale
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN:
+		return domain.FacilityChangeRefusalWithdrawn
+	case privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAILED:
+		return domain.FacilityChangeRefusalFailed
+	default:
+		return domain.FacilityChangeRefusalUnspecified
+	}
 }
 
 func pendingFacilityActionSummaryToPrivate(action *domain.PendingFacilityAction) *privatev1.PendingFacilityActionSummary {

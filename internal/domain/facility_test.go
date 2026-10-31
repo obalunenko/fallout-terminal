@@ -1133,3 +1133,81 @@ func validFacilitySessionForTest() Session {
 		},
 	}
 }
+
+func TestCloneFacilityChangesDetachesEveryVariant(t *testing.T) {
+	t.Parallel()
+
+	original := []FacilityChange{
+		{Sequence: 1, DeviceID: "door", Transition: &FacilityChangeTransition{TransitionID: "open", FromStateID: "sealed", ToStateID: "open"}},
+		{Sequence: 2, DeviceID: "door", Forced: &FacilityChangeForced{FromStateID: "open", ToStateID: "sealed"}},
+		{Sequence: 3, DeviceID: "door", Fault: &FacilityChangeFault{ConditionID: "jam", Active: true}},
+		{Sequence: 4, DeviceID: "door", Reset: &FacilityChangeReset{FromStateID: "open", ToStateID: "sealed", ConditionIDs: []string{"jam"}}},
+		{Sequence: 5, DeviceID: "door", SceneReset: &FacilityChangeReset{FromStateID: "open", ToStateID: "sealed", ConditionIDs: []string{"jam"}}},
+		{Sequence: 6, DeviceID: "door", PlayerCommand: &FacilityChangePlayerCommand{TerminalID: "t1", CommandID: "c1", TransitionID: "open", FromStateID: "sealed", ToStateID: "open"}},
+		{Sequence: 7, DeviceID: "door", PlayerRefusal: &FacilityChangePlayerRefusal{TerminalID: "t1", CommandID: "c1", Reason: FacilityChangeRefusalDeclined}},
+	}
+	clone := CloneFacilityChanges(original)
+	require.Equal(t, original, clone)
+
+	clone[0].Transition.ToStateID = "changed"
+	clone[1].Forced.ToStateID = "changed"
+	clone[2].Fault.Active = false
+	clone[3].Reset.ConditionIDs[0] = "changed"
+	clone[4].SceneReset.ConditionIDs[0] = "changed"
+	clone[5].PlayerCommand.CommandID = "changed"
+	clone[6].PlayerRefusal.Reason = FacilityChangeRefusalStale
+
+	assert.Equal(t, "open", original[0].Transition.ToStateID)
+	assert.Equal(t, "sealed", original[1].Forced.ToStateID)
+	assert.True(t, original[2].Fault.Active)
+	assert.Equal(t, []string{"jam"}, original[3].Reset.ConditionIDs)
+	assert.Equal(t, []string{"jam"}, original[4].SceneReset.ConditionIDs)
+	assert.Equal(t, "c1", original[5].PlayerCommand.CommandID)
+	assert.Equal(t, FacilityChangeRefusalDeclined, original[6].PlayerRefusal.Reason)
+	assert.Nil(t, CloneFacilityChanges(nil))
+}
+
+func TestFacilityChangeJSONUsesContractVariantKeys(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		change FacilityChange
+		want   string
+	}{
+		{
+			name:   "transition",
+			change: FacilityChange{Sequence: 12, DeviceID: "door", OccurredAtUnixMs: 1000, Transition: &FacilityChangeTransition{TransitionID: "open", FromStateID: "sealed", ToStateID: "open"}},
+			want:   `{"sequence":12,"deviceId":"door","occurredAtUnixMs":1000,"transition":{"transitionId":"open","fromStateId":"sealed","toStateId":"open"}}`,
+		},
+		{
+			name:   "fault-only reset",
+			change: FacilityChange{Sequence: 1, DeviceID: "door", Reset: &FacilityChangeReset{FromStateID: "sealed", ToStateID: "sealed", ConditionIDs: []string{"jam"}}},
+			want:   `{"sequence":1,"deviceId":"door","occurredAtUnixMs":0,"reset":{"fromStateId":"sealed","toStateId":"sealed","conditionIds":["jam"]}}`,
+		},
+		{
+			name:   "scene reset",
+			change: FacilityChange{Sequence: 2, DeviceID: "door", SceneReset: &FacilityChangeReset{FromStateID: "open", ToStateID: "sealed"}},
+			want:   `{"sequence":2,"deviceId":"door","occurredAtUnixMs":0,"sceneReset":{"fromStateId":"open","toStateId":"sealed"}}`,
+		},
+		{
+			name:   "player command",
+			change: FacilityChange{Sequence: 3, DeviceID: "door", PlayerCommand: &FacilityChangePlayerCommand{TerminalID: "t1", CommandID: "c1", TransitionID: "open", FromStateID: "sealed", ToStateID: "open"}},
+			want:   `{"sequence":3,"deviceId":"door","occurredAtUnixMs":0,"playerCommand":{"terminalId":"t1","commandId":"c1","transitionId":"open","fromStateId":"sealed","toStateId":"open"}}`,
+		},
+		{
+			name:   "player refusal",
+			change: FacilityChange{Sequence: 14, DeviceID: "door", PlayerRefusal: &FacilityChangePlayerRefusal{TerminalID: "t1", CommandID: "c1", Reason: FacilityChangeRefusalTransitionUnavailable}},
+			want:   `{"sequence":14,"deviceId":"door","occurredAtUnixMs":0,"playerRefusal":{"terminalId":"t1","commandId":"c1","reason":"transition-unavailable"}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			encoded, err := json.Marshal(tt.change)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.want, string(encoded))
+		})
+	}
+}

@@ -73,6 +73,18 @@ func (service *desktopService) ResetFacilityDevice(payload FacilityDeviceResetPa
 	return service.core.ResetFacilityDevice(payload)
 }
 
+func (service *desktopService) ApplyFacilityDeviceTransition(payload FacilityDeviceTransitionPayload) domain.FacilityOperationResult {
+	return service.core.ApplyFacilityDeviceTransition(payload)
+}
+
+func (service *desktopService) ForceFacilityDeviceState(payload FacilityDeviceForcePayload) domain.FacilityOperationResult {
+	return service.core.ForceFacilityDeviceState(payload)
+}
+
+func (service *desktopService) SetFacilityConditionActive(payload FacilityConditionActivePayload) domain.FacilityOperationResult {
+	return service.core.SetFacilityConditionActive(payload)
+}
+
 func (service *desktopService) RecoverFacilityCondition(payload FacilityRecoveryPayload) domain.FacilityOperationResult {
 	return service.core.RecoverFacilityCondition(payload)
 }

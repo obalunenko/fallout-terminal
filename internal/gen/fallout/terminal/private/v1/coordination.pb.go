@@ -291,6 +291,77 @@ func (TerminalNavigationNoticeReason) EnumDescriptor() ([]byte, []int) {
 	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{4}
 }
 
+type FacilityChangeRefusalReason int32
+
+const (
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED FacilityChangeRefusalReason = 0
+	// The Overseer rejected the request.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_DECLINED FacilityChangeRefusalReason = 1
+	// A precondition was unmet.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED FacilityChangeRefusalReason = 2
+	// The device was no longer in the transition's source state.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE FacilityChangeRefusalReason = 3
+	// An active fault blocked the capability before the request became pending.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED FacilityChangeRefusalReason = 4
+	// The facility changed meanwhile.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_STALE FacilityChangeRefusalReason = 5
+	// An Overseer play change or a scene reset superseded the request.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN FacilityChangeRefusalReason = 6
+	// Any other facility failure.
+	FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAILED FacilityChangeRefusalReason = 7
+)
+
+// Enum value maps for FacilityChangeRefusalReason.
+var (
+	FacilityChangeRefusalReason_name = map[int32]string{
+		0: "FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED",
+		1: "FACILITY_CHANGE_REFUSAL_REASON_DECLINED",
+		2: "FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED",
+		3: "FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE",
+		4: "FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED",
+		5: "FACILITY_CHANGE_REFUSAL_REASON_STALE",
+		6: "FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN",
+		7: "FACILITY_CHANGE_REFUSAL_REASON_FAILED",
+	}
+	FacilityChangeRefusalReason_value = map[string]int32{
+		"FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED":            0,
+		"FACILITY_CHANGE_REFUSAL_REASON_DECLINED":               1,
+		"FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED":    2,
+		"FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE": 3,
+		"FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED":          4,
+		"FACILITY_CHANGE_REFUSAL_REASON_STALE":                  5,
+		"FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN":              6,
+		"FACILITY_CHANGE_REFUSAL_REASON_FAILED":                 7,
+	}
+)
+
+func (x FacilityChangeRefusalReason) Enum() *FacilityChangeRefusalReason {
+	p := new(FacilityChangeRefusalReason)
+	*p = x
+	return p
+}
+
+func (x FacilityChangeRefusalReason) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FacilityChangeRefusalReason) Descriptor() protoreflect.EnumDescriptor {
+	return file_fallout_terminal_private_v1_coordination_proto_enumTypes[5].Descriptor()
+}
+
+func (FacilityChangeRefusalReason) Type() protoreflect.EnumType {
+	return &file_fallout_terminal_private_v1_coordination_proto_enumTypes[5]
+}
+
+func (x FacilityChangeRefusalReason) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FacilityChangeRefusalReason.Descriptor instead.
+func (FacilityChangeRefusalReason) EnumDescriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{5}
+}
+
 type CharacterState struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	CharacterId         string                 `protobuf:"bytes,1,opt,name=character_id,json=characterId,proto3" json:"character_id,omitempty"`
@@ -1031,6 +1102,624 @@ func (x *TerminalNavigationNotice) GetTargetTerminalId() string {
 	return ""
 }
 
+// The Overseer ran an authored transition from the play card.
+type FacilityChangeTransition struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TransitionId  string                 `protobuf:"bytes,1,opt,name=transition_id,json=transitionId,proto3" json:"transition_id,omitempty"`
+	FromStateId   string                 `protobuf:"bytes,2,opt,name=from_state_id,json=fromStateId,proto3" json:"from_state_id,omitempty"`
+	ToStateId     string                 `protobuf:"bytes,3,opt,name=to_state_id,json=toStateId,proto3" json:"to_state_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangeTransition) Reset() {
+	*x = FacilityChangeTransition{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangeTransition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangeTransition) ProtoMessage() {}
+
+func (x *FacilityChangeTransition) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangeTransition.ProtoReflect.Descriptor instead.
+func (*FacilityChangeTransition) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FacilityChangeTransition) GetTransitionId() string {
+	if x != nil {
+		return x.TransitionId
+	}
+	return ""
+}
+
+func (x *FacilityChangeTransition) GetFromStateId() string {
+	if x != nil {
+		return x.FromStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangeTransition) GetToStateId() string {
+	if x != nil {
+		return x.ToStateId
+	}
+	return ""
+}
+
+// The Overseer forced a device state.
+type FacilityChangeForced struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FromStateId   string                 `protobuf:"bytes,1,opt,name=from_state_id,json=fromStateId,proto3" json:"from_state_id,omitempty"`
+	ToStateId     string                 `protobuf:"bytes,2,opt,name=to_state_id,json=toStateId,proto3" json:"to_state_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangeForced) Reset() {
+	*x = FacilityChangeForced{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangeForced) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangeForced) ProtoMessage() {}
+
+func (x *FacilityChangeForced) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangeForced.ProtoReflect.Descriptor instead.
+func (*FacilityChangeForced) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *FacilityChangeForced) GetFromStateId() string {
+	if x != nil {
+		return x.FromStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangeForced) GetToStateId() string {
+	if x != nil {
+		return x.ToStateId
+	}
+	return ""
+}
+
+// The Overseer switched a fault scoped to the device.
+type FacilityChangeFault struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ConditionId string                 `protobuf:"bytes,1,opt,name=condition_id,json=conditionId,proto3" json:"condition_id,omitempty"`
+	// The resulting position.
+	Active        bool `protobuf:"varint,2,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangeFault) Reset() {
+	*x = FacilityChangeFault{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangeFault) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangeFault) ProtoMessage() {}
+
+func (x *FacilityChangeFault) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangeFault.ProtoReflect.Descriptor instead.
+func (*FacilityChangeFault) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *FacilityChangeFault) GetConditionId() string {
+	if x != nil {
+		return x.ConditionId
+	}
+	return ""
+}
+
+func (x *FacilityChangeFault) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+// The Overseer reset the device.
+type FacilityChangeReset struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	FromStateId string                 `protobuf:"bytes,1,opt,name=from_state_id,json=fromStateId,proto3" json:"from_state_id,omitempty"`
+	// Equals from_state_id when only faults were restored.
+	ToStateId string `protobuf:"bytes,2,opt,name=to_state_id,json=toStateId,proto3" json:"to_state_id,omitempty"`
+	// Device-scoped faults restored, sorted.
+	ConditionIds  []string `protobuf:"bytes,3,rep,name=condition_ids,json=conditionIds,proto3" json:"condition_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangeReset) Reset() {
+	*x = FacilityChangeReset{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangeReset) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangeReset) ProtoMessage() {}
+
+func (x *FacilityChangeReset) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangeReset.ProtoReflect.Descriptor instead.
+func (*FacilityChangeReset) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *FacilityChangeReset) GetFromStateId() string {
+	if x != nil {
+		return x.FromStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangeReset) GetToStateId() string {
+	if x != nil {
+		return x.ToStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangeReset) GetConditionIds() []string {
+	if x != nil {
+		return x.ConditionIds
+	}
+	return nil
+}
+
+// A scene reset changed the device.
+type FacilityChangeSceneReset struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FromStateId   string                 `protobuf:"bytes,1,opt,name=from_state_id,json=fromStateId,proto3" json:"from_state_id,omitempty"`
+	ToStateId     string                 `protobuf:"bytes,2,opt,name=to_state_id,json=toStateId,proto3" json:"to_state_id,omitempty"`
+	ConditionIds  []string               `protobuf:"bytes,3,rep,name=condition_ids,json=conditionIds,proto3" json:"condition_ids,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangeSceneReset) Reset() {
+	*x = FacilityChangeSceneReset{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangeSceneReset) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangeSceneReset) ProtoMessage() {}
+
+func (x *FacilityChangeSceneReset) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangeSceneReset.ProtoReflect.Descriptor instead.
+func (*FacilityChangeSceneReset) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *FacilityChangeSceneReset) GetFromStateId() string {
+	if x != nil {
+		return x.FromStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangeSceneReset) GetToStateId() string {
+	if x != nil {
+		return x.ToStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangeSceneReset) GetConditionIds() []string {
+	if x != nil {
+		return x.ConditionIds
+	}
+	return nil
+}
+
+// An approved player command moved the device.
+type FacilityChangePlayerCommand struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TerminalId    string                 `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	CommandId     string                 `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	TransitionId  string                 `protobuf:"bytes,3,opt,name=transition_id,json=transitionId,proto3" json:"transition_id,omitempty"`
+	FromStateId   string                 `protobuf:"bytes,4,opt,name=from_state_id,json=fromStateId,proto3" json:"from_state_id,omitempty"`
+	ToStateId     string                 `protobuf:"bytes,5,opt,name=to_state_id,json=toStateId,proto3" json:"to_state_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangePlayerCommand) Reset() {
+	*x = FacilityChangePlayerCommand{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangePlayerCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangePlayerCommand) ProtoMessage() {}
+
+func (x *FacilityChangePlayerCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangePlayerCommand.ProtoReflect.Descriptor instead.
+func (*FacilityChangePlayerCommand) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *FacilityChangePlayerCommand) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerCommand) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerCommand) GetTransitionId() string {
+	if x != nil {
+		return x.TransitionId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerCommand) GetFromStateId() string {
+	if x != nil {
+		return x.FromStateId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerCommand) GetToStateId() string {
+	if x != nil {
+		return x.ToStateId
+	}
+	return ""
+}
+
+// A player request affecting the device was not applied.
+type FacilityChangePlayerRefusal struct {
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	TerminalId    string                      `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	CommandId     string                      `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	Reason        FacilityChangeRefusalReason `protobuf:"varint,3,opt,name=reason,proto3,enum=fallout.terminal.private.v1.FacilityChangeRefusalReason" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChangePlayerRefusal) Reset() {
+	*x = FacilityChangePlayerRefusal{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChangePlayerRefusal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChangePlayerRefusal) ProtoMessage() {}
+
+func (x *FacilityChangePlayerRefusal) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChangePlayerRefusal.ProtoReflect.Descriptor instead.
+func (*FacilityChangePlayerRefusal) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *FacilityChangePlayerRefusal) GetTerminalId() string {
+	if x != nil {
+		return x.TerminalId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerRefusal) GetCommandId() string {
+	if x != nil {
+		return x.CommandId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerRefusal) GetReason() FacilityChangeRefusalReason {
+	if x != nil {
+		return x.Reason
+	}
+	return FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED
+}
+
+// One entry of a device's recent-changes feed. Entries carry IDs only.
+type FacilityChange struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Run-wide, strictly increasing, never reused in a run.
+	Sequence         uint64 `protobuf:"varint,1,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	DeviceId         string `protobuf:"bytes,2,opt,name=device_id,json=deviceId,proto3" json:"device_id,omitempty"`
+	OccurredAtUnixMs int64  `protobuf:"varint,3,opt,name=occurred_at_unix_ms,json=occurredAtUnixMs,proto3" json:"occurred_at_unix_ms,omitempty"`
+	// Types that are valid to be assigned to Change:
+	//
+	//	*FacilityChange_Transition
+	//	*FacilityChange_Forced
+	//	*FacilityChange_Fault
+	//	*FacilityChange_Reset_
+	//	*FacilityChange_SceneReset
+	//	*FacilityChange_PlayerCommand
+	//	*FacilityChange_PlayerRefusal
+	Change        isFacilityChange_Change `protobuf_oneof:"change"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FacilityChange) Reset() {
+	*x = FacilityChange{}
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FacilityChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FacilityChange) ProtoMessage() {}
+
+func (x *FacilityChange) ProtoReflect() protoreflect.Message {
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FacilityChange.ProtoReflect.Descriptor instead.
+func (*FacilityChange) Descriptor() ([]byte, []int) {
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *FacilityChange) GetSequence() uint64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+func (x *FacilityChange) GetDeviceId() string {
+	if x != nil {
+		return x.DeviceId
+	}
+	return ""
+}
+
+func (x *FacilityChange) GetOccurredAtUnixMs() int64 {
+	if x != nil {
+		return x.OccurredAtUnixMs
+	}
+	return 0
+}
+
+func (x *FacilityChange) GetChange() isFacilityChange_Change {
+	if x != nil {
+		return x.Change
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetTransition() *FacilityChangeTransition {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_Transition); ok {
+			return x.Transition
+		}
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetForced() *FacilityChangeForced {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_Forced); ok {
+			return x.Forced
+		}
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetFault() *FacilityChangeFault {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_Fault); ok {
+			return x.Fault
+		}
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetReset_() *FacilityChangeReset {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_Reset_); ok {
+			return x.Reset_
+		}
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetSceneReset() *FacilityChangeSceneReset {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_SceneReset); ok {
+			return x.SceneReset
+		}
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetPlayerCommand() *FacilityChangePlayerCommand {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_PlayerCommand); ok {
+			return x.PlayerCommand
+		}
+	}
+	return nil
+}
+
+func (x *FacilityChange) GetPlayerRefusal() *FacilityChangePlayerRefusal {
+	if x != nil {
+		if x, ok := x.Change.(*FacilityChange_PlayerRefusal); ok {
+			return x.PlayerRefusal
+		}
+	}
+	return nil
+}
+
+type isFacilityChange_Change interface {
+	isFacilityChange_Change()
+}
+
+type FacilityChange_Transition struct {
+	Transition *FacilityChangeTransition `protobuf:"bytes,4,opt,name=transition,proto3,oneof"`
+}
+
+type FacilityChange_Forced struct {
+	Forced *FacilityChangeForced `protobuf:"bytes,5,opt,name=forced,proto3,oneof"`
+}
+
+type FacilityChange_Fault struct {
+	Fault *FacilityChangeFault `protobuf:"bytes,6,opt,name=fault,proto3,oneof"`
+}
+
+type FacilityChange_Reset_ struct {
+	Reset_ *FacilityChangeReset `protobuf:"bytes,7,opt,name=reset,proto3,oneof"`
+}
+
+type FacilityChange_SceneReset struct {
+	SceneReset *FacilityChangeSceneReset `protobuf:"bytes,8,opt,name=scene_reset,json=sceneReset,proto3,oneof"`
+}
+
+type FacilityChange_PlayerCommand struct {
+	PlayerCommand *FacilityChangePlayerCommand `protobuf:"bytes,9,opt,name=player_command,json=playerCommand,proto3,oneof"`
+}
+
+type FacilityChange_PlayerRefusal struct {
+	PlayerRefusal *FacilityChangePlayerRefusal `protobuf:"bytes,10,opt,name=player_refusal,json=playerRefusal,proto3,oneof"`
+}
+
+func (*FacilityChange_Transition) isFacilityChange_Change() {}
+
+func (*FacilityChange_Forced) isFacilityChange_Change() {}
+
+func (*FacilityChange_Fault) isFacilityChange_Change() {}
+
+func (*FacilityChange_Reset_) isFacilityChange_Change() {}
+
+func (*FacilityChange_SceneReset) isFacilityChange_Change() {}
+
+func (*FacilityChange_PlayerCommand) isFacilityChange_Change() {}
+
+func (*FacilityChange_PlayerRefusal) isFacilityChange_Change() {}
+
 type CoordinationState struct {
 	state                     protoimpl.MessageState     `protogen:"open.v1"`
 	Roster                    []*CharacterState          `protobuf:"bytes,1,rep,name=roster,proto3" json:"roster,omitempty"`
@@ -1043,13 +1732,15 @@ type CoordinationState struct {
 	PendingTerminalNavigation *PendingTerminalNavigation `protobuf:"bytes,8,opt,name=pending_terminal_navigation,json=pendingTerminalNavigation,proto3,oneof" json:"pending_terminal_navigation,omitempty"`
 	TerminalNavigationNotice  *TerminalNavigationNotice  `protobuf:"bytes,9,opt,name=terminal_navigation_notice,json=terminalNavigationNotice,proto3,oneof" json:"terminal_navigation_notice,omitempty"`
 	FacilityRevision          *uint64                    `protobuf:"varint,10,opt,name=facility_revision,json=facilityRevision,proto3,oneof" json:"facility_revision,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Newest first; at most five entries per device_id, for the current run.
+	FacilityChanges []*FacilityChange `protobuf:"bytes,11,rep,name=facility_changes,json=facilityChanges,proto3" json:"facility_changes,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CoordinationState) Reset() {
 	*x = CoordinationState{}
-	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[9]
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1061,7 +1752,7 @@ func (x *CoordinationState) String() string {
 func (*CoordinationState) ProtoMessage() {}
 
 func (x *CoordinationState) ProtoReflect() protoreflect.Message {
-	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[9]
+	mi := &file_fallout_terminal_private_v1_coordination_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1074,7 +1765,7 @@ func (x *CoordinationState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoordinationState.ProtoReflect.Descriptor instead.
 func (*CoordinationState) Descriptor() ([]byte, []int) {
-	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{9}
+	return file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CoordinationState) GetRoster() []*CharacterState {
@@ -1145,6 +1836,13 @@ func (x *CoordinationState) GetFacilityRevision() uint64 {
 		return *x.FacilityRevision
 	}
 	return 0
+}
+
+func (x *CoordinationState) GetFacilityChanges() []*FacilityChange {
+	if x != nil {
+		return x.FacilityChanges
+	}
+	return nil
 }
 
 var File_fallout_terminal_private_v1_coordination_proto protoreflect.FileDescriptor
@@ -1230,7 +1928,55 @@ const file_fallout_terminal_private_v1_coordination_proto_rawDesc = "" +
 	"\n" +
 	"command_id\x18\x03 \x01(\tR\tcommandId\x121\n" +
 	"\x12target_terminal_id\x18\x04 \x01(\tH\x00R\x10targetTerminalId\x88\x01\x01B\x15\n" +
-	"\x13_target_terminal_id\"\xf3\a\n" +
+	"\x13_target_terminal_id\"\x83\x01\n" +
+	"\x18FacilityChangeTransition\x12#\n" +
+	"\rtransition_id\x18\x01 \x01(\tR\ftransitionId\x12\"\n" +
+	"\rfrom_state_id\x18\x02 \x01(\tR\vfromStateId\x12\x1e\n" +
+	"\vto_state_id\x18\x03 \x01(\tR\ttoStateId\"Z\n" +
+	"\x14FacilityChangeForced\x12\"\n" +
+	"\rfrom_state_id\x18\x01 \x01(\tR\vfromStateId\x12\x1e\n" +
+	"\vto_state_id\x18\x02 \x01(\tR\ttoStateId\"P\n" +
+	"\x13FacilityChangeFault\x12!\n" +
+	"\fcondition_id\x18\x01 \x01(\tR\vconditionId\x12\x16\n" +
+	"\x06active\x18\x02 \x01(\bR\x06active\"~\n" +
+	"\x13FacilityChangeReset\x12\"\n" +
+	"\rfrom_state_id\x18\x01 \x01(\tR\vfromStateId\x12\x1e\n" +
+	"\vto_state_id\x18\x02 \x01(\tR\ttoStateId\x12#\n" +
+	"\rcondition_ids\x18\x03 \x03(\tR\fconditionIds\"\x83\x01\n" +
+	"\x18FacilityChangeSceneReset\x12\"\n" +
+	"\rfrom_state_id\x18\x01 \x01(\tR\vfromStateId\x12\x1e\n" +
+	"\vto_state_id\x18\x02 \x01(\tR\ttoStateId\x12#\n" +
+	"\rcondition_ids\x18\x03 \x03(\tR\fconditionIds\"\xc6\x01\n" +
+	"\x1bFacilityChangePlayerCommand\x12\x1f\n" +
+	"\vterminal_id\x18\x01 \x01(\tR\n" +
+	"terminalId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x02 \x01(\tR\tcommandId\x12#\n" +
+	"\rtransition_id\x18\x03 \x01(\tR\ftransitionId\x12\"\n" +
+	"\rfrom_state_id\x18\x04 \x01(\tR\vfromStateId\x12\x1e\n" +
+	"\vto_state_id\x18\x05 \x01(\tR\ttoStateId\"\xaf\x01\n" +
+	"\x1bFacilityChangePlayerRefusal\x12\x1f\n" +
+	"\vterminal_id\x18\x01 \x01(\tR\n" +
+	"terminalId\x12\x1d\n" +
+	"\n" +
+	"command_id\x18\x02 \x01(\tR\tcommandId\x12P\n" +
+	"\x06reason\x18\x03 \x01(\x0e28.fallout.terminal.private.v1.FacilityChangeRefusalReasonR\x06reason\"\xdc\x05\n" +
+	"\x0eFacilityChange\x12\x1a\n" +
+	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12\x1b\n" +
+	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\x12-\n" +
+	"\x13occurred_at_unix_ms\x18\x03 \x01(\x03R\x10occurredAtUnixMs\x12W\n" +
+	"\n" +
+	"transition\x18\x04 \x01(\v25.fallout.terminal.private.v1.FacilityChangeTransitionH\x00R\n" +
+	"transition\x12K\n" +
+	"\x06forced\x18\x05 \x01(\v21.fallout.terminal.private.v1.FacilityChangeForcedH\x00R\x06forced\x12H\n" +
+	"\x05fault\x18\x06 \x01(\v20.fallout.terminal.private.v1.FacilityChangeFaultH\x00R\x05fault\x12H\n" +
+	"\x05reset\x18\a \x01(\v20.fallout.terminal.private.v1.FacilityChangeResetH\x00R\x05reset\x12X\n" +
+	"\vscene_reset\x18\b \x01(\v25.fallout.terminal.private.v1.FacilityChangeSceneResetH\x00R\n" +
+	"sceneReset\x12a\n" +
+	"\x0eplayer_command\x18\t \x01(\v28.fallout.terminal.private.v1.FacilityChangePlayerCommandH\x00R\rplayerCommand\x12a\n" +
+	"\x0eplayer_refusal\x18\n" +
+	" \x01(\v28.fallout.terminal.private.v1.FacilityChangePlayerRefusalH\x00R\rplayerRefusalB\b\n" +
+	"\x06change\"\xcb\b\n" +
 	"\x11CoordinationState\x12C\n" +
 	"\x06roster\x18\x01 \x03(\v2+.fallout.terminal.private.v1.CharacterStateR\x06roster\x12[\n" +
 	"\x10logical_sessions\x18\x02 \x03(\v20.fallout.terminal.private.v1.LogicalSessionStateR\x0flogicalSessions\x12I\n" +
@@ -1242,7 +1988,8 @@ const file_fallout_terminal_private_v1_coordination_proto_rawDesc = "" +
 	"\x1bpending_terminal_navigation\x18\b \x01(\v26.fallout.terminal.private.v1.PendingTerminalNavigationH\x01R\x19pendingTerminalNavigation\x88\x01\x01\x12x\n" +
 	"\x1aterminal_navigation_notice\x18\t \x01(\v25.fallout.terminal.private.v1.TerminalNavigationNoticeH\x02R\x18terminalNavigationNotice\x88\x01\x01\x120\n" +
 	"\x11facility_revision\x18\n" +
-	" \x01(\x04H\x03R\x10facilityRevision\x88\x01\x01B\x1c\n" +
+	" \x01(\x04H\x03R\x10facilityRevision\x88\x01\x01\x12V\n" +
+	"\x10facility_changes\x18\v \x03(\v2+.fallout.terminal.private.v1.FacilityChangeR\x0ffacilityChangesB\x1c\n" +
 	"\x1a_pending_command_executionB\x1e\n" +
 	"\x1c_pending_terminal_navigationB\x1d\n" +
 	"\x1b_terminal_navigation_noticeB\x14\n" +
@@ -1274,7 +2021,16 @@ const file_fallout_terminal_private_v1_coordination_proto_rawDesc = "" +
 	"0TERMINAL_NAVIGATION_NOTICE_REASON_TARGET_MISSING\x10\x01\x121\n" +
 	"-TERMINAL_NAVIGATION_NOTICE_REASON_SELF_TARGET\x10\x02\x123\n" +
 	"/TERMINAL_NAVIGATION_NOTICE_REASON_COMMAND_STALE\x10\x03\x124\n" +
-	"0TERMINAL_NAVIGATION_NOTICE_REASON_TARGET_CHANGED\x10\x04B^Z\\github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
+	"0TERMINAL_NAVIGATION_NOTICE_REASON_TARGET_CHANGED\x10\x04*\xa2\x03\n" +
+	"\x1bFacilityChangeRefusalReason\x12.\n" +
+	"*FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED\x10\x00\x12+\n" +
+	"'FACILITY_CHANGE_REFUSAL_REASON_DECLINED\x10\x01\x126\n" +
+	"2FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED\x10\x02\x129\n" +
+	"5FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE\x10\x03\x120\n" +
+	",FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED\x10\x04\x12(\n" +
+	"$FACILITY_CHANGE_REFUSAL_REASON_STALE\x10\x05\x12,\n" +
+	"(FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN\x10\x06\x12)\n" +
+	"%FACILITY_CHANGE_REFUSAL_REASON_FAILED\x10\aB^Z\\github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1;privatev1b\x06proto3"
 
 var (
 	file_fallout_terminal_private_v1_coordination_proto_rawDescOnce sync.Once
@@ -1288,47 +2044,65 @@ func file_fallout_terminal_private_v1_coordination_proto_rawDescGZIP() []byte {
 	return file_fallout_terminal_private_v1_coordination_proto_rawDescData
 }
 
-var file_fallout_terminal_private_v1_coordination_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_fallout_terminal_private_v1_coordination_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_fallout_terminal_private_v1_coordination_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_fallout_terminal_private_v1_coordination_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_fallout_terminal_private_v1_coordination_proto_goTypes = []any{
 	(TerminalSwitchStatus)(0),            // 0: fallout.terminal.private.v1.TerminalSwitchStatus
 	(TerminalSwitchChoice)(0),            // 1: fallout.terminal.private.v1.TerminalSwitchChoice
 	(CommandExecutionDecision)(0),        // 2: fallout.terminal.private.v1.CommandExecutionDecision
 	(TerminalNavigationDecision)(0),      // 3: fallout.terminal.private.v1.TerminalNavigationDecision
 	(TerminalNavigationNoticeReason)(0),  // 4: fallout.terminal.private.v1.TerminalNavigationNoticeReason
-	(*CharacterState)(nil),               // 5: fallout.terminal.private.v1.CharacterState
-	(*LogicalSessionState)(nil),          // 6: fallout.terminal.private.v1.LogicalSessionState
-	(*BroadcastState)(nil),               // 7: fallout.terminal.private.v1.BroadcastState
-	(*PendingTerminalSwitch)(nil),        // 8: fallout.terminal.private.v1.PendingTerminalSwitch
-	(*PlayerConfigMetadata)(nil),         // 9: fallout.terminal.private.v1.PlayerConfigMetadata
-	(*PendingFacilityActionSummary)(nil), // 10: fallout.terminal.private.v1.PendingFacilityActionSummary
-	(*PendingCommandExecution)(nil),      // 11: fallout.terminal.private.v1.PendingCommandExecution
-	(*PendingTerminalNavigation)(nil),    // 12: fallout.terminal.private.v1.PendingTerminalNavigation
-	(*TerminalNavigationNotice)(nil),     // 13: fallout.terminal.private.v1.TerminalNavigationNotice
-	(*CoordinationState)(nil),            // 14: fallout.terminal.private.v1.CoordinationState
-	(v1.PlayerRole)(0),                   // 15: fallout.terminal.player.v1.PlayerRole
-	(*v1.LiveTerminal)(nil),              // 16: fallout.terminal.player.v1.LiveTerminal
-	(v1.TerminalNavigationDirection)(0),  // 17: fallout.terminal.player.v1.TerminalNavigationDirection
+	(FacilityChangeRefusalReason)(0),     // 5: fallout.terminal.private.v1.FacilityChangeRefusalReason
+	(*CharacterState)(nil),               // 6: fallout.terminal.private.v1.CharacterState
+	(*LogicalSessionState)(nil),          // 7: fallout.terminal.private.v1.LogicalSessionState
+	(*BroadcastState)(nil),               // 8: fallout.terminal.private.v1.BroadcastState
+	(*PendingTerminalSwitch)(nil),        // 9: fallout.terminal.private.v1.PendingTerminalSwitch
+	(*PlayerConfigMetadata)(nil),         // 10: fallout.terminal.private.v1.PlayerConfigMetadata
+	(*PendingFacilityActionSummary)(nil), // 11: fallout.terminal.private.v1.PendingFacilityActionSummary
+	(*PendingCommandExecution)(nil),      // 12: fallout.terminal.private.v1.PendingCommandExecution
+	(*PendingTerminalNavigation)(nil),    // 13: fallout.terminal.private.v1.PendingTerminalNavigation
+	(*TerminalNavigationNotice)(nil),     // 14: fallout.terminal.private.v1.TerminalNavigationNotice
+	(*FacilityChangeTransition)(nil),     // 15: fallout.terminal.private.v1.FacilityChangeTransition
+	(*FacilityChangeForced)(nil),         // 16: fallout.terminal.private.v1.FacilityChangeForced
+	(*FacilityChangeFault)(nil),          // 17: fallout.terminal.private.v1.FacilityChangeFault
+	(*FacilityChangeReset)(nil),          // 18: fallout.terminal.private.v1.FacilityChangeReset
+	(*FacilityChangeSceneReset)(nil),     // 19: fallout.terminal.private.v1.FacilityChangeSceneReset
+	(*FacilityChangePlayerCommand)(nil),  // 20: fallout.terminal.private.v1.FacilityChangePlayerCommand
+	(*FacilityChangePlayerRefusal)(nil),  // 21: fallout.terminal.private.v1.FacilityChangePlayerRefusal
+	(*FacilityChange)(nil),               // 22: fallout.terminal.private.v1.FacilityChange
+	(*CoordinationState)(nil),            // 23: fallout.terminal.private.v1.CoordinationState
+	(v1.PlayerRole)(0),                   // 24: fallout.terminal.player.v1.PlayerRole
+	(*v1.LiveTerminal)(nil),              // 25: fallout.terminal.player.v1.LiveTerminal
+	(v1.TerminalNavigationDirection)(0),  // 26: fallout.terminal.player.v1.TerminalNavigationDirection
 }
 var file_fallout_terminal_private_v1_coordination_proto_depIdxs = []int32{
-	15, // 0: fallout.terminal.private.v1.LogicalSessionState.role:type_name -> fallout.terminal.player.v1.PlayerRole
-	16, // 1: fallout.terminal.private.v1.PendingTerminalSwitch.requested_terminal:type_name -> fallout.terminal.player.v1.LiveTerminal
-	10, // 2: fallout.terminal.private.v1.PendingCommandExecution.facility_action:type_name -> fallout.terminal.private.v1.PendingFacilityActionSummary
-	17, // 3: fallout.terminal.private.v1.PendingTerminalNavigation.direction:type_name -> fallout.terminal.player.v1.TerminalNavigationDirection
+	24, // 0: fallout.terminal.private.v1.LogicalSessionState.role:type_name -> fallout.terminal.player.v1.PlayerRole
+	25, // 1: fallout.terminal.private.v1.PendingTerminalSwitch.requested_terminal:type_name -> fallout.terminal.player.v1.LiveTerminal
+	11, // 2: fallout.terminal.private.v1.PendingCommandExecution.facility_action:type_name -> fallout.terminal.private.v1.PendingFacilityActionSummary
+	26, // 3: fallout.terminal.private.v1.PendingTerminalNavigation.direction:type_name -> fallout.terminal.player.v1.TerminalNavigationDirection
 	4,  // 4: fallout.terminal.private.v1.TerminalNavigationNotice.reason:type_name -> fallout.terminal.private.v1.TerminalNavigationNoticeReason
-	5,  // 5: fallout.terminal.private.v1.CoordinationState.roster:type_name -> fallout.terminal.private.v1.CharacterState
-	6,  // 6: fallout.terminal.private.v1.CoordinationState.logical_sessions:type_name -> fallout.terminal.private.v1.LogicalSessionState
-	7,  // 7: fallout.terminal.private.v1.CoordinationState.broadcast:type_name -> fallout.terminal.private.v1.BroadcastState
-	8,  // 8: fallout.terminal.private.v1.CoordinationState.pending_terminal_switch:type_name -> fallout.terminal.private.v1.PendingTerminalSwitch
-	9,  // 9: fallout.terminal.private.v1.CoordinationState.player_config:type_name -> fallout.terminal.private.v1.PlayerConfigMetadata
-	11, // 10: fallout.terminal.private.v1.CoordinationState.pending_command_execution:type_name -> fallout.terminal.private.v1.PendingCommandExecution
-	12, // 11: fallout.terminal.private.v1.CoordinationState.pending_terminal_navigation:type_name -> fallout.terminal.private.v1.PendingTerminalNavigation
-	13, // 12: fallout.terminal.private.v1.CoordinationState.terminal_navigation_notice:type_name -> fallout.terminal.private.v1.TerminalNavigationNotice
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	5,  // 5: fallout.terminal.private.v1.FacilityChangePlayerRefusal.reason:type_name -> fallout.terminal.private.v1.FacilityChangeRefusalReason
+	15, // 6: fallout.terminal.private.v1.FacilityChange.transition:type_name -> fallout.terminal.private.v1.FacilityChangeTransition
+	16, // 7: fallout.terminal.private.v1.FacilityChange.forced:type_name -> fallout.terminal.private.v1.FacilityChangeForced
+	17, // 8: fallout.terminal.private.v1.FacilityChange.fault:type_name -> fallout.terminal.private.v1.FacilityChangeFault
+	18, // 9: fallout.terminal.private.v1.FacilityChange.reset:type_name -> fallout.terminal.private.v1.FacilityChangeReset
+	19, // 10: fallout.terminal.private.v1.FacilityChange.scene_reset:type_name -> fallout.terminal.private.v1.FacilityChangeSceneReset
+	20, // 11: fallout.terminal.private.v1.FacilityChange.player_command:type_name -> fallout.terminal.private.v1.FacilityChangePlayerCommand
+	21, // 12: fallout.terminal.private.v1.FacilityChange.player_refusal:type_name -> fallout.terminal.private.v1.FacilityChangePlayerRefusal
+	6,  // 13: fallout.terminal.private.v1.CoordinationState.roster:type_name -> fallout.terminal.private.v1.CharacterState
+	7,  // 14: fallout.terminal.private.v1.CoordinationState.logical_sessions:type_name -> fallout.terminal.private.v1.LogicalSessionState
+	8,  // 15: fallout.terminal.private.v1.CoordinationState.broadcast:type_name -> fallout.terminal.private.v1.BroadcastState
+	9,  // 16: fallout.terminal.private.v1.CoordinationState.pending_terminal_switch:type_name -> fallout.terminal.private.v1.PendingTerminalSwitch
+	10, // 17: fallout.terminal.private.v1.CoordinationState.player_config:type_name -> fallout.terminal.private.v1.PlayerConfigMetadata
+	12, // 18: fallout.terminal.private.v1.CoordinationState.pending_command_execution:type_name -> fallout.terminal.private.v1.PendingCommandExecution
+	13, // 19: fallout.terminal.private.v1.CoordinationState.pending_terminal_navigation:type_name -> fallout.terminal.private.v1.PendingTerminalNavigation
+	14, // 20: fallout.terminal.private.v1.CoordinationState.terminal_navigation_notice:type_name -> fallout.terminal.private.v1.TerminalNavigationNotice
+	22, // 21: fallout.terminal.private.v1.CoordinationState.facility_changes:type_name -> fallout.terminal.private.v1.FacilityChange
+	22, // [22:22] is the sub-list for method output_type
+	22, // [22:22] is the sub-list for method input_type
+	22, // [22:22] is the sub-list for extension type_name
+	22, // [22:22] is the sub-list for extension extendee
+	0,  // [0:22] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_private_v1_coordination_proto_init() }
@@ -1343,14 +2117,23 @@ func file_fallout_terminal_private_v1_coordination_proto_init() {
 	file_fallout_terminal_private_v1_coordination_proto_msgTypes[5].OneofWrappers = []any{}
 	file_fallout_terminal_private_v1_coordination_proto_msgTypes[6].OneofWrappers = []any{}
 	file_fallout_terminal_private_v1_coordination_proto_msgTypes[8].OneofWrappers = []any{}
-	file_fallout_terminal_private_v1_coordination_proto_msgTypes[9].OneofWrappers = []any{}
+	file_fallout_terminal_private_v1_coordination_proto_msgTypes[16].OneofWrappers = []any{
+		(*FacilityChange_Transition)(nil),
+		(*FacilityChange_Forced)(nil),
+		(*FacilityChange_Fault)(nil),
+		(*FacilityChange_Reset_)(nil),
+		(*FacilityChange_SceneReset)(nil),
+		(*FacilityChange_PlayerCommand)(nil),
+		(*FacilityChange_PlayerRefusal)(nil),
+	}
+	file_fallout_terminal_private_v1_coordination_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_fallout_terminal_private_v1_coordination_proto_rawDesc), len(file_fallout_terminal_private_v1_coordination_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   10,
+			NumEnums:      6,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

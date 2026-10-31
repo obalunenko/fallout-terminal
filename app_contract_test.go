@@ -290,6 +290,117 @@ func TestPrivateFacilityOperationDescriptorsAreTypedAndAdditive(t *testing.T) {
 	require.Nil(t, playerv1.File_fallout_terminal_player_v1_terminal_proto.Messages().ByName("FacilityOperationResult"))
 }
 
+func TestPrivateFacilityPlayDescriptorsAreTypedAndAdditive(t *testing.T) {
+	t.Parallel()
+
+	desktop := privatev1.File_fallout_terminal_private_v1_desktop_proto
+	assertDescriptorFields(t, desktop, "ResetFacilityDeviceRequest", map[protoreflect.Name]protoreflect.FieldNumber{
+		"device_id":                  1,
+		"expected_facility_revision": 2,
+		"correlation_id":             3,
+	})
+	assertDescriptorFields(t, desktop, "ApplyFacilityDeviceTransitionRequest", map[protoreflect.Name]protoreflect.FieldNumber{
+		"device_id":                  1,
+		"transition_id":              2,
+		"expected_facility_revision": 3,
+		"correlation_id":             4,
+	})
+	assertDescriptorFields(t, desktop, "ForceFacilityDeviceStateRequest", map[protoreflect.Name]protoreflect.FieldNumber{
+		"device_id":                  1,
+		"state_id":                   2,
+		"expected_facility_revision": 3,
+		"correlation_id":             4,
+	})
+	assertDescriptorFields(t, desktop, "SetFacilityConditionActiveRequest", map[protoreflect.Name]protoreflect.FieldNumber{
+		"condition_id":               1,
+		"active":                     2,
+		"expected_facility_revision": 3,
+		"correlation_id":             4,
+	})
+	assertAdditiveDescriptorField(t, desktop.Messages().ByName("SetFacilityConditionActiveRequest"), "active", 2, protoreflect.BoolKind, false, false)
+
+	coordination := privatev1.File_fallout_terminal_private_v1_coordination_proto
+	assertAdditiveDescriptorField(t, coordination.Messages().ByName("CoordinationState"), "facility_changes", 11, protoreflect.MessageKind, true, false)
+	assertDescriptorFields(t, coordination, "FacilityChange", map[protoreflect.Name]protoreflect.FieldNumber{
+		"sequence":            1,
+		"device_id":           2,
+		"occurred_at_unix_ms": 3,
+		"transition":          4,
+		"forced":              5,
+		"fault":               6,
+		"reset":               7,
+		"scene_reset":         8,
+		"player_command":      9,
+		"player_refusal":      10,
+	})
+	change := coordination.Messages().ByName("FacilityChange")
+	assertAdditiveDescriptorField(t, change, "sequence", 1, protoreflect.Uint64Kind, false, false)
+	assertAdditiveDescriptorField(t, change, "occurred_at_unix_ms", 3, protoreflect.Int64Kind, false, false)
+	variants := change.Oneofs().ByName("change")
+	require.NotNil(t, variants, "FacilityChange must keep its variants in one oneof")
+	variantNames := make([]string, 0, variants.Fields().Len())
+	for index := range variants.Fields().Len() {
+		variantNames = append(variantNames, string(variants.Fields().Get(index).Name()))
+	}
+	require.Equal(t, []string{
+		"transition", "forced", "fault", "reset", "scene_reset", "player_command", "player_refusal",
+	}, variantNames)
+
+	assertDescriptorFields(t, coordination, "FacilityChangeTransition", map[protoreflect.Name]protoreflect.FieldNumber{
+		"transition_id": 1,
+		"from_state_id": 2,
+		"to_state_id":   3,
+	})
+	assertDescriptorFields(t, coordination, "FacilityChangeForced", map[protoreflect.Name]protoreflect.FieldNumber{
+		"from_state_id": 1,
+		"to_state_id":   2,
+	})
+	assertDescriptorFields(t, coordination, "FacilityChangeFault", map[protoreflect.Name]protoreflect.FieldNumber{
+		"condition_id": 1,
+		"active":       2,
+	})
+	for _, name := range []protoreflect.Name{"FacilityChangeReset", "FacilityChangeSceneReset"} {
+		assertDescriptorFields(t, coordination, name, map[protoreflect.Name]protoreflect.FieldNumber{
+			"from_state_id": 1,
+			"to_state_id":   2,
+			"condition_ids": 3,
+		})
+		assertAdditiveDescriptorField(t, coordination.Messages().ByName(name), "condition_ids", 3, protoreflect.StringKind, true, false)
+	}
+	assertDescriptorFields(t, coordination, "FacilityChangePlayerCommand", map[protoreflect.Name]protoreflect.FieldNumber{
+		"terminal_id":   1,
+		"command_id":    2,
+		"transition_id": 3,
+		"from_state_id": 4,
+		"to_state_id":   5,
+	})
+	assertDescriptorFields(t, coordination, "FacilityChangePlayerRefusal", map[protoreflect.Name]protoreflect.FieldNumber{
+		"terminal_id": 1,
+		"command_id":  2,
+		"reason":      3,
+	})
+	assertAdditiveDescriptorField(t, coordination.Messages().ByName("FacilityChangePlayerRefusal"), "reason", 3, protoreflect.EnumKind, false, false)
+	assertDescriptorEnum(t, coordination, "FacilityChangeRefusalReason", []string{
+		"FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED",
+		"FACILITY_CHANGE_REFUSAL_REASON_DECLINED",
+		"FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED",
+		"FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE",
+		"FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED",
+		"FACILITY_CHANGE_REFUSAL_REASON_STALE",
+		"FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN",
+		"FACILITY_CHANGE_REFUSAL_REASON_FAILED",
+	})
+
+	public := playerv1.File_fallout_terminal_player_v1_terminal_proto
+	for _, name := range []protoreflect.Name{
+		"FacilityChange", "ApplyFacilityDeviceTransitionRequest", "ForceFacilityDeviceStateRequest",
+		"SetFacilityConditionActiveRequest",
+	} {
+		require.Nil(t, public.Messages().ByName(name), "%s must stay private", name)
+	}
+	require.Nil(t, public.Enums().ByName("FacilityChangeRefusalReason"))
+}
+
 func TestPrivateFacilityAuthoringAndDependencyDescriptorsAreTyped(t *testing.T) {
 	t.Parallel()
 
@@ -438,6 +549,165 @@ func TestAuthoringSaveAdaptersRoundTripCandidateRevisionsAndResetCommands(t *tes
 	}, scene)
 	require.Equal(t, PresentationPayload{ExpectedAuthoringRevision: 7},
 		routePresentationRequest(PresentationPayload{ExpectedAuthoringRevision: 7}))
+}
+
+func TestFacilityPlayRequestAdaptersRoundTripEveryField(t *testing.T) {
+	t.Parallel()
+
+	t.Run("transition", func(t *testing.T) {
+		t.Parallel()
+		request := controlservice.FacilityDeviceTransitionRequest{
+			DeviceID: "vault-door-main", TransitionID: "open", ExpectedFacilityRevision: 9, CorrelationID: "play-transition-9",
+		}
+		semantic := facilityDeviceTransitionRequestToPrivate(request)
+		require.Empty(t, cmp.Diff(&privatev1.ApplyFacilityDeviceTransitionRequest{
+			DeviceId: "vault-door-main", TransitionId: "open", ExpectedFacilityRevision: 9, CorrelationId: "play-transition-9",
+		}, semantic, protocmp.Transform()))
+		require.Equal(t, request, facilityDeviceTransitionRequestFromPrivate(privateWireCopy(t, semantic)))
+		require.Zero(t, facilityDeviceTransitionRequestFromPrivate(nil))
+	})
+
+	t.Run("force", func(t *testing.T) {
+		t.Parallel()
+		request := controlservice.FacilityDeviceForceRequest{
+			DeviceID: "reactor-main", StateID: "critical-overheat", ExpectedFacilityRevision: 10, CorrelationID: "play-force-10",
+		}
+		semantic := facilityDeviceForceRequestToPrivate(request)
+		require.Empty(t, cmp.Diff(&privatev1.ForceFacilityDeviceStateRequest{
+			DeviceId: "reactor-main", StateId: "critical-overheat", ExpectedFacilityRevision: 10, CorrelationId: "play-force-10",
+		}, semantic, protocmp.Transform()))
+		require.Equal(t, request, facilityDeviceForceRequestFromPrivate(privateWireCopy(t, semantic)))
+		require.Zero(t, facilityDeviceForceRequestFromPrivate(nil))
+	})
+
+	for _, test := range []struct {
+		name   string
+		active bool
+	}{{name: "fault on", active: true}, {name: "fault off", active: false}} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := controlservice.FacilityConditionActiveRequest{
+				ConditionID: "door-controller-fault", Active: test.active, ExpectedFacilityRevision: 11, CorrelationID: "play-fault-11",
+			}
+			semantic := facilityConditionActiveRequestToPrivate(request)
+			require.Empty(t, cmp.Diff(&privatev1.SetFacilityConditionActiveRequest{
+				ConditionId: "door-controller-fault", Active: test.active, ExpectedFacilityRevision: 11, CorrelationId: "play-fault-11",
+			}, semantic, protocmp.Transform()))
+			require.Equal(t, request, facilityConditionActiveRequestFromPrivate(privateWireCopy(t, semantic)))
+		})
+	}
+	require.Zero(t, facilityConditionActiveRequestFromPrivate(nil))
+}
+
+func TestCoordinationStateRoundTripKeepsEveryFacilityChangeVariantAndReason(t *testing.T) {
+	t.Parallel()
+
+	const at = int64(1793390820000)
+	changes := []domain.FacilityChange{
+		{Sequence: 40, DeviceID: "vault-door-main", OccurredAtUnixMs: at, Transition: &domain.FacilityChangeTransition{
+			TransitionID: "open", FromStateID: "sealed", ToStateID: "open",
+		}},
+		{Sequence: 39, DeviceID: "reactor-main", OccurredAtUnixMs: at - 1, Forced: &domain.FacilityChangeForced{
+			FromStateID: "standby", ToStateID: "critical-overheat",
+		}},
+		{Sequence: 38, DeviceID: "vault-door-main", OccurredAtUnixMs: at - 2, Fault: &domain.FacilityChangeFault{
+			ConditionID: "door-controller-fault", Active: true,
+		}},
+		{Sequence: 37, DeviceID: "vault-door-main", OccurredAtUnixMs: at - 3, Fault: &domain.FacilityChangeFault{
+			ConditionID: "door-controller-fault", Active: false,
+		}},
+		{Sequence: 36, DeviceID: "vault-door-main", OccurredAtUnixMs: at - 4, Reset: &domain.FacilityChangeReset{
+			FromStateID: "open", ToStateID: "sealed", ConditionIDs: []string{"door-alarm", "door-controller-fault"},
+		}},
+		{Sequence: 35, DeviceID: "ventilation", OccurredAtUnixMs: at - 5, Reset: &domain.FacilityChangeReset{
+			FromStateID: "contaminated", ToStateID: "contaminated", ConditionIDs: []string{"vent-filter"},
+		}},
+		{Sequence: 34, DeviceID: "vault-door-main", OccurredAtUnixMs: at - 6, SceneReset: &domain.FacilityChangeReset{
+			FromStateID: "open", ToStateID: "sealed", ConditionIDs: []string{"door-alarm"},
+		}},
+		{Sequence: 33, DeviceID: "power-grid", OccurredAtUnixMs: at - 7, SceneReset: &domain.FacilityChangeReset{
+			FromStateID: "offline", ToStateID: "online",
+		}},
+		{Sequence: 32, DeviceID: "vault-door-main", OccurredAtUnixMs: at - 8, PlayerCommand: &domain.FacilityChangePlayerCommand{
+			TerminalID: "t_demo", CommandID: "open-exit", TransitionID: "open", FromStateID: "sealed", ToStateID: "open",
+		}},
+	}
+	reasons := []struct {
+		native   domain.FacilityChangeRefusalReason
+		semantic privatev1.FacilityChangeRefusalReason
+	}{
+		{domain.FacilityChangeRefusalDeclined, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_DECLINED},
+		{domain.FacilityChangeRefusalPreconditionFailed, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_PRECONDITION_FAILED},
+		{domain.FacilityChangeRefusalTransitionUnavailable, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_TRANSITION_UNAVAILABLE},
+		{domain.FacilityChangeRefusalFaultBlocked, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAULT_BLOCKED},
+		{domain.FacilityChangeRefusalStale, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_STALE},
+		{domain.FacilityChangeRefusalWithdrawn, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_WITHDRAWN},
+		{domain.FacilityChangeRefusalFailed, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_FAILED},
+		{domain.FacilityChangeRefusalUnspecified, privatev1.FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED},
+	}
+	refusalStart := len(changes)
+	for index, reason := range reasons {
+		changes = append(changes, domain.FacilityChange{
+			Sequence: uint64(31 - index), DeviceID: "vault-door-main", OccurredAtUnixMs: at - int64(9+index),
+			PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+				TerminalID: "t_demo", CommandID: "open-exit", Reason: reason.native,
+			},
+		})
+	}
+	state := &domain.MasterCoordinationState{Revision: 51, FacilityRevision: new(uint64(9)), FacilityChanges: changes}
+
+	semantic := coordinationStateToPrivate(state)
+	require.Len(t, semantic.GetFacilityChanges(), len(changes))
+	wantVariants := []any{
+		&privatev1.FacilityChange_Transition{}, &privatev1.FacilityChange_Forced{},
+		&privatev1.FacilityChange_Fault{}, &privatev1.FacilityChange_Fault{},
+		&privatev1.FacilityChange_Reset_{}, &privatev1.FacilityChange_Reset_{},
+		&privatev1.FacilityChange_SceneReset{}, &privatev1.FacilityChange_SceneReset{},
+		&privatev1.FacilityChange_PlayerCommand{},
+	}
+	for index, want := range wantVariants {
+		require.IsType(t, want, semantic.GetFacilityChanges()[index].GetChange(), "entry %d variant", index)
+	}
+	require.Empty(t, cmp.Diff(&privatev1.FacilityChange{
+		Sequence: 32, DeviceId: "vault-door-main", OccurredAtUnixMs: at - 8,
+		Change: &privatev1.FacilityChange_PlayerCommand{PlayerCommand: &privatev1.FacilityChangePlayerCommand{
+			TerminalId: "t_demo", CommandId: "open-exit", TransitionId: "open", FromStateId: "sealed", ToStateId: "open",
+		}},
+	}, semantic.GetFacilityChanges()[refusalStart-1], protocmp.Transform()))
+	for index, reason := range reasons {
+		entry := semantic.GetFacilityChanges()[refusalStart+index]
+		require.IsType(t, &privatev1.FacilityChange_PlayerRefusal{}, entry.GetChange())
+		require.Equal(t, reason.semantic, entry.GetPlayerRefusal().GetReason(), "reason %q", reason.native)
+	}
+
+	require.Empty(t, cmp.Diff(state, coordinationStateFromPrivate(privateWireCopy(t, semantic))))
+	require.Empty(t, cmp.Diff(state, routeCoordinationEvent(state)))
+
+	routed := coordinationStateFromPrivate(semantic)
+	semantic.GetFacilityChanges()[4].GetReset_().ConditionIds[0] = "mutated"
+	require.Equal(t, "door-alarm", state.FacilityChanges[4].Reset.ConditionIDs[0], "projection must detach the source")
+	require.Equal(t, "door-alarm", routed.FacilityChanges[4].Reset.ConditionIDs[0], "routing must detach the projection")
+
+	unknown := routeCoordinationEvent(&domain.MasterCoordinationState{Revision: 52, FacilityChanges: []domain.FacilityChange{{
+		Sequence: 41, DeviceID: "vault-door-main", OccurredAtUnixMs: at,
+		PlayerRefusal: &domain.FacilityChangePlayerRefusal{TerminalID: "t_demo", CommandID: "open-exit", Reason: "bogus"},
+	}}})
+	require.Len(t, unknown.FacilityChanges, 1)
+	require.Equal(t, domain.FacilityChangeRefusalUnspecified, unknown.FacilityChanges[0].PlayerRefusal.Reason)
+
+	empty := routeCoordinationEvent(&domain.MasterCoordinationState{Revision: 53})
+	require.Nil(t, empty.FacilityChanges, "an empty feed must stay omitted")
+}
+
+// privateWireCopy marshals message and decodes it into a new message of the
+// same type, so a round trip exercises the wire field numbers.
+func privateWireCopy[M proto.Message](t *testing.T, message M) M {
+	t.Helper()
+	wire, err := proto.Marshal(message)
+	require.NoError(t, err)
+	decoded := message.ProtoReflect().New().Interface().(M)
+	require.NoError(t, proto.Unmarshal(wire, decoded))
+	return decoded
 }
 
 func TestPresentationResultAdaptersRoundTripEveryRuleKindConditionAndValue(t *testing.T) {
@@ -1101,7 +1371,18 @@ func TestPrivateDescriptorFieldsAndEnumsHaveExplicitAdapterCoverage(t *testing.T
 		{&privatev1.PendingTerminalNavigation{}, []string{"request_id", "broadcast_id", "direction", "source_terminal_id", "source_terminal_name", "command_id", "command_name", "target_terminal_id", "target_terminal_name", "route_depth"}},
 		{&privatev1.TerminalNavigationNotice{}, []string{"reason", "source_terminal_id", "command_id", "target_terminal_id"}},
 		{&privatev1.PlayerConfigMetadata{}, []string{"status", "file_path", "version", "name"}},
-		{&privatev1.CoordinationState{}, []string{"roster", "logical_sessions", "broadcast", "pending_terminal_switch", "revision", "player_config", "pending_command_execution", "pending_terminal_navigation", "terminal_navigation_notice", "facility_revision"}},
+		{&privatev1.CoordinationState{}, []string{"roster", "logical_sessions", "broadcast", "pending_terminal_switch", "revision", "player_config", "pending_command_execution", "pending_terminal_navigation", "terminal_navigation_notice", "facility_revision", "facility_changes"}},
+		{&privatev1.ApplyFacilityDeviceTransitionRequest{}, []string{"device_id", "transition_id", "expected_facility_revision", "correlation_id"}},
+		{&privatev1.ForceFacilityDeviceStateRequest{}, []string{"device_id", "state_id", "expected_facility_revision", "correlation_id"}},
+		{&privatev1.SetFacilityConditionActiveRequest{}, []string{"condition_id", "active", "expected_facility_revision", "correlation_id"}},
+		{&privatev1.FacilityChange{}, []string{"sequence", "device_id", "occurred_at_unix_ms", "transition", "forced", "fault", "reset", "scene_reset", "player_command", "player_refusal"}},
+		{&privatev1.FacilityChangeTransition{}, []string{"transition_id", "from_state_id", "to_state_id"}},
+		{&privatev1.FacilityChangeForced{}, []string{"from_state_id", "to_state_id"}},
+		{&privatev1.FacilityChangeFault{}, []string{"condition_id", "active"}},
+		{&privatev1.FacilityChangeReset{}, []string{"from_state_id", "to_state_id", "condition_ids"}},
+		{&privatev1.FacilityChangeSceneReset{}, []string{"from_state_id", "to_state_id", "condition_ids"}},
+		{&privatev1.FacilityChangePlayerCommand{}, []string{"terminal_id", "command_id", "transition_id", "from_state_id", "to_state_id"}},
+		{&privatev1.FacilityChangePlayerRefusal{}, []string{"terminal_id", "command_id", "reason"}},
 	}
 	for _, test := range coverage {
 		descriptor := test.message.ProtoReflect().Descriptor()
@@ -1453,6 +1734,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 	requiredMethods := []string{
 		"GetRuntimeStatus", "GetApplicationUpdateStatus", "ResolveApplicationUpdateOffer", "ResolveApplicationUpdateRestart", "NewSession", "OpenSession", "CopyDemo", "ReplaceTerminalGroups", "LoadReferencedPlayerConfig", "NewPlayerConfig", "OpenPlayerConfig",
 		"InspectFacilityDependencies", "PreviewFacility", "ResetFacilityDevice", "RecoverFacilityCondition",
+		"ApplyFacilityDeviceTransition", "ForceFacilityDeviceState", "SetFacilityConditionActive",
 		"SaveAuthoring", "ResetScene", "DescribePresentation",
 		"RequestTerminalActivation", "RequestTerminalClear", "ResolveTerminalSwitch", "ResolveCommandExecution", "ResolveTerminalNavigation", "ForceHackSuccess", "ResetFailedHack", "ResetCommandState",
 		"AddCharacter", "UpdateCharacter", "DeleteCharacter", "RenameLogicalSession", "AssignCharacter", "ReleaseCharacter", "MoveCharacter", "SetActiveController",
@@ -1463,7 +1745,7 @@ func TestDesktopServiceInventoryAndNativeEventsAreExactlyAllowlisted(t *testing.
 	for method := range serviceType.Methods() {
 		actualMethods = append(actualMethods, method.Name)
 	}
-	require.Len(t, actualMethods, 44)
+	require.Len(t, actualMethods, 47)
 	require.ElementsMatch(t, requiredMethods, actualMethods)
 
 	for _, forbidden := range []string{
@@ -1507,7 +1789,7 @@ func TestDesktopServiceMethodsAreTransparentCoreForwards(t *testing.T) {
 		forwarded[method.Name.Name] = selector.Sel.Name
 	}
 
-	require.Len(t, forwarded, 44)
+	require.Len(t, forwarded, 47)
 	for exposed, core := range forwarded {
 		require.Equal(t, exposed, core, "%s must not translate into an authored capability", exposed)
 	}

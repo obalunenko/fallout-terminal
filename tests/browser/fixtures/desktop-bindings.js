@@ -1254,6 +1254,15 @@ export const RecoverFacilityCondition = payload => facilityOperationFixture(
 export const ResetFacilityDevice = payload => facilityOperationFixture(
   'ResetFacilityDevice', payload, [payload?.deviceId ?? ''], [],
 );
+export const ApplyFacilityDeviceTransition = payload => facilityOperationFixture(
+  'ApplyFacilityDeviceTransition', payload, [payload?.deviceId ?? ''], [],
+);
+export const ForceFacilityDeviceState = payload => facilityOperationFixture(
+  'ForceFacilityDeviceState', payload, [payload?.deviceId ?? ''], [],
+);
+export const SetFacilityConditionActive = payload => facilityOperationFixture(
+  'SetFacilityConditionActive', payload, [], [payload?.conditionId ?? ''],
+);
 export const RequestTerminalActivation = (...args) => terminalAction('RequestTerminalActivation', args);
 export const RequestTerminalClear = (...args) => terminalAction('RequestTerminalClear', args);
 export const ResetFailedHack = (...args) => record('ResetFailedHack', args);

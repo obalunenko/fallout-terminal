@@ -3307,6 +3307,528 @@ func TestReplaceFacilityInvalidatesPendingApprovalAndStaleTerminalProjections(t 
 		"first activation after replacement must hydrate from the replacement's current values")
 }
 
+func TestPlayerCommandFeedRecordsEachMovedDevice(t *testing.T) {
+	t.Parallel()
+
+	clock := &serviceFeedClock{next: time.UnixMilli(serviceFeedTime), step: time.Second}
+	fixture := newServiceFeedFixture(t, clock.Now)
+	prepareMultiDeviceFacilityAuditFixture(t, &fixture)
+	requestID := serviceFeedPendingRequest(t, fixture, "feed-approved-command")
+	require.Empty(t, fixture.service.Snapshot().FacilityChanges, "a pending request is not a change")
+	base := serviceFeedSequence(t, fixture.service)
+	effectsBefore := fixture.effects.Calls()
+	start := clock.Peek()
+
+	state, _, result, err := fixture.service.ResolveCommandExecution(
+		t.Context(), requestID, domain.CommandExecutionApprove,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.True(t, result.OK)
+
+	feed := fixture.service.Snapshot().FacilityChanges
+	require.Len(t, feed, 2)
+	at := feed[0].OccurredAtUnixMs
+	require.GreaterOrEqual(t, at, start.UnixMilli(), "the entry time must be read during the approval")
+	require.Less(t, at, clock.Peek().UnixMilli(), "the entry time must come from Config.Now")
+	want := []domain.FacilityChange{
+		{
+			Sequence: base + 2, DeviceID: "vent", OccurredAtUnixMs: at,
+			PlayerCommand: &domain.FacilityChangePlayerCommand{
+				TerminalID: fixture.terminalID, CommandID: fixture.commandID,
+				TransitionID: "start", FromStateID: "idle", ToStateID: "running",
+			},
+		},
+		{
+			Sequence: base + 1, DeviceID: "door", OccurredAtUnixMs: at,
+			PlayerCommand: &domain.FacilityChangePlayerCommand{
+				TerminalID: fixture.terminalID, CommandID: fixture.commandID,
+				TransitionID: "open", FromStateID: "sealed", ToStateID: "open",
+			},
+		},
+	}
+	require.Empty(t, cmp.Diff(want, feed), "one entry per moved device, appended in device ID order and shown newest first")
+	require.Empty(t, cmp.Diff(want, state.FacilityChanges))
+	require.Empty(t, cmp.Diff(want, serviceFeedPublished(t, fixture.effects.Values()[effectsBefore:])))
+	require.Equal(t, base+2, serviceFeedSequence(t, fixture.service))
+}
+
+func TestPlayerCommandFeedRecordsRefusalReasons(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		// prepare runs before the player sends the command.
+		prepare func(*testing.T, *facilityCommandFixture)
+		// decision resolves the pending request; empty means the request is
+		// refused before it becomes pending.
+		decision domain.CommandExecutionDecision
+		// beforeDecision runs while the request is pending.
+		beforeDecision func(*testing.T, *facilityCommandFixture)
+		reason         domain.FacilityChangeRefusalReason
+		devices        []string
+	}{
+		{
+			name:     "declined",
+			decision: domain.CommandExecutionReject,
+			reason:   domain.FacilityChangeRefusalDeclined,
+			devices:  []string{"door"},
+		},
+		{
+			name:     "declined for every authored device",
+			prepare:  prepareMultiDeviceFacilityAuditFixture,
+			decision: domain.CommandExecutionReject,
+			reason:   domain.FacilityChangeRefusalDeclined,
+			devices:  []string{"door", "vent"},
+		},
+		{
+			name:     "precondition failed at approval",
+			prepare:  serviceFeedStoreFailure(domain.FacilityFailurePreconditionFailed),
+			decision: domain.CommandExecutionApprove,
+			reason:   domain.FacilityChangeRefusalPreconditionFailed,
+			devices:  []string{"door"},
+		},
+		{
+			name:     "transition unavailable at approval",
+			prepare:  serviceFeedStoreFailure(domain.FacilityFailureInvalidTransition),
+			decision: domain.CommandExecutionApprove,
+			reason:   domain.FacilityChangeRefusalTransitionUnavailable,
+			devices:  []string{"door"},
+		},
+		{
+			name:     "persistence failed at approval",
+			prepare:  serviceFeedStoreFailure(domain.FacilityFailurePersistenceFailed),
+			decision: domain.CommandExecutionApprove,
+			reason:   domain.FacilityChangeRefusalFailed,
+			devices:  []string{"door"},
+		},
+		{
+			name: "unverifiable durable result",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				fixture.store.result = domain.FacilityOperationResult{
+					OK: true, Changed: true,
+					PreviousFacilityRevision:  fixture.initialFacility.Revision,
+					ResultingFacilityRevision: fixture.initialFacility.Revision + 1,
+					AffectedDeviceIDs:         []string{"door"},
+					AffectedConditionIDs:      []string{"door-alarm"},
+				}
+			},
+			decision: domain.CommandExecutionApprove,
+			reason:   domain.FacilityChangeRefusalFailed,
+			devices:  []string{"door"},
+		},
+		{
+			name:     "stale at approval",
+			decision: domain.CommandExecutionApprove,
+			beforeDecision: func(_ *testing.T, fixture *facilityCommandFixture) {
+				fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+					runtime.Facility.Revision++
+					return transition{accepted: true}
+				})
+			},
+			reason:  domain.FacilityChangeRefusalStale,
+			devices: []string{"door"},
+		},
+		{
+			name:     "authored action changed before approval",
+			decision: domain.CommandExecutionApprove,
+			beforeDecision: func(_ *testing.T, fixture *facilityCommandFixture) {
+				serviceFeedAuthoredTransitions(fixture, domain.FacilityTransitionRequest{
+					DeviceID: "door", TransitionID: "changed",
+				})
+			},
+			reason:  domain.FacilityChangeRefusalFailed,
+			devices: []string{"door"},
+		},
+		{
+			name: "command blocked by an active fault",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				addActiveTerminalCapabilityBlock(fixture.service, fixture.terminalID, domain.FacilityCapabilityExecuteCommand)
+			},
+			reason:  domain.FacilityChangeRefusalFaultBlocked,
+			devices: []string{"door"},
+		},
+		{
+			name: "recovery program blocked by an active fault",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				programID := "secure-vault"
+				fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+					runtime.Facility.RecoveryPrograms = []domain.RecoveryProgram{{
+						ID: programID, Name: "Secure vault",
+						Transitions: []domain.FacilityTransitionRequest{{DeviceID: "door", TransitionID: "open"}},
+					}}
+					facilityCommand(runtime, fixture.terminalID, fixture.commandID).StateChange.FacilityAction =
+						&domain.FacilityActionConfig{RecoveryProgramID: &programID}
+					return transition{accepted: true}
+				})
+				addActiveTerminalCapabilityBlock(fixture.service, fixture.terminalID, domain.FacilityCapabilityRunRecoveryProgram)
+			},
+			reason:  domain.FacilityChangeRefusalFaultBlocked,
+			devices: []string{"door"},
+		},
+		{
+			name: "authored transition missing at request",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				serviceFeedAuthoredTransitions(fixture, domain.FacilityTransitionRequest{
+					DeviceID: "door", TransitionID: "missing",
+				})
+			},
+			reason:  domain.FacilityChangeRefusalTransitionUnavailable,
+			devices: []string{"door"},
+		},
+		{
+			name: "missing device at request feeds only existing devices",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				serviceFeedAuthoredTransitions(fixture,
+					domain.FacilityTransitionRequest{DeviceID: "door", TransitionID: "open"},
+					domain.FacilityTransitionRequest{DeviceID: "ghost", TransitionID: "start"},
+				)
+			},
+			reason:  domain.FacilityChangeRefusalFailed,
+			devices: []string{"door"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newServiceFeedFixture(t, serviceFeedFixedClock(serviceFeedTime))
+			if test.prepare != nil {
+				test.prepare(t, &fixture)
+			}
+			base := serviceFeedSequence(t, fixture.service)
+			effectsBefore := fixture.effects.Calls()
+			want := serviceFeedRefusals(fixture, base, serviceFeedTime, test.reason, test.devices...)
+
+			selected := fixture.service.DispatchPlayerAction(
+				fixture.controllerConnection, fixture.command(domain.RequestID("feed-"+strings.ReplaceAll(test.name, " ", "-"))),
+			)
+			if test.decision == "" {
+				require.False(t, selected.Accepted)
+				require.Nil(t, fixture.service.Snapshot().PendingCommandExecution)
+			} else {
+				require.True(t, selected.Accepted)
+				pending := fixture.service.Snapshot().PendingCommandExecution
+				require.NotNil(t, pending)
+				require.Empty(t, fixture.service.Snapshot().FacilityChanges, "a pending request is not a change")
+				if test.beforeDecision != nil {
+					test.beforeDecision(t, &fixture)
+				}
+				effectsBefore = fixture.effects.Calls()
+
+				state, _, result, _ := fixture.service.ResolveCommandExecution(
+					t.Context(), pending.RequestID, test.decision,
+				)
+				require.NotNil(t, result)
+				require.False(t, result.OK)
+				require.Empty(t, cmp.Diff(want, state.FacilityChanges))
+			}
+
+			require.Empty(t, cmp.Diff(want, fixture.service.Snapshot().FacilityChanges))
+			require.Empty(t, cmp.Diff(want, serviceFeedPublished(t, fixture.effects.Values()[effectsBefore:])),
+				"the refusal must publish a master snapshot that carries the feed")
+			require.Equal(t, base+uint64(len(test.devices)), serviceFeedSequence(t, fixture.service))
+		})
+	}
+}
+
+func TestPlayerCommandFeedRecordsAReplayedRefusalOnce(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFeedFixture(t, serviceFeedFixedClock(serviceFeedTime))
+	addActiveTerminalCapabilityBlock(fixture.service, fixture.terminalID, domain.FacilityCapabilityExecuteCommand)
+	command := fixture.command("feed-replayed-refusal")
+	require.False(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, command).Accepted)
+	feed := fixture.service.Snapshot().FacilityChanges
+	require.Len(t, feed, 1)
+	sequence := serviceFeedSequence(t, fixture.service)
+
+	require.False(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, command).Accepted)
+
+	require.Empty(t, cmp.Diff(feed, fixture.service.Snapshot().FacilityChanges), "a replayed request is not a new refusal")
+	require.Equal(t, sequence, serviceFeedSequence(t, fixture.service))
+}
+
+func TestPlayerCommandFeedIgnoresDuplicateDecisions(t *testing.T) {
+	t.Parallel()
+
+	for _, decision := range []domain.CommandExecutionDecision{
+		domain.CommandExecutionApprove, domain.CommandExecutionReject,
+	} {
+		t.Run(string(decision), func(t *testing.T) {
+			t.Parallel()
+			fixture := newServiceFeedFixture(t, serviceFeedFixedClock(serviceFeedTime))
+			fixture.store.result = successfulFacilityResult(fixture)
+			requestID := serviceFeedPendingRequest(t, fixture, domain.RequestID("feed-duplicate-"+string(decision)))
+			_, _, first, _ := fixture.service.ResolveCommandExecution(t.Context(), requestID, decision)
+			require.NotNil(t, first)
+			feed := fixture.service.Snapshot().FacilityChanges
+			require.Len(t, feed, 1)
+			sequence := serviceFeedSequence(t, fixture.service)
+
+			_, _, duplicate, err := fixture.service.ResolveCommandExecution(t.Context(), requestID, decision)
+
+			require.Error(t, err)
+			require.NotNil(t, duplicate)
+			require.Equal(t, domain.FacilityFailureDuplicate, duplicate.Failure)
+			require.Empty(t, cmp.Diff(feed, fixture.service.Snapshot().FacilityChanges))
+			require.Equal(t, sequence, serviceFeedSequence(t, fixture.service))
+		})
+	}
+}
+
+func TestPlayerCommandFeedSkipsRequestsWithoutAFacilityAction(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		capability domain.FacilityCapability
+		prepare    func(*testing.T, *facilityCommandFixture) domain.RuntimeCommand
+	}{
+		{
+			name: "hack", capability: domain.FacilityCapabilityHack,
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) domain.RuntimeCommand {
+				return domain.RuntimeCommand{
+					RequestID: "feed-blocked-hack", BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+					Kind: domain.RuntimeCommandGuess, TargetID: "candidate-wrong",
+				}
+			},
+		},
+		{
+			name: "entry view", capability: domain.FacilityCapabilityViewEntry,
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) domain.RuntimeCommand {
+				fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+					terminal := runtime.Broadcast.TerminalRuntimes[fixture.terminalID]
+					entry := domain.ContentNode{ID: "diagnostic-record", Type: domain.NodeEntry, Name: "Record"}
+					terminal.AuthoredTree.Children = append(terminal.AuthoredTree.Children, domain.CloneContentNode(entry))
+					terminal.Tree.Children = append(terminal.Tree.Children, entry)
+					return transition{accepted: true}
+				})
+				return domain.RuntimeCommand{
+					RequestID: "feed-blocked-entry", BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+					Kind: domain.RuntimeCommandNavigate, Action: "entry", NodeID: "diagnostic-record",
+				}
+			},
+		},
+		{
+			name: "terminal transition", capability: domain.FacilityCapabilityTerminalTransition,
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) domain.RuntimeCommand {
+				fixture.service.terminalCatalog = &recordingTerminalCatalog{transitions: map[string]domain.TerminalTransitionTarget{
+					fixture.terminalID + "/" + fixture.commandID: {
+						SourceTerminalID: fixture.terminalID, CommandID: fixture.commandID,
+						Target: domain.TerminalTarget{TerminalID: "terminal-2", TerminalName: "Terminal 2"},
+					},
+				}}
+				fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+					command := facilityCommand(runtime, fixture.terminalID, fixture.commandID)
+					command.StateChange = nil
+					command.TerminalTransition = &domain.TerminalTransitionConfig{TargetTerminalID: "terminal-2"}
+					return transition{accepted: true}
+				})
+				return fixture.command("feed-blocked-terminal-transition")
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newServiceFeedFixture(t, serviceFeedFixedClock(serviceFeedTime))
+			command := test.prepare(t, &fixture)
+			addActiveTerminalCapabilityBlock(fixture.service, fixture.terminalID, test.capability)
+
+			require.False(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, command).Accepted)
+
+			require.Empty(t, fixture.service.Snapshot().FacilityChanges)
+			require.Zero(t, serviceFeedSequence(t, fixture.service))
+		})
+	}
+}
+
+func TestPlayerCommandFeedIsClearedByReplaceFacilityAndKeepsSequence(t *testing.T) {
+	t.Parallel()
+
+	fixture := newServiceFeedFixture(t, serviceFeedFixedClock(serviceFeedTime))
+	serviceFeedDecline(t, fixture, "feed-before-replace")
+	require.Len(t, fixture.service.Snapshot().FacilityChanges, 1)
+	sequence := serviceFeedSequence(t, fixture.service)
+	require.NotZero(t, sequence)
+	effectsBefore := fixture.effects.Calls()
+
+	state, err := fixture.service.ReplaceFacility(facilityApprovalState(false))
+
+	require.NoError(t, err)
+	require.Empty(t, state.FacilityChanges)
+	require.Empty(t, fixture.service.Snapshot().FacilityChanges)
+	require.Empty(t, serviceFeedPublished(t, fixture.effects.Values()[effectsBefore:]))
+	require.Zero(t, serviceFeedEntryCount(fixture.service), "the runtime feed must be emptied")
+	require.Equal(t, sequence, serviceFeedSequence(t, fixture.service), "the run-wide sequence survives a session change")
+
+	serviceFeedDecline(t, fixture, "feed-after-replace")
+	require.Empty(t, cmp.Diff(
+		serviceFeedRefusals(fixture, sequence, serviceFeedTime, domain.FacilityChangeRefusalDeclined, "door"),
+		fixture.service.Snapshot().FacilityChanges,
+	), "the first entry after a session change continues the sequence")
+}
+
+func TestPlayerCommandFeedClockDefaultsToTimeNow(t *testing.T) {
+	t.Parallel()
+
+	fixture := newFacilityCommandFixture(t, &recordingFacilityStore{})
+	before := time.Now().UnixMilli()
+	serviceFeedDecline(t, fixture, "feed-wall-clock")
+	after := time.Now().UnixMilli()
+
+	feed := fixture.service.Snapshot().FacilityChanges
+	require.Len(t, feed, 1)
+	require.GreaterOrEqual(t, feed[0].OccurredAtUnixMs, before)
+	require.LessOrEqual(t, feed[0].OccurredAtUnixMs, after)
+}
+
+// serviceFeedTime is the fixed feed clock reading used by the feed tests.
+const serviceFeedTime = int64(1793390820000)
+
+// serviceFeedClock is a deterministic feed clock that advances by step on
+// every reading.
+type serviceFeedClock struct {
+	mu   sync.Mutex
+	next time.Time
+	step time.Duration
+}
+
+func (clock *serviceFeedClock) Now() time.Time {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+	value := clock.next
+	clock.next = clock.next.Add(clock.step)
+	return value
+}
+
+// Peek returns the next reading without taking it.
+func (clock *serviceFeedClock) Peek() time.Time {
+	clock.mu.Lock()
+	defer clock.mu.Unlock()
+	return clock.next
+}
+
+func serviceFeedFixedClock(unixMilli int64) func() time.Time {
+	at := time.UnixMilli(unixMilli)
+	return func() time.Time { return at }
+}
+
+// newServiceFeedFixture builds the facility command fixture of
+// newFacilityCommandFixture around a service that reads the feed time from
+// now.
+func newServiceFeedFixture(t *testing.T, now func() time.Time) facilityCommandFixture {
+	t.Helper()
+	store := &recordingFacilityStore{}
+	base := newCommandExecutionFixture(t, &recordingCommandStateStore{}, func(config *Config) {
+		config.Now = now
+	})
+	initial := facilityApprovalState(false)
+	base.service.facilityStore = store
+	base.service.commit(func(runtime *domain.ProcessRuntime) transition {
+		runtime.Facility = domain.CloneFacility(initial)
+		facilityCommand(runtime, base.terminalID, base.commandID).StateChange.FacilityAction = &domain.FacilityActionConfig{
+			Transitions: &domain.FacilityTransitionList{Transitions: []domain.FacilityTransitionRequest{{
+				DeviceID: "door", TransitionID: "open",
+			}}},
+		}
+		return transition{accepted: true}
+	})
+	return facilityCommandFixture{commandExecutionFixture: base, store: store, initialFacility: initial}
+}
+
+func serviceFeedStoreFailure(failure domain.FacilityFailureCode) func(*testing.T, *facilityCommandFixture) {
+	return func(_ *testing.T, fixture *facilityCommandFixture) {
+		fixture.store.result = domain.FacilityOperationResult{
+			Failure:                   failure,
+			PreviousFacilityRevision:  fixture.initialFacility.Revision,
+			ResultingFacilityRevision: fixture.initialFacility.Revision,
+		}
+	}
+}
+
+func serviceFeedAuthoredTransitions(fixture *facilityCommandFixture, requests ...domain.FacilityTransitionRequest) {
+	fixture.service.commit(func(runtime *domain.ProcessRuntime) transition {
+		facilityCommand(runtime, fixture.terminalID, fixture.commandID).StateChange.FacilityAction =
+			&domain.FacilityActionConfig{Transitions: &domain.FacilityTransitionList{
+				Transitions: domain.CloneFacilityTransitionRequests(requests),
+			}}
+		return transition{accepted: true}
+	})
+}
+
+func serviceFeedPendingRequest(t *testing.T, fixture facilityCommandFixture, requestID domain.RequestID) string {
+	t.Helper()
+	require.True(t, fixture.service.DispatchPlayerAction(fixture.controllerConnection, fixture.command(requestID)).Accepted)
+	pending := fixture.service.Snapshot().PendingCommandExecution
+	require.NotNil(t, pending)
+	return pending.RequestID
+}
+
+func serviceFeedDecline(t *testing.T, fixture facilityCommandFixture, requestID domain.RequestID) {
+	t.Helper()
+	pendingID := serviceFeedPendingRequest(t, fixture, requestID)
+	_, _, result, err := fixture.service.ResolveCommandExecution(t.Context(), pendingID, domain.CommandExecutionReject)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, domain.FacilityFailureRejected, result.Failure)
+}
+
+// serviceFeedRefusals returns the refusal entries appended for deviceIDs, in
+// order, after sequence base, as the snapshot lists them: newest first.
+func serviceFeedRefusals(
+	fixture facilityCommandFixture,
+	base uint64,
+	at int64,
+	reason domain.FacilityChangeRefusalReason,
+	deviceIDs ...string,
+) []domain.FacilityChange {
+	changes := make([]domain.FacilityChange, 0, len(deviceIDs))
+	for index, deviceID := range deviceIDs {
+		changes = append(changes, domain.FacilityChange{
+			Sequence: base + uint64(index) + 1, DeviceID: deviceID, OccurredAtUnixMs: at,
+			PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+				TerminalID: fixture.terminalID, CommandID: fixture.commandID, Reason: reason,
+			},
+		})
+	}
+	slices.Reverse(changes)
+	return changes
+}
+
+// serviceFeedPublished returns the feed of the last master snapshot in
+// effects.
+func serviceFeedPublished(t *testing.T, effects []Effect) []domain.FacilityChange {
+	t.Helper()
+	last := -1
+	for index, effect := range effects {
+		if effect.Master != nil {
+			last = index
+		}
+	}
+	require.GreaterOrEqual(t, last, 0, "no master snapshot was published")
+	return effects[last].Master.FacilityChanges
+}
+
+func serviceFeedSequence(t *testing.T, service *Service) uint64 {
+	t.Helper()
+	service.mu.RLock()
+	defer service.mu.RUnlock()
+	return service.runtime.FacilityChangeSequence
+}
+
+func serviceFeedEntryCount(service *Service) int {
+	service.mu.RLock()
+	defer service.mu.RUnlock()
+	count := 0
+	for _, changes := range service.runtime.FacilityChanges {
+		count += len(changes)
+	}
+	return count
+}
+
 func coordinatorLifecycleFacility(revision uint64, currentState string, faultActive bool) *domain.Facility {
 	return &domain.Facility{
 		Revision: revision,
@@ -4918,10 +5440,14 @@ type commandExecutionFixture struct {
 	observerSession      domain.LogicalSessionID
 }
 
-func newCommandExecutionFixture(t *testing.T, store *recordingCommandStateStore) commandExecutionFixture {
+func newCommandExecutionFixture(
+	t *testing.T,
+	store *recordingCommandStateStore,
+	configure ...func(*Config),
+) commandExecutionFixture {
 	t.Helper()
 	runtime := &recordingTerminalRuntime{}
-	base := newUS2Fixture(t, runtime)
+	base := newUS2Fixture(t, runtime, configure...)
 	base.service.commandStateStore = store
 	commandID := "command-open-doors"
 	base.service.commit(func(root *domain.ProcessRuntime) transition {
@@ -6153,12 +6679,15 @@ func entryContentCommandExecutionSession(frozenChange *domain.EntryContentChange
 	return session
 }
 
-func newUS2Fixture(t *testing.T, runtime RuntimeActions) us2Fixture {
+func newUS2Fixture(t *testing.T, runtime RuntimeActions, configure ...func(*Config)) us2Fixture {
 	t.Helper()
 	effects := testutil.NewFakeOrderedEffectSink[Effect]()
 	config := Config{IDs: &counterIDSource{}, Enqueue: effects.Enqueue, Runtime: runtime}
 	if terminals, ok := runtime.(TerminalRuntimeLifecycle); ok {
 		config.Terminals = terminals
+	}
+	for _, option := range configure {
+		option(&config)
 	}
 	service := New(config)
 	_, err := addCharacter(service, "Mara")

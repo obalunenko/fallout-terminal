@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
 )
@@ -25,8 +26,9 @@ type AuthoringStore interface {
 
 // SaveAuthoring serializes one terminal or facility edit with player world
 // actions, installs the durable result, refreshes every broadcast terminal so
-// players see the edit at once, and keeps or rejects a pending device action
-// depending on whether the edit changed it.
+// players see the edit at once, drops the change feeds of deleted devices, and
+// keeps or rejects a pending device action depending on whether the edit
+// changed it.
 func (service *Service) SaveAuthoring(
 	ctx context.Context,
 	request AuthoringSaveRequest,
@@ -93,9 +95,11 @@ func (service *Service) SaveAuthoring(
 		}
 
 		runtime.Facility = domain.CloneFacility(durable.Session.Facility)
+		pruneFacilityChanges(runtime)
 		refreshFacilityAuthoringRuntimes(runtime, durable.Session, service.terminals)
 		change := transition{accepted: true}
-		if event, ok := service.reconcilePendingFacilityAction(runtime, durable.Session, currentRevision); ok {
+		at := service.now()
+		if event, ok := service.reconcilePendingFacilityAction(runtime, durable.Session, currentRevision, at); ok {
 			change.audit(event)
 		}
 		projection := service.reprojectTerminalRuntimes(runtime)
@@ -121,12 +125,14 @@ func (service *Service) SaveAuthoring(
 
 // reconcilePendingFacilityAction keeps a pending device action approvable
 // when the saved session left the action unchanged, and rejects it through
-// the existing stale path otherwise. It returns the request's outcome record
-// whenever the request's expected facility revision had to change.
+// the existing stale path otherwise, recording a STALE refusal at the commit
+// time at in each targeted device's feed. It returns the request's outcome
+// record whenever the request's expected facility revision had to change.
 func (service *Service) reconcilePendingFacilityAction(
 	runtime *domain.ProcessRuntime,
 	session *domain.Session,
 	previousFacilityRevision uint64,
+	at time.Time,
 ) (AuditEvent, bool) {
 	pending := runtime.PendingCommandExecution
 	if pending == nil || pending.FacilityAction == nil {
@@ -141,7 +147,7 @@ func (service *Service) reconcilePendingFacilityAction(
 		return pendingRequestOutcomeAudit(pending, "rebased", previousFacilityRevision, resultingFacilityRevision), true
 	}
 	event := pendingRequestOutcomeAudit(pending, "superseded", previousFacilityRevision, resultingFacilityRevision)
-	service.invalidatePendingFacilityAction(runtime)
+	service.invalidatePendingFacilityAction(runtime, at, domain.FacilityChangeRefusalStale)
 	return event, true
 }
 
