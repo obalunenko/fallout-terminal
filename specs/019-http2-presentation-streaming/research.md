@@ -158,6 +158,12 @@ or replaying a superseded local effect.
 would diverge from observers and grant stale input visual authority. Local preview audio was
 rejected because the accepted contract keeps audio authoritative.
 
+**Delivery proof (BUG-001)**: Suppression alone let zero cues pass. The final matching canonical
+update must still play its one cue. Two mutations prove that the journeys enforce this lower bound.
+Silencing the update that clears a matching transient fails the rapid-hover, rotation and
+cancellation-recovery journeys. Dropping the newest target on uplink failure fails the rotation and
+recovery journeys. The record is in `bugs/BUG-001.md`.
+
 ## Fallback ownership
 
 **Decision**: Retain BUG-010's unary dispatcher unchanged as the compatibility engine. The uplink
