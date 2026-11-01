@@ -164,12 +164,14 @@ task browser:test
 
 ### Spec Kit
 
-Для спецификаций нужны Python 3.11+ и [uv](https://docs.astral.sh/uv/getting-started/installation/):
+Для спецификаций нужны Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/) и [jq](https://jqlang.org/download/):
 
 ```bash
 task speckit:install
 task speckit:update:check
 ```
+
+Чтобы обновить Spec Kit, поменяйте `SPECKIT_VERSION` в `Taskfile.yml` и запустите `task speckit:install`. Если файлы проекта в `.specify/` и `.claude/skills/` созданы другой версией, задача обновит их и сохранит локальные правки. Правленые файлы, которые новая версия генерирует иначе, она перечислит со ссылкой на сравнение версий: изменения из апстрима в них нужно перенести вручную.
 
 ## Структура проекта
 
