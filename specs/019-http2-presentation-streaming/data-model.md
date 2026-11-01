@@ -170,6 +170,12 @@ One controller-only visual layer overlays the canonical presentation.
   valid local target or trigger superseded controller animation/audio.
 - Role, broadcast, terminal, context, subscription, or tab invalidation clears the transient
   immediately and renders the applicable canonical state.
+- Cue ownership (BUG-001): a canonical presentation change owes exactly one movement cue unless a
+  newer valid local target in the same context supersedes it. The update that matches the latest
+  local target still pays that cue while it clears the transient, so the transient can never consume
+  it. A stream baseline or live-terminal baseline owes no cue. After uplink failure the newest
+  target moves to unary and its acceptance owes the cue as usual; a fresh generation changes nothing
+  about who owes it.
 
 ## Relationships
 

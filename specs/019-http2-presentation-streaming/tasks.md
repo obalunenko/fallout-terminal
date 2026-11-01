@@ -90,7 +90,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 1:**
 
-- [ ] **T015** [US1] ⚠️ Reopened — Add RED Playwright coverage for next-frame local menu/page/hacking presentation, a 100-target sweep, same-target duplicate suppression, delayed older revisions, authoritative-only preview audio, exactly one final authoritative menu and hacking cue under eligible audio, context/role invalidation, and final controller-plus-two-observer convergence (reopened — BUG-001) · `tests/browser/player-sessions-control.spec.mjs`
+- [x] **T015** [US1] ⚠️ Reopened — Add RED Playwright coverage for next-frame local menu/page/hacking presentation, a 100-target sweep, same-target duplicate suppression, delayed older revisions, authoritative-only preview audio, exactly one final authoritative menu and hacking cue under eligible audio, context/role invalidation, and final controller-plus-two-observer convergence (reopened — BUG-001) · `tests/browser/player-sessions-control.spec.mjs`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
@@ -104,7 +104,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 3:**
 
-- [ ] **T017** [US1] ⚠️ Reopened — Run the focused controller/observer journey and verify next-frame feedback, exactly one final authoritative menu and hacking cue, zero superseded highlight/reveal/audio replay, duplicate suppression, and one-second final convergence (reopened — BUG-001) · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs`
+- [x] **T017** [US1] ⚠️ Reopened — Run the focused controller/observer journey and verify next-frame feedback, exactly one final authoritative menu and hacking cue, zero superseded highlight/reveal/audio replay, duplicate suppression, and one-second final convergence (reopened — BUG-001) · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs`
 
 **Checkpoint**: User Story 1 is independently functional and testable through the existing unary path before request streaming is enabled.
 
@@ -161,7 +161,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 **Wave 1 — independent (different files):**
 
 - [x] **T030** [P] [US3] Add RED public-access fallback journeys for direct LAN HTTP, missing request-stream APIs, failed/timeout/buffered probes, wrong credentials, interrupted or rotated uplinks, public unavailability, and later fresh-probe recovery · `tests/browser/public-access-fallback.spec.mjs`
-- [ ] **T031** [P] [US3] ⚠️ Reopened — Add RED controller regression journeys proving stream failure transfers only the newest eligible target to unary, preserves exactly one final authoritative menu and hacking cue through interruption/rotation and later recovery, never sends one target through both transports, clears stale local state on role/broadcast/terminal/context/reconnect changes, and leaves navigation, guessing, pattern activation, character selection, and observer convergence unchanged (reopened — BUG-001) · `tests/browser/player-sessions-control.spec.mjs`
+- [x] **T031** [P] [US3] ⚠️ Reopened — Add RED controller regression journeys proving stream failure transfers only the newest eligible target to unary, preserves exactly one final authoritative menu and hacking cue through interruption/rotation and later recovery, never sends one target through both transports, clears stale local state on role/broadcast/terminal/context/reconnect changes, and leaves navigation, guessing, pattern activation, character selection, and observer convergence unchanged (reopened — BUG-001) · `tests/browser/player-sessions-control.spec.mjs`
 
 **⟶ Wait for Wave 1 to finish, then:**
 
@@ -175,7 +175,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 3:**
 
-- [ ] **T033** [US3] ⚠️ Reopened — Run focused fallback, controller, HTTP/1.1, auth, and existing gameplay journeys and verify automatic convergence, exactly-once final movement cues and later cue recovery, with no duplicate mutation or loss of local/LAN service (reopened — BUG-001) · `npm test --prefix tests/browser -- public-access-fallback.spec.mjs player-sessions-control.spec.mjs`, `go test ./internal/player ./internal/tunnel`
+- [x] **T033** [US3] ⚠️ Reopened — Run focused fallback, controller, HTTP/1.1, auth, and existing gameplay journeys and verify automatic convergence, exactly-once final movement cues and later cue recovery, with no duplicate mutation or loss of local/LAN service (reopened — BUG-001) · `npm test --prefix tests/browser -- public-access-fallback.spec.mjs player-sessions-control.spec.mjs`, `go test ./internal/player ./internal/tunnel`
 
 **Checkpoint**: All three user stories are independently functional; streaming remains an optional optimization and cannot block basic player control.
 
@@ -203,7 +203,7 @@ packaging. Tests are written to fail before their corresponding implementation.
 
 **Wave 4:**
 
-- [ ] **T037** ⚠️ Reopened — Validate the player production build and complete Playwright suite, including ≥100-target next-frame/latest-only behavior, exactly one final authoritative menu and hacking cue with zero superseded cues, cue recovery after interruption, two-observer convergence, all fallback paths, HTTP auth, reconnect, and unchanged gameplay (reopened — BUG-001) · `npm run build:client --prefix frontend`, `npm test --prefix tests/browser`
+- [x] **T037** ⚠️ Reopened — Validate the player production build and complete Playwright suite, including ≥100-target next-frame/latest-only behavior, exactly one final authoritative menu and hacking cue with zero superseded cues, cue recovery after interruption, two-observer convergence, all fallback paths, HTTP auth, reconnect, and unchanged gameplay (reopened — BUG-001) · `npm run build:client --prefix frontend`, `npm test --prefix tests/browser`
 
 **⟶ Wait for Wave 4 to finish, then:**
 
@@ -218,8 +218,8 @@ fallback, and recovery without making transient or superseded targets audible.
 
 **Wave 1 — independent (different browser test files):**
 
-- [ ] **T039** [P] [US1] Add a deterministic RED public-HTTPS/ngrok-faithful journey that records cue dispatch, forces `PresentationUplink` cancellation or rotation, stops menu and hacking movement, and asserts exactly one matching final authoritative cue for each category with zero superseded cues · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/fixture-server/main.go`
-- [ ] **T040** [P] [US3] Add a RED recovery journey proving that the surviving final target and later accepted menu/hacking movements dispatch exactly one cue after unary fallback and after a fresh uplink generation becomes ready · `tests/browser/public-access-fallback.spec.mjs`
+- [x] **T039** [P] [US1] Add a deterministic RED public-HTTPS/ngrok-faithful journey that records cue dispatch, forces `PresentationUplink` cancellation or rotation, stops menu and hacking movement, and asserts exactly one matching final authoritative cue for each category with zero superseded cues · `tests/browser/player-sessions-control.spec.mjs`, `tests/browser/fixture-server/main.go`
+- [x] **T040** [P] [US3] Add a RED recovery journey proving that the surviving final target and later accepted menu/hacking movements dispatch exactly one cue after unary fallback and after a fresh uplink generation becomes ready · `tests/browser/public-access-fallback.spec.mjs`
 
 **Reopened task join**: T015 and T031 must be RED with the BUG-001 lower-bound assertions before
 Wave 2 begins.
@@ -228,13 +228,13 @@ Wave 2 begins.
 
 **Wave 2:**
 
-- [ ] **T041** [US1] [US3] Reproduce the failing stage and fix the identified cue-reconciliation or audio-retry path so final applicable authoritative transitions remain exactly-once across cancellation, fallback, and recovery; add bounded test diagnostics that distinguish dispatch from manifest, fetch, decode, `AudioContext` resume, and source-start failure without exposing secrets or adding noisy first-party console output · `frontend/client/client.js`, `frontend/client/sound.js`
+- [x] **T041** [US1] [US3] Reproduce the failing stage and fix the identified cue-reconciliation or audio-retry path so final applicable authoritative transitions remain exactly-once across cancellation, fallback, and recovery; add bounded test diagnostics that distinguish dispatch from manifest, fetch, decode, `AudioContext` resume, and source-start failure without exposing secrets or adding noisy first-party console output · `frontend/client/client.js`, `frontend/client/sound.js`
 
 **⟶ Wait for Wave 2 to finish, then:**
 
 **Wave 3:**
 
-- [ ] **T042** [US1] [US3] Complete reopened T017, T033, and T037; run the focused and full browser suites, production build, packaged controller/observer smoke, and credential-gated real-ngrok journey, recording external prerequisites as `NOT RUN` and confirming exactly one final menu/hacking cue, zero superseded cues, and later cue recovery · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs public-access-fallback.spec.mjs`, `npm test --prefix tests/browser`, `npm run build:client --prefix frontend`, `go run ./cmd/build build`, `go run ./cmd/build package`, `internal/tunnel/ngrok_integration_test.go`
+- [x] **T042** [US1] [US3] Complete reopened T017, T033, and T037; run the focused and full browser suites, production build, packaged controller/observer smoke, and credential-gated real-ngrok journey, recording external prerequisites as `NOT RUN` and confirming exactly one final menu/hacking cue, zero superseded cues, and later cue recovery · `npm test --prefix tests/browser -- player-sessions-control.spec.mjs public-access-fallback.spec.mjs`, `npm test --prefix tests/browser`, `npm run build:client --prefix frontend`, `go run ./cmd/build build`, `go run ./cmd/build package`, `internal/tunnel/ngrok_integration_test.go`
 
 ## Dependencies & Execution Order
 
