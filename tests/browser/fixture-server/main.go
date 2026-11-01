@@ -971,7 +971,9 @@ func (state *fixtureFacilityAuthoringState) playerSession() fixturePlayerSession
 // place of the coordinator's: no players and no broadcast, but the facility
 // revision and the device feed, newest first. Its revision steps whenever
 // that content changed since the last read, so the Overseer takes every
-// change in order.
+// change in order. That also means journeys on this fixture cannot catch a
+// coordinator change published at an old revision; facility-play-feed's
+// command-blocked journey checks that against the real coordinator.
 func (state *fixtureFacilityAuthoringState) coordination() domain.MasterCoordinationState {
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -2215,7 +2217,7 @@ func (state *fixtureFacilityPlayerState) reset(scenario string) error {
 	}
 	switch scenario {
 	case "ready", "stale-revision", "conflict", "persistence-failure", "concurrent-resolution", "shared-projection",
-		"force-failure":
+		"force-failure", "command-blocked":
 	default:
 		return fmt.Errorf("unknown facility player-state scenario %q", scenario)
 	}
@@ -2227,6 +2229,14 @@ func (state *fixtureFacilityPlayerState) reset(scenario string) error {
 	session := facilityPlayerSession(nil)
 	if state.sharedProjection {
 		session = facilityProjectionSession()
+	}
+	if scenario == "command-blocked" {
+		// The door's fault also blocks running commands, so the coordinator
+		// itself refuses the player and feeds the door.
+		condition := &session.Facility.Conditions[0]
+		condition.Effects = append(condition.Effects, domain.DiagnosticEffect{
+			CapabilityBlock: &domain.CapabilityBlockEffect{Capability: domain.FacilityCapabilityExecuteCommand},
+		})
 	}
 	state.fixtureCanonicalSession = fixtureCanonicalSession{session: session, sessionRevision: 1, authoringRevision: 1}
 	state.resetNavigationFor = ""

@@ -172,3 +172,26 @@ test('a pending player request withdrawn by a play change is fed as withdrawn (F
     await table.close();
   }
 });
+
+test('repeated fault-blocked refusals from the coordinator reach the Overseer as one entry with attempts (042 FR-004)', async ({ browser, request }) => {
+  // The real coordinator serves this table, so a refusal that kept its
+  // revision would be dropped by the Overseer as stale.
+  const table = await openPlayerTable(browser, request, 'command-blocked');
+  try {
+    const { overseer, player } = table;
+    await selectDevice(overseer, 'device-security-door');
+    const command = player.locator('.term-row', { hasText: 'OPEN SECURITY DOOR' });
+    for (const attempts of ['1', '2']) {
+      await command.click();
+      await expect(player.locator('#playerNotice')).toHaveText('ДЕЙСТВИЕ ОТКЛОНЕНО: МЕШАЕТ НЕИСПРАВНОСТЬ СИСТЕМЫ.');
+      await expect.poll(async () => (await feedEntries(overseer)).map(entry => [entry.kind, entry.reason, entry.attempts]))
+        .toEqual([['player-refusal', 'fault-blocked', attempts]]);
+    }
+    const [entry] = await feedEntries(overseer);
+    expect(entry.text).toContain('«OPEN SECURITY DOOR» · запрос игрока отклонён: мешает неисправность «Security authorization corrupted»');
+    expect(entry.text).toMatch(/· ×2$/);
+  } finally {
+    await table.close();
+  }
+});
+

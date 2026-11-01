@@ -222,6 +222,22 @@ func TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe(t *testing.T) {
 	require.NoError(t, ingress.Activate(publicURL.Hostname(), username, password))
 
 	client := &http.Client{Timeout: 15 * time.Second}
+	// A freshly started endpoint can answer 404 (ERR_NGROK_3200) until the
+	// edge routes it. The active ingress answers an unauthenticated request
+	// with 401, never 404, so the wait cannot hide an ingress failure.
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		request, requestErr := http.NewRequestWithContext(t.Context(), http.MethodGet, publicURL.String(), nil)
+		if !assert.NoError(collect, requestErr) {
+			return
+		}
+		response, requestErr := client.Do(request)
+		if !assert.NoError(collect, requestErr) {
+			return
+		}
+		_, _ = io.Copy(io.Discard, response.Body)
+		_ = response.Body.Close()
+		assert.NotEqual(collect, http.StatusNotFound, response.StatusCode)
+	}, 15*time.Second, 250*time.Millisecond, "the ngrok edge never routed the endpoint")
 	for _, test := range []struct {
 		name, username string
 		password       []byte
