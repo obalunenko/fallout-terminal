@@ -1,0 +1,1046 @@
+{
+  "workflow": "companion",
+  "specName": "Facility Recheck Fixes",
+  "branch": "042-facility-recheck-fixes",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-11-01T00:46:21.725Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-11-01T00:49:54.154Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-11-01T00:50:06.070Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:53:27.227Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:55:00.970Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:55:01.233Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-11-01T00:55:36.112Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:57:11.526Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:57:12.068Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-11-01T00:57:22.999Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:57:38.684Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T00:59:01.108Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:00:13.783Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:00:42.091Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:01:04.402Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:03:34.770Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:04:01.510Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:04:48.846Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:05:12.571Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:06:41.525Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:06:50.242Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:07:34.627Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:07:48.780Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:18:56.329Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:18:56.401Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:18:56.471Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:21:27.046Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:22:54.572Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:23:27.446Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:26:33.037Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:26:39.765Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:26:39.837Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:26:54.430Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:27:25.117Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:27:35.199Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:37:10.769Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:38:36.758Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:38:52.019Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T01:50:24.275Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T02:11:10.382Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-11-01T02:11:10.399Z"
+    }
+  ],
+  "unattended": true,
+  "last_action": "all 30 tasks done; Go, proto, bindings, pins, browser 446/446 and the packaged-app check pass",
+  "coverage": {
+    "FR-001": {
+      "title": "A fault-blocked player request is refused with a fault-block reason distinct from invalid action",
+      "tasks": [
+        "T001",
+        "T003",
+        "T004",
+        "T006",
+        "T010"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestFaultBlockedPlayerRequestsRefuseWithFaultReasonAndFeedTheFaultDevice",
+        "internal/control/facility_test.go::TestActiveDiagnosticConditionsBlockSelectedCapabilities",
+        "tests/browser/facility-diagnostics.spec.mjs"
+      ]
+    },
+    "FR-002": {
+      "title": "The player reads «ДЕЙСТВИЕ ОТКЛОНЕНО: МЕШАЕТ НЕИСПРАВНОСТЬ СИСТЕМЫ.» without the fault name",
+      "tasks": [
+        "T011",
+        "T016"
+      ],
+      "tests": [
+        "tests/browser/facility-diagnostics.spec.mjs",
+        "internal/player/adapter_test.go::TestActionReasonToProtoMapsEveryDomainReason"
+      ]
+    },
+    "FR-003": {
+      "title": "Each blocking device fault lists the refused request in its device feed with time, terminal, target and fault",
+      "tasks": [
+        "T001",
+        "T006",
+        "T008",
+        "T010",
+        "T012",
+        "T017",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-play-feed.spec.mjs::reads a fault blocks are fed once to the fault device with an attempt count",
+        "internal/control/service_test.go::TestFaultBlockedPlayerRequestsRefuseWithFaultReasonAndFeedTheFaultDevice"
+      ]
+    },
+    "FR-004": {
+      "title": "A repeated identical refusal updates the newest entry and counts attempts instead of adding one",
+      "tasks": [
+        "T001",
+        "T007",
+        "T009",
+        "T017",
+        "T022"
+      ],
+      "tests": [
+        "internal/control/feed_test.go::TestAppendFacilityChangesMergesARepeatedFaultBlockRefusal",
+        "internal/control/service_test.go::TestFaultBlockedPlayerRequestsRefuseWithFaultReasonAndFeedTheFaultDevice",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-005": {
+      "title": "A fault-blocked command with a device action leaves exactly one feed entry in the same format",
+      "tasks": [
+        "T006",
+        "T008",
+        "T010"
+      ],
+      "tests": [
+        "internal/control/service_test.go::TestFaultBlockedPlayerRequestsRefuseWithFaultReasonAndFeedTheFaultDevice",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-006": {
+      "title": "Each fault-block refusal is written to the retained runtime log without authored text",
+      "tasks": [
+        "T006",
+        "T008",
+        "T010"
+      ],
+      "tests": [
+        "app_test.go::TestRuntimeAuditLoggingRecordsFaultBlockedRequestFacts"
+      ]
+    },
+    "FR-007": {
+      "title": "The demo capability inventory lists the spores-blocked reading path",
+      "tasks": [
+        "T013"
+      ]
+    },
+    "FR-008": {
+      "title": "A template transition counts as present when its source-to-destination cell already has a transition",
+      "tasks": [
+        "T018",
+        "T024"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs::a filled cell counts as present whatever its transition is called"
+      ]
+    },
+    "FR-009": {
+      "title": "Applying a template adds only missing states and transitions, renames and removes nothing",
+      "tasks": [
+        "T018",
+        "T024"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs::applying adds only what is missing",
+        "renames and removes nothing",
+        "and keeps the star"
+      ]
+    },
+    "FR-010": {
+      "title": "With nothing missing the dialog shows «ВСЁ ИЗ ШАБЛОНА УЖЕ ЕСТЬ» at once and the template is not applicable",
+      "tasks": [
+        "T018",
+        "T024"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs::applying adds only what is missing",
+        "renames and removes nothing",
+        "and keeps the star"
+      ]
+    },
+    "FR-011": {
+      "title": "The 041 specification states the new template rule",
+      "tasks": [
+        "T027"
+      ]
+    },
+    "FR-012": {
+      "title": "The browser fixture refuses blocked requests through the application refusal path",
+      "tasks": [
+        "T014",
+        "T015"
+      ],
+      "tests": [
+        "tests/browser/facility-diagnostics.spec.mjs"
+      ]
+    },
+    "FR-013": {
+      "title": "Blockable fixture entries carry authored text distinct from any refusal or error message",
+      "tasks": [
+        "T015"
+      ],
+      "tests": [
+        "tests/browser/facility-diagnostics.spec.mjs"
+      ]
+    },
+    "FR-014": {
+      "title": "Diagnostics journeys check the reason, the hidden entry text while blocked, and the shown text after clearing",
+      "tasks": [
+        "T016"
+      ],
+      "tests": [
+        "tests/browser/facility-diagnostics.spec.mjs::a blocked entry stays closed until the Overseer switches its fault off"
+      ]
+    },
+    "FR-015": {
+      "title": "The terminal-fault group is collapsible, shows the active count, and frees height for the device list",
+      "tasks": [
+        "T019",
+        "T023",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs::the terminal-fault group collapses with its active count and frees room for seven rows at 1440×900"
+      ]
+    },
+    "FR-016": {
+      "title": "The terminal-fault group state holds for the rest of the run, including on reopen",
+      "tasks": [
+        "T019",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs::the terminal-fault group collapses with its active count and frees room for seven rows at 1440×900"
+      ]
+    },
+    "FR-017": {
+      "title": "Every visible device row is drawn whole in any filter state",
+      "tasks": [
+        "T019",
+        "T023"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs::a filtered row and a focused row are drawn whole"
+      ]
+    },
+    "FR-018": {
+      "title": "No space is reserved for an empty location status line",
+      "tasks": [
+        "T020",
+        "T023",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "FR-019": {
+      "title": "The fault start-position choice uses the Overseer control style",
+      "tasks": [
+        "T021",
+        "T023"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-020": {
+      "title": "The terminal tree separates the kind tag from the name with a space",
+      "tasks": [
+        "T020",
+        "T023",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "FR-021": {
+      "title": "Row edit and delete buttons read «ИЗМЕНИТЬ» and «УДАЛИТЬ»",
+      "tasks": [
+        "T020",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs",
+        "tests/browser/facility-vocabulary.spec.mjs"
+      ]
+    },
+    "FR-022": {
+      "title": "A focused device row shows its whole focus outline",
+      "tasks": [
+        "T019",
+        "T023"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs::a filtered row and a focused row are drawn whole"
+      ]
+    },
+    "FR-023": {
+      "title": "033 tasks T026 to T030 are marked done with evidence",
+      "tasks": [
+        "T026"
+      ],
+      "tests": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "FR-024": {
+      "title": "Version 1 session files open and save unchanged",
+      "tasks": [
+        "T028",
+        "T029"
+      ],
+      "tests": [
+        "app_contract_test.go"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 24,
+    "projectedTasks": 26,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "expectations": [
+    "019 BUG-001 movement cues over ngrok",
+    "024 T048 release-candidate update check",
+    "showing fault names to players",
+    "a feed for terminal-scoped faults"
+  ],
+  "context": [
+    "area: internal/control (player action refusal, facility feed changes)",
+    "area: proto/fallout/terminal/player/v1 and private/v1 (ActionReason, FacilityChangePlayerRefusal)",
+    "area: frontend/overseer/src (templates, feed, workspace layout)",
+    "area: frontend/client/client.js (player rejection notices)",
+    "area: tests/browser/fixture-server and facility-diagnostics.spec.mjs",
+    "constraint: schema-first proto change with updated pins in scripts/wails-v3-contract-check.sh",
+    "constraint: session JSON version 1 compatibility",
+    "constraint: demo capability-to-path inventory per Principle IX"
+  ],
+  "intent": "Close the 2026-11-01 recheck follow-ups: fault-block refusals with player reason and device feed, cell-based templates, honest diagnostics journeys, workspace polish, and 033 records",
+  "decisions": [
+    {
+      "decision": "New ACTION_REASON_FAULT_BLOCKED = 11 for capability-blocked player requests",
+      "why": "Structured reason distinct from invalid-action; client shows a Russian reason without fault data",
+      "rejected": "A detail string on the generic reason"
+    },
+    {
+      "decision": "Extend FacilityChangePlayerRefusal with entry_id, capability, condition_ids, attempts",
+      "why": "The feed already models refused player requests; one renderer and one merge rule",
+      "rejected": "A new FacilityChange variant"
+    },
+    {
+      "decision": "Record a fault-block refusal once per device in the union of blocking fault devices and command action targets",
+      "why": "Satisfies FR-003 and FR-005 without duplicate entries",
+      "rejected": "Only the fault device, or separate entries"
+    },
+    {
+      "decision": "Server merges an identical refusal into the device newest entry with attempts + 1",
+      "why": "The server owns the five-entry feed; the client cannot count beyond it",
+      "rejected": "Counting in the Overseer or a time window"
+    },
+    {
+      "decision": "Template transitions match by from-to cell",
+      "why": "User decision; the matrix already locates transitions by cell",
+      "rejected": "Name matching with a warning"
+    },
+    {
+      "decision": "Collapsible terminal-fault group remembered in memory for the run",
+      "why": "Same pattern as the 040 guide choice; the Overseer uses no browser storage",
+      "rejected": "localStorage per session file"
+    },
+    {
+      "decision": "Reproduce the fixture gap before rewriting the diagnostics journeys",
+      "why": "The fixture runs the real control service yet the blocked entry opens; the cause must be known so the journey fails on regression",
+      "rejected": "Changing only the fixture entry text"
+    },
+    {
+      "decision": "A refusal that records a device feed entry commits a new coordination revision (rejectPlayerAction), for both fault-block and 040 request-time refusals",
+      "why": "The Overseer drops a coordination state at a revision it has already seen, so a feed change at an unchanged revision was hidden; the packaged app stopped at x2",
+      "rejected": "Letting the Overseer accept same-revision states when the feed differs, which breaks the rule that every observable change has a new revision"
+    },
+    {
+      "decision": "The device list keeps a 120 px minimum height and tighter row spacing",
+      "why": "A short list shrank with the expanded fault group and clipped its only row; seven demo rows needed about 42 px more at 1440x900",
+      "rejected": "Making the fault group never shrink, which would leave three rows when it is expanded"
+    },
+    {
+      "decision": "The faults toggle arrow uses CSS content alt text ('▾ ' / '')",
+      "why": "Keeps the heading and region name exactly НЕИСПРАВНОСТИ ТЕРМИНАЛОВ",
+      "rejected": "An aria-hidden span, which would change the heading's text content"
+    },
+    {
+      "decision": "033 tasks were ticked by hand with a new validation.md",
+      "why": "write-context refuses to append to a shipped spec",
+      "rejected": "Reopening 033's lifecycle"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Plan: one player reason, an extended feed refusal record with merge, cell-based templates, a reproduced fixture fix, sidebar and copy polish",
+      "key_finding": "Fault-blocked command refusals already exist for target devices, and the diagnostics fixture already runs control.Service yet its blocked entry opens"
+    },
+    "tasks": {
+      "summary": "29 tasks: Foundational (5), US1 server/player (8), US3 fixture (3), Overseer US1/US2/US4 (9), Records and Polish (4)"
+    },
+    "implement": {
+      "summary": "Fault-blocked player requests refuse with a new reason and feed the fault device once with an attempt count; template presence by from→to cell; real diagnostics fixture; collapsible terminal faults and layout fixes; 033 records closed"
+    }
+  },
+  "approach": "Proto-first: add ACTION_REASON_FAULT_BLOCKED and refusal fields, regenerate, pin the schema revision. The control service refuses fault-blocked requests with the new reason and records one merged feed entry per affected device; the client and Overseer render them. Frontend fixes cover the template cell rule and sidebar/copy polish; the fixture gap is reproduced before the journeys are rewritten.",
+  "currentTask": null,
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Added ACTION_REASON_FAULT_BLOCKED and four FacilityChangePlayerRefusal fields; buf format and lint pass",
+      "files": [
+        "proto/fallout/terminal/player/v1/player.proto",
+        "proto/fallout/terminal/private/v1/coordination.proto"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Regenerated Go/ES code, pinned schema revision 80ab384c…, updated app_contract_test descriptor pins; proto:check, proto:breaking, wails:pins:check pass",
+      "files": [
+        "proto/schema-revision.txt",
+        "internal/gen/",
+        "frontend/client/gen/",
+        "scripts/wails-v3-contract-check.sh",
+        "app_contract_test.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Domain ActionReasonFaultBlocked and refusal fields with detached clone; private adapter maps them both ways; round-trip cases per capability",
+      "files": [
+        "internal/domain/model.go",
+        "internal/domain/facility.go",
+        "app_contract.go",
+        "app_contract_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Mapped ActionReasonFaultBlocked to ACTION_REASON_FAULT_BLOCKED with a table test over every reason",
+      "files": [
+        "internal/player/adapter.go",
+        "internal/player/adapter_test.go"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Regenerated Wails bindings into frontend/overseer/bindings (FacilityCapability enum, refusal fields); bindings:check passes",
+      "files": [
+        "frontend/overseer/bindings/"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "RED: fault-block dispatch table (entry/device, entry/terminal, command/other device union, command/own device) with reason, feed and audit facts; existing blocked cases expect capability, faults, attempts",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "RED: merge test for repeated fault-block refusals (sequence, time, attempts) vs other changes and declined refusals",
+      "files": [
+        "internal/control/feed_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "blockingFacilityConditions (facilityCapabilityBlocked delegates), capability-block audit action and facts, facilityBlockRefusalChanges over the device union",
+      "files": [
+        "internal/control/facility.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "appendFacilityChanges merges a repeated fault-block refusal into the newest entry (new sequence and time, attempts+1); other refusals never merge",
+      "files": [
+        "internal/control/feed.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Capability-blocked branch returns ActionReasonFaultBlocked, records union feed entries with a master snapshot, attaches capability-block facts logged by app.go at warn; T006/T007 and control, player, domain, root packages pass",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/facility_test.go",
+        "app.go",
+        "app_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Client maps ActionReason.FAULT_BLOCKED to fault-blocked and shows «ДЕЙСТВИЕ ОТКЛОНЕНО: МЕШАЕТ НЕИСПРАВНОСТЬ СИСТЕМЫ.»",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "normalizeFacilityChange adds entryId, a validated capability, and attempts (>=1); desktop-api journey covers a valid and a malformed fault-block refusal",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Demo inventory row for the spores-blocked entry: player reason, ventilation feed entry with ×N, log outcome, recovery; demo-session journeys pass unchanged",
+      "files": [
+        "sessions/demo-capability-paths.md"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Cause: the diagnostics reset gave the control service the player-state facility, so no block was enforced; affected 'commands' and 'remote terminal' were entries whose own text was «Ошибка доступа»",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Presentation dispatch and acceptance clear only a presentation rejection's notice; the fault-block notice now stays",
+      "files": [
+        "frontend/client/client.js"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Fixture installs the diagnostics facility in the control service on reset, recovery and switch, restores the player-state facility on leave; real entry/commands/transition/program nodes, hack-locked custom terminal, one terminal group",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Diagnostics journeys assert the fault notice, no opened entry, refusals for entry/command/transition/program/hack, reopen after switch-off; 13 pass, 7 fail with server enforcement disabled",
+      "files": [
+        "tests/browser/facility-diagnostics.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "RED: ventilation feed journey (5 blocked reads -> one ×5 entry, then readable) via a fixture player-entry endpoint mirroring the coordinator; command refusal names its fault",
+      "files": [
+        "tests/browser/facility-play-feed.spec.mjs",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "RED: demo door template blocked at once with one transition per cell; renamed-cell hatch gains only «Запереть»",
+      "files": [
+        "tests/browser/facility-device-templates.spec.mjs"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "RED: collapsible terminal-fault group with count, >=7 whole rows at 1440x869, choice holds for the run; one-row filter and focus outline drawn whole",
+      "files": [
+        "tests/browser/facility-device-list.spec.mjs"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "RED: empty status takes no room, tree kind tags keep a gap, row buttons read ИЗМЕНИТЬ/УДАЛИТЬ with unchanged accessible names",
+      "files": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "RED: start position radios use appearance none and the checked segment reads yellow",
+      "files": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "facilityRefusalFeedText names the entry, command or hack, the blocking faults and ×N; entries carry data-capability and data-attempts",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Terminal-fault toggle and count markup; list grows and pads for focus; compact device rows; empty feedback hidden; segmented start position; tree tag min-width",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Template transitions count as present when their from-to cell holds any transition",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Wired the terminal-fault toggle and count, hid the empty feedback band, upper-case row buttons and spaced tree tags; tightened device rows, floored the list height so a short list never clips, and fixed the four Phase 5 journeys",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css",
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-device-templates.spec.mjs",
+        "specs/042-facility-recheck-fixes/contracts/overseer-ui.md"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Checked 033 FR-023 to FR-026 and SC-009 against the five block dialog journeys (24/24 pass, frontend build ok), ticked 033 T026 to T030 and wrote its validation.md",
+      "files": [
+        "specs/033-entry-content-state/tasks.md",
+        "specs/033-entry-content-state/validation.md"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Replaced 041 FR-011 and US3 scenario 2 with the from→to cell rule, pointing to 042 FR-008 to FR-010",
+      "files": [
+        "specs/041-facility-editors-language/spec.md"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "go fix no edits; fmt, vet, lint (removed 2 unused helpers), test and test:race (updated descriptor and schema-revision pins), proto check and breaking, bindings, pins, frontend build, secret-leak and browser suite 446/446 pass; SC evidence in validation.md",
+      "files": [
+        "internal/control/facility.go",
+        "tests/browser/fixture-server/main.go",
+        "internal/platform/assets_test.go",
+        "specs/042-facility-recheck-fixes/validation.md"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Packaged app at 1440x900 with a connected player: FR-024 round trip, SC-001 (x5 after fixing the stale-revision refusal), SC-003, SC-005 (9 rows), SC-006 pass; fed refusals now commit a new revision",
+      "files": [
+        "internal/control/service.go",
+        "internal/control/service_test.go",
+        "internal/control/facility_test.go",
+        "tests/browser/fixture-server/main.go",
+        "specs/042-facility-recheck-fixes/contracts/facility-feed-refusal.md",
+        "specs/042-facility-recheck-fixes/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "lint",
+      "command": "task lint",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.0,
+      "result": "0 issues. · task: [lint] go tool -modfile=tools/golangci-lint/go.mod golangci-lint run"
+    },
+    {
+      "what": "Go tests",
+      "command": "task test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.3,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t(cached) · task: [test] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test ./..."
+    },
+    {
+      "what": "Go race tests",
+      "command": "task test:race",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.7,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t(cached) · task: [test:race] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test -race ./..."
+    },
+    {
+      "what": "proto contracts",
+      "command": "task proto:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 7.9,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "proto breaking",
+      "command": "task proto:breaking",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.9,
+      "result": "Breaking fixture rejected: package-name · Breaking fixture rejected: service-method · task: [proto:breaking] scripts/proto-breaking.sh --all-fixtures"
+    },
+    {
+      "what": "Wails bindings",
+      "command": "task bindings:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.9,
+      "result": "Wails bindings are deterministic and expose exactly 46 accepted desktop methods and seven named events. · task: [bindings:check] scripts/wails-bindings-check.sh"
+    },
+    {
+      "what": "Wails pins",
+      "command": "task wails:pins:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 5.0,
+      "result": "Wails v3 migration contracts are qualified, pinned, tool-isolated, and schema-stable. · task: [wails:pins:check] scripts/wails-v3-contract-check.sh"
+    },
+    {
+      "what": "secret leak",
+      "command": "task secret-leak:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.1,
+      "result": "Secret-bearing fields remain confined to narrow private inputs/results; no forbidden leak was detected. · task: [secret-leak:check] scripts/secret-leak-check.sh --self-test · task: [secret-leak:check] scripts/secret-leak-check.sh"
+    },
+    {
+      "what": "format",
+      "command": "task fmt:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.1,
+      "result": "  printf 'Go files need formatting:\\n%s\\n' \"$unformatted\" >&2 ·   exit 1 · fi"
+    },
+    {
+      "what": "vet",
+      "command": "task vet",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.3,
+      "result": "task: [vet] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go vet ./..."
+    },
+    {
+      "what": "frontend build",
+      "command": "task frontend:build",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.2,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "browser journeys",
+      "command": "task browser:test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 373.6,
+      "result": "[WebServer] 2026/11/01 06:15:30 http: TLS handshake error from 127.0.0.1:61695: remote error: tls: unknown certificate · [WebServer] 2026/11/01 06:15:30 http: TLS handshake error from 127.0.0.1:61698: remote error: tls: unknown certificate · [WebServer] 2026/11/01 06:15:30 http: TLS handshake error from 127.0.0.1:61701: remote error: tls: unknown certificate"
+    },
+    {
+      "what": "Packaged app at 1440x900 with a connected headless player (T029)",
+      "result": "FR-024 round trip kept version 1 and changed only facility.revision; SC-001 one feed entry x5 after five refused reads, entry opens once the fault is off; SC-003 demo door template disabled with ВСЁ ИЗ ШАБЛОНА УЖЕ ЕСТЬ; SC-005 9 of 10 rows whole with the group collapsed; SC-006 one-row search drawn whole",
+      "warnings": [
+        "The first packaged run showed x2 instead of x5; fixed in rejectPlayerAction and rechecked"
+      ]
+    },
+    {
+      "what": "SC-004: diagnostics journeys fail without server enforcement",
+      "result": "With the block check turned off by a scratch edit, 7 of 13 diagnostics journeys failed; restored afterwards"
+    },
+    {
+      "what": "033 block command dialog against FR-023 to FR-026 and SC-009",
+      "result": "Five block dialog journeys cover each requirement; 24/24 authoring journeys pass"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "The facility-authoring browser fixture mirrors the coordinator and moves its revision whenever its content changes, so browser journeys cannot catch a server publish that keeps the revision. The Go tests in internal/control now cover that path.",
+      "step": "implement"
+    },
+    {
+      "note": "TestEmbeddedNgrokSDKOptInAuthenticatedGeneratedSubscribe/missing failed once under race against the live ngrok edge (404 for 401); internal/tunnel is unchanged and it passed in three reruns and every full run since.",
+      "step": "implement"
+    }
+  ]
+}

@@ -43,6 +43,8 @@ enum ActionReason {
   ACTION_REASON_INVALID_ACTION = 8;
   ACTION_REASON_CONFLICT = 9;
   ACTION_REASON_DUPLICATE = 10;
+  // An active fault's capability block refused the request.
+  ACTION_REASON_FAULT_BLOCKED = 11;
 }
 
 enum PlayerNoticeKind {

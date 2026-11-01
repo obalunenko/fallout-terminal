@@ -4,28 +4,33 @@ import { FACILITY_IDS } from './fixtures/facility-session.mjs';
 
 const FIXTURE = '/__fixture/facility-diagnostics';
 const TOKEN_KEY = 'fallout-terminal.player-token';
+// The player reads one reason for every fault-blocked request, without the
+// Overseer-only fault name (042 FR-002).
+const FAULT_BLOCKED_NOTICE = 'ДЕЙСТВИЕ ОТКЛОНЕНО: МЕШАЕТ НЕИСПРАВНОСТЬ СИСТЕМЫ.';
+// The blockable entry's own text, which no refusal or error message shares.
+const AFFECTED_ENTRY_TEXT = 'AFFECTED ENTRY TEXT // READABLE';
 
 const conditionScenarios = [
   {
     scenario: 'offline',
     conditionId: FACILITY_IDS.conditions.offline,
     category: 'offline',
-    capability: 'view-entry',
-    blockedLabel: 'AFFECTED ENTRY',
+    capabilities: ['view-entry'],
+    blockedLabels: ['AFFECTED ENTRY'],
   },
   {
     scenario: 'unpowered',
     conditionId: FACILITY_IDS.conditions.unpowered,
     category: 'unpowered',
-    capability: 'execute-command',
-    blockedLabel: 'AFFECTED COMMAND',
+    capabilities: ['execute-command'],
+    blockedLabels: ['AFFECTED COMMAND'],
   },
   {
     scenario: 'network-isolated',
     conditionId: FACILITY_IDS.conditions.networkIsolated,
     category: 'network-isolated',
-    capability: 'terminal-transition',
-    blockedLabel: 'REMOTE TERMINAL',
+    capabilities: ['terminal-transition', 'run-recovery-program'],
+    blockedLabels: ['REMOTE TERMINAL', 'RUN RECOVERY PROGRAM'],
     diagnosticLabel: 'ISOLATION DIAGNOSTICS',
   },
   {
@@ -38,8 +43,8 @@ const conditionScenarios = [
     scenario: 'authorization-corrupted',
     conditionId: FACILITY_IDS.conditions.authorizationCorrupted,
     category: 'authorization-corrupted',
-    capability: 'execute-command',
-    blockedLabel: 'SECURITY OVERRIDE',
+    capabilities: ['execute-command'],
+    blockedLabels: ['SECURITY OVERRIDE'],
   },
   {
     scenario: 'display-unstable',
@@ -52,8 +57,8 @@ const conditionScenarios = [
     conditionId: FACILITY_IDS.conditions.custom,
     category: 'custom',
     customCategory: 'coolant-contamination',
-    capability: 'hack',
-    blockedLabel: 'AFFECTED HACK',
+    capabilities: ['hack'],
+    blockedHack: true,
   },
 ];
 
@@ -93,12 +98,30 @@ async function openOverseer(browser) {
   return { context, page };
 }
 
-async function expectBlockedWithEscape(page, label) {
+// expectRefused selects label and checks that the server refused it with the
+// fault reason: the notice shows, and the list stays with nothing opened.
+async function expectRefused(page, label) {
   await page.locator('.term-row', { hasText: label }).click();
-  await expect(page.locator('#entryBody')).toHaveText('Ошибка доступа');
-  await expect(page.locator('#backBtn')).toBeVisible();
-  await page.locator('#backBtn').click();
+  await expect(page.locator('#playerNotice')).toHaveText(FAULT_BLOCKED_NOTICE);
   await expect(page.locator('#termList')).toBeVisible();
+  await expect(page.locator('#termEntry')).toBeHidden();
+  await expect(page.locator('body')).not.toContainText(AFFECTED_ENTRY_TEXT);
+}
+
+// expectHackRefused makes one guess on the locked terminal and checks that
+// the server refused it with the fault reason.
+async function expectHackRefused(page) {
+  await page.locator('#hackColumns [data-target]:not([data-target=""])').first().click();
+  await expect(page.locator('#playerNotice')).toHaveText(FAULT_BLOCKED_NOTICE);
+}
+
+async function switchCondition(request, conditionId, active, correlationId) {
+  const before = await diagnosticState(request);
+  const response = await request.post(`${FIXTURE}/set-condition-active`, {
+    data: { conditionId, active, expectedFacilityRevision: before.facility.revision, correlationId },
+  });
+  expect(response.ok()).toBe(true);
+  await expect.poll(async () => (await diagnosticState(request)).facility.conditionStates[conditionId]).toBe(active);
 }
 
 for (const scenario of conditionScenarios) {
@@ -113,12 +136,11 @@ for (const scenario of conditionScenarios) {
         ...(scenario.customCategory ? { customCategory: scenario.customCategory } : {}),
       });
       expect(initial.facility.conditionStates[scenario.conditionId]).toBe(true);
-      expect(initial.blockedCapabilities).toEqual(scenario.capability ? [scenario.capability] : []);
+      expect(initial.blockedCapabilities).toEqual(scenario.capabilities ?? []);
       expect(initial.presentationEffects).toEqual(scenario.presentationEffect ? [scenario.presentationEffect] : []);
 
-      if (scenario.blockedLabel) {
-        await expectBlockedWithEscape(participant.page, scenario.blockedLabel);
-      }
+      for (const label of scenario.blockedLabels ?? []) await expectRefused(participant.page, label);
+      if (scenario.blockedHack) await expectHackRefused(participant.page);
       if (scenario.diagnosticLabel) {
         const diagnostic = participant.page.locator('.term-row', { hasText: scenario.diagnosticLabel });
         await expect(diagnostic).toBeVisible();
@@ -241,7 +263,7 @@ test('the terminal-fault switch clears a fault while every player capability is 
     const before = await diagnosticState(request);
     expect(before.facility.conditionStates[conditionId]).toBe(true);
     expect(before.blockedCapabilities).toEqual(['execute-command']);
-    await expectBlockedWithEscape(participant.page, 'AFFECTED COMMAND');
+    await expectRefused(participant.page, 'AFFECTED COMMAND');
     const response = await request.post(`${FIXTURE}/set-condition-active`, {
       data: {
         conditionId,
@@ -265,8 +287,26 @@ test('the terminal-fault switch clears a fault while every player capability is 
     expect(after.facility.conditionStates[conditionId]).toBe(false);
     expect(after.blockedCapabilities).toEqual([]);
     expect(after.audit).toMatchObject({ durableWrites: 1, conditionSwitches: 1, approvedRecoveries: 0 });
-    await expect(participant.page.locator('.term-row', { hasText: 'AFFECTED COMMAND' }))
-      .not.toHaveAttribute('aria-disabled', 'true');
+    // The same request now reaches the Overseer instead of being refused.
+    await participant.page.locator('.term-row', { hasText: 'AFFECTED COMMAND' }).click();
+    await expect(participant.page.locator('#entryBody')).toContainText('Выполняется запрос');
+    await expect(participant.page.locator('#playerNotice')).not.toHaveText(FAULT_BLOCKED_NOTICE);
+  } finally {
+    await participant.context.close();
+  }
+});
+
+test('a blocked entry stays closed until the Overseer switches its fault off (042 FR-014)', async ({ browser, request }) => {
+  await resetDiagnosticFixture(request, 'offline');
+  const participant = await openParticipant(browser);
+  try {
+    await expectRefused(participant.page, 'AFFECTED ENTRY');
+    await expectRefused(participant.page, 'AFFECTED ENTRY');
+
+    await switchCondition(request, FACILITY_IDS.conditions.offline, false, 'browser-offline-switch');
+    await participant.page.locator('.term-row', { hasText: 'AFFECTED ENTRY' }).click();
+    await expect(participant.page.locator('#entryBody')).toContainText(AFFECTED_ENTRY_TEXT);
+    await expect(participant.page.locator('#playerNotice')).toBeHidden();
   } finally {
     await participant.context.close();
   }

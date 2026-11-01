@@ -229,6 +229,26 @@ export const ControllerTerminalPresentationKind = {
 };
 
 /**
+ * FacilityCapability is a bounded player capability that a diagnostic
+ * condition may block.
+ * @readonly
+ * @enum {string}
+ */
+export const FacilityCapability = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    FacilityCapabilityUnspecified: "",
+    FacilityCapabilityExecuteCommand: "execute-command",
+    FacilityCapabilityViewEntry: "view-entry",
+    FacilityCapabilityHack: "hack",
+    FacilityCapabilityTerminalTransition: "terminal-transition",
+    FacilityCapabilityRunRecoveryProgram: "run-recovery-program",
+};
+
+/**
  * FacilityChange is one runtime-only entry of a device's recent-changes feed.
  * Exactly one variant is set. Entries carry stable IDs only; the Overseer
  * resolves names from the session.
@@ -491,7 +511,9 @@ export class FacilityChangePlayerCommand {
 
 /**
  * FacilityChangePlayerRefusal records a player request affecting the device
- * that was not applied.
+ * that was not applied. A fault-block refusal also names the blocked entry or
+ * command, the blocked capability, and the faults that blocked it; Attempts
+ * counts identical refusals merged into the entry, and zero reads as one.
  */
 export class FacilityChangePlayerRefusal {
     /**
@@ -520,6 +542,34 @@ export class FacilityChangePlayerRefusal {
              */
             this["reason"] = FacilityChangeRefusalReason.$zero;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["entryId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityCapability | undefined}
+             */
+            this["capability"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["conditionIds"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["attempts"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -530,7 +580,11 @@ export class FacilityChangePlayerRefusal {
      * @returns {FacilityChangePlayerRefusal}
      */
     static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("conditionIds" in $$parsedSource) {
+            $$parsedSource["conditionIds"] = $$createField5_0($$parsedSource["conditionIds"]);
+        }
         return new FacilityChangePlayerRefusal(/** @type {Partial<FacilityChangePlayerRefusal>} */($$parsedSource));
     }
 }

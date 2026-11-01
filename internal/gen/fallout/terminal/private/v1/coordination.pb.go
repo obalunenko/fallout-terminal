@@ -7,6 +7,7 @@
 package privatev1
 
 import (
+	v11 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/persistence/v1"
 	v1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/player/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -1473,10 +1474,18 @@ func (x *FacilityChangePlayerCommand) GetToStateId() string {
 
 // A player request affecting the device was not applied.
 type FacilityChangePlayerRefusal struct {
-	state         protoimpl.MessageState      `protogen:"open.v1"`
-	TerminalId    string                      `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
-	CommandId     string                      `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
-	Reason        FacilityChangeRefusalReason `protobuf:"varint,3,opt,name=reason,proto3,enum=fallout.terminal.private.v1.FacilityChangeRefusalReason" json:"reason,omitempty"`
+	state      protoimpl.MessageState      `protogen:"open.v1"`
+	TerminalId string                      `protobuf:"bytes,1,opt,name=terminal_id,json=terminalId,proto3" json:"terminal_id,omitempty"`
+	CommandId  string                      `protobuf:"bytes,2,opt,name=command_id,json=commandId,proto3" json:"command_id,omitempty"`
+	Reason     FacilityChangeRefusalReason `protobuf:"varint,3,opt,name=reason,proto3,enum=fallout.terminal.private.v1.FacilityChangeRefusalReason" json:"reason,omitempty"`
+	// The entry a fault blocked the player from reading; empty otherwise.
+	EntryId string `protobuf:"bytes,4,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	// The capability a fault blocked; unspecified unless reason is FAULT_BLOCKED.
+	Capability v11.FacilityCapability `protobuf:"varint,5,opt,name=capability,proto3,enum=fallout.terminal.persistence.v1.FacilityCapability" json:"capability,omitempty"`
+	// The active faults that blocked the request, sorted; empty unless reason is FAULT_BLOCKED.
+	ConditionIds []string `protobuf:"bytes,6,rep,name=condition_ids,json=conditionIds,proto3" json:"condition_ids,omitempty"`
+	// Identical refusals this entry stands for; 0 reads as 1.
+	Attempts      uint32 `protobuf:"varint,7,opt,name=attempts,proto3" json:"attempts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1530,6 +1539,34 @@ func (x *FacilityChangePlayerRefusal) GetReason() FacilityChangeRefusalReason {
 		return x.Reason
 	}
 	return FacilityChangeRefusalReason_FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED
+}
+
+func (x *FacilityChangePlayerRefusal) GetEntryId() string {
+	if x != nil {
+		return x.EntryId
+	}
+	return ""
+}
+
+func (x *FacilityChangePlayerRefusal) GetCapability() v11.FacilityCapability {
+	if x != nil {
+		return x.Capability
+	}
+	return v11.FacilityCapability(0)
+}
+
+func (x *FacilityChangePlayerRefusal) GetConditionIds() []string {
+	if x != nil {
+		return x.ConditionIds
+	}
+	return nil
+}
+
+func (x *FacilityChangePlayerRefusal) GetAttempts() uint32 {
+	if x != nil {
+		return x.Attempts
+	}
+	return 0
 }
 
 // One entry of a device's recent-changes feed. Entries carry IDs only.
@@ -1849,7 +1886,7 @@ var File_fallout_terminal_private_v1_coordination_proto protoreflect.FileDescrip
 
 const file_fallout_terminal_private_v1_coordination_proto_rawDesc = "" +
 	"\n" +
-	".fallout/terminal/private/v1/coordination.proto\x12\x1bfallout.terminal.private.v1\x1a'fallout/terminal/player/v1/player.proto\x1a)fallout/terminal/player/v1/terminal.proto\"\xf8\x01\n" +
+	".fallout/terminal/private/v1/coordination.proto\x12\x1bfallout.terminal.private.v1\x1a-fallout/terminal/persistence/v1/session.proto\x1a'fallout/terminal/player/v1/player.proto\x1a)fallout/terminal/player/v1/terminal.proto\"\xf8\x01\n" +
 	"\x0eCharacterState\x12!\n" +
 	"\fcharacter_id\x18\x01 \x01(\tR\vcharacterId\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x121\n" +
@@ -1954,13 +1991,19 @@ const file_fallout_terminal_private_v1_coordination_proto_rawDesc = "" +
 	"command_id\x18\x02 \x01(\tR\tcommandId\x12#\n" +
 	"\rtransition_id\x18\x03 \x01(\tR\ftransitionId\x12\"\n" +
 	"\rfrom_state_id\x18\x04 \x01(\tR\vfromStateId\x12\x1e\n" +
-	"\vto_state_id\x18\x05 \x01(\tR\ttoStateId\"\xaf\x01\n" +
+	"\vto_state_id\x18\x05 \x01(\tR\ttoStateId\"\xe0\x02\n" +
 	"\x1bFacilityChangePlayerRefusal\x12\x1f\n" +
 	"\vterminal_id\x18\x01 \x01(\tR\n" +
 	"terminalId\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x02 \x01(\tR\tcommandId\x12P\n" +
-	"\x06reason\x18\x03 \x01(\x0e28.fallout.terminal.private.v1.FacilityChangeRefusalReasonR\x06reason\"\xdc\x05\n" +
+	"\x06reason\x18\x03 \x01(\x0e28.fallout.terminal.private.v1.FacilityChangeRefusalReasonR\x06reason\x12\x19\n" +
+	"\bentry_id\x18\x04 \x01(\tR\aentryId\x12S\n" +
+	"\n" +
+	"capability\x18\x05 \x01(\x0e23.fallout.terminal.persistence.v1.FacilityCapabilityR\n" +
+	"capability\x12#\n" +
+	"\rcondition_ids\x18\x06 \x03(\tR\fconditionIds\x12\x1a\n" +
+	"\battempts\x18\a \x01(\rR\battempts\"\xdc\x05\n" +
 	"\x0eFacilityChange\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12\x1b\n" +
 	"\tdevice_id\x18\x02 \x01(\tR\bdeviceId\x12-\n" +
@@ -2074,6 +2117,7 @@ var file_fallout_terminal_private_v1_coordination_proto_goTypes = []any{
 	(v1.PlayerRole)(0),                   // 24: fallout.terminal.player.v1.PlayerRole
 	(*v1.LiveTerminal)(nil),              // 25: fallout.terminal.player.v1.LiveTerminal
 	(v1.TerminalNavigationDirection)(0),  // 26: fallout.terminal.player.v1.TerminalNavigationDirection
+	(v11.FacilityCapability)(0),          // 27: fallout.terminal.persistence.v1.FacilityCapability
 }
 var file_fallout_terminal_private_v1_coordination_proto_depIdxs = []int32{
 	24, // 0: fallout.terminal.private.v1.LogicalSessionState.role:type_name -> fallout.terminal.player.v1.PlayerRole
@@ -2082,27 +2126,28 @@ var file_fallout_terminal_private_v1_coordination_proto_depIdxs = []int32{
 	26, // 3: fallout.terminal.private.v1.PendingTerminalNavigation.direction:type_name -> fallout.terminal.player.v1.TerminalNavigationDirection
 	4,  // 4: fallout.terminal.private.v1.TerminalNavigationNotice.reason:type_name -> fallout.terminal.private.v1.TerminalNavigationNoticeReason
 	5,  // 5: fallout.terminal.private.v1.FacilityChangePlayerRefusal.reason:type_name -> fallout.terminal.private.v1.FacilityChangeRefusalReason
-	15, // 6: fallout.terminal.private.v1.FacilityChange.transition:type_name -> fallout.terminal.private.v1.FacilityChangeTransition
-	16, // 7: fallout.terminal.private.v1.FacilityChange.forced:type_name -> fallout.terminal.private.v1.FacilityChangeForced
-	17, // 8: fallout.terminal.private.v1.FacilityChange.fault:type_name -> fallout.terminal.private.v1.FacilityChangeFault
-	18, // 9: fallout.terminal.private.v1.FacilityChange.reset:type_name -> fallout.terminal.private.v1.FacilityChangeReset
-	19, // 10: fallout.terminal.private.v1.FacilityChange.scene_reset:type_name -> fallout.terminal.private.v1.FacilityChangeSceneReset
-	20, // 11: fallout.terminal.private.v1.FacilityChange.player_command:type_name -> fallout.terminal.private.v1.FacilityChangePlayerCommand
-	21, // 12: fallout.terminal.private.v1.FacilityChange.player_refusal:type_name -> fallout.terminal.private.v1.FacilityChangePlayerRefusal
-	6,  // 13: fallout.terminal.private.v1.CoordinationState.roster:type_name -> fallout.terminal.private.v1.CharacterState
-	7,  // 14: fallout.terminal.private.v1.CoordinationState.logical_sessions:type_name -> fallout.terminal.private.v1.LogicalSessionState
-	8,  // 15: fallout.terminal.private.v1.CoordinationState.broadcast:type_name -> fallout.terminal.private.v1.BroadcastState
-	9,  // 16: fallout.terminal.private.v1.CoordinationState.pending_terminal_switch:type_name -> fallout.terminal.private.v1.PendingTerminalSwitch
-	10, // 17: fallout.terminal.private.v1.CoordinationState.player_config:type_name -> fallout.terminal.private.v1.PlayerConfigMetadata
-	12, // 18: fallout.terminal.private.v1.CoordinationState.pending_command_execution:type_name -> fallout.terminal.private.v1.PendingCommandExecution
-	13, // 19: fallout.terminal.private.v1.CoordinationState.pending_terminal_navigation:type_name -> fallout.terminal.private.v1.PendingTerminalNavigation
-	14, // 20: fallout.terminal.private.v1.CoordinationState.terminal_navigation_notice:type_name -> fallout.terminal.private.v1.TerminalNavigationNotice
-	22, // 21: fallout.terminal.private.v1.CoordinationState.facility_changes:type_name -> fallout.terminal.private.v1.FacilityChange
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	27, // 6: fallout.terminal.private.v1.FacilityChangePlayerRefusal.capability:type_name -> fallout.terminal.persistence.v1.FacilityCapability
+	15, // 7: fallout.terminal.private.v1.FacilityChange.transition:type_name -> fallout.terminal.private.v1.FacilityChangeTransition
+	16, // 8: fallout.terminal.private.v1.FacilityChange.forced:type_name -> fallout.terminal.private.v1.FacilityChangeForced
+	17, // 9: fallout.terminal.private.v1.FacilityChange.fault:type_name -> fallout.terminal.private.v1.FacilityChangeFault
+	18, // 10: fallout.terminal.private.v1.FacilityChange.reset:type_name -> fallout.terminal.private.v1.FacilityChangeReset
+	19, // 11: fallout.terminal.private.v1.FacilityChange.scene_reset:type_name -> fallout.terminal.private.v1.FacilityChangeSceneReset
+	20, // 12: fallout.terminal.private.v1.FacilityChange.player_command:type_name -> fallout.terminal.private.v1.FacilityChangePlayerCommand
+	21, // 13: fallout.terminal.private.v1.FacilityChange.player_refusal:type_name -> fallout.terminal.private.v1.FacilityChangePlayerRefusal
+	6,  // 14: fallout.terminal.private.v1.CoordinationState.roster:type_name -> fallout.terminal.private.v1.CharacterState
+	7,  // 15: fallout.terminal.private.v1.CoordinationState.logical_sessions:type_name -> fallout.terminal.private.v1.LogicalSessionState
+	8,  // 16: fallout.terminal.private.v1.CoordinationState.broadcast:type_name -> fallout.terminal.private.v1.BroadcastState
+	9,  // 17: fallout.terminal.private.v1.CoordinationState.pending_terminal_switch:type_name -> fallout.terminal.private.v1.PendingTerminalSwitch
+	10, // 18: fallout.terminal.private.v1.CoordinationState.player_config:type_name -> fallout.terminal.private.v1.PlayerConfigMetadata
+	12, // 19: fallout.terminal.private.v1.CoordinationState.pending_command_execution:type_name -> fallout.terminal.private.v1.PendingCommandExecution
+	13, // 20: fallout.terminal.private.v1.CoordinationState.pending_terminal_navigation:type_name -> fallout.terminal.private.v1.PendingTerminalNavigation
+	14, // 21: fallout.terminal.private.v1.CoordinationState.terminal_navigation_notice:type_name -> fallout.terminal.private.v1.TerminalNavigationNotice
+	22, // 22: fallout.terminal.private.v1.CoordinationState.facility_changes:type_name -> fallout.terminal.private.v1.FacilityChange
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_fallout_terminal_private_v1_coordination_proto_init() }

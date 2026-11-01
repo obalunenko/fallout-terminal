@@ -206,6 +206,8 @@ type AuditEvent struct {
 type playerActionAuditContext struct {
 	request       AuditEvent
 	repeatOutcome string
+	// facility carries the facts of a fault-blocked request into its outcome.
+	facility *FacilityAuditFacts
 }
 
 // Service serializes every process-runtime transition under one mutex.
@@ -2651,12 +2653,15 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
 			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
 		}
-		if capability, bounded := requestedFacilityCapability(command, authored, commandSelected); bounded &&
-			facilityCapabilityBlocked(runtime.Facility, terminal, capability) {
-			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
-			stop = service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
-			refuseFacilityCommand(runtime, &stop, service.now(), terminal, authored, domain.FacilityChangeRefusalFaultBlocked)
-			return stop
+		if capability, bounded := requestedFacilityCapability(command, authored, commandSelected); bounded {
+			if conditions := blockingFacilityConditions(runtime.Facility, terminal, capability); len(conditions) != 0 {
+				var fed bool
+				auditContext.facility, fed = refuseFaultBlockedRequest(
+					runtime, service.now(), terminal, command, authored, capability, conditions,
+				)
+				outcome, stop = service.rejectPlayerAction(runtime, connectionID, sessionID, command, domain.ActionReasonFaultBlocked, fed)
+				return stop
+			}
 		}
 		if commandSelected && authored.Behavior() == domain.CommandBehaviorTerminalTransition {
 			lookup, ok := domain.TerminalTransitionTarget{}, false
@@ -2691,11 +2696,11 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 				var failure domain.FacilityFailureCode
 				facilityAction, failure = pendingFacilityAction(runtime.Facility, action)
 				if failure != domain.FacilityFailureUnspecified {
-					outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
-					stop = service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+					fed := false
 					if reason, ok := facilityChangeRefusalReason(failure); ok {
-						refuseFacilityCommand(runtime, &stop, service.now(), terminal, authored, reason)
+						fed = refuseFacilityCommand(runtime, service.now(), terminal, authored, reason)
 					}
+					outcome, stop = service.rejectPlayerAction(runtime, connectionID, sessionID, command, domain.ActionReasonInvalidAction, fed)
 					facts := facilityAuditFacts(nil, domain.FacilityOperationResult{
 						CorrelationID: command.RequestID,
 						Failure:       failure,
@@ -3580,6 +3585,29 @@ func playerActionResultEffect(connectionID domain.ConnectionID, sessionID domain
 	return Effect{ConnectionID: connectionID, SessionID: sessionID, Result: &result}
 }
 
+// rejectPlayerAction refuses command with reason. A refusal that fed a
+// device's change feed changed the master state, so it commits a new revision
+// and publishes the state first: the Overseer drops a snapshot at a revision
+// it has already seen. Any other refusal only caches its result.
+func (service *Service) rejectPlayerAction(
+	runtime *domain.ProcessRuntime,
+	connectionID domain.ConnectionID,
+	sessionID domain.LogicalSessionID,
+	command domain.RuntimeCommand,
+	reason domain.ActionReason,
+	fed bool,
+) (domain.ActionResult, transition) {
+	if !fed {
+		result := rejectedAction(command.RequestID, reason, runtime.Revision)
+		return result, service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, result)
+	}
+	result := rejectedAction(command.RequestID, reason, runtime.Revision+1)
+	change := service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, result)
+	change.accepted = true
+	change.effects = append(stateEffects(runtime), change.effects...)
+	return result, change
+}
+
 func (service *Service) cachePlayerActionRejection(runtime *domain.ProcessRuntime, connectionID domain.ConnectionID, sessionID domain.LogicalSessionID, command domain.RuntimeCommand, result domain.ActionResult) transition {
 	service.storeRequestResult(runtime, sessionID, command.RequestID, domain.RequestResultRecord{
 		Fingerprint: playerActionFingerprint(command),
@@ -3637,28 +3665,63 @@ func authoredFacilityActionRequests(
 
 // refuseFacilityCommand records the refusal of a player request for authored,
 // with reason and the commit time at, in the feed of each existing device the
-// command's facility action names. When it records an entry, change also
-// publishes the master snapshot that carries the feed, ahead of its other
-// effects.
+// command's facility action names. It reports whether it recorded an entry.
 func refuseFacilityCommand(
 	runtime *domain.ProcessRuntime,
-	change *transition,
 	at time.Time,
 	terminal *domain.TerminalRuntime,
 	authored *domain.ContentNode,
 	reason domain.FacilityChangeRefusalReason,
-) {
+) bool {
 	action := requestedCommandFacilityAction(terminal, authored)
 	if action == nil {
-		return
+		return false
 	}
 	requests := authoredFacilityActionRequests(runtime.Facility, action)
-	if !appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
+	return appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
 		terminal.TerminalID, authored.ID, requests, reason,
-	)...) {
-		return
+	)...)
+}
+
+// refuseFaultBlockedRequest records a request that conditions blocked in the
+// feed of every device they or the command's facility action name. It returns
+// the request's log-safe facts and whether it recorded an entry.
+func refuseFaultBlockedRequest(
+	runtime *domain.ProcessRuntime,
+	at time.Time,
+	terminal *domain.TerminalRuntime,
+	command domain.RuntimeCommand,
+	authored *domain.ContentNode,
+	capability domain.FacilityCapability,
+	conditions []domain.DiagnosticCondition,
+) (*FacilityAuditFacts, bool) {
+	var targetDeviceIDs []string
+	if authored != nil {
+		if action := requestedCommandFacilityAction(terminal, authored); action != nil {
+			for _, request := range authoredFacilityActionRequests(runtime.Facility, action) {
+				targetDeviceIDs = append(targetDeviceIDs, request.DeviceID)
+			}
+		}
 	}
-	change.effects = append([]Effect{{Master: masterSnapshot(runtime)}}, change.effects...)
+	changes := facilityBlockRefusalChanges(terminal.TerminalID, command, capability, conditions, targetDeviceIDs)
+	fed := appendFacilityChanges(runtime, at, changes...)
+	facts := &FacilityAuditFacts{
+		CorrelationID: string(command.RequestID), TerminalID: terminal.TerminalID,
+		Action: FacilityAuditActionCapabilityBlock, Outcome: "fault-blocked", Capability: capability,
+	}
+	if runtime.Broadcast != nil {
+		facts.BroadcastID = runtime.Broadcast.ID
+	}
+	for _, condition := range conditions {
+		facts.ConditionIDs = append(facts.ConditionIDs, condition.ID)
+	}
+	facts.ConditionIDs = sortedUniqueStrings(facts.ConditionIDs)
+	if capability == domain.FacilityCapabilityViewEntry {
+		facts.EntryID = command.NodeID
+	} else if authored != nil {
+		facts.CommandID = authored.ID
+	}
+	return facts, fed
 }
 
 // appendPendingFacilityRefusal records the refusal of a pending player
@@ -4138,6 +4201,7 @@ func (context playerActionAuditContext) events(
 	request := context.request
 	outcome := request
 	outcome.Name = "player.action.outcome"
+	outcome.Facility = context.facility
 	outcome.Outcome = context.repeatOutcome
 	if outcome.Outcome == "" {
 		outcome.Outcome = ActionAuditOutcome(result)
@@ -4211,6 +4275,8 @@ func ActionAuditOutcome(result domain.ActionResult) string {
 		return "conflict"
 	case domain.ActionReasonDuplicate:
 		return "duplicate"
+	case domain.ActionReasonFaultBlocked:
+		return "fault-blocked"
 	default:
 		return "invalid"
 	}

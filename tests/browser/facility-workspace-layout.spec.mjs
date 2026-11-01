@@ -140,3 +140,33 @@ for (const width of [900, 1180, 1440]) {
     }
   });
 }
+
+test('an empty status takes no room, tree tags keep a space, and row buttons read in capitals (042 FR-018, FR-020, FR-021)', async ({ page, request }) => {
+  await seedDemo(request);
+  await openOverseer(page);
+  await expect(page.locator('#facilityStatus')).toBeEmpty();
+  await expect(page.locator('.facility-feedback')).toBeHidden();
+
+  await selectDevice(page, 'vault-door-main');
+  const actions = page.locator('#facilityActionBindingList button');
+  await expect(actions.first()).toBeVisible();
+  const buttons = await actions.evaluateAll(items => items.map(item => [item.textContent, item.getAttribute('aria-label') || '']));
+  expect(buttons.length).toBeGreaterThan(0);
+  for (const [text, label] of buttons) {
+    expect(['ИЗМЕНИТЬ', 'УДАЛИТЬ']).toContain(text);
+    expect(label).toMatch(/^(Изменить|Удалить): /);
+  }
+
+  await page.getByRole('tab', { name: 'ТЕРМИНАЛЫ', exact: true }).click();
+  await page.locator('.tree-row', { hasText: 'ПРОТОКОЛ ВЫХОДА' }).click();
+  await expect(page.locator('.tree-icon.command').first()).toBeVisible();
+  const overlaps = await page.locator('.tree-row').evaluateAll(rows => rows.flatMap(row => {
+    const icon = row.querySelector('.tree-icon');
+    const label = row.querySelector('.tree-label');
+    if (!icon || !label) return [];
+    const gap = label.getBoundingClientRect().left - icon.getBoundingClientRect().right;
+    return icon.scrollWidth > icon.clientWidth || gap < 4 ? [`${icon.textContent} ${label.textContent}`] : [];
+  }));
+  expect(overlaps).toEqual([]);
+});
+

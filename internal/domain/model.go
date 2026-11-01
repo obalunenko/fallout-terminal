@@ -541,6 +541,7 @@ const (
 	ActionReasonInvalidAction          ActionReason = "invalid-action"
 	ActionReasonConflict               ActionReason = "conflict"
 	ActionReasonDuplicate              ActionReason = "duplicate"
+	ActionReasonFaultBlocked           ActionReason = "fault-blocked"
 )
 
 // ActionResult is the authoritative outcome of one correlated player command.

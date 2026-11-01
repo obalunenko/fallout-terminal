@@ -719,12 +719,16 @@ func TestActiveDiagnosticConditionsBlockSelectedCapabilities(t *testing.T) {
 		name       string
 		capability domain.FacilityCapability
 		prepare    func(*testing.T, *facilityCommandFixture) domain.RuntimeCommand
+		// fed is whether the refusal is recorded in a device feed, which
+		// commits a new revision.
+		fed bool
 	}{
 		{
 			name: "execute command", capability: domain.FacilityCapabilityExecuteCommand,
 			prepare: func(_ *testing.T, fixture *facilityCommandFixture) domain.RuntimeCommand {
 				return fixture.command("blocked-command")
 			},
+			fed: true,
 		},
 		{
 			name: "view entry", capability: domain.FacilityCapabilityViewEntry,
@@ -784,6 +788,7 @@ func TestActiveDiagnosticConditionsBlockSelectedCapabilities(t *testing.T) {
 				})
 				return fixture.command("blocked-recovery-program")
 			},
+			fed: true,
 		},
 	}
 
@@ -797,8 +802,12 @@ func TestActiveDiagnosticConditionsBlockSelectedCapabilities(t *testing.T) {
 
 			result := fixture.service.DispatchPlayerAction(fixture.controllerConnection, command)
 			require.False(t, result.Accepted)
-			require.Equal(t, domain.ActionReasonInvalidAction, result.Reason)
+			require.Equal(t, domain.ActionReasonFaultBlocked, result.Reason)
+			if test.fed {
+				revision++
+			}
 			require.Equal(t, revision, result.Revision)
+			require.Equal(t, revision, fixture.service.Revision())
 			require.Nil(t, fixture.service.Snapshot().PendingCommandExecution)
 			require.Nil(t, fixture.service.Snapshot().PendingTerminalNavigation)
 			require.Zero(t, fixture.store.CallCount())

@@ -443,6 +443,9 @@ let facilityStoryStep = 0;
 // The author's explicit guide choice for this run, 'expanded' or 'collapsed';
 // null lets the guide follow the device count (FR-019, FR-020).
 let facilityGuideChoice = null;
+// facilityTerminalFaultsCollapsed is the Overseer's «НЕИСПРАВНОСТИ ТЕРМИНАЛОВ»
+// choice for this run; it holds when another session opens (042 FR-016).
+let facilityTerminalFaultsCollapsed = false;
 let facilityGuideDeviceCount = null;
 // facilityDetailTab is the open detail tab for this run.
 let facilityDetailTab = 'actions';
@@ -3042,7 +3045,8 @@ function facilityRowActions(row, name, edit, remove, editDialog = '') {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `btn btn-mini ${label === 'Удалить' ? 'btn-danger' : 'btn-secondary'}`;
-    button.textContent = label;
+    // Controls read in capitals; the accessible name keeps sentence case.
+    button.textContent = label.toUpperCase();
     button.setAttribute('aria-label', `${label}: ${name}`);
     if (label === 'Изменить' && editDialog) {
       button.setAttribute('aria-haspopup', 'dialog');
@@ -3508,7 +3512,11 @@ function facilityFeedEntry(device, change) {
   item.dataset.sequence = String(change.sequence);
   item.dataset.kind = change.kind;
   item.dataset.author = change.author;
-  if (change.kind === 'player-refusal') item.dataset.reason = change.reason;
+  if (change.kind === 'player-refusal') {
+    item.dataset.reason = change.reason;
+    item.dataset.capability = change.capability;
+    item.dataset.attempts = String(change.attempts);
+  }
   const at = new Date(change.occurredAtUnixMs);
   const time = document.createElement('time');
   time.dateTime = at.toISOString();
@@ -3543,8 +3551,28 @@ function facilityFeedText(device, change) {
     case 'player-command':
       return `${commandName}: ${move} · ${author}`;
     default:
-      return `${commandName} · запрос игрока отклонён: ${FACILITY_REFUSAL_TEXT[change.reason] || FACILITY_REFUSAL_TEXT.unspecified} · ${author}`;
+      return facilityRefusalFeedText(change, terminal, commandName, author);
   }
+}
+
+// facilityRefusalFeedText names what a refused player request asked for and
+// why: the faults that blocked it, by name, and how many times it repeated
+// (042 FR-003, FR-004).
+function facilityRefusalFeedText(change, terminal, commandName, author) {
+  let target = commandName;
+  if (change.capability === 'view-entry') {
+    const entry = terminal && locateNode(terminal.root, change.entryId)?.node;
+    target = `чтение записи «${entry?.name || change.entryId}»`;
+  } else if (change.capability === 'hack') {
+    target = 'взлом';
+  }
+  const faults = change.conditionIds.map(id =>
+    `«${state.session?.facility?.conditions?.find(value => value.id === id)?.name || id}»`);
+  const why = change.reason === 'fault-blocked' && faults.length
+    ? `мешает неисправность ${faults.join(', ')}`
+    : FACILITY_REFUSAL_TEXT[change.reason] || FACILITY_REFUSAL_TEXT.unspecified;
+  const repeats = change.attempts > 1 ? ` · ×${change.attempts}` : '';
+  return `${target} · запрос игрока отклонён: ${why} · ${author}${repeats}`;
 }
 
 // renderFacilityPlayFaults lists every fault scoped to the device with a
@@ -3592,6 +3620,16 @@ function renderFacilityTerminalFaults(facility) {
   });
   list.hidden = !faults.length;
   document.getElementById('facilityTerminalFaultsEmpty').hidden = Boolean(faults.length);
+  renderFacilityTerminalFaultsGroup(facility);
+}
+
+// renderFacilityTerminalFaultsGroup shows the group collapsed or expanded and
+// counts its active faults in both states (042 FR-015).
+function renderFacilityTerminalFaultsGroup(facility) {
+  const active = (facility?.conditions || []).filter(value => value.terminal && value.currentActive).length;
+  document.getElementById('facilityTerminalFaults').dataset.collapsed = String(facilityTerminalFaultsCollapsed);
+  document.getElementById('btnToggleTerminalFaults').setAttribute('aria-expanded', String(!facilityTerminalFaultsCollapsed));
+  document.getElementById('facilityTerminalFaultsActiveCount').textContent = `АКТИВНО ${active}`;
 }
 
 // facilityFaultSwitchItem builds a fault's list item with the 040 switch and
@@ -4318,15 +4356,14 @@ function facilityDraftStateNamed(name) {
 }
 
 // facilityDraftTemplateAdditions lists what applying template would add: the
-// states the draft has no namesake for, and the transitions that no draft
-// transition of the same name has between the same named states (R9).
+// states the draft has no namesake for, and the transitions whose «из → в»
+// cell holds no transition yet, whatever that transition is called (042 FR-008).
 function facilityDraftTemplateAdditions(template) {
   const states = template.states.filter(name => !facilityDraftStateNamed(name));
-  const transitions = template.transitions.filter(({ name, from, to }) => {
+  const transitions = template.transitions.filter(({ from, to }) => {
     const source = facilityDraftStateNamed(from);
     const destination = facilityDraftStateNamed(to);
-    return !source || !destination || !facilityDraftCellRows(source, destination)
-      .some(row => row.querySelector('.facility-transition-name').value.trim().toLowerCase() === name.toLowerCase());
+    return !source || !destination || !facilityDraftCellRows(source, destination).length;
   });
   return { states, transitions };
 }
@@ -4340,7 +4377,7 @@ function facilityDraftTemplateTransitionName(source, destination) {
 
 // applyFacilityDraftTemplate adds the template's missing states and
 // transitions, and stars its starting state when the draft has none. Nothing
-// is renamed or removed (FR-011).
+// is renamed or removed (042 FR-009).
 function applyFacilityDraftTemplate(template) {
   const { states, transitions } = facilityDraftTemplateAdditions(template);
   const starred = facilityDraftStateRows().some(row => row.dataset.initial === 'true');
@@ -6188,6 +6225,10 @@ document.getElementById('facilityStoryGuideSummary').addEventListener('click', (
   facilityGuideChoice = document.getElementById('facilityStoryGuide').open ? 'collapsed' : 'expanded';
 });
 document.getElementById('facilityStoryGuide').addEventListener('toggle', renderFacilityGuideSummary);
+document.getElementById('btnToggleTerminalFaults').addEventListener('click', () => {
+  facilityTerminalFaultsCollapsed = !facilityTerminalFaultsCollapsed;
+  renderFacilityTerminalFaultsGroup(authoredFacility());
+});
 document.getElementById('btnFacilityStoryBack').addEventListener('click', () => setFacilityStoryStep(facilityStoryStep - 1, true));
 document.getElementById('btnFacilityStoryNext').addEventListener('click', () => setFacilityStoryStep(facilityStoryStep + 1, true));
 

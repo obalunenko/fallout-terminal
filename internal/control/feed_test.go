@@ -65,6 +65,54 @@ func TestAppendFacilityChangesNumbersOneCommitInOrderWithOneTime(t *testing.T) {
 		"entries are numbered in argument order and share the commit's time")
 }
 
+// TestAppendFacilityChangesMergesARepeatedFaultBlockRefusal covers FR-004: a
+// fault-block refusal equal to the device's newest entry replaces it with a new
+// sequence and time and one more attempt; anything else is prepended.
+func TestAppendFacilityChangesMergesARepeatedFaultBlockRefusal(t *testing.T) {
+	t.Parallel()
+
+	blocked := func(entryID string) domain.FacilityChange {
+		return domain.FacilityChange{DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+			TerminalID: "terminal-1", EntryID: entryID, Reason: domain.FacilityChangeRefusalFaultBlocked,
+			Capability: domain.FacilityCapabilityViewEntry, ConditionIDs: []string{"door-jam"}, Attempts: 1,
+		}}
+	}
+	attempts := func(changes []domain.FacilityChange) []uint32 {
+		counts := make([]uint32, len(changes))
+		for index, change := range changes {
+			if change.PlayerRefusal != nil {
+				counts[index] = change.PlayerRefusal.Attempts
+			}
+		}
+		return counts
+	}
+	runtime := &domain.ProcessRuntime{Facility: feedFacility()}
+	at := func(offset int64) time.Time { return time.UnixMilli(feedTestTime + offset) }
+
+	require.True(t, appendFacilityChanges(runtime, at(0), blocked("summary")))
+	require.True(t, appendFacilityChanges(runtime, at(1), blocked("summary")))
+	require.True(t, appendFacilityChanges(runtime, at(2), blocked("summary")))
+	door := runtime.FacilityChanges["door"]
+	require.Equal(t, []uint64{3}, feedSequences(door), "repeats replace the newest entry with a new sequence")
+	require.Equal(t, []uint32{3}, attempts(door))
+	require.Equal(t, feedTestTime+2, door[0].OccurredAtUnixMs, "the entry takes the latest time")
+
+	appendFacilityChanges(runtime, at(3), feedForcedEntry("door"))
+	appendFacilityChanges(runtime, at(4), blocked("summary"))
+	appendFacilityChanges(runtime, at(5), blocked("directive"))
+	door = runtime.FacilityChanges["door"]
+	require.Equal(t, []uint64{6, 5, 4, 3}, feedSequences(door),
+		"a refusal after another change, or of another target, is a new entry")
+	require.Equal(t, []uint32{1, 1, 0, 3}, attempts(door))
+
+	declined := feedRefusalEntry("door", domain.FacilityChangeRefusalDeclined)
+	appendFacilityChanges(runtime, at(6), declined)
+	appendFacilityChanges(runtime, at(7), declined)
+	require.Equal(t, []uint64{8, 7, 6, 5, 4}, feedSequences(runtime.FacilityChanges["door"]),
+		"only fault-block refusals merge; each Overseer decision stays its own entry")
+	require.Equal(t, uint64(8), runtime.FacilityChangeSequence, "a merge still consumes a sequence and never reuses one")
+}
+
 func TestAppendFacilityChangesNeverReusesASequenceInARun(t *testing.T) {
 	t.Parallel()
 

@@ -56,6 +56,31 @@ func TestRuntimeAuditLoggingUsesStableAllowlistedFieldsAndSeverity(t *testing.T)
 	assert.NotContains(t, fmt.Sprintf("%#v", records[0]), "content")
 }
 
+func TestRuntimeAuditLoggingRecordsFaultBlockedRequestFacts(t *testing.T) {
+	t.Parallel()
+	recorder := testutil.NewRecordingLogger()
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: recorder})
+	app.recordAuditEvents([]controlservice.AuditEvent{{
+		Name: "player.action.outcome", Outcome: "fault-blocked", SessionID: "session-1", RequestID: "request-1",
+		BroadcastID: "broadcast-1", TerminalID: "t_demo1", Mode: "navigation-entry",
+		Facility: &controlservice.FacilityAuditFacts{
+			CorrelationID: "request-1", TerminalID: "t_demo1", EntryID: "n_entry_vault_shutdown",
+			Action: controlservice.FacilityAuditActionCapabilityBlock, Outcome: "fault-blocked",
+			Capability: domain.FacilityCapabilityViewEntry, ConditionIDs: []string{"air-spore-bloom", "air-spore-bloom"},
+		},
+	}}, 7)
+	records := recorder.Records()
+	require.Len(t, records, 1)
+	assert.Equal(t, "warn", records[0].Level)
+	assert.Equal(t, "fault-blocked", records[0].Fields["outcome"])
+	assert.Equal(t, "capability-block", records[0].Fields["facility_action"])
+	assert.Equal(t, "view-entry", records[0].Fields["capability"])
+	assert.Equal(t, []string{"air-spore-bloom"}, records[0].Fields["condition_ids"])
+	assert.Equal(t, "n_entry_vault_shutdown", records[0].Fields["entry_id"])
+	assert.Equal(t, "request-1", records[0].Fields["request_id"])
+	assert.NotContains(t, records[0].Fields, "command_id")
+}
+
 func TestRuntimeAuditSeverityWarnsForEveryRejectedOrFailedOutcome(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -76,6 +101,7 @@ func TestRuntimeAuditSeverityWarnsForEveryRejectedOrFailedOutcome(t *testing.T) 
 		{outcome: "controller-disconnected", want: "warn"},
 		{outcome: "stale-broadcast", want: "warn"},
 		{outcome: "stale-terminal", want: "warn"},
+		{outcome: "fault-blocked", want: "warn"},
 		{outcome: "accepted", want: "info"},
 		{outcome: "replayed", want: "info"},
 		{outcome: "succeeded", want: "info"},

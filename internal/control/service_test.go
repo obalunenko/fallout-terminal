@@ -3367,6 +3367,9 @@ func TestPlayerCommandFeedRecordsRefusalReasons(t *testing.T) {
 		beforeDecision func(*testing.T, *facilityCommandFixture)
 		reason         domain.FacilityChangeRefusalReason
 		devices        []string
+		// blocked is the capability a fault blocked; it also names the
+		// fault-block fields every refusal entry carries.
+		blocked domain.FacilityCapability
 	}{
 		{
 			name:     "declined",
@@ -3447,6 +3450,7 @@ func TestPlayerCommandFeedRecordsRefusalReasons(t *testing.T) {
 			},
 			reason:  domain.FacilityChangeRefusalFaultBlocked,
 			devices: []string{"door"},
+			blocked: domain.FacilityCapabilityExecuteCommand,
 		},
 		{
 			name: "recovery program blocked by an active fault",
@@ -3465,6 +3469,7 @@ func TestPlayerCommandFeedRecordsRefusalReasons(t *testing.T) {
 			},
 			reason:  domain.FacilityChangeRefusalFaultBlocked,
 			devices: []string{"door"},
+			blocked: domain.FacilityCapabilityRunRecoveryProgram,
 		},
 		{
 			name: "authored transition missing at request",
@@ -3499,13 +3504,27 @@ func TestPlayerCommandFeedRecordsRefusalReasons(t *testing.T) {
 			base := serviceFeedSequence(t, fixture.service)
 			effectsBefore := fixture.effects.Calls()
 			want := serviceFeedRefusals(fixture, base, serviceFeedTime, test.reason, test.devices...)
+			if test.blocked != "" {
+				for index := range want {
+					want[index].PlayerRefusal.Capability = test.blocked
+					want[index].PlayerRefusal.ConditionIDs = []string{"terminal-block"}
+					want[index].PlayerRefusal.Attempts = 1
+				}
+			}
 
+			revision := fixture.service.Revision()
 			selected := fixture.service.DispatchPlayerAction(
 				fixture.controllerConnection, fixture.command(domain.RequestID("feed-"+strings.ReplaceAll(test.name, " ", "-"))),
 			)
 			if test.decision == "" {
 				require.False(t, selected.Accepted)
 				require.Nil(t, fixture.service.Snapshot().PendingCommandExecution)
+				// The fed refusal publishes at a new revision, or the Overseer drops it.
+				require.Equal(t, revision+1, selected.Revision)
+				require.Equal(t, []uint64{revision + 1}, masterEffectRevisions(fixture.effects.Values()[effectsBefore:]))
+				if test.blocked != "" {
+					require.Equal(t, domain.ActionReasonFaultBlocked, selected.Reason)
+				}
 			} else {
 				require.True(t, selected.Accepted)
 				pending := fixture.service.Snapshot().PendingCommandExecution
@@ -3530,6 +3549,219 @@ func TestPlayerCommandFeedRecordsRefusalReasons(t *testing.T) {
 			require.Equal(t, base+uint64(len(test.devices)), serviceFeedSequence(t, fixture.service))
 		})
 	}
+}
+
+// TestFaultBlockedPlayerRequestsRefuseWithFaultReasonAndFeedTheFaultDevice
+// covers FR-001, FR-003, FR-005 and FR-006: the request is refused with the
+// fault-block reason, and each device in the union of the blocking device
+// faults and the command's targets gets one refusal entry.
+func TestFaultBlockedPlayerRequestsRefuseWithFaultReasonAndFeedTheFaultDevice(t *testing.T) {
+	t.Parallel()
+
+	const entryID = "evacuation-summary"
+	tests := []struct {
+		name    string
+		prepare func(*testing.T, *facilityCommandFixture)
+		command func(facilityCommandFixture) domain.RuntimeCommand
+		// want lists the expected refusal per device, oldest first.
+		want []domain.FacilityChange
+		// capability and conditions are the expected audit facts.
+		capability domain.FacilityCapability
+		conditions []string
+	}{
+		{
+			name: "entry blocked by a fault on a device the terminal shows",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				addActiveDeviceCapabilityBlock(fixture.service, "door-jam", "door", domain.FacilityCapabilityViewEntry)
+			},
+			command: faultBlockEntryCommand(entryID),
+			want: []domain.FacilityChange{{DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+				EntryID: entryID, Reason: domain.FacilityChangeRefusalFaultBlocked,
+				Capability: domain.FacilityCapabilityViewEntry, ConditionIDs: []string{"door-jam"}, Attempts: 1,
+			}}},
+			capability: domain.FacilityCapabilityViewEntry,
+			conditions: []string{"door-jam"},
+		},
+		{
+			name: "entry blocked by a terminal fault feeds no device",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				addActiveTerminalCapabilityBlock(fixture.service, fixture.terminalID, domain.FacilityCapabilityViewEntry)
+			},
+			command:    faultBlockEntryCommand(entryID),
+			capability: domain.FacilityCapabilityViewEntry,
+			conditions: []string{"terminal-block"},
+		},
+		{
+			name: "command blocked by a fault on another device feeds both devices once",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				showDeviceOnFixtureTerminal(*fixture, "power")
+				addActiveDeviceCapabilityBlock(fixture.service, "grid-down", "power", domain.FacilityCapabilityExecuteCommand)
+			},
+			command: func(fixture facilityCommandFixture) domain.RuntimeCommand {
+				return fixture.command("fault-block-command-other-device")
+			},
+			want: []domain.FacilityChange{
+				{DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{CommandID: "command-open-doors"}},
+				{DeviceID: "power", PlayerRefusal: &domain.FacilityChangePlayerRefusal{CommandID: "command-open-doors"}},
+			},
+			capability: domain.FacilityCapabilityExecuteCommand,
+			conditions: []string{"grid-down"},
+		},
+		{
+			name: "command blocked by a fault on its own target feeds the target once",
+			prepare: func(_ *testing.T, fixture *facilityCommandFixture) {
+				addActiveDeviceCapabilityBlock(fixture.service, "door-jam", "door", domain.FacilityCapabilityExecuteCommand)
+			},
+			command: func(fixture facilityCommandFixture) domain.RuntimeCommand {
+				return fixture.command("fault-block-command-own-device")
+			},
+			want: []domain.FacilityChange{
+				{DeviceID: "door", PlayerRefusal: &domain.FacilityChangePlayerRefusal{CommandID: "command-open-doors"}},
+			},
+			capability: domain.FacilityCapabilityExecuteCommand,
+			conditions: []string{"door-jam"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			fixture := newServiceFeedFixture(t, serviceFeedFixedClock(serviceFeedTime))
+			addFixtureEntry(fixture, entryID)
+			test.prepare(t, &fixture)
+			base := serviceFeedSequence(t, fixture.service)
+			revision := fixture.service.Snapshot().Revision
+			effectsBefore := fixture.effects.Calls()
+			command := test.command(fixture)
+
+			result := fixture.service.DispatchPlayerAction(fixture.controllerConnection, command)
+
+			require.False(t, result.Accepted)
+			require.Equal(t, domain.ActionReasonFaultBlocked, result.Reason)
+			// A fed refusal changes the master state, so its snapshot needs a
+			// newer revision: the Overseer drops one at a revision it has seen.
+			published := masterEffectRevisions(fixture.effects.Values()[effectsBefore:])
+			if len(test.want) == 0 {
+				require.Equal(t, revision, result.Revision)
+				require.Empty(t, published)
+			} else {
+				require.Equal(t, revision+1, result.Revision)
+				require.Equal(t, []uint64{revision + 1}, published)
+			}
+			want := make([]domain.FacilityChange, 0, len(test.want))
+			for index, change := range test.want {
+				refusal := *change.PlayerRefusal
+				refusal.TerminalID = fixture.terminalID
+				refusal.Reason = domain.FacilityChangeRefusalFaultBlocked
+				refusal.Capability = test.capability
+				refusal.ConditionIDs = test.conditions
+				refusal.Attempts = 1
+				want = append(want, domain.FacilityChange{
+					Sequence: base + uint64(index) + 1, DeviceID: change.DeviceID, OccurredAtUnixMs: serviceFeedTime,
+					PlayerRefusal: &refusal,
+				})
+			}
+			slices.Reverse(want)
+			if len(want) == 0 {
+				want = nil
+			}
+			require.Empty(t, cmp.Diff(want, fixture.service.Snapshot().FacilityChanges))
+			require.Equal(t, base+uint64(len(want)), serviceFeedSequence(t, fixture.service))
+
+			var outcome *AuditEvent
+			for _, event := range auditEvents(fixture.effects.Values()[effectsBefore:]) {
+				if event.Name == "player.action.outcome" && event.RequestID == command.RequestID {
+					outcome = &event
+				}
+			}
+			require.NotNil(t, outcome)
+			require.Equal(t, "fault-blocked", outcome.Outcome)
+			require.NotNil(t, outcome.Facility)
+			require.Equal(t, FacilityAuditActionCapabilityBlock, outcome.Facility.Action)
+			require.Equal(t, test.capability, outcome.Facility.Capability)
+			require.Equal(t, test.conditions, outcome.Facility.ConditionIDs)
+			require.Equal(t, fixture.terminalID, outcome.Facility.TerminalID)
+			if test.capability == domain.FacilityCapabilityViewEntry {
+				require.Equal(t, entryID, outcome.Facility.EntryID)
+			} else {
+				require.Equal(t, fixture.commandID, outcome.Facility.CommandID)
+			}
+			if len(test.want) == 0 {
+				return
+			}
+
+			// A repeat only raises the attempt count, and still publishes it.
+			effectsBefore = fixture.effects.Calls()
+			command.RequestID += "-repeat"
+			repeat := fixture.service.DispatchPlayerAction(fixture.controllerConnection, command)
+			require.Equal(t, domain.ActionReasonFaultBlocked, repeat.Reason)
+			require.Equal(t, revision+2, repeat.Revision)
+			require.Equal(t, []uint64{revision + 2}, masterEffectRevisions(fixture.effects.Values()[effectsBefore:]))
+			newest := fixture.service.Snapshot().FacilityChanges[0]
+			require.Equal(t, uint32(2), newest.PlayerRefusal.Attempts)
+		})
+	}
+}
+
+// masterEffectRevisions returns the revision of each master snapshot in
+// effects, in order.
+func masterEffectRevisions(effects []Effect) []uint64 {
+	var revisions []uint64
+	for _, effect := range effects {
+		if effect.Master != nil {
+			revisions = append(revisions, effect.Master.Revision)
+		}
+	}
+	return revisions
+}
+
+func faultBlockEntryCommand(entryID string) func(facilityCommandFixture) domain.RuntimeCommand {
+	return func(fixture facilityCommandFixture) domain.RuntimeCommand {
+		return domain.RuntimeCommand{
+			RequestID: "fault-block-entry", BroadcastID: fixture.broadcastID, TerminalID: fixture.terminalID,
+			Kind: domain.RuntimeCommandNavigate, Action: "entry", NodeID: entryID,
+		}
+	}
+}
+
+// addFixtureEntry adds a plain entry to the fixture's terminal root.
+func addFixtureEntry(fixture facilityCommandFixture, entryID string) {
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		terminal := root.Broadcast.TerminalRuntimes[fixture.terminalID]
+		entry := domain.ContentNode{ID: entryID, Type: domain.NodeEntry, Name: "EVACUATION SUMMARY", Description: "ROUTE CLEAR"}
+		terminal.AuthoredTree.Children = append(terminal.AuthoredTree.Children, domain.CloneContentNode(entry))
+		terminal.Tree.Children = append(terminal.Tree.Children, entry)
+		return transition{accepted: true}
+	})
+}
+
+// addActiveDeviceCapabilityBlock adds an active fault scoped to deviceID that
+// blocks capability.
+func addActiveDeviceCapabilityBlock(service *Service, conditionID, deviceID string, capability domain.FacilityCapability) {
+	service.commit(func(runtime *domain.ProcessRuntime) transition {
+		runtime.Facility.Conditions = append(runtime.Facility.Conditions, domain.DiagnosticCondition{
+			ID: conditionID, Name: conditionID, Category: domain.DiagnosticConditionCategoryOffline,
+			Device:        &domain.DiagnosticDeviceScope{DeviceID: deviceID},
+			InitialActive: true, CurrentActive: true,
+			Effects:  []domain.DiagnosticEffect{{CapabilityBlock: &domain.CapabilityBlockEffect{Capability: capability}}},
+			Recovery: []domain.DiagnosticRecoveryReference{{PrivateOverseerAction: new(true)}},
+		})
+		return transition{accepted: true}
+	})
+}
+
+// showDeviceOnFixtureTerminal makes the fixture's terminal show deviceID
+// through a name variant, so the device's faults apply to that terminal.
+func showDeviceOnFixtureTerminal(fixture facilityCommandFixture, deviceID string) {
+	fixture.service.commit(func(root *domain.ProcessRuntime) transition {
+		terminal := root.Broadcast.TerminalRuntimes[fixture.terminalID]
+		for _, tree := range []*domain.ContentNode{&terminal.AuthoredTree, &terminal.Tree} {
+			tree.FacilityNameVariants = append(tree.FacilityNameVariants, domain.FacilityTextVariant{
+				When: domain.FacilityStateEquality{DeviceID: deviceID, StateID: "online"}, Text: "ONLINE",
+			})
+		}
+		return transition{accepted: true}
+	})
 }
 
 func TestPlayerCommandFeedRecordsAReplayedRefusalOnce(t *testing.T) {

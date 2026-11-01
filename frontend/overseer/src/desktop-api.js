@@ -504,6 +504,10 @@ function normalizeFacilityConditionActivePayload(payload) {
   };
 }
 
+const FACILITY_CAPABILITIES = new Set([
+  'execute-command', 'view-entry', 'hack', 'terminal-transition', 'run-recovery-program',
+]);
+
 const FACILITY_CHANGE_REFUSAL_REASONS = new Set([
   'declined', 'precondition-failed', 'transition-unavailable', 'fault-blocked', 'stale', 'withdrawn', 'failed',
   'unspecified',
@@ -552,6 +556,10 @@ function normalizeFacilityChange(change) {
     terminalId: optionalString(variant.terminalId),
     commandId: optionalString(variant.commandId),
     reason,
+    entryId: optionalString(variant.entryId),
+    capability: FACILITY_CAPABILITIES.has(variant.capability) ? variant.capability : '',
+    // A refusal stands for at least one attempt; repeats raise the count.
+    attempts: Number.isSafeInteger(variant.attempts) && variant.attempts > 1 ? variant.attempts : 1,
   });
 }
 
