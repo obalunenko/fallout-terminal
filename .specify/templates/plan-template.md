@@ -4,7 +4,7 @@
 
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Note**: This template is filled in by the `$speckit-plan` command.
+**Note**: This template is filled in by the `/speckit-plan` command.
 
 ## Summary
 
