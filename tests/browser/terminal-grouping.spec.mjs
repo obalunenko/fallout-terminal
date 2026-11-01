@@ -324,7 +324,7 @@ test('preserves group and member order across a terminal save and reopen', async
   await page.locator('#createTerminalName').fill('Резервный терминал');
   await dialog.getByRole('button', { name: 'СОЗДАТЬ ТЕРМИНАЛ' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.locator('#saveStatus')).toContainText('Сохранено');
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-state', 'saved');
 
   const saved = await fixtureSession(request);
   const created = saved.terminals.find(terminal => terminal.name === 'Резервный терминал');
@@ -839,6 +839,8 @@ test('ordinary command keeps its approval and reconnect behavior without changin
       pendingTerminalNavigation: null,
       activationHistory: ['gamma'],
     });
+    // The summary names the live terminal, never its ID.
+    await expect(overseer.locator('#broadcastSummary')).toHaveText('ТРАНСЛЯЦИЯ АКТИВНА · ТЕРМИНАЛ: Терминал Гамма');
 
     await controller.page.locator('.term-row', { hasText: 'ПРОВЕРИТЬ СВЯЗЬ' }).click();
     await Promise.all([controller, observer].map(participant => expectPendingNavigation(participant.page)));

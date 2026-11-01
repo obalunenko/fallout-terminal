@@ -52,8 +52,1103 @@ export const CommandExecutionDecision = {
 };
 
 /**
+ * CommandExecutionPhase is the public broadcast-scoped presentation state.
+ * @readonly
+ * @enum {string}
+ */
+export const CommandExecutionPhase = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    CommandExecutionPhasePending: "pending",
+    CommandExecutionPhaseRejected: "rejected",
+};
+
+/**
+ * CommandExecutionPresentation exposes only the shared phase and stable
+ * command identity. Master prompt and request identity remain private.
+ */
+export class CommandExecutionPresentation {
+    /**
+     * Creates a new CommandExecutionPresentation instance.
+     * @param {Partial<CommandExecutionPresentation>} [$$source = {}] - The source object to create the CommandExecutionPresentation.
+     */
+    constructor($$source = {}) {
+        if (!("phase" in $$source)) {
+            /**
+             * @member
+             * @type {CommandExecutionPhase}
+             */
+            this["phase"] = CommandExecutionPhase.$zero;
+        }
+        if (!("commandId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["commandId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CommandExecutionPresentation instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CommandExecutionPresentation}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CommandExecutionPresentation(/** @type {Partial<CommandExecutionPresentation>} */($$parsedSource));
+    }
+}
+
+/**
+ * CommandReference names one command of one terminal.
+ */
+export class CommandReference {
+    /**
+     * Creates a new CommandReference instance.
+     * @param {Partial<CommandReference>} [$$source = {}] - The source object to create the CommandReference.
+     */
+    constructor($$source = {}) {
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (!("commandId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["commandId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CommandReference instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {CommandReference}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CommandReference(/** @type {Partial<CommandReference>} */($$parsedSource));
+    }
+}
+
+/**
  * ContentNode is a tagged folder, command, or entry node.
  * @typedef {any} ContentNode
+ */
+
+/**
+ * ControllerTerminalPresentation is the complete semantic selection for one
+ * active terminal context. Exactly the fields admitted by Kind may be set.
+ */
+export class ControllerTerminalPresentation {
+    /**
+     * Creates a new ControllerTerminalPresentation instance.
+     * @param {Partial<ControllerTerminalPresentation>} [$$source = {}] - The source object to create the ControllerTerminalPresentation.
+     */
+    constructor($$source = {}) {
+        if (!("kind" in $$source)) {
+            /**
+             * @member
+             * @type {ControllerTerminalPresentationKind}
+             */
+            this["kind"] = ControllerTerminalPresentationKind.$zero;
+        }
+        if (!("contextKey" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["contextKey"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["targetId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | undefined}
+             */
+            this["patternId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | undefined}
+             */
+            this["pageIndex"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ControllerTerminalPresentation instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {ControllerTerminalPresentation}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ControllerTerminalPresentation(/** @type {Partial<ControllerTerminalPresentation>} */($$parsedSource));
+    }
+}
+
+/**
+ * ControllerTerminalPresentationKind identifies the stable semantic portion
+ * of the terminal view shared by the controller and every observer. Pointer
+ * coordinates, DOM focus, viewport geometry, and audio eligibility remain
+ * deliberately outside this process-local value.
+ * @readonly
+ * @enum {string}
+ */
+export const ControllerTerminalPresentationKind = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    ControllerTerminalPresentationNone: "none",
+    ControllerTerminalPresentationMenu: "menu",
+    ControllerTerminalPresentationPage: "page",
+    ControllerTerminalPresentationHacking: "hacking",
+};
+
+/**
+ * FacilityChange is one runtime-only entry of a device's recent-changes feed.
+ * Exactly one variant is set. Entries carry stable IDs only; the Overseer
+ * resolves names from the session.
+ */
+export class FacilityChange {
+    /**
+     * Creates a new FacilityChange instance.
+     * @param {Partial<FacilityChange>} [$$source = {}] - The source object to create the FacilityChange.
+     */
+    constructor($$source = {}) {
+        if (!("sequence" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["sequence"] = 0;
+        }
+        if (!("deviceId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["deviceId"] = "";
+        }
+        if (!("occurredAtUnixMs" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["occurredAtUnixMs"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangeTransition | null | undefined}
+             */
+            this["transition"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangeForced | null | undefined}
+             */
+            this["forced"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangeFault | null | undefined}
+             */
+            this["fault"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangeReset | null | undefined}
+             */
+            this["reset"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangeReset | null | undefined}
+             */
+            this["sceneReset"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangePlayerCommand | null | undefined}
+             */
+            this["playerCommand"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChangePlayerRefusal | null | undefined}
+             */
+            this["playerRefusal"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChange instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChange}
+     */
+    static createFrom($$source = {}) {
+        const $$createField3_0 = $$createType1;
+        const $$createField4_0 = $$createType3;
+        const $$createField5_0 = $$createType5;
+        const $$createField6_0 = $$createType7;
+        const $$createField7_0 = $$createType7;
+        const $$createField8_0 = $$createType9;
+        const $$createField9_0 = $$createType11;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("transition" in $$parsedSource) {
+            $$parsedSource["transition"] = $$createField3_0($$parsedSource["transition"]);
+        }
+        if ("forced" in $$parsedSource) {
+            $$parsedSource["forced"] = $$createField4_0($$parsedSource["forced"]);
+        }
+        if ("fault" in $$parsedSource) {
+            $$parsedSource["fault"] = $$createField5_0($$parsedSource["fault"]);
+        }
+        if ("reset" in $$parsedSource) {
+            $$parsedSource["reset"] = $$createField6_0($$parsedSource["reset"]);
+        }
+        if ("sceneReset" in $$parsedSource) {
+            $$parsedSource["sceneReset"] = $$createField7_0($$parsedSource["sceneReset"]);
+        }
+        if ("playerCommand" in $$parsedSource) {
+            $$parsedSource["playerCommand"] = $$createField8_0($$parsedSource["playerCommand"]);
+        }
+        if ("playerRefusal" in $$parsedSource) {
+            $$parsedSource["playerRefusal"] = $$createField9_0($$parsedSource["playerRefusal"]);
+        }
+        return new FacilityChange(/** @type {Partial<FacilityChange>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityChangeFault records a fault the Overseer switched. Active is the
+ * resulting position.
+ */
+export class FacilityChangeFault {
+    /**
+     * Creates a new FacilityChangeFault instance.
+     * @param {Partial<FacilityChangeFault>} [$$source = {}] - The source object to create the FacilityChangeFault.
+     */
+    constructor($$source = {}) {
+        if (!("conditionId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["conditionId"] = "";
+        }
+        if (!("active" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["active"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChangeFault instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChangeFault}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityChangeFault(/** @type {Partial<FacilityChangeFault>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityChangeForced records a state the Overseer forced.
+ */
+export class FacilityChangeForced {
+    /**
+     * Creates a new FacilityChangeForced instance.
+     * @param {Partial<FacilityChangeForced>} [$$source = {}] - The source object to create the FacilityChangeForced.
+     */
+    constructor($$source = {}) {
+        if (!("fromStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["fromStateId"] = "";
+        }
+        if (!("toStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["toStateId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChangeForced instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChangeForced}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityChangeForced(/** @type {Partial<FacilityChangeForced>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityChangePlayerCommand records an approved player command that moved
+ * the device.
+ */
+export class FacilityChangePlayerCommand {
+    /**
+     * Creates a new FacilityChangePlayerCommand instance.
+     * @param {Partial<FacilityChangePlayerCommand>} [$$source = {}] - The source object to create the FacilityChangePlayerCommand.
+     */
+    constructor($$source = {}) {
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (!("commandId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["commandId"] = "";
+        }
+        if (!("transitionId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["transitionId"] = "";
+        }
+        if (!("fromStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["fromStateId"] = "";
+        }
+        if (!("toStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["toStateId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChangePlayerCommand instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChangePlayerCommand}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityChangePlayerCommand(/** @type {Partial<FacilityChangePlayerCommand>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityChangePlayerRefusal records a player request affecting the device
+ * that was not applied.
+ */
+export class FacilityChangePlayerRefusal {
+    /**
+     * Creates a new FacilityChangePlayerRefusal instance.
+     * @param {Partial<FacilityChangePlayerRefusal>} [$$source = {}] - The source object to create the FacilityChangePlayerRefusal.
+     */
+    constructor($$source = {}) {
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (!("commandId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["commandId"] = "";
+        }
+        if (!("reason" in $$source)) {
+            /**
+             * @member
+             * @type {FacilityChangeRefusalReason}
+             */
+            this["reason"] = FacilityChangeRefusalReason.$zero;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChangePlayerRefusal instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChangePlayerRefusal}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityChangePlayerRefusal(/** @type {Partial<FacilityChangePlayerRefusal>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityChangeRefusalReason says why a player request affecting a device
+ * was not applied.
+ * @readonly
+ * @enum {string}
+ */
+export const FacilityChangeRefusalReason = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    FacilityChangeRefusalUnspecified: "unspecified",
+    FacilityChangeRefusalDeclined: "declined",
+    FacilityChangeRefusalPreconditionFailed: "precondition-failed",
+    FacilityChangeRefusalTransitionUnavailable: "transition-unavailable",
+    FacilityChangeRefusalFaultBlocked: "fault-blocked",
+    FacilityChangeRefusalStale: "stale",
+    FacilityChangeRefusalWithdrawn: "withdrawn",
+    FacilityChangeRefusalFailed: "failed",
+};
+
+/**
+ * FacilityChangeReset records a device reset or a scene reset of one device.
+ * FromStateID equals ToStateID when only faults were restored.
+ */
+export class FacilityChangeReset {
+    /**
+     * Creates a new FacilityChangeReset instance.
+     * @param {Partial<FacilityChangeReset>} [$$source = {}] - The source object to create the FacilityChangeReset.
+     */
+    constructor($$source = {}) {
+        if (!("fromStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["fromStateId"] = "";
+        }
+        if (!("toStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["toStateId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["conditionIds"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChangeReset instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChangeReset}
+     */
+    static createFrom($$source = {}) {
+        const $$createField2_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("conditionIds" in $$parsedSource) {
+            $$parsedSource["conditionIds"] = $$createField2_0($$parsedSource["conditionIds"]);
+        }
+        return new FacilityChangeReset(/** @type {Partial<FacilityChangeReset>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityChangeTransition records an authored transition the Overseer ran
+ * from the play card.
+ */
+export class FacilityChangeTransition {
+    /**
+     * Creates a new FacilityChangeTransition instance.
+     * @param {Partial<FacilityChangeTransition>} [$$source = {}] - The source object to create the FacilityChangeTransition.
+     */
+    constructor($$source = {}) {
+        if (!("transitionId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["transitionId"] = "";
+        }
+        if (!("fromStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["fromStateId"] = "";
+        }
+        if (!("toStateId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["toStateId"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityChangeTransition instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityChangeTransition}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityChangeTransition(/** @type {Partial<FacilityChangeTransition>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityConditionPreview is a detached condition override used only for
+ * projection previews.
+ */
+export class FacilityConditionPreview {
+    /**
+     * Creates a new FacilityConditionPreview instance.
+     * @param {Partial<FacilityConditionPreview>} [$$source = {}] - The source object to create the FacilityConditionPreview.
+     */
+    constructor($$source = {}) {
+        if (!("ConditionID" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["ConditionID"] = "";
+        }
+        if (!("Active" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["Active"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityConditionPreview instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityConditionPreview}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityConditionPreview(/** @type {Partial<FacilityConditionPreview>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDependency identifies one direct reference to a facility entity.
+ */
+export class FacilityDependency {
+    /**
+     * Creates a new FacilityDependency instance.
+     * @param {Partial<FacilityDependency>} [$$source = {}] - The source object to create the FacilityDependency.
+     */
+    constructor($$source = {}) {
+        if (!("kind" in $$source)) {
+            /**
+             * @member
+             * @type {FacilityDependencyKind}
+             */
+            this["kind"] = FacilityDependencyKind.$zero;
+        }
+        if (!("sourceId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["sourceId"] = "";
+        }
+        if (!("targetId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["targetId"] = "";
+        }
+        if (!("property" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["property"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["terminalId"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDependency instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDependency}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityDependency(/** @type {Partial<FacilityDependency>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDependencyKind identifies where one facility reference originates.
+ * @readonly
+ * @enum {string}
+ */
+export const FacilityDependencyKind = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    FacilityDependencyKindUnspecified: "unspecified",
+    FacilityDependencyKindTransitionPrecondition: "transition-precondition",
+    FacilityDependencyKindTransitionConditionEffect: "transition-condition-effect",
+    FacilityDependencyKindRecoveryReference: "recovery-reference",
+    FacilityDependencyKindRecoveryProgramTransition: "recovery-program-transition",
+    FacilityDependencyKindCommandAction: "command-action",
+    FacilityDependencyKindNameVariant: "name-variant",
+    FacilityDependencyKindEntryContentVariant: "entry-content-variant",
+    FacilityDependencyKindVisibility: "visibility",
+    FacilityDependencyKindAvailability: "availability",
+    FacilityDependencyKindDiagnosticScope: "diagnostic-scope",
+    FacilityDependencyKindDiagnosticEffect: "diagnostic-effect",
+};
+
+/**
+ * FacilityDependencyReport is a detached list of references to one entity.
+ */
+export class FacilityDependencyReport {
+    /**
+     * Creates a new FacilityDependencyReport instance.
+     * @param {Partial<FacilityDependencyReport>} [$$source = {}] - The source object to create the FacilityDependencyReport.
+     */
+    constructor($$source = {}) {
+        if (!("target" in $$source)) {
+            /**
+             * @member
+             * @type {FacilityEntityReference}
+             */
+            this["target"] = (new FacilityEntityReference());
+        }
+        if (!("dependencies" in $$source)) {
+            /**
+             * @member
+             * @type {FacilityDependency[]}
+             */
+            this["dependencies"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDependencyReport instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDependencyReport}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType13;
+        const $$createField1_0 = $$createType15;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("target" in $$parsedSource) {
+            $$parsedSource["target"] = $$createField0_0($$parsedSource["target"]);
+        }
+        if ("dependencies" in $$parsedSource) {
+            $$parsedSource["dependencies"] = $$createField1_0($$parsedSource["dependencies"]);
+        }
+        return new FacilityDependencyReport(/** @type {Partial<FacilityDependencyReport>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityDeviceStatePreview is a detached state override used only for
+ * projection previews.
+ */
+export class FacilityDeviceStatePreview {
+    /**
+     * Creates a new FacilityDeviceStatePreview instance.
+     * @param {Partial<FacilityDeviceStatePreview>} [$$source = {}] - The source object to create the FacilityDeviceStatePreview.
+     */
+    constructor($$source = {}) {
+        if (!("DeviceID" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["DeviceID"] = "";
+        }
+        if (!("StateID" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["StateID"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityDeviceStatePreview instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityDeviceStatePreview}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityDeviceStatePreview(/** @type {Partial<FacilityDeviceStatePreview>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityEntityKind identifies a durable entity addressed by dependency
+ * inspection and repair.
+ * @readonly
+ * @enum {string}
+ */
+export const FacilityEntityKind = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    FacilityEntityKindUnspecified: "unspecified",
+    FacilityEntityKindDevice: "device",
+    FacilityEntityKindDeviceState: "device-state",
+    FacilityEntityKindDeviceTransition: "device-transition",
+    FacilityEntityKindCondition: "condition",
+    FacilityEntityKindRecoveryProgram: "recovery-program",
+};
+
+/**
+ * FacilityEntityReference identifies a dependency target. OwnerID qualifies a
+ * device-scoped state or transition identity.
+ */
+export class FacilityEntityReference {
+    /**
+     * Creates a new FacilityEntityReference instance.
+     * @param {Partial<FacilityEntityReference>} [$$source = {}] - The source object to create the FacilityEntityReference.
+     */
+    constructor($$source = {}) {
+        if (!("kind" in $$source)) {
+            /**
+             * @member
+             * @type {FacilityEntityKind}
+             */
+            this["kind"] = FacilityEntityKind.$zero;
+        }
+        if (!("entityId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["entityId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["ownerId"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityEntityReference instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityEntityReference}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityEntityReference(/** @type {Partial<FacilityEntityReference>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityFailureCode is a stable structured facility operation outcome.
+ * @readonly
+ * @enum {string}
+ */
+export const FacilityFailureCode = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    FacilityFailureUnspecified: "unspecified",
+    FacilityFailureRejected: "rejected",
+    FacilityFailureMissingReference: "missing-reference",
+    FacilityFailureInvalidTransition: "invalid-transition",
+    FacilityFailurePreconditionFailed: "precondition-failed",
+    FacilityFailureStaleRevision: "stale-revision",
+    FacilityFailureConflict: "conflict",
+    FacilityFailureDuplicate: "duplicate",
+    FacilityFailureInvalidConfiguration: "invalid-configuration",
+    FacilityFailurePersistenceFailed: "persistence-failed",
+    FacilityFailureRuntimeContextEnded: "runtime-context-ended",
+};
+
+/**
+ * FacilityIssue identifies one stable configuration or operation failure.
+ */
+export class FacilityIssue {
+    /**
+     * Creates a new FacilityIssue instance.
+     * @param {Partial<FacilityIssue>} [$$source = {}] - The source object to create the FacilityIssue.
+     */
+    constructor($$source = {}) {
+        if (!("code" in $$source)) {
+            /**
+             * @member
+             * @type {FacilityFailureCode}
+             */
+            this["code"] = FacilityFailureCode.$zero;
+        }
+        if (!("entityKind" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["entityKind"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["entityId"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["referenceKind"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string | null | undefined}
+             */
+            this["referenceId"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityIssue instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityIssue}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FacilityIssue(/** @type {Partial<FacilityIssue>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityOperationResult is the detached outcome of one serialized facility
+ * mutation attempt.
+ */
+export class FacilityOperationResult {
+    /**
+     * Creates a new FacilityOperationResult instance.
+     * @param {Partial<FacilityOperationResult>} [$$source = {}] - The source object to create the FacilityOperationResult.
+     */
+    constructor($$source = {}) {
+        if (!("ok" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["ok"] = false;
+        }
+        if (!("changed" in $$source)) {
+            /**
+             * @member
+             * @type {boolean}
+             */
+            this["changed"] = false;
+        }
+        if (!("correlationId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["correlationId"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityFailureCode | undefined}
+             */
+            this["failure"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityIssue[] | undefined}
+             */
+            this["issues"] = undefined;
+        }
+        if (!("sessionRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["sessionRevision"] = 0;
+        }
+        if (!("previousFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["previousFacilityRevision"] = 0;
+        }
+        if (!("resultingFacilityRevision" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["resultingFacilityRevision"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["affectedDeviceIds"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {string[] | undefined}
+             */
+            this["affectedConditionIds"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {Session | null | undefined}
+             */
+            this["session"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * AuthoringRevision is the active session's authoring revision after an
+             * authoring save or scene reset; other operations leave it zero.
+             * @member
+             * @type {number | undefined}
+             */
+            this["authoringRevision"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * ResetCommands lists the executed commands a scene reset cleared,
+             * ordered by terminal ID, then command ID.
+             * @member
+             * @type {CommandReference[] | undefined}
+             */
+            this["resetCommands"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FacilityOperationResult instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {FacilityOperationResult}
+     */
+    static createFrom($$source = {}) {
+        const $$createField4_0 = $$createType17;
+        const $$createField8_0 = $$createType12;
+        const $$createField9_0 = $$createType12;
+        const $$createField12_0 = $$createType19;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("issues" in $$parsedSource) {
+            $$parsedSource["issues"] = $$createField4_0($$parsedSource["issues"]);
+        }
+        if ("affectedDeviceIds" in $$parsedSource) {
+            $$parsedSource["affectedDeviceIds"] = $$createField8_0($$parsedSource["affectedDeviceIds"]);
+        }
+        if ("affectedConditionIds" in $$parsedSource) {
+            $$parsedSource["affectedConditionIds"] = $$createField9_0($$parsedSource["affectedConditionIds"]);
+        }
+        if ("resetCommands" in $$parsedSource) {
+            $$parsedSource["resetCommands"] = $$createField12_0($$parsedSource["resetCommands"]);
+        }
+        return new FacilityOperationResult(/** @type {Partial<FacilityOperationResult>} */($$parsedSource));
+    }
+}
+
+/**
+ * FacilityStateEquality requires one device to equal one of its named states.
+ * @typedef {any} FacilityStateEquality
  */
 
 /**
@@ -96,8 +1191,8 @@ export class HackColumn {
      * @returns {HackColumn}
      */
     static createFrom($$source = {}) {
-        const $$createField0_0 = $$createType0;
-        const $$createField2_0 = $$createType2;
+        const $$createField0_0 = $$createType12;
+        const $$createField2_0 = $$createType21;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("addresses" in $$parsedSource) {
             $$parsedSource["addresses"] = $$createField0_0($$parsedSource["addresses"]);
@@ -220,6 +1315,13 @@ export class MasterCoordinationState {
              */
             this["revision"] = 0;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {number | null | undefined}
+             */
+            this["facilityRevision"] = undefined;
+        }
         if (!("playerConfig" in $$source)) {
             /**
              * @member
@@ -276,6 +1378,13 @@ export class MasterCoordinationState {
              */
             this["terminalNavigationNotice"] = null;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {FacilityChange[] | undefined}
+             */
+            this["facilityChanges"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -286,38 +1395,42 @@ export class MasterCoordinationState {
      * @returns {MasterCoordinationState}
      */
     static createFrom($$source = {}) {
-        const $$createField1_0 = $$createType4;
-        const $$createField2_0 = $$createType6;
-        const $$createField3_0 = $$createType8;
-        const $$createField4_0 = $$createType10;
-        const $$createField5_0 = $$createType12;
-        const $$createField6_0 = $$createType14;
-        const $$createField7_0 = $$createType16;
-        const $$createField8_0 = $$createType18;
+        const $$createField2_0 = $$createType23;
+        const $$createField3_0 = $$createType25;
+        const $$createField4_0 = $$createType27;
+        const $$createField5_0 = $$createType29;
+        const $$createField6_0 = $$createType31;
+        const $$createField7_0 = $$createType33;
+        const $$createField8_0 = $$createType35;
+        const $$createField9_0 = $$createType37;
+        const $$createField10_0 = $$createType39;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("playerConfig" in $$parsedSource) {
-            $$parsedSource["playerConfig"] = $$createField1_0($$parsedSource["playerConfig"]);
+            $$parsedSource["playerConfig"] = $$createField2_0($$parsedSource["playerConfig"]);
         }
         if ("roster" in $$parsedSource) {
-            $$parsedSource["roster"] = $$createField2_0($$parsedSource["roster"]);
+            $$parsedSource["roster"] = $$createField3_0($$parsedSource["roster"]);
         }
         if ("sessions" in $$parsedSource) {
-            $$parsedSource["sessions"] = $$createField3_0($$parsedSource["sessions"]);
+            $$parsedSource["sessions"] = $$createField4_0($$parsedSource["sessions"]);
         }
         if ("broadcast" in $$parsedSource) {
-            $$parsedSource["broadcast"] = $$createField4_0($$parsedSource["broadcast"]);
+            $$parsedSource["broadcast"] = $$createField5_0($$parsedSource["broadcast"]);
         }
         if ("pendingSwitch" in $$parsedSource) {
-            $$parsedSource["pendingSwitch"] = $$createField5_0($$parsedSource["pendingSwitch"]);
+            $$parsedSource["pendingSwitch"] = $$createField6_0($$parsedSource["pendingSwitch"]);
         }
         if ("pendingCommandExecution" in $$parsedSource) {
-            $$parsedSource["pendingCommandExecution"] = $$createField6_0($$parsedSource["pendingCommandExecution"]);
+            $$parsedSource["pendingCommandExecution"] = $$createField7_0($$parsedSource["pendingCommandExecution"]);
         }
         if ("pendingTerminalNavigation" in $$parsedSource) {
-            $$parsedSource["pendingTerminalNavigation"] = $$createField7_0($$parsedSource["pendingTerminalNavigation"]);
+            $$parsedSource["pendingTerminalNavigation"] = $$createField8_0($$parsedSource["pendingTerminalNavigation"]);
         }
         if ("terminalNavigationNotice" in $$parsedSource) {
-            $$parsedSource["terminalNavigationNotice"] = $$createField8_0($$parsedSource["terminalNavigationNotice"]);
+            $$parsedSource["terminalNavigationNotice"] = $$createField9_0($$parsedSource["terminalNavigationNotice"]);
+        }
+        if ("facilityChanges" in $$parsedSource) {
+            $$parsedSource["facilityChanges"] = $$createField10_0($$parsedSource["facilityChanges"]);
         }
         return new MasterCoordinationState(/** @type {Partial<MasterCoordinationState>} */($$parsedSource));
     }
@@ -380,6 +1493,13 @@ export class MasterPendingCommandExecution {
              * @type {string}
              */
             this["confirmationText"] = "";
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {PendingFacilityAction | null | undefined}
+             */
+            this["facilityAction"] = undefined;
         }
 
         Object.assign(this, $$source);
@@ -652,7 +1772,7 @@ export class MasterSessionEntry {
      * @returns {MasterSessionEntry}
      */
     static createFrom($$source = {}) {
-        const $$createField3_0 = $$createType20;
+        const $$createField3_0 = $$createType41;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("character" in $$parsedSource) {
             $$parsedSource["character"] = $$createField3_0($$parsedSource["character"]);
@@ -707,6 +1827,110 @@ export class MasterTerminalNavigationNotice {
     static createFrom($$source = {}) {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new MasterTerminalNavigationNotice(/** @type {Partial<MasterTerminalNavigationNotice>} */($$parsedSource));
+    }
+}
+
+/**
+ * NavState is the shared server-authoritative player position.
+ */
+export class NavState {
+    /**
+     * Creates a new NavState instance.
+     * @param {Partial<NavState>} [$$source = {}] - The source object to create the NavState.
+     */
+    constructor($$source = {}) {
+        if (!("path" in $$source)) {
+            /**
+             * @member
+             * @type {string[]}
+             */
+            this["path"] = [];
+        }
+        if (!("mode" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["mode"] = "";
+        }
+        if (!("viewEntryId" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["viewEntryId"] = null;
+        }
+        if (!("commandNodeId" in $$source)) {
+            /**
+             * @member
+             * @type {string | null}
+             */
+            this["commandNodeId"] = null;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new NavState instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {NavState}
+     */
+    static createFrom($$source = {}) {
+        const $$createField0_0 = $$createType12;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("path" in $$parsedSource) {
+            $$parsedSource["path"] = $$createField0_0($$parsedSource["path"]);
+        }
+        return new NavState(/** @type {Partial<NavState>} */($$parsedSource));
+    }
+}
+
+/**
+ * PendingFacilityAction is the detached world-action intent captured during
+ * the existing private command approval lifecycle.
+ * @typedef {any} PendingFacilityAction
+ */
+
+export class PendingTerminalNavigationPresentation {
+    /**
+     * Creates a new PendingTerminalNavigationPresentation instance.
+     * @param {Partial<PendingTerminalNavigationPresentation>} [$$source = {}] - The source object to create the PendingTerminalNavigationPresentation.
+     */
+    constructor($$source = {}) {
+        if (!("direction" in $$source)) {
+            /**
+             * @member
+             * @type {TerminalNavigationDirection}
+             */
+            this["direction"] = TerminalNavigationDirection.$zero;
+        }
+        if (!("targetTerminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["targetTerminalId"] = "";
+        }
+        if (!("targetTerminalName" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["targetTerminalName"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PendingTerminalNavigationPresentation instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {PendingTerminalNavigationPresentation}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PendingTerminalNavigationPresentation(/** @type {Partial<PendingTerminalNavigationPresentation>} */($$parsedSource));
     }
 }
 
@@ -957,9 +2181,9 @@ export class PublicHackState {
      * @returns {PublicHackState}
      */
     static createFrom($$source = {}) {
-        const $$createField6_0 = $$createType0;
-        const $$createField7_0 = $$createType22;
-        const $$createField8_0 = $$createType24;
+        const $$createField6_0 = $$createType12;
+        const $$createField7_0 = $$createType43;
+        const $$createField8_0 = $$createType45;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("log" in $$parsedSource) {
             $$parsedSource["log"] = $$createField6_0($$parsedSource["log"]);
@@ -971,6 +2195,131 @@ export class PublicHackState {
             $$parsedSource["patterns"] = $$createField8_0($$parsedSource["patterns"]);
         }
         return new PublicHackState(/** @type {Partial<PublicHackState>} */($$parsedSource));
+    }
+}
+
+/**
+ * PublicLiveState is the immutable client-facing live snapshot.
+ */
+export class PublicLiveState {
+    /**
+     * Creates a new PublicLiveState instance.
+     * @param {Partial<PublicLiveState>} [$$source = {}] - The source object to create the PublicLiveState.
+     */
+    constructor($$source = {}) {
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (!("terminalName" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalName"] = "";
+        }
+        if (!("tree" in $$source)) {
+            /**
+             * @member
+             * @type {ContentNode}
+             */
+            this["tree"] = null;
+        }
+        if (!("hackLevel" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["hackLevel"] = 0;
+        }
+        if (!("introText" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["introText"] = "";
+        }
+        if (!("nav" in $$source)) {
+            /**
+             * @member
+             * @type {NavState}
+             */
+            this["nav"] = (new NavState());
+        }
+        if (!("hack" in $$source)) {
+            /**
+             * @member
+             * @type {PublicHackState | null}
+             */
+            this["hack"] = null;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {CommandExecutionPresentation | null | undefined}
+             */
+            this["commandExecution"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {TerminalNavigationPresentation | null | undefined}
+             */
+            this["terminalNavigation"] = undefined;
+        }
+        if (!("controllerPresentation" in $$source)) {
+            /**
+             * @member
+             * @type {ControllerTerminalPresentation}
+             */
+            this["controllerPresentation"] = (new ControllerTerminalPresentation());
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {TerminalPresentationEffect[] | undefined}
+             */
+            this["effects"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PublicLiveState instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {PublicLiveState}
+     */
+    static createFrom($$source = {}) {
+        const $$createField5_0 = $$createType46;
+        const $$createField6_0 = $$createType48;
+        const $$createField7_0 = $$createType50;
+        const $$createField8_0 = $$createType52;
+        const $$createField9_0 = $$createType53;
+        const $$createField10_0 = $$createType54;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("nav" in $$parsedSource) {
+            $$parsedSource["nav"] = $$createField5_0($$parsedSource["nav"]);
+        }
+        if ("hack" in $$parsedSource) {
+            $$parsedSource["hack"] = $$createField6_0($$parsedSource["hack"]);
+        }
+        if ("commandExecution" in $$parsedSource) {
+            $$parsedSource["commandExecution"] = $$createField7_0($$parsedSource["commandExecution"]);
+        }
+        if ("terminalNavigation" in $$parsedSource) {
+            $$parsedSource["terminalNavigation"] = $$createField8_0($$parsedSource["terminalNavigation"]);
+        }
+        if ("controllerPresentation" in $$parsedSource) {
+            $$parsedSource["controllerPresentation"] = $$createField9_0($$parsedSource["controllerPresentation"]);
+        }
+        if ("effects" in $$parsedSource) {
+            $$parsedSource["effects"] = $$createField10_0($$parsedSource["effects"]);
+        }
+        return new PublicLiveState(/** @type {Partial<PublicLiveState>} */($$parsedSource));
     }
 }
 
@@ -1091,7 +2440,7 @@ export class TerminalGroup {
      * @returns {TerminalGroup}
      */
     static createFrom($$source = {}) {
-        const $$createField2_0 = $$createType0;
+        const $$createField2_0 = $$createType12;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("terminalIds" in $$parsedSource) {
             $$parsedSource["terminalIds"] = $$createField2_0($$parsedSource["terminalIds"]);
@@ -1146,6 +2495,106 @@ export const TerminalNavigationNoticeReason = {
     TerminalNavigationNoticeTargetChanged: "target-changed",
 };
 
+export class TerminalNavigationPresentation {
+    /**
+     * Creates a new TerminalNavigationPresentation instance.
+     * @param {Partial<TerminalNavigationPresentation>} [$$source = {}] - The source object to create the TerminalNavigationPresentation.
+     */
+    constructor($$source = {}) {
+        if (!("routeDepth" in $$source)) {
+            /**
+             * @member
+             * @type {number}
+             */
+            this["routeDepth"] = 0;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {TerminalReturnTarget | null | undefined}
+             */
+            this["returnTarget"] = undefined;
+        }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {PendingTerminalNavigationPresentation | null | undefined}
+             */
+            this["pending"] = undefined;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TerminalNavigationPresentation instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TerminalNavigationPresentation}
+     */
+    static createFrom($$source = {}) {
+        const $$createField1_0 = $$createType56;
+        const $$createField2_0 = $$createType58;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("returnTarget" in $$parsedSource) {
+            $$parsedSource["returnTarget"] = $$createField1_0($$parsedSource["returnTarget"]);
+        }
+        if ("pending" in $$parsedSource) {
+            $$parsedSource["pending"] = $$createField2_0($$parsedSource["pending"]);
+        }
+        return new TerminalNavigationPresentation(/** @type {Partial<TerminalNavigationPresentation>} */($$parsedSource));
+    }
+}
+
+/**
+ * TerminalPresentationEffect is a safe, presentation-only terminal effect.
+ * @readonly
+ * @enum {string}
+ */
+export const TerminalPresentationEffect = {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero: "",
+
+    TerminalPresentationEffectUnspecified: "",
+    TerminalPresentationEffectDisplayUnstable: "display-unstable",
+};
+
+export class TerminalReturnTarget {
+    /**
+     * Creates a new TerminalReturnTarget instance.
+     * @param {Partial<TerminalReturnTarget>} [$$source = {}] - The source object to create the TerminalReturnTarget.
+     */
+    constructor($$source = {}) {
+        if (!("terminalId" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalId"] = "";
+        }
+        if (!("terminalName" in $$source)) {
+            /**
+             * @member
+             * @type {string}
+             */
+            this["terminalName"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TerminalReturnTarget instance from a string or object.
+     * @param {any} [$$source = {}]
+     * @returns {TerminalReturnTarget}
+     */
+    static createFrom($$source = {}) {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TerminalReturnTarget(/** @type {Partial<TerminalReturnTarget>} */($$parsedSource));
+    }
+}
+
 /**
  * TerminalSwitchChoice is the Overseer's explicit unfinished-puzzle decision.
  * @readonly
@@ -1163,28 +2612,62 @@ export const TerminalSwitchChoice = {
 };
 
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = HackWord.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = PlayerConfigMetadata.createFrom;
-const $$createType4 = $Create.Nullable($$createType3);
-const $$createType5 = MasterRosterEntry.createFrom;
-const $$createType6 = $Create.Array($$createType5);
-const $$createType7 = MasterSessionEntry.createFrom;
-const $$createType8 = $Create.Array($$createType7);
-const $$createType9 = MasterBroadcastState.createFrom;
-const $$createType10 = $Create.Nullable($$createType9);
-const $$createType11 = MasterPendingSwitch.createFrom;
-const $$createType12 = $Create.Nullable($$createType11);
-const $$createType13 = MasterPendingCommandExecution.createFrom;
-const $$createType14 = $Create.Nullable($$createType13);
-const $$createType15 = MasterPendingTerminalNavigation.createFrom;
-const $$createType16 = $Create.Nullable($$createType15);
-const $$createType17 = MasterTerminalNavigationNotice.createFrom;
-const $$createType18 = $Create.Nullable($$createType17);
-const $$createType19 = PlayerCharacter.createFrom;
-const $$createType20 = $Create.Nullable($$createType19);
-const $$createType21 = HackColumn.createFrom;
-const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = PublicHackPattern.createFrom;
-const $$createType24 = $Create.Array($$createType23);
+const $$createType0 = FacilityChangeTransition.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = FacilityChangeForced.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
+const $$createType4 = FacilityChangeFault.createFrom;
+const $$createType5 = $Create.Nullable($$createType4);
+const $$createType6 = FacilityChangeReset.createFrom;
+const $$createType7 = $Create.Nullable($$createType6);
+const $$createType8 = FacilityChangePlayerCommand.createFrom;
+const $$createType9 = $Create.Nullable($$createType8);
+const $$createType10 = FacilityChangePlayerRefusal.createFrom;
+const $$createType11 = $Create.Nullable($$createType10);
+const $$createType12 = $Create.Array($Create.Any);
+const $$createType13 = FacilityEntityReference.createFrom;
+const $$createType14 = FacilityDependency.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = FacilityIssue.createFrom;
+const $$createType17 = $Create.Array($$createType16);
+const $$createType18 = CommandReference.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = HackWord.createFrom;
+const $$createType21 = $Create.Array($$createType20);
+const $$createType22 = PlayerConfigMetadata.createFrom;
+const $$createType23 = $Create.Nullable($$createType22);
+const $$createType24 = MasterRosterEntry.createFrom;
+const $$createType25 = $Create.Array($$createType24);
+const $$createType26 = MasterSessionEntry.createFrom;
+const $$createType27 = $Create.Array($$createType26);
+const $$createType28 = MasterBroadcastState.createFrom;
+const $$createType29 = $Create.Nullable($$createType28);
+const $$createType30 = MasterPendingSwitch.createFrom;
+const $$createType31 = $Create.Nullable($$createType30);
+const $$createType32 = MasterPendingCommandExecution.createFrom;
+const $$createType33 = $Create.Nullable($$createType32);
+const $$createType34 = MasterPendingTerminalNavigation.createFrom;
+const $$createType35 = $Create.Nullable($$createType34);
+const $$createType36 = MasterTerminalNavigationNotice.createFrom;
+const $$createType37 = $Create.Nullable($$createType36);
+const $$createType38 = FacilityChange.createFrom;
+const $$createType39 = $Create.Array($$createType38);
+const $$createType40 = PlayerCharacter.createFrom;
+const $$createType41 = $Create.Nullable($$createType40);
+const $$createType42 = HackColumn.createFrom;
+const $$createType43 = $Create.Array($$createType42);
+const $$createType44 = PublicHackPattern.createFrom;
+const $$createType45 = $Create.Array($$createType44);
+const $$createType46 = NavState.createFrom;
+const $$createType47 = PublicHackState.createFrom;
+const $$createType48 = $Create.Nullable($$createType47);
+const $$createType49 = CommandExecutionPresentation.createFrom;
+const $$createType50 = $Create.Nullable($$createType49);
+const $$createType51 = TerminalNavigationPresentation.createFrom;
+const $$createType52 = $Create.Nullable($$createType51);
+const $$createType53 = ControllerTerminalPresentation.createFrom;
+const $$createType54 = $Create.Array($Create.Any);
+const $$createType55 = TerminalReturnTarget.createFrom;
+const $$createType56 = $Create.Nullable($$createType55);
+const $$createType57 = PendingTerminalNavigationPresentation.createFrom;
+const $$createType58 = $Create.Nullable($$createType57);

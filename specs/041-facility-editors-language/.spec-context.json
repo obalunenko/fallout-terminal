@@ -1,0 +1,1725 @@
+{
+  "workflow": "companion",
+  "specName": "Facility Editors and Language",
+  "branch": "041-facility-editors-language",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-31T09:48:43.430Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-31T10:00:44.377Z"
+    },
+    {
+      "step": "clarify",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T11:28:56.132Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-31T11:29:17.012Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T11:42:40.431Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:10:30.245Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:10:35.076Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-31T12:38:27.448Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:42:49.832Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:42:56.625Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-31T12:43:10.581Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:44:32.329Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:48:11.276Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:53:16.164Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:55:52.801Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:57:07.363Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:57:52.243Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:57:52.323Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:57:52.397Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T12:58:43.243Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T13:01:41.556Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T13:02:30.429Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T13:26:56.273Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T14:09:29.218Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T14:24:20.509Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T14:59:36.710Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T15:27:12.508Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T15:44:49.035Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T16:04:16.672Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T16:31:18.668Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T16:54:03.455Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T17:44:46.928Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:00:49.318Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:14:10.694Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:14:35.083Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:14:44.941Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:14:45.005Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:21:58.868Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:21:58.934Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:21:59.001Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:21:59.265Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:22:54.619Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:22:54.702Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:22:54.782Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:22:54.854Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:22:54.938Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:23:01.457Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:23:01.523Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:23:01.600Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:23:01.679Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:23:25.788Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:23:32.796Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:24:11.159Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:24:58.120Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:29:11.892Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:29:11.945Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:29:12.001Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T18:31:43.509Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T19:28:58.230Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T19:52:15.082Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T19:52:15.102Z"
+    }
+  ],
+  "last_action": "all 49 tasks done; gates green; browser 438 passed / 2 skipped; packaged app check passed with 4 fixes",
+  "coverage": {
+    "FR-001": {
+      "title": "The device dialog MUST show, in order: name, type, the type's template offer, states, transitions, and a collapsed «Технические идентификаторы» block at the bottom",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-002": {
+      "title": "States MUST be shown as chips, with the starting state starred on its chip",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-003": {
+      "title": "The separate starting-state list MUST be removed",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-004": {
+      "title": "Transitions MUST be shown as a matrix with one row per source state and one column per destination state",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-005": {
+      "title": "Choosing an empty cell MUST start a new transition between that pair of states",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-006": {
+      "title": "The transition editor MUST show the transition's name, source and destination states, and preconditions, all editable",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-007": {
+      "title": "Identifiers of the device, its states, and its transitions MUST be generated from names as today and MUST appear only inside «Технические идентификаторы»",
+      "tasks": [
+        "T013",
+        "T022",
+        "T023"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs",
+        "tests/browser/facility-p0-identifiers.spec.mjs"
+      ]
+    },
+    "FR-008": {
+      "title": "Deleting a state MUST name every use of it",
+      "tasks": [
+        "T013",
+        "T022"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "FR-009": {
+      "title": "Every device type except «Другое» MUST have a template with at least two states, a starting state, and transitions in both directions",
+      "tasks": [
+        "T014",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs"
+      ]
+    },
+    "FR-010": {
+      "title": "The dialog MUST name the template's states and transitions next to «Применить шаблон» before it is applied",
+      "tasks": [
+        "T014",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs"
+      ]
+    },
+    "FR-011": {
+      "title": "Applying a template MUST add only the states and transitions whose names the device does not have yet",
+      "tasks": [
+        "T014",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs"
+      ]
+    },
+    "FR-012": {
+      "title": "Changing a device's type MUST NOT change its states or transitions",
+      "tasks": [
+        "T014",
+        "T030"
+      ],
+      "tests": [
+        "tests/browser/facility-device-templates.spec.mjs"
+      ]
+    },
+    "FR-013": {
+      "title": "The fault dialog MUST be titled «Неисправность» and MUST hold every fault setting: name, where it acts (a device or a terminal), what it blocks or changes, its position at game start, «Как появляется»",
+      "tasks": [
+        "T015",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-014": {
+      "title": "«Как появляется» MUST list every transition that activates the fault, by device and transition name, and MUST let the author add one with «+ Включать при переходе…» or remove one",
+      "tasks": [
+        "T015",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-015": {
+      "title": "«Как устраняется» MUST list every transition that clears the fault, every recovery program that contains such a transition, and «Смотритель вручную»",
+      "tasks": [
+        "T015",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-016": {
+      "title": "A program created from «Как устраняется» MUST start with a transition that clears that fault, and «Готово» or «Отмена» in the program dialog MUST return the author to the fault dialog",
+      "tasks": [
+        "T015",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-017": {
+      "title": "A transition's fault effects MUST be edited only in the fault dialog",
+      "tasks": [
+        "T013",
+        "T015",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-018": {
+      "title": "The recovery program dialog MUST list its transitions as one uniform list of rows (device and transition), each removable, with one add control and no multi-sentence instruction",
+      "tasks": [
+        "T015",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-019": {
+      "title": "Choosing a fault in any list MUST open its fault dialog",
+      "tasks": [
+        "T016",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-020": {
+      "title": "The Overseer can clear any fault by hand; «Смотритель вручную» always listed, checkbox removed, stored value kept, fault saves without clearing transition or program",
+      "tasks": [
+        "T002",
+        "T006",
+        "T009",
+        "T010",
+        "T015",
+        "T016",
+        "T025",
+        "T026",
+        "T027",
+        "T029",
+        "T040"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs",
+        "tests/browser/facility-play-faults.spec.mjs",
+        "internal/domain/validate_test.go"
+      ]
+    },
+    "FR-021": {
+      "title": "Terminal-scoped faults listed in «Неисправности терминалов» at the end of the device list with dialog link and play switch",
+      "tasks": [
+        "T016",
+        "T025",
+        "T028"
+      ],
+      "tests": [
+        "tests/browser/facility-fault-dialog.spec.mjs",
+        "tests/browser/facility-diagnostics.spec.mjs",
+        "internal/control/facility_test.go::TestFacilityFaultSwitchedOffReachesConnectedPlayers"
+      ]
+    },
+    "FR-022": {
+      "title": "The display-rule dialog MUST be titled «Правило отображения» and MUST offer its type as tabs at the top: «Текст записи», «Название в меню», «Показать элемент», «Разрешить команду»",
+      "tasks": [
+        "T017",
+        "T031"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "FR-023": {
+      "title": "Fields MUST appear in sentence order: «КОГДА» (device «=» state), «ГДЕ» (element), «БЛОК» (only «Текст записи»), «ТЕКСТ» (only «Текст записи» and «Название в меню»)",
+      "tasks": [
+        "T017",
+        "T031",
+        "T034"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs",
+        "tests/browser/facility-p0-visible-fields.spec.mjs"
+      ]
+    },
+    "FR-024": {
+      "title": "The element choice MUST show each element's path through folders and MUST offer only elements the type applies to: records for «Текст записи», commands for «Разрешить команду», and any element except",
+      "tasks": [
+        "T017",
+        "T031"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "FR-025": {
+      "title": "The block choice MUST label each block by its number and opening text",
+      "tasks": [
+        "T017",
+        "T031"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "FR-026": {
+      "title": "Switching tabs on a new rule MUST keep the device, the state, and the element when the new type accepts them",
+      "tasks": [
+        "T017",
+        "T031"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "FR-027": {
+      "title": "The dialog MUST say what players see in the device's other states, for example «В остальных состояниях останется исходный текст блока»",
+      "tasks": [
+        "T017",
+        "T031"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "FR-028": {
+      "title": "When an element's name or text rules already depend on another device, or the element already has a visibility or availability rule, the dialog MUST name the existing rule, offer to open it, and MUST",
+      "tasks": [
+        "T017",
+        "T031"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "FR-029": {
+      "title": "«Действие команды» MUST NOT be a type in the display-rule dialog",
+      "tasks": [
+        "T018",
+        "T031",
+        "T032",
+        "T033"
+      ],
+      "tests": [
+        "tests/browser/facility-display-rules.spec.mjs",
+        "tests/browser/facility-p0-command-actions.spec.mjs"
+      ]
+    },
+    "FR-030": {
+      "title": "Each device row MUST be left-aligned, with the name and the type under it",
+      "tasks": [
+        "T019",
+        "T036",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "FR-031": {
+      "title": "Above the list MUST sit a search field «Название или состояние» and the filters «Все», «Изменённые», «С неисправностью», each with its count over the whole session",
+      "tasks": [
+        "T019",
+        "T036",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "FR-032": {
+      "title": "Rows, badges, marks, counts, and filter results MUST update while the list is open when a state or fault changes",
+      "tasks": [
+        "T019",
+        "T036",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "FR-033": {
+      "title": "When nothing matches, the list MUST say so and offer «Все»",
+      "tasks": [
+        "T019",
+        "T036",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "FR-034": {
+      "title": "One glossary MUST define the facility terms Локация, Устройство, Состояние, Переход, Правило отображения, Действие команды, Неисправность, Программа восстановления, and the dialog pair Готово / Отмена",
+      "tasks": [
+        "T005",
+        "T020",
+        "T038"
+      ],
+      "tests": [
+        "tests/browser/facility-vocabulary.spec.mjs"
+      ]
+    },
+    "FR-035": {
+      "title": "«объект» MUST NOT name a device or the whole location, and «диагностическое условие», «условие», and «Восстановить условие» MUST NOT name a fault or its clearing",
+      "tasks": [
+        "T005",
+        "T020",
+        "T038",
+        "T040"
+      ],
+      "tests": [
+        "tests/browser/facility-vocabulary.spec.mjs"
+      ]
+    },
+    "FR-036": {
+      "title": "Every control that opens an existing device's dialog MUST read «Изменить состояния и переходы»",
+      "tasks": [
+        "T020",
+        "T038",
+        "T039"
+      ],
+      "tests": [
+        "tests/browser/facility-vocabulary.spec.mjs"
+      ]
+    },
+    "FR-037": {
+      "title": "Each dependency MUST be described in words, naming what depends on what and where by name",
+      "tasks": [
+        "T020",
+        "T038",
+        "T039"
+      ],
+      "tests": [
+        "tests/browser/facility-vocabulary.spec.mjs"
+      ]
+    },
+    "FR-038": {
+      "title": "Facility validation problems MUST name entities in Russian by name and kind",
+      "tasks": [
+        "T012",
+        "T038",
+        "T041"
+      ],
+      "tests": [
+        "tests/browser/facility-vocabulary.spec.mjs",
+        "tests/browser/overseer-errors.spec.mjs"
+      ]
+    },
+    "FR-039": {
+      "title": "Every Overseer window error in Russian with a next step; specific messages for facility, player configuration, and session file failures",
+      "tasks": [
+        "T003",
+        "T004",
+        "T012",
+        "T041"
+      ],
+      "tests": [
+        "tests/browser/overseer-errors.spec.mjs",
+        "internal/playerconfig/messages_test.go",
+        "internal/session/service_messages_test.go"
+      ]
+    },
+    "FR-040": {
+      "title": "The unreadable player configuration error MUST read «Не удалось прочитать файл игроков",
+      "tasks": [
+        "T003",
+        "T012",
+        "T041"
+      ],
+      "tests": [
+        "tests/browser/overseer-errors.spec.mjs",
+        "internal/playerconfig/messages_test.go",
+        "internal/session/service_messages_test.go"
+      ]
+    },
+    "FR-041": {
+      "title": "Every other failure shows a general Russian message with a next step and its original text under «подробности для разработчика»",
+      "tasks": [
+        "T007",
+        "T012",
+        "T041",
+        "T042",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/overseer-errors.spec.mjs",
+        "internal/playerconfig/messages_test.go",
+        "internal/session/service_messages_test.go"
+      ]
+    },
+    "FR-042": {
+      "title": "Sessions MUST stay in portable session JSON version 1",
+      "tasks": [
+        "T002",
+        "T010",
+        "T011",
+        "T046",
+        "T047"
+      ],
+      "tests": [
+        "internal/platform/assets_test.go",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "FR-043": {
+      "title": "Every edit in the new dialogs MUST save through the existing authoring save, with its revision check and «Отменить» history",
+      "tasks": [
+        "T013",
+        "T015",
+        "T017",
+        "T018",
+        "T022",
+        "T025"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs",
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "FR-044": {
+      "title": "The demo sessions and the capability-to-path inventory MUST include a reachable path for each case: applying a template, a matrix cell with two transitions, each of the four rule types, a command acti",
+      "tasks": [
+        "T008",
+        "T011",
+        "T021"
+      ],
+      "tests": [
+        "tests/browser/demo-session.spec.mjs",
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "FR-045": {
+      "title": "Each user story MUST have a browser test that exercises it in the Overseer and, where players see the result, on a connected player terminal",
+      "tasks": [
+        "T022",
+        "T025",
+        "T030",
+        "T031",
+        "T036",
+        "T038",
+        "T041"
+      ],
+      "tests": [
+        "tests/browser/facility-device-editor.spec.mjs",
+        "tests/browser/facility-fault-dialog.spec.mjs",
+        "tests/browser/facility-device-templates.spec.mjs",
+        "tests/browser/facility-display-rules.spec.mjs",
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-vocabulary.spec.mjs",
+        "tests/browser/overseer-errors.spec.mjs"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 32,
+    "projectedTasks": 60,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "concerns": [
+    {
+      "note": "spec file kept as spec.md (not <short-name>.spec.md) because .specify/scripts/bash/common.sh hard-codes FEATURE_SPEC=spec.md, as in 040"
+    },
+    {
+      "note": "040 T051 packaged-app check ran on 1200x780 and full screen, not 1440x900; 041 SC-001 again depends on a 1440x900 check"
+    },
+    {
+      "note": "Keyboard focus is lost after a save started from the command form: renderAll redraws the form and replaces the opener button. Pre-existing pattern, not specific to the new dialogs",
+      "step": "implement"
+    },
+    {
+      "note": "One of four full browser runs failed once on a flaky journey (an earlier run showed terminal-navigation.spec.mjs:881 «ДЕЙСТВИЕ ОТКЛОНЕНО: conflict»); it passed on rerun. The journey is outside 041's scope",
+      "step": "implement"
+    },
+    {
+      "note": "Packaged app check ran at click-only tier: the exact 1440x900 window could not be set (checked default ~1200x780 and full screen ~1470x956), and text-based rules were not authored in the app",
+      "step": "implement"
+    },
+    {
+      "note": "wails:pins:check was already failing on the 040 tip (stale schema-revision digest); fixed in T009 together with the baseline digest",
+      "step": "implement"
+    },
+    {
+      "note": "Three CSS rules (.facility-binding-group, .facility-invalid-reference, .facility-related-section) were already dead at the 040 tip and were left untouched to avoid unrelated churn",
+      "step": "implement"
+    },
+    {
+      "note": "The Wails 3.0.0 upgrade landed separately as PR #62 on develop; the 035-041 stack picks it up on rebase",
+      "step": "implement"
+    }
+  ],
+  "expectations": [
+    "node-and-arrow graph drawing",
+    "multi-source or any-state transitions",
+    "renaming the «Объекты» tab or session JSON fields",
+    "changing what players see, how commands run, or display precedence",
+    "player terminal wording",
+    "button wording of non-facility Overseer dialogs"
+  ],
+  "context": [
+    "area: frontend/overseer/src/overseer.js device dialog (openFacilityDeviceDialog 4137, appendFacilityTransitionRow 4052, suggestFacilityID 2757, facilityTechnicalDetails 2890), index.html #facilityDeviceDialog 353-430",
+    "area: device list facilityDeviceRow 3546, search #facilityDeviceSearch (exists), no filters",
+    "area: binding dialog #facilityBindingDialog index.html 585-606, installFacilityBindingControls 4670, updateFacilityBindingMode 4822; command-action reuses it via openFacilityCommandActionEditor 4404 from the command form 7323/7524",
+    "area: bindings are terminal-node fields in internal/domain/model.go (FacilityNameVariants, VisibleWhen, AvailableWhen, EntryContentBlock.FacilityTextVariants, StateChangeConfig.FacilityAction)",
+    "area: faults are domain.DiagnosticCondition (internal/domain/facility.go 184); recovery references transition|program|privateOverseerAction; validateConditions 862 requires a clearing recovery; condition dialog openFacilityConditionDialog 4301, program dialog 4334",
+    "area: «Восстановление оператором» = privateOverseerAction, read only by RecoverFacilityCondition (control/facility.go 444) and the UI gate overseer.js 3628; 040 SetFacilityConditionActive ignores it",
+    "area: terminal-scoped faults hidden whenever a device is selected (renderFacilityWorkspace 3172); no device card",
+    "area: dependencies renderFacilityDependencies 4422, technical path from Go buildFacilityDependencyEdges (internal/domain/facility.go 616)",
+    "area: errors pass Go English text through desktop-api.js and overseer.js; partial Russian tables facilityFailureMessages 5888, FACILITY_REFUSAL_TEXT 3342; ~150-250 English messages can surface",
+    "area: copy test REMOVED_COPY in tests/browser/facility-unified-save.spec.mjs; ~79 test hits use old names incl. dialog name «ДИАГНОСТИЧЕСКОЕ УСЛОВИЕ»",
+    "area: demo sessions/demo.json (10 devices, 7 faults, 2 programs) and inventory sessions/demo-capability-paths.md checked by internal/platform/assets_test.go and tests/browser/demo-session.spec.mjs",
+    "constraint: portable session JSON version 1, no new field (Principle VI)",
+    "constraint: demo + capability-to-path inventory updated in the same change (Principle IX)",
+    "constraint: edits go through the 039 authoring save with revision check and undo",
+    "constraint: Google Go Style Guide and t.Cleanup rules from CLAUDE.md"
+  ],
+  "intent": "Rebuild the facility editors (device matrix and templates, display-rule sentence, single fault dialog), the device list filters, and the Overseer vocabulary and error language from review findings F-10 to F-14",
+  "decisions": [
+    {
+      "decision": "«Восстановление оператором» no longer gates anything: the Overseer can always clear any fault by hand; checkbox removed; stored value preserved; faults save without a clearing recovery",
+      "why": "Clarified 2026-10-31; 040 switch already ignores it for device faults",
+      "rejected": "terminal-faults-only gate; gating the 040 play switch"
+    },
+    {
+      "decision": "Terminal-scoped faults live in a «Неисправности терминалов» group at the end of the device list with the play switch",
+      "why": "Clarified 2026-10-31; today they vanish whenever a device is selected",
+      "rejected": "Terminals tab; session fault list with no device selected"
+    },
+    {
+      "decision": "Errors: whole Overseer window in two tiers (specific Russian messages for facility, player config, session file; general Russian message plus original text under «подробности для разработчика» for the rest)",
+      "why": "Clarified 2026-10-31; 150-250 English strings make full specific coverage its own feature",
+      "rejected": "facility + player config only; specific message for every failure"
+    },
+    {
+      "decision": "Transition fault effects are edited only in the fault dialog; the transition editor shows them read-only with «К неисправности»",
+      "why": "Clarified 2026-10-31; review F-12 asks for one place",
+      "rejected": "editing in both dialogs"
+    },
+    {
+      "decision": "Remove the private RecoverFacilityCondition path end to end and regenerate the proto baseline; «Смотритель вручную» is the 040 SetFacilityConditionActive switch",
+      "why": "FR-020 makes the recovery gate meaningless; its only caller is control.RecoverFacilityCondition; message added in unreleased 035 (Principle V documented migration, VII cutover)",
+      "rejected": "keep the recovery panel renamed; silently write privateOverseerAction:true into new faults"
+    },
+    {
+      "decision": "validateConditions no longer requires a clearing recovery entry; existing entries still validated",
+      "why": "Clarified: a fault saves without a clearing transition or program",
+      "rejected": "UI writing a hidden recovery entry"
+    },
+    {
+      "decision": "«Как появляется»/«Как устраняется» derived from transition conditionEffects; condition.recovery[] never added to, pruned only when an edit invalidates an entry; privateOverseerAction never touched",
+      "why": "Effects are what runs in play; recovery[] is a partial second copy needing a hidden flag",
+      "rejected": "keeping recovery[] in sync on every add"
+    },
+    {
+      "decision": "Fault dialog saves the condition and all touched transitions in one commitFacilityEdit",
+      "why": "One undo entry and one revision check",
+      "rejected": "one save per transition"
+    },
+    {
+      "decision": "Program from a fault opens stacked over the fault dialog and saves as its own edit",
+      "why": "Programs already save alone; fault draft stays in the DOM",
+      "rejected": "saving the fault draft first"
+    },
+    {
+      "decision": "Display-rule «ГДЕ» is one list across terminals filtered by type; existing rule type fixed; variant replaced in place; client conflict checks for other device, repeated state, existing visibility/availability",
+      "why": "Sentence order puts terminal inside «ГДЕ»; server errors are English or silent overwrite",
+      "rejected": "terminal select first; relying on server errors"
+    },
+    {
+      "decision": "New #facilityCommandActionDialog with transitions or program and the player texts; opens from command form, «Что делают игроки» tab, guide",
+      "why": "Program-backed actions skipped to the program dialog; player texts unreachable from the form",
+      "rejected": "inline editing in the command form"
+    },
+    {
+      "decision": "Device dialog keeps one draft: chips, matrix table of cell buttons, inline transition panel, IDs in one <details>",
+      "why": "Reuses draft reader, validation and save; setFacilityFeedback already opens <details>",
+      "rejected": "separate transition dialog"
+    },
+    {
+      "decision": "Templates are a frontend table FACILITY_DEVICE_TEMPLATES; name match trimmed case-insensitive",
+      "why": "Editor-only suggestions, never stored",
+      "rejected": "Go/proto templates; auto-apply on type change"
+    },
+    {
+      "decision": "Errors through renderOverseerError and OVERSEER_ERROR_MESSAGES keyed by exact Go text; Go sync tests in playerconfig and session",
+      "why": "No contract change; Go stays English for logs",
+      "rejected": "translating Go strings; adding error codes to 50+ results"
+    },
+    {
+      "decision": "Dependency words built in the client from the session; no proto change; transitions matched by full device/transition id",
+      "why": "All facts are in the session; IDs may contain /",
+      "rejected": "enriching the Go report"
+    },
+    {
+      "decision": "Vocabulary check scans served index.html, overseer.js, desktop-api.js with Unicode-boundary regexes; glossary in docs/overseer-glossary.md",
+      "why": "Rendered-page scan hits authored session content",
+      "rejected": "rendered-page scan"
+    },
+    {
+      "decision": "Controls, labels, titles uppercase; hints, warnings, errors sentence case",
+      "why": "Matches existing literal-copy convention",
+      "rejected": "all uppercase"
+    },
+    {
+      "decision": "US2 AS2 example changed to «Запереть гермодверь»; pickers hide transitions that run alongside an opposite effect on the same fault",
+      "why": "«Подать сигнал эвакуации» runs with «Открыть гермодверь» in one command; validateTransitionRequests refuses both turning on and clearing one fault in one action",
+      "rejected": "changing the demo command"
+    },
+    {
+      "decision": "Fatal startup errors use a new startup error area whose next step is restarting the app",
+      "why": "The session buttons are disabled in that state, so the broadcast area next step «Повторите попытку» could not be acted on",
+      "rejected": "keeping the broadcast general message"
+    },
+    {
+      "decision": "setOverseerSinkText clears data-error-area and data-error-key when a sink is overwritten with plain text",
+      "why": "Stale attributes after a later success could mislead tests and assistive inspection",
+      "rejected": "leaving the attributes"
+    },
+    {
+      "decision": "Phase 2 Overseer waves were built by one fresh worker each, sequentially, with joins checked by the main agent",
+      "why": "Each task rewrote large parts of an 8,100+ line overseer.js; a fresh context per task kept quality while the main agent verified builds and tests at every join",
+      "rejected": "building all nine Overseer tasks inline in the main context"
+    },
+    {
+      "decision": "Custom devices are listed as «ДРУГОЙ» rather than their stored customKind",
+      "why": "The dialog has no customKind field, so the value is derived from the identifier and leaked an internal name (F-13)",
+      "rejected": "showing the stored customKind"
+    },
+    {
+      "decision": "Any input in the rule sentence clears the conflict notice; rule rows use facilityNodePath",
+      "why": "Found in the packaged app: a stale notice stayed after changing «ГДЕ», and row paths dropped folders",
+      "rejected": "clearing only on save"
+    },
+    {
+      "decision": "State badge is nowrap and fixed-width with ellipsis; the name column wraps",
+      "why": "Found in the packaged app: badges broke mid-word in the narrow sidebar",
+      "rejected": "letting the badge wrap"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Plan, research R1-R16, data model, UI and private-desktop contracts for rebuilt device, fault, program, rule and action dialogs, list filters, glossary check and error catalog",
+      "key_finding": "FR-020 makes the private RecoverFacilityCondition path dead, and «Как устраняется» must be derived from transition effects because condition.recovery[] is a partial second copy"
+    },
+    "tasks": {
+      "summary": "47 tasks: Setup 1, Foundational 20 in 13 waves (Go removal and relaxed rule, proto, catalog sync tests, nine single-task Overseer waves, demo), seven story phases owning 22 journeys, Polish 2"
+    },
+    "implement": {
+      "summary": "Facility editors and language shipped: device matrix and templates, single fault dialog, sentence rule dialog and command action dialog, list badges and filters with terminal faults, glossary check, Russian error catalog; recovery path removed; 49/49 tasks, all gates green, browser 438 passed"
+    }
+  },
+  "approach": "Rebuild the Overseer editors inside the existing files on the 039 authoring save: device dialog with chips, a transition matrix and templates; one fault dialog whose «Как появляется»/«Как устраняется» derive from transition effects; a sentence-shaped display-rule dialog plus a separate command-action dialog; list badges, filters and a terminal-fault group on the 040 switch. Remove the private recovery path and relax one domain rule; route every Overseer error through one Russian catalog kept in sync with Go by tests.",
+  "currentTask": null,
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Shared journey helpers for device, fault, program, rule, action dialogs, list, terminal faults, and rendered errors keyed on contract ids",
+      "files": [
+        "tests/browser/helpers/facility-editors.mjs"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Wrote the Overseer glossary: ten term rows with rendered form, meaning tied to the model, banned synonyms, the allowed ОБЪЕКТЫ strings, the R15 case convention, and the vocabulary-banned/vocabulary-allowed blocks T038 reads",
+      "files": [
+        "docs/overseer-glossary.md"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Removed the private RecoverFacilityCondition path through session, control, main adapter, App, contract converters and desktop method with their tests; pinned desktop method list is 46",
+      "files": [
+        "app.go",
+        "app_test.go",
+        "app_contract.go",
+        "app_contract_test.go",
+        "desktop_service.go",
+        "main.go",
+        "internal/control/facility.go",
+        "internal/control/facility_test.go",
+        "internal/session/facility.go",
+        "internal/session/facility_test.go",
+        "internal/session/authoring_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Added reactor transition backup-grid-start «Пуск от резервной сети» (scrammed→standby, precondition power-grid-main=online) and made СЕТЬ-76 a two-transition program by adding security-turret/track (now recovery: true); recovery[] untouched; regenerated the demo transition verdict golden",
+      "files": [
+        "sessions/demo.json",
+        "internal/session/testdata/demo-transition-verdicts.json"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Removed recoverFacilityCondition from the bridge, spec (46 methods) and fixture shims; renamed the diagnostics route to set-condition-active; record() honours a queued result once; next-operation now fails the next save-authoring",
+      "files": [
+        "frontend/overseer/src/desktop-api.js",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/fixtures/desktop-bindings.js",
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Validation table cases for recovery entries; three accept cases red by design until T010, four reject cases pass; two contradicting legacy cases removed from facility_test.go",
+      "files": [
+        "internal/domain/validate_test.go",
+        "internal/domain/facility_test.go"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Player-config failure-text catalog sync test (14 texts incl. errStorageUnavailable); red by design until T012",
+      "files": [
+        "internal/playerconfig/messages_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Session failure-text catalog sync test (38 texts); red by design until T012",
+      "files": [
+        "internal/session/service_messages_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "validateConditions no longer requires a clearing recovery; validateRecoveryReference returns only an error and transitionClearsCondition is removed; T002 passes",
+      "files": [
+        "internal/domain/validate.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Removed RecoverFacilityConditionRequest, regenerated Go/ES code, baseline and Wails bindings (46 methods); updated bindings script and the pinned revision/baseline digests in wails-v3-contract-check.sh (revision pin was already stale on 040); proto:breaking, bindings:check, wails pins pass",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto",
+        "internal/gen/fallout/terminal/private/v1/",
+        "proto/schema-revision.txt",
+        "proto/compatibility-baseline.binpb",
+        "frontend/overseer/bindings/",
+        "scripts/wails-bindings-check.sh",
+        "scripts/wails-v3-contract-check.sh"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "Demo invariant no longer requires a recovery entry; pins a two-transition matrix cell and a multi-step program; refreshed schema-revision, baseline and descriptor-shape digests",
+      "files": [
+        "internal/platform/assets_test.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Follow-up: routed the failed-update snapshot text (update) and the startup and tunnel errors in #startStatus (broadcast for a fatal startup, public-access for the tunnel warning) through renderOverseerError, with Go texts under the disclosure",
+      "files": [
+        "frontend/overseer/src/overseer.js"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Follow-up: «УДАЛИТЬ ПЕРЕХОД» is refused while a command action, recovery program or fault recovery[] entry names the transition, listing the uses in #facilityTransitionUses with the shared use rows and draft-link blocking",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Added FACILITY_DEVICE_TEMPLATES (nine kinds), the device dialog template line with «ПРИМЕНИТЬ ШАБЛОН» blocked by «ВСЁ ИЗ ШАБЛОНА УЖЕ ЕСТЬ», apply-by-name logic with the «ИЗ ШАБЛОНА ДОБАВЛЕНО» status, and the template name for an empty matrix cell",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Rebuilt the fault dialog (derived КАК ПОЯВЛЯЕТСЯ/КАК УСТРАНЯЕТСЯ with pickers, one-save mutate with recovery pruning, preview moved in, stacked program from a fault) and the program dialog (uniform action rows, one device per row, contradiction check, commands that run it)",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added the «НЕИСПРАВНОСТИ ТЕРМИНАЛОВ» group with the shared 040 fault switch, «ИЗМЕНИТЬ» and #facilityTerminalFaultStatus; fault-tab rows open the fault dialog; removed the «ВЫБРАННОЕ УСЛОВИЕ» panel, «ВОССТАНОВИТЬ УСЛОВИЕ», its confirmation dialog and block reason",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Fault-off effect stuck only in the browser fixture: fixtureFacilityLifecycle.ProjectFacility re-applied the runtime's previous effects; now it pins only target effects by terminal ID and merges them with the recomputed facility effects; real app path (live.Service) verified unaffected",
+      "files": [
+        "tests/browser/fixture-server/main.go",
+        "tests/browser/fixture-server/main_test.go",
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Rebuilt the binding dialog as «ПРАВИЛО ОТОБРАЖЕНИЯ»: four keyboard tabs (blocked with a reason on an existing rule), the КОГДА/ГДЕ/БЛОК/ТЕКСТ sentence with a path-labelled cross-terminal «ГДЕ» filtered by type and numbered «БЛОК» labels, the other-states line, client conflict checks with «ОТКРЫТЬ ПРАВИЛО», a missing-element error, and in-place variant save. Removed the command-action mode, terminal select and their fields; its openers call the T018 stub openFacilityCommandActionDialog",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Added #facilityCommandActionDialog «ДЕЙСТВИЕ КОМАНДЫ» (fixed or picked command, ПЕРЕХОДЫ / ПРОГРАММА ВОССТАНОВЛЕНИЯ, player texts for commands without stateChange, one commitFacilityEdit) and rewired the command form, «ДОБАВИТЬ ДЕЙСТВИЕ КОМАНДЫ», guide step 2 and list rows, including program-backed actions",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css",
+        "specs/041-facility-editors-language/tasks.md"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Rebuilt the device list: left-aligned name over type, state badge with data-changed and yellow frame, red fault mark, name-and-state search, counted ВСЕ/ИЗМЕНЁННЫЕ/С НЕИСПРАВНОСТЬЮ filters in module state, hidden-selection line, empty state with ВСЕ; removed row title, .facility-device-row-state and .facility-fault-count",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Follow-up (FR-038): the repair dialog lists the dependency rows through the shared facilityDependencyRow builder, and its impact text names the removed and replacement devices, with the raw IDs under «подробности для разработчика»",
+      "files": [
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Rewrote the demo inventory to the 041 names (badge + fault mark, ШАГ 1 ИЗ 5: УСТРОЙСТВО, named dependency buttons, fault dialog, terminal-fault group) and added FR-044 rows for templates, the two-transition reactor cell, four rule types, the command-action dialog, faults with/without activation, two-step СЕТЬ-76, filters 10/5/1, and all five destinations; demo-session.spec gains a data-driven FR-044 test and the old-name removed list",
+      "files": [
+        "sessions/demo-capability-paths.md",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Added the US3 browser journey: SC-003 three-action door, all nine type templates named then applied and saved, «ДРУГОЙ» offers none, partial apply adds only missing items and keeps the star, case-only names count as present, type change leaves the graph alone; 6 tests pass",
+      "files": [
+        "tests/browser/facility-device-templates.spec.mjs"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Moved command-action journeys to «ДЕЙСТВИЕ КОМАНДЫ»: mode-change warning texts, opener enabled before the mode is applied with the form's player texts, required texts on an ordinary command; 5/5 pass",
+      "files": [
+        "tests/browser/facility-p0-command-actions.spec.mjs"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "Added the US5 device-list journey: rows, badge frame and fault-mark colors, filters ВСЕ 10/ИЗМЕНЁННЫЕ 5/С НЕИСПРАВНОСТЬЮ 1, search without IDs, live updates, hidden selection, empty list reset, run-only filter, terminal faults unnarrowed; 8 tests pass",
+      "files": [
+        "tests/browser/facility-device-list.spec.mjs"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "Updated device-action journeys: rows read name over type, badge and fault mark; search no longer matches IDs; terminal-fault switches allowed outside the card; dialog title УСТРОЙСТВО; ДОБАВИТЬ ДЕЙСТВИЕ КОМАНДЫ opens ДЕЙСТВИЕ КОМАНДЫ; 7 tests pass",
+      "files": [
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Wrote the US1 device-editor journey: AS1-AS6, SC-001 per demo device at 1440x900, SC-002, two-transition reactor cell, one-state and eight-state devices, state deletion with transitions and with outside uses, starting/current refusal, one ОТМЕНИТЬ entry, transition.recovery kept (14 tests pass)",
+      "files": [
+        "tests/browser/facility-device-editor.spec.mjs"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Moved the identifier journeys to the folded ТЕХНИЧЕСКИЕ ИДЕНТИФИКАТОРЫ blocks (device, fault, program), chips and matrix cells, and the conflict that unfolds the block and focuses the row; fault dialog lookup is НЕИСПРАВНОСТЬ (2 tests pass)",
+      "files": [
+        "tests/browser/facility-p0-identifiers.spec.mjs"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Replaced the УСТРОЙСТВО ОБЪЕКТА lookup with УСТРОЙСТВО, the state rows and starting-state list with + СОСТОЯНИЕ and the chip editor, and the guide step label with УСТРОЙСТВО (8 tests pass)",
+      "files": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Wrote the US2 fault-dialog journey: AS1-AS6, SC-004 for every demo fault, FR-020 new fault with only «Смотритель вручную», FR-043 two-device fault edit as one undo, canceled program saves nothing, terminal-fault switch reaching a connected player (11 tests pass)",
+      "files": [
+        "tests/browser/facility-fault-dialog.spec.mjs"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "Replaced English public-access and credential error assertions with the general Russian messages plus their disclosure text, and added a credential-copy failure journey; 20/20 pass",
+      "files": [
+        "tests/browser/public-access-settings.spec.mjs"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Replaced English take-off-air, scene-reset, and command-reset error assertions with catalog messages, prefixes, and disclosure text; 24/24 pass",
+      "files": [
+        "tests/browser/state-changing-command-authoring.spec.mjs"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Replaced the 040 STALE text with the facility stale-revision message and its rendered area, key, and original; 7/7 pass",
+      "files": [
+        "tests/browser/facility-play-transitions.spec.mjs"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "Replaced the 040 STALE text with the facility stale-revision message and its rendered area, key, and original; 6/6 pass",
+      "files": [
+        "tests/browser/facility-play-force.spec.mjs"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Replaced log-access error assertions with the logs catalog message, its disclosure text, and p.log-access-location right after the message; 6/6 pass",
+      "files": [
+        "tests/browser/overseer-runtime-logs.spec.mjs"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Moved start-position and activity journeys to the «НЕИСПРАВНОСТЬ» dialog without the operator-recovery checkbox; dependency lookup now «ЗАВИСИМОСТИ УСТРОЙСТВА» with «К НЕИСПРАВНОСТИ»; reopening a row checks the dialog (3 tests pass)",
+      "files": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "Replaced the operator-recovery case with a fault that has no recovery entry, switched on and off; row assertions moved to .facility-state-badge and .facility-fault-mark (6 tests pass)",
+      "files": [
+        "tests/browser/facility-play-faults.spec.mjs"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Escape-hatch journey now posts set-condition-active and proves the terminal-fault switch clears a fault while players are blocked, audit conditionSwitches 1 (12 tests pass)",
+      "files": [
+        "tests/browser/facility-diagnostics.spec.mjs"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Authoring journey rewritten for chips/matrix device dialog, fault without checkbox, uniform program rows, rule tabs, «ДЕЙСТВИЕ КОМАНДЫ» dialog, named dependency buttons, Russian stale-revision and persistence texts, and clearing by the fault switch (8 tests pass)",
+      "files": [
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Wrote the US7 journey: player-config (FR-040), session, facility save with dialog draft kept, FR-038 entity phrases, public access, and update failures, each Russian with a next step and Latin only under the disclosure; 6/6 pass",
+      "files": [
+        "tests/browser/overseer-errors.spec.mjs"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Replaced #facilityBindingKind with the four rule tabs (each with and without an offered element), added the existing rule, «ДЕЙСТВИЕ КОМАНДЫ» (picked, fixed, texts, program), the new device matrix and fault dialogs; NATURALLY_COVERED swaps the removed recovery dialog for facilityCommandActionDialog; 4/4 pass",
+      "files": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "Preview-diff rule now read and filled through КОГДА/ГДЕ/БЛОК/ТЕКСТ via the rule-dialog ids; the fault preview journey closes the preview and the stacked fault dialog before the next row; 8/8 pass",
+      "files": [
+        "tests/browser/facility-preview-diff.spec.mjs"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Command-form rule edits now assert «ПРАВИЛО ОТОБРАЖЕНИЯ» with a fixed tab and the КОГДА/ГДЕ sentence (name and availability rules); the action opener targets «ДЕЙСТВИЕ КОМАНДЫ»; the scene-reset failure reads the new Russian error sink; 11/11 pass",
+      "files": [
+        "tests/browser/facility-command-lists.spec.mjs"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Wrote the US6 journey: glossary-driven vocabulary scan of served index.html, overseer.js, desktop-api.js with a pattern self-test, a dependency walk over all ten demo devices following every destination button, the door's AS2 wording, AS3 validation naming, and AS4 edit-control labels",
+      "files": [
+        "tests/browser/facility-vocabulary.spec.mjs"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "Moved the authoring-UX and guide journeys to the device, fault, rule and command-action dialogs, the transition matrix and panel, the folded technical IDs, named destination buttons, and the guide step УСТРОЙСТВО",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "Kept the 039 REMOVED_COPY sweep, added the removed recovery controls and copy plus desktop-api.js, replaced the recovery cases with the fault switch, and updated the rejected-save wording",
+      "files": [
+        "tests/browser/facility-unified-save.spec.mjs"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "New US4 journey: AS1-AS6 and SC-005 (tabs, keyboard, sentence order per tab, ГДЕ/БЛОК catalogs, fixed tab, in-place variant, tab switching, five FR-028 conflicts with ОТКРЫТЬ ПРАВИЛО, deleted element on ГОТОВО, ДЕЙСТВИЕ КОМАНДЫ from tab/guide/form incl. program-backed) and one rule of each type on a connected player in locked and open states; 10/10 pass",
+      "files": [
+        "tests/browser/facility-display-rules.spec.mjs"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "go fix (no pending), fmt, vet, lint, test, race, proto check/breaking, bindings (46), wails pins, frontend build, secret-leak, browser 438 passed/2 skipped/0 failed; recorded with SC evidence",
+      "files": [
+        "specs/041-facility-editors-language/validation.md"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Packaged app check: pre-feature session opens unchanged and saves byte-identical apart from revision; all 10 device dialogs fit in full screen; terminal fault switch, fault dialog, visibility and availability rules with a live player; fixed badge wrap, custom kind label, stale conflict notice, rule row paths; browser suite re-run 438 passed",
+      "files": [
+        "specs/041-facility-editors-language/validation.md",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css",
+        "tests/browser/facility-device-list.spec.mjs",
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "go fix pending edits",
+      "command": "test -z \"$(go fix -diff ./... 2>&1)\"",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.4,
+      "result": "no output"
+    },
+    {
+      "what": "format",
+      "command": "task fmt:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.1,
+      "result": "  printf 'Go files need formatting:\\n%s\\n' \"$unformatted\" >&2 ·   exit 1 · fi"
+    },
+    {
+      "what": "vet",
+      "command": "task vet",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.4,
+      "result": "task: [vet] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go vet ./..."
+    },
+    {
+      "what": "lint",
+      "command": "task lint",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.2,
+      "result": "0 issues. · task: [lint] go tool -modfile=tools/golangci-lint/go.mod golangci-lint run"
+    },
+    {
+      "what": "unit tests",
+      "command": "task test",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.0,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t(cached) · task: [test] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test ./..."
+    },
+    {
+      "what": "race tests",
+      "command": "task test:race",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 12.9,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t(cached) · task: [test:race] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test -race ./..."
+    },
+    {
+      "what": "proto check",
+      "command": "task proto:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 10.4,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "proto breaking",
+      "command": "task proto:breaking",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.8,
+      "result": "Breaking fixture rejected: package-name · Breaking fixture rejected: service-method · task: [proto:breaking] scripts/proto-breaking.sh --all-fixtures"
+    },
+    {
+      "what": "bindings (46 methods)",
+      "command": "task bindings:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.0,
+      "result": "Wails bindings are deterministic and expose exactly 46 accepted desktop methods and seven named events. · task: [bindings:check] scripts/wails-bindings-check.sh"
+    },
+    {
+      "what": "wails pins",
+      "command": "task wails:pins:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 5.1,
+      "result": "Wails v3 migration contracts are qualified, pinned, tool-isolated, and schema-stable. · task: [wails:pins:check] scripts/wails-v3-contract-check.sh"
+    },
+    {
+      "what": "frontend build",
+      "command": "task frontend:build",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.1,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "secret leak",
+      "command": "task secret-leak:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.1,
+      "result": "Secret-bearing fields remain confined to narrow private inputs/results; no forbidden leak was detected. · task: [secret-leak:check] scripts/secret-leak-check.sh --self-test · task: [secret-leak:check] scripts/secret-leak-check.sh"
+    },
+    {
+      "what": "browser suite (438 journeys)",
+      "command": "/private/tmp/claude-501/-Users-olegbalunenko-Desktop-Fallout-Terminal/758b3000-0948-4dfe-ac05-be2157ea84d7/scratchpad/browser-lock.sh task browser:test -- --reporter=line",
+      "source": "derived",
+      "exitCode": 201,
+      "durationSeconds": 371.2,
+      "result": "[WebServer] 2026/10/31 23:56:54 http: TLS handshake error from 127.0.0.1:65357: remote error: tls: unknown certificate · [WebServer] 2026/10/31 23:56:54 http: TLS handshake error from 127.0.0.1:65360: remote error: tls: unknown certificate · task: Failed to run task \"browser:test\": exit status 1",
+      "warnings": [
+        "exited 201"
+      ]
+    },
+    {
+      "what": "browser suite (438 journeys), rerun",
+      "command": "/private/tmp/claude-501/-Users-olegbalunenko-Desktop-Fallout-Terminal/758b3000-0948-4dfe-ac05-be2157ea84d7/scratchpad/browser-lock.sh task browser:test -- --reporter=line",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 374.4,
+      "result": "[WebServer] 2026/11/01 00:09:42 http: TLS handshake error from 127.0.0.1:55710: remote error: tls: unknown certificate · [WebServer] 2026/11/01 00:09:42 http: TLS handshake error from 127.0.0.1:55713: remote error: tls: unknown certificate · [WebServer] 2026/11/01 00:09:42 http: TLS handshake error from 127.0.0.1:55716: remote error: tls: unknown certificate"
+    },
+    {
+      "what": "Packaged app check (T047), manual with computer use",
+      "command": "task package; build/bin/Fallout Terminal.app on demo copies",
+      "result": "pre-feature session opens unchanged and saves byte-identical apart from facility.revision; all 10 device dialogs fit in full screen; terminal fault switch, fault dialog, visibility and availability rules verified with a live headless player (revisions 11/12, no reconnect)",
+      "warnings": [
+        "click-only tier: exact 1440x900 not settable; text rules and new-device naming not authorable by click, covered by browser journeys"
+      ]
+    }
+  ]
+}

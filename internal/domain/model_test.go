@@ -639,6 +639,10 @@ func seedProjection(t *testing.T, value reflect.Value, path string, depth int) {
 			}
 		}
 	case reflect.Slice:
+		if value.Type() == reflect.TypeFor[json.RawMessage]() {
+			value.SetBytes([]byte(`true`))
+			return
+		}
 		value.Set(reflect.MakeSlice(value.Type(), 1, 1))
 		seedProjection(t, value.Index(0), path+"[0]", depth+1)
 	case reflect.Map:
@@ -1026,4 +1030,21 @@ func validSessionForPlayerConfigTest() Session {
 			Root: ContentNode{ID: "root", Type: NodeFolder, Name: "ROOT", Children: []ContentNode{}},
 		}},
 	}
+}
+
+func TestCloneMasterCoordinationStateDetachesFacilityChanges(t *testing.T) {
+	t.Parallel()
+
+	original := &MasterCoordinationState{FacilityChanges: []FacilityChange{
+		{Sequence: 2, DeviceID: "door", Fault: &FacilityChangeFault{ConditionID: "jam", Active: true}},
+	}}
+	clone := CloneMasterCoordinationState(original)
+	require.Equal(t, original, clone)
+
+	clone.FacilityChanges[0].Fault.Active = false
+	assert.True(t, original.FacilityChanges[0].Fault.Active)
+
+	encoded, err := json.Marshal(&MasterCoordinationState{})
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), "facilityChanges")
 }

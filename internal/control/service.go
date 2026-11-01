@@ -45,6 +45,7 @@ type RuntimeActions interface {
 type TerminalRuntimeLifecycle interface {
 	CreateRuntime(domain.TerminalTarget) (*domain.TerminalRuntime, *domain.PublicLiveState)
 	UpdateRuntime(*domain.TerminalRuntime, domain.TerminalTarget) *domain.PublicLiveState
+	ProjectFacility(*domain.TerminalRuntime, *domain.Facility) *domain.PublicLiveState
 	ProjectRuntime(*domain.TerminalRuntime) *domain.PublicLiveState
 }
 
@@ -87,7 +88,6 @@ type CommandStateMutation struct {
 type CommandStateStore interface {
 	ExecuteCommandState(context.Context, string, string) (CommandStateMutation, error)
 	ResetCommandState(context.Context, string, string) (CommandStateMutation, error)
-	ResetTerminalCommandStates(context.Context, string) (CommandStateMutation, error)
 }
 
 // TerminalGroupMutation is the detached durable document returned after one
@@ -135,9 +135,13 @@ type Config struct {
 	TrustedHack        TrustedHackRuntime
 	RosterStore        RosterStore
 	CommandStateStore  CommandStateStore
+	FacilityStore      FacilityStore
+	AuthoringStore     AuthoringStore
 	TerminalGroupStore TerminalGroupStore
 	TerminalCatalog    TerminalCatalog
 	RequestResultLimit int
+	// Now stamps device feed entries. It defaults to time.Now.
+	Now func() time.Time
 }
 
 // SessionIdentity is the fresh process-local identity returned after an
@@ -196,6 +200,12 @@ type AuditEvent struct {
 	HackLevel        int
 	AttemptsMax      int
 	AttemptsLeft     int
+	Facility         *FacilityAuditFacts
+}
+
+type playerActionAuditContext struct {
+	request       AuditEvent
+	repeatOutcome string
 }
 
 // Service serializes every process-runtime transition under one mutex.
@@ -210,10 +220,14 @@ type Service struct {
 	trustedHack         TrustedHackRuntime
 	rosterStore         RosterStore
 	commandStateStore   CommandStateStore
+	facilityStore       FacilityStore
+	authoringStore      AuthoringStore
+	lastFacilityResult  *domain.FacilityOperationResult
 	terminalGroupStore  TerminalGroupStore
 	terminalCatalog     TerminalCatalog
 	requirePlayerConfig bool
 	requestResultLimit  int
+	now                 func() time.Time
 }
 
 type transition struct {
@@ -254,6 +268,10 @@ func New(config Config) *Service {
 	if requestResultLimit <= 0 {
 		requestResultLimit = defaultRequestResultLimit
 	}
+	now := config.Now
+	if now == nil {
+		now = time.Now
+	}
 	return &Service{
 		runtime:             newProcessRuntime(),
 		ids:                 ids,
@@ -263,10 +281,13 @@ func New(config Config) *Service {
 		trustedHack:         config.TrustedHack,
 		rosterStore:         config.RosterStore,
 		commandStateStore:   config.CommandStateStore,
+		facilityStore:       config.FacilityStore,
+		authoringStore:      config.AuthoringStore,
 		terminalGroupStore:  config.TerminalGroupStore,
 		terminalCatalog:     config.TerminalCatalog,
 		requirePlayerConfig: config.RosterStore != nil,
 		requestResultLimit:  requestResultLimit,
+		now:                 now,
 	}
 }
 
@@ -473,8 +494,13 @@ func (service *Service) ReplaceTerminalGroups(
 		if !durable.Changed {
 			return transition{}
 		}
+		projection := service.reprojectTerminalRuntimes(runtime)
 		state = masterSnapshot(runtime)
-		return transition{accepted: true, effects: stateEffects(runtime)}
+		effects := stateEffects(runtime)
+		if projection != nil {
+			effects = append(effects, Effect{Live: projection})
+		}
+		return transition{accepted: true, effects: effects}
 	})
 	if state == nil {
 		state = service.Snapshot()
@@ -1065,9 +1091,9 @@ func (service *Service) RequestTerminalActivation(target domain.TerminalTarget) 
 			broadcast.TerminalRuntimes[target.TerminalID] = targetRuntime
 		} else if targetRuntime.Lifecycle == domain.TerminalLifecycleSuspended {
 			if lifecycle, ok := service.terminals.(terminalDecisionLifecycle); ok {
-				projection = lifecycle.ReactivateRuntime(targetRuntime, target)
+				lifecycle.ReactivateRuntime(targetRuntime, target)
 			} else {
-				projection = service.terminals.UpdateRuntime(targetRuntime, target)
+				service.terminals.UpdateRuntime(targetRuntime, target)
 				targetRuntime.Lifecycle = domain.TerminalLifecycleActive
 			}
 		} else {
@@ -1085,6 +1111,12 @@ func (service *Service) RequestTerminalActivation(target domain.TerminalTarget) 
 		targetRuntime.Lifecycle = domain.TerminalLifecycleActive
 		activeTerminalID := target.TerminalID
 		broadcast.ActiveTerminalID = &activeTerminalID
+		projection = service.terminals.ProjectFacility(targetRuntime, runtime.Facility)
+		if projection == nil {
+			state = masterSnapshot(runtime)
+			activationErr = fmt.Errorf("terminal runtime could not be projected")
+			return transition{}
+		}
 		service.establishInitialTerminalRoute(broadcast, target.TerminalID)
 		runtime.PendingSwitch = nil
 		state = masterSnapshot(runtime)
@@ -1207,6 +1239,12 @@ func (service *Service) ResolveTerminalSwitch(switchID domain.SwitchID, choice d
 			broadcast.TerminalRuntimes[target.TerminalID] = targetRuntime
 			targetID := target.TerminalID
 			broadcast.ActiveTerminalID = &targetID
+			projection = service.terminals.ProjectFacility(targetRuntime, runtime.Facility)
+			if projection == nil {
+				state = masterSnapshot(runtime)
+				resolveErr = fmt.Errorf("terminal runtime could not be projected")
+				return transition{}
+			}
 		}
 		runtime.PendingSwitch = nil
 		state = masterSnapshot(runtime)
@@ -1226,20 +1264,21 @@ func (service *Service) ResolveTerminalSwitch(switchID domain.SwitchID, choice d
 // pending command. Approve holds the coordinator transaction
 // across the one-way durable store call and publishes completed state only
 // after that call succeeds.
-func (service *Service) ResolveCommandExecution(ctx context.Context, requestID string, decision domain.CommandExecutionDecision) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
+func (service *Service) ResolveCommandExecution(ctx context.Context, requestID string, decision domain.CommandExecutionDecision) (*domain.MasterCoordinationState, *CommandStateMutation, *domain.FacilityOperationResult, error) {
 	if ctx == nil {
-		return service.Snapshot(), nil, fmt.Errorf("command execution context is required")
+		return service.Snapshot(), nil, nil, fmt.Errorf("command execution context is required")
 	}
 	requestID = strings.TrimSpace(requestID)
 	if requestID == "" {
-		return service.Snapshot(), nil, fmt.Errorf("command execution request ID must not be blank")
+		return service.Snapshot(), nil, nil, fmt.Errorf("command execution request ID must not be blank")
 	}
 	if decision != domain.CommandExecutionApprove && decision != domain.CommandExecutionReject {
-		return service.Snapshot(), nil, fmt.Errorf("command execution decision must be approve or reject")
+		return service.Snapshot(), nil, nil, fmt.Errorf("command execution decision must be approve or reject")
 	}
 
 	var state *domain.MasterCoordinationState
 	var mutation *CommandStateMutation
+	var facilityResult *domain.FacilityOperationResult
 	var resolveErr error
 	result := service.commit(func(runtime *domain.ProcessRuntime) transition {
 		pending := runtime.PendingCommandExecution
@@ -1247,11 +1286,61 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		terminal := activeTerminalRuntime(broadcast)
 		if !currentPendingCommandExecution(pending, broadcast, terminal, requestID) {
 			state = masterSnapshot(runtime)
+			if service.lastFacilityResult != nil && service.lastFacilityResult.CorrelationID == requestID {
+				duplicate := cloneFacilityOperationResult(*service.lastFacilityResult)
+				outcome := "duplicate"
+				if duplicate.Failure != domain.FacilityFailureStaleRevision &&
+					duplicate.Failure != domain.FacilityFailureRuntimeContextEnded {
+					duplicate.OK = false
+					duplicate.Changed = false
+					duplicate.Failure = domain.FacilityFailureDuplicate
+					duplicate.SessionRevision = 0
+					duplicate.Session = nil
+				} else {
+					outcome = "stale"
+				}
+				facilityResult = &duplicate
+				resolveErr = facilityFailureError(duplicate.Failure)
+				facts := facilityAuditFacts(nil, duplicate, FacilityAuditActionCommand, outcome)
+				change := transition{}
+				change.audit(AuditEvent{
+					Name: facilityAuditEventDecision, Decision: string(decision), Outcome: outcome,
+					RequestID: requestID, Facility: &facts,
+				})
+				change.audit(AuditEvent{
+					Name: facilityAuditEventFailure, Decision: string(decision), Outcome: string(duplicate.Failure),
+					RequestID: requestID, Facility: &facts,
+				})
+				return change
+			}
 			resolveErr = ErrCommandExecutionStale
 			return transition{effects: []Effect{{Audit: []AuditEvent{{
 				Name: "command.decision", Decision: string(decision), Outcome: "stale", RequestID: requestID,
 			}}}}}
 		}
+
+		failFacility := func(failure domain.FacilityFailureCode, outcome string) transition {
+			failed := facilityDecisionResult(pending, runtime.Facility, failure)
+			facilityResult = new(cloneFacilityOperationResult(failed))
+			cached := cloneFacilityOperationResult(failed)
+			service.lastFacilityResult = new(cached)
+			resolveErr = facilityFailureError(failure)
+			appendPendingFacilityRefusal(runtime, service.now(), pending, failure)
+			change := service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
+			facts := facilityAuditFacts(pending, failed, FacilityAuditActionCommand, outcome)
+			change.audit(AuditEvent{
+				Name: facilityAuditEventDecision, Decision: string(decision), Outcome: outcome,
+				RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+				TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &facts,
+			})
+			change.audit(AuditEvent{
+				Name: facilityAuditEventFailure, Decision: string(decision), Outcome: string(failure),
+				RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+				TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &facts,
+			})
+			return change
+		}
+
 		authored, current := selectedAuthoredCommand(terminal, domain.RuntimeCommand{
 			Kind: domain.RuntimeCommandNavigate, Action: "command", NodeID: pending.CommandID,
 		})
@@ -1260,6 +1349,9 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			displayedCommandName(terminal, authored) != pending.CommandName ||
 			commandApprovalMode(terminal, authored) != pending.Mode ||
 			commandConfirmationText(authored) != pending.ConfirmationText {
+			if pending.FacilityAction != nil {
+				return failFacility(domain.FacilityFailureConflict, "conflict")
+			}
 			state = masterSnapshot(runtime)
 			resolveErr = ErrCommandExecutionStale
 			return transition{effects: []Effect{{Audit: []AuditEvent{
@@ -1268,6 +1360,13 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		}
 
 		if decision == domain.CommandExecutionReject {
+			if pending.FacilityAction != nil {
+				rejected := facilityDecisionResult(pending, runtime.Facility, domain.FacilityFailureRejected)
+				facilityResult = new(cloneFacilityOperationResult(rejected))
+				cached := cloneFacilityOperationResult(rejected)
+				service.lastFacilityResult = new(cached)
+				appendPendingFacilityRefusal(runtime, service.now(), pending, rejected.Failure)
+			}
 			runtime.PendingCommandExecution = nil
 			terminal.CommandExecution = &domain.CommandExecutionPresentation{
 				Phase: domain.CommandExecutionPhaseRejected, CommandID: pending.CommandID,
@@ -1279,6 +1378,14 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			}
 			change := transition{accepted: true, effects: effects}
 			change.audit(commandDecisionAudit(pending, decision, "declined"))
+			if facilityResult != nil {
+				facts := facilityAuditFacts(pending, *facilityResult, FacilityAuditActionCommand, "declined")
+				change.audit(AuditEvent{
+					Name: facilityAuditEventDecision, Decision: string(decision), Outcome: "declined",
+					RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+					TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &facts,
+				})
+			}
 			return change
 		}
 
@@ -1293,6 +1400,99 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 			}
 			change := transition{accepted: true, effects: effects}
 			change.audit(commandDecisionAudit(pending, decision, "succeeded"))
+			return change
+		}
+
+		if pending.FacilityAction != nil {
+			failure := revalidatePendingFacilityAction(runtime.Facility, authored.StateChange.FacilityAction, pending.FacilityAction)
+			if failure != domain.FacilityFailureUnspecified {
+				return failFacility(failure, "failed")
+			}
+			if service.facilityStore == nil {
+				return failFacility(domain.FacilityFailurePersistenceFailed, "failed")
+			}
+			request, ok := facilityMutationRequest(pending)
+			if !ok {
+				return failFacility(domain.FacilityFailureInvalidConfiguration, "failed")
+			}
+			durableResult := cloneFacilityOperationResult(service.facilityStore.ApplyWorldAction(ctx, cloneFacilityMutationRequest(request)))
+			if durableResult.CorrelationID != pending.RequestID {
+				return failFacility(domain.FacilityFailurePersistenceFailed, "failed")
+			}
+			if durableResult.Failure == "" {
+				durableResult.Failure = domain.FacilityFailureUnspecified
+			}
+			if !durableResult.OK {
+				failure := durableResult.Failure
+				if failure == "" || failure == domain.FacilityFailureUnspecified || failure == domain.FacilityFailureRejected {
+					failure = domain.FacilityFailurePersistenceFailed
+				}
+				durableResult.Failure = failure
+				durableResult = normalizedFacilityFailureResult(durableResult)
+				facilityResult = new(cloneFacilityOperationResult(durableResult))
+				cached := cloneFacilityOperationResult(durableResult)
+				service.lastFacilityResult = new(cached)
+				resolveErr = facilityFailureError(failure)
+				appendPendingFacilityRefusal(runtime, service.now(), pending, failure)
+				change := service.failPendingCommandExecution(runtime, terminal, pending, &state, decision)
+				facts := facilityAuditFacts(pending, durableResult, FacilityAuditActionCommand, "failed")
+				change.audit(AuditEvent{
+					Name: facilityAuditEventDecision, Decision: string(decision), Outcome: "failed",
+					RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+					TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &facts,
+				})
+				change.audit(AuditEvent{
+					Name: facilityAuditEventFailure, Decision: string(decision), Outcome: string(failure),
+					RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+					TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &facts,
+				})
+				return change
+			}
+			durableTerminal, valid := validFacilityStoreSuccess(durableResult, pending, authored)
+			if !valid {
+				return failFacility(domain.FacilityFailurePersistenceFailed, "failed")
+			}
+
+			facts := facilityAuditFacts(pending, durableResult, FacilityAuditActionCommand, "succeeded")
+			addFacilityAuditTransitions(&facts, runtime.Facility, durableResult.Session.Facility)
+			committedFacts := facts
+			committedFacts.Outcome = "committed"
+			previousFacility := runtime.Facility
+			runtime.Facility = domain.CloneFacility(durableResult.Session.Facility)
+			appendFacilityChanges(runtime, service.now(), facilityPlayerCommandChanges(
+				previousFacility, runtime.Facility, pending.TerminalID, pending.CommandID,
+				pending.FacilityAction.TransitionRequests,
+			)...)
+			terminal.CommandStates = cloneCommandStates(durableTerminal.CommandStates)
+			terminal.CommandExecution = nil
+			commandID := pending.CommandID
+			terminal.Nav.CommandNodeID = &commandID
+			runtime.PendingCommandExecution = nil
+			mutation = &CommandStateMutation{
+				Changed: durableResult.Changed, Revision: durableResult.SessionRevision,
+				Session: domain.CloneSession(*durableResult.Session),
+			}
+			facilityResult = new(cloneFacilityOperationResult(durableResult))
+			cached := cloneFacilityOperationResult(durableResult)
+			service.lastFacilityResult = new(cached)
+			projection := service.reprojectTerminalRuntimes(runtime)
+			state = masterSnapshot(runtime)
+			effects := stateEffects(runtime)
+			if projection != nil {
+				effects = append(effects, Effect{Live: projection})
+			}
+			change := transition{accepted: true, effects: effects}
+			change.audit(commandDecisionAudit(pending, decision, "succeeded"))
+			change.audit(AuditEvent{
+				Name: facilityAuditEventDecision, Decision: string(decision), Outcome: "succeeded",
+				RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+				TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &facts,
+			})
+			change.audit(AuditEvent{
+				Name: facilityAuditEventTransition, Decision: string(decision), Outcome: "committed",
+				RequestID: pending.RequestID, BroadcastID: pending.BroadcastID,
+				TerminalID: pending.TerminalID, CommandID: pending.CommandID, Facility: &committedFacts,
+			})
 			return change
 		}
 
@@ -1340,7 +1540,7 @@ func (service *Service) ResolveCommandExecution(ctx context.Context, requestID s
 		state = service.Snapshot()
 	}
 	state.Revision = result.revision
-	return domain.CloneMasterCoordinationState(state), mutation, resolveErr
+	return domain.CloneMasterCoordinationState(state), mutation, facilityResult, resolveErr
 }
 
 // ResetCommandState removes one complete durable command snapshot and installs
@@ -1354,23 +1554,12 @@ func (service *Service) ResetCommandState(ctx context.Context, terminalID, comma
 	if commandID == "" {
 		return service.Snapshot(), nil, fmt.Errorf("command ID must not be blank")
 	}
-	return service.resetCommandStates(ctx, terminalID, commandID, false)
-}
-
-// ResetTerminalCommandStates removes every complete durable command snapshot
-// owned by one terminal and publishes the canonical result as one revision.
-func (service *Service) ResetTerminalCommandStates(ctx context.Context, terminalID string) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
-	terminalID = strings.TrimSpace(terminalID)
-	if terminalID == "" {
-		return service.Snapshot(), nil, fmt.Errorf("terminal ID must not be blank")
-	}
-	return service.resetCommandStates(ctx, terminalID, "", true)
+	return service.resetCommandStates(ctx, terminalID, commandID)
 }
 
 func (service *Service) resetCommandStates(
 	ctx context.Context,
 	terminalID, commandID string,
-	terminalWide bool,
 ) (*domain.MasterCoordinationState, *CommandStateMutation, error) {
 	if ctx == nil {
 		return service.Snapshot(), nil, fmt.Errorf("command state reset context is required")
@@ -1390,18 +1579,12 @@ func (service *Service) resetCommandStates(
 			return transition{}
 		}
 
-		var durable CommandStateMutation
-		var err error
-		if terminalWide {
-			durable, err = service.commandStateStore.ResetTerminalCommandStates(ctx, terminalID)
-		} else {
-			durable, err = service.commandStateStore.ResetCommandState(ctx, terminalID, commandID)
-		}
+		durable, err := service.commandStateStore.ResetCommandState(ctx, terminalID, commandID)
 		if err != nil {
 			resetErr = fmt.Errorf("command state could not be reset")
 			return transition{}
 		}
-		durableTerminal, err := validatedCommandStateReset(durable.Session, terminalID, commandID, terminalWide)
+		durableTerminal, err := validatedCommandStateReset(durable.Session, terminalID, commandID)
 		if err != nil {
 			resetErr = err
 			return transition{}
@@ -1418,10 +1601,10 @@ func (service *Service) resetCommandStates(
 		if broadcast := runtime.Broadcast; broadcast != nil {
 			terminal := broadcast.TerminalRuntimes[terminalID]
 			if terminal != nil {
-				clearResetCommandPresentation(runtime, terminal, commandID, terminalWide)
+				clearResetCommandPresentation(runtime, terminal, commandID, false)
 				terminal.CommandStates = cloneCommandStates(durableTerminal.CommandStates)
 				if broadcast.ActiveTerminalID != nil && *broadcast.ActiveTerminalID == terminalID && service.terminals != nil {
-					projection = service.terminals.ProjectRuntime(terminal)
+					projection = service.terminals.ProjectFacility(terminal, runtime.Facility)
 				}
 			}
 		}
@@ -1442,7 +1625,6 @@ func (service *Service) resetCommandStates(
 func validatedCommandStateReset(
 	session domain.Session,
 	terminalID, commandID string,
-	terminalWide bool,
 ) (*domain.Terminal, error) {
 	if err := domain.ValidateSession(session); err != nil {
 		return nil, fmt.Errorf("command state reset returned an invalid durable state")
@@ -1451,11 +1633,7 @@ func validatedCommandStateReset(
 	if terminal == nil {
 		return nil, fmt.Errorf("command state reset returned an invalid durable state")
 	}
-	if terminalWide {
-		if len(terminal.CommandStates) != 0 {
-			return nil, fmt.Errorf("command state reset returned an invalid durable state")
-		}
-	} else if _, exists := terminal.CommandStates[commandID]; exists {
+	if _, exists := terminal.CommandStates[commandID]; exists {
 		return nil, fmt.Errorf("command state reset returned an invalid durable state")
 	}
 	return terminal, nil
@@ -1578,7 +1756,13 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 				resolveErr = fmt.Errorf("terminal navigation return target could not be activated")
 				return transition{}
 			}
-			targetRuntime.Nav = nav.RestoreFolder(latest.Tree, pending.ReturnPoint.FolderID, pending.ReturnPoint.AncestorFolderIDs)
+			projection = service.terminals.ProjectFacility(targetRuntime, runtime.Facility)
+			if projection == nil {
+				state = masterSnapshot(runtime)
+				resolveErr = fmt.Errorf("terminal navigation return target could not be projected")
+				return transition{}
+			}
+			targetRuntime.Nav = nav.RestoreFolder(targetRuntime.Tree, pending.ReturnPoint.FolderID, pending.ReturnPoint.AncestorFolderIDs)
 			projection.Nav = targetRuntime.Nav
 			broadcast.Route = broadcast.Route[:len(broadcast.Route)-1]
 			targetID := latest.TerminalID
@@ -1636,6 +1820,12 @@ func (service *Service) ResolveTerminalNavigation(requestID string, decision dom
 		broadcast.Route = append(broadcast.Route, pending.ReturnPoint)
 		targetID := latest.Target.TerminalID
 		broadcast.ActiveTerminalID = &targetID
+		projection = service.terminals.ProjectFacility(targetRuntime, runtime.Facility)
+		if projection == nil {
+			state = masterSnapshot(runtime)
+			resolveErr = fmt.Errorf("terminal navigation target could not be projected")
+			return auditDecision(transition{}, "failed")
+		}
 		runtime.PendingTerminalNavigation = nil
 		runtime.TerminalNavigationNotice = nil
 		projection = decorateTerminalNavigation(runtime, projection)
@@ -1686,47 +1876,6 @@ func (service *Service) CanDeleteTerminal(terminalID string) error {
 	return nil
 }
 
-// UpdateLiveTerminal refreshes the active checkpoint's authored tree and
-// optional introduction while preserving navigation validity and puzzle state.
-func (service *Service) UpdateLiveTerminal(tree domain.ContentNode, introText *string) (*domain.MasterCoordinationState, error) {
-	var state *domain.MasterCoordinationState
-	var updateErr error
-	result := service.commit(func(runtime *domain.ProcessRuntime) transition {
-		broadcast := runtime.Broadcast
-		active := activeTerminalRuntime(broadcast)
-		if broadcast == nil || active == nil || broadcast.ActiveTerminalID == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("no terminal is active")
-			return transition{}
-		}
-		if service.terminals == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("terminal runtime lifecycle is unavailable")
-			return transition{}
-		}
-		intro := active.IntroText
-		if introText != nil {
-			intro = *introText
-		}
-		projection := service.terminals.UpdateRuntime(active, domain.TerminalTarget{
-			TerminalID: active.TerminalID, TerminalName: active.TerminalName,
-			Tree: tree, CommandStates: cloneCommandStates(active.CommandStates),
-			HackLevel: active.HackLevel, IntroText: intro,
-		})
-		if projection == nil {
-			state = masterSnapshot(runtime)
-			updateErr = fmt.Errorf("active terminal could not be updated")
-			return transition{}
-		}
-		state = masterSnapshot(runtime)
-		effects := stateEffects(runtime)
-		effects = append(effects, Effect{Live: projection})
-		return transition{accepted: true, effects: effects}
-	})
-	state.Revision = result.revision
-	return domain.CloneMasterCoordinationState(state), updateErr
-}
-
 // RefreshActiveTerminal installs one complete trusted backend target. Unlike
 // authored live updates, this path intentionally replaces CommandStates and is
 // used after a durable reset so the active projection cannot retain stale
@@ -1768,6 +1917,12 @@ func (service *Service) RefreshActiveTerminal(target domain.TerminalTarget) (*do
 		if projection == nil {
 			state = masterSnapshot(runtime)
 			refreshErr = fmt.Errorf("active terminal could not be refreshed")
+			return transition{}
+		}
+		projection = service.terminals.ProjectFacility(active, runtime.Facility)
+		if projection == nil {
+			state = masterSnapshot(runtime)
+			refreshErr = fmt.Errorf("active terminal could not be projected")
 			return transition{}
 		}
 		state = masterSnapshot(runtime)
@@ -1824,6 +1979,12 @@ func (service *Service) ResetFailedHack(target domain.TerminalTarget) (*domain.M
 		}
 		replacement.Lifecycle = domain.TerminalLifecycleActive
 		broadcast.TerminalRuntimes[target.TerminalID] = replacement
+		projection = service.terminals.ProjectFacility(replacement, runtime.Facility)
+		if projection == nil {
+			state = masterSnapshot(runtime)
+			resetErr = fmt.Errorf("failed hacking puzzle could not be projected")
+			return transition{}
+		}
 		state = masterSnapshot(runtime)
 		effects := stateEffects(runtime)
 		effects = append(effects, Effect{Live: projection})
@@ -1834,6 +1995,131 @@ func (service *Service) ResetFailedHack(target domain.TerminalTarget) (*domain.M
 	}
 	state.Revision = result.revision
 	return domain.CloneMasterCoordinationState(state), resetErr
+}
+
+// ReplaceFacility installs the validated facility aggregate for a newly
+// loaded session. A nil facility explicitly clears facility state for legacy
+// sessions. Replacement advances the coordination epoch even when the values
+// are equal so approvals from the prior session cannot cross the boundary.
+// It empties the device feeds and keeps the run-wide feed sequence.
+func (service *Service) ReplaceFacility(facility *domain.Facility) (*domain.MasterCoordinationState, error) {
+	if service == nil {
+		return nil, fmt.Errorf("facility coordinator is unavailable")
+	}
+	replacement := domain.CloneFacility(facility)
+	if err := validateFacilityReplacement(replacement); err != nil {
+		return service.Snapshot(), fmt.Errorf("invalid facility replacement: %w", err)
+	}
+
+	var state *domain.MasterCoordinationState
+	result := service.commit(func(runtime *domain.ProcessRuntime) transition {
+		service.lastFacilityResult = nil
+		if pending := runtime.PendingCommandExecution; pending != nil && pending.FacilityAction != nil {
+			ended := facilityDecisionResult(pending, replacement, domain.FacilityFailureRuntimeContextEnded)
+			cached := cloneFacilityOperationResult(ended)
+			service.lastFacilityResult = &cached
+		}
+
+		runtime.Facility = domain.CloneFacility(replacement)
+		runtime.FacilityChanges = nil
+		runtime.PendingSwitch = nil
+		runtime.PendingCommandExecution = nil
+		runtime.PendingTerminalNavigation = nil
+		runtime.TerminalNavigationNotice = nil
+		clearRequestResults(runtime)
+		if runtime.Broadcast != nil {
+			for _, terminal := range runtime.Broadcast.TerminalRuntimes {
+				if terminal != nil {
+					terminal.CommandExecution = nil
+				}
+			}
+		}
+
+		projection := service.reprojectTerminalRuntimes(runtime)
+		state = masterSnapshot(runtime)
+		effects := stateEffects(runtime)
+		if projection != nil {
+			effects = append(effects, Effect{Live: projection})
+		}
+		return transition{accepted: true, effects: effects}
+	})
+	state.Revision = result.revision
+	return domain.CloneMasterCoordinationState(state), nil
+}
+
+func validateFacilityReplacement(facility *domain.Facility) error {
+	if facility == nil {
+		return nil
+	}
+
+	type terminalReferences struct {
+		nodes  map[string]struct{}
+		blocks map[string]struct{}
+	}
+	references := make(map[string]*terminalReferences)
+	referenceFor := func(terminalID string) *terminalReferences {
+		reference := references[terminalID]
+		if reference == nil {
+			reference = &terminalReferences{nodes: make(map[string]struct{}), blocks: make(map[string]struct{})}
+			references[terminalID] = reference
+		}
+		return reference
+	}
+	for _, condition := range facility.Conditions {
+		if condition.Terminal != nil {
+			referenceFor(condition.Terminal.TerminalID)
+		}
+		for _, effect := range condition.Effects {
+			if effect.DiagnosticPath != nil {
+				referenceFor(effect.DiagnosticPath.TerminalID).nodes[effect.DiagnosticPath.NodeID] = struct{}{}
+			}
+			if effect.RecordSubstitution != nil {
+				referenceFor(effect.RecordSubstitution.TerminalID).blocks[effect.RecordSubstitution.BlockID] = struct{}{}
+			}
+		}
+	}
+
+	session := domain.Session{
+		Version:   1,
+		Name:      "Facility replacement validation",
+		Terminals: make([]domain.Terminal, 0, len(references)),
+		Facility:  domain.CloneFacility(facility),
+	}
+	for _, terminalID := range slices.Sorted(maps.Keys(references)) {
+		reference := references[terminalID]
+		usedNodeIDs := map[string]struct{}{"root": {}}
+		children := make([]domain.ContentNode, 0, len(reference.nodes)+len(reference.blocks))
+		for _, nodeID := range slices.Sorted(maps.Keys(reference.nodes)) {
+			if nodeID == "root" {
+				continue
+			}
+			usedNodeIDs[nodeID] = struct{}{}
+			children = append(children, domain.ContentNode{ID: nodeID, Type: domain.NodeEntry, Name: nodeID})
+		}
+		entryNumber := 0
+		for _, blockID := range slices.Sorted(maps.Keys(reference.blocks)) {
+			entryID := "facility-validation-entry"
+			for {
+				if entryNumber > 0 {
+					entryID = fmt.Sprintf("facility-validation-entry-%d", entryNumber)
+				}
+				entryNumber++
+				if _, exists := usedNodeIDs[entryID]; !exists {
+					break
+				}
+			}
+			usedNodeIDs[entryID] = struct{}{}
+			children = append(children, domain.ContentNode{
+				ID: entryID, Type: domain.NodeEntry, Name: entryID,
+				Blocks: []domain.EntryContentBlock{{ID: blockID, InitialText: "validation"}},
+			})
+		}
+		session.Terminals = append(session.Terminals, domain.Terminal{
+			ID: terminalID, Name: terminalID,
+			Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: children},
+		})
+	}
+	return domain.ValidateSession(session)
 }
 
 // StartBroadcast creates a fresh assignment epoch while retaining recognized
@@ -2051,7 +2337,9 @@ func (service *Service) subscriptionSnapshot(runtime *domain.ProcessRuntime, ses
 func (service *Service) SelectCharacterForRecognition(handle domain.RecognitionHandle, requestID domain.RequestID, broadcastID domain.BroadcastID, characterID domain.CharacterID) domain.ActionResult {
 	sessionID, ok := service.ResolveRecognition(handle)
 	if !ok {
-		return domain.ActionResult{RequestID: requestID, Reason: domain.ActionReasonInvalidSession, Revision: service.Revision()}
+		return service.SelectCharacter(CharacterSelection{
+			RequestID: requestID, BroadcastID: broadcastID, CharacterID: characterID,
+		})
 	}
 	return service.SelectCharacter(CharacterSelection{
 		SessionID:   sessionID,
@@ -2087,7 +2375,11 @@ func (service *Service) DetachConnection(connectionID domain.ConnectionID) {
 // first accepted assignment becomes controller in the same transaction.
 func (service *Service) SelectCharacter(selection CharacterSelection) domain.ActionResult {
 	var outcome domain.ActionResult
-	commitResult := service.commit(func(runtime *domain.ProcessRuntime) transition {
+	commitResult := service.commit(func(runtime *domain.ProcessRuntime) (change transition) {
+		auditContext := newCharacterSelectionAuditContext(runtime, selection)
+		defer func() {
+			change.prependAudit(auditContext.events(outcome, runtime)...)
+		}()
 		session := runtime.SessionsByID[selection.SessionID]
 		if session == nil {
 			outcome = rejectedSelection(selection.RequestID, domain.ActionReasonInvalidSession, runtime.Revision)
@@ -2324,7 +2616,11 @@ func (service *Service) playerActionStateEffects(runtime *domain.ProcessRuntime)
 // enqueued before the initiating connection's correlated result.
 func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, command domain.RuntimeCommand) domain.ActionResult {
 	var outcome domain.ActionResult
-	service.commit(func(runtime *domain.ProcessRuntime) transition {
+	service.commit(func(runtime *domain.ProcessRuntime) (change transition) {
+		auditContext := newPlayerActionAuditContext(runtime, connectionID, command)
+		defer func() {
+			change.prependAudit(auditContext.events(outcome, runtime)...)
+		}()
 		prepared, rejected, stop, ok := service.preparePlayerAction(runtime, connectionID, command)
 		if !ok {
 			outcome = rejected
@@ -2355,6 +2651,13 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
 			return service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
 		}
+		if capability, bounded := requestedFacilityCapability(command, authored, commandSelected); bounded &&
+			facilityCapabilityBlocked(runtime.Facility, terminal, capability) {
+			outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
+			stop = service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+			refuseFacilityCommand(runtime, &stop, service.now(), terminal, authored, domain.FacilityChangeRefusalFaultBlocked)
+			return stop
+		}
 		if commandSelected && authored.Behavior() == domain.CommandBehaviorTerminalTransition {
 			lookup, ok := domain.TerminalTransitionTarget{}, false
 			if service.terminalCatalog != nil {
@@ -2383,12 +2686,40 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 		}
 		if commandSelected {
 			mode := commandApprovalMode(terminal, authored)
+			var facilityAction *domain.PendingFacilityAction
+			if action := requestedCommandFacilityAction(terminal, authored); action != nil {
+				var failure domain.FacilityFailureCode
+				facilityAction, failure = pendingFacilityAction(runtime.Facility, action)
+				if failure != domain.FacilityFailureUnspecified {
+					outcome = rejectedAction(command.RequestID, domain.ActionReasonInvalidAction, runtime.Revision)
+					stop = service.cachePlayerActionRejection(runtime, connectionID, sessionID, command, outcome)
+					if reason, ok := facilityChangeRefusalReason(failure); ok {
+						refuseFacilityCommand(runtime, &stop, service.now(), terminal, authored, reason)
+					}
+					facts := facilityAuditFacts(nil, domain.FacilityOperationResult{
+						CorrelationID: command.RequestID,
+						Failure:       failure,
+					}, FacilityAuditActionCommand, "invalid")
+					stop.audit(AuditEvent{
+						Name: facilityAuditEventRequestReceived, Outcome: "invalid",
+						RequestID: command.RequestID, BroadcastID: runtime.Broadcast.ID,
+						TerminalID: terminal.TerminalID, CommandID: authored.ID, Facility: &facts,
+					})
+					stop.audit(AuditEvent{
+						Name: facilityAuditEventFailure, Outcome: string(failure),
+						RequestID: command.RequestID, BroadcastID: runtime.Broadcast.ID,
+						TerminalID: terminal.TerminalID, CommandID: authored.ID, Facility: &facts,
+					})
+					return stop
+				}
+			}
 			runtime.PendingCommandExecution = &domain.PendingCommandExecution{
 				RequestID: service.nextID(), BroadcastID: runtime.Broadcast.ID,
 				TerminalID: terminal.TerminalID, CommandID: authored.ID,
 				CommandName: displayedCommandName(terminal, authored), Mode: mode,
 				ConfirmationText:    commandConfirmationText(authored),
 				ControllerSessionID: sessionID,
+				FacilityAction:      domain.ClonePendingFacilityAction(facilityAction),
 			}
 			terminal.CommandExecution = &domain.CommandExecutionPresentation{
 				Phase: domain.CommandExecutionPhasePending, CommandID: authored.ID,
@@ -2403,6 +2734,14 @@ func (service *Service) DispatchPlayerAction(connectionID domain.ConnectionID, c
 				BroadcastID: runtime.Broadcast.ID, TerminalID: terminal.TerminalID, CommandID: authored.ID,
 				Mode: string(mode),
 			})
+			if facilityAction != nil {
+				facts := facilityAuditFacts(runtime.PendingCommandExecution, domain.FacilityOperationResult{}, FacilityAuditActionCommand, "pending")
+				stop.audit(AuditEvent{
+					Name: facilityAuditEventRequestReceived, Outcome: "pending", RequestID: runtime.PendingCommandExecution.RequestID,
+					BroadcastID: runtime.Broadcast.ID, TerminalID: terminal.TerminalID, CommandID: authored.ID,
+					Facility: &facts,
+				})
+			}
 			return stop
 		}
 		if service.actions == nil {
@@ -2452,15 +2791,30 @@ func (service *Service) DispatchPlayerActionForRecognition(handle domain.Recogni
 			connectionID = connections[0]
 		}
 	}
-	revision := service.runtime.Revision
 	service.mu.RUnlock()
 	if !ok || session == nil {
-		return domain.ActionResult{RequestID: command.RequestID, Reason: domain.ActionReasonInvalidSession, Revision: revision}
+		return service.rejectRecognizedPlayerAction(command, "", domain.ActionReasonInvalidSession)
 	}
 	if connectionID == "" {
-		return domain.ActionResult{RequestID: command.RequestID, Reason: domain.ActionReasonControllerDisconnected, Revision: revision}
+		return service.rejectRecognizedPlayerAction(command, sessionID, domain.ActionReasonControllerDisconnected)
 	}
 	return service.DispatchPlayerAction(connectionID, command)
+}
+
+func (service *Service) rejectRecognizedPlayerAction(
+	command domain.RuntimeCommand,
+	sessionID domain.LogicalSessionID,
+	reason domain.ActionReason,
+) domain.ActionResult {
+	var outcome domain.ActionResult
+	service.commit(func(runtime *domain.ProcessRuntime) transition {
+		outcome = rejectedAction(command.RequestID, reason, runtime.Revision)
+		context := newPlayerActionAuditContextForSession(runtime, sessionID, command)
+		change := transition{}
+		change.prependAudit(context.events(outcome, runtime)...)
+		return change
+	})
+	return outcome
 }
 
 // ForceHackSuccess executes the exact private Overseer operation inside the
@@ -2653,14 +3007,14 @@ func selectedAuthoredCommand(runtime *domain.TerminalRuntime, command domain.Run
 	if runtime == nil || command.Kind != domain.RuntimeCommandNavigate || command.Action != "command" || command.NodeID == "" {
 		return nil, false
 	}
-	folder := &runtime.Tree
+	effectiveFolder := &runtime.Tree
 	if len(runtime.Nav.Path) == 0 || runtime.Nav.Path[0] != runtime.Tree.ID {
 		return nil, false
 	}
 	for _, folderID := range runtime.Nav.Path[1:] {
 		var next *domain.ContentNode
-		for index := range folder.Children {
-			child := &folder.Children[index]
+		for index := range effectiveFolder.Children {
+			child := &effectiveFolder.Children[index]
 			if child.ID == folderID && child.Type == domain.NodeFolder {
 				next = child
 				break
@@ -2669,12 +3023,37 @@ func selectedAuthoredCommand(runtime *domain.TerminalRuntime, command domain.Run
 		if next == nil {
 			return nil, false
 		}
-		folder = next
+		effectiveFolder = next
 	}
-	for index := range folder.Children {
-		candidate := &folder.Children[index]
+	for index := range effectiveFolder.Children {
+		candidate := &effectiveFolder.Children[index]
 		if candidate.ID == command.NodeID && candidate.Type == domain.NodeCommand {
+			if candidate.Available != nil && !*candidate.Available {
+				return nil, false
+			}
+			authored := &runtime.AuthoredTree
+			if authored.ID == "" {
+				authored = &runtime.Tree
+			}
+			if found, ok := findContentNode(authored, command.NodeID); ok {
+				return found, true
+			}
 			return candidate, true
+		}
+	}
+	return nil, false
+}
+
+func findContentNode(node *domain.ContentNode, nodeID string) (*domain.ContentNode, bool) {
+	if node == nil {
+		return nil, false
+	}
+	if node.ID == nodeID {
+		return node, true
+	}
+	for index := range node.Children {
+		if found, ok := findContentNode(&node.Children[index], nodeID); ok {
+			return found, true
 		}
 	}
 	return nil, false
@@ -2697,8 +3076,13 @@ func displayedCommandName(runtime *domain.TerminalRuntime, command *domain.Conte
 		return ""
 	}
 	if runtime != nil {
-		if completed, ok := runtime.CommandStates[command.ID]; ok {
-			return completed.CompletedName
+		if effective, ok := findContentNode(&runtime.Tree, command.ID); ok && effective.Type == domain.NodeCommand {
+			if len(command.FacilityNameVariants) == 0 {
+				if completed, completedOK := runtime.CommandStates[command.ID]; completedOK {
+					return completed.CompletedName
+				}
+			}
+			return effective.Name
 		}
 	}
 	return command.Name
@@ -2753,6 +3137,24 @@ func (service *Service) projectActiveTerminal(runtime *domain.ProcessRuntime) *d
 		return nil
 	}
 	terminal := activeTerminalRuntime(runtime.Broadcast)
+	if terminal == nil || terminal.Lifecycle != domain.TerminalLifecycleActive {
+		return nil
+	}
+	return decorateTerminalNavigation(runtime, service.terminals.ProjectFacility(terminal, runtime.Facility))
+}
+
+func (service *Service) reprojectTerminalRuntimes(runtime *domain.ProcessRuntime) *domain.PublicLiveState {
+	if service == nil || service.terminals == nil || runtime == nil || runtime.Broadcast == nil {
+		return nil
+	}
+	broadcast := runtime.Broadcast
+	for _, terminalID := range slices.Sorted(maps.Keys(broadcast.TerminalRuntimes)) {
+		terminal := broadcast.TerminalRuntimes[terminalID]
+		if terminal != nil {
+			service.terminals.ProjectFacility(terminal, runtime.Facility)
+		}
+	}
+	terminal := activeTerminalRuntime(broadcast)
 	if terminal == nil || terminal.Lifecycle != domain.TerminalLifecycleActive {
 		return nil
 	}
@@ -3198,6 +3600,86 @@ func (service *Service) cachePlayerActionRejection(runtime *domain.ProcessRuntim
 	return change
 }
 
+// requestedCommandFacilityAction returns the authored facility action that a
+// request for command would carry, or nil. A completed command carries none.
+func requestedCommandFacilityAction(
+	terminal *domain.TerminalRuntime,
+	command *domain.ContentNode,
+) *domain.FacilityActionConfig {
+	if commandApprovalMode(terminal, command) != domain.CommandApprovalModeStateChange {
+		return nil
+	}
+	return command.StateChange.FacilityAction
+}
+
+// authoredFacilityActionRequests returns the transitions that action names:
+// its own list, or the list of its recovery program. It does not validate
+// them.
+func authoredFacilityActionRequests(
+	facility *domain.Facility,
+	action *domain.FacilityActionConfig,
+) []domain.FacilityTransitionRequest {
+	switch {
+	case action == nil:
+		return nil
+	case action.Transitions != nil:
+		return action.Transitions.Transitions
+	case action.RecoveryProgramID != nil && facility != nil:
+		programID := strings.TrimSpace(*action.RecoveryProgramID)
+		for _, program := range facility.RecoveryPrograms {
+			if program.ID == programID {
+				return program.Transitions
+			}
+		}
+	}
+	return nil
+}
+
+// refuseFacilityCommand records the refusal of a player request for authored,
+// with reason and the commit time at, in the feed of each existing device the
+// command's facility action names. When it records an entry, change also
+// publishes the master snapshot that carries the feed, ahead of its other
+// effects.
+func refuseFacilityCommand(
+	runtime *domain.ProcessRuntime,
+	change *transition,
+	at time.Time,
+	terminal *domain.TerminalRuntime,
+	authored *domain.ContentNode,
+	reason domain.FacilityChangeRefusalReason,
+) {
+	action := requestedCommandFacilityAction(terminal, authored)
+	if action == nil {
+		return
+	}
+	requests := authoredFacilityActionRequests(runtime.Facility, action)
+	if !appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
+		terminal.TerminalID, authored.ID, requests, reason,
+	)...) {
+		return
+	}
+	change.effects = append([]Effect{{Master: masterSnapshot(runtime)}}, change.effects...)
+}
+
+// appendPendingFacilityRefusal records the refusal of a pending player
+// request, for failure and at the commit time at, in the feed of each device
+// its facility action targets. A failure without a refusal reason records
+// nothing.
+func appendPendingFacilityRefusal(
+	runtime *domain.ProcessRuntime,
+	at time.Time,
+	pending *domain.PendingCommandExecution,
+	failure domain.FacilityFailureCode,
+) {
+	reason, ok := facilityChangeRefusalReason(failure)
+	if !ok || pending == nil || pending.FacilityAction == nil {
+		return
+	}
+	appendFacilityChanges(runtime, at, facilityPlayerRefusalChanges(
+		pending.TerminalID, pending.CommandID, pending.FacilityAction.TransitionRequests, reason,
+	)...)
+}
+
 func rejectedHackActionAudit(runtime *domain.ProcessRuntime, sessionID domain.LogicalSessionID, command domain.RuntimeCommand) (AuditEvent, bool) {
 	if command.Kind != domain.RuntimeCommandGuess && command.Kind != domain.RuntimeCommandActivatePattern {
 		return AuditEvent{}, false
@@ -3281,6 +3763,9 @@ func sortedSessionIDs(runtime *domain.ProcessRuntime) []domain.LogicalSessionID 
 
 func masterSnapshot(runtime *domain.ProcessRuntime) *domain.MasterCoordinationState {
 	state := &domain.MasterCoordinationState{Revision: runtime.Revision}
+	if runtime.Facility != nil {
+		state.FacilityRevision = new(runtime.Facility.Revision)
+	}
 	if runtime.ActivePlayerConfig != nil {
 		state.PlayerConfig = &domain.PlayerConfigMetadata{
 			Status: "loaded", FilePath: runtime.ActivePlayerConfig.Path, Version: runtime.ActivePlayerConfig.Version, Name: runtime.ActivePlayerConfig.Name,
@@ -3348,6 +3833,7 @@ func masterSnapshot(runtime *domain.ProcessRuntime) *domain.MasterCoordinationSt
 			TerminalID: pending.TerminalID, CommandID: pending.CommandID,
 			CommandName: pending.CommandName, Mode: pending.Mode,
 			ConfirmationText: pending.ConfirmationText,
+			FacilityAction:   domain.ClonePendingFacilityAction(pending.FacilityAction),
 		}
 	}
 	if pending := runtime.PendingTerminalNavigation; pending != nil {
@@ -3369,6 +3855,7 @@ func masterSnapshot(runtime *domain.ProcessRuntime) *domain.MasterCoordinationSt
 			CommandID: notice.CommandID, TargetTerminalID: cloneString(notice.TargetTerminalID),
 		}
 	}
+	state.FacilityChanges = facilityChangeSnapshot(runtime.FacilityChanges)
 	return state
 }
 
@@ -3524,7 +4011,7 @@ func detachEffect(effect Effect, revision uint64) Effect {
 	detached.Live = clonePublicLiveState(effect.Live)
 	detached.Hack = clonePublicHackState(effect.Hack)
 	detached.Update = domain.CloneCompoundUpdate(effect.Update)
-	detached.Audit = append([]AuditEvent(nil), effect.Audit...)
+	detached.Audit = cloneAuditEvents(effect.Audit)
 	if effect.Result != nil {
 		result := *effect.Result
 		if result.Revision == 0 {
@@ -3535,11 +4022,198 @@ func detachEffect(effect Effect, revision uint64) Effect {
 	return detached
 }
 
+func cloneAuditEvents(events []AuditEvent) []AuditEvent {
+	if events == nil {
+		return nil
+	}
+	clone := slices.Clone(events)
+	for index := range events {
+		if events[index].Facility == nil {
+			continue
+		}
+		facts := *events[index].Facility
+		facts.DeviceIDs = slices.Clone(events[index].Facility.DeviceIDs)
+		facts.ConditionIDs = slices.Clone(events[index].Facility.ConditionIDs)
+		facts.DeviceTransitions = slices.Clone(events[index].Facility.DeviceTransitions)
+		facts.ConditionTransitions = slices.Clone(events[index].Facility.ConditionTransitions)
+		clone[index].Facility = &facts
+	}
+	return clone
+}
+
 func (change *transition) audit(event AuditEvent) {
 	if event.Name == "" {
 		return
 	}
 	change.effects = append(change.effects, Effect{Audit: []AuditEvent{event}})
+}
+
+func (change *transition) prependAudit(events ...AuditEvent) {
+	auditEffects := make([]Effect, 0, len(events))
+	for _, event := range events {
+		if event.Name != "" {
+			auditEffects = append(auditEffects, Effect{Audit: []AuditEvent{event}})
+		}
+	}
+	change.effects = append(auditEffects, change.effects...)
+}
+
+func newPlayerActionAuditContext(
+	runtime *domain.ProcessRuntime,
+	connectionID domain.ConnectionID,
+	command domain.RuntimeCommand,
+) playerActionAuditContext {
+	sessionID, _ := sessionForConnection(runtime, connectionID)
+	return newPlayerActionAuditContextForSession(runtime, sessionID, command)
+}
+
+func newPlayerActionAuditContextForSession(
+	runtime *domain.ProcessRuntime,
+	sessionID domain.LogicalSessionID,
+	command domain.RuntimeCommand,
+) playerActionAuditContext {
+	session := runtime.SessionsByID[sessionID]
+	event := AuditEvent{
+		Name:      "player.action.request",
+		Outcome:   "received",
+		SessionID: sessionID,
+		RequestID: command.RequestID,
+		Mode:      playerActionAuditMode(command),
+	}
+	if runtime != nil && runtime.Broadcast != nil {
+		event.BroadcastID = runtime.Broadcast.ID
+		event.Role = roleForSession(runtime.Broadcast, sessionID)
+		if runtime.Broadcast.ActiveTerminalID != nil && *runtime.Broadcast.ActiveTerminalID == command.TerminalID {
+			event.TerminalID = *runtime.Broadcast.ActiveTerminalID
+		}
+	}
+	context := playerActionAuditContext{request: event}
+	if session == nil || command.RequestID == "" {
+		return context
+	}
+	if cached, exists := session.RequestResults[command.RequestID]; exists {
+		context.repeatOutcome = "duplicate"
+		if cached.Fingerprint == playerActionFingerprint(command) {
+			context.repeatOutcome = "replayed"
+		}
+	}
+	return context
+}
+
+func newCharacterSelectionAuditContext(
+	runtime *domain.ProcessRuntime,
+	selection CharacterSelection,
+) playerActionAuditContext {
+	event := AuditEvent{
+		Name:      "player.action.request",
+		Outcome:   "received",
+		RequestID: selection.RequestID,
+		Mode:      "select-character",
+	}
+	session := runtime.SessionsByID[selection.SessionID]
+	if session != nil {
+		event.SessionID = selection.SessionID
+	}
+	if runtime.Broadcast != nil {
+		event.BroadcastID = runtime.Broadcast.ID
+		event.Role = roleForSession(runtime.Broadcast, event.SessionID)
+	}
+	context := playerActionAuditContext{request: event}
+	if session == nil || selection.RequestID == "" {
+		return context
+	}
+	if cached, exists := session.RequestResults[selection.RequestID]; exists {
+		context.repeatOutcome = "duplicate"
+		if cached.Fingerprint == selectionFingerprint(selection) {
+			context.repeatOutcome = "replayed"
+		}
+	}
+	return context
+}
+
+func (context playerActionAuditContext) events(
+	result domain.ActionResult,
+	runtime *domain.ProcessRuntime,
+) []AuditEvent {
+	request := context.request
+	outcome := request
+	outcome.Name = "player.action.outcome"
+	outcome.Outcome = context.repeatOutcome
+	if outcome.Outcome == "" {
+		outcome.Outcome = ActionAuditOutcome(result)
+	}
+	if runtime != nil && runtime.Broadcast != nil {
+		outcome.BroadcastID = runtime.Broadcast.ID
+		outcome.Role = roleForSession(runtime.Broadcast, outcome.SessionID)
+	}
+	return []AuditEvent{request, outcome}
+}
+
+func playerActionAuditMode(command domain.RuntimeCommand) string {
+	switch command.Kind {
+	case domain.RuntimeCommandNavigate:
+		switch command.Action {
+		case "enter":
+			return "navigation-enter"
+		case "command":
+			return "navigation-command"
+		case "entry":
+			return "navigation-entry"
+		case "back":
+			return "navigation-back"
+		default:
+			return "invalid"
+		}
+	case domain.RuntimeCommandGuess:
+		return "hack-guess"
+	case domain.RuntimeCommandActivatePattern:
+		return "hack-pattern"
+	case domain.RuntimeCommandPresentation:
+		switch command.Presentation.Kind {
+		case domain.ControllerTerminalPresentationNone:
+			return "presentation-none"
+		case domain.ControllerTerminalPresentationMenu:
+			return "presentation-menu"
+		case domain.ControllerTerminalPresentationPage:
+			return "presentation-page"
+		case domain.ControllerTerminalPresentationHacking:
+			return "presentation-hacking"
+		default:
+			return "invalid"
+		}
+	default:
+		return "invalid"
+	}
+}
+
+// ActionAuditOutcome maps an authoritative player result to its bounded audit
+// outcome without exposing transport or display data.
+func ActionAuditOutcome(result domain.ActionResult) string {
+	if result.Accepted {
+		return "accepted"
+	}
+	switch result.Reason {
+	case domain.ActionReasonInvalidSession:
+		return "invalid-session"
+	case domain.ActionReasonStaleBroadcast:
+		return "stale-broadcast"
+	case domain.ActionReasonUnassigned:
+		return "unassigned"
+	case domain.ActionReasonNotController:
+		return "not-controller"
+	case domain.ActionReasonControllerDisconnected:
+		return "controller-disconnected"
+	case domain.ActionReasonStaleTerminal:
+		return "stale-terminal"
+	case domain.ActionReasonInvalidAction:
+		return "invalid-action"
+	case domain.ActionReasonConflict:
+		return "conflict"
+	case domain.ActionReasonDuplicate:
+		return "duplicate"
+	default:
+		return "invalid"
+	}
 }
 
 func deriveAuditEvents(before, after *domain.ProcessRuntime) []AuditEvent {
@@ -3552,13 +4226,28 @@ func deriveAuditEvents(before, after *domain.ProcessRuntime) []AuditEvent {
 		previousRole := roleForSession(before.Broadcast, sessionID)
 		role := roleForSession(after.Broadcast, sessionID)
 		if !wasConnected && connected {
-			events = append(events, AuditEvent{Name: "player.connected", Outcome: "connected", SessionID: sessionID, Role: role})
+			event := AuditEvent{Name: "player.connected", Outcome: "connected", SessionID: sessionID, Role: role}
+			if after.Broadcast != nil {
+				event.BroadcastID = after.Broadcast.ID
+			}
+			events = append(events, event)
 		}
 		if wasConnected && !connected {
-			events = append(events, AuditEvent{Name: "player.disconnected", Outcome: "disconnected", SessionID: sessionID, Role: previousRole})
+			event := AuditEvent{Name: "player.disconnected", Outcome: "disconnected", SessionID: sessionID, Role: previousRole}
+			if before.Broadcast != nil {
+				event.BroadcastID = before.Broadcast.ID
+			}
+			events = append(events, event)
 		}
 		if connected && previous != nil && previousRole != role {
-			events = append(events, AuditEvent{Name: "player.role_changed", Outcome: "selected", SessionID: sessionID, Role: role, PreviousRole: previousRole})
+			event := AuditEvent{
+				Name: "player.role_changed", Outcome: "selected", SessionID: sessionID,
+				Role: role, PreviousRole: previousRole,
+			}
+			if after.Broadcast != nil {
+				event.BroadcastID = after.Broadcast.ID
+			}
+			events = append(events, event)
 		}
 	}
 	events = append(events, deriveHackLifecycleEvents(before, after)...)
@@ -3613,7 +4302,9 @@ func supersededCommandAudit(before, after *domain.ProcessRuntime, effects []Effe
 	}
 	for _, effect := range effects {
 		for _, event := range effect.Audit {
-			if event.Name == "command.decision" && event.RequestID == pending.RequestID {
+			// An operation that resolved the request recorded its own outcome.
+			if (event.Name == "command.decision" || event.Name == "command.request_outcome") &&
+				event.RequestID == pending.RequestID {
 				return AuditEvent{}, false
 			}
 		}
@@ -3849,10 +4540,13 @@ func cloneProcessRuntime(runtime *domain.ProcessRuntime) *domain.ProcessRuntime 
 		value := *runtime.ActivePlayerConfig
 		clone.ActivePlayerConfig = &value
 	}
+	clone.Facility = domain.CloneFacility(runtime.Facility)
+	clone.FacilityChanges = cloneFacilityChangeFeed(runtime.FacilityChanges)
 	clone.Broadcast = cloneBroadcast(runtime.Broadcast)
 	clone.PendingSwitch = clonePendingSwitch(runtime.PendingSwitch)
 	if runtime.PendingCommandExecution != nil {
 		pending := *runtime.PendingCommandExecution
+		pending.FacilityAction = domain.ClonePendingFacilityAction(runtime.PendingCommandExecution.FacilityAction)
 		clone.PendingCommandExecution = &pending
 	}
 	if runtime.PendingTerminalNavigation != nil {
@@ -3927,6 +4621,7 @@ func cloneTerminalTarget(target *domain.TerminalTarget) *domain.TerminalTarget {
 	clone := *target
 	clone.Tree = domain.CloneContentNode(target.Tree)
 	clone.CommandStates = cloneCommandStates(target.CommandStates)
+	clone.Effects = slices.Clone(target.Effects)
 	return &clone
 }
 
@@ -3935,6 +4630,7 @@ func cloneTerminalRuntime(runtime *domain.TerminalRuntime) *domain.TerminalRunti
 		return nil
 	}
 	clone := *runtime
+	clone.AuthoredTree = domain.CloneContentNode(runtime.AuthoredTree)
 	clone.Tree = domain.CloneContentNode(runtime.Tree)
 	clone.CommandStates = cloneCommandStates(runtime.CommandStates)
 	if runtime.CommandExecution != nil {
@@ -3943,6 +4639,7 @@ func cloneTerminalRuntime(runtime *domain.TerminalRuntime) *domain.TerminalRunti
 	}
 	clone.Nav = cloneNavState(runtime.Nav)
 	clone.Hack = cloneHackState(runtime.Hack)
+	clone.Effects = slices.Clone(runtime.Effects)
 	return &clone
 }
 
@@ -3954,6 +4651,7 @@ func clonePublicLiveState(state *domain.PublicLiveState) *domain.PublicLiveState
 	clone.Tree = domain.CloneContentNode(state.Tree)
 	clone.Nav = cloneNavState(state.Nav)
 	clone.Hack = clonePublicHackState(state.Hack)
+	clone.Effects = slices.Clone(state.Effects)
 	if state.CommandExecution != nil {
 		execution := *state.CommandExecution
 		clone.CommandExecution = &execution

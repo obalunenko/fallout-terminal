@@ -1,5 +1,25 @@
 import { expect, test } from '@playwright/test';
 
+import { expectRussianMessage, renderedError } from './helpers/facility-editors.mjs';
+
+const RUNTIME_LOG_FIXTURE = '/__fixture/runtime-logs';
+const LOG_DIRECTORY = '/Users/fixture/Application Support/Fallout Terminal/logs';
+// The logs catalog message (specs/041-facility-editors-language/contracts/overseer-ui.md «Errors»).
+const LOGS_MESSAGE = 'Не удалось открыть журналы. Откройте папку журналов вручную.';
+
+// expectLogAccessFailure checks a failed open: the Russian logs message, the
+// directory right after it as the next step, and the Go text only under
+// «подробности для разработчика» (FR-041, SC-008).
+async function expectLogAccessFailure(status, { location, original }) {
+  await expect(status.locator('.overseer-error-message')).toHaveText(LOGS_MESSAGE);
+  expect(await renderedError(status)).toEqual({
+    area: 'logs', key: 'general', message: LOGS_MESSAGE, original, summary: 'подробности для разработчика',
+  });
+  expectRussianMessage(LOGS_MESSAGE);
+  await expect(status.locator('.overseer-error-message + p.log-access-location')).toHaveText(location);
+  expect(await status.locator('.overseer-error-details').evaluate(details => details.open)).toBe(false);
+}
+
 test('startup and main controls open retained logs with shared accessible feedback', async ({ page }) => {
   await page.goto('/__fixture/public-access-settings');
   await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
@@ -28,8 +48,10 @@ test('log access remains available during degraded startup and shows the exact m
   await expect(button).toBeEnabled();
   await button.click();
   const status = page.locator('[data-log-access-status]:visible').first();
-  await expect(status).toContainText('Could not open the application log directory.');
-  await expect(status).toContainText('/Users/fixture/Application Support/Fallout Terminal/logs');
+  await expectLogAccessFailure(status, {
+    location: `${LOG_DIRECTORY} · ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА`,
+    original: 'Could not open the application log directory.',
+  });
 });
 
 test('log access failure names the directory even when an active log file exists', async ({ page }) => {
@@ -43,7 +65,10 @@ test('log access failure names the directory even when an active log file exists
   }));
   await page.locator('[data-action="open-log-location"]').nth(1).click();
   const status = page.locator('[data-log-access-status]').nth(1);
-  await expect(status).toHaveText('Could not open the application log directory. · /Users/fixture/Application Support/Fallout Terminal/logs');
+  await expectLogAccessFailure(status, {
+    location: LOG_DIRECTORY,
+    original: 'Could not open the application log directory.',
+  });
 });
 
 test('log access reports degraded retained output when no active log file exists', async ({ page }) => {
@@ -64,4 +89,74 @@ test('log access reports degraded retained output when no active log file exists
   await page.locator('[data-action="open-log-location"]').nth(1).click();
   await expect(status).toContainText('application-current.log');
   await expect(status).not.toContainText('ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА');
+});
+
+test('an unavailable retained file reports a safe warning while preserving directory access', async ({ page }) => {
+  await page.goto('/__fixture/public-access-settings?runtime-logs-unavailable=1');
+  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+  const button = page.locator('[data-action="open-log-location"]:visible').first();
+  await button.click();
+  const status = page.locator('[data-log-access-status]:visible').first();
+  await expect(status).toContainText('ЗАПИСЬ ЛОГОВ В ФАЙЛ НЕДОСТУПНА');
+  await expect(status).toContainText('/Users/fixture/Application Support/Fallout Terminal/logs');
+});
+
+test('current retained log correlates player and facility activity without protected values', async ({ page, request }) => {
+  const correlationId = 'facility-browser-action-96';
+  const forbidden = {
+    playerName: 'PRIVATE PLAYER NAME T096',
+    authoredLabel: 'AUTHORED REACTOR LABEL T096',
+    authoredContent: 'PRIVATE REACTOR ENTRY CONTENT T096',
+    secret: 'PLAYER-PASSWORD-CANARY-T096',
+    rawError: 'dial tcp provider.internal: raw persistence error /private/campaign-t096.json',
+  };
+  const seeded = await request.post(`${RUNTIME_LOG_FIXTURE}/seed`, {
+    data: { correlationId, forbidden },
+  });
+  expect(seeded.status()).toBe(204);
+
+  await page.goto('/__fixture/public-access-settings');
+  await expect.poll(() => page.evaluate(() => typeof window.desktopAPI)).toBe('object');
+  const openLogs = page.locator('[data-action="open-log-location"]').nth(1);
+  await expect(openLogs).toBeEnabled();
+  await openLogs.click();
+  const accessStatus = page.locator('[data-log-access-status]').nth(1);
+  await expect(accessStatus).toContainText('application-current.log');
+
+  const currentResponse = await request.get(`${RUNTIME_LOG_FIXTURE}/current`);
+  expect(currentResponse.ok()).toBe(true);
+  const current = await currentResponse.json();
+  expect(current.path).toContain('/logs/application-current.log');
+  expect(await accessStatus.textContent()).toContain('application-current.log');
+
+  const lines = current.contents.trim().split('\n');
+  expect(lines).toHaveLength(3);
+  expect(lines[0]).toContain('event=command.request_received');
+  expect(lines[0]).toContain(`request_id=${correlationId}`);
+  expect(lines[0]).toContain('role=active');
+  expect(lines[1]).toContain('event=facility.request_received');
+  expect(lines[1]).toContain(`correlation_id=${correlationId}`);
+  expect(lines[1]).toContain('facility_action=command');
+  expect(lines[1]).toContain('outcome=pending');
+  expect(lines[1]).toContain('previous_facility_revision=7');
+  expect(lines[1]).toContain('resulting_facility_revision=7');
+  expect(lines[2]).toContain('event=facility.decision');
+  expect(lines[2]).toContain(`correlation_id=${correlationId}`);
+  expect(lines[2]).toContain('decision=approve');
+  expect(lines[2]).toContain('outcome=succeeded');
+  expect(lines[2]).toContain('previous_facility_revision=7');
+  expect(lines[2]).toContain('resulting_facility_revision=8');
+  expect(lines.filter(line => line.includes(correlationId))).toHaveLength(3);
+
+  for (const value of Object.values(forbidden)) {
+    expect(current.contents).not.toContain(value);
+    await expect(page.locator('body')).not.toContainText(value);
+  }
+  expect(current.contents).not.toContain('provider.internal');
+  expect(current.contents).not.toContain('/private/campaign-t096.json');
+
+  const calls = await page.evaluate(() => __desktopFixture.calls
+    .filter(call => call.method === 'OpenLogLocation'));
+  expect(calls).toHaveLength(1);
+  expect(calls[0].args).toEqual([]);
 });

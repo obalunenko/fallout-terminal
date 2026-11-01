@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	controlservice "github.com/obalunenko/Fallout-Terminal/v2/internal/control"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/diagnostics"
 	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+	privatev1 "github.com/obalunenko/Fallout-Terminal/v2/internal/gen/fallout/terminal/private/v1"
 	liveservice "github.com/obalunenko/Fallout-Terminal/v2/internal/live"
 	playerconfigservice "github.com/obalunenko/Fallout-Terminal/v2/internal/playerconfig"
 	sessionservice "github.com/obalunenko/Fallout-Terminal/v2/internal/session"
@@ -119,6 +121,140 @@ func TestRuntimeAuditLoggingMapsSafeHackContextAndInterruptionReason(t *testing.
 	assert.NotContains(t, records[1].Fields, "attempts_after")
 }
 
+func TestRuntimeFacilityAuditMapsCorrelatedTransitionEvidence(t *testing.T) {
+	t.Parallel()
+
+	recorder := testutil.NewRecordingLogger()
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Logger: recorder.WithField("run_id", "facility-audit-run"),
+	})
+	events := []controlservice.AuditEvent{
+		{
+			Name: "facility.request_received", Outcome: "pending", RequestID: "world-action-1",
+			BroadcastID: "broadcast-1", TerminalID: "terminal-security", CommandID: "open-door",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "world-action-1", Action: controlservice.FacilityAuditActionCommand,
+				Outcome: "pending", DeviceIDs: []string{"alarm", "security-door"},
+				ConditionIDs: []string{"grid-offline"}, PreviousFacilityRevision: 7,
+				ResultingFacilityRevision: 7,
+			},
+		},
+		{
+			Name: "facility.decision", Decision: "approve", Outcome: "succeeded", RequestID: "world-action-1",
+			BroadcastID: "broadcast-1", TerminalID: "terminal-security", CommandID: "open-door",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "world-action-1", Action: controlservice.FacilityAuditActionCommand,
+				Outcome: "succeeded", DeviceIDs: []string{"alarm", "security-door"},
+				ConditionIDs: []string{"grid-offline"}, PreviousFacilityRevision: 7,
+				ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.reset", Outcome: "succeeded", RequestID: "facility-reset-1",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "facility-reset-1", Action: controlservice.FacilityAuditActionReset,
+				Outcome: "succeeded", DeviceIDs: []string{"alarm", "security-door"},
+				ConditionIDs: []string{"grid-offline"}, ResetScope: "facility",
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 9,
+			},
+		},
+		{
+			Name: "facility.fault", Outcome: "failed", RequestID: "fault-1",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "fault-1", Action: controlservice.FacilityAuditActionFault,
+				Outcome: "failed", ConditionIDs: []string{"grid-offline"},
+				Failure:                  domain.FacilityFailureStaleRevision,
+				PreviousFacilityRevision: 9, ResultingFacilityRevision: 9,
+			},
+		},
+	}
+
+	app.recordAuditEvents(events, 61)
+
+	records := recorder.Records()
+	require.Len(t, records, len(events))
+	for index, event := range events {
+		record := records[index]
+		require.Equal(t, "runtime audit event", record.Message)
+		require.Equal(t, "facility-audit-run", record.Fields["run_id"])
+		require.Equal(t, uint64(61), record.Fields["revision"])
+		require.Equal(t, event.Name, record.Fields["event"])
+		require.Equal(t, event.RequestID, record.Fields["request_id"])
+		require.Equal(t, event.Facility.CorrelationID, record.Fields["correlation_id"])
+		require.Equal(t, string(event.Facility.Action), record.Fields["facility_action"])
+		require.Equal(t, event.Facility.PreviousFacilityRevision, record.Fields["previous_facility_revision"])
+		require.Equal(t, event.Facility.ResultingFacilityRevision, record.Fields["resulting_facility_revision"])
+		require.Equal(t, event.Facility.DeviceIDs, record.Fields["device_ids"])
+		require.Equal(t, event.Facility.ConditionIDs, record.Fields["condition_ids"])
+	}
+	require.Equal(t, "facility", records[2].Fields["reset_scope"])
+	require.Equal(t, string(domain.FacilityFailureStaleRevision), records[3].Fields["facility_failure"])
+	require.Equal(t, "warn", records[3].Level)
+	require.Equal(t, 2, countAuditCorrelation(records, "world-action-1"),
+		"request and authoritative outcome must retain one shared correlation")
+}
+
+func TestRetainedFacilityAuditRedactsAuthoredValuesSecretsAndRawErrors(t *testing.T) {
+	const (
+		authoredLabel   = "AUTHORED REACTOR CONTROL LABEL"
+		authoredContent = "PRIVATE ENTRY CONTENT: CORE TEMPERATURE"
+		secretValue     = "PLAYER-PASSWORD-CANARY-94"
+		rawFailure      = "dial tcp provider.internal: raw persistence error /private/campaign.json"
+	)
+	directory := t.TempDir()
+	retained, err := diagnostics.Open(diagnostics.Options{
+		Directory: directory,
+		Fallback:  io.Discard,
+		RunID:     "facility-redaction-run",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, retained.Close()) })
+	applicationLogger := logger.Init(t.Context(), logger.Params{
+		Level: "info", Format: "text", Writer: retained,
+	}).WithField("run_id", retained.RunID())
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: applicationLogger})
+
+	app.recordAuditEvents([]controlservice.AuditEvent{{
+		Name: "facility.decision", Decision: "approve", Outcome: "failed", Reason: rawFailure,
+		RequestID: "redacted-action-1", BroadcastID: "broadcast-1",
+		TerminalID: "terminal-reactor", CommandID: "scram-reactor",
+		Mode: authoredContent, PuzzleID: secretValue, PreviousPuzzleID: authoredLabel,
+		Facility: &controlservice.FacilityAuditFacts{
+			CorrelationID: "redacted-action-1", Action: controlservice.FacilityAuditActionCommand,
+			Outcome: authoredLabel, DeviceIDs: []string{"reactor-core"},
+			ConditionIDs: []string{"coolant-fault"}, ResetScope: authoredContent,
+			Failure:                  domain.FacilityFailurePersistenceFailed,
+			PreviousFacilityRevision: 14, ResultingFacilityRevision: 14,
+		},
+	}}, 72)
+	path := retained.CurrentPath()
+	require.NoError(t, retained.Close())
+
+	contents, err := os.ReadFile(path)
+	require.NoError(t, err)
+	record := string(contents)
+	require.Contains(t, record, "event=facility.decision")
+	require.Contains(t, record, "correlation_id=redacted-action-1")
+	require.Contains(t, record, "facility_action=command")
+	require.Contains(t, record, "facility_failure=persistence-failed")
+	require.Contains(t, record, "previous_facility_revision=14")
+	require.Contains(t, record, "resulting_facility_revision=14")
+	for _, forbidden := range []string{authoredLabel, authoredContent, secretValue, rawFailure,
+		"provider.internal", "/private/campaign.json"} {
+		require.NotContains(t, record, forbidden)
+	}
+}
+
+func countAuditCorrelation(records []testutil.LogRecord, correlationID string) int {
+	count := 0
+	for _, record := range records {
+		if record.Fields["correlation_id"] == correlationID {
+			count++
+		}
+	}
+	return count
+}
+
 func (err maskedCommandExecutionError) Error() string {
 	return "opaque control failure"
 }
@@ -145,6 +281,1395 @@ func TestCommandExecutionMasterErrorUsesStructuredIdentity(t *testing.T) {
 			assert.Equal(t, test.want, commandExecutionMasterError(test.err))
 		})
 	}
+}
+
+func TestAppFacilityApprovalReturnsTypedOutcomeAfterCanonicalSessionPublication(t *testing.T) {
+	recorder := &callRecorder{}
+	canonical := facilityApprovalSessionForAppTest(8, "open")
+	initial := &domain.MasterCoordinationState{
+		Revision: 12,
+		PendingCommandExecution: &domain.MasterPendingCommandExecution{
+			RequestID: "facility-request-success",
+		},
+	}
+	resolved := &domain.MasterCoordinationState{Revision: 13}
+	coordination := &recordingFacilityCommandExecutionCoordination{
+		state:         initial,
+		recorder:      recorder,
+		resolvedState: resolved,
+		facilityResult: &domain.FacilityOperationResult{
+			OK: true, Changed: true, CorrelationID: "facility-request-success",
+			SessionRevision: 27, PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+			AffectedDeviceIDs: []string{"security-door"}, Session: &canonical,
+		},
+	}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
+
+	result := app.ResolveCommandExecution(CommandExecutionDecisionPayload{
+		RequestID: "facility-request-success",
+		Decision:  domain.CommandExecutionApprove,
+	})
+
+	require.True(t, result.OK, "ResolveCommandExecution() = %#v", result)
+	require.Empty(t, result.Error)
+	require.Equal(t, resolved, result.State)
+	require.NotNil(t, result.FacilityResult)
+	require.Equal(t, domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: "facility-request-success",
+		SessionRevision: 27, PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+		AffectedDeviceIDs: []string{"security-door"}, Session: &canonical,
+	}, *result.FacilityResult)
+	require.Equal(t, []string{
+		"coordinator:resolve-facility-command:facility-request-success:approve",
+		"event:coordination-state",
+		"event:session-state",
+	}, recorder.Calls())
+
+	records := events.Records()
+	require.Len(t, records, 2)
+	sessionEvent, ok := records[1].Payload.(SessionStateEvent)
+	require.True(t, ok, "session-state payload = %#v", records[1].Payload)
+	require.Equal(t, uint64(27), sessionEvent.Revision)
+	require.Equal(t, &canonical, sessionEvent.Session)
+	canonical.Facility.Devices[0].CurrentStateID = "locked"
+	require.Equal(t, "open", sessionEvent.Session.Facility.Devices[0].CurrentStateID, "published session must be detached from the coordinator result")
+}
+
+func TestAppFacilityApprovalPreservesTypedFailureOutcomes(t *testing.T) {
+	tests := []struct {
+		name    string
+		native  domain.FacilityFailureCode
+		private privatev1.FacilityFailureCode
+	}{
+		{name: "missing reference", native: domain.FacilityFailureMissingReference, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_MISSING_REFERENCE},
+		{name: "invalid transition", native: domain.FacilityFailureInvalidTransition, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_INVALID_TRANSITION},
+		{name: "precondition", native: domain.FacilityFailurePreconditionFailed, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_PRECONDITION_FAILED},
+		{name: "stale", native: domain.FacilityFailureStaleRevision, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_STALE_REVISION},
+		{name: "conflict", native: domain.FacilityFailureConflict, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_CONFLICT},
+		{name: "duplicate", native: domain.FacilityFailureDuplicate, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_DUPLICATE},
+		{name: "invalid configuration", native: domain.FacilityFailureInvalidConfiguration, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_INVALID_CONFIGURATION},
+		{name: "persistence", native: domain.FacilityFailurePersistenceFailed, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_PERSISTENCE_FAILED},
+		{name: "runtime ended", native: domain.FacilityFailureRuntimeContextEnded, private: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_RUNTIME_CONTEXT_ENDED},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := &callRecorder{}
+			state := &domain.MasterCoordinationState{Revision: 31}
+			coordination := &recordingFacilityCommandExecutionCoordination{
+				state:         &domain.MasterCoordinationState{Revision: 30},
+				recorder:      recorder,
+				resolvedState: state,
+				facilityResult: &domain.FacilityOperationResult{
+					CorrelationID: "facility-failure", Failure: test.native,
+					PreviousFacilityRevision: 5, ResultingFacilityRevision: 5,
+					Issues: []domain.FacilityIssue{{Code: test.native, EntityKind: "device"}},
+				},
+			}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Coordination: coordination,
+				Events:       &recordingEventSink{recorder: recorder},
+			})
+
+			result := app.ResolveCommandExecution(CommandExecutionDecisionPayload{
+				RequestID: "facility-failure",
+				Decision:  domain.CommandExecutionApprove,
+			})
+
+			require.NotNil(t, result.FacilityResult)
+			require.False(t, result.FacilityResult.OK)
+			require.False(t, result.FacilityResult.Changed)
+			require.Equal(t, test.native, result.FacilityResult.Failure)
+			semantic, err := facilityOperationResultToPrivate(*result.FacilityResult)
+			require.NoError(t, err)
+			require.Equal(t, test.private, semantic.GetFailure())
+			require.Equal(t, []string{
+				"coordinator:resolve-facility-command:facility-failure:approve",
+				"event:coordination-state",
+			}, recorder.Calls())
+		})
+	}
+}
+
+func TestAppFacilityRejectionUsesExistingRejectedLifecycleWithoutSessionMutation(t *testing.T) {
+	recorder := &callRecorder{}
+	initial := &domain.MasterCoordinationState{
+		Revision: 44,
+		PendingCommandExecution: &domain.MasterPendingCommandExecution{
+			RequestID: "facility-request-rejected",
+		},
+	}
+	resolved := &domain.MasterCoordinationState{Revision: 45}
+	coordination := &recordingFacilityCommandExecutionCoordination{
+		state:         initial,
+		recorder:      recorder,
+		resolvedState: resolved,
+		facilityResult: &domain.FacilityOperationResult{
+			CorrelationID: "facility-request-rejected",
+			Failure:       domain.FacilityFailureRejected,
+		},
+	}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
+
+	result := app.ResolveCommandExecution(CommandExecutionDecisionPayload{
+		RequestID: "facility-request-rejected",
+		Decision:  domain.CommandExecutionReject,
+	})
+
+	require.True(t, result.OK, "a valid rejection decision must retain the existing successful decision lifecycle")
+	require.Empty(t, result.Error)
+	require.NotNil(t, result.FacilityResult)
+	require.Equal(t, domain.FacilityFailureRejected, result.FacilityResult.Failure)
+	require.False(t, result.FacilityResult.Changed)
+	require.Nil(t, result.State.PendingCommandExecution)
+	require.Equal(t, []string{
+		"coordinator:resolve-facility-command:facility-request-rejected:reject",
+		"event:coordination-state",
+	}, recorder.Calls())
+	require.Len(t, events.Records(), 1, "rejection must not publish a durable session mutation or a second error event")
+}
+
+func facilityApprovalSessionForAppTest(revision uint64, doorState string) domain.Session {
+	return domain.Session{
+		Version: 1,
+		Name:    "Facility approval",
+		Terminals: []domain.Terminal{{
+			ID: "terminal-security", Name: "Security",
+			Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}},
+		}},
+		Facility: &domain.Facility{
+			Revision: revision,
+			Devices: []domain.FacilityDevice{{
+				ID: "security-door", Name: "Security door", Kind: domain.FacilityDeviceKindDoor,
+				InitialStateID: "locked", CurrentStateID: doorState,
+				States: []domain.FacilityDeviceState{{ID: "locked", Name: "Locked"}, {ID: "open", Name: "Open"}},
+				Transitions: []domain.FacilityDeviceTransition{{
+					ID: "open", Name: "Open", SourceStateID: "locked", DestinationStateID: "open",
+				}},
+			}},
+			Conditions:       []domain.DiagnosticCondition{},
+			RecoveryPrograms: []domain.RecoveryProgram{},
+		},
+	}
+}
+
+func TestAppSessionCommandsReplaceFacilityBeforeCoordinationPublication(t *testing.T) {
+	tests := []struct {
+		name      string
+		operation string
+		run       func(*App) sessionservice.SessionResult
+	}{
+		{name: "new", operation: "session:create", run: (*App).NewSession},
+		{name: "open", operation: "session:open", run: (*App).OpenSession},
+		{name: "copy demo", operation: "session:copy-demo", run: (*App).CopyDemo},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := &callRecorder{}
+			loaded := facilityApprovalSessionForAppTest(12, "open")
+			sessions := newRecordingFacilityLifecycleSessions(recorder, map[string]sessionservice.SessionResult{
+				test.operation: {OK: true, FilePath: "/Campaigns/replacement.json", Session: &loaded},
+			})
+			coordination := newRecordingFacilityLifecycleCoordination(recorder)
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Sessions: sessions, Coordination: coordination,
+				Events: &recordingEventSink{recorder: recorder},
+			})
+
+			result := test.run(app)
+
+			require.True(t, result.OK, "%s() = %#v", test.name, result)
+			require.Len(t, coordination.facilities, 1)
+			require.Equal(t, uint64(12), coordination.facilities[0].Revision)
+			require.Equal(t, "open", coordination.facilities[0].Devices[0].CurrentStateID)
+			requireCallsInOrder(t, recorder.Calls(),
+				test.operation,
+				"session:snapshot",
+				"coordinator:replace-facility:12",
+				"event:coordination-state",
+			)
+
+			result.Session.Facility.Devices[0].CurrentStateID = "locked"
+			require.Equal(t, "open", coordination.facilities[0].Devices[0].CurrentStateID,
+				"the coordinator must retain a detached facility replacement")
+		})
+	}
+}
+
+func TestAppSessionEpochReplacementDoesNotReuseFacilityOrPublicationOrdering(t *testing.T) {
+	recorder := &callRecorder{}
+	first := facilityApprovalSessionForAppTest(7, "open")
+	second := facilityApprovalSessionForAppTest(7, "locked")
+	legacy := domain.Session{Version: 1, Name: "Legacy", Terminals: []domain.Terminal{}}
+	sessions := newRecordingFacilityLifecycleSessions(recorder, map[string]sessionservice.SessionResult{
+		"session:create":    {OK: true, FilePath: "/Campaigns/first.json", Session: &first},
+		"session:open":      {OK: true, FilePath: "/Campaigns/second.json", Session: &second},
+		"session:copy-demo": {OK: true, FilePath: "/Campaigns/legacy.json", Session: &legacy},
+	})
+	coordination := newRecordingFacilityLifecycleCoordination(recorder)
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Coordination: coordination,
+		Events: &recordingEventSink{recorder: recorder},
+	})
+	app.publishSessionState(SessionStateEvent{Revision: 20, Session: &first})
+	recorder.Reset()
+
+	require.True(t, app.NewSession().OK)
+	require.True(t, app.OpenSession().OK)
+	require.True(t, app.CopyDemo().OK)
+	app.publishSessionState(SessionStateEvent{Revision: 1, Session: &legacy})
+
+	require.Len(t, coordination.facilities, 3)
+	require.Equal(t, "open", coordination.facilities[0].Devices[0].CurrentStateID)
+	require.Equal(t, "locked", coordination.facilities[1].Devices[0].CurrentStateID)
+	require.Nil(t, coordination.facilities[2], "a legacy document must explicitly clear the prior facility")
+	require.Equal(t, 3, countRecordedCall(recorder.Calls(), "event:coordination-state"))
+	require.Equal(t, 1, countRecordedCall(recorder.Calls(), "event:session-state"),
+		"a new document epoch must accept its lower durable revision")
+	requireCallsInOrder(t, recorder.Calls(),
+		"coordinator:replace-facility:7",
+		"event:coordination-state",
+		"coordinator:replace-facility:7",
+		"event:coordination-state",
+		"coordinator:replace-facility:none",
+		"event:coordination-state",
+		"event:session-state",
+	)
+}
+
+func TestAppReloadRestoresFacilityBeforePlayerPublication(t *testing.T) {
+	tests := []struct {
+		name   string
+		update *recordingFacilityLifecycleUpdates
+	}{
+		{name: "application reload"},
+		{name: "self update restart", update: &recordingFacilityLifecycleUpdates{snapshot: updateservice.UpdateSnapshot{
+			Revision: 9, AttemptID: "update-handoff", State: updateservice.UpdateStateApplying,
+		}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := &callRecorder{}
+			loaded := facilityApprovalSessionForAppTest(15, "open")
+			sessions := newRecordingFacilityLifecycleSessions(recorder, nil)
+			sessions.active = sessionservice.ActiveSession{
+				Path: "/Campaigns/restored.json", Session: &loaded,
+				SaveState: sessionservice.SaveStateSaved, SavedRevision: 28, RequestedRevision: 28,
+			}
+			coordination := newRecordingFacilityLifecycleCoordination(recorder)
+			player := &recordingPlayerServer{recorder: recorder, info: domain.ServerInfo{
+				IP: "127.0.0.1", Port: 3690, URL: "http://127.0.0.1:3690",
+			}}
+			if test.update != nil {
+				test.update.recorder = recorder
+			}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Sessions: sessions, Coordination: coordination, Player: player,
+				Events:  &recordingEventSink{recorder: recorder},
+				Desktop: &recordingDesktop{recorder: recorder}, Updates: test.update,
+			})
+
+			require.NoError(t, app.Start(t.Context()))
+			t.Cleanup(func() {
+				cleanupContext, cancel := context.WithTimeout(context.WithoutCancel(t.Context()), time.Second)
+				defer cancel()
+				require.NoError(t, app.Shutdown(cleanupContext))
+			})
+
+			require.Len(t, coordination.facilities, 1)
+			require.Equal(t, uint64(15), coordination.facilities[0].Revision)
+			requireCallsInOrder(t, recorder.Calls(),
+				"session:snapshot",
+				"coordinator:replace-facility:15",
+				"event:coordination-state",
+				"player:start",
+				"event:server-info",
+			)
+			if test.update != nil {
+				require.Equal(t, string(updateservice.UpdateStateApplying), app.GetApplicationUpdateStatus().State)
+				requireCallsInOrder(t, recorder.Calls(),
+					"coordinator:replace-facility:15",
+					"event:server-info",
+					"update:status",
+				)
+			}
+		})
+	}
+}
+
+func TestMasterEventDeferralDiscardPreservesConcurrentUnrelatedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	events := &recordingEventSink{recorder: &callRecorder{}}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Events: events})
+	router := &coordinationEffectRouter{}
+	router.Bind(nil, app)
+	deferral := router.DeferMasterEvents()
+	facilityState := &domain.MasterCoordinationState{Revision: 41, FacilityRevision: new(uint64(8))}
+	unrelatedState := &domain.MasterCoordinationState{Revision: 42, FacilityRevision: new(uint64(7))}
+
+	var enqueued sync.WaitGroup
+	enqueued.Go(func() {
+		router.Enqueue(controlservice.Effect{Master: facilityState})
+	})
+	enqueued.Go(func() {
+		router.Enqueue(controlservice.Effect{Master: unrelatedState})
+	})
+	enqueued.Wait()
+	deferral.Discard(facilityState)
+
+	records := events.Records()
+	require.Len(t, records, 1)
+	published, ok := records[0].Payload.(*domain.MasterCoordinationState)
+	require.True(t, ok)
+	require.Equal(t, unrelatedState.Revision, published.Revision)
+}
+
+func TestInspectFacilityDependenciesIsRevisionGuardedDetachedAndReadOnly(t *testing.T) {
+	recorder := &callRecorder{}
+	canonical := facilityApprovalSessionForAppTest(8, "locked")
+	canonical.Terminals[0].Root.Children = []domain.ContentNode{{
+		ID: "open-door", Type: domain.NodeCommand, Name: "OPEN DOOR", Text: "Door opened.",
+		StateChange: &domain.StateChangeConfig{
+			CompletedName: "DOOR OPEN", ConfirmationText: "Open the door?",
+			FacilityAction: &domain.FacilityActionConfig{Transitions: &domain.FacilityTransitionList{
+				Transitions: []domain.FacilityTransitionRequest{{DeviceID: "security-door", TransitionID: "open"}},
+			}},
+		},
+	}}
+	sessions := &loggingSessionCommands{active: sessionservice.ActiveSession{
+		Session: &canonical, RequestedRevision: 18, SavedRevision: 18, SaveState: sessionservice.SaveStateSaved,
+	}}
+	report, issues := domain.BuildFacilityDependencyReport(canonical, domain.FacilityEntityReference{
+		Kind: domain.FacilityEntityKindDevice, EntityID: "security-door",
+	})
+	require.Empty(t, issues)
+	coordination := &recordingFacilityOperationsCoordination{
+		inspectionResult: controlservice.FacilityDependencyInspectionResult{
+			OK: true, FacilityRevision: 8, Report: &report,
+		},
+	}
+	events := &recordingEventSink{recorder: recorder}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Coordination: coordination, Events: events,
+	})
+
+	result := app.InspectFacilityDependencies(FacilityDependencyInspectionPayload{
+		Target: &domain.FacilityEntityReference{
+			Kind: domain.FacilityEntityKindDevice, EntityID: "security-door",
+		},
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 8,
+	})
+
+	require.True(t, result.OK, "InspectFacilityDependencies() = %#v", result)
+	require.Empty(t, result.Failure)
+	require.NotNil(t, result.Report)
+	require.NotEmpty(t, result.Report.Dependencies)
+	require.Empty(t, recorder.Calls(), "inspection must not publish runtime events")
+	require.Empty(t, events.Records())
+	result.Report.Dependencies[0].SourceID = "mutated"
+	repeated := app.InspectFacilityDependencies(FacilityDependencyInspectionPayload{
+		Target: &domain.FacilityEntityReference{
+			Kind: domain.FacilityEntityKindDevice, EntityID: "security-door",
+		},
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 8,
+	})
+	require.NotEqual(t, "mutated", repeated.Report.Dependencies[0].SourceID)
+
+	stale := app.InspectFacilityDependencies(FacilityDependencyInspectionPayload{
+		Target: &domain.FacilityEntityReference{
+			Kind: domain.FacilityEntityKindDevice, EntityID: "security-door",
+		},
+		ExpectedSessionRevision: 17, ExpectedFacilityRevision: 8,
+	})
+	require.False(t, stale.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, stale.Failure)
+	require.Equal(t, uint64(18), stale.SessionRevision)
+	require.Equal(t, uint64(8), stale.FacilityRevision)
+	require.Empty(t, events.Records())
+
+	sessions.active.RequestedRevision = 19
+	pending := app.InspectFacilityDependencies(FacilityDependencyInspectionPayload{
+		Target: &domain.FacilityEntityReference{
+			Kind: domain.FacilityEntityKindDevice, EntityID: "security-door",
+		},
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 8,
+	})
+	require.False(t, pending.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, pending.Failure)
+	require.Equal(t, uint64(18), pending.SessionRevision)
+	require.Equal(t, uint64(8), pending.FacilityRevision)
+	require.Empty(t, events.Records())
+}
+
+func TestInspectFacilityDependenciesRequiresCoordinatorCapability(t *testing.T) {
+	t.Parallel()
+
+	canonical := facilityApprovalSessionForAppTest(8, "locked")
+	sessions := &loggingSessionCommands{active: sessionservice.ActiveSession{
+		Session: &canonical, RequestedRevision: 18, SavedRevision: 18, SaveState: sessionservice.SaveStateSaved,
+	}}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Sessions: sessions})
+
+	result := app.InspectFacilityDependencies(FacilityDependencyInspectionPayload{
+		Target: &domain.FacilityEntityReference{
+			Kind: domain.FacilityEntityKindDevice, EntityID: "security-door",
+		},
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 8,
+	})
+
+	require.False(t, result.OK)
+	require.Equal(t, domain.FacilityFailureRuntimeContextEnded, result.Failure)
+	require.Nil(t, result.Report)
+}
+
+func TestPrivateFacilityInspectionPreviewAndResetRequestsPreserveTypedFields(t *testing.T) {
+	t.Parallel()
+
+	inspection := &privatev1.InspectFacilityDependenciesRequest{
+		Target: &privatev1.FacilityEntityReference{
+			Kind: privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE, EntityId: "security-door",
+		},
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 7,
+	}
+	require.Equal(t, privatev1.FacilityEntityKind_FACILITY_ENTITY_KIND_DEVICE, inspection.GetTarget().GetKind())
+	require.Equal(t, "security-door", inspection.GetTarget().GetEntityId())
+	require.Equal(t, uint64(18), inspection.GetExpectedSessionRevision())
+	require.Equal(t, uint64(7), inspection.GetExpectedFacilityRevision())
+
+	devicePreview := &privatev1.PreviewFacilityRequest{
+		ExpectedFacilityRevision: 0,
+		TerminalId:               "terminal-security",
+		Preview: &privatev1.PreviewFacilityRequest_DeviceState{DeviceState: &privatev1.PreviewFacilityDeviceState{
+			DeviceId: "security-door",
+			StateId:  "open",
+		}},
+	}
+	require.Zero(t, devicePreview.GetExpectedFacilityRevision())
+	require.Equal(t, "terminal-security", devicePreview.GetTerminalId())
+	require.Equal(t, "security-door", devicePreview.GetDeviceState().GetDeviceId())
+	require.Equal(t, "open", devicePreview.GetDeviceState().GetStateId())
+	require.Nil(t, devicePreview.GetCondition())
+
+	conditionPreview := &privatev1.PreviewFacilityRequest{
+		ExpectedFacilityRevision: 7,
+		TerminalId:               "terminal-security",
+		Preview: &privatev1.PreviewFacilityRequest_Condition{Condition: &privatev1.PreviewFacilityCondition{
+			ConditionId: "door-offline",
+			Active:      false,
+		}},
+	}
+	require.Equal(t, uint64(7), conditionPreview.GetExpectedFacilityRevision())
+	require.NotNil(t, conditionPreview.GetCondition(), "inactive remains an explicit condition preview variant")
+	require.False(t, conditionPreview.GetCondition().GetActive())
+	require.Nil(t, conditionPreview.GetDeviceState())
+
+	deviceReset := &privatev1.ResetFacilityDeviceRequest{
+		DeviceId: "security-door", ExpectedFacilityRevision: 7, CorrelationId: "reset-device-7",
+	}
+	require.Equal(t, "security-door", deviceReset.GetDeviceId())
+	require.Equal(t, uint64(7), deviceReset.GetExpectedFacilityRevision())
+	require.Equal(t, "reset-device-7", deviceReset.GetCorrelationId())
+
+	sceneReset := &privatev1.ResetSceneRequest{
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 7, CorrelationId: "reset-scene-7",
+	}
+	require.Equal(t, uint64(18), sceneReset.GetExpectedSessionRevision())
+	require.Equal(t, uint64(7), sceneReset.GetExpectedFacilityRevision())
+	require.Equal(t, "reset-scene-7", sceneReset.GetCorrelationId())
+
+	typedFailure := &privatev1.PreviewFacilityResult{
+		Failure: privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_MISSING_REFERENCE,
+		Issues: []*privatev1.FacilityIssue{{
+			Code:       privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_MISSING_REFERENCE,
+			EntityKind: "condition",
+			EntityId:   new("door-offline"),
+		}},
+		FacilityRevision: 7,
+	}
+	require.False(t, typedFailure.GetOk())
+	require.Equal(t, privatev1.FacilityFailureCode_FACILITY_FAILURE_CODE_MISSING_REFERENCE, typedFailure.GetFailure())
+	require.Equal(t, "door-offline", typedFailure.GetIssues()[0].GetEntityId())
+}
+
+func TestAppPreviewFacilityReturnsDetachedProjectionWithoutPublishing(t *testing.T) {
+	t.Parallel()
+
+	preview := &domain.PublicLiveState{
+		TerminalID: "terminal-security", TerminalName: "Security",
+		Tree:         domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "SECURITY [OPEN]", Children: []domain.ContentNode{}},
+		Nav:          domain.NavState{Mode: "list"},
+		Presentation: domain.ControllerTerminalPresentation{Kind: domain.ControllerTerminalPresentationNone},
+		Effects:      []domain.TerminalPresentationEffect{domain.TerminalPresentationEffectDisplayUnstable},
+	}
+	coordination := &recordingFacilityOperationsCoordination{
+		previewResult: controlservice.FacilityPreviewResult{
+			OK: true, FacilityRevision: 7, Terminal: preview,
+		},
+	}
+	events := &recordingEventSink{}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
+
+	result := app.PreviewFacility(FacilityPreviewPayload{
+		ExpectedFacilityRevision: 7,
+		TerminalID:               "terminal-security",
+		DeviceState: &domain.FacilityDeviceStatePreview{
+			DeviceID: "security-door", StateID: "open",
+		},
+	})
+
+	require.True(t, result.OK, "PreviewFacility() = %#v", result)
+	require.Empty(t, result.Failure)
+	require.Equal(t, uint64(7), result.FacilityRevision)
+	require.Equal(t, preview, result.Terminal)
+	require.Len(t, coordination.previewRequests, 1)
+	require.Equal(t, domain.FacilityPreview{
+		ExpectedFacilityRevision: 7,
+		TerminalID:               "terminal-security",
+		DeviceState: &domain.FacilityDeviceStatePreview{
+			DeviceID: "security-door", StateID: "open",
+		},
+	}, coordination.previewRequests[0])
+	require.Empty(t, events.Records(), "preview must not publish session, coordination, or player state")
+
+	result.Terminal.Tree.Name = "mutated result"
+	result.Terminal.Effects[0] = domain.TerminalPresentationEffectUnspecified
+	require.Equal(t, "SECURITY [OPEN]", preview.Tree.Name)
+	require.Equal(t, domain.TerminalPresentationEffectDisplayUnstable, preview.Effects[0])
+}
+
+func TestAppFacilityResetsAcceptCanonicalNewerRevisionAndPublishOnce(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name        string
+		correlation string
+		invoke      func(*App) domain.FacilityOperationResult
+		wantCall    string
+		wantDevices []string
+		wantRequest func(*testing.T, *recordingFacilityOperationsCoordination)
+	}{
+		{
+			name: "single device", correlation: "reset-device-7",
+			invoke: func(app *App) domain.FacilityOperationResult {
+				return app.ResetFacilityDevice(FacilityDeviceResetPayload{
+					DeviceID: "security-door", ExpectedFacilityRevision: 7, CorrelationID: "reset-device-7",
+				})
+			},
+			wantCall:    "coordinator:reset-facility-device",
+			wantDevices: []string{"security-door"},
+			wantRequest: func(t *testing.T, coordination *recordingFacilityOperationsCoordination) {
+				t.Helper()
+				require.Equal(t, []controlservice.FacilityDeviceResetRequest{{
+					DeviceID: "security-door", ExpectedFacilityRevision: 7, CorrelationID: "reset-device-7",
+				}}, coordination.deviceResetRequests)
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			recorder := &callRecorder{}
+			canonical := facilityApprovalSessionForAppTest(8, "locked")
+			canonical.Facility.Devices = append(canonical.Facility.Devices, domain.FacilityDevice{
+				ID: "reactor", Name: "Reactor", Kind: domain.FacilityDeviceKindReactor,
+				InitialStateID: "online", CurrentStateID: "online",
+				States: []domain.FacilityDeviceState{{ID: "online", Name: "Online"}},
+			})
+			state := &domain.MasterCoordinationState{Revision: 44, FacilityRevision: new(uint64(8))}
+			operation := &domain.FacilityOperationResult{
+				OK: true, Changed: true, CorrelationID: test.correlation,
+				SessionRevision: 19, PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+				AffectedDeviceIDs: slices.Clone(test.wantDevices), Session: &canonical,
+			}
+			coordination := &recordingFacilityOperationsCoordination{
+				recordingCoordinationService: recordingCoordinationService{
+					state: &domain.MasterCoordinationState{Revision: 40, FacilityRevision: new(uint64(7))},
+				},
+				recorder: recorder, state: state, resetResult: operation,
+			}
+			events := &recordingEventSink{recorder: recorder}
+			router := &coordinationEffectRouter{}
+			coordination.enqueue = router.Enqueue
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Coordination: coordination, CoordinationEvents: router, Events: events,
+			})
+			router.Bind(nil, app)
+
+			result := test.invoke(app)
+
+			require.True(t, result.OK, "reset() = %#v", result)
+			require.True(t, result.Changed)
+			require.Equal(t, uint64(8), result.ResultingFacilityRevision)
+			require.Equal(t, []string{
+				test.wantCall,
+				"event:session-state",
+				"event:coordination-state",
+			}, recorder.Calls())
+			require.Len(t, events.Records(), 2)
+			test.wantRequest(t, coordination)
+
+			result.Session.Facility.Devices[0].Name = "mutated result"
+			require.Equal(t, "Security door", canonical.Facility.Devices[0].Name)
+		})
+	}
+}
+
+func TestAppFacilityPreviewPreservesTypedFailuresWithoutEvents(t *testing.T) {
+	t.Parallel()
+
+	issues := []domain.FacilityIssue{{
+		Code: domain.FacilityFailureStaleRevision, EntityKind: "facility", EntityID: new("security-door"),
+	}}
+	coordination := &recordingFacilityOperationsCoordination{
+		previewResult: controlservice.FacilityPreviewResult{
+			Failure: domain.FacilityFailureStaleRevision, Issues: slices.Clone(issues), FacilityRevision: 8,
+		},
+	}
+	events := &recordingEventSink{}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Coordination: coordination, Events: events})
+
+	result := app.PreviewFacility(FacilityPreviewPayload{
+		ExpectedFacilityRevision: 7, TerminalID: "terminal-security",
+		Condition: &domain.FacilityConditionPreview{ConditionID: "door-offline", Active: true},
+	})
+
+	require.False(t, result.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+	require.Equal(t, uint64(8), result.FacilityRevision)
+	require.Equal(t, issues, result.Issues)
+	require.Nil(t, result.Terminal)
+	require.Empty(t, events.Records())
+}
+
+func TestAppFacilityPlayChangesPublishTheCanonicalSessionThenCoordinationOnce(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		call       appFacilityPlayCall
+		devices    []string
+		conditions []string
+	}{
+		{
+			name:    "card transition with a fault effect",
+			call:    appFacilityPlayTransition("security-door", "open", 7, "play-transition"),
+			devices: []string{"security-door"}, conditions: []string{"door-offline"},
+		},
+		{
+			name:    "card transition without fault effects",
+			call:    appFacilityPlayTransition("security-door", "open", 7, "play-transition-plain"),
+			devices: []string{"security-door"},
+		},
+		{
+			name:    "forced change",
+			call:    appFacilityPlayForce("security-door", "open", 7, "play-force"),
+			devices: []string{"security-door"},
+		},
+		{
+			name:       "fault switch",
+			call:       appFacilityPlayFault("door-offline", true, 7, "play-fault"),
+			conditions: []string{"door-offline"},
+		},
+		{
+			name:       "terminal-scoped fault switch",
+			call:       appFacilityPlayFault("terminal-glitch", false, 7, "play-fault-terminal"),
+			conditions: []string{"terminal-glitch"},
+		},
+		{
+			name:    "device reset",
+			call:    appFacilityPlayReset("security-door", 7, "play-reset"),
+			devices: []string{"security-door"}, conditions: []string{"door-offline"},
+		},
+		{
+			name:       "device reset of faults only",
+			call:       appFacilityPlayReset("security-door", 7, "play-reset-faults"),
+			conditions: []string{"door-offline"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(8)
+			operation := &domain.FacilityOperationResult{
+				OK: true, Changed: true, CorrelationID: test.call.correlationID,
+				SessionRevision: 19, PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+				AffectedDeviceIDs: test.devices, AffectedConditionIDs: test.conditions, Session: &canonical,
+			}
+			app, coordination, events, recorder := newFacilityPlayAppForTest(t, operation, nil)
+
+			result := test.call.invoke(app)
+
+			require.True(t, result.OK, "play change = %#v", result)
+			require.True(t, result.Changed)
+			require.Empty(t, cmp.Diff(*operation, result, cmpopts.EquateEmpty()))
+			require.Equal(t, []any{test.call.request}, coordination.requests)
+			require.Equal(t, []string{test.call.coordinatorCall, "event:session-state", "event:coordination-state"},
+				recorder.Calls(), "the canonical session must be published before the coordination state that carries the feed")
+			records := events.Records()
+			require.Len(t, records, 2)
+			published, ok := records[0].Payload.(SessionStateEvent)
+			require.True(t, ok, "session-state payload = %#v", records[0].Payload)
+			require.Equal(t, uint64(19), published.Revision)
+			require.Empty(t, cmp.Diff(&canonical, published.Session))
+
+			result.Session.Facility.Devices[0].Name = "mutated result"
+			require.Equal(t, "Security door", canonical.Facility.Devices[0].Name, "the result must be detached")
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesReturnUnchangedResultsWithoutEvents(t *testing.T) {
+	t.Parallel()
+
+	for _, call := range []appFacilityPlayCall{
+		appFacilityPlayForce("security-door", "open", 7, "unchanged-force"),
+		appFacilityPlayFault("door-offline", false, 7, "unchanged-fault"),
+		appFacilityPlayReset("security-door", 7, "unchanged-reset"),
+	} {
+		t.Run(call.coordinatorCall, func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(7)
+			app, _, events, recorder := newFacilityPlayAppForTest(t, &domain.FacilityOperationResult{
+				OK: true, CorrelationID: call.correlationID, SessionRevision: 18,
+				PreviousFacilityRevision: 7, ResultingFacilityRevision: 7, Session: &canonical,
+			}, nil)
+
+			result := call.invoke(app)
+
+			require.True(t, result.OK, "play change = %#v", result)
+			require.False(t, result.Changed)
+			require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+			require.Equal(t, []string{call.coordinatorCall}, recorder.Calls())
+			require.Empty(t, events.Records(), "an unchanged play change publishes nothing")
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesRejectBlankOrPaddedIDsBeforeTheCoordinator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		call appFacilityPlayCall
+	}{
+		{name: "transition with a blank device", call: appFacilityPlayTransition("", "open", 7, "blank-device")},
+		{name: "transition with a padded device", call: appFacilityPlayTransition(" security-door", "open", 7, "padded-device")},
+		{name: "transition with a blank transition", call: appFacilityPlayTransition("security-door", " ", 7, "blank-transition")},
+		{name: "transition with a padded transition", call: appFacilityPlayTransition("security-door", "open\n", 7, "padded-transition")},
+		{name: "transition with a blank correlation", call: appFacilityPlayTransition("security-door", "open", 7, "")},
+		{name: "transition with a padded correlation", call: appFacilityPlayTransition("security-door", "open", 7, " padded")},
+		{name: "forced change with a blank device", call: appFacilityPlayForce(" ", "open", 7, "force-blank-device")},
+		{name: "forced change with a blank state", call: appFacilityPlayForce("security-door", "", 7, "force-blank-state")},
+		{name: "forced change with a padded state", call: appFacilityPlayForce("security-door", "open ", 7, "force-padded-state")},
+		{name: "forced change with a padded correlation", call: appFacilityPlayForce("security-door", "open", 7, "force\t")},
+		{name: "fault switch with a blank fault", call: appFacilityPlayFault("", true, 7, "fault-blank")},
+		{name: "fault switch with a padded fault", call: appFacilityPlayFault(" door-offline ", true, 7, "fault-padded")},
+		{name: "fault switch with a blank correlation", call: appFacilityPlayFault("door-offline", true, 7, " ")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(8)
+			app, coordination, events, recorder := newFacilityPlayAppForTest(t, &domain.FacilityOperationResult{
+				OK: true, Changed: true, SessionRevision: 19,
+				PreviousFacilityRevision: 7, ResultingFacilityRevision: 8, Session: &canonical,
+			}, nil)
+
+			result := test.call.invoke(app)
+
+			require.False(t, result.OK)
+			require.False(t, result.Changed)
+			require.Equal(t, domain.FacilityFailureInvalidConfiguration, result.Failure)
+			require.Equal(t, []domain.FacilityIssue{{
+				Code: domain.FacilityFailureInvalidConfiguration, EntityKind: "request",
+			}}, result.Issues)
+			require.Equal(t, uint64(7), result.PreviousFacilityRevision)
+			require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+			require.Nil(t, result.Session)
+			require.Empty(t, coordination.requests, "an invalid request must never reach the coordinator")
+			require.Empty(t, recorder.Calls())
+			require.Empty(t, events.Records())
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesWithoutACoordinatorEndTheRuntimeContext(t *testing.T) {
+	t.Parallel()
+
+	for _, call := range []appFacilityPlayCall{
+		appFacilityPlayTransition("security-door", "open", 7, "no-coordinator-transition"),
+		appFacilityPlayForce("security-door", "open", 7, "no-coordinator-force"),
+		appFacilityPlayFault("door-offline", true, 7, "no-coordinator-fault"),
+	} {
+		t.Run(call.coordinatorCall, func(t *testing.T) {
+			t.Parallel()
+			recorder := &callRecorder{}
+			events := &recordingEventSink{recorder: recorder}
+			app := NewAppWithDependencies(t.Context(), AppDependencies{
+				Coordination: &recordingCoordinationService{}, Events: events,
+			})
+
+			result := call.invoke(app)
+
+			require.False(t, result.OK)
+			require.Equal(t, domain.FacilityFailureRuntimeContextEnded, result.Failure)
+			require.Equal(t, call.correlationID, result.CorrelationID)
+			require.Nil(t, result.Session)
+			require.Empty(t, events.Records())
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesRejectResultsThatDoNotVerify(t *testing.T) {
+	t.Parallel()
+
+	changed := func(correlationID string, devices, conditions []string) domain.FacilityOperationResult {
+		session := appFacilityPlaySession(8)
+		return domain.FacilityOperationResult{
+			OK: true, Changed: true, CorrelationID: correlationID, SessionRevision: 19,
+			PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+			AffectedDeviceIDs: devices, AffectedConditionIDs: conditions, Session: &session,
+		}
+	}
+	unchanged := func(correlationID string, devices, conditions []string) domain.FacilityOperationResult {
+		session := appFacilityPlaySession(7)
+		return domain.FacilityOperationResult{
+			OK: true, CorrelationID: correlationID, SessionRevision: 18,
+			PreviousFacilityRevision: 7, ResultingFacilityRevision: 7,
+			AffectedDeviceIDs: devices, AffectedConditionIDs: conditions, Session: &session,
+		}
+	}
+	failed := func(correlationID string, failure domain.FacilityFailureCode) domain.FacilityOperationResult {
+		return domain.FacilityOperationResult{
+			CorrelationID: correlationID, Failure: failure,
+			PreviousFacilityRevision: 7, ResultingFacilityRevision: 7,
+			Issues: []domain.FacilityIssue{{Code: failure, EntityKind: "device"}},
+		}
+	}
+	transition := appFacilityPlayTransition("security-door", "open", 7, "verify-transition")
+	force := appFacilityPlayForce("security-door", "open", 7, "verify-force")
+	fault := appFacilityPlayFault("door-offline", true, 7, "verify-fault")
+	reset := appFacilityPlayReset("security-door", 7, "verify-reset")
+	tests := []struct {
+		name   string
+		call   appFacilityPlayCall
+		result func() domain.FacilityOperationResult
+	}{
+		{name: "transition reported as unchanged", call: transition, result: func() domain.FacilityOperationResult {
+			return unchanged(transition.correlationID, nil, nil)
+		}},
+		{name: "transition names no device", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, nil, []string{"door-offline"})
+		}},
+		{name: "transition names another device", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"reactor"}, nil)
+		}},
+		{name: "transition names two devices", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"reactor", "security-door"}, nil)
+		}},
+		{name: "transition lists a fault twice", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"security-door"}, []string{"door-offline", "door-offline"})
+		}},
+		{name: "transition lists faults out of order", call: transition, result: func() domain.FacilityOperationResult {
+			return changed(transition.correlationID, []string{"security-door"}, []string{"terminal-glitch", "door-offline"})
+		}},
+		{name: "transition skips a revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.ResultingFacilityRevision = 9
+			result.Session.Facility.Revision = 9
+			return result
+		}},
+		{name: "transition session at another revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.Session.Facility.Revision = 9
+			return result
+		}},
+		{name: "transition without a session revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.SessionRevision = 0
+			return result
+		}},
+		{name: "transition from another revision", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.PreviousFacilityRevision = 6
+			result.ResultingFacilityRevision = 7
+			result.Session.Facility.Revision = 7
+			return result
+		}},
+		{name: "transition for another correlation", call: transition, result: func() domain.FacilityOperationResult {
+			return changed("another-request", []string{"security-door"}, nil)
+		}},
+		{name: "transition without a session", call: transition, result: func() domain.FacilityOperationResult {
+			result := changed(transition.correlationID, []string{"security-door"}, nil)
+			result.Session = nil
+			return result
+		}},
+		{name: "forced change names a fault", call: force, result: func() domain.FacilityOperationResult {
+			return changed(force.correlationID, []string{"security-door"}, []string{"door-offline"})
+		}},
+		{name: "forced change names no device", call: force, result: func() domain.FacilityOperationResult {
+			return changed(force.correlationID, nil, nil)
+		}},
+		{name: "forced change names another device", call: force, result: func() domain.FacilityOperationResult {
+			return changed(force.correlationID, []string{"reactor"}, nil)
+		}},
+		{name: "unchanged forced change names a device", call: force, result: func() domain.FacilityOperationResult {
+			return unchanged(force.correlationID, []string{"security-door"}, nil)
+		}},
+		{name: "fault switch names a device", call: fault, result: func() domain.FacilityOperationResult {
+			return changed(fault.correlationID, []string{"security-door"}, []string{"door-offline"})
+		}},
+		{name: "fault switch names another fault", call: fault, result: func() domain.FacilityOperationResult {
+			return changed(fault.correlationID, nil, []string{"terminal-glitch"})
+		}},
+		{name: "fault switch names no fault", call: fault, result: func() domain.FacilityOperationResult {
+			return changed(fault.correlationID, nil, nil)
+		}},
+		{name: "unchanged fault switch names the fault", call: fault, result: func() domain.FacilityOperationResult {
+			return unchanged(fault.correlationID, nil, []string{"door-offline"})
+		}},
+		{name: "device reset names nothing", call: reset, result: func() domain.FacilityOperationResult {
+			return changed(reset.correlationID, nil, nil)
+		}},
+		{name: "device reset names another device", call: reset, result: func() domain.FacilityOperationResult {
+			return changed(reset.correlationID, []string{"reactor"}, nil)
+		}},
+		{name: "device reset names a fault of another scope", call: reset, result: func() domain.FacilityOperationResult {
+			return changed(reset.correlationID, nil, []string{"terminal-glitch"})
+		}},
+		{name: "failure without a code", call: transition, result: func() domain.FacilityOperationResult {
+			return failed(transition.correlationID, domain.FacilityFailureUnspecified)
+		}},
+		{name: "failure marked changed", call: force, result: func() domain.FacilityOperationResult {
+			result := failed(force.correlationID, domain.FacilityFailureMissingReference)
+			result.Changed = true
+			return result
+		}},
+		{name: "failure names a device", call: transition, result: func() domain.FacilityOperationResult {
+			result := failed(transition.correlationID, domain.FacilityFailurePreconditionFailed)
+			result.AffectedDeviceIDs = []string{"security-door"}
+			return result
+		}},
+		{name: "failure names a fault", call: fault, result: func() domain.FacilityOperationResult {
+			result := failed(fault.correlationID, domain.FacilityFailureMissingReference)
+			result.AffectedConditionIDs = []string{"door-offline"}
+			return result
+		}},
+		{name: "failure moves the revision", call: fault, result: func() domain.FacilityOperationResult {
+			result := failed(fault.correlationID, domain.FacilityFailureConflict)
+			result.ResultingFacilityRevision = 8
+			return result
+		}},
+		{name: "failure other than stale carries a session", call: transition, result: func() domain.FacilityOperationResult {
+			result := failed(transition.correlationID, domain.FacilityFailureInvalidTransition)
+			session := appFacilityPlaySession(7)
+			result.Session = &session
+			return result
+		}},
+		{name: "stale failure carries a session at another revision", call: reset, result: func() domain.FacilityOperationResult {
+			result := failed(reset.correlationID, domain.FacilityFailureStaleRevision)
+			result.PreviousFacilityRevision, result.ResultingFacilityRevision = 8, 8
+			session := appFacilityPlaySession(9)
+			result.Session = &session
+			return result
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			operation := test.result()
+			app, _, events, recorder := newFacilityPlayAppForTest(t, &operation, nil)
+
+			result := test.call.invoke(app)
+
+			require.False(t, result.OK, "a result that does not verify was accepted: %#v", result)
+			require.False(t, result.Changed)
+			require.Equal(t, domain.FacilityFailurePersistenceFailed, result.Failure)
+			require.Equal(t, test.call.correlationID, result.CorrelationID)
+			require.Equal(t, uint64(7), result.PreviousFacilityRevision)
+			require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+			require.Nil(t, result.Session)
+			require.Empty(t, result.AffectedDeviceIDs)
+			require.Empty(t, result.AffectedConditionIDs)
+			require.Equal(t, []string{test.call.coordinatorCall}, recorder.Calls())
+			require.Empty(t, events.Records(), "a result that does not verify must not publish")
+		})
+	}
+}
+
+func TestAppFacilityPlayChangesKeepEveryKnownFailure(t *testing.T) {
+	t.Parallel()
+
+	failures := []domain.FacilityFailureCode{
+		domain.FacilityFailureRejected,
+		domain.FacilityFailureMissingReference,
+		domain.FacilityFailureInvalidTransition,
+		domain.FacilityFailurePreconditionFailed,
+		domain.FacilityFailureConflict,
+		domain.FacilityFailureDuplicate,
+		domain.FacilityFailureInvalidConfiguration,
+		domain.FacilityFailurePersistenceFailed,
+		domain.FacilityFailureRuntimeContextEnded,
+	}
+	for _, call := range []appFacilityPlayCall{
+		appFacilityPlayTransition("security-door", "open", 7, "known-transition"),
+		appFacilityPlayForce("security-door", "open", 7, "known-force"),
+		appFacilityPlayFault("door-offline", true, 7, "known-fault"),
+	} {
+		for _, failure := range failures {
+			t.Run(call.coordinatorCall+"/"+string(failure), func(t *testing.T) {
+				t.Parallel()
+				issues := []domain.FacilityIssue{{Code: failure, EntityKind: "device", EntityID: new("security-door")}}
+				app, _, events, _ := newFacilityPlayAppForTest(t, &domain.FacilityOperationResult{
+					CorrelationID: call.correlationID, Failure: failure, Issues: issues,
+					PreviousFacilityRevision: 7, ResultingFacilityRevision: 7,
+				}, nil)
+
+				result := call.invoke(app)
+
+				require.False(t, result.OK)
+				require.False(t, result.Changed)
+				require.Equal(t, failure, result.Failure)
+				require.Equal(t, issues, result.Issues)
+				require.Equal(t, uint64(7), result.PreviousFacilityRevision)
+				require.Equal(t, uint64(7), result.ResultingFacilityRevision)
+				require.Nil(t, result.Session)
+				require.Empty(t, events.Records())
+			})
+		}
+	}
+}
+
+func TestAppFacilityPlayStaleResultsCarryTheCanonicalSession(t *testing.T) {
+	t.Parallel()
+
+	calls := []appFacilityPlayCall{
+		appFacilityPlayTransition("security-door", "open", 7, "stale-transition"),
+		appFacilityPlayForce("security-door", "open", 7, "stale-force"),
+		appFacilityPlayFault("door-offline", true, 7, "stale-fault"),
+		appFacilityPlayReset("security-door", 7, "stale-reset"),
+	}
+	for _, call := range calls {
+		t.Run(call.coordinatorCall+"/rejected by the coordinator", func(t *testing.T) {
+			t.Parallel()
+			sessions := openAuthoringSessionForAppTest(t, appFacilityPlaySession(8))
+			active := sessions.Snapshot()
+			require.NotNil(t, active.Session)
+			app, _, events, _ := newFacilityPlayAppForTest(t, appFacilityPlayStale(call.correlationID, nil), sessions)
+
+			result := call.invoke(app)
+
+			require.False(t, result.OK)
+			require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+			require.Equal(t, uint64(8), result.PreviousFacilityRevision)
+			require.Equal(t, uint64(8), result.ResultingFacilityRevision)
+			require.NotNil(t, result.Session, "a stale play change must return the canonical session")
+			require.Empty(t, cmp.Diff(active.Session, result.Session),
+				"the App fills the session from the active snapshot when the coordinator rejected first")
+			require.Empty(t, events.Records(), "a stale play change publishes nothing")
+
+			result.Session.Facility.Devices[0].Name = "mutated result"
+			require.Equal(t, "Security door", sessions.Snapshot().Session.Facility.Devices[0].Name,
+				"the returned session must be detached from the active session")
+		})
+		t.Run(call.coordinatorCall+"/rejected by the store", func(t *testing.T) {
+			t.Parallel()
+			canonical := appFacilityPlaySession(8)
+			canonical.Facility.Devices[0].CurrentStateID = "open"
+			app, _, events, _ := newFacilityPlayAppForTest(t, appFacilityPlayStale(call.correlationID, &canonical), nil)
+
+			result := call.invoke(app)
+
+			require.False(t, result.OK)
+			require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+			require.NotNil(t, result.Session, "a stale play change must return the canonical session")
+			require.Empty(t, cmp.Diff(&canonical, result.Session))
+			require.Empty(t, events.Records())
+		})
+	}
+}
+
+func TestRuntimeFacilityAuditLogsEveryPlayChange(t *testing.T) {
+	t.Parallel()
+
+	recorder := testutil.NewRecordingLogger()
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Logger: recorder.WithField("run_id", "play-audit-run")})
+	events := []controlservice.AuditEvent{
+		{
+			Name: "facility.overseer_transition", Outcome: "succeeded", RequestID: "play-transition",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-transition", Action: controlservice.FacilityAuditActionTransition,
+				Outcome: "succeeded", DeviceIDs: []string{"security-door"}, ConditionIDs: []string{"door-offline"},
+				DeviceTransitions: []controlservice.FacilityDeviceAuditTransition{{
+					DeviceID: "security-door", PreviousStateID: "locked", ResultingStateID: "open",
+				}},
+				ConditionTransitions: []controlservice.FacilityConditionAuditTransition{{
+					ConditionID: "door-offline", PreviousActive: false, ResultingActive: true,
+				}},
+				TransitionID: "open", PreviousFacilityRevision: 7, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.overseer_transition", Outcome: "failed", RequestID: "play-transition-blocked",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-transition-blocked", Action: controlservice.FacilityAuditActionTransition,
+				Outcome: "failed", DeviceIDs: []string{"security-door"}, TransitionID: "open",
+				Failure:                  domain.FacilityFailurePreconditionFailed,
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.force", Outcome: "unchanged", RequestID: "play-force",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-force", Action: controlservice.FacilityAuditActionForce,
+				Outcome: "unchanged", DeviceIDs: []string{"security-door"}, TargetStateID: "open",
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.force", Outcome: "invalid", RequestID: "play-force-invalid",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-force-invalid", Action: controlservice.FacilityAuditActionForce,
+				Outcome: "invalid", DeviceIDs: []string{"security-door"}, TargetStateID: "melted",
+				Failure:                  domain.FacilityFailureInvalidConfiguration,
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+		{
+			Name: "facility.fault", Outcome: "stale", RequestID: "play-fault",
+			Facility: &controlservice.FacilityAuditFacts{
+				CorrelationID: "play-fault", Action: controlservice.FacilityAuditActionFault,
+				Outcome: "stale", DeviceIDs: []string{"security-door"}, ConditionIDs: []string{"door-offline"},
+				TargetActive: new(false), Failure: domain.FacilityFailureStaleRevision,
+				PreviousFacilityRevision: 8, ResultingFacilityRevision: 8,
+			},
+		},
+	}
+
+	app.recordAuditEvents(events, 62)
+
+	records := recorder.Records()
+	require.Len(t, records, len(events))
+	for index, event := range events {
+		record := records[index]
+		require.Equal(t, "runtime audit event", record.Message)
+		require.Equal(t, "play-audit-run", record.Fields["run_id"])
+		require.Equal(t, event.Name, record.Fields["event"])
+		require.Equal(t, event.Outcome, record.Fields["outcome"], "a known play outcome must not be logged as invalid")
+		require.Equal(t, event.Facility.CorrelationID, record.Fields["correlation_id"])
+		require.Equal(t, string(event.Facility.Action), record.Fields["facility_action"],
+			"a play action must not be dropped from the log")
+		require.Equal(t, event.Facility.PreviousFacilityRevision, record.Fields["previous_facility_revision"])
+		require.Equal(t, event.Facility.ResultingFacilityRevision, record.Fields["resulting_facility_revision"])
+		require.Equal(t, event.Facility.DeviceIDs, record.Fields["device_ids"])
+		require.Equal(t, sortedUniqueAuditIDs(event.Facility.ConditionIDs), record.Fields["condition_ids"])
+		if event.Facility.Failure != "" {
+			require.Equal(t, string(event.Facility.Failure), record.Fields["facility_failure"])
+		}
+	}
+	require.Equal(t, "info", records[0].Level)
+	require.NotEmpty(t, records[0].Fields["device_transitions"])
+	require.NotEmpty(t, records[0].Fields["condition_transitions"])
+	require.Equal(t, "open", records[0].Fields["transition_id"])
+	require.NotContains(t, records[0].Fields, "target_state_id")
+	require.NotContains(t, records[0].Fields, "target_active")
+	require.Equal(t, "warn", records[1].Level)
+	require.Equal(t, "open", records[1].Fields["transition_id"], "a rejected transition still names its target")
+	require.Equal(t, "info", records[2].Level)
+	require.Equal(t, "open", records[2].Fields["target_state_id"])
+	require.NotContains(t, records[2].Fields, "transition_id")
+	require.NotContains(t, records[2].Fields, "target_active")
+	require.Equal(t, "warn", records[3].Level)
+	require.Equal(t, "melted", records[3].Fields["target_state_id"])
+	require.Equal(t, "warn", records[4].Level)
+	require.Equal(t, false, records[4].Fields["target_active"], "switching a fault off must still log its target")
+	require.NotContains(t, records[4].Fields, "transition_id")
+	require.NotContains(t, records[4].Fields, "target_state_id")
+}
+
+// appFacilityPlayCall is one play change sent through the App, with the
+// coordinator call and the control request it must produce.
+type appFacilityPlayCall struct {
+	coordinatorCall string
+	correlationID   string
+	request         any
+	invoke          func(*App) domain.FacilityOperationResult
+}
+
+func appFacilityPlayTransition(deviceID, transitionID string, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:apply-facility-device-transition", correlationID: correlationID,
+		request: controlservice.FacilityDeviceTransitionRequest{
+			DeviceID: deviceID, TransitionID: transitionID,
+			ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.ApplyFacilityDeviceTransition(FacilityDeviceTransitionPayload{
+				DeviceID: deviceID, TransitionID: transitionID,
+				ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+func appFacilityPlayForce(deviceID, stateID string, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:force-facility-device-state", correlationID: correlationID,
+		request: controlservice.FacilityDeviceForceRequest{
+			DeviceID: deviceID, StateID: stateID,
+			ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.ForceFacilityDeviceState(FacilityDeviceForcePayload{
+				DeviceID: deviceID, StateID: stateID,
+				ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+func appFacilityPlayFault(conditionID string, active bool, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:set-facility-condition-active", correlationID: correlationID,
+		request: controlservice.FacilityConditionActiveRequest{
+			ConditionID: conditionID, Active: active,
+			ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.SetFacilityConditionActive(FacilityConditionActivePayload{
+				ConditionID: conditionID, Active: active,
+				ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+func appFacilityPlayReset(deviceID string, revision uint64, correlationID string) appFacilityPlayCall {
+	return appFacilityPlayCall{
+		coordinatorCall: "coordinator:reset-facility-device", correlationID: correlationID,
+		request: controlservice.FacilityDeviceResetRequest{
+			DeviceID: deviceID, ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+		},
+		invoke: func(app *App) domain.FacilityOperationResult {
+			return app.ResetFacilityDevice(FacilityDeviceResetPayload{
+				DeviceID: deviceID, ExpectedFacilityRevision: revision, CorrelationID: correlationID,
+			})
+		},
+	}
+}
+
+// appFacilityPlaySession is the canonical session behind the App play tests:
+// the security door with a fault scoped to it, a one-state reactor, and a
+// fault scoped to the security terminal.
+func appFacilityPlaySession(facilityRevision uint64) domain.Session {
+	session := facilityApprovalSessionForAppTest(facilityRevision, "locked")
+	session.Facility.Devices = append(session.Facility.Devices, domain.FacilityDevice{
+		ID: "reactor", Name: "Reactor", Kind: domain.FacilityDeviceKindReactor,
+		InitialStateID: "online", CurrentStateID: "online",
+		States: []domain.FacilityDeviceState{{ID: "online", Name: "Online"}},
+	})
+	session.Facility.Conditions = []domain.DiagnosticCondition{
+		{
+			ID: "door-offline", Name: "Door controller offline", Category: domain.DiagnosticConditionCategoryOffline,
+			Device:  &domain.DiagnosticDeviceScope{DeviceID: "security-door"},
+			Effects: []domain.DiagnosticEffect{{DisplayInstability: &domain.DisplayInstabilityEffect{}}},
+		},
+		{
+			ID: "terminal-glitch", Name: "Terminal glitch", Category: domain.DiagnosticConditionCategoryOffline,
+			Terminal: &domain.DiagnosticTerminalScope{TerminalID: "terminal-security"},
+			Effects:  []domain.DiagnosticEffect{{DisplayInstability: &domain.DisplayInstabilityEffect{}}},
+		},
+	}
+	return session
+}
+
+// appFacilityPlayStale is a stale rejection at facility revision 8, with the
+// canonical session when the store rejected the change.
+func appFacilityPlayStale(correlationID string, session *domain.Session) *domain.FacilityOperationResult {
+	return &domain.FacilityOperationResult{
+		CorrelationID: correlationID, Failure: domain.FacilityFailureStaleRevision,
+		Issues:                   []domain.FacilityIssue{{Code: domain.FacilityFailureStaleRevision, EntityKind: "facility"}},
+		SessionRevision:          18,
+		PreviousFacilityRevision: 8, ResultingFacilityRevision: 8, Session: session,
+	}
+}
+
+// newFacilityPlayAppForTest wires an App to a play coordinator that returns
+// result for every play change and publishes its master state on a change.
+func newFacilityPlayAppForTest(
+	t *testing.T,
+	result *domain.FacilityOperationResult,
+	sessions SessionService,
+) (*App, *recordingFacilityPlayCoordination, *recordingEventSink, *callRecorder) {
+	t.Helper()
+	recorder := &callRecorder{}
+	coordination := &recordingFacilityPlayCoordination{
+		recordingCoordinationService: recordingCoordinationService{
+			state: &domain.MasterCoordinationState{Revision: 40, FacilityRevision: new(uint64(7))},
+		},
+		recorder: recorder, result: result,
+		state: &domain.MasterCoordinationState{Revision: 44, FacilityRevision: new(result.ResultingFacilityRevision)},
+	}
+	events := &recordingEventSink{recorder: recorder}
+	router := &coordinationEffectRouter{}
+	coordination.enqueue = router.Enqueue
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Sessions: sessions, Coordination: coordination, CoordinationEvents: router, Events: events,
+	})
+	router.Bind(nil, app)
+	return app, coordination, events, recorder
+}
+
+// recordingFacilityPlayCoordination answers every play change, device reset
+// included, with one result and records each request in order.
+type recordingFacilityPlayCoordination struct {
+	recordingCoordinationService
+	recorder *callRecorder
+	state    *domain.MasterCoordinationState
+	result   *domain.FacilityOperationResult
+	requests []any
+	enqueue  func(controlservice.Effect)
+}
+
+func (service *recordingFacilityPlayCoordination) ApplyFacilityDeviceTransition(
+	_ context.Context,
+	request controlservice.FacilityDeviceTransitionRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:apply-facility-device-transition", request)
+}
+
+func (service *recordingFacilityPlayCoordination) ForceFacilityDeviceState(
+	_ context.Context,
+	request controlservice.FacilityDeviceForceRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:force-facility-device-state", request)
+}
+
+func (service *recordingFacilityPlayCoordination) SetFacilityConditionActive(
+	_ context.Context,
+	request controlservice.FacilityConditionActiveRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:set-facility-condition-active", request)
+}
+
+func (service *recordingFacilityPlayCoordination) ResetFacilityDevice(
+	_ context.Context,
+	request controlservice.FacilityDeviceResetRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	return service.play("coordinator:reset-facility-device", request)
+}
+
+func (service *recordingFacilityPlayCoordination) play(
+	call string,
+	request any,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	service.requests = append(service.requests, request)
+	service.recorder.Add(call)
+	if service.enqueue != nil && service.result != nil && service.result.OK && service.result.Changed {
+		service.enqueue(controlservice.Effect{Master: domain.CloneMasterCoordinationState(service.state)})
+	}
+	return domain.CloneMasterCoordinationState(service.state), service.result, nil
 }
 
 func TestApplicationStartsPlayerBeforePublishingReady(t *testing.T) {
@@ -400,14 +1925,16 @@ func TestApplicationCommandLogsRecordSafeOutcomesAndSwallowedEventErrors(t *test
 		require.True(t, app.NewSession().OK)
 		require.True(t, app.OpenSession().Canceled)
 		require.False(t, app.CopyDemo().OK)
-		require.False(t, app.SaveSession(domain.Session{Version: 1, Name: contentCanary}).OK)
+		require.False(t, app.SaveAuthoring(AuthoringSavePayload{
+			Session: &domain.Session{Version: 1, Name: contentCanary}, ExpectedAuthoringRevision: 1, CorrelationID: "log-save",
+		}).OK)
 
 		records := logs.Records()
 		requireOperationRecord(t, records, "session.create", "succeeded")
 		requireOperationRecord(t, records, "session.open", "cancelled")
 		requireOperationRecord(t, records, "session.copy-demo", "failed")
-		save := requireOperationRecord(t, records, "session.save", "failed")
-		require.Equal(t, uint64(1), save.Fields["revision"])
+		save := requireOperationRecord(t, records, "authoring.save", "failed")
+		require.Equal(t, uint64(0), save.Fields["authoring_revision"])
 		require.NotContains(t, fmt.Sprintf("%#v", records), contentCanary)
 	})
 
@@ -1067,13 +2594,16 @@ func TestDesktopSessionFacadePreservesExplicitPathUnknownFieldsAndNewestRevision
 	require.Equal(t, target, opened.FilePath)
 	require.NotNil(t, opened.Session)
 
+	store := &sessionCommandStateStore{service: sessions}
 	for revision := uint64(1); revision <= 3; revision++ {
 		edited := *opened.Session
 		edited.Name = fmt.Sprintf("revision-%d", revision)
-		result := app.SaveSession(edited)
+		result := store.SaveAuthoring(t.Context(), controlservice.AuthoringSaveRequest{
+			Candidate: edited, ExpectedAuthoringRevision: revision, CorrelationID: fmt.Sprintf("facade-%d", revision),
+		})
 		require.True(t, result.OK, "revision %d: %#v", revision, result)
-		require.Equal(t, revision, result.RequestedRevision)
-		require.GreaterOrEqual(t, result.SavedRevision, revision)
+		require.Equal(t, revision, result.SessionRevision)
+		require.Equal(t, revision+1, result.AuthoringRevision)
 	}
 
 	written, ok := fileSystem.File(target)
@@ -1083,9 +2613,6 @@ func TestDesktopSessionFacadePreservesExplicitPathUnknownFieldsAndNewestRevision
 	decoded, err := domain.DecodeSession(written)
 	require.NoError(t, err)
 	require.Equal(t, "revision-3", decoded.Name)
-	status := app.GetRuntimeStatus()
-	require.Equal(t, uint64(3), status.RequestedRevision)
-	require.Equal(t, uint64(3), status.SavedRevision)
 }
 
 func TestDesktopSessionFacadeSavesRealDemoCrossTerminalLinkAndReopensIt(t *testing.T) {
@@ -1110,6 +2637,7 @@ func TestDesktopSessionFacadeSavesRealDemoCrossTerminalLinkAndReopensIt(t *testi
 	opened := app.OpenSession()
 	require.True(t, opened.OK, "OpenSession() = %#v", opened)
 	require.NotNil(t, opened.Session)
+	require.Len(t, opened.Session.Terminals, 6)
 	require.Equal(t, []string{"t_demo1", "t_demo2"}, []string{
 		opened.Session.Terminals[0].ID,
 		opened.Session.Terminals[1].ID,
@@ -1118,12 +2646,16 @@ func TestDesktopSessionFacadeSavesRealDemoCrossTerminalLinkAndReopensIt(t *testi
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
 
-	saved := app.SaveSession(*opened.Session)
-	require.True(t, saved.OK, "SaveSession() = %#v", saved)
-	require.Equal(t, uint64(1), saved.SavedRevision)
+	edited := domain.CloneSession(*opened.Session)
+	edited.Name += " (saved)"
+	saved := (&sessionCommandStateStore{service: sessions}).SaveAuthoring(t.Context(), controlservice.AuthoringSaveRequest{
+		Candidate: edited, ExpectedAuthoringRevision: 1, CorrelationID: "facade-demo",
+	})
+	require.True(t, saved.OK, "SaveAuthoring() = %#v", saved)
+	require.Equal(t, uint64(1), saved.SessionRevision)
 	reopened := app.OpenSession()
 	require.True(t, reopened.OK, "reopen = %#v", reopened)
-	require.Len(t, reopened.Session.Terminals, 2)
+	require.Len(t, reopened.Session.Terminals, 6)
 	transition = findNodeByID(&reopened.Session.Terminals[0].Root, "n_cmd_state_change_1")
 	require.NotNil(t, transition)
 	require.Equal(t, "t_demo2", transition.TerminalTransition.TargetTerminalID)
@@ -1564,7 +3096,7 @@ func TestTerminalActivationValidatesRealDemoLinkAgainstCompleteActiveSession(t *
 
 	opened := app.OpenSession()
 	require.True(t, opened.OK, "OpenSession() = %#v", opened)
-	require.Len(t, opened.Session.Terminals, 2)
+	require.Len(t, opened.Session.Terminals, 6)
 	source := opened.Session.Terminals[0]
 	result := app.RequestTerminalActivation(LiveTerminalPayload{
 		TerminalID: source.ID, TerminalName: source.Name, Tree: source.Root,
@@ -1800,14 +3332,7 @@ func TestBridgeRejectsInvalidLivePayloadsBeforeMutation(t *testing.T) {
 	})
 	require.Falsef(t, activationResult.OK || activationResult.Error == "",
 		"RequestTerminalActivation(invalid) = %#v, want structured validation error", activationResult)
-
-	updateResult := app.UpdateLiveTerminal(LiveUpdatePayload{
-		Tree: domain.ContentNode{ID: "root", Type: "script", Name: "unsupported"},
-	})
-	require.Falsef(t, updateResult.OK || updateResult.Error == "",
-		"UpdateLiveTerminal(invalid) = %#v, want structured validation error", updateResult)
-	require.Falsef(t, len(coordination.targets) != 0 || coordination.updateCalls != 0,
-		"invalid live payloads reached coordinator: activations=%d updates=%d", len(coordination.targets), coordination.updateCalls)
+	require.Emptyf(t, coordination.targets, "invalid live payloads reached coordinator")
 
 }
 
@@ -2421,22 +3946,14 @@ func TestCoordinationBridgeOrdersTerminalActivationClearAndUpdateWithoutLegacyMu
 	require.Falsef(t, len(coordination.targets) != 1 || coordination.targets[0].TerminalID != "terminal-1" || coordination.targets[0].TerminalName != "Overseer",
 		"activation payload was not trimmed before coordinator: %#v", coordination.targets)
 
-	intro := "UPDATED INTRO"
-	updated := app.UpdateLiveTerminal(LiveUpdatePayload{Tree: tree, IntroText: &intro})
-	require.Falsef(t, !updated.OK || updated.Error != "" || updated.State == nil || updated.State.Revision != 42,
-		"UpdateLiveTerminal() = %#v, want authoritative revision 42", updated)
-	require.Falsef(t, coordination.updateCalls != 1 || coordination.updateIntro == nil || *coordination.updateIntro != intro || !cmp.Equal(coordination.updateTree, tree),
-		"ordered update payload = calls %d tree %#v intro %#v", coordination.updateCalls, coordination.updateTree, coordination.updateIntro)
-
 	cleared := app.RequestTerminalClear()
-	require.Falsef(t, !cleared.OK || cleared.Error != "" || cleared.Status != "cleared" || cleared.SwitchID != "" || cleared.State == nil || cleared.State.Revision != 43,
+	require.Falsef(t, !cleared.OK || cleared.Error != "" || cleared.Status != "cleared" || cleared.SwitchID != "" || cleared.State == nil || cleared.State.Revision != 42,
 		"RequestTerminalClear() = %#v", cleared)
 	require.Falsef(t, cleared.State.Broadcast == nil || cleared.State.Broadcast.ActiveTerminalID != nil,
 		"clear authoritative state = %#v", cleared.State)
 
 	wantOrder := []string{
 		"coordinator:request-terminal-activation:terminal-1", "event:coordination-state",
-		"coordinator:update-live-terminal:terminal-1", "event:coordination-state",
 		"coordinator:request-terminal-clear", "event:coordination-state",
 	}
 	{
@@ -2448,11 +3965,11 @@ func TestCoordinationBridgeOrdersTerminalActivationClearAndUpdateWithoutLegacyMu
 		"coordinated commands mutated legacy live state: set/update/clear=%d/%d/%d", legacy.setCalls, legacy.updateCalls, legacy.clearCalls)
 
 	status := app.GetRuntimeStatus()
-	require.Falsef(t, status.CoordinationState == nil || status.CoordinationState.Revision != 43 || status.HackState == nil || status.HackState.AttemptsLeft != 2,
-		"terminal runtime status = %#v, want revision 43 and unchanged hack mirror", status)
+	require.Falsef(t, status.CoordinationState == nil || status.CoordinationState.Revision != 42 || status.HackState == nil || status.HackState.AttemptsLeft != 2,
+		"terminal runtime status = %#v, want revision 42 and unchanged hack mirror", status)
 
 	cleared.State.Revision = 999
-	require.False(t, app.GetRuntimeStatus().CoordinationState.Revision != 43,
+	require.False(t, app.GetRuntimeStatus().CoordinationState.Revision != 42,
 		"terminal command result aliases replayable coordination state")
 
 }
@@ -2571,11 +4088,7 @@ func TestCommandStateResetRejectsBlankStableIDsBeforeMutation(t *testing.T) {
 		require.Nil(t, result.Session)
 	}
 
-	terminalResult := app.ResetTerminalCommandStates(ResetTerminalCommandStatesPayload{TerminalID: "\n"})
-	require.False(t, terminalResult.OK)
-	require.NotEmpty(t, terminalResult.Error)
 	require.Empty(t, sessions.resetOneCalls)
-	require.Empty(t, sessions.resetTerminalCalls)
 	require.Empty(t, recorder.Calls())
 }
 
@@ -2618,7 +4131,7 @@ func TestResetCommandStatePublishesCanonicalSessionAfterDurabilityAndRefreshesAc
 	calls := recorder.Calls()
 	require.NotEmpty(t, calls)
 	require.Equal(t, "session:reset-command-state:terminal-stable-1:command-stable-1", calls[0])
-	require.Equal(t, "coordinator:update-live-terminal:terminal-stable-1", calls[1])
+	require.Equal(t, "coordinator:refresh-active-terminal:terminal-stable-1", calls[1])
 	require.ElementsMatch(t, []string{"event:coordination-state", "event:session-state"}, calls[2:])
 
 	records := events.Records()
@@ -2655,263 +4168,6 @@ func TestResetCommandStateNoOpReturnsCanonicalRevisionWithoutPublication(t *test
 	require.Equal(t, uint64(19), result.Revision)
 	require.Equal(t, &session, result.Session)
 	require.Equal(t, []string{"session:reset-command-state:terminal-stable-1:command-stable-1"}, recorder.Calls())
-}
-
-func TestResetTerminalCommandStatesUsesOneMutationAndDoesNotRefreshInactiveTerminal(t *testing.T) {
-	recorder := &callRecorder{}
-	session := commandStateResetSessionFixture()
-	session.Terminals[0].CommandStates = nil
-	sessions := &recordingCommandStateSession{
-		recorder: recorder,
-		resetTerminalResult: sessionservice.CommandStateResult{
-			OK: true, Changed: true, Revision: 52, Session: &session,
-		},
-	}
-	activeTerminalID := "another-terminal"
-	events := &recordingEventSink{recorder: recorder}
-	app := NewAppWithDependencies(t.Context(), AppDependencies{
-		Sessions: sessions,
-		Coordination: &recordingCoordinationService{state: &domain.MasterCoordinationState{
-			Broadcast: &domain.MasterBroadcastState{ID: "broadcast-1", ActiveTerminalID: &activeTerminalID},
-		}},
-		Events: events, Player: &recordingPlayerServer{recorder: recorder},
-	})
-
-	result := app.ResetTerminalCommandStates(ResetTerminalCommandStatesPayload{TerminalID: " terminal-stable-1 "})
-	require.True(t, result.OK)
-	require.Equal(t, uint64(52), result.Revision)
-	require.Equal(t, &session, result.Session)
-	require.Equal(t, []string{"terminal-stable-1"}, sessions.resetTerminalCalls)
-	require.Equal(t, []string{
-		"session:reset-terminal-command-states:terminal-stable-1",
-		"event:session-state",
-	}, recorder.Calls())
-	require.Len(t, events.Records(), 1)
-}
-
-func TestResetTerminalCommandStatesRefreshesActiveCanonicalRuntime(t *testing.T) {
-	live := liveservice.New(nil, nil)
-	var effects []controlservice.Effect
-	coordination := controlservice.New(controlservice.Config{
-		Runtime: live, Terminals: live, TrustedHack: live,
-		Enqueue: func(effect controlservice.Effect) { effects = append(effects, effect) },
-	})
-	master, err := coordination.AddCharacter(domain.CharacterCreatePayload{
-		Name: "Mara", Intelligence: 1, HackerPerkAvailable: false, ExpectedRevision: coordination.Revision(),
-	})
-	require.NoError(t, err)
-	characterID := master.Roster[0].ID
-	master, err = coordination.StartBroadcast()
-	require.NoError(t, err)
-	require.NotNil(t, master.Broadcast)
-	connectionID := domain.ConnectionID("reset-terminal-controller")
-	controller := coordination.CreateSession(connectionID)
-	selected := coordination.SelectCharacter(controlservice.CharacterSelection{
-		ConnectionID: connectionID,
-		SessionID:    controller.SessionID,
-		RequestID:    "reset-terminal-select-controller",
-		BroadcastID:  master.Broadcast.ID,
-		CharacterID:  characterID,
-	})
-	require.True(t, selected.Accepted)
-
-	session := commandStateResetSessionFixture()
-	terminal := session.Terminals[0]
-	_, err = coordination.RequestTerminalActivation(domain.TerminalTarget{
-		TerminalID: terminal.ID, TerminalName: terminal.Name, Tree: terminal.Root,
-		CommandStates: cloneCommandExecutionStates(terminal.CommandStates),
-		HackLevel:     terminal.HackLevel, IntroText: terminal.IntroText,
-	})
-	require.NoError(t, err)
-	shown := coordination.DispatchPlayerAction(connectionID, domain.RuntimeCommand{
-		RequestID:   "show-completed-command",
-		BroadcastID: master.Broadcast.ID,
-		TerminalID:  terminal.ID,
-		Kind:        domain.RuntimeCommandNavigate,
-		Action:      "command",
-		NodeID:      "command-stable-1",
-	})
-	require.True(t, shown.Accepted)
-	pending := coordination.Snapshot().PendingCommandExecution
-	require.NotNil(t, pending)
-	_, mutation, err := coordination.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
-	require.NoError(t, err)
-	require.Nil(t, mutation, "completed command approval must not write durable state")
-	require.NotEmpty(t, effects)
-	var beforeReset *domain.PublicLiveState
-	for _, effect := range slices.Backward(effects) {
-		if effect.Live != nil {
-			beforeReset = effect.Live
-			break
-		}
-	}
-	require.NotNil(t, beforeReset)
-	require.NotNil(t, beforeReset.Nav.CommandNodeID)
-
-	terminal.CommandStates = nil
-	session.Terminals[0] = terminal
-	sessions := &recordingCommandStateSession{
-		resetTerminalResult: sessionservice.CommandStateResult{
-			OK: true, Changed: true, Revision: 52, Session: &session,
-		},
-	}
-	effects = nil
-	app := NewAppWithDependencies(t.Context(), AppDependencies{
-		Sessions: sessions, Coordination: coordination,
-		Events: &recordingEventSink{recorder: &callRecorder{}},
-	})
-
-	result := app.ResetTerminalCommandStates(ResetTerminalCommandStatesPayload{TerminalID: terminal.ID})
-	require.True(t, result.OK, "ResetTerminalCommandStates() = %#v", result)
-	require.Equal(t, uint64(52), result.Revision)
-	require.Empty(t, result.Session.Terminals[0].CommandStates)
-	require.NotEmpty(t, effects)
-	var afterReset *domain.PublicLiveState
-	for _, effect := range slices.Backward(effects) {
-		if effect.Live != nil {
-			afterReset = effect.Live
-			break
-		}
-	}
-	require.NotNil(t, afterReset)
-	require.Equal(t, "Open doors", afterReset.Tree.Children[0].Name)
-	require.Nil(t, afterReset.Nav.CommandNodeID, "reset terminal retained the completed command result view")
-}
-
-func TestResetTerminalCommandStatesProductionPathPersistsAndRefreshesActiveTerminal(t *testing.T) {
-	target := "/Campaigns/reset-terminal-production.json"
-	fileSystem := testutil.NewFakeFileSystem()
-	seed := commandStateResetSessionFixture()
-	seed.Terminals[0].Root.Children = append(seed.Terminals[0].Root.Children, domain.ContentNode{
-		ID: "command-stable-2", Type: domain.NodeCommand, Name: "Enable alarm", Text: "Alarm enabled",
-		StateChange: &domain.StateChangeConfig{CompletedName: "Alarm enabled", ConfirmationText: "Enable the alarm?"},
-	})
-	seed.Terminals[0].CommandStates["command-stable-2"] = domain.CommandExecutionState{
-		CompletedName: "Alarm enabled", ResultText: "Alarm enabled",
-	}
-	seed.Terminals = append(seed.Terminals, domain.Terminal{
-		ID: "terminal-stable-2", Name: "Reserve terminal",
-		Root: domain.ContentNode{
-			ID: "root", Type: domain.NodeFolder, Name: "ROOT",
-			Children: []domain.ContentNode{{
-				ID: "reserve-command", Type: domain.NodeCommand, Name: "Unlock reserve", Text: "Reserve unlocked",
-				StateChange: &domain.StateChangeConfig{CompletedName: "Reserve unlocked", ConfirmationText: "Unlock reserve?"},
-			}},
-		},
-		CommandStates: map[string]domain.CommandExecutionState{
-			"reserve-command": {CompletedName: "Reserve unlocked", ResultText: "Reserve unlocked"},
-		},
-	})
-	encoded, err := domain.EncodeSession(seed)
-	require.NoError(t, err)
-	fileSystem.SeedFile(target, encoded)
-	sessions := sessionservice.NewService(
-		sessionservice.NewStorage(fileSystem),
-		&testutil.FakeDialog{OpenResult: target},
-		sessionservice.Locations{
-			DocumentsDefault: "/Campaigns", BundledDemo: "/Applications/Fallout/demo.json",
-		},
-	)
-	t.Cleanup(func() { require.NoError(t, sessions.Shutdown(context.WithoutCancel(t.Context()))) })
-	opened := sessions.Open(t.Context())
-	require.True(t, opened.OK, "Open() = %#v", opened)
-	require.NotNil(t, opened.Session)
-
-	live := liveservice.New(nil, nil)
-	var effects []controlservice.Effect
-	coordination := controlservice.New(controlservice.Config{
-		Runtime: live, Terminals: live, TrustedHack: live,
-		Enqueue: func(effect controlservice.Effect) { effects = append(effects, effect) },
-	})
-	_, err = coordination.AddCharacter(domain.CharacterCreatePayload{
-		Name: "Mara", Intelligence: 1, HackerPerkAvailable: false, ExpectedRevision: coordination.Revision(),
-	})
-	require.NoError(t, err)
-	master, err := coordination.AddCharacter(domain.CharacterCreatePayload{
-		Name: "Boone", Intelligence: 1, HackerPerkAvailable: false, ExpectedRevision: coordination.Revision(),
-	})
-	require.NoError(t, err)
-	controllerCharacterID := master.Roster[0].ID
-	observerCharacterID := master.Roster[1].ID
-	master, err = coordination.StartBroadcast()
-	require.NoError(t, err)
-	connectionID := domain.ConnectionID("production-reset-controller")
-	controller := coordination.CreateSession(connectionID)
-	selected := coordination.SelectCharacter(controlservice.CharacterSelection{
-		ConnectionID: connectionID, SessionID: controller.SessionID,
-		RequestID: "production-reset-select", BroadcastID: master.Broadcast.ID,
-		CharacterID: controllerCharacterID,
-	})
-	require.True(t, selected.Accepted)
-	observerConnectionID := domain.ConnectionID("production-reset-observer")
-	observer := coordination.CreateSession(observerConnectionID)
-	selected = coordination.SelectCharacter(controlservice.CharacterSelection{
-		ConnectionID: observerConnectionID, SessionID: observer.SessionID,
-		RequestID: "production-reset-select-observer", BroadcastID: master.Broadcast.ID,
-		CharacterID: observerCharacterID,
-	})
-	require.True(t, selected.Accepted)
-	terminal := opened.Session.Terminals[0]
-	_, err = coordination.RequestTerminalActivation(domain.TerminalTarget{
-		TerminalID: terminal.ID, TerminalName: terminal.Name, Tree: terminal.Root,
-		CommandStates: cloneCommandExecutionStates(terminal.CommandStates),
-		HackLevel:     terminal.HackLevel, IntroText: terminal.IntroText,
-	})
-	require.NoError(t, err)
-	shown := coordination.DispatchPlayerAction(connectionID, domain.RuntimeCommand{
-		RequestID: "production-show-completed", BroadcastID: master.Broadcast.ID,
-		TerminalID: terminal.ID, Kind: domain.RuntimeCommandNavigate,
-		Action: "command", NodeID: "command-stable-1",
-	})
-	require.True(t, shown.Accepted)
-	pending := coordination.Snapshot().PendingCommandExecution
-	require.NotNil(t, pending)
-	_, mutation, err := coordination.ResolveCommandExecution(t.Context(), pending.RequestID, domain.CommandExecutionApprove)
-	require.NoError(t, err)
-	require.Nil(t, mutation, "completed command approval must not write durable state")
-
-	effects = nil
-	app := NewAppWithDependencies(t.Context(), AppDependencies{
-		Sessions: sessions, Coordination: coordination,
-		Events: &recordingEventSink{recorder: &callRecorder{}},
-	})
-	resetStarted := time.Now()
-	result := app.ResetTerminalCommandStates(ResetTerminalCommandStatesPayload{TerminalID: terminal.ID})
-	require.Less(t, time.Since(resetStarted), time.Second)
-	require.True(t, result.OK, "ResetTerminalCommandStates() = %#v", result)
-	require.Equal(t, uint64(1), result.Revision)
-	require.Empty(t, result.Session.Terminals[0].CommandStates)
-	require.Contains(t, result.Session.Terminals[1].CommandStates, "reserve-command")
-
-	durableBytes, ok := fileSystem.File(target)
-	require.True(t, ok)
-	durable, err := domain.DecodeSession(durableBytes)
-	require.NoError(t, err)
-	require.Empty(t, durable.Terminals[0].CommandStates)
-	require.Contains(t, durable.Terminals[1].CommandStates, "reserve-command")
-	require.Equal(t, uint64(1), sessions.Snapshot().SavedRevision)
-
-	var projection *domain.PublicLiveState
-	for _, effect := range slices.Backward(effects) {
-		if effect.Live != nil {
-			projection = effect.Live
-			break
-		}
-	}
-	require.NotNil(t, projection)
-	require.Equal(t, "Open doors", projection.Tree.Children[0].Name)
-	require.Equal(t, "Enable alarm", projection.Tree.Children[1].Name)
-	require.Nil(t, projection.Nav.CommandNodeID, "production reset retained the completed command result view")
-	masterAfterReset := coordination.Snapshot()
-	require.Len(t, masterAfterReset.Sessions, 2)
-	require.ElementsMatch(t, []domain.PlayerRole{domain.PlayerRoleActive, domain.PlayerRoleObserver}, []domain.PlayerRole{
-		masterAfterReset.Sessions[0].Role, masterAfterReset.Sessions[1].Role,
-	})
-
-	reopened := sessions.Open(t.Context())
-	require.True(t, reopened.OK, "reopen reset session = %#v", reopened)
-	require.Empty(t, reopened.Session.Terminals[0].CommandStates)
-	require.Contains(t, reopened.Session.Terminals[1].CommandStates, "reserve-command")
 }
 
 func TestCommandStateResetFailureDoesNotPublishSessionOrPlayerState(t *testing.T) {
@@ -2952,13 +4208,6 @@ func TestEntryContentCommandStateResetsRouteThroughCoordinatorBeforePublication(
 			},
 			wantCall: "coordinator:reset-command-state:terminal-stable-1:command-stable-1",
 		},
-		{
-			name: "terminal-wide",
-			call: func(app *App) SessionStateResult {
-				return app.ResetTerminalCommandStates(ResetTerminalCommandStatesPayload{TerminalID: "terminal-stable-1"})
-			},
-			wantCall: "coordinator:reset-terminal-command-states:terminal-stable-1",
-		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			recorder := &callRecorder{}
@@ -2998,7 +4247,6 @@ func TestEntryContentCommandStateResetsRouteThroughCoordinatorBeforePublication(
 			entry := result.Session.Terminals[0].Root.Children[1]
 			assert.Equal(t, "POWER: OFFLINE", entry.Blocks[0].InitialText)
 			assert.Empty(t, sessions.resetOneCalls)
-			assert.Empty(t, sessions.resetTerminalCalls)
 			calls := recorder.Calls()
 			require.NotEmpty(t, calls)
 			assert.Equal(t, test.wantCall, calls[0])
@@ -3512,6 +4760,17 @@ func countRecordedCall(calls []string, want string) int {
 	return count
 }
 
+func requireCallsInOrder(t *testing.T, calls []string, wants ...string) {
+	t.Helper()
+	next := 0
+	for _, call := range calls {
+		if next < len(wants) && call == wants[next] {
+			next++
+		}
+	}
+	require.Equal(t, len(wants), next, "calls = %v, want ordered subsequence %v", calls, wants)
+}
+
 type contextCapturingPlayer struct {
 	info              domain.ServerInfo
 	startContext      context.Context
@@ -3584,6 +4843,141 @@ type loggingSessionCommands struct {
 	active       sessionservice.ActiveSession
 }
 
+type recordingFacilityLifecycleSessions struct {
+	recordingSessionService
+	recorder *callRecorder
+	results  map[string]sessionservice.SessionResult
+	active   sessionservice.ActiveSession
+}
+
+func newRecordingFacilityLifecycleSessions(
+	recorder *callRecorder,
+	results map[string]sessionservice.SessionResult,
+) *recordingFacilityLifecycleSessions {
+	return &recordingFacilityLifecycleSessions{
+		recordingSessionService: recordingSessionService{recorder: recorder},
+		recorder:                recorder,
+		results:                 results,
+	}
+}
+
+func (service *recordingFacilityLifecycleSessions) Create(context.Context) sessionservice.SessionResult {
+	return service.activate("session:create")
+}
+
+func (service *recordingFacilityLifecycleSessions) Open(context.Context) sessionservice.SessionResult {
+	return service.activate("session:open")
+}
+
+func (service *recordingFacilityLifecycleSessions) CopyDemo(context.Context) sessionservice.SessionResult {
+	return service.activate("session:copy-demo")
+}
+
+func (service *recordingFacilityLifecycleSessions) Save(
+	context.Context,
+	domain.Session,
+	uint64,
+) sessionservice.SaveResult {
+	return sessionservice.SaveResult{}
+}
+
+func (service *recordingFacilityLifecycleSessions) Snapshot() sessionservice.ActiveSession {
+	service.recorder.Add("session:snapshot")
+	return cloneActiveSessionForAppTest(service.active)
+}
+
+func (service *recordingFacilityLifecycleSessions) activate(operation string) sessionservice.SessionResult {
+	service.recorder.Add(operation)
+	result := service.results[operation]
+	result.Session = sessionPointerForAppTest(result.Session)
+	if result.OK {
+		service.active = sessionservice.ActiveSession{
+			Path: result.FilePath, Session: sessionPointerForAppTest(result.Session),
+			SaveState: sessionservice.SaveStateSaved,
+		}
+	}
+	return result
+}
+
+func cloneActiveSessionForAppTest(active sessionservice.ActiveSession) sessionservice.ActiveSession {
+	active.Session = sessionPointerForAppTest(active.Session)
+	return active
+}
+
+func sessionPointerForAppTest(session *domain.Session) *domain.Session {
+	if session == nil {
+		return nil
+	}
+	clone := domain.CloneSession(*session)
+	return &clone
+}
+
+type recordingFacilityLifecycleCoordination struct {
+	recordingCoordinationService
+	recorder   *callRecorder
+	facilities []*domain.Facility
+}
+
+func newRecordingFacilityLifecycleCoordination(recorder *callRecorder) *recordingFacilityLifecycleCoordination {
+	return &recordingFacilityLifecycleCoordination{
+		state:    &domain.MasterCoordinationState{Revision: 40},
+		recorder: recorder,
+	}
+}
+
+func (service *recordingFacilityLifecycleCoordination) ReplaceFacility(
+	facility *domain.Facility,
+) (*domain.MasterCoordinationState, error) {
+	clone := domain.CloneFacility(facility)
+	service.facilities = append(service.facilities, clone)
+	label := "none"
+	if clone != nil {
+		label = fmt.Sprintf("%d", clone.Revision)
+	}
+	service.recorder.Add("coordinator:replace-facility:" + label)
+	state := domain.CloneMasterCoordinationState(service.state)
+	state.Revision++
+	state.PendingCommandExecution = nil
+	state.PendingTerminalNavigation = nil
+	if clone == nil {
+		state.FacilityRevision = nil
+	} else {
+		state.FacilityRevision = new(clone.Revision)
+	}
+	service.state = state
+	return domain.CloneMasterCoordinationState(state), nil
+}
+
+type recordingFacilityLifecycleUpdates struct {
+	recorder *callRecorder
+	snapshot updateservice.UpdateSnapshot
+}
+
+func (service *recordingFacilityLifecycleUpdates) Snapshot() updateservice.UpdateSnapshot {
+	return service.snapshot
+}
+
+func (service *recordingFacilityLifecycleUpdates) Status(context.Context) updateservice.UpdateSnapshot {
+	service.recorder.Add("update:status")
+	return service.snapshot
+}
+
+func (service *recordingFacilityLifecycleUpdates) ResolveOffer(
+	context.Context,
+	string,
+	updateservice.OfferDecision,
+) updateservice.CommandResult {
+	return updateservice.CommandResult{Snapshot: service.snapshot}
+}
+
+func (service *recordingFacilityLifecycleUpdates) ResolveRestart(
+	context.Context,
+	string,
+	updateservice.RestartDecision,
+) updateservice.CommandResult {
+	return updateservice.CommandResult{Snapshot: service.snapshot}
+}
+
 func (service *loggingSessionCommands) Create(context.Context) sessionservice.SessionResult {
 	service.active.Session = service.createResult.Session
 	return service.createResult
@@ -3610,7 +5004,6 @@ type recordingCommandStateSession struct {
 	resetOneResult      sessionservice.CommandStateResult
 	resetTerminalResult sessionservice.CommandStateResult
 	resetOneCalls       [][2]string
-	resetTerminalCalls  []string
 }
 
 type recordingCommandStateResetCoordination struct {
@@ -3624,14 +5017,6 @@ func (service *recordingCommandStateResetCoordination) ResetCommandState(
 	terminalID, commandID string,
 ) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error) {
 	service.recorder.Add("coordinator:reset-command-state:" + terminalID + ":" + commandID)
-	return service.commandStateResetResult()
-}
-
-func (service *recordingCommandStateResetCoordination) ResetTerminalCommandStates(
-	_ context.Context,
-	terminalID string,
-) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, error) {
-	service.recorder.Add("coordinator:reset-terminal-command-states:" + terminalID)
 	return service.commandStateResetResult()
 }
 
@@ -3653,14 +5038,6 @@ func (service *recordingCommandStateSession) ResetCommandState(_ context.Context
 		service.recorder.Add("session:reset-command-state:" + terminalID + ":" + commandID)
 	}
 	return service.resetOneResult
-}
-
-func (service *recordingCommandStateSession) ResetTerminalCommandStates(_ context.Context, terminalID string) sessionservice.CommandStateResult {
-	service.resetTerminalCalls = append(service.resetTerminalCalls, terminalID)
-	if service.recorder != nil {
-		service.recorder.Add("session:reset-terminal-command-states:" + terminalID)
-	}
-	return service.resetTerminalResult
 }
 
 func commandStateResetSessionFixture() domain.Session {
@@ -3808,6 +5185,79 @@ type recordingCoordinationService struct {
 	navigationDecisions []recordedTerminalNavigationDecision
 }
 
+type recordingFacilityCommandExecutionCoordination struct {
+	recordingCoordinationService
+	recorder       *callRecorder
+	resolvedState  *domain.MasterCoordinationState
+	legacyMutation *controlservice.CommandStateMutation
+	facilityResult *domain.FacilityOperationResult
+	resolveErr     error
+}
+
+type recordingFacilityOperationsCoordination struct {
+	recordingCoordinationService
+	recorder            *callRecorder
+	state               *domain.MasterCoordinationState
+	previewResult       controlservice.FacilityPreviewResult
+	inspectionResult    controlservice.FacilityDependencyInspectionResult
+	resetResult         *domain.FacilityOperationResult
+	previewRequests     []domain.FacilityPreview
+	inspectionRequests  []controlservice.FacilityDependencyInspectionRequest
+	deviceResetRequests []controlservice.FacilityDeviceResetRequest
+	enqueue             func(controlservice.Effect)
+}
+
+func (service *recordingFacilityOperationsCoordination) InspectFacilityDependencies(
+	_ context.Context,
+	request controlservice.FacilityDependencyInspectionRequest,
+) controlservice.FacilityDependencyInspectionResult {
+	request.Session = domain.CloneSession(request.Session)
+	if request.Target.OwnerID != nil {
+		request.Target.OwnerID = new(*request.Target.OwnerID)
+	}
+	service.inspectionRequests = append(service.inspectionRequests, request)
+	return service.inspectionResult
+}
+
+func (service *recordingFacilityOperationsCoordination) PreviewFacility(
+	_ context.Context,
+	request domain.FacilityPreview,
+) controlservice.FacilityPreviewResult {
+	if request.DeviceState != nil {
+		deviceState := *request.DeviceState
+		request.DeviceState = &deviceState
+	}
+	if request.Condition != nil {
+		condition := *request.Condition
+		request.Condition = &condition
+	}
+	service.previewRequests = append(service.previewRequests, request)
+	return service.previewResult
+}
+
+func (service *recordingFacilityOperationsCoordination) ResetFacilityDevice(
+	_ context.Context,
+	request controlservice.FacilityDeviceResetRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	service.deviceResetRequests = append(service.deviceResetRequests, request)
+	if service.recorder != nil {
+		service.recorder.Add("coordinator:reset-facility-device")
+	}
+	if service.enqueue != nil && service.state != nil {
+		service.enqueue(controlservice.Effect{Master: domain.CloneMasterCoordinationState(service.state)})
+	}
+	return domain.CloneMasterCoordinationState(service.state), service.resetResult, nil
+}
+
+func (service *recordingFacilityCommandExecutionCoordination) ResolveCommandExecution(
+	_ context.Context,
+	requestID string,
+	decision domain.CommandExecutionDecision,
+) (*domain.MasterCoordinationState, *controlservice.CommandStateMutation, *domain.FacilityOperationResult, error) {
+	service.recorder.Add("coordinator:resolve-facility-command:" + requestID + ":" + string(decision))
+	return domain.CloneMasterCoordinationState(service.resolvedState), service.legacyMutation, service.facilityResult, service.resolveErr
+}
+
 type recordedTerminalGroupReplacement struct {
 	ctx       context.Context
 	candidate domain.TerminalGroupCandidate
@@ -3861,7 +5311,6 @@ type recordingTerminalCoordinationService struct {
 	clearCalls       int
 	updateCalls      int
 	updateTree       domain.ContentNode
-	updateIntro      *string
 	commandErr       error
 	decisionRequired bool
 	nextSwitchID     domain.SwitchID
@@ -3915,6 +5364,21 @@ func (service *recordingTerminalCoordinationService) RequestTerminalActivation(t
 	}
 	activeTerminalID := target.TerminalID
 	state.Broadcast.ActiveTerminalID = &activeTerminalID
+	service.state = state
+	return domain.CloneMasterCoordinationState(state), nil
+}
+
+func (service *recordingTerminalCoordinationService) RefreshActiveTerminal(target domain.TerminalTarget) (*domain.MasterCoordinationState, error) {
+	service.updateCalls++
+	service.updateTree = domain.CloneContentNode(target.Tree)
+	if service.order != nil {
+		service.order.Add("coordinator:refresh-active-terminal:" + target.TerminalID)
+	}
+	if service.commandErr != nil {
+		return domain.CloneMasterCoordinationState(service.state), service.commandErr
+	}
+	state := domain.CloneMasterCoordinationState(service.state)
+	state.Revision++
 	service.state = state
 	return domain.CloneMasterCoordinationState(state), nil
 }
@@ -3982,29 +5446,6 @@ func (service *recordingTerminalCoordinationService) ForceHackSuccess() (*domain
 		return nil, false
 	}
 	return clonePublicHackState(service.forceState), true
-}
-
-func (service *recordingTerminalCoordinationService) UpdateLiveTerminal(tree domain.ContentNode, introText *string) (*domain.MasterCoordinationState, error) {
-	service.updateCalls++
-	service.updateTree = tree
-	if introText != nil {
-		intro := *introText
-		service.updateIntro = &intro
-	}
-	terminalID := ""
-	if service.state != nil && service.state.Broadcast != nil && service.state.Broadcast.ActiveTerminalID != nil {
-		terminalID = *service.state.Broadcast.ActiveTerminalID
-	}
-	if service.order != nil {
-		service.order.Add("coordinator:update-live-terminal:" + terminalID)
-	}
-	if service.commandErr != nil {
-		return domain.CloneMasterCoordinationState(service.state), service.commandErr
-	}
-	state := domain.CloneMasterCoordinationState(service.state)
-	state.Revision++
-	service.state = state
-	return domain.CloneMasterCoordinationState(state), nil
 }
 
 type recordingCorrectionCoordinationService struct {
@@ -4918,4 +6359,227 @@ func TestPublicAccessEnvironmentOverrideCompositionIsDevelopmentOnlyAndNeverAuto
 	assert.Same(t, settings, productionSettings)
 	assert.Same(t, secrets, productionSecrets)
 	assert.Zero(t, lookupCalls, "packaged production must not consult the development environment")
+}
+
+type recordingAuthoringCoordination struct {
+	recordingCoordinationService
+	recorder      *callRecorder
+	state         *domain.MasterCoordinationState
+	result        *domain.FacilityOperationResult
+	saves         []controlservice.AuthoringSaveRequest
+	sceneRequests []controlservice.SceneResetRequest
+	enqueue       func(controlservice.Effect)
+}
+
+func (service *recordingAuthoringCoordination) SaveAuthoring(
+	_ context.Context,
+	request controlservice.AuthoringSaveRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	request.Candidate = domain.CloneSession(request.Candidate)
+	service.saves = append(service.saves, request)
+	service.recorder.Add("coordinator:save-authoring")
+	if service.enqueue != nil && service.state != nil && service.result != nil && service.result.Changed {
+		service.enqueue(controlservice.Effect{Master: domain.CloneMasterCoordinationState(service.state)})
+	}
+	return domain.CloneMasterCoordinationState(service.state), service.result, nil
+}
+
+func (service *recordingAuthoringCoordination) ResetScene(
+	_ context.Context,
+	request controlservice.SceneResetRequest,
+) (*domain.MasterCoordinationState, *domain.FacilityOperationResult, error) {
+	service.sceneRequests = append(service.sceneRequests, request)
+	service.recorder.Add("coordinator:reset-scene")
+	if service.enqueue != nil && service.state != nil && service.result != nil && service.result.Changed {
+		service.enqueue(controlservice.Effect{Master: domain.CloneMasterCoordinationState(service.state)})
+	}
+	return domain.CloneMasterCoordinationState(service.state), service.result, nil
+}
+
+func newAuthoringAppForTest(t *testing.T, result *domain.FacilityOperationResult, state *domain.MasterCoordinationState) (*App, *recordingAuthoringCoordination, *recordingEventSink, *callRecorder) {
+	t.Helper()
+	recorder := &callRecorder{}
+	coordination := &recordingAuthoringCoordination{
+		recordingCoordinationService: recordingCoordinationService{state: &domain.MasterCoordinationState{Revision: 41}},
+		recorder:                     recorder, state: state, result: result,
+	}
+	events := &recordingEventSink{recorder: recorder}
+	router := &coordinationEffectRouter{}
+	coordination.enqueue = router.Enqueue
+	app := NewAppWithDependencies(t.Context(), AppDependencies{
+		Coordination: coordination, CoordinationEvents: router, Events: events,
+	})
+	router.Bind(nil, app)
+	return app, coordination, events, recorder
+}
+
+func TestSaveAuthoringPublishesCanonicalSessionBeforeCoordinationOnce(t *testing.T) {
+	draft := facilityApprovalSessionForAppTest(7, "locked")
+	draft.Terminals[0].Name = "Security MK II"
+	canonical := domain.CloneSession(draft)
+	app, coordination, events, recorder := newAuthoringAppForTest(t, &domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: "authoring-3", SessionRevision: 18,
+		PreviousFacilityRevision: 7, ResultingFacilityRevision: 7, AuthoringRevision: 3, Session: &canonical,
+	}, &domain.MasterCoordinationState{Revision: 42, FacilityRevision: new(uint64(7))})
+
+	result := app.SaveAuthoring(AuthoringSavePayload{Session: &draft, ExpectedAuthoringRevision: 2, CorrelationID: "authoring-3"})
+
+	require.True(t, result.OK, "SaveAuthoring() = %#v", result)
+	require.True(t, result.Changed)
+	require.Equal(t, uint64(3), result.AuthoringRevision)
+	require.Equal(t, []string{"coordinator:save-authoring", "event:session-state", "event:coordination-state"}, recorder.Calls())
+	require.Len(t, events.Records(), 2)
+	require.Equal(t, []controlservice.AuthoringSaveRequest{{
+		Candidate: draft, ExpectedAuthoringRevision: 2, CorrelationID: "authoring-3",
+	}}, coordination.saves)
+	require.Equal(t, string(sessionservice.SaveStateSaved), app.GetRuntimeStatus().SaveState)
+
+	result.Session.Terminals[0].Name = "mutated"
+	require.Equal(t, "Security MK II", canonical.Terminals[0].Name)
+}
+
+func TestSaveAuthoringReturnsStaleCanonicalSessionWithoutEvents(t *testing.T) {
+	draft := facilityApprovalSessionForAppTest(7, "locked")
+	canonical := facilityApprovalSessionForAppTest(7, "open")
+	app, _, events, _ := newAuthoringAppForTest(t, &domain.FacilityOperationResult{
+		CorrelationID: "authoring-stale", Failure: domain.FacilityFailureStaleRevision, SessionRevision: 18,
+		PreviousFacilityRevision: 7, ResultingFacilityRevision: 7, AuthoringRevision: 4, Session: &canonical,
+	}, &domain.MasterCoordinationState{Revision: 41, FacilityRevision: new(uint64(7))})
+
+	result := app.SaveAuthoring(AuthoringSavePayload{Session: &draft, ExpectedAuthoringRevision: 2, CorrelationID: "authoring-stale"})
+
+	require.False(t, result.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+	require.Equal(t, uint64(4), result.AuthoringRevision, "a stale save must report the current authoring revision")
+	require.NotNil(t, result.Session)
+	require.Equal(t, "open", result.Session.Facility.Devices[0].CurrentStateID)
+	require.Empty(t, events.Records())
+	require.Equal(t, string(sessionservice.SaveStateFailed), app.GetRuntimeStatus().SaveState)
+
+	missing := app.SaveAuthoring(AuthoringSavePayload{CorrelationID: "authoring-missing"})
+	require.Equal(t, domain.FacilityFailureInvalidConfiguration, missing.Failure)
+}
+
+func TestSaveAuthoringPublishesASessionWithoutFacility(t *testing.T) {
+	draft := facilityApprovalSessionForAppTest(0, "locked")
+	draft.Facility = nil
+	canonical := domain.CloneSession(draft)
+	app, _, events, _ := newAuthoringAppForTest(t, &domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: "authoring-terminal", SessionRevision: 5, AuthoringRevision: 2,
+		Session: &canonical,
+	}, &domain.MasterCoordinationState{Revision: 42})
+
+	result := app.SaveAuthoring(AuthoringSavePayload{Session: &draft, ExpectedAuthoringRevision: 1, CorrelationID: "authoring-terminal"})
+
+	require.True(t, result.OK, "a terminal-only session must save: %#v", result)
+	require.Len(t, events.Records(), 2)
+}
+
+func TestResetScenePublishesOnceAndRejectsABlankCorrelation(t *testing.T) {
+	canonical := facilityApprovalSessionForAppTest(8, "locked")
+	app, coordination, events, recorder := newAuthoringAppForTest(t, &domain.FacilityOperationResult{
+		OK: true, Changed: true, CorrelationID: "scene-1", SessionRevision: 19,
+		PreviousFacilityRevision: 7, ResultingFacilityRevision: 8, AuthoringRevision: 3,
+		ResetCommands: []domain.CommandReference{{TerminalID: "terminal-security", CommandID: "open-door"}},
+		Session:       &canonical,
+	}, &domain.MasterCoordinationState{Revision: 42, FacilityRevision: new(uint64(8))})
+
+	result := app.ResetScene(SceneResetPayload{ExpectedSessionRevision: 18, ExpectedFacilityRevision: 7, CorrelationID: "scene-1"})
+
+	require.True(t, result.OK, "ResetScene() = %#v", result)
+	require.Equal(t, []domain.CommandReference{{TerminalID: "terminal-security", CommandID: "open-door"}}, result.ResetCommands)
+	require.Equal(t, []string{"coordinator:reset-scene", "event:session-state", "event:coordination-state"}, recorder.Calls())
+	require.Len(t, events.Records(), 2)
+	require.Equal(t, []controlservice.SceneResetRequest{{
+		ExpectedSessionRevision: 18, ExpectedFacilityRevision: 7, CorrelationID: "scene-1",
+	}}, coordination.sceneRequests)
+
+	blank := app.ResetScene(SceneResetPayload{ExpectedSessionRevision: 18, CorrelationID: " "})
+	require.Equal(t, domain.FacilityFailureInvalidConfiguration, blank.Failure)
+	require.Len(t, coordination.sceneRequests, 1, "a blank correlation must never reach the coordinator")
+}
+
+// openAuthoringSessionForAppTest opens one real session service over a fake
+// file system seeded with the session.
+func openAuthoringSessionForAppTest(t *testing.T, session domain.Session) *sessionservice.Service {
+	t.Helper()
+	const target = "/Campaigns/authoring-adapter.json"
+	raw, err := domain.EncodeSession(session)
+	require.NoError(t, err)
+	fileSystem := testutil.NewFakeFileSystem()
+	fileSystem.SeedFile(target, raw)
+	sessions := sessionservice.NewService(
+		sessionservice.NewStorage(fileSystem),
+		&testutil.FakeDialog{OpenResult: target},
+		sessionservice.Locations{DocumentsDefault: "/Campaigns"},
+	)
+	t.Cleanup(func() { _ = sessions.Shutdown(context.WithoutCancel(t.Context())) })
+	require.True(t, sessions.Open(t.Context()).OK)
+	return sessions
+}
+
+func TestDescribePresentationExplainsTheActiveSessionAndRejectsOlderEdits(t *testing.T) {
+	t.Parallel()
+
+	session := facilityApprovalSessionForAppTest(7, "locked")
+	sessions := openAuthoringSessionForAppTest(t, session)
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Sessions: sessions})
+	active := sessions.Snapshot()
+
+	result := app.DescribePresentation(PresentationPayload{ExpectedAuthoringRevision: active.AuthoringRevision})
+
+	require.True(t, result.OK, "DescribePresentation() = %#v", result)
+	require.Equal(t, active.AuthoringRevision, result.AuthoringRevision)
+	require.Equal(t, uint64(7), result.FacilityRevision)
+	require.Empty(t, cmp.Diff(liveservice.ExplainSession(*active.Session), result.Terminals, cmpopts.EquateEmpty()))
+
+	stale := app.DescribePresentation(PresentationPayload{ExpectedAuthoringRevision: active.AuthoringRevision + 1})
+	require.False(t, stale.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, stale.Failure)
+	require.Equal(t, active.AuthoringRevision, stale.AuthoringRevision)
+	require.Empty(t, stale.Terminals)
+}
+
+func TestAppPreviewFacilityRejectsAnOlderAuthoringRevisionWithoutTheCoordinator(t *testing.T) {
+	t.Parallel()
+
+	sessions := openAuthoringSessionForAppTest(t, facilityApprovalSessionForAppTest(7, "locked"))
+	coordination := &recordingFacilityOperationsCoordination{}
+	app := NewAppWithDependencies(t.Context(), AppDependencies{Sessions: sessions, Coordination: coordination})
+
+	result := app.PreviewFacility(FacilityPreviewPayload{
+		ExpectedFacilityRevision: 7, ExpectedAuthoringRevision: sessions.Snapshot().AuthoringRevision + 1,
+		TerminalID:  "terminal-security",
+		DeviceState: &domain.FacilityDeviceStatePreview{DeviceID: "security-door", StateID: "open"},
+	})
+
+	require.False(t, result.OK)
+	require.Equal(t, domain.FacilityFailureStaleRevision, result.Failure)
+	require.Empty(t, coordination.previewRequests, "a preview of older edits must not reach the coordinator")
+}
+
+func TestSessionCommandStateStoreForwardsAuthoringSaveAndSceneReset(t *testing.T) {
+	t.Parallel()
+
+	initial := facilityApprovalSessionForAppTest(7, "open")
+	sessions := openAuthoringSessionForAppTest(t, initial)
+	store := &sessionCommandStateStore{service: sessions}
+	candidate := domain.CloneSession(initial)
+	candidate.Facility.Devices[0].Name = "Security door MK II"
+
+	saved := store.SaveAuthoring(t.Context(), controlservice.AuthoringSaveRequest{
+		Candidate: candidate, ExpectedAuthoringRevision: 1, CorrelationID: "adapter-authoring",
+	})
+	require.True(t, saved.OK, "SaveAuthoring() = %#v", saved)
+	require.Equal(t, uint64(2), saved.AuthoringRevision)
+	require.Equal(t, "Security door MK II", saved.Session.Facility.Devices[0].Name)
+
+	reset := store.ResetScene(t.Context(), controlservice.SceneResetRequest{
+		ExpectedSessionRevision: saved.SessionRevision, ExpectedFacilityRevision: saved.ResultingFacilityRevision,
+		CorrelationID: "adapter-scene",
+	})
+	require.True(t, reset.OK, "ResetScene() = %#v", reset)
+	require.True(t, reset.Changed)
+	require.Equal(t, "locked", reset.Session.Facility.Devices[0].CurrentStateID)
+	require.Equal(t, uint64(2), reset.AuthoringRevision, "a scene reset never advances the authoring revision")
 }

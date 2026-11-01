@@ -1,0 +1,1544 @@
+{
+  "workflow": "companion",
+  "specName": "Facility Play Controls",
+  "branch": "040-facility-play-controls",
+  "currentStep": "implement",
+  "status": "completed",
+  "history": [
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-30T12:14:30.178Z"
+    },
+    {
+      "step": "specify",
+      "substep": null,
+      "kind": "complete",
+      "by": "extension",
+      "at": "2026-10-30T12:19:13.520Z"
+    },
+    {
+      "step": "clarify",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T12:41:43.484Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-30T12:43:39.080Z"
+    },
+    {
+      "step": "plan",
+      "substep": "research",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T14:32:02.543Z"
+    },
+    {
+      "step": "plan",
+      "substep": "design",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T14:47:57.060Z"
+    },
+    {
+      "step": "plan",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T14:47:57.305Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-30T20:15:22.662Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "gather",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:18:54.438Z"
+    },
+    {
+      "step": "tasks",
+      "substep": "generate",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:21:46.925Z"
+    },
+    {
+      "step": "tasks",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:21:53.476Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "start",
+      "by": "extension",
+      "at": "2026-10-30T20:22:16.248Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T001",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:23:14.836Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T002",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:24:10.453Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T003",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:25:33.452Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T004",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:27:51.694Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T005",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:41:09.142Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T009",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:41:09.203Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T006",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:42:49.991Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T010",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:42:50.068Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T008",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:45:57.682Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T012",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:45:57.755Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T007",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:56:07.441Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T011",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:56:07.514Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T013",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:58:09.247Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T014",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T20:59:18.517Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T017",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:09:15.978Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T018",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:09:17.188Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T015",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:09:32.716Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T016",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:10:34.043Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T021",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:15:19.904Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T019",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:18:18.808Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T022",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:18:19.618Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T020",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:19:49.836Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T023",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:23:51.668Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T026",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:31:21.648Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T025",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:31:44.958Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T024",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:40:08.488Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T027",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:41:42.956Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T028",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:44:38.007Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T029",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:45:33.554Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T030",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:48:13.210Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T031",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:50:09.810Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T032",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:50:35.595Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T033",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:51:54.484Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T034",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T21:56:41.686Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T035",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:08:50.122Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T036",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:32:25.949Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T039",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:32:26.028Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T042",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:32:26.121Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T043",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:12.750Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T044",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:12.824Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T045",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:12.897Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T046",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:12.979Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T047",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:13.065Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T048",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:13.138Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T049",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:13.204Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T052",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:13.270Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T037",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:33:42.208Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T040",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:35:08.988Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T041",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:35:09.073Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T038",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:41:50.391Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T050",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-30T22:54:54.375Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "task": "T051",
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T09:44:38.549Z"
+    },
+    {
+      "step": "implement",
+      "substep": null,
+      "kind": "complete",
+      "by": "ai",
+      "at": "2026-10-31T09:44:38.569Z"
+    }
+  ],
+  "last_action": "All 52 tasks done; gates, full browser suite (365 pass), and packaged-app check pass",
+  "coverage": {
+    "FR-001": {
+      "title": "Card shows one control per transition leaving the current state; runs on one press without confirmation",
+      "tasks": [
+        "T030",
+        "T036"
+      ],
+      "tests": [
+        "tests/browser/facility-play-transitions.spec.mjs"
+      ]
+    },
+    "FR-002": {
+      "title": "Each transition control lists its preconditions met or unmet and is unavailable naming the unmet one",
+      "tasks": [
+        "T030",
+        "T035",
+        "T036"
+      ],
+      "tests": [
+        "tests/browser/facility-play-transitions.spec.mjs",
+        "internal/session/facility_parity_test.go"
+      ]
+    },
+    "FR-003": {
+      "title": "Card transition follows player-command rules, all or nothing, and marks no command executed",
+      "tasks": [
+        "T005",
+        "T013",
+        "T035",
+        "T036"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "internal/session/facility_parity_test.go",
+        "tests/browser/facility-play-transitions.spec.mjs"
+      ]
+    },
+    "FR-004": {
+      "title": "Every play change is checked against the facility-wide revision; stale is rejected and the card shows the returned state",
+      "tasks": [
+        "T005",
+        "T007",
+        "T011",
+        "T020",
+        "T026",
+        "T027",
+        "T030",
+        "T036"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "internal/control/facility_test.go",
+        "app_test.go",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/facility-play-transitions.spec.mjs"
+      ]
+    },
+    "FR-005": {
+      "title": "Player terminals show the result of a play change without reconnecting",
+      "tasks": [
+        "T007",
+        "T016",
+        "T036",
+        "T040"
+      ],
+      "tests": [
+        "internal/control/facility_test.go",
+        "tests/browser/facility-play-transitions.spec.mjs",
+        "tests/browser/facility-play-force.spec.mjs"
+      ]
+    },
+    "FR-006": {
+      "title": "A play change withdraws a pending player request and logs and feeds the withdrawal",
+      "tasks": [
+        "T007",
+        "T009",
+        "T016",
+        "T017",
+        "T042"
+      ],
+      "tests": [
+        "internal/control/facility_test.go",
+        "internal/control/scene_test.go",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-007": {
+      "title": "Forced change lists every other state and moves the device without checking transitions or preconditions",
+      "tasks": [
+        "T005",
+        "T013",
+        "T031",
+        "T039"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "tests/browser/facility-play-force.spec.mjs"
+      ]
+    },
+    "FR-008": {
+      "title": "Forced change confirms device, current and target state, and runs no fault effects",
+      "tasks": [
+        "T013",
+        "T031",
+        "T039"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "tests/browser/facility-play-force.spec.mjs"
+      ]
+    },
+    "FR-009": {
+      "title": "Card lists every device-scoped fault with a switch, whatever its recovery setting",
+      "tasks": [
+        "T005",
+        "T013",
+        "T032",
+        "T040"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "tests/browser/facility-play-faults.spec.mjs"
+      ]
+    },
+    "FR-010": {
+      "title": "A fault switch changes only the current position and its effects reach players",
+      "tasks": [
+        "T005",
+        "T013",
+        "T032",
+        "T040"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "tests/browser/facility-play-faults.spec.mjs"
+      ]
+    },
+    "FR-011": {
+      "title": "Reset to initial stays on the card and succeeds when only faults differ",
+      "tasks": [
+        "T007",
+        "T011",
+        "T016",
+        "T020",
+        "T026",
+        "T027",
+        "T032",
+        "T040",
+        "T041"
+      ],
+      "tests": [
+        "internal/control/facility_test.go",
+        "app_test.go",
+        "tests/browser/desktop-api.spec.mjs",
+        "tests/browser/facility-play-faults.spec.mjs"
+      ]
+    },
+    "FR-012": {
+      "title": "Card shows the five most recent changes, newest first, for the current run only",
+      "tasks": [
+        "T003",
+        "T006",
+        "T008",
+        "T009",
+        "T012",
+        "T014",
+        "T015",
+        "T017",
+        "T021",
+        "T026",
+        "T027",
+        "T033",
+        "T042"
+      ],
+      "tests": [
+        "internal/domain/facility_test.go",
+        "internal/control/feed_test.go",
+        "internal/control/service_test.go",
+        "app_contract_test.go",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-013": {
+      "title": "Feed includes rejected or refused player requests with the reason",
+      "tasks": [
+        "T006",
+        "T008",
+        "T010",
+        "T014",
+        "T015",
+        "T018",
+        "T033",
+        "T042"
+      ],
+      "tests": [
+        "internal/control/feed_test.go",
+        "internal/control/service_test.go",
+        "internal/control/authoring_test.go",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-014": {
+      "title": "Feed updates while the card is open",
+      "tasks": [
+        "T008",
+        "T015",
+        "T033",
+        "T042"
+      ],
+      "tests": [
+        "internal/control/service_test.go",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-015": {
+      "title": "Every play change, accepted or rejected, is written to the retained log",
+      "tasks": [
+        "T007",
+        "T011",
+        "T016",
+        "T020"
+      ],
+      "tests": [
+        "internal/control/facility_test.go",
+        "app_test.go"
+      ]
+    },
+    "FR-016": {
+      "title": "Feed entries and log records contain no passwords, credentials, or hacking content",
+      "tasks": [
+        "T006",
+        "T007",
+        "T014",
+        "T042"
+      ],
+      "tests": [
+        "internal/control/feed_test.go",
+        "internal/control/facility_test.go",
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "FR-017": {
+      "title": "Device header comes first with name, type, linked terminals, current and starting state, active faults",
+      "tasks": [
+        "T028",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "FR-018": {
+      "title": "At 1440x900 and 1180x760 the header and first transition control are visible without scrolling",
+      "tasks": [
+        "T028",
+        "T037",
+        "T051"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "FR-019": {
+      "title": "Guide is expanded with no devices, collapses to one line on the first device, reopens on demand",
+      "tasks": [
+        "T029",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs",
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "FR-020": {
+      "title": "Guide keeps the explicit choice until the app closes; nothing is stored",
+      "tasks": [
+        "T029",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "FR-021": {
+      "title": "Guide step navigation never covers other content from 900 points up",
+      "tasks": [
+        "T029",
+        "T037"
+      ],
+      "tests": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "FR-022": {
+      "title": "Actions grouped by role; delete only in the menu; play controls only on the card",
+      "tasks": [
+        "T034",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "FR-023": {
+      "title": "Separate name field and its ГОТОВО/ОТМЕНА are removed; rename stays in the device dialog",
+      "tasks": [
+        "T034",
+        "T038",
+        "T043",
+        "T044",
+        "T045",
+        "T046",
+        "T047"
+      ],
+      "tests": [
+        "tests/browser/facility-device-actions.spec.mjs",
+        "tests/browser/facility-unified-save.spec.mjs"
+      ]
+    },
+    "FR-024": {
+      "title": "Device details are four tabs with item counts; only the open tab is listed",
+      "tasks": [
+        "T034",
+        "T043",
+        "T048"
+      ],
+      "tests": [
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "FR-025": {
+      "title": "Device list rows show current state and active fault count and update live",
+      "tasks": [
+        "T034",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-device-actions.spec.mjs",
+        "tests/browser/facility-play-faults.spec.mjs"
+      ]
+    },
+    "FR-026": {
+      "title": "Sessions stay portable session JSON version 1",
+      "tasks": [
+        "T004",
+        "T005",
+        "T013",
+        "T051"
+      ],
+      "tests": [
+        "internal/session/facility_test.go",
+        "app_test.go",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "FR-027": {
+      "title": "Demo sessions include reachable paths for every play case",
+      "tasks": [
+        "T004"
+      ],
+      "tests": [
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "FR-028": {
+      "title": "Each user story has a browser test",
+      "tasks": [
+        "T001",
+        "T036",
+        "T037",
+        "T039",
+        "T040",
+        "T042",
+        "T043"
+      ],
+      "tests": [
+        "tests/browser/facility-play-transitions.spec.mjs",
+        "tests/browser/facility-workspace-layout.spec.mjs",
+        "tests/browser/facility-play-force.spec.mjs",
+        "tests/browser/facility-play-faults.spec.mjs",
+        "tests/browser/facility-play-feed.spec.mjs",
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    }
+  },
+  "size": "oversized",
+  "classification": {
+    "projectedFiles": 26,
+    "projectedTasks": 45,
+    "scopeSignal": "none",
+    "verdict": "oversized"
+  },
+  "expectations": [
+    "F-10 to F-14 (transition matrix, rule dialog, single fault placement incl. terminal-scoped faults, terminology, list badges and filters) are feature 041",
+    "no change to how players run commands or to precedence rules",
+    "no multi-device Overseer action; multi-device changes stay on commands and recovery programs",
+    "device change feed is not persisted in the session file"
+  ],
+  "context": [
+    "area: internal/control/facility.go (ResetFacilityDevice/resetFacility: revision check, audit, invalidatePendingFacilityAction, reprojectTerminalRuntimes; RecoverFacilityCondition and conditionAllowsRecovery for privateOverseerAction)",
+    "area: internal/session/facility.go (resolveWorldTransitions: source state, preconditions, condition effects, all-or-nothing)",
+    "area: internal/domain/facility.go (FacilityDevice, FacilityDeviceTransition, DiagnosticCondition initialActive/currentActive, RecoveryProgram)",
+    "area: app.go, desktop_service.go, app_contract.go, private v1 desktop proto (ResetFacilityDevice desktop API path)",
+    "area: frontend/overseer/src/index.html:214-308 (facility workspace: story guide details, selection editor with rename field and six buttons, bindings/conditions/programs sections)",
+    "area: frontend/overseer/src/overseer.js, overseer.css (facility-story-steps sticky panel), desktop-api.js",
+    "area: sessions/ demo assets, tests/browser facility specs",
+    "constraint: Principle III server-authoritative state with revision checks",
+    "constraint: Principle VI portable session JSON version 1",
+    "constraint: Principle VIII player activity observable to the Overseer",
+    "constraint: Principle IX demo sessions exercise every capability",
+    "constraint: Overseer window minimum 900x600 (wails_host.go)",
+    "constraint: spec file kept as spec.md to match specs/001-039 and .specify/scripts/bash/common.sh FEATURE_SPEC"
+  ],
+  "intent": "Let the Overseer steer devices during play from a device-first card (transitions, forced change, fault switches, recent changes) and fix the Objects workspace layout",
+  "decisions": [
+    {
+      "decision": "Card transition is a new private session op built on resolveWorldTransitions; it writes no CommandStates",
+      "why": "Same source-state, precondition and fault-effect rules as a player command; ApplyWorldAction requires a terminal and command",
+      "rejected": "synthetic command or a copied resolver in control"
+    },
+    {
+      "decision": "Three unary desktop methods (ApplyFacilityDeviceTransition, ForceFacilityDeviceState, SetFacilityConditionActive) returning FacilityOperationResult",
+      "why": "Each has a distinct exact-result rule and mirrors ResetFacilityDevice",
+      "rejected": "one ChangeFacilityDevice method with a oneof"
+    },
+    {
+      "decision": "Fault switch is a new op that ignores the operator-recovery setting; RecoverFacilityCondition stays for terminal-scoped faults",
+      "why": "Clarified in spec; recovery only clears and is gated by privateOverseerAction",
+      "rejected": "extending recovery with an activate variant"
+    },
+    {
+      "decision": "Keep the facility-wide revision; on stale the Overseer applies the returned canonical session",
+      "why": "Today the UI discards result.session on failure; scene reset already shows the pattern",
+      "rejected": "per-device revisions; silent auto-retry"
+    },
+    {
+      "decision": "Card precondition verdict computed client-side with the server rule order; server decides; Go parity table over demo transitions",
+      "why": "Server is fail-fast and reports only the first unmet precondition",
+      "rejected": "server-computed availability in the snapshot"
+    },
+    {
+      "decision": "Feed is runtime-only in ProcessRuntime, 5 per device, carried by CoordinationState field 11 on the existing coordination-state event; cleared by ReplaceFacility; Config.Now clock",
+      "why": "Clarified not persisted; Principle VIII forbids rebuilding from logs; no new pinned event name",
+      "rejected": "new event; persistence in session JSON"
+    },
+    {
+      "decision": "New audit actions transition/force/fault with events facility.overseer_transition/force/fault; device reset now logs the withdrawn pending request",
+      "why": "Allowlists drop unknown values; invalidatePendingFacilityAction logged nothing",
+      "rejected": "reusing facility.reset for all"
+    },
+    {
+      "decision": "Fix reset validators to accept fault-only resets",
+      "why": "Session allows them but App/JS reject, reporting persistence-failed after a successful save",
+      "rejected": "leaving the bug since the fault switch makes it common"
+    },
+    {
+      "decision": "Guide open = explicit run choice, else devices==0; choice cleared on 0->1 devices; sticky step bar removed",
+      "why": "Clarified: rule plus run memory, no storage",
+      "rejected": "backend preferences file; webview localStorage"
+    },
+    {
+      "decision": "Demo reactor gains state Критический перегрев reachable only by forced change",
+      "why": "Every demo device has 2 states with both-way transitions, so forced change had no meaningful path (Principle IX)",
+      "rejected": "relying on the browser fixture"
+    },
+    {
+      "decision": "Session device reset and the three play operations share one checked commit path (commitFacilityEdit)",
+      "why": "The four operations differ only in the edit; one path keeps locks, demo guard, revision check, and rollback identical",
+      "rejected": "Three copies of the resetFacility preamble"
+    },
+    {
+      "decision": "invalidatePendingFacilityAction takes the commit time and a refusal reason; callers write the superseded record",
+      "why": "One seam for play changes, device reset, scene reset, recovery (WITHDRAWN) and the authoring path (STALE), set before Wave 4 so four parallel workers agreed",
+      "rejected": "Each caller appending its own refusal entries"
+    },
+    {
+      "decision": "Private condition recovery also writes the superseded record when it withdraws a request",
+      "why": "The shared withdrawal now feeds a WITHDRAWN entry, and SC-005 needs a log record beside every entry",
+      "rejected": "Leaving recovery withdrawals unlogged"
+    },
+    {
+      "decision": "A card transition reports every fault its effects name, as a player command does",
+      "why": "data-model and contract disagreed; FR-003 parity decides",
+      "rejected": "Only faults whose position changed"
+    },
+    {
+      "decision": "SC-002 parity is a Go table over every demo transition plus a golden file the browser journey reads",
+      "why": "The server is checked against the player path, and the card is checked against the server output, without duplicating the rule in the test",
+      "rejected": "Recomputing expected verdicts in the browser test"
+    }
+  ],
+  "concerns": [
+    {
+      "note": "companion plan-blocks.py cannot find its part templates (call-paths.md, states.md, screens.md, code-pins.md); Call Paths and Screens were written by hand"
+    },
+    {
+      "note": "existing defect on the 035-039 stack: a device reset that changes only faults saves but reports persistence-failed (app.go validFacilityResetResultForApp, desktop-api.js device-reset branch); fixed in 040, not backported"
+    },
+    {
+      "note": "spec file kept as spec.md (not <short-name>.spec.md) because .specify/scripts/bash/common.sh hard-codes FEATURE_SPEC=spec.md"
+    },
+    {
+      "note": "T051 packaged-app check not run: it drives the app on the desktop with computer use. The WebKit view at 1440x900 and 1180x760 is unchecked; Chromium journeys pass",
+      "step": "implement"
+    },
+    {
+      "note": "Browser runs share fixed port 34119; parallel story workers were serialized through a scratchpad lock script, not a repo mechanism",
+      "step": "implement"
+    },
+    {
+      "note": "facility-preview-diff.spec.mjs and internal/platform/assets_test.go were missing from the task list; added as T052 and to the Phase 2 file list",
+      "step": "implement"
+    },
+    {
+      "note": "Update: T051 did run after the user approved; see validation.md. Exact 1440x900 and 1180x760 window sizes were not settable with click-only control, so 1200x780 and full screen were checked instead",
+      "step": "implement"
+    }
+  ],
+  "step_summaries": {
+    "plan": {
+      "summary": "Plan, research R1-R12, data model, private desktop and Overseer UI contracts for 3 play ops, a runtime device feed, a fault-only reset fix, and the device-first Objects layout",
+      "key_finding": "The card transition needs its own session op over resolveWorldTransitions, and the existing reset validators reject fault-only resets"
+    },
+    "tasks": {
+      "summary": "51 tasks: Setup 1, Foundational 33 in 14 waves (all implementation), six story phases owning their journeys (15), Polish 2"
+    },
+    "implement": {
+      "summary": "F-07 play card (transitions, forced change, fault switches, reset, feed) and F-09 layout (header first, collapsing guide, actions by role, tabs, device rows) with three private desktop operations and a runtime feed; 51 of 52 tasks done"
+    }
+  },
+  "approach": "Three private play operations mirror ResetFacilityDevice through session, control, App and bridge, reusing resolveWorldTransitions for card transitions. A bounded runtime feed rides the existing coordination-state event. The Objects detail area is reordered device-first with a play card, role-grouped actions and tabs, and the guide follows a rule plus run memory.",
+  "currentTask": null,
+  "task_summaries": {
+    "T001": {
+      "status": "DONE",
+      "did": "Shared play-card journey helpers: demo copy, device selection, card locators, feed reader, fixture state setters, player table",
+      "files": [
+        "tests/browser/helpers/facility-play.mjs"
+      ]
+    },
+    "T002": {
+      "status": "DONE",
+      "did": "Three play request messages, FacilityChange feed messages and refusal enum, CoordinationState field 11; generated; buf lint and breaking pass",
+      "files": [
+        "proto/fallout/terminal/private/v1/desktop.proto",
+        "proto/fallout/terminal/private/v1/coordination.proto",
+        "internal/gen/fallout/terminal/private/v1/",
+        "proto/schema-revision.txt"
+      ]
+    },
+    "T003": {
+      "status": "DONE",
+      "did": "Domain FacilityChange entry, variants, refusal reasons, runtime and master-state feed fields, deep clones; tests pass",
+      "files": [
+        "internal/domain/facility.go",
+        "internal/domain/model.go",
+        "internal/domain/facility_test.go",
+        "internal/domain/model_test.go"
+      ]
+    },
+    "T004": {
+      "status": "DONE",
+      "did": "Reactor gains critical-overheat with its t_demo1 text variant; inventory lists six play paths and new copy; demo journey checks them; demo-session spec passes",
+      "files": [
+        "sessions/demo.json",
+        "sessions/demo-capability-paths.md",
+        "tests/browser/demo-session.spec.mjs"
+      ]
+    },
+    "T005": {
+      "status": "DONE",
+      "did": "Session table tests for the three play changes: exact affected IDs, stale with canonical session, missing refs, invalid-transition, ordered preconditions, conflict, no-ops, rollback, demo guard, no commandStates, initialActive kept; red until T013",
+      "files": [
+        "internal/session/facility_test.go"
+      ]
+    },
+    "T009": {
+      "status": "DONE",
+      "did": "Scene reset feed tests: one sceneReset entry per changed device (state or device faults), none for unchanged devices or terminal faults, WITHDRAWN after the superseded record, none on unchanged reset; red until T015 and T017",
+      "files": [
+        "internal/control/scene_test.go"
+      ]
+    },
+    "T006": {
+      "status": "DONE",
+      "did": "Feed tests: per-device bound of five newest first, run-wide sequence, one commit time, snapshot flattening, pruning, deep clone, refusal reasons, per-variant builders, IDs only; red until T014/T015 by design",
+      "files": [
+        "internal/control/feed_test.go"
+      ]
+    },
+    "T010": {
+      "status": "DONE",
+      "did": "Authoring tests: unrebased pending request feeds STALE refusals; deleting a device drops its feed; red until T015/T018 by design",
+      "files": [
+        "internal/control/authoring_test.go"
+      ]
+    },
+    "T008": {
+      "status": "DONE",
+      "did": "Player command feed tests: playerCommand per moved device, refusal reasons per path, publication, no entries for duplicates and non-facility requests, ReplaceFacility clears, Config.Now default; red until T015 by design",
+      "files": [
+        "internal/control/service_test.go"
+      ]
+    },
+    "T012": {
+      "status": "DONE",
+      "did": "Method count 47, request converter round trips, CoordinationState feed round trip of every variant and reason, descriptor checks; red until T021/T022 by design",
+      "files": [
+        "app_contract_test.go"
+      ]
+    },
+    "T007": {
+      "status": "DONE",
+      "did": "Control tests for transition, force, fault ops and reset: audit, withdrawal record and WITHDRAWN entries, reprojection, feed, no-op and rejection paths, concurrency, log scan; red until T016 by design",
+      "files": [
+        "internal/control/facility_test.go"
+      ]
+    },
+    "T011": {
+      "status": "DONE",
+      "did": "App tests for three play methods, validators, stale session fill, fault-only reset, audit allowlists; red until T020 by design",
+      "files": [
+        "app_test.go"
+      ]
+    },
+    "T013": {
+      "status": "DONE",
+      "did": "Session ApplyFacilityDeviceTransition, ForceFacilityDeviceState, SetFacilityConditionActive and ResetFacilityDevice share one checked commit path; T005 passes with -race",
+      "files": [
+        "internal/session/facility.go"
+      ]
+    },
+    "T014": {
+      "status": "DONE",
+      "did": "Feed helpers: bounded per-device append with run-wide sequence, newest-first snapshot, prune, clone, refusal reason map, per-variant builders; T006 passes with -race",
+      "files": [
+        "internal/control/feed.go"
+      ]
+    },
+    "T017": {
+      "status": "DONE",
+      "did": "Scene reset commit appends one sceneReset feed entry per changed device, then the WITHDRAWN entries, sharing one clock read",
+      "files": [
+        "internal/control/scene.go"
+      ]
+    },
+    "T018": {
+      "status": "DONE",
+      "did": "Authoring save prunes deleted devices' feeds after install and records STALE refusals at one commit time when a pending request cannot rebase; T010 passes with -race",
+      "files": [
+        "internal/control/authoring.go"
+      ]
+    },
+    "T015": {
+      "status": "DONE",
+      "did": "Feed in service.go: runtime clone and snapshot projection, ReplaceFacility clears feed keeping sequence, playerCommand entries on approved apply, playerRefusal entries on decline, failure, stale, fault block and request-time refusal, with refusal-only paths publishing the master snapshot",
+      "files": [
+        "internal/control/service.go"
+      ]
+    },
+    "T016": {
+      "status": "DONE",
+      "did": "Added transition/force/fault audit actions and target facts, FacilityPlayStore, and the three play ops sharing one commit path with device reset (feed entry, superseded record plus WITHDRAWN entries on withdrawal); T007 passes",
+      "files": [
+        "internal/control/facility.go"
+      ]
+    },
+    "T021": {
+      "status": "DONE",
+      "did": "Added the three play request converters (to/from private) and FacilityChange feed conversion with refusal-reason mapping in coordinationStateToPrivate/FromPrivate; T012 app_contract tests pass",
+      "files": [
+        "app_contract.go"
+      ]
+    },
+    "T019": {
+      "status": "DONE",
+      "did": "Adapted sessionCommandStateStore to controlservice.FacilityPlayStore with three methods that convert to the session request types, plus the var _ assertion",
+      "files": [
+        "main.go"
+      ]
+    },
+    "T022": {
+      "status": "DONE",
+      "did": "Added ApplyFacilityDeviceTransition, ForceFacilityDeviceState, and SetFacilityConditionActive as one-line desktopService forwards to App (47 methods)",
+      "files": [
+        "desktop_service.go"
+      ]
+    },
+    "T020": {
+      "status": "DONE",
+      "did": "Added the three play payloads, coordinator seams and App methods with proto round trip, trimmed-ID checks, exact result validators, R9 fault-only reset fix, stale session fill from the active snapshot, and the new audit events, actions and target log fields",
+      "files": [
+        "app.go"
+      ]
+    },
+    "T023": {
+      "status": "DONE",
+      "did": "Regenerated Wails bindings (47 methods, 7 events) and extended the bindings check with the three facility play methods, count 47, and their signatures",
+      "files": [
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/desktopservice.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/models.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/index.js",
+        "frontend/overseer/bindings/github.com/obalunenko/Fallout-Terminal/v2/internal/domain/models.js",
+        "scripts/wails-bindings-check.sh"
+      ]
+    },
+    "T026": {
+      "status": "DONE",
+      "did": "Desktop API cases for the three play normalizers, transition/force/condition-active and R9 reset validators, stale-only failure sessions, and feed normalization; method pin raised to 47; red until T027 by design, passes against a draft",
+      "files": [
+        "tests/browser/desktop-api.spec.mjs"
+      ]
+    },
+    "T025": {
+      "status": "DONE",
+      "did": "Exported ApplyFacilityDeviceTransition, ForceFacilityDeviceState, SetFacilityConditionActive through facilityOperationFixture; 47-method pin passes",
+      "files": [
+        "tests/browser/fixtures/desktop-bindings.js"
+      ]
+    },
+    "T024": {
+      "status": "DONE",
+      "did": "Fixture server: facility-authoring fake gets apply-transition, force-state, set-condition-active (source state and preconditions enforced, session on stale, fault-only reset), a polled coordination-state with contract-shaped facilityChanges for every producer including player approve/decline via player-command; facilityPlayerState implements control.FacilityPlayStore with player-state play routes and shim exports",
+      "files": [
+        "tests/browser/fixture-server/main.go"
+      ]
+    },
+    "T027": {
+      "status": "DONE",
+      "did": "desktop-api.js: three play methods, payload normalizers, feed normalization on coordination-state, device-transition/force/condition-active and R9 reset validators, stale-only failure sessions; desktop-api spec 21/21",
+      "files": [
+        "frontend/overseer/src/desktop-api.js"
+      ]
+    },
+    "T028": {
+      "status": "DONE",
+      "did": "Detail order: device header (name, kind, terminals, current/initial state, active faults, technical line, ВСЯ СЕССИЯ), empty play card with status, actions container; summary and heading removed; selection clears when its device disappears",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T029": {
+      "status": "DONE",
+      "did": "Guide follows rule plus run choice: open with no devices, collapses on first device, summary line ШАГ N ИЗ 5 with ПОКАЗАТЬ/СКРЫТЬ, user toggle is the only choice; sticky step bar removed",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T030": {
+      "status": "DONE",
+      "did": "Play card transitions with preconditions and verdicts, one-press run via applyFacilityDeviceTransition, shared play block reasons, stale results install the winning state before the message (card and reconcileFacilityOperation)",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T031": {
+      "status": "DONE",
+      "did": "Forced change button (blocked on one-state devices) and dialog capturing device, state, and revision; non-stale failure stays open with reason, stale closes and shows card text",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T032": {
+      "status": "DONE",
+      "did": "Fault switches (role=switch) for every device-scoped fault with current and starting position; reset moved onto the card as СБРОСИТЬ К НАЧАЛЬНОМУ… through the play-change path; fault-only reset succeeds",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T033": {
+      "status": "DONE",
+      "did": "Recent-changes feed on the card: five newest entries for the device with local HH:MM time, per-kind text and refusal reasons, names from the session, re-rendered on coordination-state",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T034": {
+      "status": "DONE",
+      "did": "Actions grouped (inspection, change, ⋯ menu with delete), rename field and ГОТОВО/ОТМЕНА and device unapplied key removed, ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ button, four ARIA tabs with counts, split binding lists, device rows show state and ● fault count",
+      "files": [
+        "frontend/overseer/src/index.html",
+        "frontend/overseer/src/overseer.js",
+        "frontend/overseer/src/overseer.css"
+      ]
+    },
+    "T035": {
+      "status": "DONE",
+      "did": "SC-002 parity: every demo transition, met and each-unmet cases with faults cleared, card op equals player command outcome; 22-row golden table written",
+      "files": [
+        "internal/session/facility_parity_test.go",
+        "internal/session/testdata/demo-transition-verdicts.json"
+      ]
+    },
+    "T036": {
+      "status": "DONE",
+      "did": "US1 journey: one-press transition reaching players, unmet precondition named, fault effect together, stale refresh, no-outgoing edge, already-performed refusal, SC-002 card verdict vs golden; 7/7 pass",
+      "files": [
+        "tests/browser/facility-play-transitions.spec.mjs"
+      ]
+    },
+    "T039": {
+      "status": "DONE",
+      "did": "US3 journey: dialog targets incl. overheat, confirm without effects with forced feed entry, cancel/Escape no-op, stale while open, one-state reason, player sees forced state; 6/6 pass",
+      "files": [
+        "tests/browser/facility-play-force.spec.mjs"
+      ]
+    },
+    "T042": {
+      "status": "DONE",
+      "did": "US5 journey: empty run text, every kind newest first with bound of five and exact text, refusal reasons, live update keeping focus, empty after another session, withdrawn on play change; 6/6 pass",
+      "files": [
+        "tests/browser/facility-play-feed.spec.mjs"
+      ]
+    },
+    "T043": {
+      "status": "DONE",
+      "did": "Added US6 journey: role groups and SC-007 danger sweep, «⋯» menu keys and close rules, dialog rename, tab counts vs session with and without selection, arrow/Home/End, empty tabs, device rows following card and player changes (7 tests pass)",
+      "files": [
+        "tests/browser/facility-device-actions.spec.mjs"
+      ]
+    },
+    "T044": {
+      "status": "DONE",
+      "did": "Renamed through the device dialog, scoped the workspace-tab read, used the card reset with #facilityPlayStatus, opened detail tabs, split binding lists, dropped the device:<id> unapplied case (10 tests pass)",
+      "files": [
+        "tests/browser/facility-unified-save.spec.mjs"
+      ]
+    },
+    "T045": {
+      "status": "DONE",
+      "did": "Deleted through «⋯», renamed in the device dialog, read #facilityActionBindingList, opened detail tabs for conditions, programs and bindings, used the card reset copy and status (8 tests pass)",
+      "files": [
+        "tests/browser/facility-authoring.spec.mjs"
+      ]
+    },
+    "T046": {
+      "status": "DONE",
+      "did": "Label sweep now opens detail tabs, reaches delete through the menu, sweeps the open menu, uses #btnEditFacilityDevice, and sweeps the selected device without the removed name form (4 tests pass)",
+      "files": [
+        "tests/browser/facility-p0-visible-fields.spec.mjs"
+      ]
+    },
+    "T047": {
+      "status": "DONE",
+      "did": "Renamed the door through the device dialog and opened the command-action binding with «ДОБАВИТЬ КОМАНДУ» (5 tests pass)",
+      "files": [
+        "tests/browser/facility-p0-command-actions.spec.mjs"
+      ]
+    },
+    "T048": {
+      "status": "DONE",
+      "did": "Read the edited name rule from #facilityInformationBindingList on the «ЧТО ВИДЯТ ИГРОКИ» tab (file passes)",
+      "files": [
+        "tests/browser/facility-command-lists.spec.mjs"
+      ]
+    },
+    "T049": {
+      "status": "DONE",
+      "did": "Opened the device dialog through «ИЗМЕНИТЬ СОСТОЯНИЯ И ПЕРЕХОДЫ» and opened the conditions and programs tabs before their add controls (2 tests pass)",
+      "files": [
+        "tests/browser/facility-p0-identifiers.spec.mjs"
+      ]
+    },
+    "T052": {
+      "status": "DONE",
+      "did": "Opened «НЕИСПРАВНОСТИ» before the fault preview rows and «ЧТО ВИДЯТ ИГРОКИ» before the applied text rule (file passes)",
+      "files": [
+        "tests/browser/facility-preview-diff.spec.mjs"
+      ]
+    },
+    "T037": {
+      "status": "DONE",
+      "did": "US2 journey: guide open without devices and collapsed on the first, run-only choice, header first with its fields, header and first control visible for every demo device at 1440x900 and 1180x760, static step bar never overlaps at 900/1180/1440; 8/8 pass",
+      "files": [
+        "tests/browser/facility-workspace-layout.spec.mjs"
+      ]
+    },
+    "T040": {
+      "status": "DONE",
+      "did": "US4 journey: switch on with role=switch, header and row counts, fault-blocked player command; off keeps starting position; empty device; operator recovery does not limit; fault-only reset; row follows switch; 6/6 pass",
+      "files": [
+        "tests/browser/facility-play-faults.spec.mjs"
+      ]
+    },
+    "T041": {
+      "status": "DONE",
+      "did": "Fault-activity journey opens the НЕИСПРАВНОСТИ tab and reads the card reset status; 3/3 pass",
+      "files": [
+        "tests/browser/facility-p0-fault-activity.spec.mjs"
+      ]
+    },
+    "T038": {
+      "status": "DONE",
+      "did": "Moved the authoring UX journey to the 040 layout: rename via the device dialog, detail tabs, the device header, and a collapsed-by-default guide opened through its summary toggle; 21/21 pass",
+      "files": [
+        "tests/browser/facility-authoring-ux.spec.mjs"
+      ]
+    },
+    "T050": {
+      "status": "DONE",
+      "did": "Ran go fix, fmt, vet, lint, race tests, proto check and breaking, bindings, frontend build, secret scan, full browser suite (365 pass), and package; recorded SC-001..SC-008 evidence in validation.md",
+      "files": [
+        "specs/040-facility-play-controls/validation.md"
+      ]
+    },
+    "T051": {
+      "status": "DONE",
+      "did": "Packaged app driven with computer use: layout at 1200x780 and full screen, card transition, forced change, fault switch, reset and fault-only reset, feed, menu, restart and pre-feature session; player saw changes without reconnect",
+      "files": [
+        "specs/040-facility-play-controls/validation.md"
+      ]
+    }
+  },
+  "verified": [
+    {
+      "what": "go fix proposes no edits",
+      "command": "sh -c 'test -z \"$(MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go fix -diff ./...)\"'",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.4,
+      "result": "no output"
+    },
+    {
+      "what": "formatting",
+      "command": "task fmt:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.1,
+      "result": "  printf 'Go files need formatting:\\n%s\\n' \"$unformatted\" >&2 ·   exit 1 · fi"
+    },
+    {
+      "what": "vet",
+      "command": "task vet",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 0.4,
+      "result": "task: [vet] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go vet ./..."
+    },
+    {
+      "what": "lint",
+      "command": "task lint",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.6,
+      "result": "0 issues. · task: [lint] go tool -modfile=tools/golangci-lint/go.mod golangci-lint run"
+    },
+    {
+      "what": "race tests",
+      "command": "task test:race",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 12.9,
+      "result": "ok  \tgithub.com/obalunenko/Fallout-Terminal/v2/internal/version\t(cached) · ?   \tgithub.com/obalunenko/Fallout-Terminal/v2/tests/browser/fixture-server\t[no test files] · task: [test:race] env MACOSX_DEPLOYMENT_TARGET=13.0 CGO_CFLAGS=-mmacosx-version-min=13.0 CGO_LDFLAGS=\"-mmacosx-version-min=13.0 -Wl,-no_warn_duplicate_libraries\" go test -race ./..."
+    },
+    {
+      "what": "protobuf checks",
+      "command": "task proto:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 10.9,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "protobuf breaking",
+      "command": "task proto:breaking",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.8,
+      "result": "Breaking fixture rejected: package-name · Breaking fixture rejected: service-method · task: [proto:breaking] scripts/proto-breaking.sh --all-fixtures"
+    },
+    {
+      "what": "bindings",
+      "command": "task bindings:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.0,
+      "result": "Wails bindings are deterministic and expose exactly 47 accepted desktop methods and seven named events. · task: [bindings:check] scripts/wails-bindings-check.sh"
+    },
+    {
+      "what": "frontend build",
+      "command": "task frontend:build",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 2.2,
+      "result": "npm notice run npm run build --workspace fallout-terminal-client · npm notice run fallout-terminal-client@2.0.0 build · npm notice run vite build"
+    },
+    {
+      "what": "secret leak scan",
+      "command": "task secret-leak:check",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 1.2,
+      "result": "Secret-bearing fields remain confined to narrow private inputs/results; no forbidden leak was detected. · task: [secret-leak:check] scripts/secret-leak-check.sh --self-test · task: [secret-leak:check] scripts/secret-leak-check.sh"
+    },
+    {
+      "what": "full browser suite",
+      "command": "/private/tmp/claude-501/-Users-olegbalunenko-Desktop-Fallout-Terminal/0cbdb15e-be1e-40fc-9289-d2619d5467d0/scratchpad/run-browser.sh --reporter=dot",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 333.0,
+      "result": "[WebServer] 2026/10/31 02:51:01 http: TLS handshake error from 127.0.0.1:65462: remote error: tls: unknown certificate · [WebServer] 2026/10/31 02:51:02 http: TLS handshake error from 127.0.0.1:65467: remote error: tls: unknown certificate · [WebServer] 2026/10/31 02:51:02 http: TLS handshake error from 127.0.0.1:65470: remote error: tls: unknown certificate"
+    },
+    {
+      "what": "packaged app build",
+      "command": "task package",
+      "source": "derived",
+      "exitCode": 0,
+      "durationSeconds": 12.5,
+      "result": "npm notice run fallout-terminal-overseer@2.0.0 build · npm notice run vite build · build/bin/Fallout Terminal.app: replacing existing signature"
+    },
+    {
+      "what": "packaged app interactive check (T051)::PASS at 1200x780 and full screen; exact 1440x900/1180x760 not settable with click-only control"
+    }
+  ]
+}

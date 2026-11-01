@@ -8,7 +8,11 @@ import {
   PlayerService,
   RosterAvailability,
 } from './gen/fallout/terminal/player/v1/player_pb.js';
-import { CommandExecutionPhase, TerminalNavigationDirection } from './gen/fallout/terminal/player/v1/terminal_pb.js';
+import {
+  CommandExecutionPhase,
+  TerminalNavigationDirection,
+  TerminalPresentationEffect,
+} from './gen/fallout/terminal/player/v1/terminal_pb.js';
 import {
   createPresentationUplinkTransport,
   LatestPresentationMailbox,
@@ -572,6 +576,7 @@ function applyGeneratedSnapshot(snapshot) {
   // previous stream suppress pending/rejected/completed recovery.
   appliedSharedRevision = 0;
   screen.dataset.runtimeRevision = '0';
+  clearTerminalPresentationEffects();
   terminalLiveBaselinePending = true;
   commandExecution = null;
   terminalNavigation = null;
@@ -612,7 +617,28 @@ function applyGeneratedTerminal(presentation, revision) {
     commandExecution: generatedCommandExecution(live.commandExecution),
     terminalNavigation: generatedTerminalNavigation(live.terminalNavigation),
     presentation: generatedControllerPresentation(live.controllerPresentation),
+    effects: generatedTerminalPresentationEffects(live.effects),
   });
+}
+
+function generatedTerminalPresentationEffects(effects) {
+  if (!Array.isArray(effects)) return [];
+  return effects.includes(TerminalPresentationEffect.DISPLAY_UNSTABLE)
+    ? ['display-unstable']
+    : [];
+}
+
+function clearTerminalPresentationEffects() {
+  // The effect loop is CSS-owned. Removing its sole selector cancels that
+  // loop without an animation callback that could change terminal state.
+  screen.removeAttribute('data-presentation-effect');
+}
+
+function applyTerminalPresentationEffects(effects) {
+  clearTerminalPresentationEffects();
+  if (Array.isArray(effects) && effects.includes('display-unstable')) {
+    screen.dataset.presentationEffect = 'display-unstable';
+  }
 }
 
 function generatedControllerPresentation(presentation) {
@@ -697,7 +723,12 @@ function generatedContentNode(node) {
   if (!node) return null;
   const result = { id: node.id, name: node.name, type: node.content.case };
   if (node.content.case === 'folder') result.children = (node.content.value.children || []).map(generatedContentNode);
-  if (node.content.case === 'command') result.text = node.content.value.text;
+  if (node.content.case === 'command') {
+    result.text = node.content.value.text;
+    if (typeof node.content.value.available === 'boolean') {
+      result.available = node.content.value.available;
+    }
+  }
   if (node.content.case === 'entry') result.description = node.content.value.description;
   return result;
 }
@@ -864,6 +895,24 @@ function actionReasonName(reason) {
   })[reason] || 'invalid-action';
 }
 
+// ACTION_REASON_MESSAGES tells the player in Russian why the terminal refused
+// an action; the reason names themselves stay internal.
+const ACTION_REASON_MESSAGES = {
+  'invalid-session': 'СЕАНС ИГРОКА УСТАРЕЛ. ПОДКЛЮЧИТЕСЬ К ТЕРМИНАЛУ ЗАНОВО.',
+  'stale-broadcast': 'ТРАНСЛЯЦИЯ ИЗМЕНИЛАСЬ. ДОЖДИТЕСЬ ОБНОВЛЕНИЯ ЭКРАНА.',
+  unassigned: 'СНАЧАЛА ВЫБЕРИТЕ ПЕРСОНАЖА.',
+  'not-controller': 'ТЕРМИНАЛОМ СЕЙЧАС УПРАВЛЯЕТ ДРУГОЙ ИГРОК.',
+  'controller-disconnected': 'ВЕДУЩИЙ ИГРОК ОТКЛЮЧИЛСЯ. ДОЖДИТЕСЬ ПЕРЕДАЧИ УПРАВЛЕНИЯ.',
+  'stale-terminal': 'ЭКРАН ТЕРМИНАЛА ИЗМЕНИЛСЯ. ПОВТОРИТЕ ДЕЙСТВИЕ.',
+  'invalid-action': 'ЭТО ДЕЙСТВИЕ СЕЙЧАС НЕДОСТУПНО.',
+  conflict: 'ТЕРМИНАЛ ЗАНЯТ ДРУГИМ ЗАПРОСОМ. ПОВТОРИТЕ ДЕЙСТВИЕ.',
+  duplicate: 'ЗАПРОС УЖЕ БЫЛ ОБРАБОТАН.',
+};
+
+function actionReasonMessage(reason) {
+  return ACTION_REASON_MESSAGES[reason] || ACTION_REASON_MESSAGES['invalid-action'];
+}
+
 // Applies a nav position pushed by the server. Never touches MODE.HACK —
 // the hack gate always wins until it resolves.
 function applyNavFromServer(nav) {
@@ -929,6 +978,7 @@ function completeAcceptedPresentationAction() {
 }
 
 function clearBroadcastMirrors() {
+  clearTerminalPresentationEffects();
   hasLive = false;
   terminalID = '';
   terminalBroadcastID = '';
@@ -1070,6 +1120,7 @@ function applyRecognitionSnapshot(recognitionHandle, state) {
 
 function applyLiveTerminal(msg) {
     if (!matchesExpectedTerminalLive(msg) || !acceptSharedSnapshot(msg)) return;
+    applyTerminalPresentationEffects(msg.effects);
     const previousHack = hack;
     const nextTerminalID = msg.terminalId || '';
     const nextBroadcastID = playerState?.broadcastId || '';
@@ -1204,6 +1255,7 @@ function applyHackingProjection(nextHack, revision, projectedTerminalID) {
 function applyNoLiveTerminal(revision) {
     const projection = { revision };
     if (!expectsTerminalClear() || !acceptSharedSnapshot(projection)) return;
+    clearTerminalPresentationEffects();
     hasLive = false;
     terminalID = '';
     terminalBroadcastID = '';
@@ -1336,7 +1388,7 @@ function applyActionResult(result) {
       }
       const contextKey = hackingContextKey(rejectedPresentation);
       showPlayerNotice(
-        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`,
+        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${actionReasonMessage(result.reason)}`,
         contextKey,
       );
       scheduleDesiredPresentationDispatch();
@@ -1353,7 +1405,7 @@ function applyActionResult(result) {
       const contextKey = pendingSharedAction.contextKey;
       pendingSharedAction = null;
       showPlayerNotice(
-        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`,
+        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${actionReasonMessage(result.reason)}`,
         contextKey,
       );
     } else {
@@ -1372,11 +1424,11 @@ function applyActionResult(result) {
   if (!result.accepted) {
     pendingSelection = null;
     const messages = {
-      conflict: 'ПЕРСОНАЖ УЖЕ ЗАНЯТ (conflict). ВЫБЕРИТЕ ДРУГОГО.',
+      conflict: 'ПЕРСОНАЖ УЖЕ ЗАНЯТ. ВЫБЕРИТЕ ДРУГОГО.',
       'stale-broadcast': 'ТРАНСЛЯЦИЯ ИЗМЕНИЛАСЬ. ДОЖДИТЕСЬ НОВОГО СПИСКА.',
       duplicate: 'ЗАПРОС УЖЕ БЫЛ ОБРАБОТАН.',
     };
-    showPlayerNotice(messages[result.reason] || `ВЫБОР ОТКЛОНЕН: ${String(result.reason || 'invalid-action')}`);
+    showPlayerNotice(messages[result.reason] || `ВЫБОР ОТКЛОНЕН: ${actionReasonMessage(result.reason)}`);
     render();
     return;
   }
@@ -1759,6 +1811,7 @@ function activateRow(node) {
   if (node.type === 'folder') {
   beginNavigation('enter', node.id);
   } else if (node.type === 'command') {
+  if (node.available === false) return;
   beginNavigation('command', node.id);
   } else if (node.type === 'entry') {
   beginNavigation('entry', node.id);
@@ -2657,9 +2710,8 @@ function renderNormalScreen() {
     entryTitle.textContent  = node ? node.name : '';
 
     const entryText = node ? (node.description || '') : '';
-    const entryKey = revealContentIdentity('entry', viewEntryId, entryText);
-    const isNewEntry = entryKey !== lastRenderedEntryId;
-    lastRenderedEntryId = entryKey;
+    const isNewEntry = viewEntryId !== lastRenderedEntryId;
+    lastRenderedEntryId = viewEntryId;
     lastRenderedFolderKey = null;
     lastRenderedCommandKey = null;
 
@@ -2701,7 +2753,7 @@ function renderNormalScreen() {
   const kids = folder.children || [];
 
   const folderPath = navStack.join('/');
-  const folderText = JSON.stringify(kids.map(node => [node.id, node.type, node.name]));
+  const folderText = JSON.stringify(kids.map(node => [node.id, node.type, node.name, node.available === false]));
   const folderKey = revealContentIdentity('folder', folderPath, folderText);
   const isNewFolder = folderKey !== lastRenderedFolderKey;
   lastRenderedFolderKey = folderKey;
@@ -2719,6 +2771,9 @@ function renderNormalScreen() {
       row.dataset.idx = String(i);
       row.dataset.nodeId = node.id;
       row.textContent = '> ' + node.name;
+      if (node.type === 'command' && node.available === false) {
+        row.setAttribute('aria-disabled', 'true');
+      }
       row.addEventListener('click', () => {
         activateRow(node);
       });
@@ -2958,6 +3013,7 @@ function renderHackInputPreview() {
 // ════════════════════════════════════════════════════
 window.addEventListener('resize', scheduleRepagination);
 window.addEventListener('resize', scheduleHackFit);
+window.addEventListener('pagehide', clearTerminalPresentationEffects);
 if ('ResizeObserver' in window) {
   const paginationObserver = new ResizeObserver(scheduleRepagination);
   paginationObserver.observe(termBody);

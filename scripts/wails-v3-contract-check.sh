@@ -208,11 +208,11 @@ scan_lifecycle_schema() {
     fail 'reviewed private update schema changed unexpectedly'
     return 1
   }
-  [[ "$revision_digest" == 19b3736dd34573668bede187d45d4e3bd294337db554fda70436dcd453e00214 ]] || {
+  [[ "$revision_digest" == 1043ac277835c9d018f954ddf6c3c4453ebdcd7673d6b75c95a80747de81ecab ]] || {
     fail 'reviewed schema revision record changed unexpectedly'
     return 1
   }
-  [[ "$baseline_digest" == b0004a0b4dbfabd1b6cce0c183b7b42a3f104261b1c047fc5d2ebe40932be3a7 ]] || {
+  [[ "$baseline_digest" == 19fbe68d7ced356cd90342b6b3ba6a44e230b2eb1adf06cbf701c017d7555922 ]] || {
     fail 'reviewed compatibility baseline changed unexpectedly'
     return 1
   }

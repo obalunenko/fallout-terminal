@@ -8,12 +8,10 @@ const APP_METHODS = Object.freeze({
   getApplicationUpdateStatus: desktopService.GetApplicationUpdateStatus,
   newSession: desktopService.NewSession,
   openSession: desktopService.OpenSession,
-  saveSession: desktopService.SaveSession,
   loadReferencedPlayerConfig: desktopService.LoadReferencedPlayerConfig,
   newPlayerConfig: desktopService.NewPlayerConfig,
   openPlayerConfig: desktopService.OpenPlayerConfig,
   requestTerminalActivation: desktopService.RequestTerminalActivation,
-  updateLiveTerminal: desktopService.UpdateLiveTerminal,
   requestTerminalClear: desktopService.RequestTerminalClear,
   resolveTerminalSwitch: desktopService.ResolveTerminalSwitch,
   resolveCommandExecution: desktopService.ResolveCommandExecution,
@@ -21,10 +19,18 @@ const APP_METHODS = Object.freeze({
   forceHackSuccess: desktopService.ForceHackSuccess,
   resetFailedHack: desktopService.ResetFailedHack,
   resetCommandState: desktopService.ResetCommandState,
-  resetTerminalCommandStates: desktopService.ResetTerminalCommandStates,
   resolveApplicationUpdateOffer: desktopService.ResolveApplicationUpdateOffer,
   resolveApplicationUpdateRestart: desktopService.ResolveApplicationUpdateRestart,
   replaceTerminalGroups: desktopService.ReplaceTerminalGroups,
+  inspectFacilityDependencies: desktopService.InspectFacilityDependencies,
+  previewFacility: desktopService.PreviewFacility,
+  saveAuthoring: desktopService.SaveAuthoring,
+  resetScene: desktopService.ResetScene,
+  describePresentation: desktopService.DescribePresentation,
+  resetFacilityDevice: desktopService.ResetFacilityDevice,
+  applyFacilityDeviceTransition: desktopService.ApplyFacilityDeviceTransition,
+  forceFacilityDeviceState: desktopService.ForceFacilityDeviceState,
+  setFacilityConditionActive: desktopService.SetFacilityConditionActive,
   addCharacter: desktopService.AddCharacter,
   updateCharacter: desktopService.UpdateCharacter,
   deleteCharacter: desktopService.DeleteCharacter,
@@ -90,19 +96,6 @@ function normalizeTerminalGroups(groups) {
   });
 }
 
-function saveSessionCommand(session) {
-  try {
-    // Wails may complete the native call asynchronously. Capture the complete
-    // portable document now so later UI/event mutations cannot change which
-    // terminals the backend validates for this revision.
-    return command(APP_METHODS.saveSession, snapshotPortableSession(session));
-  } catch (error) {
-    return Promise.resolve({
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
 
 function normalizePortableSession(session) {
   if (!session || typeof session !== 'object') return null;
@@ -148,8 +141,11 @@ function normalizeCommandExecutionResult(result) {
   const value = result && typeof result === 'object' ? result : {};
   const ok = value.ok === true;
   const state = value.state && typeof value.state === 'object' ? value.state : null;
+  const facilityResult = value.facilityResult && typeof value.facilityResult === 'object'
+    ? normalizeFacilityOperationResult(value.facilityResult)
+    : null;
   const error = ok ? '' : 'СОСТОЯНИЕ КОМАНДЫ НЕ УДАЛОСЬ СОХРАНИТЬ';
-  return Object.freeze({ ok, error, state });
+  return Object.freeze({ ok, error, state, facilityResult });
 }
 
 function normalizeTerminalNavigationResult(result) {
@@ -232,6 +228,561 @@ function replaceTerminalGroupsCommand(payload) {
       error: error instanceof Error ? error.message : String(error),
     }));
   }
+}
+
+const FACILITY_FAILURES = new Set([
+  'unspecified',
+  'rejected',
+  'missing-reference',
+  'invalid-transition',
+  'precondition-failed',
+  'stale-revision',
+  'conflict',
+  'duplicate',
+  'invalid-configuration',
+  'persistence-failed',
+  'runtime-context-ended',
+]);
+const FACILITY_ENTITY_KINDS = new Set([
+  'unspecified',
+  'device',
+  'device-state',
+  'device-transition',
+  'condition',
+  'recovery-program',
+]);
+const FACILITY_DEPENDENCY_KINDS = new Set([
+  'unspecified',
+  'transition-precondition',
+  'transition-condition-effect',
+  'recovery-reference',
+  'recovery-program-transition',
+  'command-action',
+  'name-variant',
+  'entry-content-variant',
+  'visibility',
+  'availability',
+  'diagnostic-scope',
+  'diagnostic-effect',
+]);
+
+function facilityFailure(value, ok = false) {
+  if (ok) return '';
+  return typeof value === 'string' && FACILITY_FAILURES.has(value) ? value : 'unspecified';
+}
+
+function normalizeFacilityIssue(issue) {
+  const value = issue && typeof issue === 'object' ? issue : {};
+  const result = {
+    code: facilityFailure(value.code),
+    entityKind: typeof value.entityKind === 'string' ? value.entityKind : '',
+  };
+  if (Object.hasOwn(value, 'entityId') && typeof value.entityId === 'string') {
+    result.entityId = value.entityId;
+  }
+  if (Object.hasOwn(value, 'referenceKind') && typeof value.referenceKind === 'string') {
+    result.referenceKind = value.referenceKind;
+  }
+  if (Object.hasOwn(value, 'referenceId') && typeof value.referenceId === 'string') {
+    result.referenceId = value.referenceId;
+  }
+  return Object.freeze(result);
+}
+
+function normalizeFacilityEntityReference(reference) {
+  if (!reference || typeof reference !== 'object') return null;
+  const rawKind = typeof reference.kind === 'string' ? reference.kind : '';
+  const result = {
+    kind: FACILITY_ENTITY_KINDS.has(rawKind) ? rawKind : 'unspecified',
+    entityId: typeof reference.entityId === 'string' ? reference.entityId : '',
+  };
+  if (Object.hasOwn(reference, 'ownerId') && typeof reference.ownerId === 'string') {
+    result.ownerId = reference.ownerId;
+  }
+  return Object.freeze(result);
+}
+
+function normalizeFacilityDependency(dependency) {
+  const value = dependency && typeof dependency === 'object' ? dependency : {};
+  const rawKind = typeof value.kind === 'string' ? value.kind : '';
+  const result = {
+    kind: FACILITY_DEPENDENCY_KINDS.has(rawKind) ? rawKind : 'unspecified',
+    sourceId: typeof value.sourceId === 'string' ? value.sourceId : '',
+    targetId: typeof value.targetId === 'string' ? value.targetId : '',
+    property: typeof value.property === 'string' ? value.property : '',
+  };
+  if (Object.hasOwn(value, 'terminalId') && typeof value.terminalId === 'string') {
+    result.terminalId = value.terminalId;
+  }
+  return Object.freeze(result);
+}
+
+function normalizeFacilityDependencyReport(report) {
+  if (!report || typeof report !== 'object') return null;
+  return Object.freeze({
+    target: normalizeFacilityEntityReference(report.target),
+    dependencies: Object.freeze(Array.isArray(report.dependencies)
+      ? report.dependencies.map(normalizeFacilityDependency)
+      : []),
+  });
+}
+
+function facilityIDs(values) {
+  return Object.freeze(Array.isArray(values) ? values.filter(value => typeof value === 'string') : []);
+}
+
+function normalizeFacilityOperationResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  return Object.freeze({
+    ok,
+    changed: value.changed === true,
+    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
+    failure: facilityFailure(value.failure, ok),
+    issues: Object.freeze(Array.isArray(value.issues) ? value.issues.map(normalizeFacilityIssue) : []),
+    sessionRevision: nonnegativeSafeInteger(value.sessionRevision),
+    previousFacilityRevision: nonnegativeSafeInteger(value.previousFacilityRevision),
+    resultingFacilityRevision: nonnegativeSafeInteger(value.resultingFacilityRevision),
+    affectedDeviceIds: facilityIDs(value.affectedDeviceIds),
+    affectedConditionIds: facilityIDs(value.affectedConditionIds),
+    authoringRevision: nonnegativeSafeInteger(value.authoringRevision),
+    resetCommands: Object.freeze(Array.isArray(value.resetCommands)
+      ? value.resetCommands.map(reference => Object.freeze({
+        terminalId: typeof reference?.terminalId === 'string' ? reference.terminalId : '',
+        commandId: typeof reference?.commandId === 'string' ? reference.commandId : '',
+      }))
+      : []),
+    session: normalizePortableSession(value.session),
+  });
+}
+
+
+function normalizeFacilityDependencyInspectionPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    target: normalizeFacilityEntityReference(value.target),
+    expectedSessionRevision: nonnegativeSafeInteger(value.expectedSessionRevision),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+  };
+}
+
+function normalizeFacilityDependencyInspectionResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  return Object.freeze({
+    ok,
+    failure: facilityFailure(value.failure, ok),
+    issues: Object.freeze(Array.isArray(value.issues) ? value.issues.map(normalizeFacilityIssue) : []),
+    sessionRevision: nonnegativeSafeInteger(value.sessionRevision),
+    facilityRevision: nonnegativeSafeInteger(value.facilityRevision),
+    report: normalizeFacilityDependencyReport(value.report),
+  });
+}
+
+function sameFacilityEntityReference(left, right) {
+  if (left === null || right === null) return left === right;
+  return left.kind === right.kind
+    && left.entityId === right.entityId
+    && Object.hasOwn(left, 'ownerId') === Object.hasOwn(right, 'ownerId')
+    && left.ownerId === right.ownerId;
+}
+
+function facilityInspectionConflict(request) {
+  return normalizeFacilityDependencyInspectionResult({
+    ok: false,
+    failure: 'conflict',
+    issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+    sessionRevision: request.expectedSessionRevision,
+    facilityRevision: request.expectedFacilityRevision,
+  });
+}
+
+function validateFacilityDependencyInspectionResult(result, request) {
+  if (!result.ok) return result;
+  const consistent = result.sessionRevision === request.expectedSessionRevision
+    && result.facilityRevision === request.expectedFacilityRevision
+    && result.report !== null
+    && sameFacilityEntityReference(result.report.target, request.target);
+  return consistent ? result : facilityInspectionConflict(request);
+}
+
+function normalizeFacilityPreviewPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  const result = {
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    expectedAuthoringRevision: nonnegativeSafeInteger(value.expectedAuthoringRevision),
+    terminalId: typeof value.terminalId === 'string' ? value.terminalId : '',
+  };
+  if (value.deviceState && typeof value.deviceState === 'object') {
+    result.deviceState = {
+      DeviceID: typeof value.deviceState.deviceId === 'string' ? value.deviceState.deviceId : '',
+      StateID: typeof value.deviceState.stateId === 'string' ? value.deviceState.stateId : '',
+    };
+  }
+  if (value.condition && typeof value.condition === 'object') {
+    result.condition = {
+      ConditionID: typeof value.condition.conditionId === 'string' ? value.condition.conditionId : '',
+      Active: value.condition.active === true,
+    };
+  }
+  return result;
+}
+
+function normalizeFacilityPreviewResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  return Object.freeze({
+    ok,
+    failure: facilityFailure(value.failure, ok),
+    issues: Object.freeze(Array.isArray(value.issues) ? value.issues.map(normalizeFacilityIssue) : []),
+    facilityRevision: nonnegativeSafeInteger(value.facilityRevision),
+    terminal: value.terminal && typeof value.terminal === 'object'
+      ? snapshotPortableSession(value.terminal)
+      : null,
+    current: value.current && typeof value.current === 'object'
+      ? snapshotPortableSession(value.current)
+      : null,
+    differences: Object.freeze(Array.isArray(value.differences)
+      ? value.differences.map(difference => Object.freeze(snapshotPortableSession(difference)))
+      : []),
+  });
+}
+
+function facilityPreviewConflict(request) {
+  return normalizeFacilityPreviewResult({
+    ok: false,
+    failure: 'conflict',
+    issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+    facilityRevision: request.expectedFacilityRevision,
+  });
+}
+
+function validateFacilityPreviewResult(result, request) {
+  if (!result.ok) return result;
+  const consistent = result.facilityRevision === request.expectedFacilityRevision
+    && result.terminal !== null
+    && result.terminal.terminalId === request.terminalId;
+  return consistent ? result : facilityPreviewConflict(request);
+}
+
+function normalizeFacilityDeviceResetPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    deviceId: typeof value.deviceId === 'string' ? value.deviceId : '',
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
+  };
+}
+
+function normalizeFacilityDeviceTransitionPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    deviceId: optionalString(value.deviceId),
+    transitionId: optionalString(value.transitionId),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: optionalString(value.correlationId),
+  };
+}
+
+function normalizeFacilityDeviceForcePayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    deviceId: optionalString(value.deviceId),
+    stateId: optionalString(value.stateId),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: optionalString(value.correlationId),
+  };
+}
+
+function normalizeFacilityConditionActivePayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    conditionId: optionalString(value.conditionId),
+    active: value.active === true,
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: optionalString(value.correlationId),
+  };
+}
+
+const FACILITY_CHANGE_REFUSAL_REASONS = new Set([
+  'declined', 'precondition-failed', 'transition-unavailable', 'fault-blocked', 'stale', 'withdrawn', 'failed',
+  'unspecified',
+]);
+
+// Each feed variant key with its normalized kind and author.
+const FACILITY_CHANGE_VARIANTS = [
+  ['transition', 'transition', 'overseer'],
+  ['forced', 'forced', 'overseer'],
+  ['fault', 'fault', 'overseer'],
+  ['reset', 'reset', 'overseer'],
+  ['sceneReset', 'scene-reset', 'overseer'],
+  ['playerCommand', 'player-command', 'terminal'],
+  ['playerRefusal', 'player-refusal', 'terminal'],
+];
+
+// normalizeFacilityChange returns one frozen feed entry, or null for an entry
+// without exactly one variant, a device, and safe-integer sequence and time.
+function normalizeFacilityChange(change) {
+  if (!change || typeof change !== 'object') return null;
+  const present = FACILITY_CHANGE_VARIANTS.filter(([key]) => change[key] && typeof change[key] === 'object');
+  if (present.length !== 1
+    || typeof change.deviceId !== 'string' || change.deviceId === ''
+    || !Number.isSafeInteger(change.sequence)
+    || !Number.isSafeInteger(change.occurredAtUnixMs)) {
+    return null;
+  }
+  const [[key, kind, author]] = present;
+  const variant = change[key];
+  let reason = '';
+  if (kind === 'player-refusal') {
+    reason = FACILITY_CHANGE_REFUSAL_REASONS.has(variant.reason) ? variant.reason : 'unspecified';
+  }
+  return Object.freeze({
+    sequence: change.sequence,
+    deviceId: change.deviceId,
+    occurredAtUnixMs: change.occurredAtUnixMs,
+    kind,
+    author,
+    transitionId: optionalString(variant.transitionId),
+    fromStateId: optionalString(variant.fromStateId),
+    toStateId: optionalString(variant.toStateId),
+    conditionId: optionalString(variant.conditionId),
+    active: variant.active === true,
+    conditionIds: facilityIDs(variant.conditionIds),
+    terminalId: optionalString(variant.terminalId),
+    commandId: optionalString(variant.commandId),
+    reason,
+  });
+}
+
+// normalizeCoordinationState normalizes the device feed and leaves a state
+// without one untouched.
+function normalizeCoordinationState(payload) {
+  if (!payload || typeof payload !== 'object' || !Object.hasOwn(payload, 'facilityChanges')) return payload;
+  const changes = Array.isArray(payload.facilityChanges)
+    ? payload.facilityChanges.map(normalizeFacilityChange).filter(Boolean)
+    : [];
+  return { ...payload, facilityChanges: Object.freeze(changes) };
+}
+
+function facilityOperationConflict(request) {
+  return normalizeFacilityOperationResult({
+    ok: false,
+    changed: false,
+    correlationId: request.correlationId,
+    failure: 'conflict',
+    issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+    previousFacilityRevision: request.expectedFacilityRevision,
+    resultingFacilityRevision: request.expectedFacilityRevision,
+  });
+}
+
+function facilityIDsAreUnique(values) {
+  return values.every(value => value !== '') && new Set(values).size === values.length;
+}
+
+function validateFacilityMutationResult(result, request, operation) {
+  if (!result.ok) {
+    // Only a stale rejection carries the canonical session, at its revision.
+    if (result.session === null) return result;
+    const staleWithSession = result.failure === 'stale-revision'
+      && Number(result.session.facility?.revision) === result.resultingFacilityRevision;
+    return staleWithSession ? result : facilityOperationConflict(request);
+  }
+  const canonicalFacilityRevision = Number(result.session?.facility?.revision);
+  const expectedResultingRevision = request.expectedFacilityRevision + (result.changed ? 1 : 0);
+  let affectedIDsAreValid = facilityIDsAreUnique(result.affectedDeviceIds)
+    && facilityIDsAreUnique(result.affectedConditionIds);
+  if (!result.changed) {
+    affectedIDsAreValid = affectedIDsAreValid
+      && result.affectedDeviceIds.length === 0
+      && result.affectedConditionIds.length === 0;
+  } else if (operation === 'device-reset') {
+    // A reset may restore only the device's own faults.
+    const conditions = Array.isArray(result.session?.facility?.conditions) ? result.session.facility.conditions : [];
+    affectedIDsAreValid = affectedIDsAreValid
+      && (result.affectedDeviceIds.length === 0
+        || (result.affectedDeviceIds.length === 1 && result.affectedDeviceIds[0] === request.deviceId))
+      && result.affectedDeviceIds.length + result.affectedConditionIds.length > 0
+      && result.affectedConditionIds.every(id => conditions.some(
+        condition => condition?.id === id && condition?.device?.deviceId === request.deviceId));
+  } else if (operation === 'device-transition') {
+    affectedIDsAreValid = affectedIDsAreValid
+      && result.affectedDeviceIds.length === 1
+      && result.affectedDeviceIds[0] === request.deviceId;
+  } else if (operation === 'device-force') {
+    affectedIDsAreValid = affectedIDsAreValid
+      && result.affectedDeviceIds.length === 1
+      && result.affectedDeviceIds[0] === request.deviceId
+      && result.affectedConditionIds.length === 0;
+  } else if (operation === 'condition-active') {
+    affectedIDsAreValid = affectedIDsAreValid
+      && result.affectedDeviceIds.length === 0
+      && result.affectedConditionIds.length === 1
+      && result.affectedConditionIds[0] === request.conditionId;
+  }
+  // An authored transition never loops to its source state, so it always changes the device.
+  if (operation === 'device-transition' && !result.changed) affectedIDsAreValid = false;
+  const consistent = result.correlationId === request.correlationId
+    && result.previousFacilityRevision === request.expectedFacilityRevision
+    && result.resultingFacilityRevision === expectedResultingRevision
+    && affectedIDsAreValid
+    && (result.session === null || (Number.isSafeInteger(canonicalFacilityRevision)
+      && canonicalFacilityRevision === result.resultingFacilityRevision))
+    && (!result.changed || (result.session !== null
+      && result.sessionRevision > 0
+      && Number.isSafeInteger(canonicalFacilityRevision)));
+  return consistent ? result : facilityOperationConflict(request);
+}
+
+function facilityBindingFailure(normalize) {
+  return normalize({
+    ok: false,
+    failure: 'runtime-context-ended',
+    issues: [{ code: 'runtime-context-ended', entityKind: 'desktop-binding' }],
+  });
+}
+
+
+
+function inspectFacilityDependenciesCommand(payload) {
+  try {
+    const request = normalizeFacilityDependencyInspectionPayload(payload);
+    return invoke(APP_METHODS.inspectFacilityDependencies, request)
+      .then(normalizeFacilityDependencyInspectionResult)
+      .then(result => validateFacilityDependencyInspectionResult(result, request))
+      .catch(() => facilityBindingFailure(normalizeFacilityDependencyInspectionResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityDependencyInspectionResult));
+  }
+}
+
+function previewFacilityCommand(payload) {
+  try {
+    const request = normalizeFacilityPreviewPayload(payload);
+    return invoke(APP_METHODS.previewFacility, request)
+      .then(normalizeFacilityPreviewResult)
+      .then(result => validateFacilityPreviewResult(result, request))
+      .catch(() => facilityBindingFailure(normalizeFacilityPreviewResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityPreviewResult));
+  }
+}
+
+function facilityMutationCommand(binding, payload, normalizePayload, operation) {
+  try {
+    const request = normalizePayload(payload);
+    return invoke(binding, request)
+      .then(normalizeFacilityOperationResult)
+      .then(result => validateFacilityMutationResult(result, request, operation))
+      .catch(() => facilityBindingFailure(normalizeFacilityOperationResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
+  }
+}
+
+function normalizeAuthoringSavePayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    // Capture the complete portable document now so later UI or event
+    // mutations cannot change which edit the backend validates.
+    session: value.session && typeof value.session === 'object'
+      ? snapshotPortableSession(value.session)
+      : null,
+    expectedAuthoringRevision: nonnegativeSafeInteger(value.expectedAuthoringRevision),
+    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
+  };
+}
+
+function authoringResultConflict(request) {
+  return normalizeFacilityOperationResult({
+    ok: false,
+    changed: false,
+    correlationId: request.correlationId,
+    failure: 'conflict',
+    issues: [{ code: 'conflict', entityKind: 'desktop-result' }],
+    authoringRevision: request.expectedAuthoringRevision,
+  });
+}
+
+// validateAuthoringSaveResult accepts a save only when it belongs to the
+// request and its authoring revision advanced exactly when it changed.
+function validateAuthoringSaveResult(result, request) {
+  if (result.correlationId !== request.correlationId) return authoringResultConflict(request);
+  if (!result.ok) return result;
+  const wantAuthoringRevision = request.expectedAuthoringRevision + (result.changed ? 1 : 0);
+  const consistent = result.session !== null
+    && result.authoringRevision === wantAuthoringRevision
+    && (!result.changed || result.sessionRevision > 0);
+  return consistent ? result : authoringResultConflict(request);
+}
+
+function saveAuthoringCommand(payload) {
+  try {
+    const request = normalizeAuthoringSavePayload(payload);
+    return invoke(APP_METHODS.saveAuthoring, request)
+      .then(normalizeFacilityOperationResult)
+      .then(result => validateAuthoringSaveResult(result, request))
+      .catch(() => facilityBindingFailure(normalizeFacilityOperationResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
+  }
+}
+
+function normalizeSceneResetPayload(payload) {
+  const value = payload && typeof payload === 'object' ? payload : {};
+  return {
+    expectedSessionRevision: nonnegativeSafeInteger(value.expectedSessionRevision),
+    expectedFacilityRevision: nonnegativeSafeInteger(value.expectedFacilityRevision),
+    correlationId: typeof value.correlationId === 'string' ? value.correlationId : '',
+  };
+}
+
+// validateSceneResetResult accepts a reset that started from the counted
+// facility revision and returned the starting scene when it changed.
+function validateSceneResetResult(result, request) {
+  if (result.correlationId !== request.correlationId) return facilityOperationConflict(request);
+  if (!result.ok) return result;
+  const consistent = result.previousFacilityRevision === request.expectedFacilityRevision
+    && result.session !== null
+    && (!result.changed || result.sessionRevision > request.expectedSessionRevision);
+  return consistent ? result : facilityOperationConflict(request);
+}
+
+function resetSceneCommand(payload) {
+  try {
+    const request = normalizeSceneResetPayload(payload);
+    return invoke(APP_METHODS.resetScene, request)
+      .then(normalizeFacilityOperationResult)
+      .then(result => validateSceneResetResult(result, request))
+      .catch(() => facilityBindingFailure(normalizeFacilityOperationResult));
+  } catch {
+    return Promise.resolve(facilityBindingFailure(normalizeFacilityOperationResult));
+  }
+}
+
+function normalizePresentationResult(result) {
+  const value = result && typeof result === 'object' ? result : {};
+  const ok = value.ok === true;
+  return Object.freeze({
+    ok,
+    failure: facilityFailure(value.failure, ok),
+    sessionRevision: nonnegativeSafeInteger(value.sessionRevision),
+    facilityRevision: nonnegativeSafeInteger(value.facilityRevision),
+    authoringRevision: nonnegativeSafeInteger(value.authoringRevision),
+    terminals: Object.freeze(Array.isArray(value.terminals)
+      ? value.terminals.map(terminal => Object.freeze(snapshotPortableSession(terminal)))
+      : []),
+  });
+}
+
+function describePresentationCommand(payload) {
+  const request = {
+    expectedAuthoringRevision: nonnegativeSafeInteger(payload?.expectedAuthoringRevision),
+  };
+  return invoke(APP_METHODS.describePresentation, request)
+    .then(normalizePresentationResult)
+    .catch(() => normalizePresentationResult({ ok: false, failure: 'runtime-context-ended' }));
 }
 
 function normalizeAddCharacterPayload(payload) {
@@ -567,7 +1118,7 @@ const desktopAPI = {
   onClientCount: (callback) => subscribe('client-count', 'clientCount', callback),
   onHackState: (callback) => subscribe('hack-state', 'hackState', callback),
   onCoordinationState: (callback) => subscribe(
-    'coordination-state', 'coordinationState', callback, (payload) => payload, monotonicRevision,
+    'coordination-state', 'coordinationState', callback, normalizeCoordinationState, monotonicRevision,
   ),
   onSessionState: (callback) => subscribe('session-state', null, callback, normalizeSessionStateEvent),
   onPublicAccessStatus: (callback) => {
@@ -641,12 +1192,13 @@ const desktopAPI = {
   writeClipboardText,
   openSession: () => command(APP_METHODS.openSession).then(normalizeSessionResult),
   newSession: () => command(APP_METHODS.newSession).then(normalizeSessionResult),
-  saveSession: saveSessionCommand,
+  saveAuthoring: saveAuthoringCommand,
+  resetScene: resetSceneCommand,
+  describePresentation: describePresentationCommand,
   loadReferencedPlayerConfig: () => playerConfigCommand(APP_METHODS.loadReferencedPlayerConfig),
   newPlayerConfig: () => playerConfigCommand(APP_METHODS.newPlayerConfig),
   openPlayerConfig: () => playerConfigCommand(APP_METHODS.openPlayerConfig),
   requestTerminalActivation: (payload) => switchCommand(APP_METHODS.requestTerminalActivation, payload),
-  updateLiveTerminal: (payload) => command(APP_METHODS.updateLiveTerminal, payload),
   requestTerminalClear: () => switchCommand(APP_METHODS.requestTerminalClear),
   resolveTerminalSwitch: (payload) => switchCommand(APP_METHODS.resolveTerminalSwitch, payload),
   resolveCommandExecution: (payload) => command(APP_METHODS.resolveCommandExecution, {
@@ -665,10 +1217,33 @@ const desktopAPI = {
     terminalId: typeof payload?.terminalId === 'string' ? payload.terminalId : '',
     commandId: typeof payload?.commandId === 'string' ? payload.commandId : '',
   }),
-  resetTerminalCommandStates: (payload) => sessionStateCommand(APP_METHODS.resetTerminalCommandStates, {
-    terminalId: typeof payload?.terminalId === 'string' ? payload.terminalId : '',
-  }),
   replaceTerminalGroups: replaceTerminalGroupsCommand,
+  inspectFacilityDependencies: inspectFacilityDependenciesCommand,
+  previewFacility: previewFacilityCommand,
+  resetFacilityDevice: payload => facilityMutationCommand(
+    APP_METHODS.resetFacilityDevice,
+    payload,
+    normalizeFacilityDeviceResetPayload,
+    'device-reset',
+  ),
+  applyFacilityDeviceTransition: payload => facilityMutationCommand(
+    APP_METHODS.applyFacilityDeviceTransition,
+    payload,
+    normalizeFacilityDeviceTransitionPayload,
+    'device-transition',
+  ),
+  forceFacilityDeviceState: payload => facilityMutationCommand(
+    APP_METHODS.forceFacilityDeviceState,
+    payload,
+    normalizeFacilityDeviceForcePayload,
+    'device-force',
+  ),
+  setFacilityConditionActive: payload => facilityMutationCommand(
+    APP_METHODS.setFacilityConditionActive,
+    payload,
+    normalizeFacilityConditionActivePayload,
+    'condition-active',
+  ),
   addCharacter: (payload) => command(APP_METHODS.addCharacter, normalizeAddCharacterPayload(payload)),
   updateCharacter: (payload) => command(APP_METHODS.updateCharacter, normalizeUpdateCharacterPayload(payload)),
   deleteCharacter: (payload) => command(APP_METHODS.deleteCharacter, normalizeDeleteCharacterPayload(payload)),

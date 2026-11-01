@@ -5,7 +5,6 @@ package session
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -65,6 +64,9 @@ type SessionResult struct {
 	Error    string          `json:"error,omitempty"`
 	FilePath string          `json:"filePath,omitempty"`
 	Session  *domain.Session `json:"session,omitempty"`
+	// AuthoringRevision is the active session's authoring revision after the
+	// command; zero when no session is active.
+	AuthoringRevision uint64 `json:"authoringRevision,omitempty"`
 }
 
 // SaveResult reports both the caller's revision and the newest revision known
@@ -91,11 +93,12 @@ type CommandStateResult struct {
 // replacement. Session is authoritative and detached on both success and
 // rejection so callers can discard stale drafts safely.
 type TerminalGroupMutationResult struct {
-	OK       bool            `json:"ok"`
-	Changed  bool            `json:"changed"`
-	Error    string          `json:"error,omitempty"`
-	Revision uint64          `json:"revision"`
-	Session  *domain.Session `json:"session,omitempty"`
+	OK                bool            `json:"ok"`
+	Changed           bool            `json:"changed"`
+	Error             string          `json:"error,omitempty"`
+	Revision          uint64          `json:"revision"`
+	AuthoringRevision uint64          `json:"authoringRevision"`
+	Session           *domain.Session `json:"session,omitempty"`
 }
 
 // ActiveSession is an immutable snapshot of the current user-owned document.
@@ -105,6 +108,10 @@ type ActiveSession struct {
 	RequestedRevision uint64          `json:"requestedRevision"`
 	SavedRevision     uint64          `json:"savedRevision"`
 	SaveState         SaveState       `json:"saveState"`
+	// AuthoringRevision counts accepted changes to the authored configuration
+	// of the active document. Live values (command states, device states,
+	// fault activity) never advance it. It is runtime-only and never persisted.
+	AuthoringRevision uint64 `json:"authoringRevision"`
 }
 
 type savePayload struct {
@@ -116,6 +123,8 @@ type savePayload struct {
 	rollbackOnFailure bool
 	priorSession      *domain.Session
 	priorRevision     uint64
+	// authored advances the authoring revision when the write succeeds.
+	authored bool
 }
 
 type saveWaiter struct {
@@ -397,84 +406,6 @@ func demoCompanionPaths(bundledSession, destination, reference string) (string, 
 	return source, destinationConfig, nil
 }
 
-// Save validates and accepts a monotonically increasing revision, then waits
-// for the serialized writer to make that revision or a newer one durable.
-func (service *Service) Save(ctx context.Context, session domain.Session, revision uint64) SaveResult {
-	if err := contextError(ctx); err != nil {
-		return saveFailure(revision, 0, "save was canceled")
-	}
-	if revision == 0 {
-		return saveFailure(revision, 0, "save revision must be greater than zero")
-	}
-	authored := cloneSession(session)
-	clearCommandStates(&authored)
-	if err := verifyAuthoredSession(authored); err != nil {
-		return saveFailure(revision, 0, "session is invalid and was not saved")
-	}
-
-	reply := make(chan SaveResult, 1)
-	service.documentMu.Lock()
-	service.mu.Lock()
-	if service.closed {
-		service.mu.Unlock()
-		service.documentMu.Unlock()
-		return saveFailure(revision, 0, "session service is shut down")
-	}
-	if service.active.Path == "" || service.active.Session == nil {
-		saved := service.active.SavedRevision
-		service.mu.Unlock()
-		service.documentMu.Unlock()
-		return saveFailure(revision, saved, "there is no active session path")
-	}
-	if samePath(service.active.Path, service.locations.BundledDemo) {
-		saved := service.active.SavedRevision
-		service.mu.Unlock()
-		service.documentMu.Unlock()
-		return saveFailure(revision, saved, "the bundled demo cannot be saved in place")
-	}
-
-	accepted, err := mergeCanonicalSessionState(authored, *service.active.Session)
-	if err != nil {
-		saved := service.active.SavedRevision
-		service.mu.Unlock()
-		service.documentMu.Unlock()
-		return saveFailure(revision, saved, "session is invalid and was not saved")
-	}
-	data, err := encodeAcceptedSession(accepted)
-	if err != nil {
-		saved := service.active.SavedRevision
-		service.mu.Unlock()
-		service.documentMu.Unlock()
-		return saveFailure(revision, saved, "session is invalid and was not saved")
-	}
-	epoch := service.epoch
-	if saved := service.durable[epoch]; saved >= revision && sessionsEqual(accepted, *service.active.Session) {
-		service.mu.Unlock()
-		service.documentMu.Unlock()
-		return SaveResult{OK: true, RequestedRevision: revision, SavedRevision: saved}
-	}
-
-	effectiveRevision := revision
-	if effectiveRevision <= service.active.RequestedRevision {
-		effectiveRevision = service.active.RequestedRevision + 1
-	}
-	service.active.RequestedRevision = effectiveRevision
-	service.active.Session = sessionPointer(accepted)
-	service.active.SaveState = SaveStateSaving
-	service.pending = append(service.pending, savePayload{
-		epoch: epoch, path: service.active.Path, revision: effectiveRevision,
-		session: accepted, data: append([]byte(nil), data...),
-	})
-	service.waiters = append(service.waiters, saveWaiter{
-		epoch: epoch, revision: effectiveRevision, requestedRevision: revision, reply: reply,
-	})
-	service.signalWorkerLocked()
-	service.mu.Unlock()
-	service.documentMu.Unlock()
-
-	return <-reply
-}
-
 // ExecuteCommandState captures one state-changing command's current authored
 // completed name and result text, then waits until the new document revision
 // is durably replaced. An existing snapshot is an idempotent no-op.
@@ -528,22 +459,6 @@ func (service *Service) ResetCommandState(ctx context.Context, terminalID, comma
 		if len(terminal.CommandStates) == 0 {
 			terminal.CommandStates = nil
 		}
-		return true, nil
-	})
-}
-
-// ResetTerminalCommandStates removes all durable command snapshots belonging
-// to one terminal in a single document revision.
-func (service *Service) ResetTerminalCommandStates(ctx context.Context, terminalID string) CommandStateResult {
-	return service.mutateCommandStates(ctx, func(candidate *domain.Session) (bool, error) {
-		terminal := terminalByID(candidate, terminalID)
-		if terminal == nil {
-			return false, fmt.Errorf("terminal does not exist")
-		}
-		if len(terminal.CommandStates) == 0 {
-			return false, nil
-		}
-		terminal.CommandStates = nil
 		return true, nil
 	})
 }
@@ -670,7 +585,10 @@ func (service *Service) ReplaceTerminalGroups(
 		return terminalGroupMutationFailure(revision, &canonical, err.Error())
 	}
 	if !diff.Changed {
-		return TerminalGroupMutationResult{OK: true, Revision: revision, Session: sessionPointer(canonical)}
+		return TerminalGroupMutationResult{
+			OK: true, Revision: revision, AuthoringRevision: service.Snapshot().AuthoringRevision,
+			Session: sessionPointer(canonical),
+		}
 	}
 	candidate := cloneSession(canonical)
 	candidate.TerminalGroups = domain.CloneTerminalGroups(groups)
@@ -692,9 +610,11 @@ func (service *Service) ReplaceTerminalGroups(
 	service.active.RequestedRevision = nextRevision
 	service.active.SavedRevision = nextRevision
 	service.active.SaveState = SaveStateSaved
+	service.active.AuthoringRevision++
 	service.durable[service.epoch] = nextRevision
 	return TerminalGroupMutationResult{
-		OK: true, Changed: true, Revision: nextRevision, Session: sessionPointer(candidate),
+		OK: true, Changed: true, Revision: nextRevision, AuthoringRevision: service.active.AuthoringRevision,
+		Session: sessionPointer(candidate),
 	}
 }
 
@@ -750,11 +670,19 @@ func (service *Service) AssociatePlayerConfig(ctx context.Context, playerConfigP
 	service.active.RequestedRevision = revision
 	service.active.SavedRevision = revision
 	service.active.SaveState = SaveStateSaved
+	if candidate.PlayerConfig != active.Session.PlayerConfig {
+		service.active.AuthoringRevision++
+	}
 	service.durable[epoch] = revision
-	return SessionResult{OK: true, FilePath: active.Path, Session: sessionPointer(candidate)}
+	return SessionResult{
+		OK: true, FilePath: active.Path, Session: sessionPointer(candidate),
+		AuthoringRevision: service.active.AuthoringRevision,
+	}
 }
 
-// Snapshot returns detached state safe for concurrent callers to inspect.
+// Snapshot returns detached state safe for concurrent callers to inspect. The
+// document revisions are process-local; any facility revision and current
+// values in Session are the canonical values loaded from durable storage.
 func (service *Service) Snapshot() ActiveSession {
 	if service == nil {
 		return ActiveSession{SaveState: SaveStateIdle}
@@ -845,6 +773,9 @@ func (service *Service) finishPayload(payload savePayload, writeErr error) {
 		service.active.SavedRevision = durableRevision
 		if writeErr == nil {
 			service.active.Session = sessionPointer(payload.session)
+			if payload.authored {
+				service.active.AuthoringRevision++
+			}
 			if service.active.RequestedRevision <= durableRevision {
 				service.active.SaveState = SaveStateSaved
 			} else {
@@ -887,13 +818,14 @@ func (service *Service) activate(path string, session domain.Session) SessionRes
 	}
 	service.epoch++
 	service.active = ActiveSession{
-		Path:      path,
-		Session:   sessionPointer(copy),
-		SaveState: SaveStateSaved,
+		Path:              path,
+		Session:           sessionPointer(copy),
+		SaveState:         SaveStateSaved,
+		AuthoringRevision: 1,
 	}
 	service.durable[service.epoch] = 0
 	service.mu.Unlock()
-	return SessionResult{OK: true, FilePath: path, Session: sessionPointer(copy)}
+	return SessionResult{OK: true, FilePath: path, Session: sessionPointer(copy), AuthoringRevision: 1}
 }
 
 func (service *Service) available(ctx context.Context) error {
@@ -1016,74 +948,7 @@ func cloneActive(active ActiveSession) ActiveSession {
 }
 
 func cloneSession(session domain.Session) domain.Session {
-	copy := session
-	copy.Extra = cloneExtra(session.Extra)
-	copy.TerminalGroups = domain.CloneTerminalGroups(session.TerminalGroups)
-	copy.Terminals = make([]domain.Terminal, len(session.Terminals))
-	for index, terminal := range session.Terminals {
-		copy.Terminals[index] = terminal
-		copy.Terminals[index].Extra = cloneExtra(terminal.Extra)
-		copy.Terminals[index].Root = domain.CloneContentNode(terminal.Root)
-		copy.Terminals[index].CommandStates = domain.CloneCommandExecutionStates(terminal.CommandStates)
-	}
-	return copy
-}
-
-func cloneExtra(extra map[string]json.RawMessage) map[string]json.RawMessage {
-	if extra == nil {
-		return nil
-	}
-	copy := make(map[string]json.RawMessage, len(extra))
-	for key, value := range extra {
-		copy[key] = append([]byte(nil), value...)
-	}
-	return copy
-}
-
-func clearCommandStates(session *domain.Session) {
-	if session == nil {
-		return
-	}
-	for index := range session.Terminals {
-		session.Terminals[index].CommandStates = nil
-	}
-}
-
-func mergeCanonicalSessionState(authored, canonical domain.Session) (domain.Session, error) {
-	merged := mergeCanonicalTerminalGroups(authored, canonical)
-	if err := validateAuthoredTransitionChanges(merged, canonical); err != nil {
-		return domain.Session{}, err
-	}
-	canonicalByTerminal := make(map[string]domain.Terminal, len(canonical.Terminals))
-	for _, terminal := range canonical.Terminals {
-		canonicalByTerminal[terminal.ID] = terminal
-	}
-	for index := range merged.Terminals {
-		terminal := &merged.Terminals[index]
-		canonicalTerminal, exists := canonicalByTerminal[terminal.ID]
-		if !exists || len(canonicalTerminal.CommandStates) == 0 {
-			terminal.CommandStates = nil
-			continue
-		}
-		terminal.CommandStates = nil
-		for commandID, state := range canonicalTerminal.CommandStates {
-			node := contentNodeByID(&terminal.Root, commandID)
-			if node == nil {
-				continue
-			}
-			if node.Type != domain.NodeCommand || node.StateChange == nil {
-				return domain.Session{}, fmt.Errorf("completed command %q must retain its state-change configuration", commandID)
-			}
-			if terminal.CommandStates == nil {
-				terminal.CommandStates = make(map[string]domain.CommandExecutionState)
-			}
-			terminal.CommandStates[commandID] = state
-		}
-	}
-	if err := verifySessionContract(merged); err != nil {
-		return domain.Session{}, err
-	}
-	return merged, nil
+	return domain.CloneSession(session)
 }
 
 type terminalTransitionKey struct {
@@ -1135,13 +1000,6 @@ func walkTerminalTransitions(
 	for _, child := range node.Children {
 		walkTerminalTransitions(terminalID, child, targets)
 	}
-}
-
-func verifyAuthoredSession(authored domain.Session) error {
-	candidate := cloneSession(authored)
-	candidate.TerminalGroups = nil
-	candidate = domain.NormalizeTerminalGroups(candidate)
-	return verifySessionContract(candidate)
 }
 
 func mergeCanonicalTerminalGroups(authored, canonical domain.Session) domain.Session {

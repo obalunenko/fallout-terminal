@@ -5,6 +5,29 @@
 export {
     CommandApprovalMode,
     CommandExecutionDecision,
+    CommandExecutionPhase,
+    CommandExecutionPresentation,
+    CommandReference,
+    ControllerTerminalPresentation,
+    ControllerTerminalPresentationKind,
+    FacilityChange,
+    FacilityChangeFault,
+    FacilityChangeForced,
+    FacilityChangePlayerCommand,
+    FacilityChangePlayerRefusal,
+    FacilityChangeRefusalReason,
+    FacilityChangeReset,
+    FacilityChangeTransition,
+    FacilityConditionPreview,
+    FacilityDependency,
+    FacilityDependencyKind,
+    FacilityDependencyReport,
+    FacilityDeviceStatePreview,
+    FacilityEntityKind,
+    FacilityEntityReference,
+    FacilityFailureCode,
+    FacilityIssue,
+    FacilityOperationResult,
     HackColumn,
     HackWord,
     MasterBroadcastState,
@@ -15,16 +38,22 @@ export {
     MasterRosterEntry,
     MasterSessionEntry,
     MasterTerminalNavigationNotice,
+    NavState,
+    PendingTerminalNavigationPresentation,
     PlayerCharacter,
     PlayerConfigMetadata,
     PlayerRole,
     PublicHackPattern,
     PublicHackState,
+    PublicLiveState,
     ServerInfo,
     TerminalGroup,
     TerminalNavigationDecision,
     TerminalNavigationDirection,
     TerminalNavigationNoticeReason,
+    TerminalNavigationPresentation,
+    TerminalPresentationEffect,
+    TerminalReturnTarget,
     TerminalSwitchChoice
 } from "./models.js";
 
@@ -46,8 +75,19 @@ import * as $models from "./models.js";
  */
 
 /**
+ * FacilityStateEquality requires one device to equal one of its named states.
+ * @typedef {$models.FacilityStateEquality} FacilityStateEquality
+ */
+
+/**
  * LogicalSessionID identifies one browser profile for the lifetime of a server process.
  * @typedef {$models.LogicalSessionID} LogicalSessionID
+ */
+
+/**
+ * PendingFacilityAction is the detached world-action intent captured during
+ * the existing private command approval lifecycle.
+ * @typedef {$models.PendingFacilityAction} PendingFacilityAction
  */
 
 /**

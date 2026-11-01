@@ -1,0 +1,969 @@
+package session
+
+import (
+	"context"
+	"reflect"
+	"slices"
+	"strings"
+
+	"github.com/obalunenko/Fallout-Terminal/v2/internal/domain"
+)
+
+// WorldActionRequest is the exact approved facility action presented to the
+// durable session owner. Transitions must match the currently authored
+// command action; they are never accepted as independent mutation authority.
+type WorldActionRequest struct {
+	CorrelationID            string
+	TerminalID               string
+	CommandID                string
+	ExpectedFacilityRevision uint64
+	Transitions              []domain.FacilityTransitionRequest
+}
+
+// FacilityDeviceResetRequest restores one device and conditions scoped
+// directly to it against an exact facility revision.
+type FacilityDeviceResetRequest struct {
+	DeviceID                 string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+type resolvedWorldTransition struct {
+	deviceIndex int
+	transition  domain.FacilityDeviceTransition
+}
+
+// FacilityDeviceTransitionRequest runs one authored transition of one device
+// for the Overseer against an exact facility revision.
+type FacilityDeviceTransitionRequest struct {
+	DeviceID                 string
+	TransitionID             string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityDeviceForceRequest sets one device's current state without
+// checking transitions or preconditions.
+type FacilityDeviceForceRequest struct {
+	DeviceID                 string
+	StateID                  string
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// FacilityConditionActiveRequest sets one condition's current position.
+type FacilityConditionActiveRequest struct {
+	ConditionID              string
+	Active                   bool
+	ExpectedFacilityRevision uint64
+	CorrelationID            string
+}
+
+// facilityEditFailure is the first failure a facility edit found.
+type facilityEditFailure struct {
+	code       domain.FacilityFailureCode
+	entityKind string
+	entityID   string
+}
+
+// facilityEdit changes a candidate facility in place and returns the sorted
+// device and condition IDs it affected. No affected ID means unchanged.
+type facilityEdit func(facility *domain.Facility) ([]string, []string, *facilityEditFailure)
+
+// ResetFacilityDevice restores one authored device and only conditions scoped
+// directly to that device.
+func (service *Service) ResetFacilityDevice(
+	ctx context.Context,
+	request FacilityDeviceResetRequest,
+) domain.FacilityOperationResult {
+	deviceID := request.DeviceID
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(deviceID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "device", deviceID}
+			}
+			device := facilityDevice(facility, deviceID)
+			if device == nil {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureMissingReference, "device", deviceID}
+			}
+			var affectedDeviceIDs, affectedConditionIDs []string
+			if device.CurrentStateID != device.InitialStateID {
+				device.CurrentStateID = device.InitialStateID
+				affectedDeviceIDs = append(affectedDeviceIDs, device.ID)
+			}
+			for index := range facility.Conditions {
+				condition := &facility.Conditions[index]
+				if condition.Device == nil || condition.Device.DeviceID != deviceID ||
+					condition.CurrentActive == condition.InitialActive {
+					continue
+				}
+				condition.CurrentActive = condition.InitialActive
+				affectedConditionIDs = append(affectedConditionIDs, condition.ID)
+			}
+			slices.Sort(affectedConditionIDs)
+			return affectedDeviceIDs, affectedConditionIDs, nil
+		},
+	)
+}
+
+// ApplyFacilityDeviceTransition runs one authored transition with the same
+// source-state, precondition, and condition-effect rules as a player command.
+// It never writes command state.
+func (service *Service) ApplyFacilityDeviceTransition(
+	ctx context.Context,
+	request FacilityDeviceTransitionRequest,
+) domain.FacilityOperationResult {
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(request.DeviceID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "device", request.DeviceID}
+			}
+			if strings.TrimSpace(request.TransitionID) == "" {
+				return nil, nil, &facilityEditFailure{
+					domain.FacilityFailureInvalidConfiguration, "transition", request.TransitionID,
+				}
+			}
+			resolved, conditionValues, affectedDeviceIDs, affectedConditionIDs, failure, entityKind, entityID :=
+				resolveWorldTransitions(facility, []domain.FacilityTransitionRequest{{
+					DeviceID: request.DeviceID, TransitionID: request.TransitionID,
+				}})
+			if failure != domain.FacilityFailureUnspecified {
+				return nil, nil, &facilityEditFailure{failure, entityKind, entityID}
+			}
+			applyResolvedWorldTransitions(facility, resolved, conditionValues)
+			return affectedDeviceIDs, affectedConditionIDs, nil
+		},
+	)
+}
+
+// ForceFacilityDeviceState sets one device's current state. It checks no
+// transition or precondition and runs no condition effect.
+func (service *Service) ForceFacilityDeviceState(
+	ctx context.Context,
+	request FacilityDeviceForceRequest,
+) domain.FacilityOperationResult {
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(request.DeviceID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "device", request.DeviceID}
+			}
+			if strings.TrimSpace(request.StateID) == "" {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureInvalidConfiguration, "state", request.StateID}
+			}
+			device := facilityDevice(facility, request.DeviceID)
+			if device == nil {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureMissingReference, "device", request.DeviceID}
+			}
+			if !slices.ContainsFunc(device.States, func(state domain.FacilityDeviceState) bool {
+				return state.ID == request.StateID
+			}) {
+				return nil, nil, &facilityEditFailure{domain.FacilityFailureMissingReference, "state", request.StateID}
+			}
+			if device.CurrentStateID == request.StateID {
+				return nil, nil, nil
+			}
+			device.CurrentStateID = request.StateID
+			return []string{device.ID}, nil, nil
+		},
+	)
+}
+
+// SetFacilityConditionActive sets one condition's current position. Its
+// scope and recovery list do not limit the Overseer, and its initial position
+// never changes.
+func (service *Service) SetFacilityConditionActive(
+	ctx context.Context,
+	request FacilityConditionActiveRequest,
+) domain.FacilityOperationResult {
+	return service.commitFacilityEdit(
+		ctx,
+		request.CorrelationID,
+		request.ExpectedFacilityRevision,
+		func(facility *domain.Facility) ([]string, []string, *facilityEditFailure) {
+			if strings.TrimSpace(request.ConditionID) == "" {
+				return nil, nil, &facilityEditFailure{
+					domain.FacilityFailureInvalidConfiguration, "condition", request.ConditionID,
+				}
+			}
+			index := slices.IndexFunc(facility.Conditions, func(condition domain.DiagnosticCondition) bool {
+				return condition.ID == request.ConditionID
+			})
+			if index < 0 {
+				return nil, nil, &facilityEditFailure{
+					domain.FacilityFailureMissingReference, "condition", request.ConditionID,
+				}
+			}
+			condition := &facility.Conditions[index]
+			if condition.CurrentActive == request.Active {
+				return nil, nil, nil
+			}
+			condition.CurrentActive = request.Active
+			return nil, []string{condition.ID}, nil
+		},
+	)
+}
+
+// commitFacilityEdit runs one Overseer play change: it checks the active
+// session and the facility revision, applies edit to a candidate, and commits
+// a changed candidate with the facility revision advanced by one.
+func (service *Service) commitFacilityEdit(
+	ctx context.Context,
+	correlationID string,
+	expectedFacilityRevision uint64,
+	edit facilityEdit,
+) domain.FacilityOperationResult {
+	if service == nil || contextError(ctx) != nil {
+		return facilityResetFailure(
+			correlationID,
+			domain.FacilityFailureRuntimeContextEnded,
+			0,
+			0,
+			nil,
+			"request",
+			"",
+		)
+	}
+	service.commandMu.Lock()
+	defer service.commandMu.Unlock()
+	service.documentMu.Lock()
+	defer service.documentMu.Unlock()
+
+	service.mu.Lock()
+	if service.closed {
+		service.mu.Unlock()
+		return facilityResetFailure(
+			correlationID,
+			domain.FacilityFailureRuntimeContextEnded,
+			0,
+			0,
+			nil,
+			"request",
+			"",
+		)
+	}
+	if service.active.Path == "" || service.active.Session == nil {
+		sessionRevision := service.active.SavedRevision
+		service.mu.Unlock()
+		return facilityResetFailure(
+			correlationID,
+			domain.FacilityFailureRuntimeContextEnded,
+			sessionRevision,
+			0,
+			nil,
+			"session",
+			"",
+		)
+	}
+
+	canonical := domain.CloneSession(*service.active.Session)
+	sessionRevision := service.active.SavedRevision
+	previousFacilityRevision := facilityRevision(&canonical)
+	path := service.active.Path
+	fail := func(
+		failure domain.FacilityFailureCode,
+		entityKind string,
+		entityID string,
+	) domain.FacilityOperationResult {
+		service.mu.Unlock()
+		return facilityResetFailure(
+			correlationID,
+			failure,
+			sessionRevision,
+			previousFacilityRevision,
+			&canonical,
+			entityKind,
+			entityID,
+		)
+	}
+
+	if samePath(path, service.locations.BundledDemo) {
+		return fail(domain.FacilityFailureInvalidConfiguration, "session", "")
+	}
+	if canonical.Facility == nil {
+		return fail(domain.FacilityFailureMissingReference, "facility", "")
+	}
+	if expectedFacilityRevision != previousFacilityRevision {
+		return fail(domain.FacilityFailureStaleRevision, "facility", "")
+	}
+	if strings.TrimSpace(correlationID) == "" {
+		return fail(domain.FacilityFailureInvalidConfiguration, "request", "")
+	}
+
+	candidate := domain.CloneSession(canonical)
+	affectedDeviceIDs, affectedConditionIDs, failure := edit(candidate.Facility)
+	if failure != nil {
+		return fail(failure.code, failure.entityKind, failure.entityID)
+	}
+	if len(affectedDeviceIDs) == 0 && len(affectedConditionIDs) == 0 {
+		service.mu.Unlock()
+		return worldActionSuccess(
+			correlationID,
+			false,
+			sessionRevision,
+			previousFacilityRevision,
+			previousFacilityRevision,
+			nil,
+			nil,
+			canonical,
+		)
+	}
+
+	candidate.Facility.Revision++
+	saved, err := service.commitFacilityCandidateLocked(path, canonical, candidate)
+	if err != nil {
+		return facilityResetFailure(
+			correlationID,
+			domain.FacilityFailureInvalidConfiguration,
+			sessionRevision,
+			previousFacilityRevision,
+			&canonical,
+			"candidate",
+			"",
+		)
+	}
+	if !saved.OK {
+		return facilityResetFailure(
+			correlationID,
+			domain.FacilityFailurePersistenceFailed,
+			saved.SavedRevision,
+			previousFacilityRevision,
+			&canonical,
+			"persistence",
+			"",
+		)
+	}
+	return worldActionSuccess(
+		correlationID,
+		true,
+		saved.SavedRevision,
+		previousFacilityRevision,
+		candidate.Facility.Revision,
+		affectedDeviceIDs,
+		affectedConditionIDs,
+		candidate,
+	)
+}
+
+// facilityDevice returns the device with id, or nil.
+func facilityDevice(facility *domain.Facility, id string) *domain.FacilityDevice {
+	index := slices.IndexFunc(facility.Devices, func(device domain.FacilityDevice) bool {
+		return device.ID == id
+	})
+	if index < 0 {
+		return nil
+	}
+	return &facility.Devices[index]
+}
+
+// applyResolvedWorldTransitions moves each resolved device to its destination
+// and sets each condition effect's value.
+func applyResolvedWorldTransitions(
+	facility *domain.Facility,
+	resolved []resolvedWorldTransition,
+	conditionValues map[string]bool,
+) {
+	for _, transition := range resolved {
+		facility.Devices[transition.deviceIndex].CurrentStateID = transition.transition.DestinationStateID
+	}
+	for index := range facility.Conditions {
+		if active, exists := conditionValues[facility.Conditions[index].ID]; exists {
+			facility.Conditions[index].CurrentActive = active
+		}
+	}
+}
+
+// ApplyWorldAction validates and persists one approved command completion and
+// all of its facility transitions as one complete session replacement.
+func (service *Service) ApplyWorldAction(ctx context.Context, request WorldActionRequest) domain.FacilityOperationResult {
+	request = cloneWorldActionRequest(request)
+	if service == nil || contextError(ctx) != nil {
+		return worldActionFailure(request, domain.FacilityFailureRuntimeContextEnded, 0, 0, nil, "request", "")
+	}
+	service.commandMu.Lock()
+	defer service.commandMu.Unlock()
+	service.documentMu.Lock()
+	defer service.documentMu.Unlock()
+
+	service.mu.Lock()
+	if service.closed {
+		service.mu.Unlock()
+		return worldActionFailure(request, domain.FacilityFailureRuntimeContextEnded, 0, 0, nil, "request", "")
+	}
+	if service.active.Path == "" || service.active.Session == nil {
+		revision := service.active.SavedRevision
+		service.mu.Unlock()
+		return worldActionFailure(request, domain.FacilityFailureRuntimeContextEnded, revision, 0, nil, "session", "")
+	}
+
+	canonical := domain.CloneSession(*service.active.Session)
+	sessionRevision := service.active.SavedRevision
+	path := service.active.Path
+	if samePath(path, service.locations.BundledDemo) {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
+			facilityRevision(&canonical), &canonical, "session", "",
+		)
+	}
+	terminal := terminalByID(&canonical, request.TerminalID)
+	if terminal == nil {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureMissingReference, sessionRevision,
+			facilityRevision(&canonical), &canonical, "terminal", request.TerminalID,
+		)
+	}
+	command := contentNodeByID(&terminal.Root, request.CommandID)
+	if command == nil {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureMissingReference, sessionRevision,
+			facilityRevision(&canonical), &canonical, "command", request.CommandID,
+		)
+	}
+	if _, completed := terminal.CommandStates[request.CommandID]; completed {
+		currentFacilityRevision := facilityRevision(&canonical)
+		service.mu.Unlock()
+		return worldActionSuccess(
+			request.CorrelationID, false, sessionRevision, currentFacilityRevision,
+			currentFacilityRevision, nil, nil, canonical,
+		)
+	}
+	if command.Type != domain.NodeCommand || command.StateChange == nil || command.StateChange.FacilityAction == nil {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
+			facilityRevision(&canonical), &canonical, "command", request.CommandID,
+		)
+	}
+	if canonical.Facility == nil {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureMissingReference, sessionRevision, 0, &canonical, "facility", "",
+		)
+	}
+	previousFacilityRevision := canonical.Facility.Revision
+	if request.ExpectedFacilityRevision != previousFacilityRevision {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureStaleRevision, sessionRevision,
+			previousFacilityRevision, &canonical, "facility", "",
+		)
+	}
+	if strings.TrimSpace(request.CorrelationID) == "" {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
+			previousFacilityRevision, &canonical, "request", "",
+		)
+	}
+
+	resolved, conditionValues, affectedDeviceIDs, affectedConditionIDs, failure, entityKind, entityID :=
+		resolveWorldTransitions(canonical.Facility, request.Transitions)
+	if failure != domain.FacilityFailureUnspecified {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, failure, sessionRevision, previousFacilityRevision, &canonical, entityKind, entityID,
+		)
+	}
+	authoredTransitions, authoredFailure, authoredEntityKind, authoredEntityID :=
+		resolveAuthoredAction(canonical.Facility, command.StateChange.FacilityAction)
+	if authoredFailure != domain.FacilityFailureUnspecified {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, authoredFailure, sessionRevision, previousFacilityRevision,
+			&canonical, authoredEntityKind, authoredEntityID,
+		)
+	}
+	if !sameTransitionRequests(request.Transitions, authoredTransitions) {
+		service.mu.Unlock()
+		return worldActionFailure(
+			request, domain.FacilityFailureConflict, sessionRevision,
+			previousFacilityRevision, &canonical, "command", request.CommandID,
+		)
+	}
+
+	candidate := domain.CloneSession(canonical)
+	applyResolvedWorldTransitions(candidate.Facility, resolved, conditionValues)
+	candidate.Facility.Revision++
+	candidateTerminal := terminalByID(&candidate, request.TerminalID)
+	if candidateTerminal.CommandStates == nil {
+		candidateTerminal.CommandStates = make(map[string]domain.CommandExecutionState)
+	}
+	commandState := domain.CommandExecutionState{
+		CompletedName: command.StateChange.CompletedName,
+		ResultText:    command.Text,
+	}
+	if change := command.StateChange.EntryContentChange; change != nil {
+		commandState.EntryContentChange = &domain.EntryContentChange{
+			BlockID: change.BlockID, CompletedText: change.CompletedText,
+		}
+	}
+	candidateTerminal.CommandStates[request.CommandID] = commandState
+
+	saved, err := service.commitFacilityCandidateLocked(path, canonical, candidate)
+	if err != nil {
+		return worldActionFailure(
+			request, domain.FacilityFailureInvalidConfiguration, sessionRevision,
+			previousFacilityRevision, &canonical, "candidate", "",
+		)
+	}
+	if !saved.OK {
+		return worldActionFailure(
+			request, domain.FacilityFailurePersistenceFailed, saved.SavedRevision,
+			previousFacilityRevision, &canonical, "persistence", "",
+		)
+	}
+	return worldActionSuccess(
+		request.CorrelationID, true, saved.SavedRevision, previousFacilityRevision,
+		candidate.Facility.Revision, affectedDeviceIDs, affectedConditionIDs, candidate,
+	)
+}
+
+// commitFacilityCandidateLocked queues one rollback-safe complete-session
+// replacement. The caller holds service.mu; this method releases it on every
+// return and waits for the queued revision to become durable.
+func (service *Service) commitFacilityCandidateLocked(
+	path string,
+	canonical domain.Session,
+	candidate domain.Session,
+) (SaveResult, error) {
+	return service.commitCandidateLocked(path, canonical, candidate, false)
+}
+
+// commitCandidateLocked writes one candidate through the serialized writer.
+// An authored candidate advances the authoring revision in the same critical
+// section that installs the written session, so no snapshot shows one
+// without the other.
+func (service *Service) commitCandidateLocked(
+	path string,
+	canonical domain.Session,
+	candidate domain.Session,
+	authored bool,
+) (SaveResult, error) {
+	data, err := encodeAcceptedSession(candidate)
+	if err != nil {
+		service.mu.Unlock()
+		return SaveResult{}, err
+	}
+
+	reply := make(chan SaveResult, 1)
+	epoch := service.epoch
+	priorRevision := service.active.RequestedRevision
+	nextSessionRevision := priorRevision + 1
+	if nextSessionRevision <= service.active.SavedRevision {
+		nextSessionRevision = service.active.SavedRevision + 1
+	}
+	service.active.RequestedRevision = nextSessionRevision
+	service.active.SaveState = SaveStateSaving
+	service.pending = append(service.pending, savePayload{
+		epoch: epoch, path: path, revision: nextSessionRevision,
+		session: candidate, data: append([]byte(nil), data...),
+		rollbackOnFailure: true, priorSession: worldActionSessionPointer(canonical), priorRevision: priorRevision,
+		authored: authored,
+	})
+	service.waiters = append(service.waiters, saveWaiter{
+		epoch: epoch, revision: nextSessionRevision, requestedRevision: nextSessionRevision, reply: reply,
+	})
+	service.signalWorkerLocked()
+	service.mu.Unlock()
+
+	return <-reply, nil
+}
+
+func cloneWorldActionRequest(request WorldActionRequest) WorldActionRequest {
+	request.Transitions = domain.CloneFacilityTransitionRequests(request.Transitions)
+	return request
+}
+
+func facilityRecoveryFailureCode(issues []domain.FacilityIssue) domain.FacilityFailureCode {
+	if len(issues) == 0 || issues[0].Code == "" || issues[0].Code == domain.FacilityFailureUnspecified {
+		return domain.FacilityFailureInvalidConfiguration
+	}
+	return issues[0].Code
+}
+
+func resolveWorldTransitions(
+	facility *domain.Facility,
+	requests []domain.FacilityTransitionRequest,
+) (
+	[]resolvedWorldTransition,
+	map[string]bool,
+	[]string,
+	[]string,
+	domain.FacilityFailureCode,
+	string,
+	string,
+) {
+	if len(requests) == 0 {
+		return nil, nil, nil, nil, domain.FacilityFailureInvalidConfiguration, "action", ""
+	}
+	devicesByID := make(map[string]int, len(facility.Devices))
+	for index, device := range facility.Devices {
+		devicesByID[device.ID] = index
+	}
+	conditionsByID := make(map[string]struct{}, len(facility.Conditions))
+	for _, condition := range facility.Conditions {
+		conditionsByID[condition.ID] = struct{}{}
+	}
+
+	seenDevices := make(map[string]struct{}, len(requests))
+	resolved := make([]resolvedWorldTransition, 0, len(requests))
+	conditionValues := make(map[string]bool)
+	affectedDeviceIDs := make([]string, 0, len(requests))
+	affectedConditionSet := make(map[string]struct{})
+	for _, request := range requests {
+		if _, duplicate := seenDevices[request.DeviceID]; duplicate {
+			return nil, nil, nil, nil, domain.FacilityFailureDuplicate, "device", request.DeviceID
+		}
+		seenDevices[request.DeviceID] = struct{}{}
+		deviceIndex, exists := devicesByID[request.DeviceID]
+		if !exists {
+			return nil, nil, nil, nil, domain.FacilityFailureMissingReference, "device", request.DeviceID
+		}
+		device := facility.Devices[deviceIndex]
+		transition, exists := facilityTransitionByID(device, request.TransitionID)
+		if !exists {
+			return nil, nil, nil, nil, domain.FacilityFailureMissingReference, "transition", request.TransitionID
+		}
+		if device.CurrentStateID != transition.SourceStateID {
+			return nil, nil, nil, nil, domain.FacilityFailureInvalidTransition, "device", request.DeviceID
+		}
+		for _, precondition := range transition.Preconditions {
+			preconditionDeviceIndex, exists := devicesByID[precondition.DeviceID]
+			if !exists {
+				return nil, nil, nil, nil, domain.FacilityFailureMissingReference, "device", precondition.DeviceID
+			}
+			if facility.Devices[preconditionDeviceIndex].CurrentStateID != precondition.StateID {
+				return nil, nil, nil, nil, domain.FacilityFailurePreconditionFailed, "device", precondition.DeviceID
+			}
+		}
+		for _, effect := range transition.ConditionEffects {
+			if _, exists := conditionsByID[effect.ConditionID]; !exists {
+				return nil, nil, nil, nil, domain.FacilityFailureMissingReference, "condition", effect.ConditionID
+			}
+			if active, exists := conditionValues[effect.ConditionID]; exists && active != effect.Active {
+				return nil, nil, nil, nil, domain.FacilityFailureConflict, "condition", effect.ConditionID
+			}
+			conditionValues[effect.ConditionID] = effect.Active
+			affectedConditionSet[effect.ConditionID] = struct{}{}
+		}
+		resolved = append(resolved, resolvedWorldTransition{deviceIndex: deviceIndex, transition: transition})
+		affectedDeviceIDs = append(affectedDeviceIDs, request.DeviceID)
+	}
+	affectedConditionIDs := make([]string, 0, len(affectedConditionSet))
+	for conditionID := range affectedConditionSet {
+		affectedConditionIDs = append(affectedConditionIDs, conditionID)
+	}
+	slices.Sort(affectedDeviceIDs)
+	slices.Sort(affectedConditionIDs)
+	return resolved, conditionValues, affectedDeviceIDs, affectedConditionIDs,
+		domain.FacilityFailureUnspecified, "", ""
+}
+
+func resolveAuthoredAction(
+	facility *domain.Facility,
+	action *domain.FacilityActionConfig,
+) ([]domain.FacilityTransitionRequest, domain.FacilityFailureCode, string, string) {
+	switch {
+	case action == nil:
+		return nil, domain.FacilityFailureInvalidConfiguration, "action", ""
+	case action.Transitions != nil && action.RecoveryProgramID != nil:
+		return nil, domain.FacilityFailureInvalidConfiguration, "action", ""
+	case action.Transitions != nil:
+		return domain.CloneFacilityTransitionRequests(action.Transitions.Transitions),
+			domain.FacilityFailureUnspecified, "", ""
+	case action.RecoveryProgramID != nil:
+		transitions, issues := domain.ExpandRecoveryProgram(facility, *action.RecoveryProgramID)
+		if len(issues) == 0 {
+			return transitions, domain.FacilityFailureUnspecified, "", ""
+		}
+		failure := facilityRecoveryFailureCode(issues)
+		entityKind := "recovery-program"
+		entityID := *action.RecoveryProgramID
+		if issues[0].EntityKind != "" {
+			entityKind = issues[0].EntityKind
+		}
+		if issues[0].EntityID != nil {
+			entityID = *issues[0].EntityID
+		}
+		return nil, failure, entityKind, entityID
+	default:
+		return nil, domain.FacilityFailureInvalidConfiguration, "action", ""
+	}
+}
+
+func sameTransitionRequests(left, right []domain.FacilityTransitionRequest) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index].DeviceID != right[index].DeviceID || left[index].TransitionID != right[index].TransitionID {
+			return false
+		}
+	}
+	return true
+}
+
+func facilityTransitionByID(
+	device domain.FacilityDevice,
+	transitionID string,
+) (domain.FacilityDeviceTransition, bool) {
+	for _, transition := range device.Transitions {
+		if transition.ID == transitionID {
+			return transition, true
+		}
+	}
+	return domain.FacilityDeviceTransition{}, false
+}
+
+func facilityRevision(session *domain.Session) uint64 {
+	if session == nil || session.Facility == nil {
+		return 0
+	}
+	return session.Facility.Revision
+}
+
+func facilityResetFailure(
+	correlationID string,
+	failure domain.FacilityFailureCode,
+	sessionRevision uint64,
+	facilityRevision uint64,
+	session *domain.Session,
+	entityKind string,
+	entityID string,
+) domain.FacilityOperationResult {
+	return worldActionFailure(
+		WorldActionRequest{CorrelationID: correlationID},
+		failure,
+		sessionRevision,
+		facilityRevision,
+		session,
+		entityKind,
+		entityID,
+	)
+}
+
+func worldActionFailure(
+	request WorldActionRequest,
+	failure domain.FacilityFailureCode,
+	sessionRevision uint64,
+	facilityRevision uint64,
+	session *domain.Session,
+	entityKind string,
+	entityID string,
+) domain.FacilityOperationResult {
+	result := domain.FacilityOperationResult{
+		CorrelationID:             request.CorrelationID,
+		Failure:                   failure,
+		SessionRevision:           sessionRevision,
+		PreviousFacilityRevision:  facilityRevision,
+		ResultingFacilityRevision: facilityRevision,
+	}
+	if entityKind != "" {
+		issue := domain.FacilityIssue{Code: failure, EntityKind: entityKind}
+		if entityID != "" {
+			issue.EntityID = new(entityID)
+		}
+		result.Issues = []domain.FacilityIssue{issue}
+	}
+	if session != nil {
+		result.Session = worldActionSessionPointer(*session)
+	}
+	return result
+}
+
+func worldActionSuccess(
+	correlationID string,
+	changed bool,
+	sessionRevision uint64,
+	previousFacilityRevision uint64,
+	resultingFacilityRevision uint64,
+	affectedDeviceIDs []string,
+	affectedConditionIDs []string,
+	session domain.Session,
+) domain.FacilityOperationResult {
+	return domain.FacilityOperationResult{
+		OK:                        true,
+		Changed:                   changed,
+		CorrelationID:             correlationID,
+		Failure:                   domain.FacilityFailureUnspecified,
+		SessionRevision:           sessionRevision,
+		PreviousFacilityRevision:  previousFacilityRevision,
+		ResultingFacilityRevision: resultingFacilityRevision,
+		AffectedDeviceIDs:         append([]string(nil), affectedDeviceIDs...),
+		AffectedConditionIDs:      append([]string(nil), affectedConditionIDs...),
+		Session:                   worldActionSessionPointer(session),
+	}
+}
+
+func worldActionSessionPointer(session domain.Session) *domain.Session {
+	clone := domain.CloneSession(session)
+	return &clone
+}
+
+func protectFacilityAuthoringCurrentValues(current, candidate *domain.Facility) {
+	if candidate == nil {
+		return
+	}
+	currentDevices := make(map[string]domain.FacilityDevice)
+	currentConditions := make(map[string]domain.DiagnosticCondition)
+	if current != nil {
+		currentDevices = make(map[string]domain.FacilityDevice, len(current.Devices))
+		for _, device := range current.Devices {
+			currentDevices[device.ID] = device
+		}
+		currentConditions = make(map[string]domain.DiagnosticCondition, len(current.Conditions))
+		for _, condition := range current.Conditions {
+			currentConditions[condition.ID] = condition
+		}
+	}
+	for index := range candidate.Devices {
+		device := &candidate.Devices[index]
+		if currentDevice, exists := currentDevices[device.ID]; exists {
+			device.CurrentStateID = currentDevice.CurrentStateID
+		} else {
+			device.CurrentStateID = device.InitialStateID
+		}
+	}
+	for index := range candidate.Conditions {
+		condition := &candidate.Conditions[index]
+		if currentCondition, exists := currentConditions[condition.ID]; exists {
+			condition.CurrentActive = currentCondition.CurrentActive
+		} else {
+			condition.CurrentActive = condition.InitialActive
+		}
+	}
+}
+
+func facilityAuthoringFailureCode(issues []domain.FacilityIssue) domain.FacilityFailureCode {
+	for _, issue := range issues {
+		switch issue.Code {
+		case domain.FacilityFailureMissingReference, domain.FacilityFailureConflict:
+			return issue.Code
+		}
+	}
+	return domain.FacilityFailureInvalidConfiguration
+}
+
+func facilityAuthoringSuccess(
+	correlationID string,
+	changed bool,
+	sessionRevision uint64,
+	previousFacilityRevision uint64,
+	affectedDeviceIDs []string,
+	affectedConditionIDs []string,
+	session domain.Session,
+) domain.FacilityOperationResult {
+	resultingFacilityRevision := previousFacilityRevision
+	if session.Facility != nil {
+		resultingFacilityRevision = session.Facility.Revision
+	}
+	return domain.FacilityOperationResult{
+		OK:                        true,
+		Changed:                   changed,
+		CorrelationID:             correlationID,
+		Failure:                   domain.FacilityFailureUnspecified,
+		SessionRevision:           sessionRevision,
+		PreviousFacilityRevision:  previousFacilityRevision,
+		ResultingFacilityRevision: resultingFacilityRevision,
+		AffectedDeviceIDs:         slices.Clone(affectedDeviceIDs),
+		AffectedConditionIDs:      slices.Clone(affectedConditionIDs),
+		Session:                   worldActionSessionPointer(session),
+	}
+}
+
+func facilityAuthoringAffectedIDs(current, candidate *domain.Facility) ([]string, []string) {
+	currentDevices := make(map[string]domain.FacilityDevice)
+	candidateDevices := make(map[string]domain.FacilityDevice)
+	currentConditions := make(map[string]domain.DiagnosticCondition)
+	candidateConditions := make(map[string]domain.DiagnosticCondition)
+	if current != nil {
+		currentDevices = make(map[string]domain.FacilityDevice, len(current.Devices))
+		for _, device := range current.Devices {
+			currentDevices[device.ID] = device
+		}
+		currentConditions = make(map[string]domain.DiagnosticCondition, len(current.Conditions))
+		for _, condition := range current.Conditions {
+			currentConditions[condition.ID] = condition
+		}
+	}
+	if candidate != nil {
+		candidateDevices = make(map[string]domain.FacilityDevice, len(candidate.Devices))
+		for _, device := range candidate.Devices {
+			candidateDevices[device.ID] = device
+		}
+		candidateConditions = make(map[string]domain.DiagnosticCondition, len(candidate.Conditions))
+		for _, condition := range candidate.Conditions {
+			candidateConditions[condition.ID] = condition
+		}
+	}
+
+	deviceIDs := make(map[string]struct{}, len(currentDevices)+len(candidateDevices))
+	for id := range currentDevices {
+		deviceIDs[id] = struct{}{}
+	}
+	for id := range candidateDevices {
+		deviceIDs[id] = struct{}{}
+	}
+	affectedDeviceIDs := make([]string, 0, len(deviceIDs))
+	for id := range deviceIDs {
+		currentDevice, currentExists := currentDevices[id]
+		candidateDevice, candidateExists := candidateDevices[id]
+		currentDevice.CurrentStateID = ""
+		candidateDevice.CurrentStateID = ""
+		if currentExists != candidateExists || !reflect.DeepEqual(currentDevice, candidateDevice) {
+			affectedDeviceIDs = append(affectedDeviceIDs, id)
+		}
+	}
+	slices.Sort(affectedDeviceIDs)
+
+	conditionIDs := make(map[string]struct{}, len(currentConditions)+len(candidateConditions))
+	for id := range currentConditions {
+		conditionIDs[id] = struct{}{}
+	}
+	for id := range candidateConditions {
+		conditionIDs[id] = struct{}{}
+	}
+	affectedConditionIDs := make([]string, 0, len(conditionIDs))
+	for id := range conditionIDs {
+		currentCondition, currentExists := currentConditions[id]
+		candidateCondition, candidateExists := candidateConditions[id]
+		currentCondition.CurrentActive = false
+		candidateCondition.CurrentActive = false
+		if currentExists != candidateExists || !reflect.DeepEqual(currentCondition, candidateCondition) {
+			affectedConditionIDs = append(affectedConditionIDs, id)
+		}
+	}
+	slices.Sort(affectedConditionIDs)
+	return affectedDeviceIDs, affectedConditionIDs
+}
+
+func cloneFacilityIssues(issues []domain.FacilityIssue) []domain.FacilityIssue {
+	if issues == nil {
+		return nil
+	}
+	clone := make([]domain.FacilityIssue, len(issues))
+	for index, issue := range issues {
+		clone[index] = issue
+		if issue.EntityID != nil {
+			clone[index].EntityID = new(*issue.EntityID)
+		}
+		if issue.ReferenceKind != nil {
+			clone[index].ReferenceKind = new(*issue.ReferenceKind)
+		}
+		if issue.ReferenceID != nil {
+			clone[index].ReferenceID = new(*issue.ReferenceID)
+		}
+	}
+	return clone
+}

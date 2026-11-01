@@ -851,6 +851,62 @@ func TestCompatibleSingletonNormalizationPreservesUnknownExtras(t *testing.T) {
 		string(roundTrip.Terminals[0].Root.Children[0].Extra["futureCommand"]))
 }
 
+func TestValidateSessionChecksRecoveryEntriesWithoutRequiringOneThatClears(t *testing.T) {
+	t.Parallel()
+
+	programID := "open-door"
+	missingProgramID := "missing"
+	for _, test := range []struct {
+		name    string
+		mutate  func(*Session)
+		wantErr string
+	}{
+		{name: "capability block without recovery entry", mutate: func(session *Session) {
+			session.Facility.Conditions[0].Recovery = nil
+		}},
+		{name: "valid transition entry that does not clear", mutate: func(session *Session) {
+			session.Facility.Devices[1].Transitions[0].ConditionEffects = nil
+			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{
+				Transition: &FacilityTransitionRequest{DeviceID: "door", TransitionID: "open"},
+			}}
+		}},
+		{name: "valid program entry that does not clear", mutate: func(session *Session) {
+			session.Facility.Devices[1].Transitions[0].ConditionEffects = nil
+			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{RecoveryProgramID: &programID}}
+		}},
+		{name: "private overseer action set to false", mutate: func(session *Session) {
+			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{PrivateOverseerAction: new(false)}}
+		}, wantErr: "privateOverseerAction must be true when configured"},
+		{name: "entry names missing transition", mutate: func(session *Session) {
+			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{
+				Transition: &FacilityTransitionRequest{DeviceID: "door", TransitionID: "missing"},
+			}}
+		}, wantErr: `references unknown transition "missing"`},
+		{name: "entry names missing program", mutate: func(session *Session) {
+			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{RecoveryProgramID: &missingProgramID}}
+		}, wantErr: `references unknown recovery program "missing"`},
+		{name: "transition entry without recovery flag", mutate: func(session *Session) {
+			session.Facility.Devices[1].Transitions[0].Recovery = false
+			session.Facility.Conditions[0].Recovery = []DiagnosticRecoveryReference{{
+				Transition: &FacilityTransitionRequest{DeviceID: "door", TransitionID: "open"},
+			}}
+		}, wantErr: "must reference a recovery transition"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			session := diagnosticFacilitySessionForTest()
+			test.mutate(&session)
+
+			err := ValidateSession(session)
+			if test.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, test.wantErr)
+		})
+	}
+}
+
 func validTerminalGroupValidationSession() Session {
 	root := ContentNode{ID: "root", Type: NodeFolder, Name: "ROOT", Children: []ContentNode{}}
 	return Session{

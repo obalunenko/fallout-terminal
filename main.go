@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/signal"
+	"slices"
 	"sync"
 	"syscall"
 	"time"
@@ -154,14 +155,17 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		},
 	)
 	effectRouter := &coordinationEffectRouter{}
+	sessionStore := &sessionCommandStateStore{service: sessions}
 	coordination := controlservice.New(controlservice.Config{
 		Enqueue:            effectRouter.Enqueue,
 		Runtime:            live,
 		Terminals:          live,
 		TrustedHack:        live,
 		RosterStore:        playerConfigs,
-		CommandStateStore:  &sessionCommandStateStore{service: sessions},
-		TerminalGroupStore: &sessionCommandStateStore{service: sessions},
+		CommandStateStore:  sessionStore,
+		FacilityStore:      sessionStore,
+		AuthoringStore:     sessionStore,
+		TerminalGroupStore: sessionStore,
 		TerminalCatalog:    sessions,
 		RequestResultLimit: int(runtimeConfig.Coordination.RequestResultLimit),
 	})
@@ -241,6 +245,7 @@ func composeApplication(ctx context.Context, host *application.App, clientAssets
 		PlayerConfigs:        playerConfigs,
 		Live:                 live,
 		Coordination:         coordination,
+		CoordinationEvents:   effectRouter,
 		Player:               player,
 		Desktop:              desktop,
 		Browser:              desktop,
@@ -269,8 +274,139 @@ type sessionCommandStateStore struct {
 	service *sessionservice.Service
 }
 
+var _ sessionservice.TerminalCatalog = (*sessionservice.Service)(nil)
+var _ coordinationFacilityLifecycleService = (*controlservice.Service)(nil)
 var _ controlservice.CommandStateStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.FacilityStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.FacilityResetStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.FacilityPlayStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.AuthoringStore = (*sessionCommandStateStore)(nil)
+var _ controlservice.SceneResetStore = (*sessionCommandStateStore)(nil)
 var _ controlservice.TerminalGroupStore = (*sessionCommandStateStore)(nil)
+
+func (store *sessionCommandStateStore) ApplyWorldAction(
+	ctx context.Context,
+	request controlservice.FacilityMutationRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ApplyWorldAction(ctx, sessionservice.WorldActionRequest{
+		CorrelationID:            request.CorrelationID,
+		TerminalID:               request.TerminalID,
+		CommandID:                request.CommandID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		Transitions:              domain.CloneFacilityTransitionRequests(request.Transitions),
+	})
+}
+
+func (store *sessionCommandStateStore) SaveAuthoring(
+	ctx context.Context,
+	request controlservice.AuthoringSaveRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.SaveAuthoring(ctx, sessionservice.AuthoringSaveRequest{
+		Candidate:                 domain.CloneSession(request.Candidate),
+		ExpectedAuthoringRevision: request.ExpectedAuthoringRevision,
+		CorrelationID:             request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ResetScene(
+	ctx context.Context,
+	request controlservice.SceneResetRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ResetScene(ctx, sessionservice.SceneResetRequest{
+		ExpectedSessionRevision:  request.ExpectedSessionRevision,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ResetFacilityDevice(
+	ctx context.Context,
+	request controlservice.FacilityDeviceResetRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ResetFacilityDevice(ctx, sessionservice.FacilityDeviceResetRequest{
+		DeviceID:                 request.DeviceID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ApplyFacilityDeviceTransition(
+	ctx context.Context,
+	request controlservice.FacilityDeviceTransitionRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ApplyFacilityDeviceTransition(ctx, sessionservice.FacilityDeviceTransitionRequest{
+		DeviceID:                 request.DeviceID,
+		TransitionID:             request.TransitionID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) ForceFacilityDeviceState(
+	ctx context.Context,
+	request controlservice.FacilityDeviceForceRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.ForceFacilityDeviceState(ctx, sessionservice.FacilityDeviceForceRequest{
+		DeviceID:                 request.DeviceID,
+		StateID:                  request.StateID,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
+
+func (store *sessionCommandStateStore) SetFacilityConditionActive(
+	ctx context.Context,
+	request controlservice.FacilityConditionActiveRequest,
+) domain.FacilityOperationResult {
+	if store == nil || store.service == nil {
+		return domain.FacilityOperationResult{
+			CorrelationID: request.CorrelationID,
+			Failure:       domain.FacilityFailurePersistenceFailed,
+		}
+	}
+	return store.service.SetFacilityConditionActive(ctx, sessionservice.FacilityConditionActiveRequest{
+		ConditionID:              request.ConditionID,
+		Active:                   request.Active,
+		ExpectedFacilityRevision: request.ExpectedFacilityRevision,
+		CorrelationID:            request.CorrelationID,
+	})
+}
 
 func (store *sessionCommandStateStore) ReplaceTerminalGroups(
 	ctx context.Context,
@@ -312,13 +448,6 @@ func (store *sessionCommandStateStore) ResetCommandState(ctx context.Context, te
 		return controlservice.CommandStateMutation{}, errors.New("session command-state store is unavailable")
 	}
 	return commandStateMutation(store.service.ResetCommandState(ctx, terminalID, commandID))
-}
-
-func (store *sessionCommandStateStore) ResetTerminalCommandStates(ctx context.Context, terminalID string) (controlservice.CommandStateMutation, error) {
-	if store == nil || store.service == nil {
-		return controlservice.CommandStateMutation{}, errors.New("session command-state store is unavailable")
-	}
-	return commandStateMutation(store.service.ResetTerminalCommandStates(ctx, terminalID))
 }
 
 func commandStateMutation(result sessionservice.CommandStateResult) (controlservice.CommandStateMutation, error) {
@@ -404,6 +533,22 @@ type coordinationEffectRouter struct {
 	mu     sync.RWMutex
 	player *playerserver.Server
 	app    *App
+
+	masterMu        sync.Mutex
+	masterDeferrals int
+	masterDraining  bool
+	masterQueue     []deferredMasterEvent
+}
+
+type deferredMasterEvent struct {
+	app   *App
+	state *domain.MasterCoordinationState
+}
+
+type routedMasterEventDeferral struct {
+	router *coordinationEffectRouter
+	app    *App
+	once   sync.Once
 }
 
 func (router *coordinationEffectRouter) Bind(player *playerserver.Server, app *App) {
@@ -429,7 +574,7 @@ func (router *coordinationEffectRouter) Enqueue(effect controlservice.Effect) {
 		player.PublishCoordinationEffect(effect)
 	}
 	if app != nil && effect.Master != nil {
-		app.publishCoordinationState(effect.Master)
+		router.enqueueMasterEvent(app, effect.Master)
 	}
 	if app != nil {
 		app.recordAuditEvents(effect.Audit, effect.Revision)
@@ -439,5 +584,80 @@ func (router *coordinationEffectRouter) Enqueue(effect controlservice.Effect) {
 		case effect.Live != nil:
 			app.updateHackState(effect.Live.Hack)
 		}
+	}
+}
+
+// DeferMasterEvents preserves coordinator order while allowing an App command
+// to publish its matching durable session before the resulting private state.
+func (router *coordinationEffectRouter) DeferMasterEvents() coordinationMasterEventDeferral {
+	router.mu.RLock()
+	app := router.app
+	router.mu.RUnlock()
+	router.masterMu.Lock()
+	router.masterDeferrals++
+	router.masterMu.Unlock()
+	return &routedMasterEventDeferral{router: router, app: app}
+}
+
+func (deferral *routedMasterEventDeferral) Commit() {
+	deferral.once.Do(func() { deferral.router.finishMasterEventDeferral(nil, nil) })
+}
+
+// Discard removes only the snapshot returned by the failed operation. Other
+// coordinator work may enqueue while the App waits for durability.
+func (deferral *routedMasterEventDeferral) Discard(state *domain.MasterCoordinationState) {
+	deferral.once.Do(func() { deferral.router.finishMasterEventDeferral(deferral.app, state) })
+}
+
+func (router *coordinationEffectRouter) finishMasterEventDeferral(
+	app *App,
+	discarded *domain.MasterCoordinationState,
+) {
+	router.masterMu.Lock()
+	if app != nil && discarded != nil {
+		router.masterQueue = slices.DeleteFunc(router.masterQueue, func(event deferredMasterEvent) bool {
+			return event.app == app && event.state != nil && event.state.Revision == discarded.Revision
+		})
+	}
+	if router.masterDeferrals > 0 {
+		router.masterDeferrals--
+	}
+	shouldDrain := router.masterDeferrals == 0 && !router.masterDraining && len(router.masterQueue) != 0
+	if shouldDrain {
+		router.masterDraining = true
+	}
+	router.masterMu.Unlock()
+	if shouldDrain {
+		router.drainMasterEvents()
+	}
+}
+
+func (router *coordinationEffectRouter) enqueueMasterEvent(app *App, state *domain.MasterCoordinationState) {
+	router.masterMu.Lock()
+	router.masterQueue = append(router.masterQueue, deferredMasterEvent{
+		app: app, state: domain.CloneMasterCoordinationState(state),
+	})
+	shouldDrain := router.masterDeferrals == 0 && !router.masterDraining
+	if shouldDrain {
+		router.masterDraining = true
+	}
+	router.masterMu.Unlock()
+	if shouldDrain {
+		router.drainMasterEvents()
+	}
+}
+
+func (router *coordinationEffectRouter) drainMasterEvents() {
+	for {
+		router.masterMu.Lock()
+		if router.masterDeferrals != 0 || len(router.masterQueue) == 0 {
+			router.masterDraining = false
+			router.masterMu.Unlock()
+			return
+		}
+		next := router.masterQueue[0]
+		router.masterQueue = router.masterQueue[1:]
+		router.masterMu.Unlock()
+		next.app.publishCoordinationState(next.state)
 	}
 }

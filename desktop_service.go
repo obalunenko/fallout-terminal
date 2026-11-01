@@ -45,12 +45,44 @@ func (service *desktopService) CopyDemo() sessionservice.SessionResult {
 	return service.core.CopyDemo()
 }
 
-func (service *desktopService) SaveSession(session domain.Session) sessionservice.SaveResult {
-	return service.core.SaveSession(session)
-}
-
 func (service *desktopService) ReplaceTerminalGroups(payload TerminalGroupReplacementPayload) TerminalGroupReplacementResult {
 	return service.core.ReplaceTerminalGroups(payload)
+}
+
+func (service *desktopService) InspectFacilityDependencies(payload FacilityDependencyInspectionPayload) FacilityDependencyInspectionResult {
+	return service.core.InspectFacilityDependencies(payload)
+}
+
+func (service *desktopService) SaveAuthoring(payload AuthoringSavePayload) domain.FacilityOperationResult {
+	return service.core.SaveAuthoring(payload)
+}
+
+func (service *desktopService) ResetScene(payload SceneResetPayload) domain.FacilityOperationResult {
+	return service.core.ResetScene(payload)
+}
+
+func (service *desktopService) DescribePresentation(payload PresentationPayload) PresentationResult {
+	return service.core.DescribePresentation(payload)
+}
+
+func (service *desktopService) PreviewFacility(payload FacilityPreviewPayload) FacilityPreviewResult {
+	return service.core.PreviewFacility(payload)
+}
+
+func (service *desktopService) ResetFacilityDevice(payload FacilityDeviceResetPayload) domain.FacilityOperationResult {
+	return service.core.ResetFacilityDevice(payload)
+}
+
+func (service *desktopService) ApplyFacilityDeviceTransition(payload FacilityDeviceTransitionPayload) domain.FacilityOperationResult {
+	return service.core.ApplyFacilityDeviceTransition(payload)
+}
+
+func (service *desktopService) ForceFacilityDeviceState(payload FacilityDeviceForcePayload) domain.FacilityOperationResult {
+	return service.core.ForceFacilityDeviceState(payload)
+}
+
+func (service *desktopService) SetFacilityConditionActive(payload FacilityConditionActivePayload) domain.FacilityOperationResult {
+	return service.core.SetFacilityConditionActive(payload)
 }
 
 func (service *desktopService) LoadReferencedPlayerConfig() PlayerConfigCommandResult {
@@ -67,10 +99,6 @@ func (service *desktopService) OpenPlayerConfig() PlayerConfigCommandResult {
 
 func (service *desktopService) RequestTerminalActivation(payload LiveTerminalPayload) TerminalSwitchCommandResult {
 	return service.core.RequestTerminalActivation(payload)
-}
-
-func (service *desktopService) UpdateLiveTerminal(payload LiveUpdatePayload) CoordinationCommandResult {
-	return service.core.UpdateLiveTerminal(payload)
 }
 
 func (service *desktopService) RequestTerminalClear() TerminalSwitchCommandResult {
@@ -99,10 +127,6 @@ func (service *desktopService) ResetFailedHack(payload LiveTerminalPayload) Coor
 
 func (service *desktopService) ResetCommandState(payload ResetCommandStatePayload) SessionStateResult {
 	return service.core.ResetCommandState(payload)
-}
-
-func (service *desktopService) ResetTerminalCommandStates(payload ResetTerminalCommandStatesPayload) SessionStateResult {
-	return service.core.ResetTerminalCommandStates(payload)
 }
 
 func (service *desktopService) AddCharacter(payload CharacterCreatePayload) CoordinationCommandResult {
