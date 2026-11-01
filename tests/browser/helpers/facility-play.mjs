@@ -44,6 +44,7 @@ export async function feedEntries(page) {
     kind: item.dataset.kind,
     author: item.dataset.author,
     reason: item.dataset.reason ?? '',
+    attempts: item.dataset.attempts ?? '',
     text: item.textContent.trim().replace(/\s+/g, ' '),
   })));
 }
@@ -69,8 +70,8 @@ export async function setConditionActive(request, conditionId, active) {
 }
 
 // Opens the shared player-state fixture with an Overseer and one connected player.
-export async function openPlayerTable(browser, request) {
-  const reset = await request.post(`${PLAYER_FIXTURE}/reset`, { data: { scenario: 'ready' } });
+export async function openPlayerTable(browser, request, scenario = 'ready') {
+  const reset = await request.post(`${PLAYER_FIXTURE}/reset`, { data: { scenario } });
   expect(reset.status()).toBe(204);
   const overseerContext = await browser.newContext();
   const overseer = await overseerContext.newPage();

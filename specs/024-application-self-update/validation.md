@@ -109,8 +109,9 @@ inspector accepted it as version 2.1.1. It has SHA-256
 manifest files matching the v2.0.0 Darwin inventory; `RUNNING.md` remains repository documentation
 and is not in the governed payload.
 
-The real v2.0.0-to-forward-fix tagged update and relaunch is **NOT RUN**. It requires a committed
-source revision and a newly published, complete five-target release. The v2.1.0 tag and assets were
+The real v2.0.0-to-forward-fix tagged update and relaunch was **NOT RUN** at this point. It
+required a committed source revision and a newly published, complete five-target release; it ran
+on 2026-11-01, recorded under «Real v2.0.0 update and relaunch» below. The v2.1.0 tag and assets were
 not moved or replaced. Because the published v2.1.0 binary requires the conflicting seven-file
 inventory, a manually installed v2.1.0 cannot accept the six-file forward-fix archive and needs one
 manual application replacement. No single exact-inventory archive can satisfy both binaries.
@@ -138,3 +139,28 @@ The following gates passed after `go fix ./...` and formatting:
 
 The browser journey verifies the renamed `ИСТОРИЯ ИЗМЕНЕНИЙ` section and multiple version
 groups in the offered update without changing the existing accept/defer behavior.
+
+## Real v2.0.0 update and relaunch (T048)
+
+Validation date: 2026-11-01, on Darwin ARM64.
+
+T048 asked for this run before publication; it ran afterwards, against the published v2.2.1. Releases v2.1.1 and v2.2.1 are published. Each has the five target archives, and each archive
+carries a GitHub SHA-256 digest. The published v2.0.0 Darwin ARM64 archive was downloaded with
+`gh release download`; its SHA-256 matched the release digest
+(`ebbc52e87a3d0d6122224a6a61957cfef8ce40ef0cd6c4fb16836e31344442b1`). It was unpacked into an empty
+scratch folder, and its manifest read version 2.0.0, source `a810c88`, with six files. The
+application-support folder was copied before the run.
+
+| Step | Result |
+|---|---|
+| Launch v2.0.0 | It offered «ДОСТУПНО ОБНОВЛЕНИЕ» on its own: installed 2.0.0, available 2.2.1 |
+| «ОБНОВИТЬ СЕЙЧАС» | The update downloaded, passed validation and staged in about two seconds. «ОБНОВЛЕНИЕ ГОТОВО» appeared |
+| «ПЕРЕЗАПУСТИТЬ И ОБНОВИТЬ» | The v2.0.0 process exited, and a new process started from the same path within about a second |
+| After relaunch | The bundle at the same path reported `CFBundleShortVersionString` 2.2.1. The start screen showed «ЛОКАЛЬНЫЙ РЕЖИМ ГОТОВ», and no further update was offered. No staging or backup folders were left beside the unit |
+
+On Darwin the replaced unit is `Fallout Terminal.app` alone (`selectReplacementUnit`). The archive's
+`artifact-manifest.json` beside it is validated during staging and not installed, so it still read
+2.0.0 afterwards, as designed. The settings files were unchanged by both versions. The 2.2.1 run
+wrote one log and its retention removed the oldest one; the folder was then restored to match the
+copy exactly.
+

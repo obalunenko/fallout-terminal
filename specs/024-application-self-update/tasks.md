@@ -204,7 +204,7 @@ passing same-revision validation.
 - [x] **T045** [P] Add cross-version regression fixtures that assert the governed schema-v2 payload remains accepted by the v2.0.0 exact inventory on all five targets · `internal/buildtool/archive_test.go`, `internal/update/staging_test.go`
 - [x] **T046** [P] Restore the v2.0.0 schema-v2 archive inventory by removing `RUNNING.md` from governed package generation and staging requirements while retaining it as repository/release-page documentation · `internal/buildtool/package.go`, `internal/buildtool/target.go`, `internal/update/staging.go`, package tests and docs
 - [x] **T047** Make focused build-tool and updater tests, `go fix ./...`, formatting, `task vet`, `task test`, and `task test:race` pass; review every modernization edit and retain only intentional changes · repository root
-- [ ] **T048** Build a higher strict-v2 forward-fix release candidate and record one real v2.0.0-to-candidate Darwin ARM64 update/relaunch before publication · `specs/024-application-self-update/validation.md` (candidate built and inspected; tagged live journey remains `NOT RUN`)
+- [x] **T048** Build a higher strict-v2 forward-fix release candidate and record one real v2.0.0-to-candidate Darwin ARM64 update/relaunch before publication · `specs/024-application-self-update/validation.md` (candidate built and inspected; the real v2.0.0-to-v2.2.1 update and relaunch passed on 2026-11-01, after v2.2.1 was already published)
 
 ---
 
