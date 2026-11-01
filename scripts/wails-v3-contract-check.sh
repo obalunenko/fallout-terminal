@@ -208,7 +208,7 @@ scan_lifecycle_schema() {
     fail 'reviewed private update schema changed unexpectedly'
     return 1
   }
-  [[ "$revision_digest" == 1043ac277835c9d018f954ddf6c3c4453ebdcd7673d6b75c95a80747de81ecab ]] || {
+  [[ "$revision_digest" == 80ab384c9ebe390ff8e82d004001f43b553f716542bad396c4f8db18f641e7dd ]] || {
     fail 'reviewed schema revision record changed unexpectedly'
     return 1
   }

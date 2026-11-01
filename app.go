@@ -849,6 +849,18 @@ func (app *App) recordAuditEvents(events []controlservice.AuditEvent, revision u
 		if event.PreviousPuzzleID != "" {
 			fields["previous_puzzle_id"] = event.PreviousPuzzleID
 		}
+		if facts := event.Facility; facts != nil && facts.Action == controlservice.FacilityAuditActionCapabilityBlock {
+			// A fault-blocked request logs what was blocked and by which faults (FR-006).
+			fields["facility_action"] = string(facts.Action)
+			fields["capability"] = string(facts.Capability)
+			fields["condition_ids"] = sortedUniqueAuditIDs(facts.ConditionIDs)
+			if facts.EntryID != "" {
+				fields["entry_id"] = facts.EntryID
+			}
+			if event.CommandID == "" && facts.CommandID != "" {
+				fields["command_id"] = facts.CommandID
+			}
+		}
 		if strings.HasPrefix(event.Name, "hack.") {
 			fields["attempts_left"] = event.AttemptsLeft
 			if event.Name == "hack.started" {
@@ -864,7 +876,7 @@ func (app *App) recordRuntimeAuditEvent(outcome string, fields logger.Fields) {
 	entry := app.log.WithFields(fields)
 	switch outcome {
 	case "failed", "declined", "rejected", "stale", "superseded", "duplicate", "invalid", "conflict", "interrupted",
-		"unassigned", "not-controller", "controller-disconnected", "stale-broadcast", "stale-terminal":
+		"unassigned", "not-controller", "controller-disconnected", "stale-broadcast", "stale-terminal", "fault-blocked":
 		entry.Warn("runtime audit event")
 	default:
 		entry.Info("runtime audit event")

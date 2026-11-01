@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package fallout.terminal.private.v1;
 
+import "fallout/terminal/persistence/v1/session.proto";
 import "fallout/terminal/player/v1/player.proto";
 import "fallout/terminal/player/v1/terminal.proto";
 
@@ -192,6 +193,14 @@ message FacilityChangePlayerRefusal {
   string terminal_id = 1;
   string command_id = 2;
   FacilityChangeRefusalReason reason = 3;
+  // The entry a fault blocked the player from reading; empty otherwise.
+  string entry_id = 4;
+  // The capability a fault blocked; unspecified unless reason is FAULT_BLOCKED.
+  fallout.terminal.persistence.v1.FacilityCapability capability = 5;
+  // The active faults that blocked the request, sorted; empty unless reason is FAULT_BLOCKED.
+  repeated string condition_ids = 6;
+  // Identical refusals this entry stands for; 0 reads as 1.
+  uint32 attempts = 7;
 }
 
 // One entry of a device's recent-changes feed. Entries carry IDs only.

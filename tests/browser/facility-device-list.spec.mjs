@@ -448,3 +448,78 @@ test('filters and search never narrow «НЕИСПРАВНОСТИ ТЕРМИН�
   expect(await deviceRows(page)).toEqual(expectedRows((await fixtureSession(request)).facility));
   expect(errors).toEqual([]);
 });
+
+// fullyVisibleRows counts the device rows drawn whole inside the list's
+// visible box, borders included.
+async function fullyVisibleRows(page) {
+  return page.locator('#facilityDeviceList').evaluate(list => {
+    const box = list.getBoundingClientRect();
+    const top = box.top + list.clientTop;
+    const bottom = top + list.clientHeight;
+    return [...list.querySelectorAll('button[data-facility-kind="device"]')]
+      .map(row => row.getBoundingClientRect())
+      .filter(rect => rect.top >= top && rect.bottom <= bottom).length;
+  });
+}
+
+test('the terminal-fault group collapses with its active count and frees room for seven rows at 1440×900 (042 FR-015, FR-016, SC-005)', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 869 });
+  await seedDemo(request);
+  await openOverseer(page);
+  const toggle = page.locator('#btnToggleTerminalFaults');
+  const count = page.locator('#facilityTerminalFaultsActiveCount');
+  const active = (await fixtureSession(request)).facility.conditions
+    .filter(condition => condition.terminal && condition.currentActive).length;
+  await expect(page.locator('#facilityTerminalFaultsHeading')).toHaveText('НЕИСПРАВНОСТИ ТЕРМИНАЛОВ');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(count).toHaveText(`АКТИВНО ${active}`);
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('#facilityTerminalFaults')).toHaveAttribute('data-collapsed', 'true');
+  await expect(page.locator('#facilityTerminalFaultList')).toBeHidden();
+  await expect(count).toHaveText(`АКТИВНО ${active}`);
+  expect(await fullyVisibleRows(page)).toBeGreaterThanOrEqual(7);
+
+  // The choice holds for the run and returns to expanded after a restart.
+  await switchTab(page, 'ТЕРМИНАЛЫ');
+  await switchTab(page, 'ОБЪЕКТЫ');
+  await selectDevice(page, VENTILATION);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await page.reload();
+  await openOverseer(page);
+  await expect(page.locator('#btnToggleTerminalFaults')).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('a filtered row and a focused row are drawn whole (042 FR-017, FR-022, SC-006)', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 869 });
+  await seedDemo(request);
+  await openOverseer(page);
+  const list = deviceList(page);
+  await list.search.fill(GRID_NAME);
+  await expect(list.rows).toHaveCount(1);
+  expect(await fullyVisibleRows(page)).toBe(1);
+
+  await list.search.fill('');
+  await expect(list.rows).toHaveCount(10);
+  await list.search.click();
+  for (let step = 0; step < 6; step += 1) {
+    if (await page.evaluate(() => document.activeElement?.dataset?.facilityKind === 'device')) break;
+    await page.keyboard.press('Tab');
+  }
+  const clipped = await page.evaluate(() => {
+    const row = document.activeElement;
+    if (row?.dataset?.facilityKind !== 'device') return 'no device row focused';
+    const list = document.getElementById('facilityDeviceList');
+    const style = getComputedStyle(row);
+    const extent = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+    const rect = row.getBoundingClientRect();
+    const box = list.getBoundingClientRect();
+    const left = box.left + list.clientLeft;
+    const top = box.top + list.clientTop;
+    return rect.left - extent >= left && rect.right + extent <= left + list.clientWidth && rect.top - extent >= top
+      ? '' : `outline ${extent}px clipped`;
+  });
+  expect(clipped).toBe('');
+});
+

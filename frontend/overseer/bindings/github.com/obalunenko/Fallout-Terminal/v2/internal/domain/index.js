@@ -10,6 +10,7 @@ export {
     CommandReference,
     ControllerTerminalPresentation,
     ControllerTerminalPresentationKind,
+    FacilityCapability,
     FacilityChange,
     FacilityChangeFault,
     FacilityChangeForced,

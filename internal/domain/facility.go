@@ -1254,11 +1254,17 @@ type FacilityChangePlayerCommand struct {
 }
 
 // FacilityChangePlayerRefusal records a player request affecting the device
-// that was not applied.
+// that was not applied. A fault-block refusal also names the blocked entry or
+// command, the blocked capability, and the faults that blocked it; Attempts
+// counts identical refusals merged into the entry, and zero reads as one.
 type FacilityChangePlayerRefusal struct {
-	TerminalID string                      `json:"terminalId"`
-	CommandID  string                      `json:"commandId"`
-	Reason     FacilityChangeRefusalReason `json:"reason"`
+	TerminalID   string                      `json:"terminalId"`
+	CommandID    string                      `json:"commandId"`
+	Reason       FacilityChangeRefusalReason `json:"reason"`
+	EntryID      string                      `json:"entryId,omitempty"`
+	Capability   FacilityCapability          `json:"capability,omitempty"`
+	ConditionIDs []string                    `json:"conditionIds,omitempty"`
+	Attempts     uint32                      `json:"attempts,omitempty"`
 }
 
 // CloneFacilityChanges returns a deeply detached feed.
@@ -1274,9 +1280,18 @@ func CloneFacilityChanges(changes []FacilityChange) []FacilityChange {
 		clone[index].Reset = cloneFacilityChangeReset(change.Reset)
 		clone[index].SceneReset = cloneFacilityChangeReset(change.SceneReset)
 		clone[index].PlayerCommand = clonePointer(change.PlayerCommand)
-		clone[index].PlayerRefusal = clonePointer(change.PlayerRefusal)
+		clone[index].PlayerRefusal = cloneFacilityChangePlayerRefusal(change.PlayerRefusal)
 	}
 	return clone
+}
+
+func cloneFacilityChangePlayerRefusal(refusal *FacilityChangePlayerRefusal) *FacilityChangePlayerRefusal {
+	if refusal == nil {
+		return nil
+	}
+	clone := *refusal
+	clone.ConditionIDs = slices.Clone(refusal.ConditionIDs)
+	return &clone
 }
 
 func cloneFacilityChangeReset(reset *FacilityChangeReset) *FacilityChangeReset {

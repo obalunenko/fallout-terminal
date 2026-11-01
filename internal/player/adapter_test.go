@@ -433,3 +433,28 @@ func setDomainStringField(t *testing.T, value reflect.Value, fieldName, content 
 	require.Equal(t, reflect.String, field.Kind())
 	field.SetString(content)
 }
+
+func TestActionReasonToProtoMapsEveryDomainReason(t *testing.T) {
+	tests := []struct {
+		reason domain.ActionReason
+		want   playerv1.ActionReason
+	}{
+		{domain.ActionReasonAccepted, playerv1.ActionReason_ACTION_REASON_ACCEPTED},
+		{domain.ActionReasonInvalidSession, playerv1.ActionReason_ACTION_REASON_INVALID_SESSION},
+		{domain.ActionReasonStaleBroadcast, playerv1.ActionReason_ACTION_REASON_STALE_BROADCAST},
+		{domain.ActionReasonUnassigned, playerv1.ActionReason_ACTION_REASON_UNASSIGNED},
+		{domain.ActionReasonNotController, playerv1.ActionReason_ACTION_REASON_NOT_CONTROLLER},
+		{domain.ActionReasonControllerDisconnected, playerv1.ActionReason_ACTION_REASON_CONTROLLER_DISCONNECTED},
+		{domain.ActionReasonStaleTerminal, playerv1.ActionReason_ACTION_REASON_STALE_TERMINAL},
+		{domain.ActionReasonInvalidAction, playerv1.ActionReason_ACTION_REASON_INVALID_ACTION},
+		{domain.ActionReasonConflict, playerv1.ActionReason_ACTION_REASON_CONFLICT},
+		{domain.ActionReasonDuplicate, playerv1.ActionReason_ACTION_REASON_DUPLICATE},
+		{domain.ActionReasonFaultBlocked, playerv1.ActionReason_ACTION_REASON_FAULT_BLOCKED},
+		{"bogus", playerv1.ActionReason_ACTION_REASON_UNSPECIFIED},
+	}
+	for _, test := range tests {
+		t.Run(string(test.reason), func(t *testing.T) {
+			require.Equal(t, test.want, actionReasonToProto(test.reason))
+		})
+	}
+}

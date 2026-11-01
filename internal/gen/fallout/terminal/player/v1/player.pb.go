@@ -194,6 +194,8 @@ const (
 	ActionReason_ACTION_REASON_INVALID_ACTION          ActionReason = 8
 	ActionReason_ACTION_REASON_CONFLICT                ActionReason = 9
 	ActionReason_ACTION_REASON_DUPLICATE               ActionReason = 10
+	// An active fault's capability block refused the request.
+	ActionReason_ACTION_REASON_FAULT_BLOCKED ActionReason = 11
 )
 
 // Enum value maps for ActionReason.
@@ -210,6 +212,7 @@ var (
 		8:  "ACTION_REASON_INVALID_ACTION",
 		9:  "ACTION_REASON_CONFLICT",
 		10: "ACTION_REASON_DUPLICATE",
+		11: "ACTION_REASON_FAULT_BLOCKED",
 	}
 	ActionReason_value = map[string]int32{
 		"ACTION_REASON_UNSPECIFIED":             0,
@@ -223,6 +226,7 @@ var (
 		"ACTION_REASON_INVALID_ACTION":          8,
 		"ACTION_REASON_CONFLICT":                9,
 		"ACTION_REASON_DUPLICATE":               10,
+		"ACTION_REASON_FAULT_BLOCKED":           11,
 	}
 )
 
@@ -1587,7 +1591,7 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"\x12RosterAvailability\x12#\n" +
 	"\x1fROSTER_AVAILABILITY_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dROSTER_AVAILABILITY_AVAILABLE\x10\x01\x12\x1f\n" +
-	"\x1bROSTER_AVAILABILITY_CLAIMED\x10\x02*\xf7\x02\n" +
+	"\x1bROSTER_AVAILABILITY_CLAIMED\x10\x02*\x98\x03\n" +
 	"\fActionReason\x12\x1d\n" +
 	"\x19ACTION_REASON_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ACTION_REASON_ACCEPTED\x10\x01\x12!\n" +
@@ -1600,7 +1604,8 @@ const file_fallout_terminal_player_v1_player_proto_rawDesc = "" +
 	"\x1cACTION_REASON_INVALID_ACTION\x10\b\x12\x1a\n" +
 	"\x16ACTION_REASON_CONFLICT\x10\t\x12\x1b\n" +
 	"\x17ACTION_REASON_DUPLICATE\x10\n" +
-	"*i\n" +
+	"\x12\x1f\n" +
+	"\x1bACTION_REASON_FAULT_BLOCKED\x10\v*i\n" +
 	"\x10PlayerNoticeKind\x12\"\n" +
 	"\x1ePLAYER_NOTICE_KIND_UNSPECIFIED\x10\x00\x121\n" +
 	"-PLAYER_NOTICE_KIND_COMMAND_PERSISTENCE_FAILED\x10\x012\x8e\a\n" +

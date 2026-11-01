@@ -32,7 +32,15 @@ func appendFacilityChanges(runtime *domain.ProcessRuntime, at time.Time, changes
 		if runtime.FacilityChanges == nil {
 			runtime.FacilityChanges = make(map[string][]domain.FacilityChange)
 		}
-		feed := append([]domain.FacilityChange{change}, runtime.FacilityChanges[change.DeviceID]...)
+		previous := runtime.FacilityChanges[change.DeviceID]
+		if len(previous) != 0 && repeatsFaultBlockRefusal(previous[0], change) {
+			// The repeat replaces the newest entry and counts one more attempt (FR-004).
+			refusal := *change.PlayerRefusal
+			refusal.Attempts = max(previous[0].PlayerRefusal.Attempts, 1) + 1
+			change.PlayerRefusal = &refusal
+			previous = previous[1:]
+		}
+		feed := append([]domain.FacilityChange{change}, previous...)
 		if len(feed) > facilityChangeLimit {
 			feed = feed[:facilityChangeLimit]
 		}
@@ -40,6 +48,18 @@ func appendFacilityChanges(runtime *domain.ProcessRuntime, at time.Time, changes
 		recorded = true
 	}
 	return recorded
+}
+
+// repeatsFaultBlockRefusal reports whether change is a fault-block refusal of
+// the same request, by the same faults, as newest. Other refusals never merge:
+// each Overseer decision or failure is its own entry.
+func repeatsFaultBlockRefusal(newest, change domain.FacilityChange) bool {
+	left, right := newest.PlayerRefusal, change.PlayerRefusal
+	return left != nil && right != nil &&
+		right.Reason == domain.FacilityChangeRefusalFaultBlocked && left.Reason == right.Reason &&
+		left.TerminalID == right.TerminalID && left.CommandID == right.CommandID &&
+		left.EntryID == right.EntryID && left.Capability == right.Capability &&
+		slices.Equal(left.ConditionIDs, right.ConditionIDs)
 }
 
 // facilityChangeSnapshot flattens every device's feed, newest first by

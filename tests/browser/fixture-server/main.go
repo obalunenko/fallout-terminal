@@ -836,6 +836,27 @@ func (state *fixtureFacilityAuthoringState) play(
 	return result
 }
 
+// readPlayerEntry reports whether a fault refuses opening entryID on
+// terminalID, and feeds the refusal when it does.
+func (state *fixtureFacilityAuthoringState) readPlayerEntry(terminalID, entryID string) (bool, error) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	facility := state.session.Facility
+	terminal := fixtureTerminalByID(&state.session, terminalID)
+	if facility == nil || terminal == nil {
+		return false, fmt.Errorf("unknown player terminal %q", terminalID)
+	}
+	if entry := fixtureNodeByID(&terminal.Root, entryID); entry == nil || entry.Type != domain.NodeEntry {
+		return false, fmt.Errorf("unknown entry %q", entryID)
+	}
+	blocking := fixtureBlockingConditions(facility, *terminal, domain.FacilityCapabilityViewEntry)
+	if len(blocking) == 0 {
+		return false, nil
+	}
+	state.feed.add(facility, time.Now(), fixtureFaultBlockChanges(terminalID, "", entryID, domain.FacilityCapabilityViewEntry, blocking, nil)...)
+	return true, nil
+}
+
 // resolvePlayerCommand stands in for a player's request to run an authored
 // facility command and the Overseer's decision on it, as the coordinator
 // resolves them. An active fault that blocks the command refuses it before
@@ -881,9 +902,14 @@ func (state *fixtureFacilityAuthoringState) resolvePlayerCommand(
 	// The coordinator refuses a blocked request before it becomes pending,
 	// and a request whose action does not resolve before any decision.
 	capability := domain.CommandFacilityCapability(*command)
-	if fixtureCapabilityBlocked(facility, *terminal, capability) {
+	if blocking := fixtureBlockingConditions(facility, *terminal, capability); len(blocking) != 0 {
+		var targets []string
+		for _, transition := range fixtureAuthoredActionRequests(facility, action) {
+			targets = append(targets, transition.DeviceID)
+		}
+		state.feed.add(facility, at, fixtureFaultBlockChanges(request.TerminalID, request.CommandID, "", capability, blocking, targets)...)
 		issue := fixtureFacilityIssue(domain.FacilityFailureRejected, "capability", string(capability))
-		return refuse(issue, domain.FacilityChangeRefusalFaultBlocked), nil
+		return refuse(issue, ""), nil
 	}
 	requests, failure := fixtureCommandTransitions(facility, action)
 	if failure != nil {
@@ -1533,15 +1559,16 @@ func fixtureAuthoredActionRequests(
 	return nil
 }
 
-// fixtureCapabilityBlocked reports whether an active fault denies capability
-// on terminal, as the coordinator checks a player request: a terminal-scoped
-// fault on that terminal, or a device-scoped one whose device the terminal's
-// content references.
-func fixtureCapabilityBlocked(
+// fixtureBlockingConditions returns the active conditions that block
+// capability on terminal, as the coordinator's blockingFacilityConditions
+// does: a terminal-scoped fault on that terminal, or a device-scoped one whose
+// device the terminal's content references.
+func fixtureBlockingConditions(
 	facility *domain.Facility,
 	terminal domain.Terminal,
 	capability domain.FacilityCapability,
-) bool {
+) []domain.DiagnosticCondition {
+	var blocking []domain.DiagnosticCondition
 	for _, condition := range facility.Conditions {
 		if !condition.CurrentActive || !slices.ContainsFunc(condition.Effects, func(effect domain.DiagnosticEffect) bool {
 			return effect.CapabilityBlock != nil && effect.CapabilityBlock.Capability == capability
@@ -1551,15 +1578,44 @@ func fixtureCapabilityBlocked(
 		switch {
 		case condition.Terminal != nil && condition.Device == nil:
 			if condition.Terminal.TerminalID == terminal.ID {
-				return true
+				blocking = append(blocking, condition)
 			}
 		case condition.Device != nil && condition.Terminal == nil:
 			if fixtureContentReferencesDevice(terminal.Root, facility, condition.Device.DeviceID) {
-				return true
+				blocking = append(blocking, condition)
 			}
 		}
 	}
-	return false
+	return blocking
+}
+
+// fixtureFaultBlockChanges mirrors the coordinator's facilityBlockRefusalChanges:
+// one refusal per device in the union of the blocking device faults' devices
+// and targetDeviceIDs.
+func fixtureFaultBlockChanges(
+	terminalID, commandID, entryID string,
+	capability domain.FacilityCapability,
+	conditions []domain.DiagnosticCondition,
+	targetDeviceIDs []string,
+) []domain.FacilityChange {
+	deviceIDs := slices.Clone(targetDeviceIDs)
+	var conditionIDs []string
+	for _, condition := range conditions {
+		conditionIDs = append(conditionIDs, condition.ID)
+		if condition.Device != nil {
+			deviceIDs = append(deviceIDs, condition.Device.DeviceID)
+		}
+	}
+	slices.Sort(conditionIDs)
+	slices.Sort(deviceIDs)
+	var changes []domain.FacilityChange
+	for _, deviceID := range slices.Compact(deviceIDs) {
+		changes = append(changes, domain.FacilityChange{DeviceID: deviceID, PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+			TerminalID: terminalID, CommandID: commandID, EntryID: entryID, Reason: domain.FacilityChangeRefusalFaultBlocked,
+			Capability: capability, ConditionIDs: slices.Compact(slices.Clone(conditionIDs)), Attempts: 1,
+		}})
+	}
+	return changes
 }
 
 // fixtureContentReferencesDevice reports whether node or a descendant names
@@ -1627,9 +1683,27 @@ func (feed *fixtureFacilityFeed) add(facility *domain.Facility, at time.Time, ch
 		if feed.changes == nil {
 			feed.changes = make(map[string][]domain.FacilityChange)
 		}
-		entries := append([]domain.FacilityChange{change}, feed.changes[change.DeviceID]...)
+		previous := feed.changes[change.DeviceID]
+		// A repeated fault-block refusal replaces the newest entry and counts
+		// one more attempt, as the coordinator's feed does.
+		if len(previous) != 0 && fixtureRepeatsFaultBlock(previous[0], change) {
+			refusal := *change.PlayerRefusal
+			refusal.Attempts = max(previous[0].PlayerRefusal.Attempts, 1) + 1
+			change.PlayerRefusal = &refusal
+			previous = previous[1:]
+		}
+		entries := append([]domain.FacilityChange{change}, previous...)
 		feed.changes[change.DeviceID] = entries[:min(len(entries), fixtureFacilityChangeLimit)]
 	}
+}
+
+func fixtureRepeatsFaultBlock(newest, change domain.FacilityChange) bool {
+	left, right := newest.PlayerRefusal, change.PlayerRefusal
+	return left != nil && right != nil &&
+		right.Reason == domain.FacilityChangeRefusalFaultBlocked && left.Reason == right.Reason &&
+		left.TerminalID == right.TerminalID && left.CommandID == right.CommandID &&
+		left.EntryID == right.EntryID && left.Capability == right.Capability &&
+		slices.Equal(left.ConditionIDs, right.ConditionIDs)
 }
 
 // clear empties the feed, as opening a session does. The sequence goes on.
@@ -1782,10 +1856,13 @@ func (state *fixtureFacilityDiagnosticState) reset(scenario string) error {
 	return nil
 }
 
-func (state *fixtureFacilityDiagnosticState) deactivate() {
+// deactivate ends the diagnostics fixture and reports whether it was active.
+func (state *fixtureFacilityDiagnosticState) deactivate() bool {
 	state.mu.Lock()
+	defer state.mu.Unlock()
+	wasActive := state.active
 	state.active = false
-	state.mu.Unlock()
+	return wasActive
 }
 
 func (state *fixtureFacilityDiagnosticState) sessionSnapshot() (domain.Session, bool) {
@@ -1941,6 +2018,10 @@ func fixtureDiagnosticDamagedRecord() string {
 	return strings.Repeat("R_C_RD 04-B // S_CT_R 7 C_RR_PT_D ??__??\n", 96) + "_ND _F D_M_G_D R_C_RD"
 }
 
+// fixtureDiagnosticAffectedEntryText is the blockable entry's own text, which
+// no refusal or error message shares, so a journey can tell it opened.
+const fixtureDiagnosticAffectedEntryText = "AFFECTED ENTRY TEXT // READABLE"
+
 func fixtureDiagnosticAuthoredContent() string {
 	return "STABLE REFERENCE\nAFFECTED ENTRY\nAFFECTED COMMAND\nREMOTE TERMINAL\nDAMAGED RECORD"
 }
@@ -1988,7 +2069,7 @@ func facilityDiagnosticSession(scenario string) (domain.Session, string, error) 
 		condition(fixtureFacilityUnpoweredConditionID, "Reactor controls unpowered", domain.DiagnosticConditionCategoryUnpowered,
 			capability(domain.FacilityCapabilityExecuteCommand)),
 		condition(fixtureFacilityNetworkConditionID, "Operations network isolated", domain.DiagnosticConditionCategoryNetworkIsolated,
-			capability(domain.FacilityCapabilityTerminalTransition),
+			capability(domain.FacilityCapabilityTerminalTransition), capability(domain.FacilityCapabilityRunRecoveryProgram),
 			domain.DiagnosticEffect{DiagnosticPath: &domain.DiagnosticPathEffect{
 				TerminalID: fixtureFacilityDiagnosticTerminalID, NodeID: "diagnostic-isolation",
 			}}),
@@ -2005,6 +2086,12 @@ func facilityDiagnosticSession(scenario string) (domain.Session, string, error) 
 			capability(domain.FacilityCapabilityHack)),
 	}
 	conditions[len(conditions)-1].CustomCategory = "coolant-contamination"
+	if scenario == "transition-recovery" {
+		// A player recovery command on the blocked terminal must itself be
+		// runnable, so this scenario's power fault blocks only remote access,
+		// which the scenario does not offer.
+		conditions[1].Effects = []domain.DiagnosticEffect{capability(domain.FacilityCapabilityTerminalTransition)}
+	}
 
 	state := func(id, name string) domain.FacilityDeviceState {
 		return domain.FacilityDeviceState{ID: id, Name: name}
@@ -2042,8 +2129,20 @@ func facilityDiagnosticSession(scenario string) (domain.Session, string, error) 
 		return domain.ContentNode{ID: id, Type: domain.NodeEntry, Name: name, Description: description}
 	}
 	stableReference := entry("stable-reference", "STABLE REFERENCE", "AUTHORED CONTENT REMAINS INTACT")
-	accessEntry := func(id, name string) domain.ContentNode {
-		return entry(id, name, "Ошибка доступа")
+	command := func(id, name string) domain.ContentNode {
+		return domain.ContentNode{ID: id, Type: domain.NodeCommand, Name: name, Text: name + " COMPLETE"}
+	}
+	remoteTerminal := domain.ContentNode{
+		ID: "remote-terminal", Type: domain.NodeCommand, Name: "REMOTE TERMINAL",
+		TerminalTransition: &domain.TerminalTransitionConfig{TargetTerminalID: fixtureFacilityDiagnosticRemoteID},
+	}
+	recoveryProgramID := fixtureFacilityNetworkRecoveryProgramID
+	runRecoveryProgram := domain.ContentNode{
+		ID: "run-recovery-program", Type: domain.NodeCommand, Name: "RUN RECOVERY PROGRAM", Text: "RECOVERY PROGRAM COMPLETE",
+		StateChange: &domain.StateChangeConfig{
+			CompletedName: "RECOVERY PROGRAM RAN", ConfirmationText: "Run the network recovery program?",
+			FacilityAction: &domain.FacilityActionConfig{RecoveryProgramID: &recoveryProgramID},
+		},
 	}
 	diagnosticPath := domain.ContentNode{
 		ID: "diagnostic-isolation", Type: domain.NodeEntry, Name: "ISOLATION DIAGNOSTICS",
@@ -2062,34 +2161,42 @@ func facilityDiagnosticSession(scenario string) (domain.Session, string, error) 
 	children := []domain.ContentNode{stableReference, diagnosticPath, damagedRecord}
 	switch scenario {
 	case "offline":
-		children = append(children, accessEntry("affected-entry", "AFFECTED ENTRY"))
+		children = append(children, entry("affected-entry", "AFFECTED ENTRY", fixtureDiagnosticAffectedEntryText))
 	case "unpowered":
-		children = append(children, accessEntry("affected-command", "AFFECTED COMMAND"))
+		children = append(children, command("affected-command", "AFFECTED COMMAND"))
 	case "transition-recovery":
 		children = append(children, restorePower)
 	case "network-isolated":
-		children = append(children, accessEntry("remote-terminal", "REMOTE TERMINAL"))
+		children = append(children, remoteTerminal, runRecoveryProgram)
 	case "program-recovery":
 		children = append(children, recoverNetwork)
 	case "authorization-corrupted":
-		children = append(children, accessEntry("security-override", "SECURITY OVERRIDE"))
+		children = append(children, command("security-override", "SECURITY OVERRIDE"))
 	case "private-recovery-escape":
-		children = append(children, accessEntry("affected-command", "AFFECTED COMMAND"))
-	case "custom":
-		children = append(children, accessEntry("affected-hack", "AFFECTED HACK"))
+		children = append(children, command("affected-command", "AFFECTED COMMAND"))
+	}
+	hackLevel := 0
+	if scenario == "custom" {
+		// The coolant fault blocks hacking, so the terminal starts locked.
+		hackLevel = 1
 	}
 	session := domain.Session{
 		Version: 1, Name: "Facility diagnostic fixture",
 		Terminals: []domain.Terminal{
 			{
 				ID: fixtureFacilityDiagnosticTerminalID, Name: "Facility diagnostics", IntroText: "FACILITY DIAGNOSTIC NETWORK",
-				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: children},
+				HackLevel: hackLevel,
+				Root:      domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: children},
 			},
 			{
 				ID: fixtureFacilityDiagnosticRemoteID, Name: "Remote diagnostics", IntroText: "REMOTE DIAGNOSTICS",
 				Root: domain.ContentNode{ID: "root", Type: domain.NodeFolder, Name: "ROOT", Children: []domain.ContentNode{}},
 			},
 		},
+		TerminalGroups: []domain.TerminalGroup{{
+			ID: "facility-diagnostics", Name: "Facility diagnostics",
+			TerminalIDs: []string{fixtureFacilityDiagnosticTerminalID, fixtureFacilityDiagnosticRemoteID},
+		}},
 		Facility: &domain.Facility{
 			Revision: 7, Devices: devices, Conditions: conditions,
 			RecoveryPrograms: []domain.RecoveryProgram{{
@@ -4295,6 +4402,21 @@ func run(ctx context.Context) error {
 	if _, err := service.ReplaceFacility(facilityPlayerState.canonicalFacility()); err != nil {
 		return fmt.Errorf("install facility player-state fixture: %w", err)
 	}
+	// syncFacilityDiagnostics installs the diagnostics fixture's facility in
+	// the coordinator, so player requests on its terminal take the
+	// application's refusal path. leaveFacilityDiagnostics ends the fixture
+	// and puts the player-state facility back.
+	syncFacilityDiagnostics := func() error {
+		_, err := service.ReplaceFacility(facilityDiagnosticState.projectionFacility())
+		return err
+	}
+	leaveFacilityDiagnostics := func() error {
+		if !facilityDiagnosticState.deactivate() {
+			return nil
+		}
+		_, err := service.ReplaceFacility(facilityPlayerState.canonicalFacility())
+		return err
+	}
 	presentationGate := &fixturePresentationGate{Service: service, context: ctx}
 	presentationHub := player.NewSubscriptionHub()
 	connectPlayer, err = player.NewConnectService(player.ConnectServiceConfig{
@@ -5236,6 +5358,10 @@ export async function ResolveCommandExecution(payload) {
 			session, _ := facilityDiagnosticState.sessionSnapshot()
 			return session
 		}())
+		if err := syncFacilityDiagnostics(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		if _, err := service.EndBroadcast(); err != nil {
 			http.Error(response, err.Error(), http.StatusConflict)
 			return
@@ -5311,6 +5437,9 @@ export async function ResolveCommandExecution(payload) {
 			}[commandID]
 			if conditionID != "" {
 				result, recoverErr := facilityDiagnosticState.recover(conditionID)
+				if recoverErr == nil {
+					recoverErr = syncFacilityDiagnostics()
+				}
 				if recoverErr != nil {
 					resolveErr = recoverErr
 				} else {
@@ -5347,6 +5476,10 @@ export async function ResolveCommandExecution(payload) {
 		result, switchErr := facilityDiagnosticState.setConditionActive(payload.ConditionID, payload.Active)
 		if switchErr != nil {
 			http.Error(response, switchErr.Error(), http.StatusConflict)
+			return
+		}
+		if err := syncFacilityDiagnostics(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		result.CorrelationID = payload.CorrelationID
@@ -5634,6 +5767,27 @@ export const SetFacilityConditionActive = payload => post("set-condition-active"
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(result)
 	})
+	// player-entry is a controller opening an entry: a fault that blocks
+	// view-entry refuses it and feeds the refusal, as the coordinator does.
+	mux.HandleFunc("POST /__fixture/facility-authoring/player-entry", func(response http.ResponseWriter, request *http.Request) {
+		var payload struct {
+			TerminalID string `json:"terminalId"`
+			EntryID    string `json:"entryId"`
+		}
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&payload); err != nil {
+			http.Error(response, "invalid player entry request", http.StatusBadRequest)
+			return
+		}
+		refused, readErr := facilityAuthoringState.readPlayerEntry(payload.TerminalID, payload.EntryID)
+		if readErr != nil {
+			http.Error(response, readErr.Error(), http.StatusBadRequest)
+			return
+		}
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]bool{"refused": refused})
+	})
 	mux.HandleFunc("GET /__fixture/facility-authoring/player-session", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(response).Encode(facilityAuthoringState.playerSession())
@@ -5780,7 +5934,10 @@ export const SetFacilityConditionActive = payload => playChange("set-condition-a
 				return
 			}
 		}
-		facilityDiagnosticState.deactivate()
+		if err := leaveFacilityDiagnostics(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		approvalStore.reset()
 		fixtureHackRandom.reset()
 		presentationGate.reset()
@@ -6122,7 +6279,10 @@ export async function OpenSession() {
 			http.Error(response, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		facilityDiagnosticState.deactivate()
+		if err := leaveFacilityDiagnostics(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		approvalStore.reset()
 		fixtureHackRandom.reset()
 		presentationGate.reset()
@@ -6188,7 +6348,10 @@ export async function OpenSession() {
 		_, _ = fmt.Fprint(response, fixtureAuthoringOperationsScript)
 	})
 	mux.HandleFunc("POST /__fixture/reset", func(response http.ResponseWriter, _ *http.Request) {
-		facilityDiagnosticState.deactivate()
+		if err := leaveFacilityDiagnostics(); err != nil {
+			http.Error(response, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		fixtureHackRandom.reset()
 		presentationGate.reset()
 		if err := edge.reset(); err != nil {

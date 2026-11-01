@@ -2326,9 +2326,13 @@ func facilityChangeToPrivate(change domain.FacilityChange) *privatev1.FacilityCh
 		}}
 	case change.PlayerRefusal != nil:
 		result.Change = &privatev1.FacilityChange_PlayerRefusal{PlayerRefusal: &privatev1.FacilityChangePlayerRefusal{
-			TerminalId: change.PlayerRefusal.TerminalID,
-			CommandId:  change.PlayerRefusal.CommandID,
-			Reason:     facilityChangeRefusalReasonToPrivate(change.PlayerRefusal.Reason),
+			TerminalId:   change.PlayerRefusal.TerminalID,
+			CommandId:    change.PlayerRefusal.CommandID,
+			Reason:       facilityChangeRefusalReasonToPrivate(change.PlayerRefusal.Reason),
+			EntryId:      change.PlayerRefusal.EntryID,
+			Capability:   facilityCapabilityToPrivate(change.PlayerRefusal.Capability),
+			ConditionIds: slices.Clone(change.PlayerRefusal.ConditionIDs),
+			Attempts:     change.PlayerRefusal.Attempts,
 		}}
 	}
 	return result
@@ -2379,9 +2383,13 @@ func facilityChangeFromPrivate(change *privatev1.FacilityChange) domain.Facility
 		}
 	case *privatev1.FacilityChange_PlayerRefusal:
 		result.PlayerRefusal = &domain.FacilityChangePlayerRefusal{
-			TerminalID: variant.PlayerRefusal.GetTerminalId(),
-			CommandID:  variant.PlayerRefusal.GetCommandId(),
-			Reason:     facilityChangeRefusalReasonFromPrivate(variant.PlayerRefusal.GetReason()),
+			TerminalID:   variant.PlayerRefusal.GetTerminalId(),
+			CommandID:    variant.PlayerRefusal.GetCommandId(),
+			Reason:       facilityChangeRefusalReasonFromPrivate(variant.PlayerRefusal.GetReason()),
+			EntryID:      variant.PlayerRefusal.GetEntryId(),
+			Capability:   facilityCapabilityFromPrivate(variant.PlayerRefusal.GetCapability()),
+			ConditionIDs: slices.Clone(variant.PlayerRefusal.GetConditionIds()),
+			Attempts:     variant.PlayerRefusal.GetAttempts(),
 		}
 	}
 	return result
@@ -2426,6 +2434,40 @@ func facilityChangeRefusalReasonFromPrivate(reason privatev1.FacilityChangeRefus
 		return domain.FacilityChangeRefusalFailed
 	default:
 		return domain.FacilityChangeRefusalUnspecified
+	}
+}
+
+func facilityCapabilityToPrivate(capability domain.FacilityCapability) persistencev1.FacilityCapability {
+	switch capability {
+	case domain.FacilityCapabilityExecuteCommand:
+		return persistencev1.FacilityCapability_FACILITY_CAPABILITY_EXECUTE_COMMAND
+	case domain.FacilityCapabilityViewEntry:
+		return persistencev1.FacilityCapability_FACILITY_CAPABILITY_VIEW_ENTRY
+	case domain.FacilityCapabilityHack:
+		return persistencev1.FacilityCapability_FACILITY_CAPABILITY_HACK
+	case domain.FacilityCapabilityTerminalTransition:
+		return persistencev1.FacilityCapability_FACILITY_CAPABILITY_TERMINAL_TRANSITION
+	case domain.FacilityCapabilityRunRecoveryProgram:
+		return persistencev1.FacilityCapability_FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM
+	default:
+		return persistencev1.FacilityCapability_FACILITY_CAPABILITY_UNSPECIFIED
+	}
+}
+
+func facilityCapabilityFromPrivate(capability persistencev1.FacilityCapability) domain.FacilityCapability {
+	switch capability {
+	case persistencev1.FacilityCapability_FACILITY_CAPABILITY_EXECUTE_COMMAND:
+		return domain.FacilityCapabilityExecuteCommand
+	case persistencev1.FacilityCapability_FACILITY_CAPABILITY_VIEW_ENTRY:
+		return domain.FacilityCapabilityViewEntry
+	case persistencev1.FacilityCapability_FACILITY_CAPABILITY_HACK:
+		return domain.FacilityCapabilityHack
+	case persistencev1.FacilityCapability_FACILITY_CAPABILITY_TERMINAL_TRANSITION:
+		return domain.FacilityCapabilityTerminalTransition
+	case persistencev1.FacilityCapability_FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM:
+		return domain.FacilityCapabilityRunRecoveryProgram
+	default:
+		return domain.FacilityCapabilityUnspecified
 	}
 }
 

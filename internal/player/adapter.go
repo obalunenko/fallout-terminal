@@ -767,6 +767,8 @@ func actionReasonToProto(reason domain.ActionReason) playerv1.ActionReason {
 		return playerv1.ActionReason_ACTION_REASON_CONFLICT
 	case domain.ActionReasonDuplicate:
 		return playerv1.ActionReason_ACTION_REASON_DUPLICATE
+	case domain.ActionReasonFaultBlocked:
+		return playerv1.ActionReason_ACTION_REASON_FAULT_BLOCKED
 	default:
 		return playerv1.ActionReason_ACTION_REASON_UNSPECIFIED
 	}

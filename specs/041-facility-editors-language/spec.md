@@ -68,7 +68,7 @@ The author creates a device, names it «Шлюз теплицы», and picks the
 **Acceptance Scenarios**:
 
 1. **Given** a new device of type «Дверь» with no states, **When** the author presses «Применить шаблон», **Then** the device has «Заперта» (starred) and «Открыта» and the transitions «Открыть» (Заперта → Открыта) and «Запереть» (Открыта → Заперта).
-2. **Given** a door that already has «Заперта» and a renamed transition, **When** the author applies the template, **Then** only the missing «Открыта» and the missing transitions are added, nothing is renamed or removed, and the starting state stays as it was.
+2. **Given** a door that already has «Заперта», «Открыта» and a renamed transition from «Заперта» to «Открыта», **When** the author applies the template, **Then** only the transition for the still-empty cell back to «Заперта» is added, the renamed transition counts as the template's «Открыть», nothing is renamed or removed, and the starting state stays as it was. A door whose two template cells are already filled shows «ВСЁ ИЗ ШАБЛОНА УЖЕ ЕСТЬ» as soon as its dialog opens. *(Replaced by feature 042, User Story 2.)*
 3. **Given** the type «Другой», **When** the dialog is shown, **Then** no template is offered.
 4. **Given** a device with states, **When** the author changes its type, **Then** its states and transitions stay unchanged until a template is applied.
 
@@ -180,7 +180,7 @@ The player configuration file cannot be read. Instead of «could not read the pl
 
 - **FR-009**: Every device type except «Другой» MUST have a template with at least two states, a starting state, and transitions in both directions. The «Дверь» template MUST be the states «Заперта» (starting) and «Открыта» with the transitions «Открыть» (Заперта → Открыта) and «Запереть» (Открыта → Заперта).
 - **FR-010**: The dialog MUST name the template's states and transitions next to «Применить шаблон» before it is applied.
-- **FR-011**: Applying a template MUST add only the states and transitions whose names the device does not have yet. It MUST NOT rename or remove anything, and MUST set the starting state only when the device has none.
+- **FR-011**: Applying a template MUST add only the states the device does not have yet, matched by name ignoring case, and the transitions whose from→to cell is still empty: any transition between the same two states counts as present, whatever it is called. It MUST NOT rename or remove anything, and MUST set the starting state only when the device has none. *(Replaced by feature 042, FR-008 to FR-010, `specs/042-facility-recheck-fixes/facility-recheck-fixes.spec.md`. The first rule matched transitions by name, so the demo door got a second «Открыть» and «Запереть».)*
 - **FR-012**: Changing a device's type MUST NOT change its states or transitions.
 
 **Faults and recovery programs (F-12)**

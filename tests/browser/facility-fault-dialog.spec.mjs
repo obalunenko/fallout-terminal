@@ -483,3 +483,24 @@ test('the terminal-fault switch reaches a connected player while a device is sel
     await table.close();
   }
 });
+
+test('the start position is drawn as Overseer segments, not system radios (042 FR-019)', async ({ page, request }) => {
+  await openDemoObjects(page, request);
+  const fault = faultDialog(page);
+  await openFault(page, DOOR_FAULT);
+  await expect(fault.dialog).toBeVisible();
+  const working = page.locator('#facilityConditionInitialWorking');
+  const active = page.locator('#facilityConditionInitialActive');
+  for (const radio of [working, active]) {
+    expect(await radio.evaluate(input => getComputedStyle(input).appearance)).toBe('none');
+  }
+  const segments = page.locator('.facility-condition-initial label');
+  await expect(segments).toHaveText(['ИСПРАВНО', 'НЕИСПРАВНОСТЬ АКТИВНА']);
+  await active.check();
+  await expect(active).toBeChecked();
+  const colors = await segments.evaluateAll(labels => labels.map(label => getComputedStyle(label).color));
+  expect(colors[1]).toBe('rgb(255, 224, 138)');
+  expect(colors[0]).not.toBe(colors[1]);
+  await fault.cancel.click();
+});
+

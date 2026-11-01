@@ -193,18 +193,18 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — failing browser contract:**
 
-- [ ] **T026** [US2] Add dialog journeys for existing-command eligibility, empty completed text, full new-command creation in a selected same-terminal folder, atomic reassignment/removal with exactly one `SaveSession` call, cancel/close/Escape with no save, stale reference validation, focus restoration, and completed-owner locking · `tests/browser/state-changing-command-authoring.spec.mjs`
+- [x] **T026** [US2] Add dialog journeys for existing-command eligibility, empty completed text, full new-command creation in a selected same-terminal folder, atomic reassignment/removal with exactly one `SaveSession` call, cancel/close/Escape with no save, stale reference validation, focus restoration, and completed-owner locking · `tests/browser/state-changing-command-authoring.spec.mjs`
 
 ### Implementation
 
 **⟶ Wait for Wave 1 to finish, then Wave 2 — independent (different files):**
 
-- [ ] **T027** [P] [US2] Add the accessible native EntryContent block command-assignment dialog and its stable form/action identifiers from the private Overseer contract · `frontend/overseer/src/index.html`
-- [ ] **T028** [P] [US2] Add compact responsive dialog, conditional-field, validation, disabled-owner, and focus-visible styling consistent with existing Overseer dialogs · `frontend/overseer/src/overseer.css`
+- [x] **T027** [P] [US2] Add the accessible native EntryContent block command-assignment dialog and its stable form/action identifiers from the private Overseer contract · `frontend/overseer/src/index.html`
+- [x] **T028** [P] [US2] Add compact responsive dialog, conditional-field, validation, disabled-owner, and focus-visible styling consistent with existing Overseer dialogs · `frontend/overseer/src/overseer.css`
 
 **⟶ Wait for Wave 2 to finish, then Wave 3:**
 
-- [ ] **T029** [US2] Add each block's configure-command action and implement isolated dialog drafts, eligible command/folder catalogs with breadcrumb labels, mode validation, completed-owner locks, and one-candidate assignment/creation/reassignment/removal through exactly one existing autosave before rebuilding both relationship views · `frontend/overseer/src/overseer.js`
+- [x] **T029** [US2] Add each block's configure-command action and implement isolated dialog drafts, eligible command/folder catalogs with breadcrumb labels, mode validation, completed-owner locks, and one-candidate assignment/creation/reassignment/removal through exactly one existing autosave before rebuilding both relationship views · `frontend/overseer/src/overseer.js`
 
 **Checkpoint**: User Story 2 supports complete command relationship authoring from either the command editor or the EntryContent block dialog without persisting a reverse reference.
 
@@ -214,7 +214,7 @@ These shared schema and domain changes block every user story.
 
 **Wave 1 — single validation owner:**
 
-- [ ] **T030** Validate FR-023 through FR-026 and SC-009 by running the Overseer production build and affected Playwright authoring journeys through the repository Taskfile workflows; confirm the unchanged persistence/player contracts, one-save mutation counts, completed-owner reset gate, keyboard dialog behavior, and no regression in the original state-changing command authoring suite · `Taskfile.yml`, `tests/browser/state-changing-command-authoring.spec.mjs`
+- [x] **T030** Validate FR-023 through FR-026 and SC-009 by running the Overseer production build and affected Playwright authoring journeys through the repository Taskfile workflows; confirm the unchanged persistence/player contracts, one-save mutation counts, completed-owner reset gate, keyboard dialog behavior, and no regression in the original state-changing command authoring suite · `Taskfile.yml`, `tests/browser/state-changing-command-authoring.spec.mjs`
 
 ## Dependencies & Execution Order — Dialog Increment
 

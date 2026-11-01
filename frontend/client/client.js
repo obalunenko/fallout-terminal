@@ -119,6 +119,9 @@ let presentationUplinkRetryTimer = null;
 let appliedSharedRevision = 0;
 let transientPlayerNotice = '';
 let transientPlayerNoticeContextKey = '';
+// transientPlayerNoticeFromPresentation marks a notice a presentation
+// rejection showed; only such a notice is cleared by the next presentation.
+let transientPlayerNoticeFromPresentation = false;
 let activeHackingContextKey = '';
 
 // ── DOM refs ──────────────────────────────────────────────
@@ -800,7 +803,7 @@ async function applyPresentationMutationResult(requestId, operation) {
         clearLocalControllerPresentation();
         render();
       }
-      showPlayerNotice('ДЕЙСТВИЕ ОТКЛОНЕНО');
+      showPlayerNotice('ДЕЙСТВИЕ ОТКЛОНЕНО', '', { fromPresentation: true });
       renderPlayerContext();
       scheduleDesiredPresentationDispatch();
     }
@@ -892,6 +895,7 @@ function actionReasonName(reason) {
     [ActionReason.INVALID_ACTION]: 'invalid-action',
     [ActionReason.CONFLICT]: 'conflict',
     [ActionReason.DUPLICATE]: 'duplicate',
+    [ActionReason.FAULT_BLOCKED]: 'fault-blocked',
   })[reason] || 'invalid-action';
 }
 
@@ -907,6 +911,8 @@ const ACTION_REASON_MESSAGES = {
   'invalid-action': 'ЭТО ДЕЙСТВИЕ СЕЙЧАС НЕДОСТУПНО.',
   conflict: 'ТЕРМИНАЛ ЗАНЯТ ДРУГИМ ЗАПРОСОМ. ПОВТОРИТЕ ДЕЙСТВИЕ.',
   duplicate: 'ЗАПРОС УЖЕ БЫЛ ОБРАБОТАН.',
+  // A fault's name is Overseer-only, so the player reads no fault here.
+  'fault-blocked': 'МЕШАЕТ НЕИСПРАВНОСТЬ СИСТЕМЫ.',
 };
 
 function actionReasonMessage(reason) {
@@ -973,7 +979,7 @@ function completeAcceptedPresentationAction() {
   if (!pendingPresentationAction || pendingPresentationAction.acceptedRevision == null) return;
   if (appliedSharedRevision < pendingPresentationAction.acceptedRevision) return;
   clearPendingPresentationAction();
-  showPlayerNotice('');
+  clearPresentationNotice();
   scheduleDesiredPresentationDispatch();
 }
 
@@ -1390,6 +1396,7 @@ function applyActionResult(result) {
       showPlayerNotice(
         `ДЕЙСТВИЕ ОТКЛОНЕНО: ${actionReasonMessage(result.reason)}`,
         contextKey,
+        { fromPresentation: true },
       );
       scheduleDesiredPresentationDispatch();
     } else {
@@ -1626,7 +1633,7 @@ function dispatchControllerPresentation(presentation) {
       }, PRESENTATION_RESULT_TIMEOUT_MS)
       : null,
   };
-  showPlayerNotice('');
+  clearPresentationNotice();
   renderPlayerContext();
   if (!streamed) {
     void applyPresentationMutationResult(requestId, () => setPresentationRPC(
@@ -1674,10 +1681,17 @@ function selectCharacter(characterID) {
   void selectCharacterRPC(requestId, playerState.broadcastId, entry.id);
 }
 
-function showPlayerNotice(message, contextKey = '') {
+function showPlayerNotice(message, contextKey = '', { fromPresentation = false } = {}) {
   transientPlayerNotice = message;
   transientPlayerNoticeContextKey = message ? contextKey : '';
+  transientPlayerNoticeFromPresentation = Boolean(message) && fromPresentation;
   renderPlayerNotice();
+}
+
+// clearPresentationNotice clears a presentation rejection's notice. A cursor
+// move after a refused request must not hide that request's reason.
+function clearPresentationNotice() {
+  if (transientPlayerNoticeFromPresentation) showPlayerNotice('');
 }
 
 function isTerminalNavigationPending() {

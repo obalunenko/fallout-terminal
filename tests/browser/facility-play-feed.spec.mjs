@@ -86,7 +86,9 @@ test('refusals name their reason (AS2, FR-013)', async ({ page, request }) => {
   await waitForFeedHead(page, 'fault');
   await playerCommand(request, 'approve');
   await expect.poll(async () => (await feedEntries(page))[0]?.reason).toBe('fault-blocked');
-  expect((await feedEntries(page))[0].text).toContain('запрос игрока отклонён: мешает неисправность');
+  expect((await feedEntries(page))[0].text).toContain(
+    `«Открыть выход и подать сигнал» · запрос игрока отклонён: мешает неисправность «Контроллер гермодвери не отвечает» · ${TERMINAL}`,
+  );
 
   await card.faultSwitch('door-offline').click();
   await waitForFeedHead(page, 'fault');
@@ -94,6 +96,34 @@ test('refusals name their reason (AS2, FR-013)', async ({ page, request }) => {
   await playerCommand(request, 'approve');
   await expect.poll(async () => (await feedEntries(page))[0]?.reason).toBe('precondition-failed');
   expect((await feedEntries(page))[0].text).toContain('запрос игрока отклонён: предусловие не выполнено');
+});
+
+test('reads a fault blocks are fed once to the fault device with an attempt count (042 FR-003, FR-004, SC-001)', async ({ page, request }) => {
+  await seedDemo(request);
+  await openOverseer(page);
+  await selectDevice(page, 'ventilation-main');
+  const read = async () => {
+    const response = await request.post(`${FIXTURE}/player-entry`, {
+      data: { terminalId: 't_demo1', entryId: 'n_entry_vault_shutdown' },
+    });
+    expect(response.ok()).toBe(true);
+    return (await response.json()).refused;
+  };
+
+  for (let attempt = 0; attempt < 5; attempt += 1) expect(await read()).toBe(true);
+
+  await expect.poll(async () => (await feedEntries(page)).length).toBe(1);
+  const [entry] = await feedEntries(page);
+  expect(entry).toMatchObject({ kind: 'player-refusal', author: 'terminal', reason: 'fault-blocked' });
+  expect(entry.text).toMatch(new RegExp(
+    `^\\d{2}:\\d{2} · чтение записи «СВОДКА ЭВАКУАЦИИ» · запрос игрока отклонён: ` +
+    `мешает неисправность «Споровое загрязнение воздушного контура» · ${TERMINAL} · ×5$`,
+  ));
+  await expect(page.locator('#facilityPlayFeedList li.facility-feed-entry').first()).toHaveAttribute('data-attempts', '5');
+  await expect(page.locator('#facilityPlayFeedList li.facility-feed-entry').first()).toHaveAttribute('data-capability', 'view-entry');
+
+  await setConditionActive(request, 'air-spore-bloom', false);
+  expect(await read()).toBe(false);
 });
 
 test('a new entry appears while the card is open, without moving focus (AS3, FR-014)', async ({ page, request }) => {

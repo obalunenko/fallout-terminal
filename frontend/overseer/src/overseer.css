@@ -786,7 +786,7 @@ button {
   font-size: 9px;
 }
 .tree-caret { width: 12px; display: inline-block; color: #6f9a5f; font-size: 10px; }
-.tree-icon { color: #d0a63a; font-size: 12px; width: 46px; display: inline-block; }
+.tree-icon { flex: 0 0 auto; min-width: 9ch; color: #d0a63a; font-size: 12px; display: inline-block; }
 .tree-icon.folder { color: #7fc0ff; }
 .tree-icon.command { color: #ffe08a; }
 .tree-icon.entry { color: #b9ffb0; }
@@ -1966,6 +1966,8 @@ button {
   min-height: 22px;
   margin-bottom: 12px;
 }
+/* An empty status line and a hidden validation take no room (042 FR-018). */
+.facility-feedback:has(> #facilityStatus:empty):has(> #facilityValidation[hidden]) { display: none; }
 #facilityStatus,
 #facilitySelectionStatus,
 [id^="facility"][id$="Status"],
@@ -2005,18 +2007,21 @@ button {
 .facility-device-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   overflow: hidden;
 }
 .facility-device-sidebar > header { flex-wrap: wrap; }
 .facility-device-sidebar > .field-input { flex: 0 0 auto; width: 100%; min-width: 0; }
 .facility-device-sidebar > .field-label-inline { margin: 0; color: #9bb88c; }
 #facilityDeviceList {
-  min-height: 0;
+  flex: 1 1 auto;
+  /* The terminal faults shrink with the list, so a short list keeps room for its rows (042 FR-017). */
+  min-height: 120px;
   overflow: auto;
   align-content: start;
   scrollbar-gutter: stable;
-  padding: 2px 3px 4px 2px;
+  /* Room for the 2px outline at a 3px offset, so a focused row is drawn whole. */
+  padding: 5px;
 }
 .facility-device-filters { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; }
 .facility-device-filter {
@@ -2030,7 +2035,7 @@ button {
 .facility-filter-count { color: #9bb88c; }
 .facility-device-hidden-selection { flex: 0 0 auto; margin: 0; color: #ffe08a; font-size: 12px; }
 /* The name and type start at the left edge; the badge and mark end at the right. */
-#facilityDeviceList > [data-facility-kind="device"] { display: flex; align-items: center; gap: 8px; text-align: left; }
+#facilityDeviceList > [data-facility-kind="device"] { display: flex; align-items: center; gap: 8px; text-align: left; padding: 4px 10px; line-height: 1.35; }
 .facility-device-row-text { display: grid; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .facility-device-row-kind { color: #9bb88c; font-size: 11px; letter-spacing: 1px; }
 .facility-state-badge { flex: 0 0 auto; max-width: 55%; padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid #3a4a30; color: #d8ffb8; font-size: 12px; }
@@ -2048,6 +2053,13 @@ button {
   border-top: 1px solid #2a3520;
 }
 .facility-terminal-faults h3 { margin: 0; font-size: 12px; color: #ffe08a; letter-spacing: 1px; }
+.facility-terminal-faults-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.facility-terminal-faults-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer; }
+.facility-terminal-faults-toggle::before { content: '▾ ' / ''; }
+.facility-terminal-faults-toggle[aria-expanded="false"]::before { content: '▸ ' / ''; }
+.facility-terminal-faults-count { flex: 0 0 auto; color: #9bb88c; font-size: 11px; }
+/* Collapsed, the group keeps its heading and count and gives the list its height (042 FR-015). */
+.facility-terminal-faults[data-collapsed="true"] > :not(.facility-terminal-faults-head) { display: none; }
 #facilityTerminalFaultStatus:empty { display: none; }
 #facilityTerminalFaultStatus[data-state="stale"], #facilityTerminalFaultStatus[data-state="error"] { color: #ffb08a; }
 .facility-terminal-fault-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
@@ -2150,6 +2162,8 @@ button {
   display: grid;
   gap: 7px;
 }
+/* Tighter rows leave room for seven demo devices at 1440×900 (042 FR-016). */
+#facilityDeviceList { gap: 4px; }
 [data-facility-kind][data-facility-id],
 .facility-dependency-row {
   min-width: 0;
@@ -2244,6 +2258,13 @@ button {
 }
 .facility-condition-initial { display: grid; gap: 6px; }
 .facility-condition-initial label { display: flex; align-items: center; gap: 8px; }
+/* The start position reads as two Overseer segments, like the list filters (042 FR-019). */
+.facility-condition-initial-choice { display: flex; flex-wrap: wrap; width: fit-content; border: 1px solid #456334; }
+.facility-condition-initial-choice label { padding: 5px 12px; background: #0d1309; color: #b9ffb0; cursor: pointer; }
+.facility-condition-initial-choice label + label { border-left: 1px solid #456334; }
+.facility-condition-initial-choice label:has(input:checked) { background: #1d2c14; color: #ffe08a; }
+.facility-condition-initial-choice input { appearance: none; width: 10px; height: 10px; margin: 0; border: 1px solid #6fae55; background: transparent; }
+.facility-condition-initial-choice input:checked { border-color: #ffe08a; background: #ffe08a; }
 [data-facility-kind][data-facility-id]:hover,
 [data-facility-kind][data-facility-id]:focus-within,
 [data-facility-selected="true"] {
@@ -2585,7 +2606,7 @@ button {
   .facility-workspace-grid { grid-template-columns: 1fr; overflow: auto; align-content: start; }
   .facility-device-sidebar { min-height: 190px; max-height: 260px; overflow: auto; }
   /* The short sidebar scrolls as one, so the terminal faults follow the devices. */
-  #facilityDeviceList, .facility-terminal-faults { flex-shrink: 0; overflow: visible; }
+  #facilityDeviceList, .facility-terminal-faults { flex-shrink: 0; min-height: 0; overflow: visible; }
   .facility-detail-panel { overflow: visible; }
   .facility-workspace-header { flex-direction: column; gap: 10px; }
   .facility-workspace-header > [role="group"] { max-width: none; justify-content: flex-start; }

@@ -375,11 +375,22 @@ func TestPrivateFacilityPlayDescriptorsAreTypedAndAdditive(t *testing.T) {
 		"to_state_id":   5,
 	})
 	assertDescriptorFields(t, coordination, "FacilityChangePlayerRefusal", map[protoreflect.Name]protoreflect.FieldNumber{
-		"terminal_id": 1,
-		"command_id":  2,
-		"reason":      3,
+		"terminal_id":   1,
+		"command_id":    2,
+		"reason":        3,
+		"entry_id":      4,
+		"capability":    5,
+		"condition_ids": 6,
+		"attempts":      7,
 	})
-	assertAdditiveDescriptorField(t, coordination.Messages().ByName("FacilityChangePlayerRefusal"), "reason", 3, protoreflect.EnumKind, false, false)
+	refusal := coordination.Messages().ByName("FacilityChangePlayerRefusal")
+	assertAdditiveDescriptorField(t, refusal, "reason", 3, protoreflect.EnumKind, false, false)
+	assertAdditiveDescriptorField(t, refusal, "entry_id", 4, protoreflect.StringKind, false, false)
+	assertAdditiveDescriptorField(t, refusal, "capability", 5, protoreflect.EnumKind, false, false)
+	assertAdditiveDescriptorField(t, refusal, "condition_ids", 6, protoreflect.StringKind, true, false)
+	assertAdditiveDescriptorField(t, refusal, "attempts", 7, protoreflect.Uint32Kind, false, false)
+	require.Equal(t, protoreflect.FullName("fallout.terminal.persistence.v1.FacilityCapability"),
+		refusal.Fields().ByName("capability").Enum().FullName())
 	assertDescriptorEnum(t, coordination, "FacilityChangeRefusalReason", []string{
 		"FACILITY_CHANGE_REFUSAL_REASON_UNSPECIFIED",
 		"FACILITY_CHANGE_REFUSAL_REASON_DECLINED",
@@ -648,6 +659,29 @@ func TestCoordinationStateRoundTripKeepsEveryFacilityChangeVariantAndReason(t *t
 			},
 		})
 	}
+	capabilities := []struct {
+		native   domain.FacilityCapability
+		semantic persistencev1.FacilityCapability
+		entryID  string
+		command  string
+	}{
+		{domain.FacilityCapabilityViewEntry, persistencev1.FacilityCapability_FACILITY_CAPABILITY_VIEW_ENTRY, "evacuation-summary", ""},
+		{domain.FacilityCapabilityExecuteCommand, persistencev1.FacilityCapability_FACILITY_CAPABILITY_EXECUTE_COMMAND, "", "open-exit"},
+		{domain.FacilityCapabilityTerminalTransition, persistencev1.FacilityCapability_FACILITY_CAPABILITY_TERMINAL_TRANSITION, "", "remote-channel"},
+		{domain.FacilityCapabilityRunRecoveryProgram, persistencev1.FacilityCapability_FACILITY_CAPABILITY_RUN_RECOVERY_PROGRAM, "", "run-air-76"},
+		{domain.FacilityCapabilityHack, persistencev1.FacilityCapability_FACILITY_CAPABILITY_HACK, "", ""},
+	}
+	blockStart := len(changes)
+	for index, capability := range capabilities {
+		changes = append(changes, domain.FacilityChange{
+			Sequence: uint64(23 - index), DeviceID: "ventilation-main", OccurredAtUnixMs: at - int64(17+index),
+			PlayerRefusal: &domain.FacilityChangePlayerRefusal{
+				TerminalID: "t_demo", CommandID: capability.command, Reason: domain.FacilityChangeRefusalFaultBlocked,
+				EntryID: capability.entryID, Capability: capability.native,
+				ConditionIDs: []string{"air-spore-bloom", "grid-unpowered"}, Attempts: uint32(index + 1),
+			},
+		})
+	}
 	state := &domain.MasterCoordinationState{Revision: 51, FacilityRevision: new(uint64(9)), FacilityChanges: changes}
 
 	semantic := coordinationStateToPrivate(state)
@@ -674,8 +708,18 @@ func TestCoordinationStateRoundTripKeepsEveryFacilityChangeVariantAndReason(t *t
 		require.Equal(t, reason.semantic, entry.GetPlayerRefusal().GetReason(), "reason %q", reason.native)
 	}
 
+	for index, capability := range capabilities {
+		refusal := semantic.GetFacilityChanges()[blockStart+index].GetPlayerRefusal()
+		require.Equal(t, capability.semantic, refusal.GetCapability(), "capability %q", capability.native)
+		require.Equal(t, capability.entryID, refusal.GetEntryId())
+		require.Equal(t, []string{"air-spore-bloom", "grid-unpowered"}, refusal.GetConditionIds())
+		require.Equal(t, uint32(index+1), refusal.GetAttempts())
+	}
+
 	require.Empty(t, cmp.Diff(state, coordinationStateFromPrivate(privateWireCopy(t, semantic))))
 	require.Empty(t, cmp.Diff(state, routeCoordinationEvent(state)))
+	semantic.GetFacilityChanges()[blockStart].GetPlayerRefusal().ConditionIds[0] = "mutated"
+	require.Equal(t, "air-spore-bloom", state.FacilityChanges[blockStart].PlayerRefusal.ConditionIDs[0], "projection must detach refusal faults")
 
 	routed := coordinationStateFromPrivate(semantic)
 	semantic.GetFacilityChanges()[4].GetReset_().ConditionIds[0] = "mutated"
@@ -1376,7 +1420,7 @@ func TestPrivateDescriptorFieldsAndEnumsHaveExplicitAdapterCoverage(t *testing.T
 		{&privatev1.FacilityChangeReset{}, []string{"from_state_id", "to_state_id", "condition_ids"}},
 		{&privatev1.FacilityChangeSceneReset{}, []string{"from_state_id", "to_state_id", "condition_ids"}},
 		{&privatev1.FacilityChangePlayerCommand{}, []string{"terminal_id", "command_id", "transition_id", "from_state_id", "to_state_id"}},
-		{&privatev1.FacilityChangePlayerRefusal{}, []string{"terminal_id", "command_id", "reason"}},
+		{&privatev1.FacilityChangePlayerRefusal{}, []string{"terminal_id", "command_id", "reason", "entry_id", "capability", "condition_ids", "attempts"}},
 	}
 	for _, test := range coverage {
 		descriptor := test.message.ProtoReflect().Descriptor()

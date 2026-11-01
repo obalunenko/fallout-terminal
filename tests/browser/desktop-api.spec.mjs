@@ -987,6 +987,20 @@ test('coordination-state feed entries are normalized, frozen, and malformed ones
     },
     ...reasons.map((reason, index) => refusal(34 - index, reason)),
     refusal(26, 'exploded'),
+    {
+      sequence: 25, deviceId: 'ventilation-main', occurredAtUnixMs: at,
+      playerRefusal: {
+        terminalId: 't_demo1', entryId: 'n_entry_vault_shutdown', reason: 'fault-blocked',
+        capability: 'view-entry', conditionIds: ['air-spore-bloom'], attempts: 5,
+      },
+    },
+    {
+      sequence: 24, deviceId: 'ventilation-main', occurredAtUnixMs: at,
+      playerRefusal: {
+        terminalId: 't_demo1', commandId: 'run-air-76', reason: 'fault-blocked',
+        capability: 'teleport', conditionIds: ['air-spore-bloom', 7], attempts: 2.5,
+      },
+    },
   ];
   const snapshotFeed = [
     { sequence: 5, deviceId: 'security-door', occurredAtUnixMs: at - 1, fault: { conditionId: 'door-sensor', active: false } },
@@ -1029,6 +1043,9 @@ test('coordination-state feed entries are normalized, frozen, and malformed ones
     terminalId: '',
     commandId: '',
     reason: '',
+    entryId: '',
+    capability: '',
+    attempts: 1,
     ...fields,
   });
   const expected = [
@@ -1066,6 +1083,15 @@ test('coordination-state feed entries are normalized, frozen, and malformed ones
       commandId: 'open-exit',
       reason,
     })),
+    entry({
+      sequence: 25, deviceId: 'ventilation-main', occurredAtUnixMs: at, kind: 'player-refusal', author: 'terminal',
+      terminalId: 't_demo1', entryId: 'n_entry_vault_shutdown', reason: 'fault-blocked',
+      capability: 'view-entry', conditionIds: ['air-spore-bloom'], attempts: 5,
+    }),
+    entry({
+      sequence: 24, deviceId: 'ventilation-main', occurredAtUnixMs: at, kind: 'player-refusal', author: 'terminal',
+      terminalId: 't_demo1', commandId: 'run-air-76', reason: 'fault-blocked', conditionIds: ['air-spore-bloom'],
+    }),
   ];
 
   expect(observed).toEqual([

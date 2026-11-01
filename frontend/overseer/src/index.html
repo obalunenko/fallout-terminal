@@ -228,7 +228,10 @@
         <p class="facility-device-hidden-selection" id="facilityDeviceHiddenSelection" hidden>Выбранное устройство скрыто фильтром</p>
         <div id="facilityDeviceList" role="group" aria-label="Устройства локации"></div>
         <section class="facility-terminal-faults" id="facilityTerminalFaults" aria-labelledby="facilityTerminalFaultsHeading">
-          <h3 id="facilityTerminalFaultsHeading">НЕИСПРАВНОСТИ ТЕРМИНАЛОВ</h3>
+          <div class="facility-terminal-faults-head">
+            <h3 id="facilityTerminalFaultsHeading"><button class="facility-terminal-faults-toggle" id="btnToggleTerminalFaults" type="button" aria-expanded="true" aria-controls="facilityTerminalFaultList">НЕИСПРАВНОСТИ ТЕРМИНАЛОВ</button></h3>
+            <span class="facility-terminal-faults-count" id="facilityTerminalFaultsActiveCount">АКТИВНО 0</span>
+          </div>
           <div id="facilityTerminalFaultStatus" role="status" aria-live="polite" aria-atomic="true"></div>
           <ul class="facility-terminal-fault-list" id="facilityTerminalFaultList" role="list" aria-labelledby="facilityTerminalFaultsHeading"></ul>
           <p class="facility-play-empty" id="facilityTerminalFaultsEmpty" hidden>Неисправностей терминалов нет.</p>
@@ -573,8 +576,10 @@
     </select>
     <fieldset class="facility-condition-initial">
       <legend>В НАЧАЛЕ ИГРЫ И ПОСЛЕ СБРОСА</legend>
-      <label><input id="facilityConditionInitialWorking" name="conditionInitialActive" type="radio" value="false" checked> ИСПРАВНО</label>
-      <label><input id="facilityConditionInitialActive" name="conditionInitialActive" type="radio" value="true"> НЕИСПРАВНОСТЬ АКТИВНА</label>
+      <div class="facility-condition-initial-choice">
+        <label><input id="facilityConditionInitialWorking" name="conditionInitialActive" type="radio" value="false" checked> ИСПРАВНО</label>
+        <label><input id="facilityConditionInitialActive" name="conditionInitialActive" type="radio" value="true"> НЕИСПРАВНОСТЬ АКТИВНА</label>
+      </div>
       <p class="facility-section-help">Так неисправность начнёт игру, и к этому же вернёт сброс. Текущее состояние меняется только у новой неисправности.</p>
     </fieldset>
     <section class="facility-fault-ways" id="facilityFaultAppears" aria-labelledby="facilityFaultAppearsHeading">

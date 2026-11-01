@@ -268,26 +268,49 @@ test('applying adds only what is missing, renames and removes nothing, and keeps
   const ids = [...saved.states, ...saved.transitions].map(value => value.id);
   expect(new Set(ids).size).toBe(ids.length);
 
-  // The demo door's renamed transitions stay, and the template's join them in their cells.
+  // The demo door's renamed transitions fill both template cells, so the
+  // template has nothing to add from the moment the dialog opens (042 FR-008, FR-010).
   const door = (await fixtureSession(request)).facility.devices.find(device => device.id === 'vault-door-main');
   await openDeviceDialog(page, door.id);
   const before = await draftGraph(page);
   expect(before).toEqual(savedGraph(door));
-  await dialog.applyTemplate.click();
-  await expect(offer.status).toHaveText(APPLIED(0, 2));
-  expect(await draftGraph(page)).toEqual({
-    states: before.states,
-    transitions: [...before.transitions, ...DOOR.transitions].sort(byPair),
-  });
-  const pair = DOOR.transitions.map(({ from, to }) => [from, to]);
+  expect(await blockedReason(dialog.applyTemplate)).toBe(NOTHING_TO_ADD);
+  await dialog.applyTemplate.dispatchEvent('click');
+  expect(await draftGraph(page)).toEqual(before);
   const chips = new Map((await stateChips(page)).map(chip => [chip.name, chip.id]));
-  for (const [from, to] of pair) {
-    await expect(dialog.cell(chips.get(from), chips.get(to))).toHaveAttribute('data-count', '2');
+  for (const { from, to } of DOOR.transitions) {
+    await expect(dialog.cell(chips.get(from), chips.get(to))).toHaveAttribute('data-count', '1');
   }
-  // Applying stores nothing until «ГОТОВО».
   await dialog.cancel.click();
   await expect(dialog.dialog).toBeHidden();
   expect((await fixtureSession(request)).facility.devices.find(device => device.id === door.id)).toEqual(door);
+  expect(errors).toEqual([]);
+});
+
+test('a filled cell counts as present whatever its transition is called (042 US2.2, FR-008, SC-003)', async ({ page, request }) => {
+  const errors = pageErrors(page);
+  const hatch = {
+    id: 'service-hatch', name: 'Люк техотсека', kind: 'door',
+    initialStateId: 'sealed', currentStateId: 'sealed',
+    states: [{ id: 'sealed', name: 'Заперта' }, { id: 'open', name: 'Открыта' }],
+    transitions: [{ id: 'unbolt', name: 'Отвинтить люк', sourceStateId: 'sealed', destinationStateId: 'open' }],
+  };
+  const demo = await demoSession();
+  demo.facility.devices.push(hatch);
+  await seedDemo(request);
+  await seedSession(request, demo);
+  await openOverseer(page);
+  const offer = templateOffer(page);
+
+  const dialog = await openDeviceDialog(page, hatch.id);
+  await dialog.applyTemplate.click();
+  await expect(offer.status).toHaveText(APPLIED(0, 1));
+  expect(await draftGraph(page)).toEqual({
+    states: savedGraph(hatch).states,
+    transitions: [...savedGraph(hatch).transitions, { name: 'Запереть', from: 'Открыта', to: 'Заперта' }].sort(byPair),
+  });
+  expect(await blockedReason(dialog.applyTemplate)).toBe(NOTHING_TO_ADD);
+  await dialog.cancel.click();
   expect(errors).toEqual([]);
 });
 

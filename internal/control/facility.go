@@ -131,6 +131,9 @@ const (
 	FacilityAuditActionTransition FacilityAuditAction = "transition"
 	FacilityAuditActionForce      FacilityAuditAction = "force"
 	FacilityAuditActionFault      FacilityAuditAction = "fault"
+	// FacilityAuditActionCapabilityBlock marks a player request an active
+	// fault's capability block refused.
+	FacilityAuditActionCapabilityBlock FacilityAuditAction = "capability-block"
 )
 
 const (
@@ -186,6 +189,9 @@ type FacilityAuditFacts struct {
 	TransitionID  string
 	TargetStateID string
 	TargetActive  *bool
+	// The blocked capability and entry of a capability-block refusal.
+	Capability domain.FacilityCapability
+	EntryID    string
 }
 
 // cloneFacilityMutationRequest returns a request detached from caller-owned
@@ -956,29 +962,72 @@ func requestedFacilityCapability(
 	}
 }
 
-func facilityCapabilityBlocked(
+// blockingFacilityConditions returns the active conditions that apply to
+// terminal and block capability, in facility order.
+func blockingFacilityConditions(
 	facility *domain.Facility,
 	terminal *domain.TerminalRuntime,
 	capability domain.FacilityCapability,
-) bool {
+) []domain.DiagnosticCondition {
 	if facility == nil || terminal == nil || capability == domain.FacilityCapabilityUnspecified {
-		return false
+		return nil
 	}
 	authored := terminal.AuthoredTree
 	if authored.ID == "" {
 		authored = terminal.Tree
 	}
+	var blocking []domain.DiagnosticCondition
 	for _, condition := range facility.Conditions {
 		if !condition.CurrentActive || !diagnosticConditionAppliesToTerminal(condition, authored, facility, terminal.TerminalID) {
 			continue
 		}
-		for _, effect := range condition.Effects {
-			if effect.CapabilityBlock != nil && effect.CapabilityBlock.Capability == capability {
-				return true
-			}
+		if slices.ContainsFunc(condition.Effects, func(effect domain.DiagnosticEffect) bool {
+			return effect.CapabilityBlock != nil && effect.CapabilityBlock.Capability == capability
+		}) {
+			blocking = append(blocking, condition)
 		}
 	}
-	return false
+	return blocking
+}
+
+// facilityBlockRefusalChanges records a request that conditions blocked: one
+// refusal per device in the union of the device-scoped conditions' devices
+// and targetDeviceIDs, in device ID order (FR-003, FR-005). An entry request
+// names its entry; a command request names its command.
+func facilityBlockRefusalChanges(
+	terminalID string,
+	command domain.RuntimeCommand,
+	capability domain.FacilityCapability,
+	conditions []domain.DiagnosticCondition,
+	targetDeviceIDs []string,
+) []domain.FacilityChange {
+	deviceIDs := slices.Clone(targetDeviceIDs)
+	conditionIDs := make([]string, 0, len(conditions))
+	for _, condition := range conditions {
+		conditionIDs = append(conditionIDs, condition.ID)
+		if condition.Device != nil {
+			deviceIDs = append(deviceIDs, condition.Device.DeviceID)
+		}
+	}
+	conditionIDs = sortedUniqueStrings(conditionIDs)
+	refusal := domain.FacilityChangePlayerRefusal{
+		TerminalID: terminalID, Reason: domain.FacilityChangeRefusalFaultBlocked,
+		Capability: capability, Attempts: 1,
+	}
+	switch capability {
+	case domain.FacilityCapabilityViewEntry:
+		refusal.EntryID = command.NodeID
+	case domain.FacilityCapabilityExecuteCommand, domain.FacilityCapabilityTerminalTransition,
+		domain.FacilityCapabilityRunRecoveryProgram:
+		refusal.CommandID = command.NodeID
+	}
+	var changes []domain.FacilityChange
+	for _, deviceID := range sortedUniqueStrings(deviceIDs) {
+		entry := refusal
+		entry.ConditionIDs = slices.Clone(conditionIDs)
+		changes = append(changes, domain.FacilityChange{DeviceID: deviceID, PlayerRefusal: &entry})
+	}
+	return changes
 }
 
 func diagnosticConditionAppliesToTerminal(
