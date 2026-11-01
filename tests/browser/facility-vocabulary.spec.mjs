@@ -366,6 +366,28 @@ test('the door\'s links name the terminal and the command, and each button names
   expect(await page.locator('#facilityDependencyList').evaluate(element => element.innerText)).not.toMatch(/vault-door-main|n_cmd_/);
 });
 
+test('the root folder and the rule buttons are named in Russian, never by internal names (FR-035)', async ({ page, request }) => {
+  await seedDemo(request);
+  await openOverseer(page, 'ТЕРМИНАЛЫ');
+  await expect(page.locator('#treeView .tree-label').first()).toHaveText('ГЛАВНОЕ МЕНЮ');
+  await expect(page.locator('#toolbarHint')).toHaveText('Добавление в: ГЛАВНОЕ МЕНЮ');
+
+  await switchTab(page, 'ОБЪЕКТЫ');
+  await selectDevice(page, 'vault-door-main');
+  await expect(page.getByRole('button', { name: 'Изменить: Открыть выход и подать сигнал · Действие команды', exact: true }))
+    .toBeVisible();
+  await page.locator('#facilityTabInformation').click();
+  await expect(page.getByRole('button', { name: 'Изменить: СВОДКА ЭВАКУАЦИИ · Текст блока записи', exact: true }))
+    .toBeVisible();
+  const names = await page.locator('#facilityActionBindingList button, #facilityInformationBindingList button')
+    .evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label') || ''));
+  expect(names.length).toBeGreaterThan(0);
+  for (const name of names) expect(name).not.toMatch(/menu-name|entry-content|visibility|availability|command-action|recovery-action/);
+
+  await page.locator('#btnPreviewFacilityDevice').click();
+  await expect(page.locator('#facilityPreviewCurrent [data-preview-node-id="root"] > strong')).toHaveText('ГЛАВНОЕ МЕНЮ');
+});
+
 test('a facility validation problem names the entity by name in Russian and keeps kinds and IDs under «подробности для разработчика» (AS3, FR-038)', async ({ page, request }) => {
   const demo = await seedDemo(request);
   await openOverseer(page);

@@ -452,6 +452,11 @@ on findEvidence(containerElement)
     try
       set elementName to name of containerElement as text
       set elementDescription to description of containerElement as text
+      -- The save status keeps its Russian text as its name; the evidence is the
+      -- value of the visually hidden text that describes it.
+      try
+        set elementDescription to elementDescription & " " & (value of containerElement as text)
+      end try
       if (elementName contains "Wails command ResetScene ok" or elementDescription contains "Wails command ResetScene ok") and ¬
         (elementName contains "document revision" or elementDescription contains "document revision") and ¬
         (elementName contains "session-state revision" or elementDescription contains "session-state revision") then return containerElement

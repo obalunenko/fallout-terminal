@@ -895,6 +895,24 @@ function actionReasonName(reason) {
   })[reason] || 'invalid-action';
 }
 
+// ACTION_REASON_MESSAGES tells the player in Russian why the terminal refused
+// an action; the reason names themselves stay internal.
+const ACTION_REASON_MESSAGES = {
+  'invalid-session': 'СЕАНС ИГРОКА УСТАРЕЛ. ПОДКЛЮЧИТЕСЬ К ТЕРМИНАЛУ ЗАНОВО.',
+  'stale-broadcast': 'ТРАНСЛЯЦИЯ ИЗМЕНИЛАСЬ. ДОЖДИТЕСЬ ОБНОВЛЕНИЯ ЭКРАНА.',
+  unassigned: 'СНАЧАЛА ВЫБЕРИТЕ ПЕРСОНАЖА.',
+  'not-controller': 'ТЕРМИНАЛОМ СЕЙЧАС УПРАВЛЯЕТ ДРУГОЙ ИГРОК.',
+  'controller-disconnected': 'ВЕДУЩИЙ ИГРОК ОТКЛЮЧИЛСЯ. ДОЖДИТЕСЬ ПЕРЕДАЧИ УПРАВЛЕНИЯ.',
+  'stale-terminal': 'ЭКРАН ТЕРМИНАЛА ИЗМЕНИЛСЯ. ПОВТОРИТЕ ДЕЙСТВИЕ.',
+  'invalid-action': 'ЭТО ДЕЙСТВИЕ СЕЙЧАС НЕДОСТУПНО.',
+  conflict: 'ТЕРМИНАЛ ЗАНЯТ ДРУГИМ ЗАПРОСОМ. ПОВТОРИТЕ ДЕЙСТВИЕ.',
+  duplicate: 'ЗАПРОС УЖЕ БЫЛ ОБРАБОТАН.',
+};
+
+function actionReasonMessage(reason) {
+  return ACTION_REASON_MESSAGES[reason] || ACTION_REASON_MESSAGES['invalid-action'];
+}
+
 // Applies a nav position pushed by the server. Never touches MODE.HACK —
 // the hack gate always wins until it resolves.
 function applyNavFromServer(nav) {
@@ -1370,7 +1388,7 @@ function applyActionResult(result) {
       }
       const contextKey = hackingContextKey(rejectedPresentation);
       showPlayerNotice(
-        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`,
+        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${actionReasonMessage(result.reason)}`,
         contextKey,
       );
       scheduleDesiredPresentationDispatch();
@@ -1387,7 +1405,7 @@ function applyActionResult(result) {
       const contextKey = pendingSharedAction.contextKey;
       pendingSharedAction = null;
       showPlayerNotice(
-        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${String(result.reason || 'invalid-action')}`,
+        `ДЕЙСТВИЕ ОТКЛОНЕНО: ${actionReasonMessage(result.reason)}`,
         contextKey,
       );
     } else {
@@ -1406,11 +1424,11 @@ function applyActionResult(result) {
   if (!result.accepted) {
     pendingSelection = null;
     const messages = {
-      conflict: 'ПЕРСОНАЖ УЖЕ ЗАНЯТ (conflict). ВЫБЕРИТЕ ДРУГОГО.',
+      conflict: 'ПЕРСОНАЖ УЖЕ ЗАНЯТ. ВЫБЕРИТЕ ДРУГОГО.',
       'stale-broadcast': 'ТРАНСЛЯЦИЯ ИЗМЕНИЛАСЬ. ДОЖДИТЕСЬ НОВОГО СПИСКА.',
       duplicate: 'ЗАПРОС УЖЕ БЫЛ ОБРАБОТАН.',
     };
-    showPlayerNotice(messages[result.reason] || `ВЫБОР ОТКЛОНЕН: ${String(result.reason || 'invalid-action')}`);
+    showPlayerNotice(messages[result.reason] || `ВЫБОР ОТКЛОНЕН: ${actionReasonMessage(result.reason)}`);
     render();
     return;
   }

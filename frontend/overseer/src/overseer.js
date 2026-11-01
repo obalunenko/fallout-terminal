@@ -34,6 +34,7 @@ const serverUrlEl       = document.getElementById('serverUrl');
 const clientCountEl     = document.getElementById('clientCount');
 const termList          = document.getElementById('termList');
 const saveStatus        = document.getElementById('saveStatus');
+const saveStatusEvidence = document.getElementById('saveStatusEvidence');
 const btnUndo           = document.getElementById('btnUndo');
 const btnRedo           = document.getElementById('btnRedo');
 const btnReapplyEdit    = document.getElementById('btnReapplyEdit');
@@ -2220,6 +2221,10 @@ function renderAuthoringControls() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────
+// ROOT_FOLDER_LABEL names a terminal's root folder in Overseer copy; the
+// folder's stored name stays as authored.
+const ROOT_FOLDER_LABEL = 'ГЛАВНОЕ МЕНЮ';
+
 function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -2314,7 +2319,7 @@ function entryBlockFolderCatalog(term) {
   const folders = [];
   function walk(node, path) {
     if (node.type !== 'folder') return;
-    const name = node.id === 'root' ? 'ROOT' : node.name;
+    const name = node.id === 'root' ? ROOT_FOLDER_LABEL : node.name;
     const nextPath = [...path, name];
     folders.push({ folder: node, label: nextPath.join(' › ') });
     for (const child of node.children ?? []) {
@@ -2662,14 +2667,10 @@ function updateSessionStateEvidenceDescription() {
   if (saveStatus.dataset.sessionStateRevision) {
     evidence.push(`session-state revision ${saveStatus.dataset.sessionStateRevision}`);
   }
-  if (evidence.length) {
-    const accessibleEvidence = evidence.join('; ');
-    saveStatus.setAttribute('aria-label', accessibleEvidence);
-    saveStatus.setAttribute('aria-description', accessibleEvidence);
-  } else {
-    saveStatus.removeAttribute('aria-label');
-    saveStatus.removeAttribute('aria-description');
-  }
+  // The evidence is visually hidden text that describes the status, so the
+  // status keeps its visible Russian text as its name. Native smoke checks
+  // read the hidden text, because WebKit exposes no description for it.
+  saveStatusEvidence.textContent = evidence.join('; ');
 }
 
 async function runSessionStateCommand(command, successMessage, acceptsCanonicalResult = null) {
@@ -2990,6 +2991,13 @@ function facilityCommandActionSummary(action) {
   return transitions ? `${heading}\n${transitions}` : heading;
 }
 
+// FACILITY_BINDING_PURPOSES names each binding property in Overseer copy.
+const FACILITY_BINDING_PURPOSES = {
+  'menu-name': 'Название в меню', 'entry-content': 'Текст блока записи',
+  visibility: 'Показывать элемент', availability: 'Разрешить команду',
+  'command-action': 'Действие команды', 'recovery-action': 'Программа восстановления',
+};
+
 function facilityBindingSummary(binding) {
   if (Array.isArray(binding.requests)) {
     const heading = binding.property === 'recovery-action'
@@ -2997,11 +3005,7 @@ function facilityBindingSummary(binding) {
     return `${heading}${binding.requests.map(facilityTransitionSummary).join('\n')}`;
   }
   const when = facilityEqualitySummary(binding.variant.when);
-  const purposes = {
-    'menu-name': 'Название в меню', 'entry-content': 'Текст блока записи',
-    visibility: 'Показывать элемент', availability: 'Разрешить команду',
-  };
-  return `${purposes[binding.property]} · Когда ${when}${['menu-name', 'entry-content'].includes(binding.property) ? `\n${binding.variant.text}` : ''}`;
+  return `${FACILITY_BINDING_PURPOSES[binding.property]} · Когда ${when}${['menu-name', 'entry-content'].includes(binding.property) ? `\n${binding.variant.text}` : ''}`;
 }
 
 function facilityBindingUsesDevice(binding, deviceID) {
@@ -3340,7 +3344,7 @@ function renderFacilityWorkspace() {
     );
     // A command's action, program-backed or not, opens «ДЕЙСТВИЕ КОМАНДЫ» (R7).
     const action = Array.isArray(binding.requests);
-    facilityRowActions(row, `${binding.node.name} · ${binding.property}`,
+    facilityRowActions(row, `${binding.node.name} · ${FACILITY_BINDING_PURPOSES[binding.property]}`,
       event => (action
         ? openFacilityCommandActionDialog(binding.terminal.id, binding.node.id, { opener: event.currentTarget })
         : openFacilityBindingDialog(binding)),
@@ -3887,7 +3891,7 @@ function renderFacilityPreviewNode(node, parent, kinds) {
   item.dataset.previewNodeId = node.id || '';
   const nodeKinds = kinds.get(node.id) || [];
   const heading = document.createElement('strong');
-  heading.textContent = node.name || node.id || '—';
+  heading.textContent = node.id === 'root' ? ROOT_FOLDER_LABEL : (node.name || node.id || '—');
   item.appendChild(heading);
   if (nodeKinds.length) item.dataset.kind = nodeKinds.join(' ');
   for (const kind of nodeKinds) {
@@ -6806,8 +6810,8 @@ function renderCoordination() {
 
   broadcastSummary.textContent = broadcast
     ? (broadcast.activeTerminalId
-      ? `ТРАНСЛЯЦИЯ АКТИВНА · ТЕРМИНАЛ ${broadcast.activeTerminalId}`
-      : `ТРАНСЛЯЦИЯ АКТИВНА · ОЖИДАНИЕ ТЕРМИНАЛА · ${broadcast.id}`)
+      ? `ТРАНСЛЯЦИЯ АКТИВНА · ТЕРМИНАЛ: ${terminalName(broadcast.activeTerminalId)}`
+      : 'ТРАНСЛЯЦИЯ АКТИВНА · ОЖИДАНИЕ ТЕРМИНАЛА')
     : 'ТРАНСЛЯЦИЯ НЕ ЗАПУЩЕНА';
   broadcastSummary.classList.toggle('is-live', Boolean(broadcast));
   coordinationPanel.dataset.playerConfigActive = String(Boolean(playerConfig));
@@ -8247,7 +8251,7 @@ function showTerminalMoveDraft(terminalID) {
 }
 
 function terminalName(terminalID) {
-  return state.session.terminals.find(terminal => terminal.id === terminalID)?.name || terminalID;
+  return state.session?.terminals.find(terminal => terminal.id === terminalID)?.name || terminalID;
 }
 
 function groupName(groups, groupID) {
@@ -8743,7 +8747,7 @@ function renderToolbarState() {
 
 function renderToolbarHint() {
   const target = currentAddTarget();
-  toolbarHint.textContent = target ? `Добавление в: ${target.id === 'root' ? 'ROOT' : target.name}` : '';
+  toolbarHint.textContent = target ? `Добавление в: ${target.id === 'root' ? ROOT_FOLDER_LABEL : target.name}` : '';
 }
 
 // ── Render: tree view ─────────────────────────────────────────
@@ -8792,7 +8796,7 @@ function renderNode(node, isRoot) {
   const label = document.createElement('span');
   label.className = 'tree-label';
   const seen = isRoot ? null : playerViewNode(term.id, node.id);
-  label.textContent = isRoot ? 'ROOT' : (seen?.playerName || effectiveNodeName(term, node));
+  label.textContent = isRoot ? ROOT_FOLDER_LABEL : (seen?.playerName || effectiveNodeName(term, node));
   if (!isRoot) {
     label.dataset.authoredName = node.name;
     if (seen && seen.playerName !== node.name) label.title = `В РЕДАКТОРЕ: ${node.name}`;
@@ -9102,6 +9106,9 @@ function renderNodeForm() {
     document.getElementById('btnKeepStateChangeMode').addEventListener('click', () => {
       mode.value = 'state-change';
       updateModePresentation();
+      // A scripted value fires no input event, so restage the form here:
+      // the mode is back to its applied value and nothing is unapplied.
+      stageUnappliedInput(nodeForm);
       mode.focus();
     });
     document.getElementById('btnRemoveDeviceAction').addEventListener('click', () => {

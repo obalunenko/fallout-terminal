@@ -368,6 +368,10 @@ test('keeps the scene intact on stale and failed scene resets, then commits one 
   await expect(dialog).toBeHidden();
   await expect(page.locator('#saveStatus')).toHaveAttribute('data-wails-command', 'ResetScene');
   await expect(page.locator('#saveStatus')).toHaveAttribute('data-wails-result', 'ok');
+  // Native smoke checks read the evidence as the status description; the
+  // status keeps its visible Russian text instead of an English name.
+  await expect(page.locator('#saveStatus')).toHaveAccessibleDescription(/Wails command ResetScene ok; document revision \d+; session-state revision \d+/);
+  expect(await page.locator('#saveStatus').getAttribute('aria-label')).toBeNull();
 
   const after = await facilityState(request);
   expect(after.facility.revision).toBe(before.facility.revision + 1);

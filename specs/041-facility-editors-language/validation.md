@@ -80,3 +80,45 @@ The full browser suite was re-run after these fixes; see below.
 ### Re-run after the fixes
 
 `task browser:test`: 438 passed, 2 skipped, 0 failed (6.2 min). `task fmt:check` and the two catalog sync tests pass again.
+
+## Packaged-app recheck follow-ups (T050 to T052), 2026-11-01
+
+The UX review was rechecked in the app built by `task package` from this branch, on a copy of
+`sessions/demo.json` with a headless player connected. The window was set to exactly 1440×900 and
+1180×760 through Accessibility, and text was typed. F-01 to F-14 are closed; the review page records
+the shots. The recheck also covered what T047 could not do:
+
+| Check | Result |
+|---|---|
+| SC-001 at exactly 1440×900 | PASS. All ten demo device dialogs show the chips, the whole matrix and «ОТМЕНА / ГОТОВО» unscrolled; the reactor's dialog is the tallest at 725 points |
+| Naming a new device by typing | PASS. «Дверь в убежище» with the «Дверь» template saved as `device-dver-v-ubezhishche` with `zaperta`, `otkryta`, `otkryt`, `zaperet` |
+| «Название в меню» rule with a player | PASS. After «Подать сигнал эвакуации» the player saw «ПРОТОКОЛ ВОЗРОЖДЕНИЯ // ТРЕВОГА» with no page reload |
+| «Текст записи» rule with a player | PASS. After a forced door change, block 1 of «СВОДКА ЭВАКУАЦИИ» read «ПРОВЕРКА 041: ГЕРМОДВЕРЬ ОТКРЫТА» with no page reload |
+| 1180×760 | PASS. The guide is one line; the device header and play card are visible; nothing overlaps |
+
+Fixed (see tasks T050 to T052):
+
+- **T050**: «ОСТАВИТЬ «ИЗМЕНЯЕТ СОСТОЯНИЕ»» left «НЕ ПРИМЕНЕНО: Команда …» in the status. The F-03
+  journey now checks the unapplied count; it fails without the fix (expected `0`, received `1`).
+- **T051**: «ROOT» reads «ГЛАВНОЕ МЕНЮ»; the broadcast summary reads «ТРАНСЛЯЦИЯ АКТИВНА · ТЕРМИНАЛ:
+  <имя>» or «… · ОЖИДАНИЕ ТЕРМИНАЛА» with no ID; rule buttons read «Изменить: <элемент> · Действие
+  команды» instead of `· command-action`; the save status has no English `aria-label`. In the packaged
+  app, WebKit exposed neither `aria-description` nor the group's `aria-describedby` text (AXHelp
+  stayed empty), so the evidence is visually hidden text and the native smoke's `findEvidence` also
+  reads element values. Run on its own against the packaged app, `findEvidence` found
+  `Wails command ResetScene ok; document revision 2; session-state revision 2`.
+- **T052**: player rejection notices read, for example, «ДЕЙСТВИЕ ОТКЛОНЕНО: ЭТО ДЕЙСТВИЕ СЕЙЧАС
+  НЕДОСТУПНО.» instead of «… invalid-action».
+
+Left open, recorded on the review page: the template adds parallel transitions on a complete door
+because FR-011 compares names; the feed omits requests a device fault blocks when they do not
+change the device (FR-013); a precise «blocked by a fault» player reason needs a new proto
+`ActionReason`; and `facility-diagnostics.spec.mjs` cannot tell a blocked entry from an open one,
+because the fixture entry's own text is «Ошибка доступа».
+
+| Gate | Result |
+|---|---|
+| `task browser:test` | PASS. 439 passed, 2 skipped (the live ngrok journeys), 0 failed, 6.3 min |
+| `task package` | PASS (exit 0) |
+
+No Go source changed, so `go fix ./...` was not run.

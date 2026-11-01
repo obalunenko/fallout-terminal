@@ -78,6 +78,7 @@ test('leaving state-changing mode with a command action requires keep or remove 
   await mode.selectOption('ordinary');
   await expect(decision).toBeVisible();
   await expect(decision.locator('[data-decision-message]')).toHaveText(KEEP_OR_REMOVE);
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-unapplied-count', '1');
   await expect(decision).toContainText('Гермодверь Убежища 76');
   await expect(decision).toContainText('Сигнал эвакуации');
   await expect(action).toBeHidden();
@@ -85,6 +86,9 @@ test('leaving state-changing mode with a command action requires keep or remove 
 
   await page.locator('#btnKeepStateChangeMode').click();
   await expect(mode).toHaveValue('state-change');
+  // «Оставить» restores the applied mode, so nothing is left unapplied.
+  await expect(page.locator('#saveStatus')).toHaveAttribute('data-unapplied-count', '0');
+  await expect(page.locator('#saveStatus')).not.toContainText('НЕ ПРИМЕНЕНО');
   await expect(decision).toBeHidden();
   await expect(action).toBeVisible();
   await expect(apply).toBeEnabled();

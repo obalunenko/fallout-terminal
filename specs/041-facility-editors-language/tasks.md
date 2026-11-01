@@ -417,6 +417,17 @@ Watch for these:
 
 ---
 
+## Phase 11: Packaged-app recheck follow-ups (2026-11-01)
+
+The 2026-11-01 recheck of the UX review in the packaged app confirmed F-01 to F-14 closed and found
+the items below. Each task has its own files.
+
+- [x] **T050** [US6] «ОСТАВИТЬ «ИЗМЕНЯЕТ СОСТОЯНИЕ»» restores the mode by script, which fires no input event, so the status kept «НЕ ПРИМЕНЕНО: Команда …». Restage the form in the handler and assert the unapplied count in the F-03 journey · frontend/overseer/src/overseer.js, tests/browser/facility-p0-command-actions.spec.mjs
+- [x] **T051** [US6] Remove internal strings from Overseer copy (FR-035): the root folder reads «ГЛАВНОЕ МЕНЮ» instead of «ROOT»; the broadcast summary names the live terminal and shows no broadcast ID; rule buttons name the rule type instead of its property; the save status has no English `aria-label` and keeps its visible Russian text, while the native-smoke evidence moves to visually hidden text that describes the status (`aria-describedby`). WebKit exposes neither `aria-description` nor a group's described-by text as AXHelp, so the native smoke reads the hidden text's value · frontend/overseer/src/index.html, frontend/overseer/src/overseer.js, scripts/state-changing-reset-native-smoke.sh, docs/overseer-glossary.md, tests/browser/facility-vocabulary.spec.mjs, tests/browser/facility-authoring.spec.mjs, tests/browser/state-changing-command-authoring.spec.mjs, tests/browser/terminal-grouping.spec.mjs
+- [x] **T052** [US7] Player rejection notices show a Russian reason instead of the reason code (for example «ДЕЙСТВИЕ ОТКЛОНЕНО: invalid-action» when a fault blocks reading an entry) · frontend/client/client.js, tests/browser/connectrpc-player.spec.mjs
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phases**: Setup → Foundational → US1 to US7 → Polish.

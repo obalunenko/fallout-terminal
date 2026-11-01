@@ -610,7 +610,7 @@ test('take-off-air prevents duplicates and focuses the surviving broadcast contr
   await expect(dialog).toBeHidden();
   await expect(page.locator('#btnStopBroadcast')).toBeHidden();
   await expect(page.locator('#btnEndBroadcast')).toBeFocused();
-  await expect(page.locator('#broadcastSummary')).toContainText('ОЖИДАНИЕ ТЕРМИНАЛА');
+  await expect(page.locator('#broadcastSummary')).toHaveText('ТРАНСЛЯЦИЯ АКТИВНА · ОЖИДАНИЕ ТЕРМИНАЛА');
 });
 
 test('bundled read-only demo exposes every configurable command mode and a completed example', async () => {

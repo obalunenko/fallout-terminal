@@ -30,6 +30,10 @@ for that term. A dash means the check rejects no synonym for it.
 Other Overseer dialogs keep their own buttons («СОХРАНИТЬ…», «ЗАКРЫТЬ»), and confirmation dialogs
 keep naming their action («СБРОСИТЬ», «ПЕРЕВЕСТИ»).
 
+A terminal's root folder renders as «ГЛАВНОЕ МЕНЮ» in the tree, the add-target hint, folder paths,
+and the preview. Its stored name stays as authored. Status lines name a terminal by its name, never
+by its ID.
+
 ## Allowed strings
 
 Two strings that contain «объект» stay, because they name the workspace itself, not a device or the

@@ -49,7 +49,8 @@
       <button class="btn btn-secondary" id="facilityWorkspaceTab" type="button" role="tab" aria-selected="false" aria-controls="facilityWorkspace" tabindex="-1">ОБЪЕКТЫ</button>
     </div>
     <div class="authoring-bar" id="authoringBar" role="group" aria-label="Правки сессии">
-      <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" data-state="idle" data-unapplied-count="0"></div>
+      <div class="save-status" id="saveStatus" role="status" aria-live="polite" aria-atomic="true" aria-describedby="saveStatusEvidence" data-state="idle" data-unapplied-count="0"></div>
+      <span class="control-reason" id="saveStatusEvidence"></span>
       <button class="btn btn-mini btn-secondary" id="btnUndo" type="button" aria-describedby="btnUndoReason">ОТМЕНИТЬ</button>
       <button class="btn btn-mini btn-secondary" id="btnRedo" type="button" aria-describedby="btnRedoReason">ПОВТОРИТЬ</button>
       <button class="btn btn-mini btn-accent" id="btnReapplyEdit" type="button" hidden>ПРИМЕНИТЬ СНОВА</button>

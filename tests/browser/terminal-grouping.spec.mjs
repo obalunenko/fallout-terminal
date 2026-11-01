@@ -839,6 +839,8 @@ test('ordinary command keeps its approval and reconnect behavior without changin
       pendingTerminalNavigation: null,
       activationHistory: ['gamma'],
     });
+    // The summary names the live terminal, never its ID.
+    await expect(overseer.locator('#broadcastSummary')).toHaveText('ТРАНСЛЯЦИЯ АКТИВНА · ТЕРМИНАЛ: Терминал Гамма');
 
     await controller.page.locator('.term-row', { hasText: 'ПРОВЕРИТЬ СВЯЗЬ' }).click();
     await Promise.all([controller, observer].map(participant => expectPendingNavigation(participant.page)));

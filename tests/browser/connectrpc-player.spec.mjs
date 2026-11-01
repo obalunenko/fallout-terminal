@@ -437,7 +437,7 @@ test('conflicting generated selections clear pending immediately and never alter
   const rejectedPage = pages[names.findIndex(name => fallbackNames.includes(name))];
   await expect(rejectedPage.locator('#characterSelect')).toBeVisible();
   await expect(rejectedPage.locator('#termList')).toBeHidden();
-  await expect(rejectedPage.locator('#playerNotice')).toContainText('conflict');
+  await expect(rejectedPage.locator('#playerNotice')).toHaveText('ПЕРСОНАЖ УЖЕ ЗАНЯТ. ВЫБЕРИТЕ ДРУГОГО.');
 
   await Promise.all(contexts.map(context => context.close()));
 });
@@ -461,5 +461,5 @@ test('retained request identity reused with a different typed payload is rejecte
   await page.locator('#backBtn').click();
   await expect(page.locator('#screen')).not.toHaveClass(/shared-input-pending/);
   await expect(page.locator('.term-row', { hasText: 'REPORT' })).toBeVisible();
-  await expect(page.locator('#playerNotice')).toContainText('duplicate');
+  await expect(page.locator('#playerNotice')).toHaveText('ДЕЙСТВИЕ ОТКЛОНЕНО: ЗАПРОС УЖЕ БЫЛ ОБРАБОТАН.');
 });
