@@ -28,4 +28,4 @@
 ## Node.js validation
 
 - Use the Node.js version selected by `.nvmrc`; NVM users should run `nvm use` from the repository root before JavaScript work.
-- Use Taskfile workflows for dependency installation, frontend builds, and browser tests. Their `node:check` preflight rejects runtimes older than Node.js 26.8.1 before npm runs.
+- Use Taskfile workflows for dependency installation, frontend builds, and browser tests. Their `node:check` preflight rejects runtimes older than Node.js 26.13.0 before npm runs.

@@ -24,7 +24,7 @@ changes project-wide structure or policy.
 Install the versions documented in the README and dependency manifests:
 
 - Go 1.27.x
-- Node.js 26.8.1+ and npm
+- Node.js 26.13.0+ and npm
 - Native Wails build dependencies for your operating system
 - Python 3.11+ and `uv` when working with Spec Kit
 

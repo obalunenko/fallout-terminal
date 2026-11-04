@@ -12,7 +12,7 @@
 
 ## Technical Context
 
-**Language/Version**: Go 1.27; browser JavaScript modules with Node.js 26.8.1+ build/test tooling
+**Language/Version**: Go 1.27; browser JavaScript modules with Node.js 26.13.0+ build/test tooling
 
 **Primary Dependencies**: Wails v3.0.0, `connectrpc.com/connect/v2` v2.0.0, `google.golang.org/protobuf` v1.36.12, `@connectrpc/connect`/`@connectrpc/connect-web` 2.1.2, and Vite 8.3.4; Playwright 1.64.0 for browser journeys
 
