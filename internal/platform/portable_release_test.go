@@ -109,7 +109,7 @@ func TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces(t *testing.T) {
 		"quality":  qualityWorkflow,
 		"portable": portableWorkflow,
 	} {
-		assert.Contains(t, workflow, "NODE_VERSION: 26.8.1", name)
+		assert.Contains(t, workflow, "NODE_VERSION: 26.13.0", name)
 		assert.NotContains(t, workflow, "NODE_VERSION: 20.19.0", name)
 	}
 
@@ -130,23 +130,23 @@ func TestNodeRuntimePolicyIsAlignedAcrossActiveSurfaces(t *testing.T) {
 		"tests/browser/package.json",
 	} {
 		manifest := readAcceptanceDocument(t, filepath.Join(root, filepath.FromSlash(relativePath)))
-		assert.Contains(t, manifest, `"node": ">=26.8.1"`, relativePath)
+		assert.Contains(t, manifest, `"node": ">=26.13.0"`, relativePath)
 		assert.NotContains(t, manifest, `"node": ">=20.19.0"`, relativePath)
 	}
 
-	assert.Equal(t, 3, strings.Count(frontendLock, `"node": ">=26.8.1"`))
+	assert.Equal(t, 3, strings.Count(frontendLock, `"node": ">=26.13.0"`))
 	assert.NotContains(t, frontendLock, `"node": ">=20.19.0"`)
-	assert.Equal(t, 1, strings.Count(browserLock, `"node": ">=26.8.1"`))
+	assert.Equal(t, 1, strings.Count(browserLock, `"node": ">=26.13.0"`))
 	assert.NotContains(t, browserLock, `"node": ">=20.19.0"`)
-	assert.Contains(t, readme, "Node.js 26.8.1+ и npm;")
+	assert.Contains(t, readme, "Node.js 26.13.0+ и npm;")
 	assert.NotContains(t, readme, "Node.js 20.19+ и npm;")
-	assert.Equal(t, "26.8.1", nvmVersion)
-	assert.Contains(t, contributing, "Node.js 26.8.1+ and npm")
+	assert.Equal(t, "26.13.0", nvmVersion)
+	assert.Contains(t, contributing, "Node.js 26.13.0+ and npm")
 	assert.Contains(t, contributing, "nvm use")
 	assert.NotContains(t, contributing, "Node.js 20.19+ and npm")
 	for _, required := range []string{
 		`NODE: '{{default "node" .NODE}}'`,
-		"NODE_MINIMUM_VERSION: '26.8.1'",
+		"NODE_MINIMUM_VERSION: '26.13.0'",
 		"node:check:",
 		"task: node:check",
 		`Run "nvm use" from the repository root.`,
